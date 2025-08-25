@@ -2396,7 +2396,7 @@ def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]
     """
     default_values = {
         "description": "Описание отсутствует",
-        "icon_url": "https://hatelavka-quest.vercel.app/default_icon.png",  # Замените на URL вашей иконки по умолчанию
+        "icon_url": "https://hatelavka-quest-lilac.vercel.app/default_icon.png",  # Замените на URL вашей иконки по умолчанию
         "action_url": None,
         "category_id": None,
         "is_repeatable": False,
