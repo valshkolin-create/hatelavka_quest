@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <title>Вход</title>
+  <style>
+    body { margin: 0; height: 100vh; background-color: #121212; display: flex; justify-content: center; align-items: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #fff; flex-direction: column; padding: 20px; text-align: center; box-sizing: border-box;}
+    .auth-box { background: rgba(255, 255, 255, 0.05); border-radius: 15px; padding: 30px; width: 100%; max-width: 350px; }
+    button { background-color: #0088cc; border: none; padding: 15px; border-radius: 10px; color: #fff; font-size: 1.1rem; cursor: pointer; transition: background-color 0.3s ease; width: 100%; font-weight: 600; }
+    .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: #28a745; color: white; padding: 12px 20px; border-radius: 8px; opacity: 0; visibility: hidden; transition: all 0.4s ease; z-index: 100; }
+    .notification.show { top: 30px; opacity: 1; visibility: visible; }
+  </style>
+</head>
+<body>
+  <div class="auth-box">
+    <button onclick="startTelegramAuth()">Войти через Telegram</button>
+  </div>
+  <div id="notification" class="notification"></div>
+<script>
+    Telegram.WebApp?.ready();
+    Telegram.WebApp?.expand();
+
+    // --- ОБНОВЛЕННЫЙ БЛОК ДЛЯ ПРОВЕРКИ СЕССИИ ---
+    (async () => {
+      try {
+        // Обращаемся к новому, специальному эндпоинту для проверки cookie
+        const response = await fetch('/api/v1/auth/session_check');
+        
+        if (response.ok) {
+          const sessionData = await response.json();
+          // Если сессия активна (пользователь не гость), перенаправляем в меню
+          if (sessionData && !sessionData.is_guest) {
+            console.log('Активная сессия найдена. Перенаправляем в меню...');
+            // Перенаправляем на роут /menu, а не на файл /menu.html
+            window.location.href = '/menu';
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при проверке сессии:', error);
+      }
+    })();
+    // --- КОНЕЦ ОБНОВЛЕННОГО БЛОКА ---
+
+
+    function showNotification(message, isSuccess = true) {
+      const notif = document.getElementById("notification");
+      notif.textContent = message;
+      notif.style.backgroundColor = isSuccess ? "#28a745" : "#dc3545";
+      notif.classList.add("show");
+      setTimeout(() => notif.classList.remove("show"), 3000);
+    }
+
+    async function startTelegramAuth() {
+      try {
+        const res = await fetch("/api/v1/auth/generate_token");
+        if (!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
+
+        const data = await res.json();
+        const token = data.token;
+        if (!token) throw new Error("Токен не получен");
+
+        const botUsername = "quest_hatelavka_bot"; // Убедись, что это юзернейм твоего основного бота
+        const telegramUrl = `https://t.me/${botUsername}?start=${token}`;
+        Telegram.WebApp?.openTelegramLink(telegramUrl);
+
+        showNotification("Ожидайте авторизации! Буквально чучуч 🥺");
+
+        let attempts = 0, maxAttempts = 45;
+        const interval = setInterval(async () => {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            showNotification("Время ожидания истекло", false);
+            return;
+          }
+
+          const check = await fetch(`/api/v1/auth/check_token?token=${token}`);
+          if (check.ok) {
+            const result = await check.json();
+            if (result.authenticated) {
+              clearInterval(interval);
+              showNotification("✅ Авторизация успешна!");
+              setTimeout(() => {
+                window.location.href = `/menu`;
+              }, 1000);
+            }
+          }
+        }, 2000);
+      } catch (err) {
+        showNotification("Ошибка: " + err.message, false);
+      }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Меню</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<style>
+    :root {
+      --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+      --bg-color: #000000;
+      --text-color: #ffffff;
+      --text-color-muted: #b0b0b0;
+      --quest-icon-color: #ffcc00;
+      --primary-gradient: linear-gradient(90deg, #34c759, #2dbf55);
+      --primary-color: #34c759;
+      --action-color: #007aff;
+      --disabled-color: #666;
+      --surface-glass-bg: rgba(28, 28, 30, 0.75);
+      --twitch-color: #9146ff;
+    }
+    body { margin: 0; min-height: 100vh; background-color: var(--bg-color); background-image: var(--bg-gradient); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
+    .main-content { flex-grow: 1; padding: 20px 15px 120px; overflow-y: auto; opacity: 0; transition: opacity 0.4s ease-in-out; }
+    .main-content.visible { opacity: 1; }
+    .user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .user-info { display: flex; flex-direction: column; }
+    .user-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .profile-link { font-size: 13px; color: var(--action-color); text-decoration: none; font-weight: 500; }
+    .stats-block { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+    .stats-link { text-decoration: none; color: inherit; }
+    .stats-item { display: flex; align-items: center; justify-content: flex-end; }
+    .stats-icon { width: 20px; height: 20px; background-color: #ffffff; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-right: 6px; }
+    .stats-icon i { color: #000000; font-size: 11px; }
+    .stats-text { font-size: 12px; font-weight: 500; }
+    .dashboard-container { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .quests-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .page-title { font-size: 18px; font-weight: 600; margin: 0 0 15px 0; text-align: center; }
+    .quest-card { background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; position: relative; }
+    .quest-icon { font-size: 20px; color: var(--quest-icon-color); margin-bottom: 8px; text-shadow: 0 0 12px var(--quest-icon-color); }
+    .quest-image-icon { width: 32px; height: 32px; border-radius: 6px; margin: 0 auto 8px; object-fit: cover; }
+    .quest-title { font-size: 13px; font-weight: 600; line-height: 1.3; margin: 0 0 5px 0; flex-grow: 1; text-align: center; }
+    .quest-subtitle { color: var(--text-color-muted); font-size: 11px; margin-bottom: 8px; text-align: center; }
+    .progress-bar { width: 100%; height: 30px; background-color: #3a3a3c; border-radius: 15px; overflow: hidden; position: relative; margin-top: 10px; }
+    .progress-fill { height: 100%; background: var(--primary-gradient); border-radius: 15px; transition: width 0.5s ease-in-out; }
+    .progress-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; padding: 0 8px; box-sizing: border-box; z-index: 1; }
+    .progress-text { font-weight: 600; font-size: 11px; color: var(--text-color); }
+    .perform-quest-button { width: 100%; background-color: var(--action-color); border: none; padding: 8px; border-radius: 6px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: auto; }
+    .claim-reward-button { width: 100%; background: linear-gradient(90deg, #ffdd40, #ffc700); color: #1c1c1e; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; padding: 10px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); }
+    .claim-reward-button:disabled { background: var(--disabled-color); color: var(--text-color-muted); box-shadow: none; cursor: not-allowed; }
+    .challenge-card { background-color: rgba(44, 44, 46, 0.85); padding: 12px; }
+    .challenge-card .quest-icon { font-size: 18px; margin-bottom: 5px; }
+    .challenge-card .quest-title { font-size: 14px; margin-bottom: 5px; }
+    .challenge-card .quest-subtitle { font-size: 12px; margin-bottom: 8px; }
+    .challenge-card .claim-reward-button { font-size: 13px; padding: 9px; margin-top: 8px; }
+    .challenge-timer { font-size: 11px; font-weight: 500; color: var(--text-color-muted); margin-top: 6px; }
+    .app-footer { display: flex; justify-content: space-around; align-items: flex-start; background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid rgba(58, 58, 60, 0.6); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; box-sizing: border-box; }
+    .footer-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-color-muted); font-size: 11px; cursor: pointer; text-decoration: none; flex: 1; position: relative; }
+    .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
+    .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--primary-color); font-weight: 600; }
+    .hidden { display: none !important; }
+    .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 300; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+    .spinner { width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .prompt-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+    .prompt-modal { background-color: var(--surface-glass-bg); border: 1px solid rgba(58, 58, 60, 0.6); padding: 15px; border-radius: 12px; width: 85%; max-width: 300px; text-align: center; }
+    .prompt-actions { display:flex; gap: 10px; margin-top: 15px; }
+    .prompt-actions > * { flex:1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+    .prompt-actions .confirm-btn { background-color: var(--primary-color); color: white; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+    .prompt-actions .cancel-btn { background-color: #555; color: white; }
+    .info-notice { background-color: rgba(0, 122, 255, 0.15); border-left: 3px solid var(--action-color); padding: 10px 12px; border-radius: 8px; margin: 20px 0 15px; display: flex; align-items: center; gap: 10px; font-size: 12px; line-height: 1.4; color: var(--text-color-muted); }
+    .info-notice i { font-size: 18px; color: var(--action-color); flex-shrink: 0; }
+    .info-notice strong { color: var(--text-color); font-weight: 600; }
+    .active-quest-indicator { position: absolute; top: 8px; right: 10px; font-size: 10px; font-weight: 600; color: var(--primary-color); background-color: rgba(52, 199, 89, 0.15); padding: 3px 7px; border-radius: 7px; }
+    .manual-quest-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    }
+    .manual-quest-actions .action-link-btn {
+    background-color: #5856d6;
+    padding: 5px 8px;
+    font-size: 11px;
+    border-radius: 5px;
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    flex-shrink: 0;
+    }
+    .manual-quest-actions .perform-quest-button {
+    flex-grow: 1;
+    margin-top: 0;
+    padding: 6px;
+    font-size: 12px;
+    }
+    .quest-category-accordion { width: 100%; grid-column: 1 / -1; }
+    .quest-category-header { cursor: pointer; font-size: 16px; font-weight: 600; padding: 12px; background-color: rgba(44, 44, 46, 0.85); border-radius: 8px; list-style: none; margin-bottom: 10px; }
+    .quest-category-header::-webkit-details-marker { display: none; }
+    .quest-category-header::before { content: '▶'; display: inline-block; margin-right: 8px; font-size: 12px; transition: transform 0.2s; }
+    .quest-category-accordion[open] > .quest-category-header::before { transform: rotate(90deg); }
+    .quest-category-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 5px; }
+    .stats-link { text-decoration: none; color: inherit; }
+    .social-stats-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+    }
+    .social-links {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+    .social-icon-wrapper { width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; transition: transform 0.2s ease-in-out; }
+    .social-icon-wrapper i { font-size: 16px; color: white; }
+    #twitch-icon { background-color: var(--twitch-color); }
+    #telegram-icon { background-color: #0088CC; }
+    .tickets-item { background: rgba(52, 199, 89, 0.15); border-radius: 12px; padding: 6px 10px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; position: relative; animation: pulse 2s infinite ease-in-out; }
+    .tickets-item:hover { animation-play-state: paused; }
+    .tickets-item .stats-text { color: var(--primary-color); font-weight: 700; font-size: 14px; }
+    .stats-icon-star { background: var(--primary-color); margin-right: 0; }
+    .stats-icon-star i { color: #fff; }
+    .info-question-icon { font-size: 16px; color: #ffc700; cursor: pointer; margin-left: 4px; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(52, 199, 89, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); }
+    }
+    .quest-choose-btn-roulette {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin: 15px 0;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #ffdd40, #ffc700);
+      color: #1c1c1e;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 12px rgba(255, 204, 0, 0.5);
+    }
+    .quest-choose-container {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
+      perspective: 1000px;
+    }
+    .quest-option-card {
+      width: 120px;
+      height: 160px;
+      background: var(--surface-glass-bg);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transform: rotateY(90deg);
+      opacity: 0;
+      transition: transform 0.6s ease, opacity 0.6s ease;
+      text-align: center;
+    }
+    .quest-option-card.show {
+      transform: rotateY(0);
+      opacity: 1;
+    }
+    .quest-option-card.chosen {
+      animation: questChosen 0.6s forwards;
+    }
+    .quest-option-card.fade-out {
+      animation: fadeOut 0.5s forwards;
+    }
+    @keyframes questChosen {
+      to {
+        transform: scale(0.1) translateY(-100px);
+        opacity: 0;
+      }
+    }
+    @keyframes fadeOut {
+      to {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+    }
+
+    /* ⭐ ИЗМЕНЕНИЕ: Новые стили для уведомления и подсказки ⭐ */
+    .twitch-update-notice {
+        font-size: 10px;
+        color: var(--text-color-muted);
+        margin-top: 8px;
+        padding: 4px;
+        background-color: rgba(0,0,0,0.2);
+        border-radius: 4px;
+    }
+    .promo-notification {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+        font-weight: 600;
+        animation: fadeInDown 0.5s ease-out;
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .promo-notification-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+        opacity: 0.7;
+    }
+</style>
+</head>
+<body>
+
+  <div id="loader-overlay" class="loader-overlay">
+    <div class="spinner"></div>
+  </div>
+
+  <main id="main-content" class="main-content">
+
+    <div id="new-promo-notification" class="promo-notification hidden">
+        <span>🏆 Новый промокод добавлен в ваш профиль!</span>
+        <button id="close-promo-notification" class="promo-notification-close">&times;</button>
+    </div>
+
+    <div class="user-profile">
+      <div class="user-info">
+        <div id="fullName" class="user-name">Загрузка...</div>
+        <a href="/profile" class="profile-link">Мой профиль</a>
+      </div>
+      <div class="stats-block">
+        <div class="social-stats-wrapper">
+          <div class="social-links">
+            <a href="https://t.me/hatelovettv" target="_blank" rel="noopener noreferrer" class="stats-link">
+                <div class="social-icon-wrapper" id="telegram-icon"><i class="fa-brands fa-telegram"></i></div>
+            </a>
+            <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" rel="noopener noreferrer" class="stats-link">
+                <div class="social-icon-wrapper" id="twitch-icon"><i class="fa-brands fa-twitch"></i></div>
+            </a>
+          </div>
+          <div class="stats-item tickets-item">
+              <span id="ticketStats" class="stats-text">0</span>
+              <div class="stats-icon stats-icon-star"><i class="fa-solid fa-ticket"></i></div>
+              <i class="fa-solid fa-circle-question info-question-icon" id="info-question-icon"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="view-dashboard" class="view">
+        <a href="/events" style="text-decoration: none; display: block; margin-bottom: 15px;">
+            <img src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Гонка за скинами" style="width: 100%; border-radius: 12px;">
+        </a>
+        
+        <div id="challenge-container"></div>
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
+        
+        <div id="quest-choose-wrapper">
+            <button id="quest-choose-btn" class="quest-choose-btn-roulette">НАЧАТЬ ИСПЫТАНИЕ</button>
+            <div id="quest-choose-container" class="quest-choose-container hidden"></div>
+        </div>
+        <div id="active-automatic-quest-container"></div>
+        
+    </div>
+    
+    <div id="view-quests" class="view quests-container hidden">
+        <h2 class="page-title" style="grid-column: 1 / -1;">Задания с ручной проверкой</h2>
+    </div>
+  </main>
+  
+  <footer class="app-footer">
+    <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
+    <a href="#" id="nav-dashboard" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
+    <a href="#" id="nav-quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>    
+    <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>    
+    <a href="/admin" id="nav-admin" class="footer-item hidden"><div class="icon-wrapper"><i class="fa-solid fa-user-shield"></i></div><span>Админка</span></a>
+  </footer>
+  
+<div id="promocode-overlay" class="promocode-overlay hidden">
+    </div>
+
+<div id="reward-claimed-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal">
+        <h3>Награда получена!</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
+            Промокод добавлен в ваш профиль. Вы можете найти все свои награды там.
+        </p>
+        <div class="prompt-actions">
+            <button id="reward-close-btn" class="cancel-btn">Главное меню</button>
+            <a href="/profile" class="confirm-btn">Профиль</a>
+        </div>
+    </div>
+</div>
+
+<div id="info-modal-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal">
+        <h3>Что такое билеты?</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
+            Выполняйте задания и челленджи, чтобы заработать билеты. Используйте их для участия в розыгрышах ценных призов!
+        </p>
+        <div class="prompt-actions">
+            <button class="confirm-btn" id="info-modal-close-btn">Понятно</button>
+        </div>
+    </div>
+</div>
+
+<div id="custom-prompt-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal">
+        <h3 id="prompt-title">Title</h3>
+        <p>Введите данные для проверки.</p>
+        <input type="text" id="prompt-input" placeholder="Ваш ник или ссылка...">
+        <div class="prompt-actions">
+            <button id="prompt-cancel" class="cancel-btn">Отмена</button>
+            <button id="prompt-confirm" class="confirm-btn">Отправить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    try {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+
+        const updatedBalance = localStorage.getItem('userTicketBalance');
+        if (updatedBalance !== null) {
+            document.getElementById('ticketStats').textContent = updatedBalance;
+            localStorage.removeItem('userTicketBalance');
+        }
+
+        const dom = {
+            loaderOverlay: document.getElementById('loader-overlay'),
+            mainContent: document.getElementById('main-content'),
+            fullName: document.getElementById('fullName'),
+            navAdmin: document.getElementById('nav-admin'),
+            footerItems: document.querySelectorAll('.footer-item'),
+            viewDashboard: document.getElementById('view-dashboard'),
+            viewQuests: document.getElementById('view-quests'),
+            challengeContainer: document.getElementById('challenge-container'),
+            activeAutomaticQuestContainer: document.getElementById('active-automatic-quest-container'),
+            
+            promocodeOverlay: document.getElementById('promocode-overlay'),
+            rewardClaimedOverlay: document.getElementById('reward-claimed-overlay'),
+            rewardCloseBtn: document.getElementById('reward-close-btn'),
+            
+            promptOverlay: document.getElementById('custom-prompt-overlay'),
+            promptTitle: document.getElementById('prompt-title'),
+            promptInput: document.getElementById('prompt-input'),
+            promptCancel: document.getElementById('prompt-cancel'),
+            promptConfirm: document.getElementById('prompt-confirm'),
+
+            infoQuestionIcon: document.getElementById('info-question-icon'),
+            infoModalOverlay: document.getElementById('info-modal-overlay'),
+            infoModalCloseBtn: document.getElementById('info-modal-close-btn'),
+
+            questChooseBtn: document.getElementById("quest-choose-btn"),
+            questChooseContainer: document.getElementById("quest-choose-container"),
+
+            // ⭐ ИЗМЕНЕНИЕ: Добавили элементы уведомления
+            newPromoNotification: document.getElementById('new-promo-notification'),
+            closePromoNotification: document.getElementById('close-promo-notification'),
+        };
+
+        let currentQuestId = null;
+        let countdownIntervals = {};
+        let allQuests = [];
+        let userData = {};
+        let questsForRoulette = [];
+
+        // ⭐ ИЗМЕНЕНИЕ: Новая функция для показа уведомления
+        function showNewPromoNotification() {
+            sessionStorage.setItem('newPromoReceived', 'true');
+            dom.newPromoNotification.classList.remove('hidden');
+        }
+
+        function showRewardClaimedModal() {
+            showNewPromoNotification(); // Показываем уведомление
+            dom.rewardClaimedOverlay.classList.remove('hidden');
+        }
+        function hideRewardClaimedModal() {
+            dom.rewardClaimedOverlay.classList.add('hidden');
+        }
+
+        function showInfoModal() {
+            dom.infoModalOverlay.classList.remove('hidden');
+        }
+        function hideInfoModal() {
+            dom.infoModalOverlay.classList.add('hidden');
+        }
+
+        function showCustomPrompt(title, questId) {
+            currentQuestId = questId;
+            dom.promptTitle.textContent = title;
+            dom.promptInput.value = '';
+            dom.promptOverlay.classList.remove('hidden');
+            dom.promptInput.focus();
+        }
+
+        function hideCustomPrompt() {
+            dom.promptOverlay.classList.add('hidden');
+        }
+        
+        function switchView(targetViewId) {
+            dom.viewDashboard.classList.add('hidden');
+            dom.viewQuests.classList.add('hidden');
+            document.getElementById(targetViewId)?.classList.remove('hidden');
+            
+            dom.footerItems.forEach(item => item.classList.remove('active'));
+            const navId = `nav-${targetViewId.split('-')[1]}`;
+            document.getElementById(navId)?.classList.add('active');
+        }
+        
+        async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
+            if (!isSilent) dom.loaderOverlay.classList.remove('hidden');
+            try {
+                const options = { method, headers: { 'Content-Type': 'application/json' } };
+                if (method !== 'GET') {
+                    options.body = JSON.stringify({ ...body, initData: Telegram.WebApp.initData });
+                }
+                const response = await fetch(url, options);
+                if (response.status === 204 || response.status === 404) return null;
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || result.message || 'Ошибка сервера');
+                return result;
+            } catch (e) {
+                if (!isSilent) Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
+                throw e;
+            } finally {
+                if (!isSilent) dom.loaderOverlay.classList.add('hidden');
+            }
+        }
+
+        function startCountdown(timerElement, expiresAt, intervalKey) {
+            if (countdownIntervals[intervalKey]) clearInterval(countdownIntervals[intervalKey]);
+            if (!timerElement) return;
+
+            const endTime = new Date(expiresAt).getTime();
+            
+            const updateTimer = () => {
+                const now = new Date().getTime();
+                const distance = endTime - now;
+                if (distance < 0) {
+                    clearInterval(countdownIntervals[intervalKey]);
+                    timerElement.textContent = "Время вышло!"; return;
+                }
+                const d = Math.floor(distance / 86400000);
+                const h = Math.floor((distance % 86400000) / 3600000);
+                const m = Math.floor((distance % 3600000) / 60000);
+                const s = Math.floor((distance % 60000) / 1000);
+                
+                let result = 'Осталось: ';
+                if (d > 0) result += `${d}д `;
+                result += `${h}ч ${m}м ${s}с`;
+                timerElement.textContent = result;
+            };
+            updateTimer();
+            countdownIntervals[intervalKey] = setInterval(updateTimer, 1000);
+        }
+        
+        function clearAllCountdowns() {
+            Object.keys(countdownIntervals).forEach(key => {
+                clearInterval(countdownIntervals[key]);
+            });
+            countdownIntervals = {};
+        }
+        
+        // ⭐ ИЗМЕНЕНИЕ: Новая функция для создания HTML-кода предупреждения ⭐
+        function createTwitchNoticeHtml() {
+            return `<div class="twitch-update-notice">ℹ️ Прогресс обновляется с задержкой (до 30 мин).</div>`;
+        }
+
+        function renderChallenge(challengeData, isGuest) {
+            dom.challengeContainer.innerHTML = '';
+
+            if (isGuest) {
+                dom.challengeContainer.innerHTML = `
+                    <div class="quest-card quest-locked">
+                        <div class="quest-content-wrapper">
+                            <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
+                            <h2 class="quest-title">Случайный челлендж</h2>
+                            <p class="quest-subtitle">
+                                Для доступа к челленджам требуется привязка Twitch-аккаунта.
+                            </p>
+                            <button class="claim-reward-button" disabled>
+                                <span>Получить</span>
+                            </button>
+                        </div>
+                        <div class="locked-overlay">
+                            <a href="/profile">
+                                <i class="fa-brands fa-twitch"></i>
+                                <span>Авторизоваться</span>
+                            </a>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            if (!challengeData || !challengeData.challenges) {
+                dom.challengeContainer.innerHTML = `
+                    <div class="quest-card challenge-card">
+                        <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
+                        <h2 class="quest-title">Случайный челлендж</h2>
+                        <p class="quest-subtitle">
+                            Испытай удачу! Получи случайное задание и выполни его.
+                        </p>
+                        <button id="get-challenge-btn" class="claim-reward-button">
+                            <i class="fa-solid fa-play"></i> 
+                            <span>Получить челлендж</span>
+                        </button>
+                    </div>`;
+                return;
+            }
+
+            const challenge = challengeData.challenges;
+            const currentProgress = challengeData.progress_value || 0;
+            const target = challenge.target_value || 1;
+            const percent = target > 0 ? Math.min(100, (currentProgress / target) * 100) : 0;
+            
+            const canClaim = currentProgress >= target && !challengeData.claimed_at;
+            const isCompleted = currentProgress >= target;
+            
+            let statusText = '';
+            if (challengeData.claimed_at) {
+                statusText = '<div style="color: #34C759; font-size: 12px; margin: 5px 0;">✅ Награда получена</div>';
+            } else if (isCompleted) {
+                statusText = '<div style="color: #FFCC00; font-size: 12px; margin: 5px 0;">🎁 Награда готова!</div>';
+            }
+
+            const isTwitchChallenge = challenge.condition_type && challenge.condition_type.includes('twitch');
+            const twitchNotice = isTwitchChallenge ? createTwitchNoticeHtml() : '';
+
+            // --- ИСПРАВЛЕНИЕ 1: Добавляем data-challenge-id ---
+            const claimButton = `<button id="claim-challenge-btn" data-challenge-id="${challenge.id}" class="claim-reward-button" ${!canClaim ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> <span>Забрать награду</span></button>`;
+
+            dom.challengeContainer.innerHTML = `
+                <div class="quest-card challenge-card">
+                    <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
+                    <h2 class="quest-title">${challenge.description || ''}</h2>
+                    ${statusText}
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percent}%;"></div>
+                        <div class="progress-content">
+                            <span class="progress-text">${currentProgress} / ${target}</span>
+                        </div>
+                    </div>
+                    <div id="challenge-timer" class="challenge-timer">...</div>
+                    ${twitchNotice}
+                    ${claimButton}
+                </div>`;
+
+            if (challengeData.expires_at) {
+                startCountdown(document.getElementById('challenge-timer'), challengeData.expires_at, 'challenge');
+            }
+        }
+        
+        function renderActiveAutomaticQuest(quest, userData) {
+            dom.activeAutomaticQuestContainer.innerHTML = '';
+            if (!quest || !userData || !userData.active_quest_id) {
+                return;
+            }
+            
+            const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+            if (!activeQuest) return;
+
+            const iconHtml = (activeQuest.icon_url && activeQuest.icon_url !== "") ? `<img src="${activeQuest.icon_url}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>`;
+            const progress = userData.active_quest_progress || 0;
+            const target = activeQuest.target_value || 1;
+            const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
+            const isCompleted = progress >= target;
+
+            const isTwitchQuest = activeQuest.quest_type && activeQuest.quest_type.includes('twitch');
+            const twitchNotice = isTwitchQuest ? createTwitchNoticeHtml() : '';
+
+            let buttonHtml = '';
+            if (isCompleted) {
+                buttonHtml = `<button class="claim-reward-button" data-quest-id="${activeQuest.id}"><i class="fa-solid fa-gift"></i> <span>Забрать</span></button>`;
+            }
+            
+            dom.activeAutomaticQuestContainer.innerHTML = `
+                <div class="quest-card">
+                    ${!isCompleted ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
+                    <div class="quest-content-wrapper">
+                        ${iconHtml}
+                        <h2 class="quest-title">${activeQuest.title || ''}</h2>
+                        <p class="quest-subtitle">${activeQuest.description || ''}</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percent}%;"></div>
+                            <div class="progress-content"><span class="progress-text">${Math.min(progress, target)} / ${target}</span></div>
+                        </div>
+                        ${activeQuest.end_date ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer"></div>` : ''}
+                        ${twitchNotice}
+                    </div>
+                    ${buttonHtml}
+                </div>`;
+            
+            if (activeQuest.end_date) {
+                startCountdown(document.getElementById(`quest-timer-${activeQuest.id}`), activeQuest.end_date, `quest_${activeQuest.id}`);
+            }
+            
+            dom.questChooseBtn.classList.add('hidden');
+            dom.questChooseContainer.classList.add('hidden');
+        }
+
+        function renderManualQuests(quests, categories) {
+            const container = dom.viewQuests;
+            const title = container.querySelector('.page-title'); 
+            container.innerHTML = ''; 
+            if (title) container.appendChild(title); 
+
+            if (!quests || quests.length === 0) {
+                container.insertAdjacentHTML('beforeend', `<p style="text-align: center; font-size: 12px; color: var(--text-color-muted); grid-column: 1 / -1;">Нет заданий для ручной проверки.</p>`);
+                return;
+            }
+
+            const groupedQuests = quests.reduce((acc, quest) => {
+                const category = quest.quest_categories ? quest.quest_categories.name : 'Разное';
+                if (!acc[category]) {
+                    acc[category] = [];
+                }
+                acc[category].push(quest);
+                return acc;
+            }, {});
+
+            for (const categoryName in groupedQuests) {
+                const questsInCategory = groupedQuests[categoryName];
+                
+                const questsHtml = questsInCategory.map(quest => {
+                    const iconHtml = (quest.icon_url && quest.icon_url !== "") ? `<img src="${quest.icon_url}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-user-check"></i></div>`;
+                    const actionLinkHtml = (quest.action_url && quest.action_url !== "")
+                        ? `<a href="${quest.action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
+                        : '';
+                    const submitButtonText = (quest.action_url && quest.action_url !== "") ? 'Отправить' : 'Выполнить';
+                    
+                    return `
+                        <div class="quest-card" style="display: flex; flex-direction: column;">
+                            <div style="flex-grow: 1;">
+                                ${iconHtml}
+                                <h2 class="quest-title">${quest.title || ''}</h2>
+                                <p class="quest-subtitle">${quest.description || ''}</p>
+                                <p class="quest-subtitle">Награда: ${quest.reward_amount || ''} ⭐</p>
+                            </div>
+                            <div class="manual-quest-actions">
+                                ${actionLinkHtml}
+                                <button class="perform-quest-button" data-id="${quest.id}" data-title="${quest.title}">${submitButtonText}</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const accordionHtml = `
+                    <details class="quest-category-accordion">
+                        <summary class="quest-category-header">${categoryName}</summary>
+                        <div class="quest-category-body">
+                            ${questsHtml}
+                        </div>
+                    </details>
+                `;
+                container.insertAdjacentHTML('beforeend', accordionHtml);
+            }
+        }
+        
+        async function refreshDataSilently() {
+            try {
+                const [newUserData, newChallengeData] = await Promise.all([
+                    makeApiRequest("/api/v1/user/me", {}, 'POST', true),
+                    makeApiRequest("/api/v1/user/challenge/status", {}, 'POST', true)
+                ]);
+
+                if (newUserData) {
+                    userData = newUserData;
+                    const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+                    if (activeQuest) {
+                        renderActiveAutomaticQuest(activeQuest, userData);
+                    }
+                }
+                if (newChallengeData !== undefined) {
+                    renderChallenge(newChallengeData, !userData.twitch_id);
+                }
+            } catch (e) {
+                console.error("Ошибка фонового обновления:", e);
+            }
+        }
+
+        async function startChallengeRoulette() {
+            const getChallengeBtn = document.getElementById('get-challenge-btn');
+            if(getChallengeBtn) getChallengeBtn.disabled = true;
+            dom.loaderOverlay.classList.remove('hidden');
+            try {
+                const [available, assignedChallenge] = await Promise.all([
+                    makeApiRequest('/api/v1/user/challenge/available'),
+                    makeApiRequest('/api/v1/user/challenge')
+                ]);
+                dom.loaderOverlay.classList.add('hidden');
+                if (!available || available.length === 0 || !assignedChallenge) {
+                    Telegram.WebApp.showAlert('Нет доступных челленджей или произошла ошибка.');
+                    if(getChallengeBtn) getChallengeBtn.disabled = false;
+                    return;
+                }
+                const overlay = document.createElement('div');
+                overlay.className = 'prompt-overlay';
+                overlay.innerHTML = `<div style="width: 90%; max-width: 400px; height: 150px; background: var(--surface-glass-bg); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;"><div id="roulette-inner" style="position: absolute; width: 100%; top: 0;"></div><div style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: 50px; border-top: 2px solid var(--primary-color); border-bottom: 2px solid var(--primary-color); box-sizing: border-box; z-index: 1;"></div></div>`;
+                document.body.appendChild(overlay);
+                const inner = overlay.querySelector('#roulette-inner');
+                const itemHeight = 50;
+                let rouletteItems = [];
+                for (let i = 0; i < 30; i++) rouletteItems.push(...available.sort(() => Math.random() - 0.5));
+                rouletteItems.push(assignedChallenge.challenges);
+                inner.innerHTML = rouletteItems.map(item => `<div data-id="${item.id}" style="height: ${itemHeight}px; display: flex; flex-direction: column; align-items: center; justify-content: center;"><div style="font-size: 14px; font-weight: 600;">${item.description}</div><div style="font-size: 11px; color: var(--quest-icon-color);">Награда: ${item.reward_amount} ⭐</div></div>`).join('');
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                const winnerElement = Array.from(inner.querySelectorAll(`[data-id="${assignedChallenge.challenge_id}"]`)).pop();
+                if (winnerElement) {
+                    const centeredPosition = winnerElement.offsetTop - (inner.parentElement.clientHeight / 2) + (itemHeight / 2);
+                    inner.style.transition = 'transform 6s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                    inner.style.transform = `translateY(-${centeredPosition}px)`;
+                    setTimeout(() => {
+                        overlay.remove();
+                        renderChallenge(assignedChallenge, false);
+                    }, 7000);
+                }
+            } catch (e) {
+                dom.loaderOverlay.classList.add('hidden');
+            }
+        }
+        
+        async function startQuestRoulette() {
+            dom.questChooseBtn.disabled = true;
+            
+            if (questsForRoulette.length === 0) {
+                Telegram.WebApp.showAlert("Сейчас нет доступных испытаний.");
+                dom.questChooseBtn.disabled = false;
+                return;
+            }
+
+            const container = dom.questChooseContainer;
+            container.innerHTML = "";
+            dom.questChooseContainer.classList.remove('hidden');
+
+            const shuffled = [...questsForRoulette].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, 3);
+
+            selected.forEach((quest, index) => {
+                const card = document.createElement("div");
+                card.className = "quest-option-card";
+                card.innerHTML = `
+                    <div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>
+                    <div class="quest-title">${quest.title}</div>
+                    <div class="quest-subtitle">Награда: ${quest.reward_amount} ⭐</div>
+                `;
+
+                setTimeout(() => card.classList.add("show"), index * 200);
+
+                card.addEventListener("click", async () => {
+                    card.classList.add("chosen");
+                    Array.from(container.children).forEach(otherCard => {
+                        if (otherCard !== card) {
+                            otherCard.classList.add("fade-out");
+                        }
+                    });
+                    
+                    setTimeout(async () => {
+                        try {
+                            const result = await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
+                            Telegram.WebApp.showAlert(`✅ Вы выбрали задание: ${quest.title}`);
+                            container.innerHTML = "";
+                            dom.questChooseBtn.disabled = false;
+                            await main();
+                        } catch(e) {
+                             container.innerHTML = "";
+                            dom.questChooseBtn.disabled = false;
+                        }
+                    }, 600);
+                });
+                container.appendChild(card);
+            });
+        }
+        
+        function hideQuestRoulette() {
+            const container = dom.questChooseContainer;
+            Array.from(container.children).forEach(card => card.classList.add('fade-out'));
+            
+            setTimeout(() => {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+                dom.questChooseBtn.disabled = false;
+            }, 500);
+        }
+
+
+        function setupEventListeners() {
+            document.getElementById('nav-dashboard').addEventListener('click', async (e) => { 
+                e.preventDefault(); 
+                switchView('view-dashboard');
+                await main();
+            });
+
+            document.getElementById('nav-quests').addEventListener('click', async (e) => { 
+                e.preventDefault(); 
+                switchView('view-quests');
+                
+                const manualQuests = await makeApiRequest("/api/v1/quests/manual");
+                const categories = await makeApiRequest("/api/v1/quests/categories");
+                renderManualQuests(manualQuests, categories);
+            });
+
+            dom.promptCancel.addEventListener('click', hideCustomPrompt);
+            dom.promptConfirm.addEventListener('click', async () => {
+                const text = dom.promptInput.value.trim();
+                if (!text) return;
+                const questIdForSubmission = currentQuestId;
+                hideCustomPrompt();
+                await makeApiRequest(`/api/v1/quests/${questIdForSubmission}/submit`, { submittedData: text });
+                Telegram.WebApp.showAlert('Ваша заявка принята и отправлена на проверку!');
+            });
+            
+            dom.rewardCloseBtn.addEventListener('click', () => {
+                hideRewardClaimedModal();
+                main();
+            });
+
+            dom.infoQuestionIcon.addEventListener('click', showInfoModal);
+            dom.infoModalCloseBtn.addEventListener('click', hideInfoModal);
+            
+            dom.questChooseBtn.addEventListener("click", () => {
+                if(dom.questChooseContainer.classList.contains('hidden')) {
+                    startQuestRoulette();
+                } else {
+                    hideQuestRoulette();
+                }
+            });
+
+            dom.closePromoNotification.addEventListener('click', () => {
+                dom.newPromoNotification.classList.add('hidden');
+                sessionStorage.removeItem('newPromoReceived');
+            });
+            
+            // --- ИСПРАВЛЕНИЕ 2: Заменяем весь этот обработчик ---
+            document.body.addEventListener('click', async (event) => {
+                const target = event.target.closest('button');
+                if (!target) return;
+
+                if (target.id === 'get-challenge-btn') {
+                    await startChallengeRoulette();
+                
+                } else if (target.id === 'claim-challenge-btn') {
+                    target.disabled = true;
+                    target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+                    try {
+                        // Считываем ID с кнопки
+                        const challengeId = target.dataset.challengeId; 
+                        if (!challengeId) throw new Error("ID челленджа не найден");
+
+                        // Формируем правильный URL и вызываем API
+                        const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
+                        
+                        if (result.success) { // Проверяем поле success
+                            showRewardClaimedModal(); 
+                            dom.rewardCloseBtn.onclick = async () => {
+                                hideRewardClaimedModal();
+                                await main(); // Просто перезагружаем все данные
+                            };
+                        } else {
+                            Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
+                        }
+                    } catch (e) {
+                        console.error("Ошибка claim:", e);
+                        target.disabled = false;
+                        target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
+                    }
+                
+                } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
+                    const questId = target.dataset.questId;
+                    if (!questId) return;
+
+                    target.disabled = true;
+                    try {
+                        const result = await makeApiRequest('/api/v1/promocode', { quest_id: parseInt(questId) });
+                        if (result && result.promocode) {
+                            showRewardClaimedModal();
+                        }
+                    } catch (e) {
+                        target.disabled = false;
+                    }
+                } else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
+                    const questId = target.dataset.id;
+                    const questTitle = target.dataset.title;
+                    if (!questId) return;
+                    
+                    showCustomPrompt(questTitle, questId);
+                }
+            });
+        }   
+
+        async function main() {
+            if (!Telegram.WebApp.initData) {
+                document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
+                return;
+            }
+            
+            try {
+                if (sessionStorage.getItem('newPromoReceived') === 'true') {
+                    dom.newPromoNotification.classList.remove('hidden');
+                }
+
+                userData = await makeApiRequest("/api/v1/user/me");
+                const isGuest = !userData || !userData.full_name;
+
+                if (isGuest) {
+                    dom.fullName.textContent = "Гость";
+                } else {
+                    dom.fullName.textContent = userData.full_name;
+                    if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
+                }
+
+                document.getElementById('ticketStats').textContent = userData.tickets || 0;
+  
+                const [questsDataResp, challengeData] = await Promise.all([
+                    makeApiRequest("/api/v1/quests/list"),
+                    makeApiRequest("/api/v1/user/challenge/status")
+                ]);
+
+                allQuests = questsDataResp || [];
+                questsForRoulette = allQuests.filter(q => q.quest_type && q.quest_type.startsWith('automatic') && !q.is_completed);
+                
+                const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+                if (activeQuest) {
+                    renderActiveAutomaticQuest(activeQuest, userData);
+                } else {
+                    dom.activeAutomaticQuestContainer.innerHTML = '';
+                    dom.questChooseBtn.classList.remove('hidden');
+                    dom.questChooseContainer.classList.add('hidden');
+                }
+
+                renderChallenge(challengeData, !userData.twitch_id);
+
+            } catch (e) {
+                console.error("Ошибка при основной загрузке:", e);
+                dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Не удалось загрузить челлендж.</p>`;
+            } finally {
+                dom.mainContent.classList.add('visible');
+                dom.loaderOverlay.classList.add('hidden');
+            }
+        }
+
+        setupEventListeners();
+        main();
+        
+        setInterval(refreshDataSilently, 30000);
+
+    } catch (e) {
+        document.getElementById('loader-overlay')?.classList.add('hidden');
+        document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Критическая ошибка</h1><p>${e.message}</p></div>`;
+    }
+</script>
+</body>
+</html>

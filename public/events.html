@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Гонка за скинами</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+            --text-color: #ffffff;
+            --text-color-muted: #b0b0b0;
+            --primary-color: #34c759;
+            --surface-glass-bg: rgba(28, 28, 30, 0.75);
+            --danger-color: #ff3b30;
+            --winner-color: #FFD700;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-image: var(--bg-gradient); background-color: #000000; color: var(--text-color); margin: 0; padding: 15px 15px 90px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .page-title { text-align: center; color: #ffffff; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+        .timer { text-align: center; font-size: 1.6em; font-weight: bold; color: var(--primary-color); margin-bottom: 20px; letter-spacing: 2px; }
+        .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .event-card { background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); border: 1px solid rgba(58, 58, 60, 0.6); border-radius: 10px; padding: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; position: relative; transition: all 0.3s ease; }
+        .event-image-container { width: 100%; padding-top: 75%; position: relative; margin-bottom: 10px; background-color: #000; border-radius: 6px; flex-shrink: 0; }
+        .event-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+        .event-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 10px; }
+        .event-title { font-size: 13px; font-weight: 600; text-align: center; color: #ffffff; margin-bottom: 4px; }
+        .event-description { font-size: 11px; color: var(--text-color-muted); text-align: center; }
+        .event-footer { width: 100%; flex-shrink: 0; }
+        .event-cost { font-size: 12px; color: var(--text-color-muted); text-align: center; margin-bottom: 8px; height: 16px; }
+        .event-button-container { display: flex; flex-direction: column; gap: 8px; }
+        .event-button, .participants-button { width: 100%; padding: 10px; font-size: 13px; font-weight: 600; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; }
+        .participants-button { background-color: #555; }
+        .event-card.is-winner { background: linear-gradient(145deg, #1a1a1a, #2b2b2b); border-color: var(--winner-color); }
+        .winner-display { text-align: center; padding: 10px 0; color: var(--winner-color); }
+        .winner-icon { font-size: 24px; margin-bottom: 8px; }
+        .winner-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-color-muted); }
+        .winner-name { font-size: 16px; font-weight: 700; margin-top: 4px; word-break: break-all; }
+        .admin-controls { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background-color: var(--primary-color); color: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); z-index: 1000; display: flex; gap: 10px; }
+        .admin-controls button { background: none; border: none; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .app-footer { display: flex; justify-content: space-around; align-items: flex-start; background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); border-top: 1px solid rgba(58, 58, 60, 0.6); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; box-sizing: border-box; }
+        .footer-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-color-muted); font-size: 11px; cursor: pointer; text-decoration: none; flex: 1; position: relative; }
+        .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
+        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--primary-color); font-weight: 600; }
+        .hidden { display: none !important; }
+        .info-blocks-container { display: flex; flex-direction: column; gap: 10px; }
+        .info-block { background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); border: 1px solid rgba(58, 58, 60, 0.6); padding: 15px; border-radius: 10px; width: 100%; box-sizing: border-box; text-align: center; }
+        .info-title { color: var(--primary-color); margin-bottom: 8px; font-size: 14px; }
+        .info-description { font-size: 12px; color: var(--text-color-muted); line-height: 1.4; }
+        [data-editable] { cursor: pointer; border: 1px dashed transparent; transition: border-color 0.3s; border-radius: 4px; }
+        .edit-mode [data-editable] { min-height: 1em; }
+        .edit-mode [data-editable]:hover { border-color: var(--primary-color); }
+        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); border-radius: 10px; display: flex; gap: 8px; justify-content: center; align-items: center; }
+        .card-btn { border: none; border-radius: 50%; width: 36px; height: 36px; color: white; font-size: 16px; cursor: pointer; }
+        .card-edit-btn { background-color: #007aff; }
+        .card-delete-btn { background-color: var(--danger-color); }
+        .card-reset-btn { background-color: #ff9500; }
+        .create-event-card { border: 2px dashed var(--primary-color); justify-content: center; cursor: pointer; background: transparent; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-content { background-color: #1c1c1e; border: 1px solid rgba(58, 58, 60, 0.6); padding: 20px; border-radius: 14px; width: 90%; max-width: 400px; }
+        .modal-form { display: flex; flex-direction: column; gap: 15px; }
+        .modal-form input, .modal-form textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background-color: #333; color: white; font-size: 16px; box-sizing: border-box; }
+        .modal-form button { background-color: var(--primary-color); border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .modal-form label { font-size: 14px; color: var(--text-color-muted); margin-bottom: -10px; }
+        .user-tickets { font-size: 11px; color: var(--primary-color); text-align: center; margin-bottom: 4px; font-weight: 600; }
+        #participants-list { list-style-type: none; padding: 0; margin: 0; }
+        .participant-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        .participant-item:last-child { border-bottom: none; }
+        .participant-name { font-size: 14px; font-weight: 500; color: var(--text-color); flex-grow: 1; padding-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .participant-tickets { font-size: 14px; font-weight: 600; color: var(--primary-color); padding-left: 10px; }
+        .participant-rank { font-size: 14px; font-weight: 500; color: var(--text-color-muted); min-width: 25px; text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="page-title" data-key="mainTitle" data-editable>Призы за участие в ивентах</h1>
+        <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
+        <div id="events-list" class="events-container"></div>
+        <div class="info-blocks-container">
+            <div class="info-block">
+                <h3 class="info-title" data-key="infoBlock1Title" data-editable>Как победить?</h3>
+                <p class="info-description" data-key="infoBlock1Desc" data-editable>Чтобы получить приз, необходимо участвовать в ивентах.</p>
+            </div>
+            <div class="info-block">
+                <h3 class="info-title" data-key="infoBlock2Title" data-editable>Как это работает?</h3>
+                <p class="info-description" data-key="infoBlock2Desc" data-editable>Каждый билет, потраченный на ивент, добавляет ваше имя в список участников.</p>
+            </div>
+            <div class="info-block">
+                <h3 class="info-title" data-key="infoBlock3Title" data-editable>Как забрать?</h3>
+                <p class="info-description" data-key="infoBlock3Desc" data-editable>Победитель получит уведомление от бота. Для получения приза убедитесь, что у вас в профиле указана Steam Trade ссылка.</p>
+            </div>
+        </div>
+    </div>
+    <div id="admin-controls" class="admin-controls" style="display: none;"><button id="edit-btn">Редактировать</button><button id="save-btn" style="display: none;">Сохранить</button></div>
+    <div id="event-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="event-modal-title" style="margin-top: 0;">Редактировать ивент</h3><form id="event-modal-form" class="modal-form"><input type="hidden" id="event-index-input"><label>Название</label><input type="text" id="event-title-input" required><label>Описание (качество)</label><textarea id="event-description-input" rows="2"></textarea><label>URL картинки</label><input type="text" id="event-image-input" required><label>Стоимость в билетах</label><input type="number" id="event-cost-input" required min="1"><button type="submit">Сохранить</button></form></div></div>
+    <div id="text-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="text-modal-title" style="margin-top: 0;">Редактировать текст</h3><form id="text-modal-form" class="modal-form"><input type="hidden" id="text-key-input"><textarea id="text-value-input" rows="4"></textarea><button type="submit">Сохранить</button></form></div></div>
+    <div id="timer-modal" class="modal-overlay hidden"><div class="modal-content"><h3 style="margin-top: 0;">Назначить время итогов</h3><form id="timer-modal-form" class="modal-form"><label>Выберите дату и время</label><input type="datetime-local" id="timer-input" required><button type="submit">Установить</button></form></div></div>
+    <div id="ticket-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="ticket-modal-title" style="margin-top: 0;">Участие в розыгрыше</h3><p style="font-size: 14px; color: var(--text-color-muted);">Ваш баланс: <strong id="user-balance-display">0</strong> 🎟️</p><form id="ticket-modal-form" class="modal-form"><input type="hidden" id="ticket-event-id-input"><label>Сколько билетов поставить?</label><input type="number" id="ticket-amount-input" required min="1" placeholder="Например: 5"><button type="submit">Подтвердить</button></form></div></div>
+    <div id="participants-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="participants-modal-title" style="margin-top: 0;">Топ-участники</h3><ul id="participants-list" style="list-style-type: none; padding: 0;"></ul></div></div>
+    
+    <footer class="app-footer">
+        <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
+        <a href="/events" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>
+        <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>Профиль</span></a>
+    </footer>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tg = window.Telegram.WebApp;
+        let pageContent = {};
+        let countdownInterval = null;
+        let userData = {};
+        const dom = {
+            adminControls: document.getElementById('admin-controls'), editBtn: document.getElementById('edit-btn'), saveBtn: document.getElementById('save-btn'),
+            eventsContainer: document.getElementById('events-list'),
+            eventModal: document.getElementById('event-modal'), eventModalTitle: document.getElementById('event-modal-title'), eventModalForm: document.getElementById('event-modal-form'), eventIndexInput: document.getElementById('event-index-input'), eventTitleInput: document.getElementById('event-title-input'), eventDescriptionInput: document.getElementById('event-description-input'), eventImageInput: document.getElementById('event-image-input'), eventCostInput: document.getElementById('event-cost-input'),
+            textModal: document.getElementById('text-modal'), textModalTitle: document.getElementById('text-modal-title'), textModalForm: document.getElementById('text-modal-form'), textKeyInput: document.getElementById('text-key-input'), textValueInput: document.getElementById('text-value-input'),
+            timerModal: document.getElementById('timer-modal'), timerModalForm: document.getElementById('timer-modal-form'), timerInput: document.getElementById('timer-input'),
+            ticketModal: document.getElementById('ticket-modal'),
+            ticketModalTitle: document.getElementById('ticket-modal-title'),
+            ticketModalForm: document.getElementById('ticket-modal-form'),
+            userBalanceDisplay: document.getElementById('user-balance-display'),
+            ticketEventIdInput: document.getElementById('ticket-event-id-input'),
+            ticketAmountInput: document.getElementById('ticket-amount-input'),
+            participantsModal: document.getElementById('participants-modal'),
+            participantsModalTitle: document.getElementById('participants-modal-title'),
+            participantsList: document.getElementById('participants-list')
+        };
+        const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc'];
+
+        function startCountdown(endTimeString) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            const timerElement = document.getElementById('countdown-timer');
+            if (!endTimeString || !timerElement) { if(timerElement) timerElement.textContent = 'Время не задано'; return; }
+            const endTime = new Date(endTimeString).getTime();
+            const update = () => {
+                const distance = endTime - new Date().getTime();
+                if (distance < 0) { timerElement.textContent = "Розыгрыш завершен!"; clearInterval(countdownInterval); return; }
+                const d = Math.floor(distance / 86400000); const h = Math.floor((distance % 86400000) / 3600000); const m = Math.floor((distance % 3600000) / 60000); const s = Math.floor((distance % 60000) / 1000);
+                timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
+            };
+            update(); countdownInterval = setInterval(update, 1000);
+        }
+
+        function renderPage() {
+            editableKeys.forEach(key => {
+                const element = document.querySelector(`[data-key="${key}"]`);
+                if (element) element.innerHTML = (pageContent[key] || '...');
+            });
+            startCountdown(pageContent.raffleEndTime);
+            dom.eventsContainer.innerHTML = '';
+            const isEditMode = document.body.classList.contains('edit-mode');
+
+            (pageContent.events || []).forEach((event, index) => {
+                const card = document.createElement('div');
+                card.className = 'event-card';
+
+                if (event.winner_name) {
+                    card.classList.add('is-winner');
+                    card.innerHTML = `
+                        <div class="event-image-container"><img src="${event.image_url}" alt="${event.title}" class="event-image"></div>
+                        <div class="event-content"><h3 class="event-title">${event.title || ''}</h3><p class="event-description">${event.description || ''}</p></div>
+                        <div class="event-footer"><div class="winner-display"><div class="winner-icon"><i class="fa-solid fa-trophy"></i></div><div class="winner-label">Победитель</div><div class="winner-name">${event.winner_name}</div></div></div>
+                        ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-reset-btn" data-index="${index}" title="Сбросить победителя и начать заново"><i class="fa-solid fa-arrow-rotate-left"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
+                    `;
+                } else {
+                    const userTickets = (userData.event_participations || {})[event.id] || 0;
+                    const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '';
+                    card.innerHTML = `
+                        <div class="event-image-container"><img src="${event.image_url}" alt="${event.title}" class="event-image"></div>
+                        <div class="event-content"><h3 class="event-title">${event.title || ''}</h3><p class="event-description">${event.description || ''}</p></div>
+                        <div class="event-footer">
+                            <div class="event-cost">Мин. ставка: ${event.tickets_cost} 🎟️</div>
+                            ${userTicketsHtml}
+                            <div class="event-button-container">
+                                <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}">Участвовать</button>
+                                <button class="participants-button" data-event-id="${event.id}" data-event-title="${event.title}">Топ-5</button>
+                            </div>
+                        </div>
+                        ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
+                    `;
+                }
+                dom.eventsContainer.appendChild(card);
+            });
+
+            if (isEditMode) {
+                dom.eventsContainer.insertAdjacentHTML('beforeend', `<div class="event-card create-event-card" style="min-height: 200px;"><i class="fa-solid fa-plus" style="font-size: 24px;"></i></div>`);
+            }
+        }
+
+        function showModal(modalElement) { modalElement.classList.remove('hidden'); }
+        function hideModal(modalElement) { modalElement.classList.add('hidden'); }
+
+        function showEventModal(eventData, index) {
+            dom.eventModalTitle.textContent = index === null ? 'Новый ивент' : 'Редактировать ивент';
+            dom.eventIndexInput.value = index;
+            dom.eventTitleInput.value = eventData ? eventData.title : '';
+            dom.eventDescriptionInput.value = eventData ? eventData.description : '';
+            dom.eventImageInput.value = eventData ? eventData.image_url : '';
+            dom.eventCostInput.value = eventData ? eventData.tickets_cost : '';
+            showModal(dom.eventModal);
+        }
+
+        function showTextModal(key) {
+            dom.textModalTitle.textContent = `Редактировать: ${key}`; dom.textKeyInput.value = key;
+            dom.textValueInput.value = pageContent[key] || '';
+            showModal(dom.textModal);
+        }
+
+        function showTimerModal() {
+            const now = new Date(); const currentVal = pageContent.raffleEndTime ? new Date(pageContent.raffleEndTime) : now;
+            if (currentVal < now) currentVal.setDate(now.getDate() + 1);
+            const yyyy = currentVal.getFullYear(); const mm = String(currentVal.getMonth() + 1).padStart(2, '0'); const dd = String(currentVal.getDate()).padStart(2, '0'); const hh = String(currentVal.getHours()).padStart(2, '0'); const min = String(currentVal.getMinutes()).padStart(2, '0');
+            dom.timerInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+            showModal(dom.timerModal);
+        }
+        
+        // --- ИЗМЕНЕНИЕ: Добавлена проверка на трейд-ссылку ---
+        function showTicketModal(eventId, eventTitle) {
+            if (!userData.trade_link) {
+                tg.showConfirm('Для участия в розыгрыше необходимо добавить Steam Trade ссылку в вашем профиле. Перейти в профиль?', (ok) => {
+                    if (ok) window.location.href = '/profile'; 
+                });
+                return;
+            }
+            const eventData = pageContent.events.find(e => e.id == eventId);
+            dom.userBalanceDisplay.textContent = userData.tickets || 0;
+            dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
+            dom.ticketEventIdInput.value = eventId;
+            dom.ticketAmountInput.value = ''; 
+            dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
+            dom.ticketAmountInput.max = userData.tickets || 0;
+            showModal(dom.ticketModal); 
+            dom.ticketAmountInput.focus();
+        }
+
+        async function showParticipantsModal(eventId, eventTitle) {
+            dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
+            dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-color-muted);">Загрузка...</li>';
+            showModal(dom.participantsModal);
+            try {
+                const response = await fetch('/api/v1/events/participants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId }) });
+                if (!response.ok) throw new Error('Ошибка при загрузке списка.');
+                const result = await response.json();
+                dom.participantsList.innerHTML = '';
+                if (result.participants.length === 0) {
+                    dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-color-muted);">Участников пока нет.</li>';
+                } else {
+                    result.participants.forEach((p, index) => {
+                        const li = document.createElement('li'); li.className = 'participant-item';
+                        const fullName = p.full_name || (p.username ? `@${p.username}` : 'Без имени');
+                        li.innerHTML = `<div class="participant-rank">${index + 1}.</div><div class="participant-name">${fullName}</div><div class="participant-tickets">${p.tickets_spent} 🎟️</div>`;
+                        dom.participantsList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                dom.participantsList.innerHTML = `<li style="text-align: center; color: var(--danger-color);">Не удалось загрузить данные.</li>`; console.error(error);
+            }
+        }
+        
+        async function initialize() {
+            tg.ready(); tg.expand();
+            if (!tg.initData) { document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка авторизации</h1><p>Пожалуйста, откройте эту страницу через Telegram.</p></div>`; return; }
+            try {
+                const [contentRes, userRes] = await Promise.all([
+                    fetch('/api/v1/events/content', {cache: 'no-store'}),
+                    fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
+                ]);
+                if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
+                pageContent = await contentRes.json(); userData = await userRes.json();
+                renderPage();
+                if (userData.is_admin) {
+                    dom.adminControls.style.display = 'flex';
+                    dom.editBtn.onclick = () => { document.body.classList.add('edit-mode'); dom.editBtn.style.display = 'none'; dom.saveBtn.style.display = 'inline'; renderPage(); };
+                    dom.saveBtn.onclick = async () => { 
+                        document.body.classList.remove('edit-mode'); 
+                        dom.editBtn.style.display = 'inline'; 
+                        dom.saveBtn.style.display = 'none'; 
+                        try {
+                            const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
+                            if(!response.ok) throw new Error('Ошибка сохранения');
+                            tg.showAlert('Изменения сохранены!');
+                        } catch (e) {
+                            tg.showAlert(e.message);
+                        }
+                        renderPage(); 
+                    };
+                }
+            } catch (error) { console.error("Ошибка инициализации:", error); tg.showAlert("Не удалось загрузить данные."); }
+        }
+
+        document.body.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            const editableText = e.target.closest('[data-editable]');
+            const createCard = e.target.closest('.create-event-card');
+            
+            if (document.body.classList.contains('edit-mode')) {
+                if (button?.matches('.card-edit-btn')) {
+                    showEventModal(pageContent.events[button.dataset.index], button.dataset.index);
+                } else if (button?.matches('.card-delete-btn')) {
+                    tg.showConfirm('Удалить этот ивент?', (ok) => {
+                        if (ok) { pageContent.events.splice(button.dataset.index, 1); renderPage(); }
+                    });
+                } else if (button?.matches('.card-reset-btn')) {
+                    tg.showConfirm('Сбросить победителя и очистить участников, чтобы запустить розыгрыш заново?', async (ok) => {
+                        if (ok) {
+                            const eventToReset = pageContent.events[button.dataset.index];
+                            const eventId = eventToReset.id;
+                            tg.MainButton.showProgress();
+                            try {
+                                const response = await fetch('/api/v1/admin/events/clear_participants', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ initData: tg.initData, event_id: eventId })
+                                });
+                                if (!response.ok) throw new Error('Не удалось очистить список участников.');
+                                delete eventToReset.winner_name;
+                                delete eventToReset.winner_id;
+                                renderPage();
+                                tg.showAlert('Розыгрыш сброшен и готов к запуску!');
+                            } catch (error) {
+                                tg.showAlert(error.message || 'Произошла ошибка.');
+                            } finally {
+                                tg.MainButton.hideProgress();
+                            }
+                        }
+                    });
+                } else if (createCard) {
+                    showEventModal(null, null);
+                } else if (editableText) {
+                    const key = editableText.dataset.key;
+                    if (key === 'raffleEndTime') showTimerModal(); else showTextModal(key);
+                }
+            } else {
+                if (button?.matches('.event-button')) {
+                    showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
+                } else if (button?.matches('.participants-button')) {
+                    showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
+                }
+            }
+        });
+
+        dom.eventModalForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const index = dom.eventIndexInput.value;
+            const isNew = !(index && index !== 'null');
+            const eventId = isNew ? Date.now() : pageContent.events[index].id;
+            const updatedEvent = {
+                id: eventId,
+                title: dom.eventTitleInput.value, description: dom.eventDescriptionInput.value,
+                image_url: dom.eventImageInput.value, tickets_cost: parseInt(dom.eventCostInput.value)
+            };
+            if (isNew) {
+                (pageContent.events || (pageContent.events = [])).push(updatedEvent);
+            } else {
+                const oldEvent = pageContent.events[index];
+                if(oldEvent.winner_name) updatedEvent.winner_name = oldEvent.winner_name;
+                if(oldEvent.winner_id) updatedEvent.winner_id = oldEvent.winner_id;
+                pageContent.events[index] = updatedEvent;
+            }
+            hideModal(dom.eventModal); renderPage();
+        });
+        
+        dom.textModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent[dom.textKeyInput.value] = dom.textValueInput.value; hideModal(dom.textModal); renderPage(); });
+        dom.timerModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent.raffleEndTime = dom.timerInput.value; hideModal(dom.timerModal); renderPage(); });
+        dom.ticketModalForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const eventId = parseInt(dom.ticketEventIdInput.value);
+            const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
+            if (!ticketsToSpend || ticketsToSpend <= 0) { tg.showAlert('Введите корректное количество билетов.'); return; }
+            if (ticketsToSpend > userData.tickets) { tg.showAlert('У вас недостаточно билетов.'); return; }
+            hideModal(dom.ticketModal); tg.MainButton.showProgress();
+            try {
+                const response = await fetch('/api/v1/events/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId, tickets_to_spend: ticketsToSpend }) });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Ошибка при отправке ставки.');
+                tg.showAlert('Ваша ставка принята!');
+                userData.tickets = result.new_ticket_balance;
+                userData.event_participations = userData.event_participations || {};
+                userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
+                renderPage();
+            } catch (error) { tg.showAlert(error.message); } finally { tg.MainButton.hideProgress(); }
+        });
+
+        [dom.eventModal, dom.textModal, dom.timerModal, dom.ticketModal, dom.participantsModal].forEach(modal => {
+            modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(modal); });
+        });
+
+        initialize();
+    });
+</script>
+</body>
+</html>

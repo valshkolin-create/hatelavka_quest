@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Мой профиль</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --text-color-muted: #b0b0b0;
+            --primary-color: #34c759;
+            --action-color: #007aff;
+            --danger-color: #ff3b30;
+            --surface-glass-bg: rgba(28, 28, 30, 0.75);
+            --surface-color-2: rgba(44, 44, 46, 0.85);
+        }
+        
+        /* --- Общие стили --- */
+        body { 
+            margin: 0; 
+            min-height: 100vh; 
+            background-color: var(--bg-color); 
+            background-image: var(--bg-gradient); 
+            color: var(--text-color); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        .main-content { 
+            flex-grow: 1; 
+            padding: 20px 15px; 
+            overflow-y: auto; 
+        }
+        .page-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 25px; 
+        }
+        .page-header-title { 
+            margin: 0; 
+            font-size: 20px; 
+            font-weight: 700; 
+            text-align: center; 
+            flex-grow: 1; 
+        }
+        .back-button { 
+            background: none; 
+            border: none; 
+            color: var(--action-color); 
+            font-size: 16px; 
+            cursor: pointer; 
+            padding: 5px; 
+            font-weight: 500; 
+            text-decoration: none; 
+        }
+        .card-container { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+        }
+
+        /* --- Карточки настроек (Steam, Twitch) --- */
+        .settings-card {
+            background-color: var(--surface-glass-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 12px;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        .settings-card-info {
+            flex-grow: 1;
+            overflow: hidden; /* Prevent long text from breaking layout */
+        }
+        .settings-card-info p {
+            margin: 0;
+            font-weight: 600;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px; /* Увеличен отступ для иконки */
+        }
+        .settings-card-info p i {
+            font-size: 18px; /* Увеличен размер иконки */
+        }
+        .settings-card-info span {
+            font-size: 12px;
+            color: var(--text-color-muted);
+            display: block;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .settings-card-btn {
+            background-color: var(--action-color);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            text-decoration: none;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        .settings-card-btn:active {
+            transform: scale(0.96);
+        }
+        .settings-card-btn.unlink { background-color: var(--danger-color); }
+        .settings-card-btn.twitch { background-color: #9146ff; }
+
+        /* --- Секция наград --- */
+        .rewards-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px 0 12px 0;
+        }
+        .rewards-header h2 {
+            font-size: 17px;
+            font-weight: 600;
+            margin: 0;
+        }
+        #delete-all-rewards-btn {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: none;
+            padding: 5px;
+        }
+        .reward-card {
+            background-color: var(--surface-color-2);
+            border-radius: 12px;
+            padding: 12px 15px;
+        }
+        .reward-card-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        .reward-card-details { flex-grow: 1; }
+        .reward-card-description {
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            color: var(--text-color-muted);
+        }
+        .reward-card-code-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 5px 5px 5px 12px;
+        }
+        .reward-card-code-input {
+            flex-grow: 1; background: none; border: none;
+            color: var(--primary-color);
+            font-family: monospace; font-size: 15px; font-weight: 600;
+            outline: none;
+        }
+        .reward-card-copy-btn {
+            flex-shrink: 0; background-color: var(--action-color); color: white;
+            border: none; border-radius: 6px;
+            width: 32px; height: 32px; font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .reward-card-meta {
+            font-size: 11px;
+            color: var(--text-color-muted);
+            margin: 8px 0 0 0;
+        }
+        .reward-card-delete-btn {
+            background: none; border: none;
+            color: var(--text-color-muted);
+            font-size: 17px; cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .reward-card-delete-btn:hover { color: var(--danger-color); }
+        
+        /* --- Загрузчик --- */
+        .loader-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); z-index: 300; 
+            display: flex; align-items: center; justify-content: center; 
+            backdrop-filter: blur(5px); 
+        }
+        .loader-overlay.hidden { display: none; }
+        .spinner { 
+            width: 40px; height: 40px; 
+            border: 4px solid rgba(255, 255, 255, 0.3); 
+            border-top-color: #fff; border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- Кастомное диалоговое окно --- */
+        .custom-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 400;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            box-sizing: border-box;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s 0.3s;
+        }
+        .custom-popup-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease, visibility 0s 0s;
+        }
+        .custom-popup {
+            background-color: #1c1c1e; /* Темный фон */
+            border-radius: 14px;
+            padding: 20px;
+            width: 100%;
+            max-width: 340px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .custom-popup-overlay.visible .custom-popup {
+            transform: scale(1);
+        }
+        .custom-popup h3 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+        }
+        .custom-popup p {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: var(--text-color-muted);
+            text-align: center;
+            line-height: 1.4;
+        }
+        .custom-popup input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #3a3a3c;
+            background-color: #2c2c2e;
+            color: white;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+        }
+        .custom-popup .popup-help {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .custom-popup .popup-help a {
+            color: var(--action-color);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .custom-popup .popup-help a i {
+            margin-right: 5px;
+        }
+        .custom-popup .popup-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .custom-popup .popup-btn {
+            width: 100%;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, background-color 0.2s ease;
+        }
+        .custom-popup .popup-btn:active {
+            transform: scale(0.97);
+        }
+        .custom-popup .popup-btn.primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .custom-popup .popup-btn.secondary {
+            background-color: #3a3a3c;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader-overlay" class="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <main class="main-content">
+        <div class="page-header">
+            <a href="/menu" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
+            <h1 id="profileName" class="page-header-title">Профиль</h1>
+            <div style="width: 50px;"></div> <!-- Spacer -->
+        </div>
+        
+        <div id="settings-list" class="card-container">
+            <!-- Карточки настроек будут рендериться здесь -->
+        </div>
+        
+        <div class="rewards-header">
+            <h2>Мои награды</h2>
+            <button id="delete-all-rewards-btn">Удалить все</button>
+        </div>
+
+        <div id="rewards-list" class="card-container">
+            <p style="text-align: center; color: var(--text-color-muted);">Загрузка наград...</p>
+        </div>
+    </main>
+
+    <!-- HTML для кастомного диалогового окна -->
+    <div id="custom-popup-overlay" class="custom-popup-overlay">
+        <div class="custom-popup">
+            <h3>Steam Trade ссылка</h3>
+            <p>Вставьте вашу полную ссылку для получения наград.</p>
+            <input type="url" id="popup-trade-link-input" placeholder="https://steamcommunity.com/tradeoffer/new/...">
+            <div class="popup-help">
+                <a href="https://steamcommunity.com/id/me/tradeoffers/privacy#trade_offer_access_url" target="_blank" rel="noopener noreferrer">
+                    <i class="fa-solid fa-circle-question"></i> Где найти?
+                </a>
+            </div>
+            <div class="popup-actions">
+                <button id="popup-cancel-btn" class="popup-btn secondary">Отмена</button>
+                <button id="popup-save-btn" class="popup-btn primary">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+try {
+    const tg = window.Telegram.WebApp;
+    
+    const dom = {
+        loaderOverlay: document.getElementById('loader-overlay'),
+        profileName: document.getElementById('profileName'),
+        rewardsList: document.getElementById('rewards-list'),
+        settingsList: document.getElementById('settings-list'),
+        deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
+        // Элементы кастомного окна
+        customPopupOverlay: document.getElementById('custom-popup-overlay'),
+        popupTradeLinkInput: document.getElementById('popup-trade-link-input'),
+        popupSaveBtn: document.getElementById('popup-save-btn'),
+        popupCancelBtn: document.getElementById('popup-cancel-btn'),
+    };
+
+    const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
+    const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
+
+    async function makeApiRequest(url, body = {}) {
+        const loaderTimeout = setTimeout(showLoader, 300);
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...body, initData: tg.initData })
+            });
+            if (response.status === 204) return null;
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
+            return result;
+        } catch (e) {
+            tg.showAlert(`Ошибка: ${e.message}`);
+            throw e;
+        } finally {
+            clearTimeout(loaderTimeout);
+            hideLoader();
+        }
+    }
+    
+    function renderSettings(userData) {
+        dom.settingsList.innerHTML = '';
+        
+        const steamCard = document.createElement('div');
+        steamCard.className = 'settings-card';
+        const hasTradeLink = !!userData.trade_link;
+        steamCard.innerHTML = `
+            <div class="settings-card-info">
+                <p>
+                    <i class="fa-brands fa-steam" style="color: #66c0f4;"></i>
+                    Steam Trade
+                </p>
+                <span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span>
+            </div>
+            <button id="edit-trade-link-btn" class="settings-card-btn">
+                ${hasTradeLink ? 'Изменить' : 'Привязать'}
+            </button>
+        `;
+        dom.settingsList.appendChild(steamCard);
+
+        const twitchCard = document.createElement('div');
+        twitchCard.className = 'settings-card';
+        if (userData.twitch_login) {
+            twitchCard.innerHTML = `
+                <div class="settings-card-info">
+                    <p>
+                        <i class="fa-brands fa-twitch" style="color: #9146ff;"></i>
+                        Twitch
+                    </p>
+                    <span>Привязан как: <b>${userData.twitch_login}</b></span>
+                </div>
+                <button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>
+            `;
+        } else {
+            const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
+            twitchCard.innerHTML = `
+                <div class="settings-card-info">
+                     <p>
+                        <i class="fa-brands fa-twitch" style="color: #9146ff;"></i>
+                        Twitch
+                    </p>
+                    <span>Привяжите аккаунт для наград</span>
+                </div>
+                <a href="${authUrl}" class="settings-card-btn twitch">Привязать</a>
+            `;
+        }
+        dom.settingsList.appendChild(twitchCard);
+    }
+
+    function renderRewards(rewards) {
+        dom.rewardsList.innerHTML = '';
+        if (!rewards || rewards.length === 0) {
+            dom.rewardsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">У вас пока нет наград.</p>';
+            dom.deleteAllRewardsBtn.style.display = 'none';
+            return;
+        }
+        
+        dom.deleteAllRewardsBtn.style.display = 'block';
+
+        rewards.forEach(reward => {
+            const card = document.createElement('div');
+            card.className = 'reward-card';
+            card.dataset.code = reward.code;
+            const claimedDate = new Date(reward.claimed_at);
+            const formattedDateTime = claimedDate.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' в');
+            const isNew = (Date.now() - claimedDate.getTime()) < 24 * 60 * 60 * 1000;
+            const newBadgeHtml = isNew ? `<span style="background-color: var(--primary-color); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 5px; margin-left: 8px;">NEW</span>` : '';
+            
+            card.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description">
+                            ${reward.description || `Награда на ${reward.reward_value} звёзд`} ⭐ ${newBadgeHtml}
+                        </p>
+                        <div class="reward-card-code-wrapper">
+                            <input type="text" class="reward-card-code-input" value="${reward.code}" readonly>
+                            <button class="reward-card-copy-btn" title="Копировать"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                        <p class="reward-card-meta">Получено: ${formattedDateTime}</p>
+                    </div>
+                    <button class="reward-card-delete-btn" title="Удалить промокод"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
+            dom.rewardsList.appendChild(card);
+        });
+    }
+
+    async function main() {
+        if (!tg.initData) {
+            document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
+            hideLoader(); return;
+        }
+        try {
+            const [userData, rewards] = await Promise.all([ makeApiRequest("/api/v1/user/me"), makeApiRequest("/api/v1/user/rewards") ]);
+            dom.profileName.textContent = userData.is_guest ? "Гость" : (userData.full_name || 'Профиль');
+            renderSettings(userData);
+            renderRewards(rewards);
+        } catch (e) {
+            dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
+        } finally {
+            hideLoader();
+        }
+    }
+    
+    // --- Функции для управления кастомным окном ---
+    function showTradeLinkPopup(currentLink) {
+        dom.popupTradeLinkInput.value = (currentLink && currentLink !== 'Ссылка не привязана') ? currentLink : '';
+        dom.customPopupOverlay.classList.add('visible');
+    }
+
+    function hideTradeLinkPopup() {
+        dom.customPopupOverlay.classList.remove('visible');
+    }
+
+    // --- Глобальные обработчики событий ---
+    dom.deleteAllRewardsBtn.addEventListener('click', () => {
+        tg.showConfirm("Вы уверены, что хотите удалить ВСЕ свои промокоды?", async (ok) => {
+            if (ok) {
+                await makeApiRequest('/api/v1/user/promocodes/delete-all');
+                renderRewards([]);
+                tg.showAlert('Все ваши промокоды были удалены.');
+            }
+        });
+    });
+
+    document.body.addEventListener('click', async (event) => {
+        const copyBtn = event.target.closest('.reward-card-copy-btn');
+        if (copyBtn) {
+            const input = copyBtn.parentElement.querySelector('.reward-card-code-input');
+            navigator.clipboard.writeText(input.value).then(() => {
+                const icon = copyBtn.querySelector('i');
+                icon.classList.replace('fa-copy', 'fa-check');
+                copyBtn.style.backgroundColor = 'var(--primary-color)';
+                setTimeout(() => {
+                    icon.classList.replace('fa-check', 'fa-copy');
+                    copyBtn.style.backgroundColor = 'var(--action-color)';
+                }, 2000);
+            });
+            return;
+        }
+        
+        const deleteBtn = event.target.closest('.reward-card-delete-btn');
+        if (deleteBtn) {
+            const card = deleteBtn.closest('.reward-card');
+            tg.showConfirm("Удалить этот промокод?", async (ok) => {
+                if (ok) {
+                    await makeApiRequest('/api/v1/user/promocodes/delete', { code: card.dataset.code });
+                    card.style.transition = 'opacity 0.3s, transform 0.3s';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        card.remove();
+                        if (dom.rewardsList.children.length === 1 && dom.rewardsList.children[0].tagName !== 'DIV') {
+                            renderRewards([]);
+                        }
+                    }, 300);
+                }
+            });
+            return;
+        }
+        
+        const unlinkBtn = event.target.closest('#unlink-twitch-btn');
+        if (unlinkBtn) {
+            tg.showConfirm("Отвязать аккаунт Twitch?", async (ok) => {
+                if (ok) {
+                    await makeApiRequest('/api/v1/user/twitch/unlink');
+                    main();
+                    tg.showAlert('Аккаунт Twitch отвязан.');
+                }
+            });
+            return;
+        }
+
+        const editTradeLinkBtn = event.target.closest('#edit-trade-link-btn');
+        if (editTradeLinkBtn) {
+            const currentLink = document.getElementById('trade-link-display').textContent;
+            showTradeLinkPopup(currentLink);
+        }
+    });
+
+    // --- Обработчики для кастомного окна ---
+    dom.popupCancelBtn.addEventListener('click', hideTradeLinkPopup);
+    dom.customPopupOverlay.addEventListener('click', (event) => {
+        if (event.target === dom.customPopupOverlay) {
+            hideTradeLinkPopup();
+        }
+    });
+
+    dom.popupSaveBtn.addEventListener('click', async () => {
+        const link = dom.popupTradeLinkInput.value.trim();
+        if (!link) {
+            tg.showAlert('Вы не ввели ссылку.');
+            return;
+        }
+        if (!link.startsWith('https://steamcommunity.com/tradeoffer/new/')) {
+            tg.showAlert('Пожалуйста, вставьте корректную ссылку.');
+            return;
+        }
+        
+        hideTradeLinkPopup();
+        await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: link });
+        main();
+        tg.showAlert('Ссылка сохранена!');
+    });
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+        tg.ready();
+        tg.expand();
+        main();
+    });
+
+} catch (e) {
+    document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Критическая ошибка</h1><p>${e.message}</p></div>`;
+}
+</script>
+</body>
+</html>
