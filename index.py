@@ -437,8 +437,12 @@ async def get_public_quests(
 
     # 3. Если активного квеста нет (или он был только что сброшен), показываем все доступные для старта
     completed_resp = await supabase.get(
-        "/quest_submissions",
-        params={"user_id": f"eq.{telegram_id}", "status": "eq.approved", "select": "quest_id"}
+        "/user_quest_progress",
+        params={
+            "user_id": f"eq.{telegram_id}",
+            "status": "in.(completed,claimed)",
+            "select": "quest_id"
+        }
     )
     completed_resp.raise_for_status()
     completed_quest_ids = {sub['quest_id'] for sub in completed_resp.json()}
