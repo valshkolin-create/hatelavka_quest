@@ -379,13 +379,28 @@
             const timerElement = document.getElementById('countdown-timer');
             if (!endTimeString || !timerElement) { if(timerElement) timerElement.textContent = 'Время не задано'; return; }
             const endTime = new Date(endTimeString).getTime();
+            
             const update = () => {
                 const distance = endTime - new Date().getTime();
                 if (distance < 0) { timerElement.innerHTML = '<div class="loader-spinner"></div><span>Подсчет итогов...</span>'; clearInterval(countdownInterval); return; }
-                const d = Math.floor(distance / 86400000); const h = Math.floor((distance % 86400000) / 3600000); const m = Math.floor((distance % 3600000) / 60000); const s = Math.floor((distance % 60000) / 1000);
-                timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
+                
+                const d = Math.floor(distance / 86400000); 
+                const h = Math.floor((distance % 86400000) / 3600000); 
+                const m = Math.floor((distance % 3600000) / 60000); 
+                const s = Math.floor((distance % 60000) / 1000);
+
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                if (document.body.classList.contains('browser-view')) {
+                    // Для браузера: переводим дни в часы и суммируем
+                    const totalHours = d * 24 + h;
+                    timerElement.textContent = `${totalHours}ч ${m}м ${s}с`;
+                } else {
+                    // Для Telegram: оставляем как было
+                    timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
+                }
             };
-            update(); countdownInterval = setInterval(update, 1000);
+            update(); 
+            countdownInterval = setInterval(update, 1000);
         }
 
         function renderPage() {
