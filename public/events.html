@@ -160,7 +160,7 @@
             const endTime = new Date(endTimeString).getTime();
             const update = () => {
                 const distance = endTime - new Date().getTime();
-                if (distance < 0) { timerElement.innerHTML = '<span>Идет подсчет итогов...</span><div class="loader-spinner"></div>'; clearInterval(countdownInterval); return; }
+                if (distance < 0) { timerElement.innerHTML = '<div class="loader-spinner"></div><span>Идет подсчет итогов...</span>'; clearInterval(countdownInterval); return; }
                 const d = Math.floor(distance / 86400000); const h = Math.floor((distance % 86400000) / 3600000); const m = Math.floor((distance % 3600000) / 60000); const s = Math.floor((distance % 60000) / 1000);
                 timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
             };
