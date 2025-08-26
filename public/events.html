@@ -64,6 +64,12 @@
             align-items: center;
             gap: 8px;
         }
+        /* --- НОВОЕ ПРАВИЛО ДЛЯ БРАУЗЕРА --- */
+        .browser-view .timer {
+            font-size: 2.8em; /* Увеличиваем размер шрифта в 2 раза */
+            margin-bottom: 35px; /* Добавляем немного отступа снизу */
+        }
+        
         .loader-spinner {
             width: 20px; height: 20px;
             border: 2px solid rgba(255, 255, 255, 0.2);
@@ -551,7 +557,6 @@
             tg.ready();
             tg.expand();
 
-            // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
             if (tg.initData && tg.initData.length > 0) {
                 // Пользователь в Telegram, загружаем все данные
                 try {
@@ -591,11 +596,11 @@
                 }
             } else {
                 // Пользователь в браузере, загружаем только публичный контент
+                document.body.classList.add('browser-view'); // --- ДОБАВЛЕНА ЭТА СТРОКА ---
                 try {
                     const contentRes = await fetch('/api/v1/events/content', {cache: 'no-store'});
                     if (!contentRes.ok) throw new Error("Ошибка сети при загрузке контента");
                     pageContent = await contentRes.json();
-                    // userData остается пустым объектом {}
                     renderPage();
                 } catch (error) {
                     console.error("Ошибка инициализации в браузере:", error);
