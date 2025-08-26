@@ -514,38 +514,21 @@
             }
         }
         
-        async function initialize() {
-            tg.ready(); tg.expand();
-            try {
-                const [contentRes, userRes] = await Promise.all([
-                    fetch('/api/v1/events/content', {cache: 'no-store'}),
-                    fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
-                ]);
-                if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
-                pageContent = await contentRes.json(); userData = await userRes.json();
-                renderPage();
-                if (userData.is_admin) {
-                    dom.adminControls.style.display = 'block';
-                    dom.editBtn.onclick = () => { 
-                        document.body.classList.add('edit-mode'); 
-                        dom.adminControls.classList.add('edit-mode-active');
-                        renderPage(); 
-                    };
-                    dom.saveBtn.onclick = async () => { 
-                        document.body.classList.remove('edit-mode'); 
-                        dom.adminControls.classList.remove('edit-mode-active');
-                        try {
-                            const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
-                            if(!response.ok) throw new Error('Ошибка сохранения');
-                            tg.showAlert('Изменения сохранены!');
-                        } catch (e) {
-                            tg.showAlert(e.message);
-                        }
-                        renderPage(); 
-                    };
-                }
-            } catch (error) { console.error("Ошибка инициализации:", error); tg.showAlert("Не удалось загрузить данные."); }
+async function initialize() {
+    try {
+        const response = await fetch('/api/v1/events/content', {cache: 'no-store'});
+        if (!response.ok) {
+            console.error("Ошибка сети при загрузке контента:", response.status, response.statusText);
+            document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка загрузки</h1><p>Не удалось загрузить данные событий.</p></div>`;
+            return;
         }
+        pageContent = await response.json();
+        renderPage();
+    } catch (error) {
+        console.error("Ошибка загрузки данных:", error);
+        document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Произошла ошибка при загрузке данных. Проверьте подключение.</p></div>`;
+    }
+}
 
         function makeModalDraggable(modalContent) {
             const header = modalContent.querySelector('.modal-header');
