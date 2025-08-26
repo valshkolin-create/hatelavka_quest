@@ -553,13 +553,13 @@ class QuestUpdateRequest(BaseModel):
     description: Optional[str] = ""
     reward_amount: Optional[int] = 0
     quest_type: str
-    target_value: Optional[int] = 0  # <-- ИЗМЕНЕНО
+    target_value: Optional[int] = 0
     icon_url: Optional[str] = None
-    is_active: bool
+    is_active: bool = True  # <-- ИЗМЕНЕНО
     duration_days: Optional[int] = None
     action_url: Optional[str] = None
     category_id: Optional[int] = None
-    is_repeatable: bool
+    is_repeatable: bool = False # <-- ИЗМЕНЕНО
 
 class SubmissionUpdateRequest(BaseModel): initData: str; submission_id: int; action: str
 class QuestDeleteRequest(BaseModel): initData: str; quest_id: int
@@ -854,7 +854,7 @@ async def update_quest(request_data: QuestUpdateRequest, supabase: httpx.AsyncCl
     if quest_data_to_update.get('reward_amount') is None:
         quest_data_to_update['reward_amount'] = 0
         
-    if quest_data_to_update.get('target_value') is None: # <-- ДОБАВЛЕНО
+    if quest_data_to_update.get('target_value') is None:
         quest_data_to_update['target_value'] = 0
 
     # Правило для согласованности с функцией создания квеста
