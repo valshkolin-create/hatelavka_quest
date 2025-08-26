@@ -5,28 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Гонка за скинами</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
         :root {
-            --bg-gradient: radial-gradient(ellipse at 50% 100%, #1e132b, #0e0816);
-            --text-color: #ffffff;
-            --text-color-muted: #b0b0b0;
-            --primary-color: #34c759;
-            --surface-glass-bg: rgba(28, 28, 30, 0.75);
-            --danger-color: #ff3b30;
-            --winner-color: #FFD700;
-            --card-default-border: #e84393;
-            --card-default-bg: #4a2f57;
+            --background-main: #100e19;
+            --surface-primary: #1c1a27;
+            --surface-secondary: #2a2738;
+            --border-color: #3c3852;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a09cb8;
+            --accent-primary: #00f2ea;
+            --accent-secondary: #d433ff;
+            --danger-color: #ff4d4d;
+            --winner-color: #ffd700;
+            --card-default-border: #d433ff;
+            --card-default-bg: #2a2738;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-image: var(--bg-gradient); background-color: #0e0816; color: var(--text-color); margin: 0; padding: 15px 15px 90px; }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-main);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 15px 15px 100px;
+            overflow-x: hidden;
+        }
+        
         .container { max-width: 800px; margin: 0 auto; }
-        .page-title { text-align: center; color: #ffffff; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+
+        .page-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
         .timer { 
             text-align: center; 
-            font-size: 1.3em;
+            font-size: 1.4em;
             font-weight: 600;
-            color: var(--primary-color); 
-            margin-bottom: 20px; 
+            color: var(--text-primary); 
+            margin-bottom: 25px; 
             letter-spacing: 1px; 
             display: flex;
             justify-content: center;
@@ -34,134 +64,172 @@
             gap: 8px;
         }
         .loader-spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: var(--primary-color);
+            width: 20px; height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: var(--accent-primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
+        .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
         
-        /* --- НОВЫЕ СТИЛИ ДЛЯ КАРТОЧЕК --- */
         .event-card {
-            border: 1px solid #3a3a3c;
+            background-color: var(--surface-primary);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 10px;
             display: flex;
             flex-direction: column;
             position: relative;
-            transition: all 0.3s ease;
-            overflow: hidden; /* Важно для ::before */
-            background-color: transparent; /* Убираем старый фон */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .event-card::before {
+        .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+
+        .card-display-area {
+            position: relative;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            padding: 10px;
+            padding-bottom: 0;
+        }
+        .card-display-area::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             height: 4px;
-            background-color: var(--card-border-color, var(--card-default-border));
-            z-index: 2;
+            background: var(--card-border-color, var(--card-default-border));
+            z-index: 3;
         }
         .card-background {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            background-image: var(--card-bg-image);
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
         }
+
         .event-image-container {
             width: 100%;
-            padding-top: 90%; /* Делает карточку более квадратной */
+            padding-top: 90%;
             position: relative;
-            margin-bottom: 10px;
-            border-radius: 6px;
-            flex-shrink: 0;
+            z-index: 2;
         }
-        /* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
-
         .event-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
-        .event-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 10px; z-index: 1; }
-        .event-title { font-size: 13px; font-weight: 600; text-align: center; color: #ffffff; margin-bottom: 4px; }
-        .event-description { font-size: 11px; color: var(--text-color-muted); text-align: center; }
-        .event-footer { width: 100%; flex-shrink: 0; z-index: 1; }
-        .event-cost { font-size: 12px; color: var(--text-color-muted); text-align: center; margin-bottom: 8px; height: 16px; }
-        .event-button-container { display: flex; flex-direction: column; gap: 8px; }
-        .event-button, .participants-button { width: 100%; padding: 10px; font-size: 13px; font-weight: 600; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; }
-        .participants-button { background-color: rgba(85, 85, 85, 0.8); }
-        .event-card.is-winner { border-color: var(--winner-color); }
-        .winner-display { text-align: center; padding: 10px 0; color: var(--winner-color); }
-        .winner-icon { font-size: 24px; margin-bottom: 8px; }
-        .winner-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-color-muted); }
-        .winner-name { font-size: 16px; font-weight: 700; margin-top: 4px; word-break: break-all; }
         
-        /* --- ИСПРАВЛЕНИЕ КНОПОК АДМИНА --- */
-        .admin-controls { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; }
-        .admin-controls button { background-color: var(--primary-color); color: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .card-info-area { padding: 10px; text-align: center; }
+        .event-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+        .event-description { font-size: 12px; color: var(--text-secondary); margin: 0 0 10px; }
+        .event-cost { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; height: 16px; }
+        .user-tickets { font-size: 11px; color: var(--accent-primary); font-weight: 600; margin-bottom: 10px; }
+
+        .event-button-container { display: flex; flex-direction: column; gap: 8px; }
+        .event-button, .participants-button {
+            width: 100%; padding: 10px; font-size: 13px; font-weight: 600;
+            border: none; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .event-button {
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            color: #000;
+        }
+        .event-button:hover { opacity: 0.9; }
+        .participants-button { background-color: var(--surface-secondary); color: var(--text-primary); }
+        .participants-button:hover { background-color: var(--border-color); }
+        
+        .event-card.is-winner .card-display-area::before { background: var(--winner-color); }
+        .winner-display { padding: 10px 0; color: var(--winner-color); }
+        .winner-icon { font-size: 24px; margin-bottom: 8px; }
+        .winner-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); }
+        .winner-name { font-size: 16px; font-weight: 700; margin-top: 4px; word-break: break-all; }
+
+        .admin-controls { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+        .admin-controls button {
+            background: linear-gradient(90deg, var(--accent-secondary), #ff70ab);
+            color: white; padding: 10px 20px; border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); border: none;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .admin-controls button:hover { transform: scale(1.05); }
         #save-btn { display: none; }
         .edit-mode-active #edit-btn { display: none; }
         .edit-mode-active #save-btn { display: inline-block; }
-        /* --- КОНЕЦ ИСПРАВЛЕНИЯ --- */
 
-        .app-footer { display: flex; justify-content: space-around; align-items: flex-start; background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); border-top: 1px solid rgba(58, 58, 60, 0.6); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; box-sizing: border-box; }
-        .footer-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-color-muted); font-size: 11px; cursor: pointer; text-decoration: none; flex: 1; position: relative; }
+        .app-footer {
+            display: flex; justify-content: space-around;
+            background-color: rgba(28, 26, 39, 0.8);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid var(--border-color);
+            width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            position: fixed; bottom: 0; left: 0; z-index: 100;
+        }
+        .footer-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-secondary); font-size: 11px; text-decoration: none; flex: 1; }
         .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
-        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--primary-color); font-weight: 600; }
+        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-primary); font-weight: 600; }
+        
         .hidden { display: none !important; }
-        .info-blocks-container { display: flex; flex-direction: column; gap: 10px; }
-        .info-block { background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); border: 1px solid rgba(58, 58, 60, 0.6); padding: 15px; border-radius: 10px; width: 100%; box-sizing: border-box; text-align: center; }
-        .info-title { color: var(--primary-color); margin-bottom: 8px; font-size: 14px; }
-        .info-description { font-size: 12px; color: var(--text-color-muted); line-height: 1.4; }
-        [data-editable] { cursor: pointer; border: 1px dashed transparent; transition: border-color 0.3s; border-radius: 4px; }
-        .edit-mode [data-editable] { min-height: 1em; }
-        .edit-mode [data-editable]:hover { border-color: var(--primary-color); }
-        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); border-radius: 10px; display: flex; gap: 8px; justify-content: center; align-items: center; z-index: 3; }
-        .card-btn { border: none; border-radius: 50%; width: 36px; height: 36px; color: white; font-size: 16px; cursor: pointer; }
+
+        .info-blocks-container { display: flex; flex-direction: column; gap: 15px; }
+        .info-block {
+            background-color: var(--surface-primary);
+            border: 1px solid var(--border-color);
+            padding: 20px; border-radius: 12px;
+            display: flex; align-items: center; gap: 15px;
+        }
+        .info-icon { font-size: 24px; color: var(--accent-primary); flex-shrink: 0; }
+        .info-title { color: var(--text-primary); margin: 0 0 5px; font-size: 15px; font-weight: 600; }
+        .info-description { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+        
+        .edit-mode [data-editable] { cursor: pointer; border: 1px dashed var(--accent-secondary); border-radius: 4px; padding: 2px 4px; }
+        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 12px; display: flex; gap: 8px; justify-content: center; align-items: center; z-index: 5; }
+        .card-btn { border: none; border-radius: 50%; width: 36px; height: 36px; color: white; font-size: 16px; cursor: pointer; transition: transform 0.2s ease; }
+        .card-btn:hover { transform: scale(1.1); }
         .card-edit-btn { background-color: #007aff; }
         .card-delete-btn { background-color: var(--danger-color); }
         .card-reset-btn { background-color: #ff9500; }
-        .create-event-card { border: 2px dashed var(--primary-color); justify-content: center; cursor: pointer; background: transparent; }
+        .create-event-card { border: 2px dashed var(--border-color); justify-content: center; cursor: pointer; background: transparent; color: var(--text-secondary); }
+        .create-event-card:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+        
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
-        .modal-content { background-color: #1c1c1e; border: 1px solid rgba(58, 58, 60, 0.6); padding: 20px; border-radius: 14px; width: 90%; max-width: 400px; }
+        .modal-content { background-color: var(--surface-primary); border: 1px solid var(--border-color); padding: 20px; border-radius: 14px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
         .modal-form { display: flex; flex-direction: column; gap: 15px; }
-        .modal-form input, .modal-form textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background-color: #333; color: white; font-size: 16px; box-sizing: border-box; }
-        .modal-form input[type="color"] { padding: 0; height: 40px; border: none; }
-        .modal-form button { background-color: var(--primary-color); border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
-        .modal-form label { font-size: 14px; color: var(--text-color-muted); margin-bottom: -10px; }
-        .user-tickets { font-size: 11px; color: var(--primary-color); text-align: center; margin-bottom: 4px; font-weight: 600; }
+        .modal-form input, .modal-form textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: var(--text-primary); font-size: 16px; }
+        .modal-form input[type="color"] { padding: 2px; height: 44px; border: none; }
+        .modal-form button { background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border: none; padding: 12px; border-radius: 10px; color: #000; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .modal-form label { font-size: 14px; color: var(--text-secondary); margin-bottom: -10px; }
+        
         #participants-list { list-style-type: none; padding: 0; margin: 0; }
-        .participant-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        .participant-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
         .participant-item:last-child { border-bottom: none; }
-        .participant-name { font-size: 14px; font-weight: 500; color: var(--text-color); flex-grow: 1; padding-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .participant-tickets { font-size: 14px; font-weight: 600; color: var(--primary-color); padding-left: 10px; }
-        .participant-rank { font-size: 14px; font-weight: 500; color: var(--text-color-muted); min-width: 25px; text-align: right; }
+        .participant-name { font-size: 14px; font-weight: 500; color: var(--text-primary); flex-grow: 1; padding-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .participant-tickets { font-size: 14px; font-weight: 600; color: var(--accent-primary); padding-left: 10px; }
+        .participant-rank { font-size: 14px; font-weight: 500; color: var(--text-secondary); min-width: 25px; text-align: right; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 class="page-title" data-key="mainTitle" data-editable>Призы за участие в ивентах</h1>
+        <h1 class="page-title" data-key="mainTitle" data-editable>Гонка за скинами</h1>
         <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
         <div id="events-list" class="events-container"></div>
         <div class="info-blocks-container">
             <div class="info-block">
-                <h3 class="info-title" data-key="infoBlock1Title" data-editable>Как победить?</h3>
-                <p class="info-description" data-key="infoBlock1Desc" data-editable>Чтобы получить приз, необходимо участвовать в ивентах.</p>
+                <i class="fa-solid fa-star info-icon"></i>
+                <div>
+                    <h3 class="info-title" data-key="infoBlock1Title" data-editable>Как победить?</h3>
+                    <p class="info-description" data-key="infoBlock1Desc" data-editable>Чтобы получить приз, необходимо участвовать в ивентах.</p>
+                </div>
             </div>
             <div class="info-block">
-                <h3 class="info-title" data-key="infoBlock2Title" data-editable>Как это работает?</h3>
-                <p class="info-description" data-key="infoBlock2Desc" data-editable>Каждый билет, потраченный на ивент, добавляет ваше имя в список участников.</p>
+                <i class="fa-solid fa-ticket info-icon"></i>
+                <div>
+                    <h3 class="info-title" data-key="infoBlock2Title" data-editable>Как это работает?</h3>
+                    <p class="info-description" data-key="infoBlock2Desc" data-editable>Каждый билет, потраченный на ивент, добавляет ваше имя в список участников.</p>
+                </div>
             </div>
             <div class="info-block">
-                <h3 class="info-title" data-key="infoBlock3Title" data-editable>Как забрать?</h3>
-                <p class="info-description" data-key="infoBlock3Desc" data-editable>Победитель получит уведомление от бота. Для получения приза убедитесь, что у вас в профиле указана Steam Trade ссылка.</p>
+                <i class="fa-solid fa-truck-fast info-icon"></i>
+                <div>
+                    <h3 class="info-title" data-key="infoBlock3Title" data-editable>Как забрать?</h3>
+                    <p class="info-description" data-key="infoBlock3Desc" data-editable>Победитель получит уведомление от бота. Для получения приза убедитесь, что у вас в профиле указана Steam Trade ссылка.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -178,18 +246,16 @@
                 <label>Описание (качество)</label><textarea id="event-description-input" rows="2"></textarea>
                 <label>URL картинки</label><input type="text" id="event-image-input" required>
                 <label>Стоимость в билетах</label><input type="number" id="event-cost-input" required min="1">
-                <!-- НОВЫЕ ПОЛЯ ДЛЯ ЦВЕТА -->
-                <label>Цвет верхней линии</label><input type="color" id="event-border-color-input" value="#e84393">
-                <label>Цвет фона</label><input type="color" id="event-bg-color-input" value="#4a2f57">
-                <!-- КОНЕЦ НОВЫХ ПОЛЕЙ -->
+                <label>Цвет верхней линии</label><input type="color" id="event-border-color-input" value="#d433ff">
+                <label>Цвет фона</label><input type="color" id="event-bg-color-input" value="#2a2738">
                 <button type="submit">Сохранить</button>
             </form>
         </div>
     </div>
     <div id="text-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="text-modal-title" style="margin-top: 0;">Редактировать текст</h3><form id="text-modal-form" class="modal-form"><input type="hidden" id="text-key-input"><textarea id="text-value-input" rows="4"></textarea><button type="submit">Сохранить</button></form></div></div>
     <div id="timer-modal" class="modal-overlay hidden"><div class="modal-content"><h3 style="margin-top: 0;">Назначить время итогов</h3><form id="timer-modal-form" class="modal-form"><label>Выберите дату и время</label><input type="datetime-local" id="timer-input" required><button type="submit">Установить</button></form></div></div>
-    <div id="ticket-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="ticket-modal-title" style="margin-top: 0;">Участие в розыгрыше</h3><p style="font-size: 14px; color: var(--text-color-muted);">Ваш баланс: <strong id="user-balance-display">0</strong> 🎟️</p><form id="ticket-modal-form" class="modal-form"><input type="hidden" id="ticket-event-id-input"><label>Сколько билетов поставить?</label><input type="number" id="ticket-amount-input" required min="1" placeholder="Например: 5"><button type="submit">Подтвердить</button></form></div></div>
-    <div id="participants-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="participants-modal-title" style="margin-top: 0;">Топ-участники</h3><ul id="participants-list" style="list-style-type: none; padding: 0;"></ul></div></div>
+    <div id="ticket-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="ticket-modal-title" style="margin-top: 0;">Участие в розыгрыше</h3><p style="font-size: 14px; color: var(--text-secondary);">Ваш баланс: <strong id="user-balance-display" style="color: var(--text-primary);">0</strong> 🎟️</p><form id="ticket-modal-form" class="modal-form"><input type="hidden" id="ticket-event-id-input"><label>Сколько билетов поставить?</label><input type="number" id="ticket-amount-input" required min="1" placeholder="Например: 5"><button type="submit">Подтвердить</button></form></div></div>
+    <div id="participants-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="participants-modal-title" style="margin-top: 0;">Топ-участники</h3><ul id="participants-list"></ul></div></div>
     
     <footer class="app-footer">
         <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
@@ -206,10 +272,8 @@
             adminControls: document.getElementById('admin-controls'), editBtn: document.getElementById('edit-btn'), saveBtn: document.getElementById('save-btn'),
             eventsContainer: document.getElementById('events-list'),
             eventModal: document.getElementById('event-modal'), eventModalTitle: document.getElementById('event-modal-title'), eventModalForm: document.getElementById('event-modal-form'), eventIndexInput: document.getElementById('event-index-input'), eventTitleInput: document.getElementById('event-title-input'), eventDescriptionInput: document.getElementById('event-description-input'), eventImageInput: document.getElementById('event-image-input'), eventCostInput: document.getElementById('event-cost-input'),
-            // --- НОВЫЕ ЭЛЕМЕНТЫ МОДАЛЬНОГО ОКНА ---
             eventBorderColorInput: document.getElementById('event-border-color-input'),
             eventBgColorInput: document.getElementById('event-bg-color-input'),
-            // --- КОНЕЦ ---
             textModal: document.getElementById('text-modal'), textModalTitle: document.getElementById('text-modal-title'), textModalForm: document.getElementById('text-modal-form'), textKeyInput: document.getElementById('text-key-input'), textValueInput: document.getElementById('text-value-input'),
             timerModal: document.getElementById('timer-modal'), timerModalForm: document.getElementById('timer-modal-form'), timerInput: document.getElementById('timer-input'),
             ticketModal: document.getElementById('ticket-modal'),
@@ -231,7 +295,7 @@
             const endTime = new Date(endTimeString).getTime();
             const update = () => {
                 const distance = endTime - new Date().getTime();
-                if (distance < 0) { timerElement.innerHTML = '<div class="loader-spinner"></div><span>Идет подсчет итогов...</span>'; clearInterval(countdownInterval); return; }
+                if (distance < 0) { timerElement.innerHTML = '<div class="loader-spinner"></div><span>Подсчет итогов...</span>'; clearInterval(countdownInterval); return; }
                 const d = Math.floor(distance / 86400000); const h = Math.floor((distance % 86400000) / 3600000); const m = Math.floor((distance % 3600000) / 60000); const s = Math.floor((distance % 60000) / 1000);
                 timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
             };
@@ -251,36 +315,38 @@
                 const card = document.createElement('div');
                 card.className = 'event-card';
 
-                // --- ЛОГИКА ПРИМЕНЕНИЯ СТИЛЕЙ ---
                 const borderColor = event.top_border_color || 'var(--card-default-border)';
                 const bgColor = event.bg_color || 'var(--card-default-bg)';
+                const dotPattern = `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)`;
                 
-                card.style.setProperty('--card-border-color', borderColor);
-                
-                const backgroundStyle = `radial-gradient(circle, transparent 1px, ${bgColor} 1px), radial-gradient(circle, transparent 1px, ${bgColor} 1px)`;
-                const backgroundSize = '6px 6px, 6px 6px';
-                const backgroundPosition = '0 0, 3px 3px';
-                // --- КОНЕЦ ЛОГИКИ ---
-
                 let cardInnerHtml = `
-                    <div class="card-background" style="background-image: ${backgroundStyle}; background-size: ${backgroundSize}; background-position: ${backgroundPosition};"></div>
+                    <div class="card-display-area" style="--card-border-color: ${borderColor};">
+                        <div class="card-background" style="background-color: ${bgColor}; background-image: ${dotPattern}; background-size: 4px 4px;"></div>
+                        <div class="event-image-container">
+                            <img src="${event.image_url}" alt="${event.title}" class="event-image">
+                        </div>
+                    </div>
                 `;
 
                 if (event.winner_name) {
                     card.classList.add('is-winner');
                     cardInnerHtml += `
-                        <div class="event-image-container"><img src="${event.image_url}" alt="${event.title}" class="event-image"></div>
-                        <div class="event-content"><h3 class="event-title">${event.title || ''}</h3><p class="event-description">${event.description || ''}</p></div>
-                        <div class="event-footer"><div class="winner-display"><div class="winner-icon"><i class="fa-solid fa-trophy"></i></div><div class="winner-label">Победитель</div><div class="winner-name">${event.winner_name}</div></div></div>
+                        <div class="card-info-area">
+                            <div class="winner-display">
+                                <div class="winner-icon"><i class="fa-solid fa-trophy"></i></div>
+                                <div class="winner-label">Победитель</div>
+                                <div class="winner-name">${event.winner_name}</div>
+                            </div>
+                        </div>
                         ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-reset-btn" data-index="${index}" title="Сбросить победителя и начать заново"><i class="fa-solid fa-arrow-rotate-left"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
                     `;
                 } else {
                     const userTickets = (userData.event_participations || {})[event.id] || 0;
                     const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '';
                     cardInnerHtml += `
-                        <div class="event-image-container"><img src="${event.image_url}" alt="${event.title}" class="event-image"></div>
-                        <div class="event-content"><h3 class="event-title">${event.title || ''}</h3><p class="event-description">${event.description || ''}</p></div>
-                        <div class="event-footer">
+                        <div class="card-info-area">
+                            <h3 class="event-title">${event.title || ''}</h3>
+                            <p class="event-description">${event.description || ''}</p>
                             <div class="event-cost">Мин. ставка: ${event.tickets_cost} 🎟️</div>
                             ${userTicketsHtml}
                             <div class="event-button-container">
@@ -296,7 +362,7 @@
             });
 
             if (isEditMode) {
-                dom.eventsContainer.insertAdjacentHTML('beforeend', `<div class="event-card create-event-card" style="min-height: 200px;"><i class="fa-solid fa-plus" style="font-size: 24px;"></i></div>`);
+                dom.eventsContainer.insertAdjacentHTML('beforeend', `<div class="event-card create-event-card" style="min-height: 200px; align-items: center; justify-content: center;"><i class="fa-solid fa-plus" style="font-size: 24px;"></i></div>`);
             }
         }
 
@@ -310,9 +376,8 @@
             dom.eventDescriptionInput.value = eventData ? eventData.description : '';
             dom.eventImageInput.value = eventData ? eventData.image_url : '';
             dom.eventCostInput.value = eventData ? eventData.tickets_cost : '';
-            // --- ЗАПОЛНЕНИЕ ЦВЕТОВ ---
-            dom.eventBorderColorInput.value = eventData ? eventData.top_border_color : '#e84393';
-            dom.eventBgColorInput.value = eventData ? eventData.bg_color : '#4a2f57';
+            dom.eventBorderColorInput.value = eventData && eventData.top_border_color ? eventData.top_border_color : '#d433ff';
+            dom.eventBgColorInput.value = eventData && eventData.bg_color ? eventData.bg_color : '#2a2738';
             showModal(dom.eventModal);
         }
 
@@ -350,7 +415,7 @@
 
         async function showParticipantsModal(eventId, eventTitle) {
             dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
-            dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-color-muted);">Загрузка...</li>';
+            dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Загрузка...</li>';
             showModal(dom.participantsModal);
             try {
                 const response = await fetch('/api/v1/events/participants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId }) });
@@ -358,7 +423,7 @@
                 const result = await response.json();
                 dom.participantsList.innerHTML = '';
                 if (result.participants.length === 0) {
-                    dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-color-muted);">Участников пока нет.</li>';
+                    dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Участников пока нет.</li>';
                 } else {
                     result.participants.forEach((p, index) => {
                         const li = document.createElement('li'); li.className = 'participant-item';
@@ -475,7 +540,6 @@
                 description: dom.eventDescriptionInput.value,
                 image_url: dom.eventImageInput.value, 
                 tickets_cost: parseInt(dom.eventCostInput.value),
-                // --- СОХРАНЕНИЕ ЦВЕТОВ ---
                 top_border_color: dom.eventBorderColorInput.value,
                 bg_color: dom.eventBgColorInput.value
             };
