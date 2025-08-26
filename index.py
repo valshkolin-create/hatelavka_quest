@@ -546,14 +546,14 @@ class QuestCreateRequest(BaseModel):
     category_id: Optional[int] = None # <-- ВОТ ЭТА СТРОКА БЫЛА ПРОПУЩЕНА
     is_repeatable: bool = False
 
-class QuestUpdateRequest(BaseModel): 
+class QuestUpdateRequest(BaseModel):
     initData: str
     quest_id: int
     title: str
     description: Optional[str] = ""
-    reward_amount: Optional[int] = 0 
+    reward_amount: Optional[int] = 0
     quest_type: str
-    target_value: Optional[int] = None
+    target_value: Optional[int] = 0  # <-- ИЗМЕНЕНО
     icon_url: Optional[str] = None
     is_active: bool
     duration_days: Optional[int] = None
@@ -844,30 +844,33 @@ async def create_quest(request_data: QuestCreateRequest, supabase: httpx.AsyncCl
 @app.post("/api/v1/admin/quest/update")
 async def update_quest(request_data: QuestUpdateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS: 
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
-    
+
     quest_id = request_data.quest_id
     quest_data_to_update = request_data.dict(exclude={'initData', 'quest_id'})
-    
+
+    # Проверяем оба числовых поля на случай, если они придут пустыми
     if quest_data_to_update.get('reward_amount') is None:
         quest_data_to_update['reward_amount'] = 0
-    
-    # ИЗМЕНЕНО: Добавлено правило для согласованности с функцией создания квеста.
-    # Теперь при обновлении автоматическому квесту также будет убираться категория.
+        
+    if quest_data_to_update.get('target_value') is None: # <-- ДОБАВЛЕНО
+        quest_data_to_update['target_value'] = 0
+
+    # Правило для согласованности с функцией создания квеста
     if quest_data_to_update.get('quest_type') != 'manual_check':
         quest_data_to_update['category_id'] = None
-    
+
     duration = quest_data_to_update.pop('duration_days', None)
     if duration is not None:
         if duration > 0:
             quest_data_to_update['end_date'] = (datetime.now(timezone.utc) + timedelta(days=duration)).isoformat()
             quest_data_to_update['start_date'] = datetime.now(timezone.utc).isoformat()
-        else: 
+        else:
             quest_data_to_update['end_date'] = None
-            
+
     await supabase.patch("/quests", params={"id": f"eq.{quest_id}"}, json=quest_data_to_update)
-    
+
     return {"message": f"Квест '{request_data.title}' успешно обновлен!"}
 
 @app.post("/api/v1/admin/user_challenges")
