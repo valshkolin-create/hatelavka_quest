@@ -440,7 +440,7 @@ async def get_public_quests(
         "/user_quest_progress",
         params={
             "user_id": f"eq.{telegram_id}",
-            "status": "in.(completed,claimed)",
+            "status": 'in.("completed","claimed")',
             "select": "quest_id"
         }
     )
