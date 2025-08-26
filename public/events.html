@@ -8,22 +8,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
         :root {
-            --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+            --bg-gradient: radial-gradient(ellipse at 50% 100%, #1e132b, #0e0816);
             --text-color: #ffffff;
             --text-color-muted: #b0b0b0;
             --primary-color: #34c759;
             --surface-glass-bg: rgba(28, 28, 30, 0.75);
             --danger-color: #ff3b30;
             --winner-color: #FFD700;
+            --card-default-border: #e84393;
+            --card-default-bg: #4a2f57;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-image: var(--bg-gradient); background-color: #000000; color: var(--text-color); margin: 0; padding: 15px 15px 90px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-image: var(--bg-gradient); background-color: #0e0816; color: var(--text-color); margin: 0; padding: 15px 15px 90px; }
         .container { max-width: 800px; margin: 0 auto; }
         .page-title { text-align: center; color: #ffffff; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
         .timer { 
             text-align: center; 
             font-size: 1.3em;
             font-weight: 600;
-            font-weight: bold; 
             color: var(--primary-color); 
             margin-bottom: 20px; 
             letter-spacing: 1px; 
@@ -44,25 +45,72 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
-        .event-card { background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); border: 1px solid rgba(58, 58, 60, 0.6); border-radius: 10px; padding: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; position: relative; transition: all 0.3s ease; }
-        .event-image-container { width: 100%; padding-top: 75%; position: relative; margin-bottom: 10px; background-color: #000; border-radius: 6px; flex-shrink: 0; }
+        .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
+        
+        /* --- НОВЫЕ СТИЛИ ДЛЯ КАРТОЧЕК --- */
+        .event-card {
+            border: 1px solid #3a3a3c;
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.3s ease;
+            overflow: hidden; /* Важно для ::before */
+            background-color: transparent; /* Убираем старый фон */
+        }
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background-color: var(--card-border-color, var(--card-default-border));
+            z-index: 2;
+        }
+        .card-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image: var(--card-bg-image);
+        }
+        .event-image-container {
+            width: 100%;
+            padding-top: 90%; /* Делает карточку более квадратной */
+            position: relative;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        /* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
+
         .event-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
-        .event-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 10px; }
+        .event-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 10px; z-index: 1; }
         .event-title { font-size: 13px; font-weight: 600; text-align: center; color: #ffffff; margin-bottom: 4px; }
         .event-description { font-size: 11px; color: var(--text-color-muted); text-align: center; }
-        .event-footer { width: 100%; flex-shrink: 0; }
+        .event-footer { width: 100%; flex-shrink: 0; z-index: 1; }
         .event-cost { font-size: 12px; color: var(--text-color-muted); text-align: center; margin-bottom: 8px; height: 16px; }
         .event-button-container { display: flex; flex-direction: column; gap: 8px; }
         .event-button, .participants-button { width: 100%; padding: 10px; font-size: 13px; font-weight: 600; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; }
-        .participants-button { background-color: #555; }
-        .event-card.is-winner { background: linear-gradient(145deg, #1a1a1a, #2b2b2b); border-color: var(--winner-color); }
+        .participants-button { background-color: rgba(85, 85, 85, 0.8); }
+        .event-card.is-winner { border-color: var(--winner-color); }
         .winner-display { text-align: center; padding: 10px 0; color: var(--winner-color); }
         .winner-icon { font-size: 24px; margin-bottom: 8px; }
         .winner-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-color-muted); }
         .winner-name { font-size: 16px; font-weight: 700; margin-top: 4px; word-break: break-all; }
-        .admin-controls { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background-color: var(--primary-color); color: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); z-index: 1000; display: flex; gap: 10px; }
-        .admin-controls button { background: none; border: none; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+        
+        /* --- ИСПРАВЛЕНИЕ КНОПОК АДМИНА --- */
+        .admin-controls { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+        .admin-controls button { background-color: var(--primary-color); color: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+        #save-btn { display: none; }
+        .edit-mode-active #edit-btn { display: none; }
+        .edit-mode-active #save-btn { display: inline-block; }
+        /* --- КОНЕЦ ИСПРАВЛЕНИЯ --- */
+
         .app-footer { display: flex; justify-content: space-around; align-items: flex-start; background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); border-top: 1px solid rgba(58, 58, 60, 0.6); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; box-sizing: border-box; }
         .footer-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-color-muted); font-size: 11px; cursor: pointer; text-decoration: none; flex: 1; position: relative; }
         .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
@@ -75,7 +123,7 @@
         [data-editable] { cursor: pointer; border: 1px dashed transparent; transition: border-color 0.3s; border-radius: 4px; }
         .edit-mode [data-editable] { min-height: 1em; }
         .edit-mode [data-editable]:hover { border-color: var(--primary-color); }
-        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); border-radius: 10px; display: flex; gap: 8px; justify-content: center; align-items: center; }
+        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); border-radius: 10px; display: flex; gap: 8px; justify-content: center; align-items: center; z-index: 3; }
         .card-btn { border: none; border-radius: 50%; width: 36px; height: 36px; color: white; font-size: 16px; cursor: pointer; }
         .card-edit-btn { background-color: #007aff; }
         .card-delete-btn { background-color: var(--danger-color); }
@@ -85,6 +133,7 @@
         .modal-content { background-color: #1c1c1e; border: 1px solid rgba(58, 58, 60, 0.6); padding: 20px; border-radius: 14px; width: 90%; max-width: 400px; }
         .modal-form { display: flex; flex-direction: column; gap: 15px; }
         .modal-form input, .modal-form textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background-color: #333; color: white; font-size: 16px; box-sizing: border-box; }
+        .modal-form input[type="color"] { padding: 0; height: 40px; border: none; }
         .modal-form button { background-color: var(--primary-color); border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
         .modal-form label { font-size: 14px; color: var(--text-color-muted); margin-bottom: -10px; }
         .user-tickets { font-size: 11px; color: var(--primary-color); text-align: center; margin-bottom: 4px; font-weight: 600; }
@@ -116,8 +165,27 @@
             </div>
         </div>
     </div>
-    <div id="admin-controls" class="admin-controls" style="display: none;"><button id="edit-btn">Редактировать</button><button id="save-btn" style="display: none;">Сохранить</button></div>
-    <div id="event-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="event-modal-title" style="margin-top: 0;">Редактировать ивент</h3><form id="event-modal-form" class="modal-form"><input type="hidden" id="event-index-input"><label>Название</label><input type="text" id="event-title-input" required><label>Описание (качество)</label><textarea id="event-description-input" rows="2"></textarea><label>URL картинки</label><input type="text" id="event-image-input" required><label>Стоимость в билетах</label><input type="number" id="event-cost-input" required min="1"><button type="submit">Сохранить</button></form></div></div>
+    <div id="admin-controls" class="admin-controls" style="display: none;">
+        <button id="edit-btn">Редактировать</button>
+        <button id="save-btn">Сохранить</button>
+    </div>
+    <div id="event-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="event-modal-title" style="margin-top: 0;">Редактировать ивент</h3>
+            <form id="event-modal-form" class="modal-form">
+                <input type="hidden" id="event-index-input">
+                <label>Название</label><input type="text" id="event-title-input" required>
+                <label>Описание (качество)</label><textarea id="event-description-input" rows="2"></textarea>
+                <label>URL картинки</label><input type="text" id="event-image-input" required>
+                <label>Стоимость в билетах</label><input type="number" id="event-cost-input" required min="1">
+                <!-- НОВЫЕ ПОЛЯ ДЛЯ ЦВЕТА -->
+                <label>Цвет верхней линии</label><input type="color" id="event-border-color-input" value="#e84393">
+                <label>Цвет фона</label><input type="color" id="event-bg-color-input" value="#4a2f57">
+                <!-- КОНЕЦ НОВЫХ ПОЛЕЙ -->
+                <button type="submit">Сохранить</button>
+            </form>
+        </div>
+    </div>
     <div id="text-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="text-modal-title" style="margin-top: 0;">Редактировать текст</h3><form id="text-modal-form" class="modal-form"><input type="hidden" id="text-key-input"><textarea id="text-value-input" rows="4"></textarea><button type="submit">Сохранить</button></form></div></div>
     <div id="timer-modal" class="modal-overlay hidden"><div class="modal-content"><h3 style="margin-top: 0;">Назначить время итогов</h3><form id="timer-modal-form" class="modal-form"><label>Выберите дату и время</label><input type="datetime-local" id="timer-input" required><button type="submit">Установить</button></form></div></div>
     <div id="ticket-modal" class="modal-overlay hidden"><div class="modal-content"><h3 id="ticket-modal-title" style="margin-top: 0;">Участие в розыгрыше</h3><p style="font-size: 14px; color: var(--text-color-muted);">Ваш баланс: <strong id="user-balance-display">0</strong> 🎟️</p><form id="ticket-modal-form" class="modal-form"><input type="hidden" id="ticket-event-id-input"><label>Сколько билетов поставить?</label><input type="number" id="ticket-amount-input" required min="1" placeholder="Например: 5"><button type="submit">Подтвердить</button></form></div></div>
@@ -138,6 +206,10 @@
             adminControls: document.getElementById('admin-controls'), editBtn: document.getElementById('edit-btn'), saveBtn: document.getElementById('save-btn'),
             eventsContainer: document.getElementById('events-list'),
             eventModal: document.getElementById('event-modal'), eventModalTitle: document.getElementById('event-modal-title'), eventModalForm: document.getElementById('event-modal-form'), eventIndexInput: document.getElementById('event-index-input'), eventTitleInput: document.getElementById('event-title-input'), eventDescriptionInput: document.getElementById('event-description-input'), eventImageInput: document.getElementById('event-image-input'), eventCostInput: document.getElementById('event-cost-input'),
+            // --- НОВЫЕ ЭЛЕМЕНТЫ МОДАЛЬНОГО ОКНА ---
+            eventBorderColorInput: document.getElementById('event-border-color-input'),
+            eventBgColorInput: document.getElementById('event-bg-color-input'),
+            // --- КОНЕЦ ---
             textModal: document.getElementById('text-modal'), textModalTitle: document.getElementById('text-modal-title'), textModalForm: document.getElementById('text-modal-form'), textKeyInput: document.getElementById('text-key-input'), textValueInput: document.getElementById('text-value-input'),
             timerModal: document.getElementById('timer-modal'), timerModalForm: document.getElementById('timer-modal-form'), timerInput: document.getElementById('timer-input'),
             ticketModal: document.getElementById('ticket-modal'),
@@ -179,9 +251,24 @@
                 const card = document.createElement('div');
                 card.className = 'event-card';
 
+                // --- ЛОГИКА ПРИМЕНЕНИЯ СТИЛЕЙ ---
+                const borderColor = event.top_border_color || 'var(--card-default-border)';
+                const bgColor = event.bg_color || 'var(--card-default-bg)';
+                
+                card.style.setProperty('--card-border-color', borderColor);
+                
+                const backgroundStyle = `radial-gradient(circle, transparent 1px, ${bgColor} 1px), radial-gradient(circle, transparent 1px, ${bgColor} 1px)`;
+                const backgroundSize = '6px 6px, 6px 6px';
+                const backgroundPosition = '0 0, 3px 3px';
+                // --- КОНЕЦ ЛОГИКИ ---
+
+                let cardInnerHtml = `
+                    <div class="card-background" style="background-image: ${backgroundStyle}; background-size: ${backgroundSize}; background-position: ${backgroundPosition};"></div>
+                `;
+
                 if (event.winner_name) {
                     card.classList.add('is-winner');
-                    card.innerHTML = `
+                    cardInnerHtml += `
                         <div class="event-image-container"><img src="${event.image_url}" alt="${event.title}" class="event-image"></div>
                         <div class="event-content"><h3 class="event-title">${event.title || ''}</h3><p class="event-description">${event.description || ''}</p></div>
                         <div class="event-footer"><div class="winner-display"><div class="winner-icon"><i class="fa-solid fa-trophy"></i></div><div class="winner-label">Победитель</div><div class="winner-name">${event.winner_name}</div></div></div>
@@ -190,7 +277,7 @@
                 } else {
                     const userTickets = (userData.event_participations || {})[event.id] || 0;
                     const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '';
-                    card.innerHTML = `
+                    cardInnerHtml += `
                         <div class="event-image-container"><img src="${event.image_url}" alt="${event.title}" class="event-image"></div>
                         <div class="event-content"><h3 class="event-title">${event.title || ''}</h3><p class="event-description">${event.description || ''}</p></div>
                         <div class="event-footer">
@@ -204,6 +291,7 @@
                         ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
                     `;
                 }
+                card.innerHTML = cardInnerHtml;
                 dom.eventsContainer.appendChild(card);
             });
 
@@ -222,6 +310,9 @@
             dom.eventDescriptionInput.value = eventData ? eventData.description : '';
             dom.eventImageInput.value = eventData ? eventData.image_url : '';
             dom.eventCostInput.value = eventData ? eventData.tickets_cost : '';
+            // --- ЗАПОЛНЕНИЕ ЦВЕТОВ ---
+            dom.eventBorderColorInput.value = eventData ? eventData.top_border_color : '#e84393';
+            dom.eventBgColorInput.value = eventData ? eventData.bg_color : '#4a2f57';
             showModal(dom.eventModal);
         }
 
@@ -293,12 +384,15 @@
                 pageContent = await contentRes.json(); userData = await userRes.json();
                 renderPage();
                 if (userData.is_admin) {
-                    dom.adminControls.style.display = 'flex';
-                    dom.editBtn.onclick = () => { document.body.classList.add('edit-mode'); dom.editBtn.style.display = 'none'; dom.saveBtn.style.display = 'inline'; renderPage(); };
+                    dom.adminControls.style.display = 'block';
+                    dom.editBtn.onclick = () => { 
+                        document.body.classList.add('edit-mode'); 
+                        dom.adminControls.classList.add('edit-mode-active');
+                        renderPage(); 
+                    };
                     dom.saveBtn.onclick = async () => { 
                         document.body.classList.remove('edit-mode'); 
-                        dom.editBtn.style.display = 'inline'; 
-                        dom.saveBtn.style.display = 'none'; 
+                        dom.adminControls.classList.remove('edit-mode-active');
                         try {
                             const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
                             if(!response.ok) throw new Error('Ошибка сохранения');
@@ -327,44 +421,32 @@
                 } else if (button?.matches('.card-reset-btn')) {
                     tg.showConfirm('Сбросить победителя и очистить участников, чтобы запустить розыгрыш заново?', async (ok) => {
                         if (ok) {
-                            // --- НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ ---
                             const eventIndex = button.dataset.index;
                             const eventToReset = pageContent.events[eventIndex];
                             if (!eventToReset) return;
-
                             const oldEventId = eventToReset.id;
                             tg.MainButton.showProgress();
-                            
                             try {
-                                // API-вызов теперь возвращает новый ID
                                 const response = await fetch('/api/v1/admin/events/clear_participants', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ initData: tg.initData, event_id: oldEventId })
                                 });
-
                                 const result = await response.json();
-                                if (!response.ok) {
-                                    throw new Error(result.detail || 'Не удалось сбросить розыгрыш.');
-                                }
-
-                                // Находим тот же ивент в нашем локальном массиве и обновляем его
+                                if (!response.ok) throw new Error(result.detail || 'Не удалось сбросить розыгрыш.');
                                 const targetEvent = pageContent.events.find(e => e.id === oldEventId);
                                 if (targetEvent) {
-                                    targetEvent.id = result.new_event_id; // <-- ГЛАВНОЕ ИЗМЕНЕНИЕ
+                                    targetEvent.id = result.new_event_id;
                                     delete targetEvent.winner_name;
                                     delete targetEvent.winner_id;
                                 }
-                                
-                                renderPage(); // Перерисовываем страницу с обновленными данными
+                                renderPage();
                                 tg.showAlert('Розыгрыш сброшен и готов к новому запуску!');
-
                             } catch (error) {
                                 tg.showAlert(error.message || 'Произошла ошибка.');
                             } finally {
                                 tg.MainButton.hideProgress();
                             }
-                            // --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
                         }
                     });
                 } else if (createCard) {
@@ -389,8 +471,13 @@
             const eventId = isNew ? Date.now() : pageContent.events[index].id;
             const updatedEvent = {
                 id: eventId,
-                title: dom.eventTitleInput.value, description: dom.eventDescriptionInput.value,
-                image_url: dom.eventImageInput.value, tickets_cost: parseInt(dom.eventCostInput.value)
+                title: dom.eventTitleInput.value, 
+                description: dom.eventDescriptionInput.value,
+                image_url: dom.eventImageInput.value, 
+                tickets_cost: parseInt(dom.eventCostInput.value),
+                // --- СОХРАНЕНИЕ ЦВЕТОВ ---
+                top_border_color: dom.eventBorderColorInput.value,
+                bg_color: dom.eventBgColorInput.value
             };
             if (isNew) {
                 (pageContent.events || (pageContent.events = [])).push(updatedEvent);
