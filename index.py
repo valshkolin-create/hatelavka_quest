@@ -451,7 +451,9 @@ async def get_public_quests(
     all_active_quests = all_quests_resp.json()
 
     available_quests = [
-        quest for quest in all_active_quests if quest['id'] not in completed_quest_ids
+        quest for quest in all_active_quests
+        # ИСПРАВЛЕНИЕ: Добавлена проверка на is_repeatable
+        if quest.get('is_repeatable') or quest['id'] not in completed_quest_ids
     ]
     
     for q in available_quests:
