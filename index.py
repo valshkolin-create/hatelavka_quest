@@ -440,7 +440,7 @@ async def get_public_quests(
         "/user_quest_progress",
         params={
             "user_id": f"eq.{telegram_id}",
-            "status": 'in.("completed","claimed")',
+            "claimed_at": "not.is.null",  # Проверяем, что награда получена (поле не пустое)
             "select": "quest_id"
         }
     )
