@@ -544,6 +544,19 @@
             // --- ИСПРАВЛЕНИЕ 1: Добавляем data-challenge-id ---
             const claimButton = `<button id="claim-challenge-btn" data-challenge-id="${challenge.id}" class="claim-reward-button" ${!canClaim ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> <span>Забрать награду</span></button>`;
 
+            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+            let progressTextContent = `${currentProgress} / ${target}`;
+            const conditionType = challenge.condition_type || '';
+
+            if (conditionType.includes('twitch_uptime')) {
+                progressTextContent = `${currentProgress} / ${target} мин.`;
+            } else if (conditionType.includes('twitch_messages')) {
+                progressTextContent = `💬 ${currentProgress} / ${target}`;
+            } else if (conditionType.includes('telegram_messages')) {
+                progressTextContent = `✉️ ${currentProgress} / ${target}`;
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
                     <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
@@ -552,7 +565,7 @@
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${percent}%;"></div>
                         <div class="progress-content">
-                            <span class="progress-text">${currentProgress} / ${target}</span>
+                            <span class="progress-text">${progressTextContent}</span>
                         </div>
                     </div>
                     <div id="challenge-timer" class="challenge-timer">...</div>
