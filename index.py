@@ -98,6 +98,10 @@ class EventClearRequest(BaseModel):
     initData: str
     event_id: int
 
+class EventConfirmSentRequest(BaseModel):
+    initData: str
+    event_id: int
+
 class TradeLinkUpdateRequest(BaseModel):
     initData: str
     trade_link: str
@@ -2423,6 +2427,51 @@ async def clear_event_participants(
     except Exception as e:
         logging.error(f"Ошибка при удалении участников ивента: {e}")
         raise HTTPException(status_code=500, detail="Не удалось очистить список участников.")
+
+@app.post("/api/v1/admin/events/confirm_sent")
+async def confirm_event_prize_sent(
+    request_data: EventConfirmSentRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Обрабатывает нажатие кнопки 'Подтвердить отправление' в админ-панели.
+    Устанавливает флаг prize_sent_confirmed в true для конкретного ивента.
+    """
+    # 1. Проверяем, что запрос пришел от администратора
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # 2. Получаем текущий JSON-контент страницы ивентов
+    content_resp = await supabase.get("/pages_content", params={"page_name": "eq.events", "select": "content", "limit": 1})
+    content_resp.raise_for_status()
+    page_data = content_resp.json()
+    if not page_data:
+        raise HTTPException(status_code=404, detail="Контент для страницы ивентов не найден.")
+    
+    content = page_data[0]['content']
+    
+    # 3. Находим нужный ивент в списке и обновляем его
+    event_found = False
+    for event in content.get("events", []):
+        # Ищем ивент по его уникальному ID
+        if event.get("id") == request_data.event_id:
+            event["prize_sent_confirmed"] = True
+            event_found = True
+            logging.info(f"Приз для ивента ID {request_data.event_id} помечен как отправленный.")
+            break
+
+    if not event_found:
+         raise HTTPException(status_code=404, detail=f"Ивент с ID {request_data.event_id} не найден в списке.")
+
+    # 4. Сохраняем обновленный JSON-контент обратно в базу данных
+    await supabase.patch(
+        "/pages_content",
+        params={"page_name": "eq.events"},
+        json={"content": content}
+    )
+
+    return {"message": "Отправка приза успешно подтверждена."}
         
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
