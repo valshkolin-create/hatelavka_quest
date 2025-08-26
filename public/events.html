@@ -498,6 +498,10 @@
         }
         
         function showTicketModal(eventId, eventTitle) {
+            if (!userData.id) {
+                alert('Пожалуйста, откройте эту страницу в Telegram для участия.');
+                return;
+            }
             if (!userData.trade_link) {
                 tg.showConfirm('Для участия в розыгрыше необходимо добавить Steam Trade ссылку в вашем профиле. Перейти в профиль?', (ok) => {
                     if (ok) window.location.href = '/profile'; 
@@ -516,6 +520,10 @@
         }
 
         async function showParticipantsModal(eventId, eventTitle) {
+            if (!tg.initData) {
+                alert('Пожалуйста, откройте эту страницу в Telegram, чтобы посмотреть участников.');
+                return;
+            }
             dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
             dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Загрузка...</li>';
             showModal(dom.participantsModal);
@@ -540,37 +548,60 @@
         }
         
         async function initialize() {
-            tg.ready(); tg.expand();
-            if (!tg.initData) { document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка авторизации</h1><p>Пожалуйста, откройте эту страницу через Telegram.</p></div>`; return; }
-            try {
-                const [contentRes, userRes] = await Promise.all([
-                    fetch('/api/v1/events/content', {cache: 'no-store'}),
-                    fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
-                ]);
-                if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
-                pageContent = await contentRes.json(); userData = await userRes.json();
-                renderPage();
-                if (userData.is_admin) {
-                    dom.adminControls.style.display = 'block';
-                    dom.editBtn.onclick = () => { 
-                        document.body.classList.add('edit-mode'); 
-                        dom.adminControls.classList.add('edit-mode-active');
-                        renderPage(); 
-                    };
-                    dom.saveBtn.onclick = async () => { 
-                        document.body.classList.remove('edit-mode'); 
-                        dom.adminControls.classList.remove('edit-mode-active');
-                        try {
-                            const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
-                            if(!response.ok) throw new Error('Ошибка сохранения');
-                            tg.showAlert('Изменения сохранены!');
-                        } catch (e) {
-                            tg.showAlert(e.message);
-                        }
-                        renderPage(); 
-                    };
+            tg.ready();
+            tg.expand();
+
+            // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+            if (tg.initData && tg.initData.length > 0) {
+                // Пользователь в Telegram, загружаем все данные
+                try {
+                    const [contentRes, userRes] = await Promise.all([
+                        fetch('/api/v1/events/content', {cache: 'no-store'}),
+                        fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
+                    ]);
+                    if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
+                    pageContent = await contentRes.json(); 
+                    userData = await userRes.json();
+                    
+                    renderPage();
+
+                    if (userData.is_admin) {
+                        dom.adminControls.style.display = 'block';
+                        dom.editBtn.onclick = () => { 
+                            document.body.classList.add('edit-mode'); 
+                            dom.adminControls.classList.add('edit-mode-active');
+                            renderPage(); 
+                        };
+                        dom.saveBtn.onclick = async () => { 
+                            document.body.classList.remove('edit-mode'); 
+                            dom.adminControls.classList.remove('edit-mode-active');
+                            try {
+                                const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
+                                if(!response.ok) throw new Error('Ошибка сохранения');
+                                tg.showAlert('Изменения сохранены!');
+                            } catch (e) {
+                                tg.showAlert(e.message);
+                            }
+                            renderPage(); 
+                        };
+                    }
+                } catch (error) { 
+                    console.error("Ошибка инициализации в Telegram:", error); 
+                    tg.showAlert("Не удалось загрузить данные."); 
                 }
-            } catch (error) { console.error("Ошибка инициализации:", error); tg.showAlert("Не удалось загрузить данные."); }
+            } else {
+                // Пользователь в браузере, загружаем только публичный контент
+                try {
+                    const contentRes = await fetch('/api/v1/events/content', {cache: 'no-store'});
+                    if (!contentRes.ok) throw new Error("Ошибка сети при загрузке контента");
+                    pageContent = await contentRes.json();
+                    // userData остается пустым объектом {}
+                    renderPage();
+                } catch (error) {
+                    console.error("Ошибка инициализации в браузере:", error);
+                    document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Не удалось загрузить информацию о розыгрышах. Попробуйте открыть страницу через Telegram.</p></div>`;
+                }
+            }
         }
 
         function makeModalDraggable(modalContent) {
