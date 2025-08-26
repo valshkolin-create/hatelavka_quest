@@ -27,7 +27,6 @@
             color: var(--primary-color); 
             margin-bottom: 20px; 
             letter-spacing: 1px; 
-            /* -- ДОБАВЬТЕ ЭТИ СТРОКИ НИЖЕ -- */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -240,7 +239,6 @@
             showModal(dom.timerModal);
         }
         
-        // --- ИЗМЕНЕНИЕ: Добавлена проверка на трейд-ссылку ---
         function showTicketModal(eventId, eventTitle) {
             if (!userData.trade_link) {
                 tg.showConfirm('Для участия в розыгрыше необходимо добавить Steam Trade ссылку в вашем профиле. Перейти в профиль?', (ok) => {
@@ -329,25 +327,44 @@
                 } else if (button?.matches('.card-reset-btn')) {
                     tg.showConfirm('Сбросить победителя и очистить участников, чтобы запустить розыгрыш заново?', async (ok) => {
                         if (ok) {
-                            const eventToReset = pageContent.events[button.dataset.index];
-                            const eventId = eventToReset.id;
+                            // --- НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ ---
+                            const eventIndex = button.dataset.index;
+                            const eventToReset = pageContent.events[eventIndex];
+                            if (!eventToReset) return;
+
+                            const oldEventId = eventToReset.id;
                             tg.MainButton.showProgress();
+                            
                             try {
+                                // API-вызов теперь возвращает новый ID
                                 const response = await fetch('/api/v1/admin/events/clear_participants', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ initData: tg.initData, event_id: eventId })
+                                    body: JSON.stringify({ initData: tg.initData, event_id: oldEventId })
                                 });
-                                if (!response.ok) throw new Error('Не удалось очистить список участников.');
-                                delete eventToReset.winner_name;
-                                delete eventToReset.winner_id;
-                                renderPage();
-                                tg.showAlert('Розыгрыш сброшен и готов к запуску!');
+
+                                const result = await response.json();
+                                if (!response.ok) {
+                                    throw new Error(result.detail || 'Не удалось сбросить розыгрыш.');
+                                }
+
+                                // Находим тот же ивент в нашем локальном массиве и обновляем его
+                                const targetEvent = pageContent.events.find(e => e.id === oldEventId);
+                                if (targetEvent) {
+                                    targetEvent.id = result.new_event_id; // <-- ГЛАВНОЕ ИЗМЕНЕНИЕ
+                                    delete targetEvent.winner_name;
+                                    delete targetEvent.winner_id;
+                                }
+                                
+                                renderPage(); // Перерисовываем страницу с обновленными данными
+                                tg.showAlert('Розыгрыш сброшен и готов к новому запуску!');
+
                             } catch (error) {
                                 tg.showAlert(error.message || 'Произошла ошибка.');
                             } finally {
                                 tg.MainButton.hideProgress();
                             }
+                            // --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
                         }
                     });
                 } else if (createCard) {
