@@ -23,6 +23,7 @@
             --winner-color: #ffd700;
             --card-default-border: #d433ff;
             --card-default-bg: #2a2738;
+            --card-default-dots: rgba(240, 240, 245, 0.1);
         }
 
         * {
@@ -114,13 +115,25 @@
         }
         .event-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
         
-        .card-info-area { padding: 10px; text-align: center; }
+        /* --- ИСПРАВЛЕНИЕ ВЫРАВНИВАНИЯ КНОПОК --- */
+        .card-info-area { 
+            padding: 10px; 
+            text-align: center; 
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* Заставляет этот блок занимать все доступное место */
+        }
+        .card-text-content {
+            flex-grow: 1; /* Заставляет текстовый блок расти, отталкивая кнопки вниз */
+        }
+        /* --- КОНЕЦ ИСПРАВЛЕНИЯ --- */
+
         .event-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
         .event-description { font-size: 12px; color: var(--text-secondary); margin: 0 0 10px; }
         .event-cost { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; height: 16px; }
-        .user-tickets { font-size: 11px; color: var(--accent-primary); font-weight: 600; margin-bottom: 10px; }
+        .user-tickets { font-size: 11px; color: var(--accent-primary); font-weight: 600; margin-bottom: 10px; min-height: 15px; }
 
-        .event-button-container { display: flex; flex-direction: column; gap: 8px; }
+        .event-button-container { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
         .event-button, .participants-button {
             width: 100%; padding: 10px; font-size: 13px; font-weight: 600;
             border: none; border-radius: 8px; cursor: pointer;
@@ -248,6 +261,8 @@
                 <label>Стоимость в билетах</label><input type="number" id="event-cost-input" required min="1">
                 <label>Цвет верхней линии</label><input type="color" id="event-border-color-input" value="#d433ff">
                 <label>Цвет фона</label><input type="color" id="event-bg-color-input" value="#2a2738">
+                <!-- НОВОЕ ПОЛЕ ДЛЯ ЦВЕТА ТОЧЕК -->
+                <label>Цвет точек</label><input type="color" id="event-dot-color-input" value="#f0f0f5">
                 <button type="submit">Сохранить</button>
             </form>
         </div>
@@ -274,6 +289,7 @@
             eventModal: document.getElementById('event-modal'), eventModalTitle: document.getElementById('event-modal-title'), eventModalForm: document.getElementById('event-modal-form'), eventIndexInput: document.getElementById('event-index-input'), eventTitleInput: document.getElementById('event-title-input'), eventDescriptionInput: document.getElementById('event-description-input'), eventImageInput: document.getElementById('event-image-input'), eventCostInput: document.getElementById('event-cost-input'),
             eventBorderColorInput: document.getElementById('event-border-color-input'),
             eventBgColorInput: document.getElementById('event-bg-color-input'),
+            eventDotColorInput: document.getElementById('event-dot-color-input'), // <-- НОВЫЙ ЭЛЕМЕНТ
             textModal: document.getElementById('text-modal'), textModalTitle: document.getElementById('text-modal-title'), textModalForm: document.getElementById('text-modal-form'), textKeyInput: document.getElementById('text-key-input'), textValueInput: document.getElementById('text-value-input'),
             timerModal: document.getElementById('timer-modal'), timerModalForm: document.getElementById('timer-modal-form'), timerInput: document.getElementById('timer-input'),
             ticketModal: document.getElementById('ticket-modal'),
@@ -287,6 +303,14 @@
             participantsList: document.getElementById('participants-list')
         };
         const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc'];
+
+        // --- НОВАЯ ФУНКЦИЯ ДЛЯ КОНВЕРТАЦИИ ЦВЕТА ---
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
 
         function startCountdown(endTimeString) {
             if (countdownInterval) clearInterval(countdownInterval);
@@ -317,11 +341,14 @@
 
                 const borderColor = event.top_border_color || 'var(--card-default-border)';
                 const bgColor = event.bg_color || 'var(--card-default-bg)';
-                const dotPattern = `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)`;
+                // --- ИЗМЕНЕНИЯ ДЛЯ ТОЧЕК ---
+                const dotColorHex = event.dot_color || '#f0f0f5';
+                const dotColorRgba = hexToRgba(dotColorHex, 0.1);
+                const dotPattern = `radial-gradient(circle at 1px 1px, ${dotColorRgba} 1px, transparent 0)`;
                 
                 let cardInnerHtml = `
                     <div class="card-display-area" style="--card-border-color: ${borderColor};">
-                        <div class="card-background" style="background-color: ${bgColor}; background-image: ${dotPattern}; background-size: 4px 4px;"></div>
+                        <div class="card-background" style="background-color: ${bgColor}; background-image: ${dotPattern}; background-size: 8px 8px;"></div>
                         <div class="event-image-container">
                             <img src="${event.image_url}" alt="${event.title}" class="event-image">
                         </div>
@@ -332,23 +359,27 @@
                     card.classList.add('is-winner');
                     cardInnerHtml += `
                         <div class="card-info-area">
-                            <div class="winner-display">
-                                <div class="winner-icon"><i class="fa-solid fa-trophy"></i></div>
-                                <div class="winner-label">Победитель</div>
-                                <div class="winner-name">${event.winner_name}</div>
+                            <div class="card-text-content">
+                                <div class="winner-display">
+                                    <div class="winner-icon"><i class="fa-solid fa-trophy"></i></div>
+                                    <div class="winner-label">Победитель</div>
+                                    <div class="winner-name">${event.winner_name}</div>
+                                </div>
                             </div>
                         </div>
                         ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-reset-btn" data-index="${index}" title="Сбросить победителя и начать заново"><i class="fa-solid fa-arrow-rotate-left"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
                     `;
                 } else {
                     const userTickets = (userData.event_participations || {})[event.id] || 0;
-                    const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '';
+                    const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
                     cardInnerHtml += `
                         <div class="card-info-area">
-                            <h3 class="event-title">${event.title || ''}</h3>
-                            <p class="event-description">${event.description || ''}</p>
-                            <div class="event-cost">Мин. ставка: ${event.tickets_cost} 🎟️</div>
-                            ${userTicketsHtml}
+                            <div class="card-text-content">
+                                <h3 class="event-title">${event.title || ''}</h3>
+                                <p class="event-description">${event.description || ''}</p>
+                                <div class="event-cost">Мин. ставка: ${event.tickets_cost} 🎟️</div>
+                                ${userTicketsHtml}
+                            </div>
                             <div class="event-button-container">
                                 <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}">Участвовать</button>
                                 <button class="participants-button" data-event-id="${event.id}" data-event-title="${event.title}">Топ-5</button>
@@ -378,6 +409,7 @@
             dom.eventCostInput.value = eventData ? eventData.tickets_cost : '';
             dom.eventBorderColorInput.value = eventData && eventData.top_border_color ? eventData.top_border_color : '#d433ff';
             dom.eventBgColorInput.value = eventData && eventData.bg_color ? eventData.bg_color : '#2a2738';
+            dom.eventDotColorInput.value = eventData && eventData.dot_color ? eventData.dot_color : '#f0f0f5'; // <-- ЗАПОЛНЕНИЕ ЦВЕТА ТОЧЕК
             showModal(dom.eventModal);
         }
 
@@ -541,7 +573,8 @@
                 image_url: dom.eventImageInput.value, 
                 tickets_cost: parseInt(dom.eventCostInput.value),
                 top_border_color: dom.eventBorderColorInput.value,
-                bg_color: dom.eventBgColorInput.value
+                bg_color: dom.eventBgColorInput.value,
+                dot_color: dom.eventDotColorInput.value // <-- СОХРАНЕНИЕ ЦВЕТА ТОЧЕК
             };
             if (isNew) {
                 (pageContent.events || (pageContent.events = [])).push(updatedEvent);
