@@ -2412,21 +2412,70 @@ async def clear_event_participants(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Удаляет всех участников (записи) для конкретного ивента.
+    Удаляет участников для старого ивента и заменяет его ID на новый,
+    фактически создавая новый розыгрыш.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    old_event_id = request_data.event_id
+
     try:
+        # 1. Получаем текущий JSON-контент страницы ивентов
+        content_resp = await supabase.get("/pages_content", params={"page_name": "eq.events", "select": "content", "limit": 1})
+        content_resp.raise_for_status()
+        page_data = content_resp.json()
+        if not page_data:
+            raise HTTPException(status_code=404, detail="Контент для страницы ивентов не найден.")
+
+        content = page_data[0]['content']
+        events = content.get("events", [])
+
+        # 2. Находим нужный ивент, генерируем новый ID и удаляем данные победителя
+        event_found = False
+        new_event_id = None
+        for i, event in enumerate(events):
+            if event.get("id") == old_event_id:
+                # Генерируем новый уникальный ID
+                new_event_id = int(uuid.uuid4().int / 1e27)
+                
+                # Создаем новый объект ивента, сохраняя ключевые поля
+                new_event = {
+                    "id": new_event_id,
+                    "title": event.get("title", "Без названия"),
+                    "image_url": event.get("image_url", ""),
+                    "tickets_cost": event.get("tickets_cost", 1),
+                    "description": event.get("description", "")
+                }
+                # Заменяем старый ивент новым в списке
+                events[i] = new_event
+                event_found = True
+                break
+
+        if not event_found:
+            raise HTTPException(status_code=404, detail=f"Ивент с ID {old_event_id} не найден.")
+
+        # 3. Сохраняем обновленный JSON-контент обратно в базу данных
+        await supabase.patch(
+            "/pages_content",
+            params={"page_name": "eq.events"},
+            json={"content": content}
+        )
+        
+        # 4. Удаляем участников, связанных со СТАРЫМ ID ивента
         await supabase.delete(
             "/event_entries",
-            params={"event_id": f"eq.{request_data.event_id}"}
+            params={"event_id": f"eq.{old_event_id}"}
         )
-        return {"message": f"Все участники для ивента {request_data.event_id} были удалены."}
+
+        return {
+            "message": f"Розыгрыш сброшен. Создан новый ивент с ID {new_event_id}.",
+            "new_event_id": new_event_id
+        }
     except Exception as e:
-        logging.error(f"Ошибка при удалении участников ивента: {e}")
-        raise HTTPException(status_code=500, detail="Не удалось очистить список участников.")
+        logging.error(f"Ошибка при сбросе ивента: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сбросить розыгрыш.")
 
 @app.post("/api/v1/admin/events/confirm_sent")
 async def confirm_event_prize_sent(
