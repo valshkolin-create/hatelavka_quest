@@ -468,7 +468,7 @@
         }
 
         function showEventModal(eventData, index) {
-            dom.eventModalTitle.querySelector('span').textContent = index === null ? 'Новый ивент' : 'Редактировать ивент';
+            dom.eventModalTitle.textContent = index === null ? 'Новый ивент' : 'Редактировать ивент';
             dom.eventIndexInput.value = index;
             dom.eventTitleInput.value = eventData ? eventData.title : '';
             dom.eventDescriptionInput.value = eventData ? eventData.description : '';
@@ -482,7 +482,7 @@
         }
 
         function showTextModal(key, isIcon = false) {
-            dom.textModalTitle.querySelector('span').textContent = `Редактировать: ${isIcon ? 'Иконка' : key}`; 
+            dom.textModalTitle.textContent = `Редактировать: ${isIcon ? 'Иконка' : key}`; 
             dom.textKeyInput.value = key;
             dom.textValueInput.value = pageContent[key] || '';
             if(isIcon) dom.textValueInput.placeholder = "Например: fa-solid fa-trophy";
@@ -506,7 +506,7 @@
             }
             const eventData = pageContent.events.find(e => e.id == eventId);
             dom.userBalanceDisplay.textContent = userData.tickets || 0;
-            dom.ticketModalTitle.querySelector('span').textContent = `Розыгрыш: ${eventTitle}`;
+            dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
             dom.ticketEventIdInput.value = eventId;
             dom.ticketAmountInput.value = ''; 
             dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
@@ -516,7 +516,7 @@
         }
 
         async function showParticipantsModal(eventId, eventTitle) {
-            dom.participantsModalTitle.querySelector('span').textContent = `Топ-5 участников: ${eventTitle}`;
+            dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
             dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Загрузка...</li>';
             showModal(dom.participantsModal);
             try {
