@@ -2173,16 +2173,23 @@ class EventItem(BaseModel):
     title: str
     image_url: str
     tickets_cost: int
+    top_border_color: Optional[str] = None
+    bg_color: Optional[str] = None
+    dot_color: Optional[str] = None
+    image_scale: Optional[float] = None
 
 class EventsPageContent(BaseModel):
     mainTitle: str
-    raffleEndTime: Optional[str] = None # <-- ВОТ ИСПРАВЛЕНИЕ
+    raffleEndTime: Optional[str] = None
     infoBlock1Title: str
     infoBlock1Desc: str
     infoBlock2Title: str
     infoBlock2Desc: str
     infoBlock3Title: str
     infoBlock3Desc: str
+    infoBlock1Icon: Optional[str] = None
+    infoBlock2Icon: Optional[str] = None
+    infoBlock3Icon: Optional[str] = None
     events: List[EventItem]
 
 class EventsPageUpdateRequest(BaseModel):
