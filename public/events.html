@@ -332,6 +332,31 @@
         <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>Профиль</span></a>
     </footer>
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tg = window.Telegram.WebApp;
+        let pageContent = {};
+        let countdownInterval = null;
+        let userData = {};
+        const dom = {
+            adminControls: document.getElementById('admin-controls'), editBtn: document.getElementById('edit-btn'), saveBtn: document.getElementById('save-btn'),
+            eventsContainer: document.getElementById('events-list'),
+            eventModal: document.getElementById('event-modal'), eventModalTitle: document.getElementById('event-modal-title'), eventModalForm: document.getElementById('event-modal-form'), eventIndexInput: document.getElementById('event-index-input'), eventTitleInput: document.getElementById('event-title-input'), eventDescriptionInput: document.getElementById('event-description-input'), eventImageInput: document.getElementById('event-image-input'), eventCostInput: document.getElementById('event-cost-input'),
+            eventBorderColorInput: document.getElementById('event-border-color-input'),
+            eventBgColorInput: document.getElementById('event-bg-color-input'),
+            eventDotColorInput: document.getElementById('event-dot-color-input'),
+            eventImageScaleInput: document.getElementById('event-image-scale-input'),
+            textModal: document.getElementById('text-modal'), textModalTitle: document.getElementById('text-modal-title'), textModalForm: document.getElementById('text-modal-form'), textKeyInput: document.getElementById('text-key-input'), textValueInput: document.getElementById('text-value-input'),
+            timerModal: document.getElementById('timer-modal'), timerModalForm: document.getElementById('timer-modal-form'), timerInput: document.getElementById('timer-input'),
+            ticketModal: document.getElementById('ticket-modal'),
+            ticketModalTitle: document.getElementById('ticket-modal-title'),
+            ticketModalForm: document.getElementById('ticket-modal-form'),
+            userBalanceDisplay: document.getElementById('user-balance-display'),
+            ticketEventIdInput: document.getElementById('ticket-event-id-input'),
+            ticketAmountInput: document.getElementById('ticket-amount-input'),
+            participantsModal: document.getElementById('participants-modal'),
+            participantsModalTitle: document.getElementById('participants-modal-title'),
+            participantsList: document.getElementById('participants-list')
+        };
         const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
 
         function hexToRgba(hex, alpha) {
@@ -514,52 +539,39 @@
             }
         }
         
-async function initialize() {
-    // Эта строка позволяет OBS загрузить страницу без ошибки
-    const isTelegramApp = typeof window.Telegram !== 'undefined' && window.Telegram.WebApp.initData;
-
-    try {
-        if (isTelegramApp) {
-            // Если запущено в Telegram
-            const tg = window.Telegram.WebApp;
-            tg.ready(); 
-            tg.expand();
-            const [contentRes, userRes] = await Promise.all([
-                fetch('/api/v1/events/content', {cache: 'no-store'}),
-                fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
-            ]);
-
-            if (!contentRes.ok || !userRes.ok) {
-                tg.showAlert("Не удалось загрузить данные.");
-                throw new Error("Ошибка сети");
-            }
-            
-            pageContent = await contentRes.json();
-            userData = await userRes.json();
-            renderPage();
-
-            if (userData.is_admin) {
-                dom.adminControls.style.display = 'block';
-                // ... (остальной код для админки) ...
-            }
-        } else {
-            // Если запущено в обычном браузере (например, в OBS)
-            const response = await fetch('/api/v1/events/content', {cache: 'no-store'});
-            if (!response.ok) {
-                console.error("Ошибка сети при загрузке контента:", response.status, response.statusText);
-                document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка загрузки</h1><p>Не удалось загрузить данные событий.</p></div>`;
-                return;
-            }
-            pageContent = await response.json();
-            renderPage();
+        async function initialize() {
+            tg.ready(); tg.expand();
+            if (!tg.initData) { document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка авторизации</h1><p>Пожалуйста, откройте эту страницу через Telegram.</p></div>`; return; }
+            try {
+                const [contentRes, userRes] = await Promise.all([
+                    fetch('/api/v1/events/content', {cache: 'no-store'}),
+                    fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
+                ]);
+                if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
+                pageContent = await contentRes.json(); userData = await userRes.json();
+                renderPage();
+                if (userData.is_admin) {
+                    dom.adminControls.style.display = 'block';
+                    dom.editBtn.onclick = () => { 
+                        document.body.classList.add('edit-mode'); 
+                        dom.adminControls.classList.add('edit-mode-active');
+                        renderPage(); 
+                    };
+                    dom.saveBtn.onclick = async () => { 
+                        document.body.classList.remove('edit-mode'); 
+                        dom.adminControls.classList.remove('edit-mode-active');
+                        try {
+                            const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
+                            if(!response.ok) throw new Error('Ошибка сохранения');
+                            tg.showAlert('Изменения сохранены!');
+                        } catch (e) {
+                            tg.showAlert(e.message);
+                        }
+                        renderPage(); 
+                    };
+                }
+            } catch (error) { console.error("Ошибка инициализации:", error); tg.showAlert("Не удалось загрузить данные."); }
         }
-    } catch (error) { 
-        console.error("Ошибка инициализации:", error); 
-        if (isTelegramApp) {
-             tg.showAlert("Не удалось загрузить данные.");
-        }
-    }
-}
 
         function makeModalDraggable(modalContent) {
             const header = modalContent.querySelector('.modal-header');
