@@ -1221,6 +1221,7 @@ async def sync_leaderboard_to_supabase(
     logging.info("🎉 Синхронизация статистики Twitch завершена.")
     return {"message": "Leaderboard sync completed."}
     
+# --- ФИНАЛЬНАЯ ВЕРСИЯ КОДА ДЛЯ VERCEL ---
 @app.post("/api/v1/challenges/{challenge_id}/claim")
 async def claim_challenge(
     challenge_id: int,
@@ -1236,51 +1237,26 @@ async def claim_challenge(
     try:
         logging.info(f"🔹 Пользователь {current_user_id} запрашивает награду за челлендж {challenge_id}")
 
-        # Вызываем нашу исправленную RPC-функцию в Supabase
+        # Делаем один-единственный вызов к нашей новой мощной функции
         rpc_payload = {
             "p_user_id": current_user_id,
             "p_challenge_id": challenge_id
         }
-
-        logging.info(f"🔹 Вызов RPC-функции 'claim_challenge' с параметрами: {rpc_payload}")
         
-        rpc_response = await supabase.post("/rpc/claim_challenge", json=rpc_payload)
-        rpc_response.raise_for_status() # Проверяем на ошибки 5xx или 4xx
-
-        was_claimed = rpc_response.json()
-
-        # Если функция вернула false, значит, условия не были выполнены
-        if not was_claimed:
-            logging.warning(f"🔹 RPC 'claim_challenge' вернула false для пользователя {current_user_id} и челленджа {challenge_id}.")
-            raise HTTPException(status_code=404, detail="Нет выполненных челленджей для получения награды.")
-
-        # --- После успешного клейма, выдаем награду (промокод) ---
+        rpc_response = await supabase.post("/rpc/claim_challenge_and_get_reward", json=rpc_payload)
         
-        # 1. Находим ID записи user_challenge, чтобы передать его в следующую функцию
-        user_challenge_resp = await supabase.get(
-            "/user_challenges", 
-            params={"user_id": f"eq.{current_user_id}", "challenge_id": f"eq.{challenge_id}", "select": "id", "limit": 1}
-        )
-        user_challenge_id = user_challenge_resp.json()[0]['id']
+        # Если функция вернула ошибку (например, промокоды кончились), она попадет сюда
+        if rpc_response.status_code != 200:
+            error_details = rpc_response.json().get("message", "Не удалось получить награду.")
+            raise HTTPException(status_code=400, detail=error_details)
 
-        # 2. Вызываем функцию выдачи промокода
-        award_payload = {
-            "p_user_id": current_user_id,
-            "p_source_type": "challenge",
-            "p_source_id": user_challenge_id
-        }
-        
-        logging.info(f"🔹 Вызов RPC 'award_reward_and_get_promocode' с параметрами: {award_payload}")
-
-        award_response = await supabase.post("/rpc/award_reward_and_get_promocode", json=award_payload)
-        award_response.raise_for_status()
-        
-        promocode = award_response.json()
+        # Функция возвращает сам промокод в виде текста
+        promocode_text = rpc_response.text.strip('"')
 
         return {
             "success": True,
             "message": "Награда получена!",
-            "promocode": promocode
+            "promocode": promocode_text 
         }
 
     except httpx.HTTPStatusError as e:
