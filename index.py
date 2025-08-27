@@ -1728,6 +1728,23 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
         raise HTTPException(status_code=401, detail="Доступ запрещен")
     telegram_id = user_info["id"]
 
+    # --- 🔥 НАЧАЛО НОВОГО БЛОКА ПРОВЕРКИ КУЛДАУНА ---
+    # 1. Получаем пользователя и дату его последнего челленджа
+    user_resp = await supabase.get(
+        "/users",
+        params={"telegram_id": f"eq.{telegram_id}", "select": "last_challenge_completed_at"}
+    )
+    user_data = user_resp.json()
+    
+    if user_data and user_data[0].get("last_challenge_completed_at"):
+        last_completed_str = user_data[0]["last_challenge_completed_at"]
+        last_completed_date = datetime.fromisoformat(last_completed_str).date()
+        
+        # 2. Сравниваем с СЕГОДНЯШНЕЙ датой (в UTC)
+        if last_completed_date >= datetime.now(timezone.utc).date():
+            raise HTTPException(status_code=429, detail="Вы уже выполнили челлендж сегодня. Новый челлендж будет доступен завтра.")
+    # --- 🔥 КОНЕЦ НОВОГО БЛОКА ---
+
     # 1. Проверяем, есть ли уже активный челлендж
     pending_resp = await supabase.get(
         "/user_challenges",
@@ -2135,6 +2152,27 @@ async def get_all_quests(request_data: InitDataRequest, supabase: httpx.AsyncCli
     resp = await supabase.get("/quests", params={"select": "*", "order": "id.desc"})
     resp.raise_for_status()
     return resp.json()
+
+@app.post("/api/v1/admin/challenges/reset-cooldown")
+async def reset_challenge_cooldown(
+    request_data: AdminResetCooldownRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    user_id_to_reset = request_data.user_id_to_reset
+
+    try:
+        await supabase.post(
+            "/rpc/admin_reset_challenge_cooldown",
+            json={"p_user_id": user_id_to_reset}
+        )
+        return {"message": f"Кулдаун на челленджи для пользователя {user_id_to_reset} успешно сброшен."}
+    except Exception as e:
+        logging.error(f"Ошибка при сбросе кулдауна для {user_id_to_reset}: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось сбросить кулдаун.")
 # --- Pydantic модели для контента страницы ивентов ---
 class EventItem(BaseModel):
     id: int
