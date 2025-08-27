@@ -775,7 +775,7 @@ async def get_current_user_data(
 
         # 5. Собираем финальный ответ, используя данные из profile_data
         final_response_data = {
-            "id": telegram_id, # <--- ВОТ ЭТО ИСПРАВЛЕНИЕ
+            "id": telegram_id,
             "is_guest": False,
             "full_name": profile_data.get("full_name"),
             "twitch_id": profile_data.get("twitch_id"),
@@ -785,6 +785,8 @@ async def get_current_user_data(
             "active_quest_progress": active_progress,
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
+            # 🔥 ВОТ НОВАЯ СТРОКА:
+            "completed_challenges": profile_data.get("completed_challenges_count", 0),
             "event_participations": event_participations,
             "twitch_stats": {
                 "messages": profile_data.get("total_message_count", 0),
