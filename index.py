@@ -1236,71 +1236,60 @@ async def claim_challenge(
     try:
         logging.info(f"🔹 Пользователь {current_user_id} запрашивает награду за челлендж {challenge_id}")
 
-        # Ищем user_challenge, который выполнен, но еще не востребован
-        response = await supabase.get(
-            "/user_challenges",
-            params={
-                "user_id": f"eq.{current_user_id}",
-                "challenge_id": f"eq.{challenge_id}",
-                "status": "eq.completed",
-                "claimed_at": "is.null",
-                "select": "*",
-                "limit": 1
-            }
-        )
-        response.raise_for_status()
-        user_challenges_data = response.json()
+        # Вызываем нашу исправленную RPC-функцию в Supabase
+        rpc_payload = {
+            "p_user_id": current_user_id,
+            "p_challenge_id": challenge_id
+        }
 
-        if not user_challenges_data:
+        logging.info(f"🔹 Вызов RPC-функции 'claim_challenge' с параметрами: {rpc_payload}")
+        
+        rpc_response = await supabase.post("/rpc/claim_challenge", json=rpc_payload)
+        rpc_response.raise_for_status() # Проверяем на ошибки 5xx или 4xx
+
+        was_claimed = rpc_response.json()
+
+        # Если функция вернула false, значит, условия не были выполнены
+        if not was_claimed:
+            logging.warning(f"🔹 RPC 'claim_challenge' вернула false для пользователя {current_user_id} и челленджа {challenge_id}.")
             raise HTTPException(status_code=404, detail="Нет выполненных челленджей для получения награды.")
 
-        user_challenge = user_challenges_data[0]
-        user_challenge_id = user_challenge["id"]
+        # --- После успешного клейма, выдаем награду (промокод) ---
+        
+        # 1. Находим ID записи user_challenge, чтобы передать его в следующую функцию
+        user_challenge_resp = await supabase.get(
+            "/user_challenges", 
+            params={"user_id": f"eq.{current_user_id}", "challenge_id": f"eq.{challenge_id}", "select": "id", "limit": 1}
+        )
+        user_challenge_id = user_challenge_resp.json()[0]['id']
 
-        logging.info(f"🔹 Найден user_challenge с ID: {user_challenge_id}. Статус: {user_challenge['status']}, claimed_at: {user_challenge['claimed_at']}")
-
-        # Эта проверка дублируется с SQL, но для надежности можно оставить
-        if user_challenge["claimed_at"] is not None:
-            raise HTTPException(status_code=400, detail="Награда уже была получена.")
-
-        if user_challenge["status"] != "completed":
-            raise HTTPException(status_code=400, detail="Челлендж еще не выполнен.")
-
-        rpc_payload = {
+        # 2. Вызываем функцию выдачи промокода
+        award_payload = {
             "p_user_id": current_user_id,
             "p_source_type": "challenge",
             "p_source_id": user_challenge_id
         }
-
-        logging.info(f"🔹 Вызов RPC с параметрами: {rpc_payload}")
-
-        rpc_response = await supabase.post("/rpc/award_reward_and_get_promocode", json=rpc_payload)
         
-        logging.info(f"🔹 RPC статус: {rpc_response.status_code}")
-        logging.info(f"🔹 RPC тело: {rpc_response.text}")
-        
-        if rpc_response.status_code != 200:
-            try:
-                error_detail = rpc_response.json().get("message", "Не удалось выдать промокод.")
-            except:
-                error_detail = "Не удалось выдать промокод. Проверьте логи Supabase."
-            raise HTTPException(status_code=400, detail=error_detail)
+        logging.info(f"🔹 Вызов RPC 'award_reward_and_get_promocode' с параметрами: {award_payload}")
 
-        promocode = rpc_response.json()
+        award_response = await supabase.post("/rpc/award_reward_and_get_promocode", json=award_payload)
+        award_response.raise_for_status()
+        
+        promocode = award_response.json()
 
         return {
             "success": True,
-            "show_reward_modal": True,
             "message": "Награда получена!",
             "promocode": promocode
         }
 
     except httpx.HTTPStatusError as e:
-        logging.error(f"❌ Ошибка HTTP при взаимодействии с Supabase: {e.response.text}", exc_info=True)
-        raise HTTPException(status_code=e.response.status_code, detail="Ошибка при взаимодействии с базой данных.")
+        error_details = e.response.json().get("message", "Ошибка при взаимодействии с базой данных.")
+        logging.error(f"❌ Ошибка HTTP при выдаче награды за челлендж: {error_details}", exc_info=True)
+        raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
         logging.error(f"❌ Неизвестная ошибка при выдаче награды: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
         
 @app.get("/api/v1/challenges/{challenge_id}/debug")
 async def check_challenge_state(
