@@ -187,7 +187,6 @@
       }
     }
 
-    /* ⭐ ИЗМЕНЕНИЕ: Новые стили для уведомления и подсказки ⭐ */
     .twitch-update-notice {
         font-size: 10px;
         color: var(--text-color-muted);
@@ -429,7 +428,6 @@
                 }
                 const response = await fetch(url, options);
                 
-                // 🔥 ИЗМЕНЕНИЕ: Обрабатываем ошибку кулдауна отдельно
                 if (response.status === 429) {
                     return await response.json(); 
                 }
@@ -458,7 +456,6 @@
                 if (distance < 0) {
                     clearInterval(countdownIntervals[intervalKey]);
                     timerElement.textContent = "Время вышло!"; 
-                    // Если это таймер кулдауна, перезагружаем данные, чтобы показать кнопку
                     if (intervalKey === 'challenge_cooldown') {
                         main();
                     }
@@ -489,7 +486,6 @@
             return `<div class="twitch-update-notice">ℹ️ Прогресс обновляется с задержкой (до 30 мин).</div>`;
         }
 
-        // 🔥 ИЗМЕНЕНИЕ: Полностью заменяем эту функцию
         function renderChallenge(challengeData, isGuest) {
             dom.challengeContainer.innerHTML = '';
 
@@ -504,7 +500,6 @@
                 return;
             }
 
-            // --- 🔥 НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ КУЛДАУНА ---
             if (challengeData && challengeData.cooldown_until) {
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card challenge-card">
@@ -730,24 +725,51 @@
         async function startChallengeRoulette() {
             const getChallengeBtn = document.getElementById('get-challenge-btn');
             if(getChallengeBtn) getChallengeBtn.disabled = true;
-            
+            dom.loaderOverlay.classList.remove('hidden');
             try {
-                // 🔥 ИЗМЕНЕНИЕ: Обрабатываем ответ с кулдауном
-                const assignedChallenge = await makeApiRequest('/api/v1/user/challenge');
+                // --- RESTORED LOGIC ---
+                const [available, assignedChallenge] = await Promise.all([
+                    makeApiRequest('/api/v1/user/challenge/available'),
+                    makeApiRequest('/api/v1/user/challenge')
+                ]);
+                dom.loaderOverlay.classList.add('hidden');
+
                 if (assignedChallenge && assignedChallenge.cooldown_until) {
-                    renderChallenge(assignedChallenge, false); // Рендерим таймер
+                    renderChallenge(assignedChallenge, false);
                     return;
                 }
-                if (!assignedChallenge) {
-                     Telegram.WebApp.showAlert('Нет доступных челленджей или произошла ошибка.');
+
+                if (!available || available.length === 0 || !assignedChallenge) {
+                    Telegram.WebApp.showAlert('Нет доступных челленджей или произошла ошибка.');
                     if(getChallengeBtn) getChallengeBtn.disabled = false;
                     return;
                 }
+                const overlay = document.createElement('div');
+                overlay.className = 'prompt-overlay';
+                overlay.innerHTML = `<div style="width: 90%; max-width: 400px; height: 150px; background: var(--surface-glass-bg); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;"><div id="roulette-inner" style="position: absolute; width: 100%; top: 0;"></div><div style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: 50px; border-top: 2px solid var(--primary-color); border-bottom: 2px solid var(--primary-color); box-sizing: border-box; z-index: 1;"></div></div>`;
+                document.body.appendChild(overlay);
+                const inner = overlay.querySelector('#roulette-inner');
+                const itemHeight = 50;
+                let rouletteItems = [];
+                for (let i = 0; i < 30; i++) rouletteItems.push(...available.sort(() => Math.random() - 0.5));
+                rouletteItems.push(assignedChallenge.challenges);
+                inner.innerHTML = rouletteItems.map(item => `<div data-id="${item.id}" style="height: ${itemHeight}px; display: flex; flex-direction: column; align-items: center; justify-content: center;"><div style="font-size: 14px; font-weight: 600;">${item.description}</div><div style="font-size: 11px; color: var(--quest-icon-color);">Награда: ${item.reward_amount} ⭐</div></div>`).join('');
                 
-                // Логика рулетки...
-                renderChallenge(assignedChallenge, false);
+                await new Promise(resolve => setTimeout(resolve, 100));
 
+                const winnerElement = Array.from(inner.querySelectorAll(`[data-id="${assignedChallenge.challenge_id}"]`)).pop();
+                if (winnerElement) {
+                    const centeredPosition = winnerElement.offsetTop - (inner.parentElement.clientHeight / 2) + (itemHeight / 2);
+                    inner.style.transition = 'transform 6s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                    inner.style.transform = `translateY(-${centeredPosition}px)`;
+                    setTimeout(() => {
+                        overlay.remove();
+                        renderChallenge(assignedChallenge, false);
+                    }, 7000);
+                }
+                 // --- END OF RESTORED LOGIC ---
             } catch (e) {
+                dom.loaderOverlay.classList.add('hidden');
                 if(getChallengeBtn) getChallengeBtn.disabled = false;
             }
         }
