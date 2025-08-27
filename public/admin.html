@@ -472,6 +472,9 @@
             winnersModal: document.getElementById('winners-modal'),
             winnersModalBody: document.getElementById('winners-modal-body'),
             winnersModalCloseBtn: document.getElementById('winners-modal-close-btn'),
+            // 🔥 НОВЫЕ ЭЛЕМЕНТЫ
+            settingsForm: document.getElementById('settings-form'),
+            resetCooldownForm: document.getElementById('reset-cooldown-form'),
         };
 
         let categoriesCache = [];
@@ -517,14 +520,12 @@
             }
         }
         
-        // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
         function renderWinners(winners) {
             if (!winners || winners.length === 0) {
                 dom.winnersModalBody.innerHTML = '<p style="text-align:center; color: var(--text-color-muted);">Победителей пока нет.</p>';
                 return;
             }
             
-            // API должен возвращать event_id, winner_id, и confirmed (true/false) для каждого победителя
             dom.winnersModalBody.innerHTML = winners.map(winner => {
                 const hasValidTradeLink = winner.trade_link && winner.trade_link !== 'Не указана' && winner.trade_link.startsWith('http');
                 const tradeLinkClass = hasValidTradeLink ? '' : 'disabled';
@@ -889,7 +890,6 @@
                 if (e.target === dom.winnersModal) dom.winnersModal.classList.add('hidden');
             });
 
-            // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ ПОДТВЕРЖДЕНИЯ ---
             dom.winnersModalBody.addEventListener('click', async (e) => {
                 const confirmButton = e.target.closest('.confirm-prize-sent-btn');
                 if (confirmButton) {
@@ -901,8 +901,6 @@
                         async (ok) => {
                             if (ok) {
                                 try {
-                                    // ПРИМЕЧАНИЕ: Для работы этой функции требуется создать API эндпоинт
-                                    // /api/v1/admin/events/confirm_sent на стороне сервера.
                                     await makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(eventId) });
                                     
                                     const confirmationArea = document.getElementById(`confirmation-area-${eventId}`);
@@ -1097,6 +1095,30 @@
                 await fetchAndCacheCategories();
                 renderCategoriesList();
             });
+
+            // 🔥 НОВЫЕ ОБРАБОТЧИКИ ДЛЯ ФОРМ НАСТРОЕК
+            dom.settingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const hours = parseInt(e.target.elements.cooldown_hours.value);
+                if (isNaN(hours)) {
+                    Telegram.WebApp.showAlert('Введите корректное число.');
+                    return;
+                }
+                const result = await makeApiRequest('/api/v1/admin/settings/update', { cooldown_hours: hours });
+                Telegram.WebApp.showAlert(result.message);
+            });
+
+            dom.resetCooldownForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const userId = parseInt(e.target.elements.user_id_to_reset.value);
+                if (isNaN(userId)) {
+                    Telegram.WebApp.showAlert('Введите корректный ID пользователя.');
+                    return;
+                }
+                const result = await makeApiRequest('/api/v1/admin/challenges/reset-cooldown', { user_id_to_reset: userId });
+                Telegram.WebApp.showAlert(result.message);
+                e.target.reset();
+            });
         }
 
         async function main() {
@@ -1122,6 +1144,6 @@
         console.error(`Критическая ошибка на старте: ${e.message}`);
         alert(`Критическая ошибка: ${e.message}`);
     }
-    </script>
+</script>
 </body>
 </html>
