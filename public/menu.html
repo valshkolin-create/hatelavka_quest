@@ -368,7 +368,6 @@
             questChooseBtn: document.getElementById("quest-choose-btn"),
             questChooseContainer: document.getElementById("quest-choose-container"),
 
-            // ⭐ ИЗМЕНЕНИЕ: Добавили элементы уведомления
             newPromoNotification: document.getElementById('new-promo-notification'),
             closePromoNotification: document.getElementById('close-promo-notification'),
         };
@@ -379,14 +378,13 @@
         let userData = {};
         let questsForRoulette = [];
 
-        // ⭐ ИЗМЕНЕНИЕ: Новая функция для показа уведомления
         function showNewPromoNotification() {
             sessionStorage.setItem('newPromoReceived', 'true');
             dom.newPromoNotification.classList.remove('hidden');
         }
 
         function showRewardClaimedModal() {
-            showNewPromoNotification(); // Показываем уведомление
+            showNewPromoNotification();
             dom.rewardClaimedOverlay.classList.remove('hidden');
         }
         function hideRewardClaimedModal() {
@@ -430,6 +428,12 @@
                     options.body = JSON.stringify({ ...body, initData: Telegram.WebApp.initData });
                 }
                 const response = await fetch(url, options);
+                
+                // 🔥 ИЗМЕНЕНИЕ: Обрабатываем ошибку кулдауна отдельно
+                if (response.status === 429) {
+                    return await response.json(); 
+                }
+
                 if (response.status === 204 || response.status === 404) return null;
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || result.message || 'Ошибка сервера');
@@ -453,7 +457,12 @@
                 const distance = endTime - now;
                 if (distance < 0) {
                     clearInterval(countdownIntervals[intervalKey]);
-                    timerElement.textContent = "Время вышло!"; return;
+                    timerElement.textContent = "Время вышло!"; 
+                    // Если это таймер кулдауна, перезагружаем данные, чтобы показать кнопку
+                    if (intervalKey === 'challenge_cooldown') {
+                        main();
+                    }
+                    return;
                 }
                 const d = Math.floor(distance / 86400000);
                 const h = Math.floor((distance % 86400000) / 3600000);
@@ -476,34 +485,37 @@
             countdownIntervals = {};
         }
         
-        // ⭐ ИЗМЕНЕНИЕ: Новая функция для создания HTML-кода предупреждения ⭐
         function createTwitchNoticeHtml() {
             return `<div class="twitch-update-notice">ℹ️ Прогресс обновляется с задержкой (до 30 мин).</div>`;
         }
 
+        // 🔥 ИЗМЕНЕНИЕ: Полностью заменяем эту функцию
         function renderChallenge(challengeData, isGuest) {
             dom.challengeContainer.innerHTML = '';
 
             if (isGuest) {
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card quest-locked">
-                        <div class="quest-content-wrapper">
-                            <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
-                            <h2 class="quest-title">Случайный челлендж</h2>
-                            <p class="quest-subtitle">
-                                Для доступа к челленджам требуется привязка Twitch-аккаунта.
-                            </p>
-                            <button class="claim-reward-button" disabled>
-                                <span>Получить</span>
-                            </button>
-                        </div>
-                        <div class="locked-overlay">
-                            <a href="/profile">
-                                <i class="fa-brands fa-twitch"></i>
-                                <span>Авторизоваться</span>
-                            </a>
-                        </div>
+                        <div class="quest-icon"><i class="fa-brands fa-twitch"></i></div>
+                        <h2 class="quest-title">Случайный челлендж</h2>
+                        <p class="quest-subtitle">Для доступа к челленджам требуется привязка Twitch-аккаунта.</p>
+                        <a href="/profile" class="perform-quest-button" style="text-decoration: none;">Привязать Twitch</a>
                     </div>`;
+                return;
+            }
+
+            // --- 🔥 НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ КУЛДАУНА ---
+            if (challengeData && challengeData.cooldown_until) {
+                dom.challengeContainer.innerHTML = `
+                    <div class="quest-card challenge-card">
+                        <div class="quest-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                        <h2 class="quest-title">Следующий челлендж</h2>
+                        <p class="quest-subtitle">
+                            Новое задание будет доступно после окончания таймера.
+                        </p>
+                        <div id="challenge-cooldown-timer" class="challenge-timer" style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-top: 10px;">...</div>
+                    </div>`;
+                startCountdown(document.getElementById('challenge-cooldown-timer'), challengeData.cooldown_until, 'challenge_cooldown');
                 return;
             }
 
@@ -541,10 +553,8 @@
             const isTwitchChallenge = challenge.condition_type && challenge.condition_type.includes('twitch');
             const twitchNotice = isTwitchChallenge ? createTwitchNoticeHtml() : '';
 
-            // --- ИСПРАВЛЕНИЕ 1: Добавляем data-challenge-id ---
             const claimButton = `<button id="claim-challenge-btn" data-challenge-id="${challenge.id}" class="claim-reward-button" ${!canClaim ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> <span>Забрать награду</span></button>`;
 
-            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
             let progressTextContent = `${currentProgress} / ${target}`;
             const conditionType = challenge.condition_type || '';
 
@@ -555,7 +565,6 @@
             } else if (conditionType.includes('telegram_messages')) {
                 progressTextContent = `✉️ ${currentProgress} / ${target}`;
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
@@ -601,7 +610,6 @@
                 buttonHtml = `<button class="claim-reward-button" data-quest-id="${activeQuest.id}"><i class="fa-solid fa-gift"></i> <span>Забрать</span></button>`;
             }
             
-            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
             const currentProgress = Math.min(progress, target);
             let progressTextContent = `${currentProgress} / ${target}`;
             const questType = activeQuest.quest_type || '';
@@ -613,7 +621,6 @@
             } else if (questType.includes('telegram_messages')) {
                 progressTextContent = `✉️ ${currentProgress} / ${target}`;
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
             dom.activeAutomaticQuestContainer.innerHTML = `
                 <div class="quest-card">
@@ -723,43 +730,25 @@
         async function startChallengeRoulette() {
             const getChallengeBtn = document.getElementById('get-challenge-btn');
             if(getChallengeBtn) getChallengeBtn.disabled = true;
-            dom.loaderOverlay.classList.remove('hidden');
+            
             try {
-                const [available, assignedChallenge] = await Promise.all([
-                    makeApiRequest('/api/v1/user/challenge/available'),
-                    makeApiRequest('/api/v1/user/challenge')
-                ]);
-                dom.loaderOverlay.classList.add('hidden');
-                if (!available || available.length === 0 || !assignedChallenge) {
-                    Telegram.WebApp.showAlert('Нет доступных челленджей или произошла ошибка.');
+                // 🔥 ИЗМЕНЕНИЕ: Обрабатываем ответ с кулдауном
+                const assignedChallenge = await makeApiRequest('/api/v1/user/challenge');
+                if (assignedChallenge && assignedChallenge.cooldown_until) {
+                    renderChallenge(assignedChallenge, false); // Рендерим таймер
+                    return;
+                }
+                if (!assignedChallenge) {
+                     Telegram.WebApp.showAlert('Нет доступных челленджей или произошла ошибка.');
                     if(getChallengeBtn) getChallengeBtn.disabled = false;
                     return;
                 }
-                const overlay = document.createElement('div');
-                overlay.className = 'prompt-overlay';
-                overlay.innerHTML = `<div style="width: 90%; max-width: 400px; height: 150px; background: var(--surface-glass-bg); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;"><div id="roulette-inner" style="position: absolute; width: 100%; top: 0;"></div><div style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: 50px; border-top: 2px solid var(--primary-color); border-bottom: 2px solid var(--primary-color); box-sizing: border-box; z-index: 1;"></div></div>`;
-                document.body.appendChild(overlay);
-                const inner = overlay.querySelector('#roulette-inner');
-                const itemHeight = 50;
-                let rouletteItems = [];
-                for (let i = 0; i < 30; i++) rouletteItems.push(...available.sort(() => Math.random() - 0.5));
-                rouletteItems.push(assignedChallenge.challenges);
-                inner.innerHTML = rouletteItems.map(item => `<div data-id="${item.id}" style="height: ${itemHeight}px; display: flex; flex-direction: column; align-items: center; justify-content: center;"><div style="font-size: 14px; font-weight: 600;">${item.description}</div><div style="font-size: 11px; color: var(--quest-icon-color);">Награда: ${item.reward_amount} ⭐</div></div>`).join('');
                 
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Логика рулетки...
+                renderChallenge(assignedChallenge, false);
 
-                const winnerElement = Array.from(inner.querySelectorAll(`[data-id="${assignedChallenge.challenge_id}"]`)).pop();
-                if (winnerElement) {
-                    const centeredPosition = winnerElement.offsetTop - (inner.parentElement.clientHeight / 2) + (itemHeight / 2);
-                    inner.style.transition = 'transform 6s cubic-bezier(0.2, 0.8, 0.2, 1)';
-                    inner.style.transform = `translateY(-${centeredPosition}px)`;
-                    setTimeout(() => {
-                        overlay.remove();
-                        renderChallenge(assignedChallenge, false);
-                    }, 7000);
-                }
             } catch (e) {
-                dom.loaderOverlay.classList.add('hidden');
+                if(getChallengeBtn) getChallengeBtn.disabled = false;
             }
         }
         
@@ -800,13 +789,13 @@
                     
                     setTimeout(async () => {
                         try {
-                            const result = await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
+                            await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
                             Telegram.WebApp.showAlert(`✅ Вы выбрали задание: ${quest.title}`);
-                            container.innerHTML = "";
-                            dom.questChooseBtn.disabled = false;
                             await main();
                         } catch(e) {
-                             container.innerHTML = "";
+                            // handle error
+                        } finally {
+                            container.innerHTML = "";
                             dom.questChooseBtn.disabled = false;
                         }
                     }, 600);
@@ -825,7 +814,6 @@
                 dom.questChooseBtn.disabled = false;
             }, 500);
         }
-
 
         function setupEventListeners() {
             document.getElementById('nav-dashboard').addEventListener('click', async (e) => { 
@@ -874,7 +862,6 @@
                 sessionStorage.removeItem('newPromoReceived');
             });
             
-            // --- ИСПРАВЛЕНИЕ 2: Заменяем весь этот обработчик ---
             document.body.addEventListener('click', async (event) => {
                 const target = event.target.closest('button');
                 if (!target) return;
@@ -887,18 +874,16 @@
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
                     try {
-                        // Считываем ID с кнопки
                         const challengeId = target.dataset.challengeId; 
                         if (!challengeId) throw new Error("ID челленджа не найден");
 
-                        // Формируем правильный URL и вызываем API
                         const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
                         
-                        if (result.success) { // Проверяем поле success
+                        if (result.success) {
                             showRewardClaimedModal(); 
                             dom.rewardCloseBtn.onclick = async () => {
                                 hideRewardClaimedModal();
-                                await main(); // Просто перезагружаем все данные
+                                await main();
                             };
                         } else {
                             Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
