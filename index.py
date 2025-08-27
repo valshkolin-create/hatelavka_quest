@@ -105,6 +105,10 @@ class EventConfirmSentRequest(BaseModel):
 class TradeLinkUpdateRequest(BaseModel):
     initData: str
     trade_link: str
+    
+class AdminResetCooldownRequest(BaseModel):
+    initData: str
+    user_id_to_reset: int
 
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
