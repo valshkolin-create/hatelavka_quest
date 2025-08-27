@@ -320,11 +320,21 @@
         <div class="page-header">
             <a href="/menu" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
             <h1 id="profileName" class="page-header-title">Профиль</h1>
-            <div style="width: 50px;"></div> <!-- Spacer -->
-        </div>
+            <div style="width: 50px;"></div> </div>
         
         <div id="settings-list" class="card-container">
-            <!-- Карточки настроек будут рендериться здесь -->
+            </div>
+        
+        <div class="settings-card" style="margin-top: 12px; background-color: rgba(52, 199, 89, 0.15);">
+            <div class="settings-card-info">
+                <p>
+                    <i class="fa-solid fa-trophy" style="color: #ffcc00;"></i>
+                    <span>Выполнено челленджей</span>
+                </p>
+            </div>
+            <span id="completed-challenges-count" style="font-size: 16px; font-weight: 700; color: var(--primary-color);">
+                0
+            </span>
         </div>
         
         <div class="rewards-header">
@@ -443,6 +453,9 @@ try {
             `;
         }
         dom.settingsList.appendChild(twitchCard);
+
+        // 🔥 ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ НОВОЙ СТРОКИ:        
+        document.getElementById('completed-challenges-count').textContent = userData.completed_challenges || 0;
     }
 
     function renderRewards(rewards) {
