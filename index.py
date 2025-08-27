@@ -110,6 +110,10 @@ class AdminResetCooldownRequest(BaseModel):
     initData: str
     user_id_to_reset: int
 
+class AdminUpdateSettingsRequest(BaseModel):
+    initData: str
+    cooldown_hours: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -1732,21 +1736,28 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
         raise HTTPException(status_code=401, detail="Доступ запрещен")
     telegram_id = user_info["id"]
 
-    # --- 🔥 НАЧАЛО НОВОГО БЛОКА ПРОВЕРКИ КУЛДАУНА ---
-    # 1. Получаем пользователя и дату его последнего челленджа
+    # --- 🔥 НАЧАЛО ПОЛНОСТЬЮ ПЕРЕПИСАННОГО БЛОКА ПРОВЕРКИ ---
     user_resp = await supabase.get(
         "/users",
-        params={"telegram_id": f"eq.{telegram_id}", "select": "last_challenge_completed_at"}
+        params={"telegram_id": f"eq.{telegram_id}", "select": "challenge_cooldown_until"}
     )
     user_data = user_resp.json()
     
-    if user_data and user_data[0].get("last_challenge_completed_at"):
-        last_completed_str = user_data[0]["last_challenge_completed_at"]
-        last_completed_date = datetime.fromisoformat(last_completed_str).date()
+    if user_data and user_data[0].get("challenge_cooldown_until"):
+        cooldown_until_str = user_data[0]["challenge_cooldown_until"]
+        # Превращаем строку из базы в объект времени с часовым поясом
+        cooldown_until_utc = datetime.fromisoformat(cooldown_until_str.replace('Z', '+00:00'))
         
-        # 2. Сравниваем с СЕГОДНЯШНЕЙ датой (в UTC)
-        if last_completed_date >= datetime.now(timezone.utc).date():
-            raise HTTPException(status_code=429, detail="Вы уже выполнили челлендж сегодня. Новый челлендж будет доступен завтра.")
+        # Сравниваем с текущим временем в UTC
+        if cooldown_until_utc > datetime.now(timezone.utc):
+            # Если кулдаун активен, отправляем клиенту точное время его окончания
+            return JSONResponse(
+                status_code=429, 
+                content={
+                    "detail": "Вы уже выполнили челлендж. Новый будет доступен позже.",
+                    "cooldown_until": cooldown_until_utc.isoformat()
+                }
+            )
     # --- 🔥 КОНЕЦ НОВОГО БЛОКА ---
 
     # 1. Проверяем, есть ли уже активный челлендж
@@ -1974,6 +1985,44 @@ async def check_challenge_progress(
         return {"message": "Не удалось обновить прогресс."}
         
 # --- Админские эндпоинты ---
+@app.post("/api/v1/admin/settings/update")
+async def update_settings(
+    request_data: AdminUpdateSettingsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    hours = request_data.cooldown_hours
+    if not (0 <= hours <= 168): # Ограничение от 0 до недели
+        raise HTTPException(status_code=400, detail="Кулдаун должен быть от 0 до 168 часов.")
+
+    await supabase.patch(
+        "/settings",
+        params={"key": "eq.challenge_cooldown_hours"},
+        json={"value": str(hours)}
+    )
+    return {"message": f"Кулдаун для челленджей установлен на {hours} часов."}
+
+
+@app.post("/api/v1/admin/challenges/reset-cooldown")
+async def reset_challenge_cooldown(
+    request_data: AdminResetCooldownRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    user_id_to_reset = request_data.user_id_to_reset
+
+    await supabase.post(
+        "/rpc/admin_reset_challenge_cooldown",
+        json={"p_user_id": user_id_to_reset}
+    )
+    return {"message": f"Кулдаун на челленджи для пользователя {user_id_to_reset} успешно сброшен."}
+    
 @app.post("/api/v1/admin/challenges")
 async def get_all_challenges(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
