@@ -159,7 +159,12 @@
             background-color: var(--accent-primary);
             color: #000;
         }
-        .event-button:hover { background-color: #00d9d1; }
+        .event-button:hover:not(:disabled) { background-color: #00d9d1; }
+        .event-button:disabled {
+            background: var(--surface-secondary);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
         .participants-button { background-color: var(--surface-secondary); color: var(--text-primary); }
         .participants-button:hover { background-color: var(--border-color); }
         
@@ -202,19 +207,16 @@
             border: 1px solid var(--border-color);
             padding: 20px; border-radius: 12px;
             display: flex;
-            /* --- ИЗМЕНЕНИЕ: гибкое позиционирование для кнопки --- */
             flex-wrap: wrap; 
             align-items: center; 
             gap: 15px;
         }
         .info-icon { font-size: 24px; color: var(--accent-primary); flex-shrink: 0; }
-        /* --- ИЗМЕНЕНИЕ: стили для текстового блока и блока с кнопкой --- */
         .info-text-content { flex-grow: 1; }
         .info-action-content { width: 100%; text-align: center; margin-top: 10px; }
         .info-title { color: var(--text-primary); margin: 0 0 5px; font-size: 15px; font-weight: 600; }
         .info-description { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
         
-        /* --- ИЗМЕНЕНИЕ: стили для новой кнопки билета --- */
         .free-ticket-button {
             padding: 10px 20px;
             font-size: 14px;
@@ -301,9 +303,10 @@
         .participant-name { font-size: 14px; font-weight: 500; color: var(--text-primary); flex-grow: 1; padding-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .participant-tickets { font-size: 14px; font-weight: 600; color: var(--accent-primary); padding-left: 10px; }
         .participant-rank { font-size: 14px; font-weight: 500; color: var(--text-secondary); min-width: 25px; text-align: right; }
-                /* --- Стили для блокировки карточки --- */
+        
+        /* --- Стили для блокировки карточки --- */
         .event-card.is-locked {
-            opacity: 0.6;         /* Делаем ее полупрозрачной */
+            opacity: 0.6;
         }
 
         .lock-overlay {
@@ -312,8 +315,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(28, 26, 39, 0.7); /* Полупрозрачный фон */
-            backdrop-filter: blur(2px);         /* Легкое размытие для красоты */
+            background: rgba(28, 26, 39, 0.7);
+            backdrop-filter: blur(2px);
             border-radius: 12px;
             display: flex;
             flex-direction: column;
@@ -323,7 +326,7 @@
             z-index: 5;
             color: var(--text-primary);
             padding: 10px;
-            pointer-events: auto; /* Возвращаем клики для этого слоя, если понадобятся */
+            pointer-events: none; /* ИСПРАВЛЕНО: Делаем плашку "прозрачной" для кликов */
         }
         .lock-overlay-icon {
             font-size: 28px;
@@ -350,7 +353,7 @@
                     <p class="info-description">Получите один бесплатный билет для участия в розыгрышах раз в 24 часа.</p>
                 </div>
                 <div id="free-ticket-button-wrapper" class="info-action-content">
-                    </div>
+                </div>
             </div>
 
             <div class="info-block">
@@ -441,7 +444,6 @@
             participantsModal: document.getElementById('participants-modal'),
             participantsModalTitle: document.getElementById('participants-modal-title'),
             participantsList: document.getElementById('participants-list'),
-            // --- ИЗМЕНЕНИЕ: Указываем новый контейнер для кнопки ---
             freeTicketButtonWrapper: document.getElementById('free-ticket-button-wrapper')
         };
         const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
@@ -483,7 +485,7 @@
         function renderFreeTicketSection() {
             const container = dom.freeTicketButtonWrapper;
             if (!userData || !userData.id) {
-                container.parentElement.style.display = 'none'; // Скрываем весь блок, если гость
+                container.parentElement.style.display = 'none';
                 return;
             } else {
                 container.parentElement.style.display = 'flex';
@@ -523,7 +525,6 @@
                 freeTicketInterval = setInterval(updateTimer, 1000);
             }
         }
-
 
         function renderPage() {
             editableKeys.forEach(key => {
@@ -596,7 +597,6 @@
                     const userTickets = (userData.event_participations || {})[event.id] || 0;
                     const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
                     
-                    // --- ИСПРАВЛЕНИЕ: Блокируем кнопку "Участвовать" явно через атрибут 'disabled' ---
                     const participateButtonDisabled = isLocked ? 'disabled' : '';
 
                     cardInnerHtml += `
@@ -685,7 +685,6 @@
                 return;
             }
             
-            // --- НАЧАЛО ИЗМЕНЕНИЯ 3: Показ предупреждения для победителей ---
             const showTheModal = () => {
                 const eventData = pageContent.events.find(e => e.id == eventId);
                 dom.userBalanceDisplay.textContent = userData.tickets || 0;
@@ -710,7 +709,6 @@
             } else {
                 showTheModal();
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
         }
         
         async function initialize() {
@@ -768,11 +766,9 @@
         }
 
         function makeModalDraggable(modalContent) {
-            // --- ДОБАВЬТЕ ЭТОТ КОД ---
             if (modalContent.parentElement.id === 'participants-modal') {
                 return;
             }
-            // -------------------------
 
             const header = modalContent.querySelector('.modal-header');
             if (!header) return;
@@ -864,10 +860,9 @@
                     }
                 }
             } else {
-                 if (button?.matches('.event-button')) {
+                if (button?.matches('.event-button')) {
                     showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
                 } else if (button?.matches('.participants-button')) {
-                    // ВОТ ЭТА СТРОКА БЫЛА ПРОПУЩЕНА
                     showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
                 } else if (button?.id === 'claim-free-ticket-btn') {
                     button.disabled = true;
