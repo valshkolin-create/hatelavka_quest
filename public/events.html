@@ -64,10 +64,9 @@
             align-items: center;
             gap: 8px;
         }
-        /* --- НОВОЕ ПРАВИЛО ДЛЯ БРАУЗЕРА --- */
         .browser-view .timer {
-            font-size: 4.8em; /* Увеличиваем размер шрифта в 2 раза */
-            margin-bottom: 25px; /* Добавляем немного отступа снизу */
+            font-size: 4.8em;
+            margin-bottom: 25px;
             color: #ff9000;
         }
         
@@ -79,6 +78,50 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- НАЧАЛО НОВЫХ СТИЛЕЙ: Блок для бесплатного билета --- */
+        .free-ticket-block {
+            background: var(--surface-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .free-ticket-button {
+            width: 100%;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #000;
+            background: linear-gradient(90deg, #ffd700, #ffc700);
+            animation: pulse-light 2s infinite ease-in-out;
+            transition: all 0.2s ease;
+        }
+        .free-ticket-button:hover {
+             transform: scale(1.02);
+        }
+        .free-ticket-button:disabled {
+            background: var(--surface-secondary);
+            color: var(--text-secondary);
+            animation: none;
+            cursor: not-allowed;
+        }
+        .free-ticket-button .timer-text {
+            font-size: 13px;
+            display: block;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+        @keyframes pulse-light {
+            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+        }
+        /* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
 
         .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
         
@@ -274,6 +317,9 @@
     <div class="container">
         <h1 class="page-title" data-key="mainTitle" data-editable>Гонка за скинами</h1>
         <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
+
+        <div id="free-ticket-container" class="free-ticket-block"></div>
+        
         <div id="events-list" class="events-container"></div>
         <div class="info-blocks-container">
             <div class="info-block">
@@ -343,6 +389,7 @@
         const tg = window.Telegram.WebApp;
         let pageContent = {};
         let countdownInterval = null;
+        let freeTicketInterval = null;
         let userData = {};
         const dom = {
             adminControls: document.getElementById('admin-controls'), editBtn: document.getElementById('edit-btn'), saveBtn: document.getElementById('save-btn'),
@@ -362,7 +409,8 @@
             ticketAmountInput: document.getElementById('ticket-amount-input'),
             participantsModal: document.getElementById('participants-modal'),
             participantsModalTitle: document.getElementById('participants-modal-title'),
-            participantsList: document.getElementById('participants-list')
+            participantsList: document.getElementById('participants-list'),
+            freeTicketContainer: document.getElementById('free-ticket-container')
         };
         const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
 
@@ -389,19 +437,60 @@
                 const m = Math.floor((distance % 3600000) / 60000); 
                 const s = Math.floor((distance % 60000) / 1000);
 
-                // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
                 if (document.body.classList.contains('browser-view')) {
-                    // Для браузера: переводим дни в часы и суммируем
                     const totalHours = d * 24 + h;
                     timerElement.textContent = `${totalHours}ч ${m}м ${s}с`;
                 } else {
-                    // Для Telegram: оставляем как было
                     timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
                 }
             };
             update(); 
             countdownInterval = setInterval(update, 1000);
         }
+
+        // --- НОВАЯ ФУНКЦИЯ: Отображение кнопки бесплатного билета ---
+        function renderFreeTicketSection() {
+            if (!userData || !userData.id) {
+                dom.freeTicketContainer.innerHTML = ''; // Скрываем, если гость
+                return;
+            }
+            
+            if (freeTicketInterval) clearInterval(freeTicketInterval);
+
+            const lastClaimTime = userData.last_free_ticket_claimed_at ? new Date(userData.last_free_ticket_claimed_at) : null;
+            const now = new Date();
+            let nextClaimTime = null;
+
+            if (lastClaimTime) {
+                // Следующий билет доступен через 24 часа
+                nextClaimTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
+            }
+            
+            const canClaim = !nextClaimTime || now >= nextClaimTime;
+
+            if (canClaim) {
+                dom.freeTicketContainer.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button">🎟️ Получить бесплатный билет</button>`;
+            } else {
+                dom.freeTicketContainer.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button" disabled>Билет получен <span class="timer-text" id="free-ticket-timer"></span></button>`;
+                const timerEl = document.getElementById('free-ticket-timer');
+
+                const updateTimer = () => {
+                    const distance = nextClaimTime - new Date().getTime();
+                    if (distance < 0) {
+                        clearInterval(freeTicketInterval);
+                        renderFreeTicketSection(); // Обновляем кнопку
+                        return;
+                    }
+                    const h = Math.floor(distance / 3600000);
+                    const m = Math.floor((distance % 3600000) / 60000);
+                    const s = Math.floor((distance % 60000) / 1000);
+                    timerEl.textContent = `(доступно через ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')})`;
+                };
+                updateTimer();
+                freeTicketInterval = setInterval(updateTimer, 1000);
+            }
+        }
+
 
         function renderPage() {
             editableKeys.forEach(key => {
@@ -415,6 +504,7 @@
                 }
             });
             startCountdown(pageContent.raffleEndTime);
+            renderFreeTicketSection(); // Вызываем рендер кнопки билета
             dom.eventsContainer.innerHTML = '';
             const isEditMode = document.body.classList.contains('edit-mode');
 
@@ -574,7 +664,6 @@
             tg.expand();
 
             if (tg.initData && tg.initData.length > 0) {
-                // Пользователь в Telegram, загружаем все данные
                 try {
                     const [contentRes, userRes] = await Promise.all([
                         fetch('/api/v1/events/content', {cache: 'no-store'}),
@@ -611,8 +700,7 @@
                     tg.showAlert("Не удалось загрузить данные."); 
                 }
             } else {
-                // Пользователь в браузере, загружаем только публичный контент
-                document.body.classList.add('browser-view'); // --- ДОБАВЛЕНА ЭТА СТРОКА ---
+                document.body.classList.add('browser-view');
                 try {
                     const contentRes = await fetch('/api/v1/events/content', {cache: 'no-store'});
                     if (!contentRes.ok) throw new Error("Ошибка сети при загрузке контента");
@@ -661,7 +749,7 @@
         
         document.querySelectorAll('.modal-content').forEach(makeModalDraggable);
 
-        document.body.addEventListener('click', (e) => {
+        document.body.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
             const editableText = e.target.closest('[data-editable]');
             const createCard = e.target.closest('.create-event-card');
@@ -716,10 +804,26 @@
                     }
                 }
             } else {
-                if (button?.matches('.event-button')) {
+                 if (button?.matches('.event-button')) {
                     showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
                 } else if (button?.matches('.participants-button')) {
                     showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
+                // --- НОВЫЙ ОБРАБОТЧИК КНОПКИ БИЛЕТА ---
+                } else if (button?.id === 'claim-free-ticket-btn') {
+                    button.disabled = true;
+                    try {
+                         const response = await fetch('/api/v1/user/claim-free-ticket', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData }) });
+                         const result = await response.json();
+                         if (!response.ok) throw new Error(result.detail || "Не удалось получить билет.");
+
+                         tg.showAlert(result.message);
+                         userData.tickets = result.new_ticket_balance;
+                         userData.last_free_ticket_claimed_at = new Date().toISOString(); // Обновляем локально
+                         renderFreeTicketSection(); // Перерисовываем кнопку с таймером
+                    } catch(e) {
+                        tg.showAlert(e.message);
+                        button.disabled = false;
+                    }
                 }
             }
         });
