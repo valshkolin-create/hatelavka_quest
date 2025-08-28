@@ -19,6 +19,7 @@
       --disabled-color: #666;
       --surface-glass-bg: rgba(28, 28, 30, 0.75);
       --twitch-color: #9146ff;
+      --danger-color: #ff3b30;
     }
     body { margin: 0; min-height: 100vh; background-color: var(--bg-color); background-image: var(--bg-gradient); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
     .main-content { flex-grow: 1; padding: 20px 15px 120px; overflow-y: auto; opacity: 0; transition: opacity 0.4s ease-in-out; }
@@ -48,6 +49,8 @@
     .perform-quest-button { width: 100%; background-color: var(--action-color); border: none; padding: 8px; border-radius: 6px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: auto; }
     .claim-reward-button { width: 100%; background: linear-gradient(90deg, #ffdd40, #ffc700); color: #1c1c1e; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; padding: 10px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); }
     .claim-reward-button:disabled { background: var(--disabled-color); color: var(--text-color-muted); box-shadow: none; cursor: not-allowed; }
+    .cancel-quest-button { width: 100%; background-color: #555; border: none; padding: 8px; border-radius: 6px; color: white; font-size: 12px; font-weight: 500; cursor: pointer; margin-top: 6px; }
+    .cancel-quest-button:disabled { background-color: #333; color: #888; cursor: not-allowed;}
     .challenge-card { background-color: rgba(44, 44, 46, 0.85); padding: 12px; }
     .challenge-card .quest-icon { font-size: 18px; margin-bottom: 5px; }
     .challenge-card .quest-title { font-size: 14px; margin-bottom: 5px; }
@@ -428,8 +431,11 @@
                 }
                 const response = await fetch(url, options);
                 
+                // --- ИЗМЕНЕНИЕ: Обрабатываем 429 отдельно ---
                 if (response.status === 429) {
-                    return await response.json(); 
+                    const errorResult = await response.json();
+                    Telegram.WebApp.showAlert(errorResult.detail || 'Действие временно недоступно.');
+                    throw new Error('Cooldown active'); 
                 }
 
                 if (response.status === 204 || response.status === 404) return null;
@@ -437,14 +443,16 @@
                 if (!response.ok) throw new Error(result.detail || result.message || 'Ошибка сервера');
                 return result;
             } catch (e) {
-                if (!isSilent) Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
+                if (e.message !== 'Cooldown active' && !isSilent) {
+                     Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
+                }
                 throw e;
             } finally {
                 if (!isSilent) dom.loaderOverlay.classList.add('hidden');
             }
         }
 
-        function startCountdown(timerElement, expiresAt, intervalKey) {
+        function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
             if (countdownIntervals[intervalKey]) clearInterval(countdownIntervals[intervalKey]);
             if (!timerElement) return;
 
@@ -455,7 +463,11 @@
                 const distance = endTime - now;
                 if (distance < 0) {
                     clearInterval(countdownIntervals[intervalKey]);
-                    timerElement.textContent = "Время вышло!"; 
+                    if(onEndCallback) {
+                        onEndCallback();
+                    } else {
+                        timerElement.textContent = "Время вышло!";
+                    }
                     if (intervalKey === 'challenge_cooldown') {
                         main();
                     }
@@ -466,9 +478,9 @@
                 const m = Math.floor((distance % 3600000) / 60000);
                 const s = Math.floor((distance % 60000) / 1000);
                 
-                let result = 'Осталось: ';
+                let result = '';
                 if (d > 0) result += `${d}д `;
-                result += `${h}ч ${m}м ${s}с`;
+                result += `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
                 timerElement.textContent = result;
             };
             updateTimer();
@@ -603,6 +615,36 @@
             let buttonHtml = '';
             if (isCompleted) {
                 buttonHtml = `<button class="claim-reward-button" data-quest-id="${activeQuest.id}"><i class="fa-solid fa-gift"></i> <span>Забрать</span></button>`;
+            } else {
+                // --- НАЧАЛО ИЗМЕНЕНИЙ: Кнопка отмены ---
+                const lastCancel = userData.last_quest_cancel_at;
+                let cancelBtnDisabled = false;
+                let cooldownEndTime = null;
+
+                if (lastCancel) {
+                    const lastCancelDate = new Date(lastCancel);
+                    const now = new Date();
+                    const diffHours = (now - lastCancelDate) / 3600000;
+                    if (diffHours < 24) {
+                        cancelBtnDisabled = true;
+                        cooldownEndTime = new Date(lastCancelDate.getTime() + 24 * 60 * 60 * 1000);
+                    }
+                }
+                
+                buttonHtml = `<button id="cancel-quest-btn" class="cancel-quest-button" ${cancelBtnDisabled ? 'disabled' : ''}>Отменить</button>`;
+                
+                if (cancelBtnDisabled) {
+                    setTimeout(() => { // Timeout to ensure the button is in the DOM
+                        const btn = document.getElementById('cancel-quest-btn');
+                        if (btn) {
+                             startCountdown(btn, cooldownEndTime, 'quest_cancel', () => {
+                                btn.disabled = false;
+                                btn.textContent = 'Отменить';
+                            });
+                        }
+                    }, 0);
+                }
+                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
             }
             
             const currentProgress = Math.min(progress, target);
@@ -727,7 +769,6 @@
             if(getChallengeBtn) getChallengeBtn.disabled = true;
             dom.loaderOverlay.classList.remove('hidden');
             try {
-                // --- RESTORED LOGIC ---
                 const [available, assignedChallenge] = await Promise.all([
                     makeApiRequest('/api/v1/user/challenge/available'),
                     makeApiRequest('/api/v1/user/challenge')
@@ -767,7 +808,6 @@
                         renderChallenge(assignedChallenge, false);
                     }, 7000);
                 }
-                 // --- END OF RESTORED LOGIC ---
             } catch (e) {
                 dom.loaderOverlay.classList.add('hidden');
                 if(getChallengeBtn) getChallengeBtn.disabled = false;
@@ -935,7 +975,21 @@
                     if (!questId) return;
                     
                     showCustomPrompt(questTitle, questId);
+                // --- НАЧАЛО ИЗМЕНЕНИЙ: Обработчик кнопки отмены ---
+                } else if (target.id === 'cancel-quest-btn') {
+                    Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Вы сможете выбрать новое, но отменять задания можно лишь раз в сутки.", async (ok) => {
+                        if (ok) {
+                            try {
+                                await makeApiRequest('/api/v1/quests/cancel');
+                                Telegram.WebApp.showAlert('Задание отменено. Теперь вы можете выбрать новое.');
+                                await main();
+                            } catch (e) {
+                                // Ошибка (включая кулдаун) уже обработана в makeApiRequest
+                            }
+                        }
+                    });
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
             });
         }   
 
