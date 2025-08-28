@@ -557,7 +557,6 @@
                 const card = document.createElement('div');
                 card.className = 'event-card';
                 
-                // --- НОВОЕ: Проверяем, нужно ли блокировать карточку ---
                 const isLocked = userActiveParticipationId && userActiveParticipationId !== event.id;
                 if (isLocked) {
                     card.classList.add('is-locked');
@@ -597,6 +596,9 @@
                     const userTickets = (userData.event_participations || {})[event.id] || 0;
                     const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
                     
+                    // --- ИСПРАВЛЕНИЕ: Блокируем кнопку "Участвовать" явно через атрибут 'disabled' ---
+                    const participateButtonDisabled = isLocked ? 'disabled' : '';
+
                     cardInnerHtml += `
                         <div class="card-info-area">
                             <div class="card-text-content">
@@ -606,7 +608,7 @@
                                 ${userTicketsHtml}
                             </div>
                             <div class="event-button-container">
-                                <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}">Участвовать</button>
+                                <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}" ${participateButtonDisabled}>Участвовать</button>
                                 <button class="participants-button" data-event-id="${event.id}" data-event-title="${event.title}">Топ-5</button>
                             </div>
                         </div>
@@ -614,7 +616,6 @@
                     `;
                 }
 
-                // --- НОВОЕ: Добавляем саму плашку-предупреждение, если карточка заблокирована ---
                 if (isLocked) {
                     cardInnerHtml += `
                         <div class="lock-overlay">
