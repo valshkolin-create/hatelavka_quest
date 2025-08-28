@@ -710,6 +710,35 @@
             }
         }
         
+        // --- ИСПРАВЛЕНО: ВОЗВРАЩЕНА НЕДОСТАЮЩАЯ ФУНКЦИЯ ---
+        async function showParticipantsModal(eventId, eventTitle) {
+            if (!tg.initData) {
+                alert('Пожалуйста, откройте эту страницу в Telegram, чтобы посмотреть участников.');
+                return;
+            }
+            dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
+            dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Загрузка...</li>';
+            showModal(dom.participantsModal);
+            try {
+                const response = await fetch('/api/v1/events/participants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId }) });
+                if (!response.ok) throw new Error('Ошибка при загрузке списка.');
+                const result = await response.json();
+                dom.participantsList.innerHTML = '';
+                if (result.participants.length === 0) {
+                    dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Участников пока нет.</li>';
+                } else {
+                    result.participants.forEach((p, index) => {
+                        const li = document.createElement('li'); li.className = 'participant-item';
+                        const fullName = p.full_name || (p.username ? `@${p.username}` : 'Без имени');
+                        li.innerHTML = `<div class="participant-rank">${index + 1}.</div><div class="participant-name">${fullName}</div><div class="participant-tickets">${p.tickets_spent} 🎟️</div>`;
+                        dom.participantsList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                dom.participantsList.innerHTML = `<li style="text-align: center; color: var(--danger-color);">Не удалось загрузить данные.</li>`; console.error(error);
+            }
+        }
+
         async function initialize() {
             tg.ready();
             tg.expand();
@@ -765,10 +794,7 @@
         }
 
         function makeModalDraggable(modalContent) {
-            if (modalContent.parentElement.id === 'participants-modal') {
-                return;
-            }
-
+            // --- ИСПРАВЛЕНО: УДАЛЕНО УСЛОВИЕ, БЛОКИРУЮЩЕЕ ПЕРЕТАСКИВАНИЕ ---
             const header = modalContent.querySelector('.modal-header');
             if (!header) return;
 
