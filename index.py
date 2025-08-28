@@ -739,6 +739,25 @@ async def get_current_user_data(
     is_admin = telegram_id in ADMIN_IDS
 
     try:
+        # --- НАЧАЛО ИЗМЕНЕНИЯ 3: Проверка статуса победителя ---
+        is_previous_winner = False
+        try:
+            content_resp = await supabase.get(
+                "/pages_content",
+                params={"page_name": "eq.events", "select": "content", "limit": 1}
+            )
+            content_resp.raise_for_status()
+            content_data = content_resp.json()
+            if content_data:
+                all_events = content_data[0].get("content", {}).get("events", [])
+                winner_ids = {event['winner_id'] for event in all_events if 'winner_id' in event}
+                if telegram_id in winner_ids:
+                    is_previous_winner = True
+        except Exception as e:
+            logging.error(f"Не удалось проверить статус победителя для {telegram_id}: {e}")
+            is_previous_winner = False
+        # --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
+
         # 1. Получаем основной профиль пользователя НАПРЯМУЮ из таблицы users
         user_resp = await supabase.get(
             "/users",
@@ -759,6 +778,7 @@ async def get_current_user_data(
             user_data = user_resp.json()
 
         if not user_data:
+            # Возвращаем is_admin даже для гостя, если его ID в списке
             return JSONResponse(content={"is_guest": True, "is_admin": is_admin})
 
         profile_data = user_data[0]
@@ -796,11 +816,11 @@ async def get_current_user_data(
             "twitch_id": profile_data.get("twitch_id"),
             "twitch_login": profile_data.get("twitch_login"),
             "is_admin": is_admin,
+            "is_previous_winner": is_previous_winner, # 🔥 ДОБАВЛЕНО
             "active_quest_id": active_quest_id,
             "active_quest_progress": active_progress,
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
-            # 🔥 ВОТ НОВАЯ СТРОКА:
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
             "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
             "last_free_ticket_claimed_at": profile_data.get("last_free_ticket_claimed_at"),
@@ -1070,21 +1090,13 @@ async def trigger_draws(
             logging.info("CRON: Время розыгрыша не установлено. Пропускаем.")
             return {"message": "Raffle end time not set."}
 
-        # --- НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ ВРЕМЕНИ ---
-        
-        # 1. Получаем текущее время в UTC (как работает сервер)
         now_utc = datetime.now(timezone.utc)
-        
-        # 2. Парсим время из базы и говорим коду, что это МОСКОВСКОЕ время (UTC+3)
         naive_end_time = datetime.fromisoformat(raffle_end_time_str)
         end_time_moscow = naive_end_time.replace(tzinfo=ZoneInfo("Europe/Moscow"))
         
-        # 3. Теперь сравнение будет корректным
         if now_utc < end_time_moscow:
             logging.info(f"CRON: Время розыгрыша ({end_time_moscow}) еще не наступило. Текущее время UTC: {now_utc}.")
             return {"message": "Raffle time has not yet come."}
-            
-        # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ВРЕМЕНИ ---
 
         logging.info("CRON: Время розыгрыша наступило. Поиск ивентов без победителя...")
         
@@ -1097,6 +1109,23 @@ async def trigger_draws(
         updated = False
         for event in events_to_draw:
             event_id = event["id"]
+
+            # --- НАЧАЛО ИЗМЕНЕНИЯ 2: Проверка на минимальное количество участников ---
+            part_resp = await supabase.get(
+                "/event_entries",
+                params={"event_id": f"eq.{event_id}", "select": "user_id"}
+            )
+            if not part_resp.is_success:
+                logging.error(f"Ошибка при получении участников для ивента {event_id}: {part_resp.text}")
+                continue
+            
+            unique_participants = set(entry['user_id'] for entry in part_resp.json())
+            
+            if len(unique_participants) < 3:
+                logging.warning(f"CRON: Розыгрыш для ивента {event_id} отложен. Участников: {len(unique_participants)} (требуется минимум 3).")
+                continue # Переходим к следующему ивенту
+            # --- КОНЕЦ ИЗМЕНЕНИЯ 2 ---
+
             logging.info(f"--- Запуск розыгрыша для ивента ID: {event_id} ---")
 
             rpc_response = await supabase.post("/rpc/draw_event_winner", json={"p_event_id": event_id})
@@ -2358,14 +2387,56 @@ async def enter_event(
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
+    event_id_to_enter = request_data.event_id
 
-    # 1. Получаем минимальную ставку для ивента
-    event_resp = await supabase.get(
-        "/pages_content",
-        params={"page_name": "eq.events", "select": "content"}
-    )
-    event_data = event_resp.json()[0]['content']['events']
-    event_min_tickets = next((e['tickets_cost'] for e in event_data if e['id'] == request_data.event_id), 1)
+    # --- НАЧАЛО ИЗМЕНЕНИЯ 1: Проверка на участие в других активных ивентах ---
+    try:
+        # 1. Получаем список всех ивентов, чтобы найти активные
+        content_resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.events", "select": "content", "limit": 1}
+        )
+        content_resp.raise_for_status()
+        content_data = content_resp.json()
+        if not content_data:
+            # Если контента нет, просто пропускаем проверку
+            all_events = []
+        else:
+            all_events = content_data[0].get("content", {}).get("events", [])
+        
+        # 2. Собираем ID всех активных (не разыгранных) ивентов, КРОМЕ текущего
+        active_event_ids = [
+            event['id'] for event in all_events 
+            if 'winner_id' not in event and event.get('id') != event_id_to_enter
+        ]
+        
+        # 3. Проверяем, есть ли у пользователя ставки в других активных ивентах
+        if active_event_ids:
+            check_resp = await supabase.get(
+                "/event_entries",
+                params={
+                    "user_id": f"eq.{telegram_id}",
+                    "event_id": f"in.({','.join(map(str, active_event_ids))})",
+                    "select": "event_id",
+                    "limit": "1"
+                }
+            )
+            check_resp.raise_for_status()
+            
+            if check_resp.json():
+                raise HTTPException(
+                    status_code=409, # Conflict
+                    detail="Вы уже участвуете в другом активном розыгрыше. Можно участвовать только в одном ивенте одновременно."
+                )
+    except HTTPException as e:
+        raise e # Пробрасываем нашу ошибку 409 дальше
+    except Exception as e:
+        logging.error(f"Ошибка при проверке участия в ивентах: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
+    # --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
+
+    # Используем уже полученные данные об ивентах
+    event_min_tickets = next((e['tickets_cost'] for e in all_events if e['id'] == request_data.event_id), 1)
 
     # 2. Проверяем, что ставка пользователя не меньше минимальной
     if request_data.tickets_to_spend < event_min_tickets:
