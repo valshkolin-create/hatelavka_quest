@@ -867,6 +867,7 @@
                  if (button?.matches('.event-button')) {
                     showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
                 } else if (button?.matches('.participants-button')) {
+                    // ВОТ ЭТА СТРОКА БЫЛА ПРОПУЩЕНА
                     showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
                 } else if (button?.id === 'claim-free-ticket-btn') {
                     button.disabled = true;
