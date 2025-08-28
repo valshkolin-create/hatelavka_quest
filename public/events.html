@@ -509,6 +509,21 @@
             dom.eventsContainer.innerHTML = '';
             const isEditMode = document.body.classList.contains('edit-mode');
 
+            // --- НАЧАЛО ИЗМЕНЕНИЯ 1: Определяем, участвует ли пользователь в активном ивенте ---
+            let userActiveParticipationId = null;
+            if (userData && userData.event_participations) {
+                const userEventIds = Object.keys(userData.event_participations);
+                for (const eventId of userEventIds) {
+                    const event = (pageContent.events || []).find(e => e.id == eventId);
+                    // Если ивент найден и у него нет победителя - значит он активный
+                    if (event && !event.winner_name) {
+                        userActiveParticipationId = event.id;
+                        break; // Нашли активный ивент, выходим из цикла
+                    }
+                }
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
+
             (pageContent.events || []).forEach((event, index) => {
                 const card = document.createElement('div');
                 card.className = 'event-card';
@@ -546,6 +561,17 @@
                 } else {
                     const userTickets = (userData.event_participations || {})[event.id] || 0;
                     const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
+                    
+                    // --- ИЗМЕНЕНИЕ 1 (продолжение): Логика для кнопки "Участвовать" ---
+                    let participateButtonHtml;
+                    if (userActiveParticipationId && userActiveParticipationId !== event.id) {
+                        // Если пользователь участвует в ДРУГОМ активном ивенте, блокируем кнопку
+                        participateButtonHtml = `<button class="event-button" disabled style="background: var(--surface-secondary); color: var(--text-secondary); cursor: not-allowed;" title="Вы уже участвуете в другом розыгрыше">Участвовать</button>`;
+                    } else {
+                        // Иначе кнопка активна (для участия в первом ивенте или для добавления билетов)
+                        participateButtonHtml = `<button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}">Участвовать</button>`;
+                    }
+
                     cardInnerHtml += `
                         <div class="card-info-area">
                             <div class="card-text-content">
@@ -555,7 +581,7 @@
                                 ${userTicketsHtml}
                             </div>
                             <div class="event-button-container">
-                                <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}">Участвовать</button>
+                                ${participateButtonHtml}
                                 <button class="participants-button" data-event-id="${event.id}" data-event-title="${event.title}">Топ-5</button>
                             </div>
                         </div>
@@ -621,43 +647,33 @@
                 });
                 return;
             }
-            const eventData = pageContent.events.find(e => e.id == eventId);
-            dom.userBalanceDisplay.textContent = userData.tickets || 0;
-            dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
-            dom.ticketEventIdInput.value = eventId;
-            dom.ticketAmountInput.value = ''; 
-            dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
-            dom.ticketAmountInput.max = userData.tickets || 0;
-            showModal(dom.ticketModal); 
-            dom.ticketAmountInput.focus();
-        }
+            
+            // --- НАЧАЛО ИЗМЕНЕНИЯ 3: Показ предупреждения для победителей ---
+            const showTheModal = () => {
+                const eventData = pageContent.events.find(e => e.id == eventId);
+                dom.userBalanceDisplay.textContent = userData.tickets || 0;
+                dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
+                dom.ticketEventIdInput.value = eventId;
+                dom.ticketAmountInput.value = ''; 
+                dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
+                dom.ticketAmountInput.max = userData.tickets || 0;
+                showModal(dom.ticketModal); 
+                dom.ticketAmountInput.focus();
+            };
 
-        async function showParticipantsModal(eventId, eventTitle) {
-            if (!tg.initData) {
-                alert('Пожалуйста, откройте эту страницу в Telegram, чтобы посмотреть участников.');
-                return;
+            if (userData.is_previous_winner) {
+                tg.showConfirm(
+                    'Вы уже побеждали в наших розыгрышах! Чтобы дать шанс и другим участникам, в этот раз ваша удача может быть немного скромнее. Желаете продолжить?',
+                    (ok) => {
+                        if (ok) {
+                            showTheModal();
+                        }
+                    }
+                );
+            } else {
+                showTheModal();
             }
-            dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
-            dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Загрузка...</li>';
-            showModal(dom.participantsModal);
-            try {
-                const response = await fetch('/api/v1/events/participants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId }) });
-                if (!response.ok) throw new Error('Ошибка при загрузке списка.');
-                const result = await response.json();
-                dom.participantsList.innerHTML = '';
-                if (result.participants.length === 0) {
-                    dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Участников пока нет.</li>';
-                } else {
-                    result.participants.forEach((p, index) => {
-                        const li = document.createElement('li'); li.className = 'participant-item';
-                        const fullName = p.full_name || (p.username ? `@${p.username}` : 'Без имени');
-                        li.innerHTML = `<div class="participant-rank">${index + 1}.</div><div class="participant-name">${fullName}</div><div class="participant-tickets">${p.tickets_spent} 🎟️</div>`;
-                        dom.participantsList.appendChild(li);
-                    });
-                }
-            } catch (error) {
-                dom.participantsList.innerHTML = `<li style="text-align: center; color: var(--danger-color);">Не удалось загрузить данные.</li>`; console.error(error);
-            }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
         }
         
         async function initialize() {
