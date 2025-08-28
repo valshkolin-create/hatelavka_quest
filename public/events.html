@@ -301,6 +301,39 @@
         .participant-name { font-size: 14px; font-weight: 500; color: var(--text-primary); flex-grow: 1; padding-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .participant-tickets { font-size: 14px; font-weight: 600; color: var(--accent-primary); padding-left: 10px; }
         .participant-rank { font-size: 14px; font-weight: 500; color: var(--text-secondary); min-width: 25px; text-align: right; }
+                /* --- Стили для блокировки карточки --- */
+        .event-card.is-locked {
+            pointer-events: none; /* Блокируем клики по всей карточке */
+            opacity: 0.6;         /* Делаем ее полупрозрачной */
+        }
+
+        .lock-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(28, 26, 39, 0.7); /* Полупрозрачный фон */
+            backdrop-filter: blur(2px);         /* Легкое размытие для красоты */
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 5;
+            color: var(--text-primary);
+            padding: 10px;
+            pointer-events: auto; /* Возвращаем клики для этого слоя, если понадобятся */
+        }
+        .lock-overlay-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .lock-overlay-text {
+            font-size: 13px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -509,24 +542,27 @@
             dom.eventsContainer.innerHTML = '';
             const isEditMode = document.body.classList.contains('edit-mode');
 
-            // --- НАЧАЛО ИЗМЕНЕНИЯ 1: Определяем, участвует ли пользователь в активном ивенте ---
             let userActiveParticipationId = null;
             if (userData && userData.event_participations) {
                 const userEventIds = Object.keys(userData.event_participations);
                 for (const eventId of userEventIds) {
                     const event = (pageContent.events || []).find(e => e.id == eventId);
-                    // Если ивент найден и у него нет победителя - значит он активный
                     if (event && !event.winner_name) {
                         userActiveParticipationId = event.id;
-                        break; // Нашли активный ивент, выходим из цикла
+                        break;
                     }
                 }
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
 
             (pageContent.events || []).forEach((event, index) => {
                 const card = document.createElement('div');
                 card.className = 'event-card';
+                
+                // --- НОВОЕ: Проверяем, нужно ли блокировать карточку ---
+                const isLocked = userActiveParticipationId && userActiveParticipationId !== event.id;
+                if (isLocked) {
+                    card.classList.add('is-locked');
+                }
 
                 const borderColor = event.top_border_color || 'var(--card-default-border)';
                 const bgColor = event.bg_color || 'var(--card-default-bg)';
@@ -562,16 +598,6 @@
                     const userTickets = (userData.event_participations || {})[event.id] || 0;
                     const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
                     
-                    // --- ИЗМЕНЕНИЕ 1 (продолжение): Логика для кнопки "Участвовать" ---
-                    let participateButtonHtml;
-                    if (userActiveParticipationId && userActiveParticipationId !== event.id) {
-                        // Если пользователь участвует в ДРУГОМ активном ивенте, блокируем кнопку
-                        participateButtonHtml = `<button class="event-button" disabled style="background: var(--surface-secondary); color: var(--text-secondary); cursor: not-allowed;" title="Вы уже участвуете в другом розыгрыше">Участвовать</button>`;
-                    } else {
-                        // Иначе кнопка активна (для участия в первом ивенте или для добавления билетов)
-                        participateButtonHtml = `<button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}">Участвовать</button>`;
-                    }
-
                     cardInnerHtml += `
                         <div class="card-info-area">
                             <div class="card-text-content">
@@ -581,13 +607,24 @@
                                 ${userTicketsHtml}
                             </div>
                             <div class="event-button-container">
-                                ${participateButtonHtml}
+                                <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}">Участвовать</button>
                                 <button class="participants-button" data-event-id="${event.id}" data-event-title="${event.title}">Топ-5</button>
                             </div>
                         </div>
                         ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
                     `;
                 }
+
+                // --- НОВОЕ: Добавляем саму плашку-предупреждение, если карточка заблокирована ---
+                if (isLocked) {
+                    cardInnerHtml += `
+                        <div class="lock-overlay">
+                            <div class="lock-overlay-icon"><i class="fa-solid fa-lock"></i></div>
+                            <div class="lock-overlay-text">Вы уже участвуете в другом розыгрыше</div>
+                        </div>
+                    `;
+                }
+
                 card.innerHTML = cardInnerHtml;
                 dom.eventsContainer.appendChild(card);
             });
