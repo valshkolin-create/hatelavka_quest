@@ -79,50 +79,6 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* --- НАЧАЛО НОВЫХ СТИЛЕЙ: Блок для бесплатного билета --- */
-        .free-ticket-block {
-            background: var(--surface-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 25px;
-            text-align: center;
-        }
-        .free-ticket-button {
-            width: 100%;
-            padding: 12px;
-            font-size: 15px;
-            font-weight: 700;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            color: #000;
-            background: linear-gradient(90deg, #ffd700, #ffc700);
-            animation: pulse-light 2s infinite ease-in-out;
-            transition: all 0.2s ease;
-        }
-        .free-ticket-button:hover {
-             transform: scale(1.02);
-        }
-        .free-ticket-button:disabled {
-            background: var(--surface-secondary);
-            color: var(--text-secondary);
-            animation: none;
-            cursor: not-allowed;
-        }
-        .free-ticket-button .timer-text {
-            font-size: 13px;
-            display: block;
-            font-weight: 500;
-            margin-top: 4px;
-        }
-        @keyframes pulse-light {
-            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.6); }
-            70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
-        }
-        /* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
-
         .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
         
         .event-card {
@@ -245,12 +201,46 @@
             background-color: var(--surface-primary);
             border: 1px solid var(--border-color);
             padding: 20px; border-radius: 12px;
-            display: flex; align-items: center; gap: 15px;
+            display: flex;
+            /* --- ИЗМЕНЕНИЕ: гибкое позиционирование для кнопки --- */
+            flex-wrap: wrap; 
+            align-items: center; 
+            gap: 15px;
         }
         .info-icon { font-size: 24px; color: var(--accent-primary); flex-shrink: 0; }
+        /* --- ИЗМЕНЕНИЕ: стили для текстового блока и блока с кнопкой --- */
+        .info-text-content { flex-grow: 1; }
+        .info-action-content { width: 100%; text-align: center; margin-top: 10px; }
         .info-title { color: var(--text-primary); margin: 0 0 5px; font-size: 15px; font-weight: 600; }
         .info-description { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
         
+        /* --- ИЗМЕНЕНИЕ: стили для новой кнопки билета --- */
+        .free-ticket-button {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background-color: var(--accent-primary);
+            color: #000;
+            transition: all 0.2s ease;
+        }
+        .free-ticket-button:hover {
+             background-color: #00d9d1;
+        }
+        .free-ticket-button:disabled {
+            background: var(--surface-secondary);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+        .free-ticket-button .timer-text {
+            font-size: 12px;
+            display: block;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
         .edit-mode [data-editable] { cursor: pointer; border: 1px dashed var(--accent-secondary); border-radius: 4px; padding: 2px 4px; }
         .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 12px; display: flex; gap: 8px; justify-content: center; align-items: center; z-index: 5; }
         
@@ -317,28 +307,37 @@
     <div class="container">
         <h1 class="page-title" data-key="mainTitle" data-editable>Гонка за скинами</h1>
         <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
-
-        <div id="free-ticket-container" class="free-ticket-block"></div>
         
         <div id="events-list" class="events-container"></div>
+
         <div class="info-blocks-container">
+            <div id="free-ticket-container" class="info-block">
+                <i class="fa-solid fa-ticket info-icon"></i>
+                <div class="info-text-content">
+                    <h3 class="info-title">Ежедневный бонус</h3>
+                    <p class="info-description">Получите один бесплатный билет для участия в розыгрышах раз в 24 часа.</p>
+                </div>
+                <div id="free-ticket-button-wrapper" class="info-action-content">
+                    </div>
+            </div>
+
             <div class="info-block">
                 <i data-key="infoBlock1Icon" class="fa-solid fa-star info-icon" data-editable></i>
-                <div>
+                <div class="info-text-content">
                     <h3 class="info-title" data-key="infoBlock1Title" data-editable>Как победить?</h3>
                     <p class="info-description" data-key="infoBlock1Desc" data-editable>Чтобы получить приз, необходимо участвовать в ивентах.</p>
                 </div>
             </div>
             <div class="info-block">
                 <i data-key="infoBlock2Icon" class="fa-solid fa-ticket info-icon" data-editable></i>
-                <div>
+                <div class="info-text-content">
                     <h3 class="info-title" data-key="infoBlock2Title" data-editable>Как это работает?</h3>
                     <p class="info-description" data-key="infoBlock2Desc" data-editable>Каждый билет, потраченный на ивент, добавляет ваше имя в список участников.</p>
                 </div>
             </div>
             <div class="info-block">
                 <i data-key="infoBlock3Icon" class="fa-solid fa-truck-fast info-icon" data-editable></i>
-                <div>
+                <div class="info-text-content">
                     <h3 class="info-title" data-key="infoBlock3Title" data-editable>Как забрать?</h3>
                     <p class="info-description" data-key="infoBlock3Desc" data-editable>Победитель получит уведомление от бота. Для получения приза убедитесь, что у вас в профиле указана Steam Trade ссылка.</p>
                 </div>
@@ -410,7 +409,8 @@
             participantsModal: document.getElementById('participants-modal'),
             participantsModalTitle: document.getElementById('participants-modal-title'),
             participantsList: document.getElementById('participants-list'),
-            freeTicketContainer: document.getElementById('free-ticket-container')
+            // --- ИЗМЕНЕНИЕ: Указываем новый контейнер для кнопки ---
+            freeTicketButtonWrapper: document.getElementById('free-ticket-button-wrapper')
         };
         const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
 
@@ -448,11 +448,13 @@
             countdownInterval = setInterval(update, 1000);
         }
 
-        // --- НОВАЯ ФУНКЦИЯ: Отображение кнопки бесплатного билета ---
         function renderFreeTicketSection() {
+            const container = dom.freeTicketButtonWrapper;
             if (!userData || !userData.id) {
-                dom.freeTicketContainer.innerHTML = ''; // Скрываем, если гость
+                container.parentElement.style.display = 'none'; // Скрываем весь блок, если гость
                 return;
+            } else {
+                container.parentElement.style.display = 'flex';
             }
             
             if (freeTicketInterval) clearInterval(freeTicketInterval);
@@ -462,29 +464,28 @@
             let nextClaimTime = null;
 
             if (lastClaimTime) {
-                // Следующий билет доступен через 24 часа
                 nextClaimTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
             }
             
             const canClaim = !nextClaimTime || now >= nextClaimTime;
 
             if (canClaim) {
-                dom.freeTicketContainer.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button">🎟️ Получить бесплатный билет</button>`;
+                container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button">Получить билет</button>`;
             } else {
-                dom.freeTicketContainer.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button" disabled>Билет получен <span class="timer-text" id="free-ticket-timer"></span></button>`;
+                container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button" disabled>Билет получен <span class="timer-text" id="free-ticket-timer"></span></button>`;
                 const timerEl = document.getElementById('free-ticket-timer');
 
                 const updateTimer = () => {
                     const distance = nextClaimTime - new Date().getTime();
                     if (distance < 0) {
                         clearInterval(freeTicketInterval);
-                        renderFreeTicketSection(); // Обновляем кнопку
+                        renderFreeTicketSection();
                         return;
                     }
                     const h = Math.floor(distance / 3600000);
                     const m = Math.floor((distance % 3600000) / 60000);
                     const s = Math.floor((distance % 60000) / 1000);
-                    timerEl.textContent = `(доступно через ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')})`;
+                    timerEl.textContent = `(следующий через ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')})`;
                 };
                 updateTimer();
                 freeTicketInterval = setInterval(updateTimer, 1000);
@@ -504,7 +505,7 @@
                 }
             });
             startCountdown(pageContent.raffleEndTime);
-            renderFreeTicketSection(); // Вызываем рендер кнопки билета
+            renderFreeTicketSection();
             dom.eventsContainer.innerHTML = '';
             const isEditMode = document.body.classList.contains('edit-mode');
 
@@ -714,6 +715,12 @@
         }
 
         function makeModalDraggable(modalContent) {
+            // --- ДОБАВЬТЕ ЭТОТ КОД ---
+            if (modalContent.parentElement.id === 'participants-modal') {
+                return;
+            }
+            // -------------------------
+
             const header = modalContent.querySelector('.modal-header');
             if (!header) return;
 
@@ -808,7 +815,6 @@
                     showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
                 } else if (button?.matches('.participants-button')) {
                     showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
-                // --- НОВЫЙ ОБРАБОТЧИК КНОПКИ БИЛЕТА ---
                 } else if (button?.id === 'claim-free-ticket-btn') {
                     button.disabled = true;
                     try {
@@ -818,8 +824,8 @@
 
                          tg.showAlert(result.message);
                          userData.tickets = result.new_ticket_balance;
-                         userData.last_free_ticket_claimed_at = new Date().toISOString(); // Обновляем локально
-                         renderFreeTicketSection(); // Перерисовываем кнопку с таймером
+                         userData.last_free_ticket_claimed_at = new Date().toISOString();
+                         renderFreeTicketSection();
                     } catch(e) {
                         tg.showAlert(e.message);
                         button.disabled = false;
