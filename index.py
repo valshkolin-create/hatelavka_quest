@@ -114,6 +114,13 @@ class AdminUpdateSettingsRequest(BaseModel):
     initData: str
     cooldown_hours: int
 
+# --- НОВЫЕ МОДЕЛИ ---
+class QuestCancelRequest(BaseModel):
+    initData: str
+
+class FreeTicketClaimRequest(BaseModel):
+    initData: str
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -795,6 +802,8 @@ async def get_current_user_data(
             "trade_link": profile_data.get("trade_link"),
             # 🔥 ВОТ НОВАЯ СТРОКА:
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
+            "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
+            "last_free_ticket_claimed_at": profile_data.get("last_free_ticket_claimed_at"),
             "event_participations": event_participations,
             "twitch_stats": {
                 "messages": profile_data.get("total_message_count", 0),
@@ -2587,7 +2596,61 @@ async def confirm_event_prize_sent(
     )
 
     return {"message": "Отправка приза успешно подтверждена."}
-        
+
+# --- НОВЫЙ ЭНДПОИНТ: Отмена квеста ---
+@app.post("/api/v1/quests/cancel")
+async def cancel_active_quest(
+    request_data: QuestCancelRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+
+    telegram_id = user_info["id"]
+
+    try:
+        # Вызываем RPC-функцию, которая содержит всю логику
+        await supabase.post("/rpc/cancel_active_quest", json={"p_user_id": telegram_id})
+        return {"message": "Задание успешно отменено."}
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Не удалось отменить задание.")
+        logging.error(f"Ошибка RPC при отмене квеста для user {telegram_id}: {error_details}")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Критическая ошибка при отмене квеста для user {telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+
+# --- НОВЫЙ ЭНДПОИНТ: Получение бесплатного билета ---
+@app.post("/api/v1/user/claim-free-ticket")
+async def claim_free_ticket(
+    request_data: FreeTicketClaimRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+
+    telegram_id = user_info["id"]
+
+    try:
+        # Вызываем RPC-функцию для атомарного получения билета
+        response = await supabase.post("/rpc/claim_daily_ticket", json={"p_user_id": telegram_id})
+        response.raise_for_status()
+
+        new_balance = response.json()
+        return {
+            "message": "✅ Бесплатный билет успешно получен!",
+            "new_ticket_balance": new_balance
+        }
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Не удалось получить билет.")
+        logging.error(f"Ошибка RPC при получении билета для user {telegram_id}: {error_details}")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Критическая ошибка при получении билета для user {telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon(): return Response(status_code=204)
