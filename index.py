@@ -2197,12 +2197,20 @@ async def reset_all_active_quests(
 
     try:
         # Обновляем всех пользователей, у которых есть активный квест
-        await supabase.patch(
+        response = await supabase.patch(
             "/users",
             params={"active_quest_id": "not.is.null"},
             json={"active_quest_id": None, "active_quest_progress": 0}
         )
+        # Эта строка проверит ответ от Supabase и вызовет ошибку, если он неудачный
+        response.raise_for_status() 
+        
         return {"message": "Все активные квесты сброшены."}
+    except httpx.HTTPStatusError as e:
+        # Теперь мы будем видеть реальную ошибку от Supabase
+        error_details = e.response.json().get("message", "Неизвестная ошибка Supabase.")
+        logging.error(f"Ошибка Supabase при сбросе квестов: {error_details}")
+        raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
         logging.error(f"Ошибка при сбросе всех активных квестов: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сбросить активные квесты.")
