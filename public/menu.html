@@ -486,9 +486,24 @@
                     delete countdownIntervals[intervalKey];
                     if (onEndCallback) {
                         onEndCallback();
+                } else {
+                    const cardElement = currentTimerElement.closest('.quest-card');
+                    if (cardElement && intervalKey === 'challenge') { // Убедимся, что это таймер челленджа
+                        currentTimerElement.remove(); // Удаляем таймер
+
+                        // Создаем новую кнопку
+                        const completeButton = document.createElement('button');
+                        completeButton.id = 'check-challenge-progress-btn';
+                        completeButton.className = 'claim-reward-button'; // Используем стиль кнопки "Забрать награду"
+                        completeButton.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
+
+                        // Добавляем кнопку в карточку
+                        cardElement.appendChild(completeButton);
                     } else {
+                        // Стандартное поведение для других таймеров
                         currentTimerElement.textContent = "Время вышло!";
                     }
+                }
                     if (intervalKey === 'challenge_cooldown') {
                         // --- FIX: Replaced main() with a silent refresh to prevent loop ---
                         refreshDataSilently();
@@ -1003,6 +1018,22 @@
                     if (!questId) return;
                     
                     showCustomPrompt(questTitle, questId);
+
+                } else if (target.id === 'check-challenge-progress-btn') {
+                    target.disabled = true;
+                    target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+                    try {
+                        // Вызываем эндпоинт, который проверит прогресс на сервере
+                        await makeApiRequest("/api/v1/user/challenge/check");
+                        // Перезагружаем данные, чтобы отобразить результат (например, готовую к сбору награду)
+                        await main();
+                    } catch (e) {
+                        // В случае ошибки возвращаем кнопку в исходное состояние
+                        target.disabled = false;
+                        target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
+                    }
+                    
                 } else if (target.id === 'cancel-quest-btn') {
                     Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Вы сможете выбрать новое, но отменять задания можно лишь раз в сутки.", async (ok) => {
                         if (ok) {
@@ -1016,7 +1047,6 @@
                     });
                 }
             });
-        }   
 
         async function main() {
             if (!Telegram.WebApp.initData) {
