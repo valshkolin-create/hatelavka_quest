@@ -12,37 +12,40 @@
             --surface-glass-bg: rgba(28, 28, 30, 0.75);
             --primary-color: #34c759;
             --text-color: #ffffff;
-            --text-color-muted: #b0b0b0;
+            --text-color-muted: #8e8e93;
             --border-color: rgba(58, 58, 60, 0.6);
-            --reward-claimed-bg: rgba(52, 199, 89, 0.2);
-            --reward-active-border: #ffcc00;
+            --star-color: #ffcc00;
+            --locked-color: #48484a;
         }
         body {
             margin: 0;
             min-height: 100vh;
             background-color: var(--bg-color);
-            background-image: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+            background-image: radial-gradient(ellipse at 50% 100%, #0c0a18, #000000);
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             padding: 20px 15px 120px;
         }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
         .page-title {
             font-size: 24px;
             font-weight: 700;
-            text-align: center;
-            margin-bottom: 20px;
+            margin: 0 0 10px;
         }
-        #checkpoint-status {
-            text-align: center;
-            color: var(--text-color-muted);
-            margin-bottom: 25px;
+        .user-stars-balance {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--star-color);
         }
-        .checkpoint-track {
+        .reward-track {
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
-        .checkpoint-item {
+        .reward-item {
             background-color: var(--surface-glass-bg);
             border: 1px solid var(--border-color);
             border-radius: 12px;
@@ -52,53 +55,71 @@
             gap: 15px;
             transition: all 0.3s ease;
         }
-        .checkpoint-item.is-claimed {
-            background-color: var(--reward-claimed-bg);
+        /* Состояния наград */
+        .reward-item.is-claimed {
+            background-color: rgba(52, 199, 89, 0.2);
             border-color: var(--primary-color);
         }
-        .checkpoint-item.is-active {
-            border-color: var(--reward-active-border);
+        .reward-item.is-claimable {
+            border-color: var(--star-color);
             box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
         }
-        .checkpoint-level {
+        .reward-item.is-locked {
+            background-color: transparent;
+            border-color: var(--locked-color);
+            color: var(--text-color-muted);
+        }
+        .reward-level {
             font-size: 20px;
             font-weight: 700;
             color: var(--text-color-muted);
+            min-width: 25px;
+            text-align: center;
         }
-        .checkpoint-icon {
+        .reward-item.is-locked .reward-level {
+            color: var(--locked-color);
+        }
+        .reward-icon {
             font-size: 28px;
             width: 40px;
             text-align: center;
+            color: var(--text-color);
         }
-        .checkpoint-details {
+        .reward-item.is-locked .reward-icon {
+            color: var(--locked-color);
+        }
+        .reward-details {
             flex-grow: 1;
         }
-        .checkpoint-title {
+        .reward-title {
             font-size: 16px;
             font-weight: 600;
-            margin: 0 0 5px;
+            margin: 0;
         }
-        .checkpoint-progress {
-            font-size: 13px;
+        .reward-item.is-locked .reward-title {
             color: var(--text-color-muted);
         }
-        .claim-button {
-            background-color: var(--reward-active-border);
-            color: #000;
+        .action-button {
             border: none;
             padding: 8px 15px;
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
+            width: 110px; /* Фиксированная ширина для кнопок */
+            text-align: center;
         }
-        .claim-button:disabled {
-            background-color: #555;
+        .claim-btn {
+            background-color: var(--star-color);
+            color: #000;
+        }
+        .claimed-btn {
+            background-color: var(--primary-color);
+            color: var(--text-color);
+        }
+        .locked-btn {
+            background-color: var(--locked-color);
             color: var(--text-color-muted);
             cursor: not-allowed;
-        }
-        .claimed-icon {
-            font-size: 24px;
-            color: var(--primary-color);
         }
         .loader-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -122,69 +143,57 @@
             color: var(--text-color-muted); font-size: 11px; text-decoration: none; flex: 1;
         }
         .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
-        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--primary-color); }
+        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--star-color); }
     </style>
 </head>
 <body>
 
-    <div id="loader-overlay" class="loader-overlay">
+    <div id="loader-overlay" class="loader-overlay" style="display: none;">
         <div class="spinner"></div>
     </div>
 
-    <h1 class="page-title">Марафон "Чекпоинт"</h1>
-    <p id="checkpoint-status">Загрузка вашего прогресса...</p>
-
-    <div id="checkpoint-track" class="checkpoint-track">
+    <div class="header">
+        <h1 class="page-title">Марафон "Чекпоинт"</h1>
+        <div class="user-stars-balance">
+            <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span>
         </div>
+    </div>
+
+    <div id="reward-track" class="reward-track">
+        <div class="reward-item is-claimed">
+            <div class="reward-level">1</div>
+            <div class="reward-icon"><i class="fa-solid fa-ticket"></i></div>
+            <div class="reward-details">
+                <div class="reward-title">5 билетов</div>
+            </div>
+            <button class="action-button claimed-btn" disabled><i class="fa-solid fa-check"></i> Получено</button>
+        </div>
+        <div class="reward-item is-claimable">
+            <div class="reward-level">2</div>
+            <div class="reward-icon"><i class="fa-solid fa-gem"></i></div>
+            <div class="reward-details">
+                <div class="reward-title">100 гемов</div>
+            </div>
+            <button class="action-button claim-btn">Забрать</button>
+        </div>
+        <div class="reward-item is-locked">
+            <div class="reward-level">3</div>
+            <div class="reward-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="reward-details">
+                <div class="reward-title">Уникальный скин</div>
+            </div>
+            <button class="action-button locked-btn" disabled><i class="fa-solid fa-lock"></i> Закрыто</button>
+        </div>
+    </div>
 
     <footer class="app-footer">
-      <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
       <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-      <a href="#" id="nav-checkpoint" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-road"></i></div><span>Чекпоинт</span></a>
-      <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>    
-      <a href="/admin" id="nav-admin" class="footer-item" style="display: none;"><div class="icon-wrapper"><i class="fa-solid fa-user-shield"></i></div><span>Админка</span></a>
+      <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>
+      <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>Профиль</span></a>
     </footer>
-
+    
     <script>
-        // Тут будет JS для загрузки данных
-        // Пока оставим его пустым
-        document.addEventListener('DOMContentLoaded', () => {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-            
-            // Заглушка, чтобы показать, как это будет выглядеть
-            const track = document.getElementById('checkpoint-track');
-            track.innerHTML = `
-                <div class="checkpoint-item is-claimed">
-                    <div class="checkpoint-level">1</div>
-                    <div class="checkpoint-icon"><i class="fa-solid fa-comments"></i></div>
-                    <div class="checkpoint-details">
-                        <div class="checkpoint-title">Написать 100 сообщений</div>
-                        <div class="checkpoint-progress">100 / 100</div>
-                    </div>
-                    <div class="claimed-icon"><i class="fa-solid fa-check-circle"></i></div>
-                </div>
-                <div class="checkpoint-item is-active">
-                    <div class="checkpoint-level">2</div>
-                    <div class="checkpoint-icon"><i class="fa-solid fa-eye"></i></div>
-                    <div class="checkpoint-details">
-                        <div class="checkpoint-title">Смотреть стрим 60 минут</div>
-                        <div class="checkpoint-progress">45 / 60</div>
-                    </div>
-                    <button class="claim-button" disabled>В процессе</button>
-                </div>
-                <div class="checkpoint-item">
-                    <div class="checkpoint-level">3</div>
-                    <div class="checkpoint-icon"><i class="fa-solid fa-star"></i></div>
-                    <div class="checkpoint-details">
-                        <div class="checkpoint-title">Получить 100 очков канала</div>
-                        <div class="checkpoint-progress">0 / 100</div>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('loader-overlay').style.display = 'none';
-        });
+        // JS для загрузки данных пока оставим пустым
     </script>
 </body>
 </html>
