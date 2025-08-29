@@ -730,7 +730,7 @@ async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.A
     return {"message": "Аккаунт Twitch успешно отвязан."}
     
 # --- ПРАВИЛЬНО ---
-@app.post("/api/vy1/user/me")
+@app.post("/api/v1/user/me")
 async def get_current_user_data(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -783,15 +783,13 @@ async def get_current_user_data(
         profile_data = user_data[0]
         
         active_quest_id = profile_data.get("active_quest_id")
-        active_progress = 0
-        if active_quest_id:
-            progress_resp = await supabase.get(
-                "/user_quest_progress",
-                params={"user_id": f"eq.{telegram_id}", "quest_id": f"eq.{active_quest_id}", "select": "current_progress"}
-            )
-            progress_data = progress_resp.json()
-            if progress_data:
-                active_progress = progress_data[0].get("current_progress", 0)
+        # --- ИЗМЕНЕНИЕ: Используем правильное имя колонки 'quest_progress' ---
+        active_progress = profile_data.get("quest_progress", 0)
+
+        # --- УДАЛЕНО: Этот блок больше не нужен, так как мы берем прогресс напрямую из таблицы users ---
+        # if active_quest_id:
+        #     progress_resp = await supabase.get(...)
+        #     ...
 
         entries_resp = await supabase.get(
             "/event_entries",
@@ -814,11 +812,11 @@ async def get_current_user_data(
             "is_admin": is_admin,
             "is_previous_winner": is_previous_winner,
             "active_quest_id": active_quest_id,
-            "active_quest_progress": active_progress,
+            "active_quest_progress": active_progress, # Отдаем правильное значение на фронтенд
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
-            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"),
+            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- Это поле теперь тоже передается
             "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
             "last_free_ticket_claimed_at": profile_data.get("last_free_ticket_claimed_at"),
             "event_participations": event_participations,
@@ -2193,18 +2191,16 @@ async def reset_all_active_quests(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # ИСПРАВЛЕНИЕ: Используем правильное имя столбца 'quest_progress'
+        # --- ИЗМЕНЕНИЕ: Используем правильное имя колонки 'quest_progress' ---
         response = await supabase.patch(
             "/users",
             params={"active_quest_id": "not.is.null"},
             json={"active_quest_id": None, "quest_progress": 0}
         )
-        # Эта строка проверит ответ от Supabase и вызовет ошибку, если он неудачный
         response.raise_for_status() 
         
         return {"message": "Все активные квесты сброшены."}
     except httpx.HTTPStatusError as e:
-        # Теперь мы будем видеть реальную ошибку от Supabase
         error_details = e.response.json().get("message", "Неизвестная ошибка Supabase.")
         logging.error(f"Ошибка Supabase при сбросе квестов: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
