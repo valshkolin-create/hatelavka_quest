@@ -465,21 +465,30 @@
             }
         }
 
-        function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
-            if (countdownIntervals[intervalKey]) clearInterval(countdownIntervals[intervalKey]);
-            if (!timerElement) return;
+       function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
+            if (countdownIntervals[intervalKey]) {
+                clearInterval(countdownIntervals[intervalKey]);
+            }
 
             const endTime = new Date(expiresAt).getTime();
             
             const updateTimer = () => {
+                const currentTimerElement = document.getElementById(timerElement.id);
+                if (!currentTimerElement) {
+                    clearInterval(countdownIntervals[intervalKey]);
+                    return;
+                }
+
                 const now = new Date().getTime();
                 const distance = endTime - now;
+
                 if (distance < 0) {
                     clearInterval(countdownIntervals[intervalKey]);
-                    if(onEndCallback) {
+                    delete countdownIntervals[intervalKey];
+                    if (onEndCallback) {
                         onEndCallback();
                     } else {
-                        timerElement.textContent = "Время вышло!";
+                        currentTimerElement.textContent = "Время вышло!";
                     }
                     if (intervalKey === 'challenge_cooldown') {
                         main();
@@ -494,10 +503,11 @@
                 let result = '';
                 if (d > 0) result += `${d}д `;
                 result += `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-                timerElement.textContent = result;
+                currentTimerElement.textContent = result;
             };
-            updateTimer();
+            
             countdownIntervals[intervalKey] = setInterval(updateTimer, 1000);
+            updateTimer();
         }
         
         function clearAllCountdowns() {
