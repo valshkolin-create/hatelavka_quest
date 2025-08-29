@@ -20,6 +20,7 @@
       --surface-glass-bg: rgba(28, 28, 30, 0.75);
       --twitch-color: #9146ff;
       --danger-color: #ff3b30;
+      --telegram-color: #0088CC;
     }
     body { margin: 0; min-height: 100vh; background-color: var(--bg-color); background-image: var(--bg-gradient); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
     .main-content { flex-grow: 1; padding: 20px 15px 120px; overflow-y: auto; opacity: 0; transition: opacity 0.4s ease-in-out; }
@@ -139,11 +140,21 @@
       font-weight: 700;
       border: none;
       border-radius: 10px;
-      background: linear-gradient(90deg, #ffdd40, #ffc700);
       color: #1c1c1e;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.4s ease;
       box-shadow: 0 0 12px rgba(255, 204, 0, 0.5);
+    }
+    /* --- НОВЫЕ СТИЛИ ДЛЯ КНОПКИ --- */
+    .quest-choose-btn-roulette.twitch-theme {
+      background: linear-gradient(90deg, #a97cff, var(--twitch-color));
+      color: white;
+      box-shadow: 0 0 12px rgba(145, 70, 255, 0.6);
+    }
+    .quest-choose-btn-roulette.telegram-theme {
+      background: linear-gradient(90deg, #24a1de, var(--telegram-color));
+      color: white;
+      box-shadow: 0 0 12px rgba(0, 136, 204, 0.6);
     }
     .quest-choose-container {
       display: flex;
@@ -431,17 +442,19 @@
                 }
                 const response = await fetch(url, options);
                 
-                // --- ИЗМЕНЕНИЕ: Обрабатываем 429 отдельно ---
                 if (response.status === 429) {
                     const errorResult = await response.json();
                     Telegram.WebApp.showAlert(errorResult.detail || 'Действие временно недоступно.');
                     throw new Error('Cooldown active'); 
                 }
 
-                if (response.status === 204 || response.status === 404) return null;
+                if (response.status === 204) return null;
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || result.message || 'Ошибка сервера');
+                
+                // --- ИЗМЕНЕНИЕ: Возвращаем весь результат, включая доп. данные (cooldown_until) ---
                 return result;
+
             } catch (e) {
                 if (e.message !== 'Cooldown active' && !isSilent) {
                      Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
@@ -512,6 +525,7 @@
                 return;
             }
 
+            // --- НОВЫЙ БЛОК: Отображение кулдауна до следующего челленджа ---
             if (challengeData && challengeData.cooldown_until) {
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card challenge-card">
@@ -616,7 +630,6 @@
             if (isCompleted) {
                 buttonHtml = `<button class="claim-reward-button" data-quest-id="${activeQuest.id}"><i class="fa-solid fa-gift"></i> <span>Забрать</span></button>`;
             } else {
-                // --- НАЧАЛО ИЗМЕНЕНИЙ: Кнопка отмены ---
                 const lastCancel = userData.last_quest_cancel_at;
                 let cancelBtnDisabled = false;
                 let cooldownEndTime = null;
@@ -634,7 +647,7 @@
                 buttonHtml = `<button id="cancel-quest-btn" class="cancel-quest-button" ${cancelBtnDisabled ? 'disabled' : ''}>Отменить</button>`;
                 
                 if (cancelBtnDisabled) {
-                    setTimeout(() => { // Timeout to ensure the button is in the DOM
+                    setTimeout(() => {
                         const btn = document.getElementById('cancel-quest-btn');
                         if (btn) {
                              startCountdown(btn, cooldownEndTime, 'quest_cancel', () => {
@@ -644,7 +657,6 @@
                         }
                     }, 0);
                 }
-                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
             }
             
             const currentProgress = Math.min(progress, target);
@@ -659,6 +671,9 @@
                 progressTextContent = `✉️ ${currentProgress} / ${target}`;
             }
 
+            // --- НОВОЕ: HTML для таймера ---
+            const timerHtml = activeQuest.end_date ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer"></div>` : '';
+
             dom.activeAutomaticQuestContainer.innerHTML = `
                 <div class="quest-card">
                     ${!isCompleted ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
@@ -670,12 +685,13 @@
                             <div class="progress-fill" style="width: ${percent}%;"></div>
                             <div class="progress-content"><span class="progress-text">${progressTextContent}</span></div>
                         </div>
-                        ${activeQuest.end_date ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer"></div>` : ''}
+                        ${timerHtml}
                         ${twitchNotice}
                     </div>
                     ${buttonHtml}
                 </div>`;
             
+            // --- НОВОЕ: Запуск таймера для квеста ---
             if (activeQuest.end_date) {
                 startCountdown(document.getElementById(`quest-timer-${activeQuest.id}`), activeQuest.end_date, `quest_${activeQuest.id}`);
             }
@@ -756,8 +772,10 @@
                         renderActiveAutomaticQuest(activeQuest, userData);
                     }
                 }
-                if (newChallengeData !== undefined) {
+                if (newChallengeData) { // Изменено: теперь newChallengeData может содержать cooldown_until
                     renderChallenge(newChallengeData, !userData.twitch_id);
+                } else { // Если челленджа нет, проверяем кулдаун отдельно
+                    renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
             } catch (e) {
                 console.error("Ошибка фонового обновления:", e);
@@ -774,7 +792,7 @@
                     makeApiRequest('/api/v1/user/challenge')
                 ]);
                 dom.loaderOverlay.classList.add('hidden');
-
+                
                 if (assignedChallenge && assignedChallenge.cooldown_until) {
                     renderChallenge(assignedChallenge, false);
                     return;
@@ -975,7 +993,6 @@
                     if (!questId) return;
                     
                     showCustomPrompt(questTitle, questId);
-                // --- НАЧАЛО ИЗМЕНЕНИЙ: Обработчик кнопки отмены ---
                 } else if (target.id === 'cancel-quest-btn') {
                     Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Вы сможете выбрать новое, но отменять задания можно лишь раз в сутки.", async (ok) => {
                         if (ok) {
@@ -984,12 +1001,10 @@
                                 Telegram.WebApp.showAlert('Задание отменено. Теперь вы можете выбрать новое.');
                                 await main();
                             } catch (e) {
-                                // Ошибка (включая кулдаун) уже обработана в makeApiRequest
                             }
                         }
                     });
                 }
-                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
             });
         }   
 
@@ -1000,6 +1015,19 @@
             }
             
             try {
+                // --- НОВЫЙ БЛОК: Смена темы кнопки по дню недели ---
+                const day = new Date().getDay(); // 0 = Воскресенье, 1 = Понедельник, ..., 6 = Суббота
+                const questButton = dom.questChooseBtn;
+                if (day === 0 || day === 1) { // Воскресенье или Понедельник
+                    questButton.classList.remove('twitch-theme');
+                    questButton.classList.add('telegram-theme');
+                    questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> ВЫХОДНЫЕ ИСПЫТАНИЯ';
+                } else { // Вторник - Суббота
+                    questButton.classList.remove('telegram-theme');
+                    questButton.classList.add('twitch-theme');
+                    questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> НАЧАТЬ ИСПЫТАНИЕ';
+                }
+
                 if (sessionStorage.getItem('newPromoReceived') === 'true') {
                     dom.newPromoNotification.classList.remove('hidden');
                 }
@@ -1033,7 +1061,12 @@
                     dom.questChooseContainer.classList.add('hidden');
                 }
 
-                renderChallenge(challengeData, !userData.twitch_id);
+                if (challengeData) {
+                    renderChallenge(challengeData, !userData.twitch_id);
+                } else {
+                    renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+                }
+
 
             } catch (e) {
                 console.error("Ошибка при основной загрузке:", e);
