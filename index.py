@@ -423,24 +423,17 @@ async def get_public_quests(
     if not telegram_id:
         return []
 
-    # 1. Проверяем, есть ли у пользователя активный квест
     user_resp = await supabase.get("users", params={"telegram_id": f"eq.{telegram_id}", "select": "active_quest_id"})
     user_resp.raise_for_status()
     user_data = user_resp.json()
     
     active_quest_id = user_data[0].get("active_quest_id") if user_data else None
 
-    # ✅ НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ
     if active_quest_id:
-        # Сначала просто ищем квест по ID, чтобы проверить, существует ли он и активен ли
-        quest_check_resp = await supabase.get(
-            "/quests",
-            params={"id": f"eq.{active_quest_id}", "select": "is_active"}
-        )
+        quest_check_resp = await supabase.get("/quests", params={"id": f"eq.{active_quest_id}", "select": "is_active"})
         quest_check_resp.raise_for_status()
         quest_check_data = quest_check_resp.json()
 
-        # Если квест найден и он активен, то показываем его
         if quest_check_data and quest_check_data[0].get("is_active"):
             full_quest_resp = await supabase.get("/quests", params={"id": f"eq.{active_quest_id}", "select": "*"})
             active_quest = full_quest_resp.json()
@@ -448,20 +441,12 @@ async def get_public_quests(
                 active_quest[0]['is_completed'] = False
             return active_quest
         else:
-            # Если квест не найден или неактивен, "сбрасываем" его для пользователя
             logging.warning(f"User {telegram_id} had an invalid active_quest_id ({active_quest_id}). Clearing it.")
             await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"active_quest_id": None})
-            # После сброса, код продолжит выполняться и покажет список доступных квестов
-    # ✅ КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ
 
-    # 3. Если активного квеста нет (или он был только что сброшен), показываем все доступные для старта
     completed_resp = await supabase.get(
         "/user_quest_progress",
-        params={
-            "user_id": f"eq.{telegram_id}",
-            "claimed_at": "not.is.null",  # Проверяем, что награда получена (поле не пустое)
-            "select": "quest_id"
-        }
+        params={"user_id": f"eq.{telegram_id}", "claimed_at": "not.is.null", "select": "quest_id"}
     )
     completed_resp.raise_for_status()
     completed_quest_ids = {sub['quest_id'] for sub in completed_resp.json()}
@@ -472,10 +457,29 @@ async def get_public_quests(
     )
     all_quests_resp.raise_for_status()
     all_active_quests = all_quests_resp.json()
+    
+    # --- НОВЫЙ БЛОК: Фильтрация квестов по дню недели ---
+    try:
+        moscow_tz = ZoneInfo("Europe/Moscow")
+        current_day = datetime.now(moscow_tz).weekday() # Понедельник = 0, Воскресенье = 6
+    except Exception:
+        current_day = datetime.now(timezone.utc).weekday() # Fallback to UTC
+
+    filtered_quests = []
+    if current_day == 6 or current_day == 0: # Воскресенье или Понедельник
+        logging.info(f"День недели {current_day}: Выдаем Telegram задания.")
+        for quest in all_active_quests:
+            if quest.get("quest_type", "").startswith("automatic_telegram"):
+                filtered_quests.append(quest)
+    else: # Вторник - Суббота
+        logging.info(f"День недели {current_day}: Выдаем Twitch задания.")
+        for quest in all_active_quests:
+            if quest.get("quest_type", "").startswith("automatic_twitch"):
+                filtered_quests.append(quest)
+    # --- КОНЕЦ НОВОГО БЛОКА ---
 
     available_quests = [
-        quest for quest in all_active_quests
-        # ИСПРАВЛЕНИЕ: Добавлена проверка на is_repeatable
+        quest for quest in filtered_quests # Работаем с уже отфильтрованным списком
         if quest.get('is_repeatable') or quest['id'] not in completed_quest_ids
     ]
     
@@ -809,19 +813,20 @@ async def get_current_user_data(
                 event_participations[event_id] = event_participations.get(event_id, 0) + tickets_spent
 
         # 5. Собираем финальный ответ, используя данные из profile_data
-        final_response_data = {
+       final_response_data = {
             "id": telegram_id,
             "is_guest": False,
             "full_name": profile_data.get("full_name"),
             "twitch_id": profile_data.get("twitch_id"),
             "twitch_login": profile_data.get("twitch_login"),
             "is_admin": is_admin,
-            "is_previous_winner": is_previous_winner, # 🔥 ДОБАВЛЕНО
+            "is_previous_winner": is_previous_winner, 
             "active_quest_id": active_quest_id,
             "active_quest_progress": active_progress,
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
+            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
             "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
             "last_free_ticket_claimed_at": profile_data.get("last_free_ticket_claimed_at"),
             "event_participations": event_participations,
