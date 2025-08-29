@@ -2770,6 +2770,8 @@ async def admin_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/ad
 async def events_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/events.html")
 @app.get("/")
 async def read_root(): return FileResponse(f"{TEMPLATES_DIR}/index.html")
+@app.get("/checkpoint")
+async def checkpoint_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/checkpoint.html")
 
 def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
