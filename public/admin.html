@@ -178,6 +178,7 @@
                     <button class="admin-menu-button" data-view="view-admin-check">Проверить заявки</button>
                     <button class="admin-menu-button" data-view="view-admin-promocodes">Добавить промокоды</button>
                     <button id="check-winners-btn" class="admin-menu-button" style="background-color: #ff9500;">Победители розыгрышей</button>
+                    <button id="reset-all-quests-btn" class="admin-menu-button" style="background-color: var(--danger-color); margin-top: 15px;">Сбросить все активные квесты</button>
                 </div>
             </div>
         </div>
@@ -238,8 +239,8 @@
                     <input type="number" name="target_value" required>
                     <label>Награда (количество звёзд)</label>
                     <input type="number" name="reward_amount" required>
-                    <label>Срок выполнения (в днях)</label>
-                    <input type="number" name="duration_days" value="7" required>
+                    <label>Срок выполнения (в часах)</label>
+                    <input type="number" name="duration_days" value="16" required>
                     <label>Статус</label>
                     <select name="is_active">
                         <option value="true">Активен</option>
@@ -336,7 +337,7 @@
                         <label>Цель (для авто-квестов)</label>
                         <input type="number" name="target_value">
                     </div>
-                    <label>Срок выполнения (в днях, 0 - бессрочно)</label>
+                    <label>Срок выполнения (в часах, 0 - бессрочно)</label>
                     <input type="number" name="duration_days" value="0">
                     <label>Статус</label>
                     <select name="is_active">
@@ -398,7 +399,7 @@
                         <label>Цель (для авто-квестов)</label>
                         <input type="number" name="target_value">
                     </div>
-                    <label>Срок выполнения (в днях, 0 - бессрочно)</label>
+                    <label>Срок выполнения (в часах, 0 - бессрочно)</label>
                     <input type="number" name="duration_days" value="0">
                     <label>Статус</label>
                     <select name="is_active">
@@ -472,6 +473,8 @@
             winnersModal: document.getElementById('winners-modal'),
             winnersModalBody: document.getElementById('winners-modal-body'),
             winnersModalCloseBtn: document.getElementById('winners-modal-close-btn'),
+            // --- НОВАЯ КНОПКА ---
+            resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
         };
 
         let categoriesCache = [];
@@ -517,14 +520,12 @@
             }
         }
         
-        // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
         function renderWinners(winners) {
             if (!winners || winners.length === 0) {
                 dom.winnersModalBody.innerHTML = '<p style="text-align:center; color: var(--text-color-muted);">Победителей пока нет.</p>';
                 return;
             }
             
-            // API должен возвращать event_id, winner_id, и confirmed (true/false) для каждого победителя
             dom.winnersModalBody.innerHTML = winners.map(winner => {
                 const hasValidTradeLink = winner.trade_link && winner.trade_link !== 'Не указана' && winner.trade_link.startsWith('http');
                 const tradeLinkClass = hasValidTradeLink ? '' : 'disabled';
@@ -643,7 +644,7 @@
                     <div class="quest-admin-meta"><span class="quest-status-badge ${statusClass}">${c.is_active ? 'Активен' : 'Неактивен'}</span></div>
                     <div class="manage-quest-info">
                         <span>${c.description}</span><br>
-                        <small style="color: var(--text-color-muted);">Тип: ${conditionTypes[c.condition_type] || c.condition_type} | Цель: ${c.target_value} | Срок: ${c.duration_days} д. | Награда: ${c.reward_amount} ⭐</small>
+                        <small style="color: var(--text-color-muted);">Тип: ${conditionTypes[c.condition_type] || c.condition_type} | Цель: ${c.target_value} | Срок: ${c.duration_days} ч. | Награда: ${c.reward_amount} ⭐</small>
                     </div>
                     <div class="admin-buttons-wrapper">
                         <button class="admin-edit-challenge-btn" data-challenge='${JSON.stringify(c)}'>Редактировать</button>
@@ -889,7 +890,23 @@
                 if (e.target === dom.winnersModal) dom.winnersModal.classList.add('hidden');
             });
 
-            // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ ПОДТВЕРЖДЕНИЯ ---
+            // --- ОБРАБОТЧИК КНОПКИ СБРОСА КВЕСТОВ ---
+            dom.resetAllQuestsBtn.addEventListener('click', () => {
+                Telegram.WebApp.showConfirm(
+                    'Вы уверены, что хотите сбросить ВСЕ активные автоматические квесты у ВСЕХ пользователей? Это действие необратимо и вернет их к экрану выбора испытания.',
+                    async (ok) => {
+                        if (ok) {
+                            try {
+                                await makeApiRequest('/api/v1/admin/quests/reset-all-active');
+                                Telegram.WebApp.showAlert('Все активные квесты были успешно сброшены.');
+                            } catch (e) {
+                                // Ошибка уже обработана и показана в makeApiRequest
+                            }
+                        }
+                    }
+                );
+            });
+
             dom.winnersModalBody.addEventListener('click', async (e) => {
                 const confirmButton = e.target.closest('.confirm-prize-sent-btn');
                 if (confirmButton) {
@@ -901,8 +918,6 @@
                         async (ok) => {
                             if (ok) {
                                 try {
-                                    // ПРИМЕЧАНИЕ: Для работы этой функции требуется создать API эндпоинт
-                                    // /api/v1/admin/events/confirm_sent на стороне сервера.
                                     await makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(eventId) });
                                     
                                     const confirmationArea = document.getElementById(`confirmation-area-${eventId}`);
@@ -922,7 +937,7 @@
             dom.appContainer.addEventListener('click', async (event) => {
                 const target = event.target;
                 const navButton = target.closest('.admin-menu-button, .back-button, #go-create-quest, #go-create-challenge');
-                if (navButton) {
+                if (navButton && navButton.id !== 'reset-all-quests-btn') { // Исключаем новую кнопку из общей навигации
                     const view = navButton.dataset.view;
                     if (view) {
                         switchView(view);
