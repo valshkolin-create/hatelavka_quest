@@ -876,9 +876,9 @@ async def create_quest(request_data: QuestCreateRequest, supabase: httpx.AsyncCl
     if quest_to_create.get('quest_type') != 'manual_check':
         quest_to_create['category_id'] = None
 
-    duration = request_data.duration_days
-    if duration and duration > 0:
-        quest_to_create['end_date'] = (datetime.now(timezone.utc) + timedelta(days=duration)).isoformat()
+    duration_hours = request_data.duration_days
+    if duration_hours and duration_hours > 0:
+        quest_to_create['end_date'] = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
     else:
         quest_to_create['end_date'] = None
     
@@ -905,10 +905,11 @@ async def update_quest(request_data: QuestUpdateRequest, supabase: httpx.AsyncCl
     if quest_data_to_update.get('quest_type') != 'manual_check':
         quest_data_to_update['category_id'] = None
 
-    duration = quest_data_to_update.pop('duration_days', None)
-    if duration is not None:
-        if duration > 0:
-            quest_data_to_update['end_date'] = (datetime.now(timezone.utc) + timedelta(days=duration)).isoformat()
+    # --- ИЗМЕНЕНИЕ: Используем часы вместо дней ---
+    duration_hours = quest_data_to_update.pop('duration_days', None)
+    if duration_hours is not None:
+        if duration_hours > 0:
+            quest_data_to_update['end_date'] = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
             quest_data_to_update['start_date'] = datetime.now(timezone.utc).isoformat()
         else:
             quest_data_to_update['end_date'] = None
@@ -977,10 +978,12 @@ async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.As
     quest = quests[0]
     if quest.get('end_date') and quest.get('start_date'):
         try:
-            end = datetime.fromisoformat(quest['end_date'].replace('Z', '+00:00')); start = datetime.fromisoformat(quest['start_date'].replace('Z', '+00:00'))
-            quest['duration_days'] = (end - start).days
-        except (ValueError, TypeError): quest['duration_days'] = 0
-    else: quest['duration_days'] = 0
+            end = datetime.fromisoformat(quest['end_date'].replace('Z', '+00:00'))
+            start = datetime.fromisoformat(quest['start_date'].replace('Z', '+00:00'))
+            # --- ИЗМЕНЕНИЕ: Считаем разницу в часах ---
+            quest['duration_days'] = round((end - start).total_seconds() / 3600)
+        except (ValueError, TypeError): 
+            quest['duration_days'] = 0
     return quest
 
 @app.post("/api/v1/promocode")
@@ -1852,8 +1855,9 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
     details_resp = await supabase.get("/challenges", params={"id": f"eq.{chosen_challenge_id}", "select": "*"})
     challenge_details = details_resp.json()[0]
 
-    duration = challenge_details['duration_days']
-    expires_at = (datetime.now(timezone.utc) + timedelta(days=duration)).isoformat()
+    # --- ИЗМЕНЕНИЕ: Используем часы вместо дней ---
+    duration_in_hours = challenge_details['duration_days']
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_in_hours)).isoformat()
     
     # 🔥 НОВОЕ: Рассчитываем start_value прямо в FastAPI
     condition_type = challenge_details['condition_type']
@@ -1927,8 +1931,8 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
     details_resp = await supabase.get("/challenges", params={"id": f"eq.{chosen_challenge_id}", "select": "*"})
     challenge_details = details_resp.json()[0]
 
-    duration = challenge_details['duration_days']
-    expires_at = (datetime.now(timezone.utc) + timedelta(days=duration)).isoformat()
+    duration_in_hours = challenge_details['duration_days']
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_in_hours)).isoformat()
     
     # 🔥 НОВОЕ: Рассчитываем start_value прямо в FastAPI
     condition_type = challenge_details['condition_type']
@@ -2178,6 +2182,30 @@ async def create_category(request_data: CategoryCreateRequest, supabase: httpx.A
 
     await supabase.post("/quest_categories", json={"name": request_data.name})
     return {"message": "Категория успешно создана."}
+
+@app.post("/api/v1/admin/quests/reset-all-active")
+async def reset_all_active_quests(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Сбрасывает активный квест для всех пользователей.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Обновляем всех пользователей, у которых есть активный квест
+        await supabase.patch(
+            "/users",
+            params={"active_quest_id": "not.is.null"},
+            json={"active_quest_id": None, "active_quest_progress": 0}
+        )
+        return {"message": "Все активные квесты сброшены."}
+    except Exception as e:
+        logging.error(f"Ошибка при сбросе всех активных квестов: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сбросить активные квесты.")
 
 @app.post("/api/v1/admin/categories/update")
 async def update_category(request_data: CategoryUpdateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
