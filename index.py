@@ -782,14 +782,18 @@ async def get_current_user_data(
 
         profile_data = user_data[0]
         
+        # --- НАЧАЛО ВОССТАНОВЛЕННОЙ ЛОГИКИ ИЗ СТАРОЙ ВЕРСИИ ---
         active_quest_id = profile_data.get("active_quest_id")
-        # --- ИЗМЕНЕНИЕ: Используем правильное имя колонки 'quest_progress' ---
-        active_progress = profile_data.get("quest_progress", 0)
-
-        # --- УДАЛЕНО: Этот блок больше не нужен, так как мы берем прогресс напрямую из таблицы users ---
-        # if active_quest_id:
-        #     progress_resp = await supabase.get(...)
-        #     ...
+        active_progress = 0
+        if active_quest_id:
+            progress_resp = await supabase.get(
+                "/user_quest_progress",
+                params={"user_id": f"eq.{telegram_id}", "quest_id": f"eq.{active_quest_id}", "select": "current_progress"}
+            )
+            progress_data = progress_resp.json()
+            if progress_data:
+                active_progress = progress_data[0].get("current_progress", 0)
+        # --- КОНЕЦ ВОССТАНОВЛЕННОЙ ЛОГИКИ ---
 
         entries_resp = await supabase.get(
             "/event_entries",
@@ -816,7 +820,7 @@ async def get_current_user_data(
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
-            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- Это поле теперь тоже передается
+            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- Это поле из новой версии сохранено
             "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
             "last_free_ticket_claimed_at": profile_data.get("last_free_ticket_claimed_at"),
             "event_participations": event_participations,
