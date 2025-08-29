@@ -511,7 +511,7 @@
             return `<div class="twitch-update-notice">ℹ️ Прогресс обновляется с задержкой (до 30 мин).</div>`;
         }
 
-        function renderChallenge(challengeData, isGuest) {
+         function renderChallenge(challengeData, isGuest) {
             dom.challengeContainer.innerHTML = '';
 
             if (isGuest) {
@@ -525,18 +525,21 @@
                 return;
             }
 
-            // --- НОВЫЙ БЛОК: Отображение кулдауна до следующего челленджа ---
             if (challengeData && challengeData.cooldown_until) {
-                dom.challengeContainer.innerHTML = `
-                    <div class="quest-card challenge-card">
-                        <div class="quest-icon"><i class="fa-solid fa-hourglass-half"></i></div>
-                        <h2 class="quest-title">Следующий челлендж</h2>
-                        <p class="quest-subtitle">
-                            Новое задание будет доступно после окончания таймера.
-                        </p>
-                        <div id="challenge-cooldown-timer" class="challenge-timer" style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-top: 10px;">...</div>
-                    </div>`;
-                startCountdown(document.getElementById('challenge-cooldown-timer'), challengeData.cooldown_until, 'challenge_cooldown');
+                // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+                // Проверяем, не запущен ли уже таймер, чтобы избежать бесконечного цикла
+                if (!countdownIntervals['challenge_cooldown']) {
+                    dom.challengeContainer.innerHTML = `
+                        <div class="quest-card challenge-card">
+                            <div class="quest-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                            <h2 class="quest-title">Следующий челлендж</h2>
+                            <p class="quest-subtitle">
+                                Новое задание будет доступно после окончания таймера.
+                            </p>
+                            <div id="challenge-cooldown-timer" class="challenge-timer" style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-top: 10px;">...</div>
+                        </div>`;
+                    startCountdown(document.getElementById('challenge-cooldown-timer'), challengeData.cooldown_until, 'challenge_cooldown');
+                }
                 return;
             }
 
