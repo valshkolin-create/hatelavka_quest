@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Чекпоинт</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        :root {
+            --bg-color: #000000;
+            --surface-glass-bg: rgba(28, 28, 30, 0.75);
+            --primary-color: #34c759;
+            --text-color: #ffffff;
+            --text-color-muted: #b0b0b0;
+            --border-color: rgba(58, 58, 60, 0.6);
+            --reward-claimed-bg: rgba(52, 199, 89, 0.2);
+            --reward-active-border: #ffcc00;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 20px 15px 120px;
+        }
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #checkpoint-status {
+            text-align: center;
+            color: var(--text-color-muted);
+            margin-bottom: 25px;
+        }
+        .checkpoint-track {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .checkpoint-item {
+            background-color: var(--surface-glass-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+        .checkpoint-item.is-claimed {
+            background-color: var(--reward-claimed-bg);
+            border-color: var(--primary-color);
+        }
+        .checkpoint-item.is-active {
+            border-color: var(--reward-active-border);
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+        }
+        .checkpoint-level {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-color-muted);
+        }
+        .checkpoint-icon {
+            font-size: 28px;
+            width: 40px;
+            text-align: center;
+        }
+        .checkpoint-details {
+            flex-grow: 1;
+        }
+        .checkpoint-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 5px;
+        }
+        .checkpoint-progress {
+            font-size: 13px;
+            color: var(--text-color-muted);
+        }
+        .claim-button {
+            background-color: var(--reward-active-border);
+            color: #000;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .claim-button:disabled {
+            background-color: #555;
+            color: var(--text-color-muted);
+            cursor: not-allowed;
+        }
+        .claimed-icon {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        .loader-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 300; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .spinner {
+            width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .app-footer {
+            display: flex; justify-content: space-around;
+            background-color: var(--surface-glass-bg); backdrop-filter: blur(15px);
+            border-top: 1px solid var(--border-color);
+            width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            position: fixed; bottom: 0; left: 0; z-index: 100;
+        }
+        .footer-item {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            color: var(--text-color-muted); font-size: 11px; text-decoration: none; flex: 1;
+        }
+        .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
+        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+
+    <div id="loader-overlay" class="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <h1 class="page-title">Марафон "Чекпоинт"</h1>
+    <p id="checkpoint-status">Загрузка вашего прогресса...</p>
+
+    <div id="checkpoint-track" class="checkpoint-track">
+        </div>
+
+    <footer class="app-footer">
+      <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
+      <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
+      <a href="#" id="nav-checkpoint" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-road"></i></div><span>Чекпоинт</span></a>
+      <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>    
+      <a href="/admin" id="nav-admin" class="footer-item" style="display: none;"><div class="icon-wrapper"><i class="fa-solid fa-user-shield"></i></div><span>Админка</span></a>
+    </footer>
+
+    <script>
+        // Тут будет JS для загрузки данных
+        // Пока оставим его пустым
+        document.addEventListener('DOMContentLoaded', () => {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+            
+            // Заглушка, чтобы показать, как это будет выглядеть
+            const track = document.getElementById('checkpoint-track');
+            track.innerHTML = `
+                <div class="checkpoint-item is-claimed">
+                    <div class="checkpoint-level">1</div>
+                    <div class="checkpoint-icon"><i class="fa-solid fa-comments"></i></div>
+                    <div class="checkpoint-details">
+                        <div class="checkpoint-title">Написать 100 сообщений</div>
+                        <div class="checkpoint-progress">100 / 100</div>
+                    </div>
+                    <div class="claimed-icon"><i class="fa-solid fa-check-circle"></i></div>
+                </div>
+                <div class="checkpoint-item is-active">
+                    <div class="checkpoint-level">2</div>
+                    <div class="checkpoint-icon"><i class="fa-solid fa-eye"></i></div>
+                    <div class="checkpoint-details">
+                        <div class="checkpoint-title">Смотреть стрим 60 минут</div>
+                        <div class="checkpoint-progress">45 / 60</div>
+                    </div>
+                    <button class="claim-button" disabled>В процессе</button>
+                </div>
+                <div class="checkpoint-item">
+                    <div class="checkpoint-level">3</div>
+                    <div class="checkpoint-icon"><i class="fa-solid fa-star"></i></div>
+                    <div class="checkpoint-details">
+                        <div class="checkpoint-title">Получить 100 очков канала</div>
+                        <div class="checkpoint-progress">0 / 100</div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('loader-overlay').style.display = 'none';
+        });
+    </script>
+</body>
+</html>
