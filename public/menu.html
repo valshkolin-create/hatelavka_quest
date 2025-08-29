@@ -452,7 +452,6 @@
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || result.message || 'Ошибка сервера');
                 
-                // --- ИЗМЕНЕНИЕ: Возвращаем весь результат, включая доп. данные (cooldown_until) ---
                 return result;
 
             } catch (e) {
@@ -491,7 +490,8 @@
                         currentTimerElement.textContent = "Время вышло!";
                     }
                     if (intervalKey === 'challenge_cooldown') {
-                        main();
+                        // --- FIX: Replaced main() with a silent refresh to prevent loop ---
+                        refreshDataSilently();
                     }
                     return;
                 }
@@ -535,9 +535,7 @@
                 return;
             }
 
-            // --- НАЧАЛО ИСПРАВЛЕННОГО БЛОКА ---
             if (challengeData && challengeData.cooldown_until) {
-                // Шаг 1: Всегда отрисовываем HTML-блок с таймером, чтобы он не исчезал.
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card challenge-card">
                         <div class="quest-icon"><i class="fa-solid fa-hourglass-half"></i></div>
@@ -548,13 +546,11 @@
                         <div id="challenge-cooldown-timer" class="challenge-timer" style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-top: 10px;">...</div>
                     </div>`;
                 
-                // Шаг 2: Запускаем таймер, только если он ещё не был запущен.
                 if (!countdownIntervals['challenge_cooldown']) {
                     startCountdown(document.getElementById('challenge-cooldown-timer'), challengeData.cooldown_until, 'challenge_cooldown');
                 }
-                return; // Завершаем выполнение функции
+                return;
             }
-            // --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
 
             if (!challengeData || !challengeData.challenges) {
                 dom.challengeContainer.innerHTML = `
@@ -687,7 +683,6 @@
                 progressTextContent = `✉️ ${currentProgress} / ${target}`;
             }
 
-            // --- НОВОЕ: HTML для таймера ---
             const timerHtml = activeQuest.end_date ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer"></div>` : '';
 
             dom.activeAutomaticQuestContainer.innerHTML = `
@@ -707,7 +702,6 @@
                     ${buttonHtml}
                 </div>`;
             
-            // --- НОВОЕ: Запуск таймера для квеста ---
             if (activeQuest.end_date) {
                 startCountdown(document.getElementById(`quest-timer-${activeQuest.id}`), activeQuest.end_date, `quest_${activeQuest.id}`);
             }
@@ -788,9 +782,9 @@
                         renderActiveAutomaticQuest(activeQuest, userData);
                     }
                 }
-                if (newChallengeData) { // Изменено: теперь newChallengeData может содержать cooldown_until
+                if (newChallengeData) {
                     renderChallenge(newChallengeData, !userData.twitch_id);
-                } else { // Если челленджа нет, проверяем кулдаун отдельно
+                } else {
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
             } catch (e) {
@@ -1031,14 +1025,13 @@
             }
             
             try {
-                // --- НОВЫЙ БЛОК: Смена темы кнопки по дню недели ---
-                const day = new Date().getDay(); // 0 = Воскресенье, 1 = Понедельник, ..., 6 = Суббота
+                const day = new Date().getDay();
                 const questButton = dom.questChooseBtn;
-                if (day === 0 || day === 1) { // Воскресенье или Понедельник
+                if (day === 0 || day === 1) {
                     questButton.classList.remove('twitch-theme');
                     questButton.classList.add('telegram-theme');
                     questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> ВЫХОДНЫЕ ИСПЫТАНИЯ';
-                } else { // Вторник - Суббота
+                } else {
                     questButton.classList.remove('telegram-theme');
                     questButton.classList.add('twitch-theme');
                     questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> НАЧАТЬ ИСПЫТАНИЕ';
