@@ -2196,11 +2196,11 @@ async def reset_all_active_quests(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Обновляем всех пользователей, у которых есть активный квест
+        # ИСПРАВЛЕНИЕ: Используем правильное имя столбца 'quest_progress'
         response = await supabase.patch(
             "/users",
             params={"active_quest_id": "not.is.null"},
-            json={"active_quest_id": None, "active_quest_progress": 0}
+            json={"active_quest_id": None, "quest_progress": 0}
         )
         # Эта строка проверит ответ от Supabase и вызовет ошибку, если он неудачный
         response.raise_for_status() 
