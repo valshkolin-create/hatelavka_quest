@@ -730,7 +730,7 @@ async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.A
     return {"message": "Аккаунт Twitch успешно отвязан."}
     
 # --- ПРАВИЛЬНО ---
-@app.post("/api/v1/user/me")
+@app.post("/api/vy1/user/me")
 async def get_current_user_data(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -743,7 +743,6 @@ async def get_current_user_data(
     is_admin = telegram_id in ADMIN_IDS
 
     try:
-        # --- НАЧАЛО ИЗМЕНЕНИЯ 3: Проверка статуса победителя ---
         is_previous_winner = False
         try:
             content_resp = await supabase.get(
@@ -760,9 +759,7 @@ async def get_current_user_data(
         except Exception as e:
             logging.error(f"Не удалось проверить статус победителя для {telegram_id}: {e}")
             is_previous_winner = False
-        # --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
 
-        # 1. Получаем основной профиль пользователя НАПРЯМУЮ из таблицы users
         user_resp = await supabase.get(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}", "select": "*", "limit": 1}
@@ -770,7 +767,6 @@ async def get_current_user_data(
         user_resp.raise_for_status()
         user_data = user_resp.json()
 
-        # 2. Если пользователя нет, создаём его и запрашиваем снова
         if not user_data:
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
             await supabase.post(
@@ -782,12 +778,10 @@ async def get_current_user_data(
             user_data = user_resp.json()
 
         if not user_data:
-            # Возвращаем is_admin даже для гостя, если его ID в списке
             return JSONResponse(content={"is_guest": True, "is_admin": is_admin})
 
         profile_data = user_data[0]
         
-        # 3. Получаем прогресс квеста
         active_quest_id = profile_data.get("active_quest_id")
         active_progress = 0
         if active_quest_id:
@@ -799,7 +793,6 @@ async def get_current_user_data(
             if progress_data:
                 active_progress = progress_data[0].get("current_progress", 0)
 
-        # 4. Получаем ставки
         entries_resp = await supabase.get(
             "/event_entries",
             params={"user_id": f"eq.{telegram_id}", "select": "event_id, tickets_spent"}
@@ -812,21 +805,20 @@ async def get_current_user_data(
             if event_id is not None:
                 event_participations[event_id] = event_participations.get(event_id, 0) + tickets_spent
 
-        # 5. Собираем финальный ответ, используя данные из profile_data
-       final_response_data = {
+        final_response_data = {
             "id": telegram_id,
             "is_guest": False,
             "full_name": profile_data.get("full_name"),
             "twitch_id": profile_data.get("twitch_id"),
             "twitch_login": profile_data.get("twitch_login"),
             "is_admin": is_admin,
-            "is_previous_winner": is_previous_winner, 
+            "is_previous_winner": is_previous_winner,
             "active_quest_id": active_quest_id,
             "active_quest_progress": active_progress,
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
-            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"),
             "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
             "last_free_ticket_claimed_at": profile_data.get("last_free_ticket_claimed_at"),
             "event_participations": event_participations,
