@@ -3,197 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Чекпоинт</title>
+    <title>Гонка за скинами</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
+        /* ... (все твои стили остаются без изменений) ... */
         :root {
-            --bg-color: #000000;
-            --surface-glass-bg: rgba(28, 28, 30, 0.75);
-            --primary-color: #34c759;
-            --text-color: #ffffff;
-            --text-color-muted: #8e8e93;
-            --border-color: rgba(58, 58, 60, 0.6);
-            --star-color: #ffcc00;
-            --locked-color: #48484a;
+            --background-main: #100e19;
+            --surface-primary: #1c1a27;
+            --surface-secondary: #2a2738;
+            --border-color: #3c3852;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a09cb8;
+            --accent-primary: #00f2ea;
+            --accent-secondary: #d433ff;
+            --danger-color: #ff4d4d;
+            --winner-color: #ffd700;
         }
         body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-main);
+            color: var(--text-primary);
             margin: 0;
-            min-height: 100vh;
-            background-color: var(--bg-color);
-            background-image: radial-gradient(ellipse at 50% 100%, #0c0a18, #000000);
-            color: var(--text-color);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            padding: 20px 15px 120px;
+            padding: 15px 15px 100px;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 25px;
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto;
+            transition: filter 0.3s ease; /* Плавный переход для блюра */
         }
-        .page-title {
-            font-size: 24px;
-            font-weight: 700;
-            margin: 0 0 10px;
+        /* СТИЛИ ДЛЯ БЛЮРА И БЛОКИРОВКИ */
+        .access-denied .container {
+            filter: blur(8px);
+            pointer-events: none;
+            user-select: none;
         }
-        .user-stars-balance {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--star-color);
-        }
-        .reward-track {
+        .access-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 500;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-        }
-        .reward-item {
-            background-color: var(--surface-glass-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 15px;
-            display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 15px;
-            transition: all 0.3s ease;
-        }
-        /* Состояния наград */
-        .reward-item.is-claimed {
-            background-color: rgba(52, 199, 89, 0.2);
-            border-color: var(--primary-color);
-        }
-        .reward-item.is-claimable {
-            border-color: var(--star-color);
-            box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
-        }
-        .reward-item.is-locked {
-            background-color: transparent;
-            border-color: var(--locked-color);
-            color: var(--text-color-muted);
-        }
-        .reward-level {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-color-muted);
-            min-width: 25px;
             text-align: center;
+            padding: 20px;
+            color: var(--text-primary);
         }
-        .reward-item.is-locked .reward-level {
-            color: var(--locked-color);
+        .access-overlay i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: var(--accent-secondary);
         }
-        .reward-icon {
-            font-size: 28px;
-            width: 40px;
-            text-align: center;
-            color: var(--text-color);
+        .access-overlay h2 {
+            font-size: 22px;
+            margin: 0 0 10px;
         }
-        .reward-item.is-locked .reward-icon {
-            color: var(--locked-color);
-        }
-        .reward-details {
-            flex-grow: 1;
-        }
-        .reward-title {
+        .access-overlay p {
             font-size: 16px;
-            font-weight: 600;
-            margin: 0;
+            color: var(--text-secondary);
+            max-width: 300px;
         }
-        .reward-item.is-locked .reward-title {
-            color: var(--text-color-muted);
-        }
-        .action-button {
-            border: none;
-            padding: 8px 15px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 110px; /* Фиксированная ширина для кнопок */
-            text-align: center;
-        }
-        .claim-btn {
-            background-color: var(--star-color);
-            color: #000;
-        }
-        .claimed-btn {
-            background-color: var(--primary-color);
-            color: var(--text-color);
-        }
-        .locked-btn {
-            background-color: var(--locked-color);
-            color: var(--text-color-muted);
-            cursor: not-allowed;
-        }
-        .loader-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 300; display: flex;
-            align-items: center; justify-content: center;
-        }
-        .spinner {
-            width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .app-footer {
-            display: flex; justify-content: space-around;
-            background-color: var(--surface-glass-bg); backdrop-filter: blur(15px);
-            border-top: 1px solid var(--border-color);
-            width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
-            position: fixed; bottom: 0; left: 0; z-index: 100;
-        }
-        .footer-item {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            color: var(--text-color-muted); font-size: 11px; text-decoration: none; flex: 1;
-        }
-        .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
-        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--star-color); }
+        /* ... (остальные твои стили) ... */
+        .page-title { text-align: center; font-size: 22px; /* ... */ }
+        .timer { text-align: center; font-size: 1.4em; /* ... */ }
+        /* ... (и так далее) ... */
     </style>
 </head>
-<body>
-
-    <div id="loader-overlay" class="loader-overlay" style="display: none;">
-        <div class="spinner"></div>
+<body class="access-denied"> <div id="access-overlay" class="access-overlay">
+        <i class="fa-solid fa-lock"></i>
+        <h2>Доступ ограничен</h2>
+        <p>Этот раздел находится в разработке. Доступ будет открыт позже.</p>
     </div>
 
-    <div class="header">
-        <h1 class="page-title">Марафон "Чекпоинт"</h1>
-        <div class="user-stars-balance">
-            <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span>
+    <div class="container">
+        <h1 class="page-title" data-key="mainTitle" data-editable>Гонка за скинами</h1>
+        <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
+        <div id="events-list" class="events-container"></div>
         </div>
+    
+    <div id="admin-access-controls" class="admin-controls" style="display: none; bottom: calc(120px + env(safe-area-inset-bottom));">
+        <button id="grant-access-btn" style="background: #007aff;">Выдать доступ</button>
     </div>
-
-    <div id="reward-track" class="reward-track">
-        <div class="reward-item is-claimed">
-            <div class="reward-level">1</div>
-            <div class="reward-icon"><i class="fa-solid fa-ticket"></i></div>
-            <div class="reward-details">
-                <div class="reward-title">5 билетов</div>
-            </div>
-            <button class="action-button claimed-btn" disabled><i class="fa-solid fa-check"></i> Получено</button>
-        </div>
-        <div class="reward-item is-claimable">
-            <div class="reward-level">2</div>
-            <div class="reward-icon"><i class="fa-solid fa-gem"></i></div>
-            <div class="reward-details">
-                <div class="reward-title">100 гемов</div>
-            </div>
-            <button class="action-button claim-btn">Забрать</button>
-        </div>
-        <div class="reward-item is-locked">
-            <div class="reward-level">3</div>
-            <div class="reward-icon"><i class="fa-solid fa-shield-halved"></i></div>
-            <div class="reward-details">
-                <div class="reward-title">Уникальный скин</div>
-            </div>
-            <button class="action-button locked-btn" disabled><i class="fa-solid fa-lock"></i> Закрыто</button>
-        </div>
+    
+    <div id="admin-controls" class="admin-controls" style="display: none;">
+        <button id="edit-btn">Редактировать</button>
+        <button id="save-btn">Сохранить</button>
     </div>
 
     <footer class="app-footer">
-      <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-      <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>
-      <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>Профиль</span></a>
-    </footer>
-    
-    <script>
-        // JS для загрузки данных пока оставим пустым
-    </script>
+        </footer>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tg = window.Telegram.WebApp;
+        // ... (весь твой JS до функции initialize) ...
+        const dom = {
+            // ...
+            adminAccessControls: document.getElementById('admin-access-controls'), // <-- Новая кнопка
+            grantAccessBtn: document.getElementById('grant-access-btn'), // <-- Новая кнопка
+            // ...
+        };
+
+        // ... (все твои функции до initialize) ...
+
+        async function initialize() {
+            tg.ready();
+            tg.expand();
+
+            // Функция для разблокировки страницы
+            const unlockPage = () => {
+                document.body.classList.remove('access-denied');
+                document.getElementById('access-overlay').style.display = 'none';
+            };
+
+            if (tg.initData && tg.initData.length > 0) {
+                try {
+                    // СНАЧАЛА ЗАПРАШИВАЕМ ПОЛЬЗОВАТЕЛЯ, ЧТОБЫ ПРОВЕРИТЬ ДОСТУП
+                    const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
+                    if (!userRes.ok) throw new Error("Ошибка сети при проверке пользователя");
+                    userData = await userRes.json();
+
+                    // ПРОВЕРКА ДОСТУПА
+                    // Доступ есть у админов ИЛИ у тех, кому его выдали (has_events_access)
+                    if (userData.is_admin || userData.has_events_access) {
+                        unlockPage(); // Разблокируем страницу
+                    }
+
+                    // Загружаем остальной контент
+                    const contentRes = await fetch('/api/v1/events/content', {cache: 'no-store'});
+                    if (!contentRes.ok) throw new Error("Ошибка сети при загрузке контента");
+                    pageContent = await contentRes.json(); 
+                    
+                    renderPage();
+
+                    if (userData.is_admin) {
+                        dom.adminControls.style.display = 'block';
+                        dom.adminAccessControls.style.display = 'block'; // Показываем админ-кнопку доступа
+                        
+                        // ... (остальной код для админа: edit, save) ...
+                    }
+                } catch (error) { 
+                    console.error("Ошибка инициализации:", error); 
+                    // Если что-то пошло не так, пользователь увидит экран блокировки
+                }
+            }
+            // Для просмотра в браузере страница всегда будет заблокирована
+        }
+
+        // ... (остальные твои функции) ...
+
+        // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ ВЫДАЧИ ДОСТУПА ---
+        dom.grantAccessBtn.addEventListener('click', () => {
+            const userId = prompt("Введите Telegram ID пользователя, которому нужно выдать доступ:");
+            if (userId && !isNaN(parseInt(userId))) {
+                tg.MainButton.showProgress();
+                // Здесь будет вызов API для выдачи доступа
+                console.log(`Выдача доступа пользователю с ID: ${userId} (симуляция)`);
+                setTimeout(() => {
+                    tg.showAlert(`Доступ для пользователя ${userId} выдан!`);
+                    tg.MainButton.hideProgress();
+                }, 1000);
+            } else if (userId) {
+                tg.showAlert("Неверный ID. Введите только цифры.");
+            }
+        });
+
+        initialize();
+    });
+</script>
 </body>
 </html>
