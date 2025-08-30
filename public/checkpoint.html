@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Гонка за скинами</title>
+    <title>Чекпоинт</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Oxanium:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
         :root {
-            --background-main: #100e19;
-            --surface-primary: #1c1a27;
-            --surface-secondary: #2a2738;
-            --border-color: #3c3852;
-            --text-primary: #f0f0f5;
-            --text-secondary: #a09cb8;
-            --accent-primary: #00f2ea;
-            --accent-secondary: #d433ff;
-            --danger-color: #ff4d4d;
-            --winner-color: #ffd700;
-            --card-default-border: #d433ff;
-            --card-default-bg: #2a2738;
-            --card-default-dots: rgba(240, 240, 245, 0.1);
+            --background-main: #0a0a0f;
+            --surface-primary: rgba(28, 28, 30, 0.7);
+            --surface-secondary: rgba(40, 40, 45, 0.8);
+            --border-color: #33333d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-glow: #00ffff; /* Cyber Blue */
+            --accent-purple: #8a2be2; /* Blue Violet */
+            --star-color: #ffd700;
+            --locked-color: #48484a;
+            --claimed-color: #34c759;
+            --gradient-start: #1c0f42; /* Darker blue-purple */
+            --gradient-end: #0a0a0f; /* Even darker */
+            --grid-color: rgba(0, 255, 255, 0.1); /* Light cyan grid */
         }
 
         * {
@@ -32,21 +33,45 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Oxanium', sans-serif; /* Более читабельный основной шрифт */
+            background: radial-gradient(circle at 50% 100%, var(--gradient-start), var(--gradient-end));
             background-color: var(--background-main);
             color: var(--text-primary);
             margin: 0;
             padding: 15px 15px 100px;
             overflow-x: hidden;
+            position: relative;
         }
-        
+
+        body::before { /* Анимированный фон сетки */
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.3;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            from { background-position: 0 0; }
+            to { background-position: 40px 40px; }
+        }
+
         .container {
             max-width: 800px;
             margin: 0 auto;
-            transition: filter 0.3s ease; /* Плавный переход для блюра */
+            transition: filter 0.3s ease;
         }
-        
-        /* СТИЛИ ДЛЯ БЛЮРА И БЛОКИРОВКИ */
+
+        /* --- Access Denied Styles --- */
         .access-denied .container,
         .access-denied .app-footer,
         .access-denied .admin-controls {
@@ -69,221 +94,571 @@
             text-align: center;
             padding: 20px;
             color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.9);
+            animation: glitchEffect 1s infinite alternate; /* Анимация глитча */
         }
-        
+
+        @keyframes glitchEffect {
+            0% { text-shadow: 2px 2px var(--accent-glow), -2px -2px var(--accent-purple); transform: translate(0); }
+            25% { text-shadow: -2px 0 var(--accent-glow), 2px 0 var(--accent-purple); transform: translate(-1px, 1px); }
+            50% { text-shadow: 2px -2px var(--accent-glow), -2px 2px var(--accent-purple); transform: translate(1px, -1px); }
+            75% { text-shadow: -2px 2px var(--accent-glow), 2px -2px var(--accent-purple); transform: translate(-1px, -1px); }
+            100% { text-shadow: 2px 2px var(--accent-glow), -2px -2px var(--accent-purple); transform: translate(0); }
+        }
+
         .access-overlay i {
-            font-size: 48px;
+            font-size: 56px;
             margin-bottom: 20px;
-            color: var(--accent-secondary);
+            color: var(--accent-glow);
+            text-shadow: 0 0 15px var(--accent-glow);
         }
-        
         .access-overlay h2 {
-            font-size: 22px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
             margin: 0 0 10px;
+            color: var(--accent-glow);
+            text-shadow: 0 0 10px var(--accent-glow);
         }
-        
         .access-overlay p {
             font-size: 16px;
             color: var(--text-secondary);
             max-width: 300px;
+            margin-bottom: 30px;
         }
-        
         .back-button {
-            margin-top: 25px;
-            padding: 10px 25px;
-            background-color: var(--surface-secondary);
-            color: var(--text-primary);
+            padding: 12px 30px;
+            background: linear-gradient(90deg, var(--accent-glow) 0%, var(--accent-purple) 100%);
+            color: #000;
             text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: background-color 0.2s;
+            border-radius: 25px;
+            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px var(--accent-glow);
         }
-
         .back-button:hover {
-            background-color: var(--border-color);
+            box-shadow: 0 0 25px var(--accent-glow);
+            transform: translateY(-2px);
         }
 
-        /* Остальные стили без изменений */
-        .page-title { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .timer { text-align: center; font-size: 1.4em; font-weight: 600; color: var(--text-primary); margin-bottom: 25px; letter-spacing: 1px; display: flex; justify-content: center; align-items: center; gap: 8px; }
-        .events-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
-        .event-card { background-color: var(--surface-primary); border: 1px solid var(--border-color); border-radius: 12px; display: flex; flex-direction: column; position: relative; transition: transform 0.3s ease, box-shadow 0.3s ease; }
-        .card-display-area { position: relative; border-radius: 10px 10px 0 0; overflow: hidden; padding: 10px; padding-bottom: 0; }
-        .card-display-area::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--card-border-color, var(--card-default-border)); z-index: 4; }
-        .event-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transition: transform 0.3s ease; }
-        .card-info-area { padding: 10px; text-align: center; display: flex; flex-direction: column; flex-grow: 1; }
-        .event-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
-        .event-button, .participants-button { width: 100%; padding: 10px; font-size: 13px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
-        .event-button { background-color: var(--accent-primary); color: #000; }
-        .event-button:disabled { background: var(--surface-secondary); color: var(--text-secondary); cursor: not-allowed; }
-        .participants-button { background-color: var(--surface-secondary); color: var(--text-primary); }
-        .winner-display { padding: 10px 0; color: var(--winner-color); }
-        .winner-name { font-size: 16px; font-weight: 700; margin-top: 4px; word-break: break-all; }
-        .admin-controls { position: fixed; bottom: calc(60px + env(safe-area-inset-bottom) + 15px); left: 50%; transform: translateX(-50%); z-index: 1000; }
-        .admin-controls button { background: linear-gradient(90deg, var(--accent-secondary), #ff70ab); color: white; padding: 10px 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.2s ease; }
+
+        /* --- Header --- */
+        .header { text-align: center; margin-bottom: 30px; }
+        .page-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 26px;
+            font-weight: 700;
+            margin: 0 0 10px;
+            background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+        }
+        .user-stars-balance {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--star-color);
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .user-stars-balance i { font-size: 24px; }
+
+        /* --- Reward Track --- */
+        .reward-track { display: flex; flex-direction: column; gap: 18px; }
+        .reward-item {
+            background-color: var(--surface-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .reward-item::before { /* Декоративная линия */
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+            opacity: 0.3;
+            border-radius: 12px 12px 0 0;
+        }
+
+        /* Reward States */
+        .reward-item.is-claimed { background-color: rgba(52, 199, 89, 0.2); border-color: var(--claimed-color); }
+        .reward-item.is-claimed::before { background: linear-gradient(90deg, transparent, var(--claimed-color), transparent); opacity: 0.6; }
+
+        .reward-item.is-claimable {
+            border-color: var(--star-color);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+            animation: pulseGlow 1.5s infinite alternate;
+        }
+        .reward-item.is-claimable::before { background: linear-gradient(90deg, transparent, var(--star-color), transparent); opacity: 0.8; }
+
+        @keyframes pulseGlow {
+            from { box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+            to { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+        }
+
+        .reward-item.is-locked { background-color: var(--surface-secondary); border-color: var(--locked-color); color: var(--text-secondary); opacity: 0.7; }
+        .reward-item.is-locked::before { background: linear-gradient(90deg, transparent, var(--locked-color), transparent); opacity: 0.2; }
+        
+        .reward-level { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent-glow); min-width: 35px; text-align: center; text-shadow: 0 0 5px var(--accent-glow); }
+        .reward-item.is-locked .reward-level { color: var(--locked-color); text-shadow: none; }
+        .reward-icon { font-size: 30px; width: 45px; text-align: center; color: var(--text-primary); text-shadow: 0 0 5px var(--accent-glow); }
+        .reward-item.is-locked .reward-icon { color: var(--locked-color); text-shadow: none; }
+        .reward-details { flex-grow: 1; }
+        .reward-title { font-size: 17px; font-weight: 600; margin: 0 0 4px; color: var(--text-primary); }
+        .reward-description { font-size: 13px; color: var(--text-secondary); margin: 0; }
+        .reward-item.is-locked .reward-title, .reward-item.is-locked .reward-description { color: var(--text-secondary); }
+
+        .action-button {
+            border: none; padding: 10px 18px; border-radius: 20px;
+            font-weight: 600; cursor: pointer; min-width: 120px;
+            text-align: center; transition: all 0.3s ease;
+            font-family: 'Oxanium', sans-serif;
+            text-transform: uppercase;
+        }
+        .claim-btn { background: linear-gradient(90deg, var(--star-color) 0%, #ffc107 100%); color: #000; box-shadow: 0 0 10px rgba(255, 215, 0, 0.6); }
+        .claim-btn:active { transform: translateY(1px); box-shadow: 0 0 5px rgba(255, 215, 0, 0.4); }
+        .claimed-btn { background-color: var(--claimed-color); color: #fff; opacity: 0.8; cursor: default; }
+        .locked-btn { background-color: var(--locked-color); color: var(--text-secondary); cursor: not-allowed; }
+
+        /* --- Admin Controls --- */
+        .admin-controls { position: fixed; bottom: calc(60px + env(safe-area-inset-bottom) + 15px); left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 10px;}
+        .admin-controls button {
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-glow));
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+            font-family: 'Oxanium', sans-serif;
+        }
+        .admin-controls button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
         #save-btn { display: none; }
         .edit-mode-active #edit-btn { display: none; }
         .edit-mode-active #save-btn { display: inline-block; }
-        .app-footer { display: flex; justify-content: space-around; background-color: rgba(28, 26, 39, 0.8); backdrop-filter: blur(15px); border-top: 1px solid var(--border-color); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; }
+        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 12px; display: flex; gap: 8px; justify-content: center; align-items: center; z-index: 5; }
+        .card-btn {
+            border: none; border-radius: 50%; width: 40px; height: 40px;
+            color: white; font-size: 18px; cursor: pointer; transition: transform 0.2s ease;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .card-btn:hover { transform: scale(1.1); }
+        .card-edit-btn { background-color: #007aff; }
+        .card-delete-btn { background-color: var(--danger-color); }
+        .create-reward-card {
+            border: 2px dashed var(--accent-glow);
+            justify-content: center;
+            cursor: pointer;
+            background: rgba(0, 255, 255, 0.05);
+            color: var(--accent-glow);
+            min-height: 90px;
+            text-shadow: 0 0 5px var(--accent-glow);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            animation: pulseBorder 2s infinite alternate;
+        }
+        .create-reward-card:hover { border-color: var(--accent-purple); color: var(--accent-purple); box-shadow: 0 0 15px rgba(138, 43, 226, 0.5); }
+        @keyframes pulseBorder {
+            from { border-color: var(--accent-glow); }
+            to { border-color: var(--accent-purple); }
+        }
+        
+        /* --- Footer --- */
+        .app-footer {
+            display: flex; justify-content: space-around;
+            background-color: rgba(28, 26, 39, 0.8); backdrop-filter: blur(15px);
+            border-top: 1px solid var(--border-color);
+            width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            position: fixed; bottom: 0; left: 0; z-index: 100;
+        }
         .footer-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-secondary); font-size: 11px; text-decoration: none; flex: 1; }
         .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
-        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-primary); font-weight: 600; }
+        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-glow); font-weight: 600; text-shadow: 0 0 5px var(--accent-glow); }
         .hidden { display: none !important; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
-        /* ... и все остальные стили ... */
+
+        /* --- Modal --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+        .modal-content { background-color: var(--surface-secondary); border: 1px solid var(--accent-glow); padding: 0; border-radius: 14px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column; max-height: 85vh; }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; color: var(--accent-glow); font-family: 'Orbitron', sans-serif; }
+        .modal-close-btn { background: none; border: none; color: var(--text-secondary); font-size: 24px; cursor: pointer; }
+        .modal-body { overflow-y: auto; padding: 20px; }
+        .modal-form { display: flex; flex-direction: column; gap: 15px; }
+        .modal-form label { font-size: 14px; color: var(--text-secondary); margin-bottom: -10px; }
+        .modal-form input, .modal-form select {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent-glow);
+            background-color: var(--background-main); color: var(--text-primary); font-size: 16px;
+            box-shadow: inset 0 0 5px rgba(0, 255, 255, 0.2);
+        }
+        .modal-form input:focus, .modal-form select:focus { outline: none; border-color: var(--accent-purple); box-shadow: inset 0 0 8px rgba(138, 43, 226, 0.4); }
+        .modal-form button[type="submit"] {
+            background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple));
+            border: none; padding: 12px; border-radius: 10px; color: #000;
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+        }
+        .modal-form button[type="submit"]:active { transform: translateY(1px); }
     </style>
 </head>
-<body class="access-denied"> <div id="access-overlay" class="access-overlay">
+<body class="access-denied">
+    <div id="access-overlay" class="access-overlay">
         <i class="fa-solid fa-lock"></i>
-        <h2>Доступ ограничен</h2>
-        <p>Этот раздел находится в разработке. Доступ будет открыт позже.</p>
-        <a href="/menu" class="back-button">Вернуться в меню</a>
+        <h2>ДОСТУП ЗАБЛОКИРОВАН</h2>
+        <p>Для входа требуется специальное разрешение. Пожалуйста, свяжитесь с администратором.</p>
+        <a href="/menu" class="back-button">ВЕРНУТЬСЯ В МЕНЮ</a>
     </div>
 
     <div class="container">
-        <h1 class="page-title" data-key="mainTitle" data-editable>Гонка за скинами</h1>
-        <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
-        <div id="events-list" class="events-container"></div>
-        <div class="info-blocks-container">
-            <div id="free-ticket-container" class="info-block">
-                <i class="fa-solid fa-ticket info-icon"></i>
-                <div class="info-text-content">
-                    <h3 class="info-title">Ежедневный бонус</h3>
-                    <p class="info-description">Получите один бесплатный билет для участия в розыгрышах раз в 24 часа.</p>
-                </div>
-                <div id="free-ticket-button-wrapper" class="info-action-content"></div>
+        <div class="header">
+            <h1 class="page-title">МАРАФОН "ЧЕКПОИНТ"</h1>
+            <div class="user-stars-balance">
+                <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span> ЗВЕЗД
             </div>
-            <div class="info-block">
-                <i data-key="infoBlock1Icon" class="fa-solid fa-star info-icon" data-editable></i>
-                <div class="info-text-content">
-                    <h3 class="info-title" data-key="infoBlock1Title" data-editable>Как победить?</h3>
-                    <p class="info-description" data-key="infoBlock1Desc" data-editable>Чтобы получить приз, необходимо участвовать в ивентах.</p>
-                </div>
+        </div>
+
+        <div id="reward-track" class="reward-track">
             </div>
-            <div class="info-block">
-                <i data-key="infoBlock2Icon" class="fa-solid fa-ticket info-icon" data-editable></i>
-                <div class="info-text-content">
-                    <h3 class="info-title" data-key="infoBlock2Title" data-editable>Как это работает?</h3>
-                    <p class="info-description" data-key="infoBlock2Desc" data-editable>Каждый билет, потраченный на ивент, добавляет ваше имя в список участников.</p>
-                </div>
-            </div>
-            <div class="info-block">
-                <i data-key="infoBlock3Icon" class="fa-solid fa-truck-fast info-icon" data-editable></i>
-                <div class="info-text-content">
-                    <h3 class="info-title" data-key="infoBlock3Title" data-editable>Как забрать?</h3>
-                    <p class="info-description" data-key="infoBlock3Desc" data-editable>Победитель получит уведомление от бота. Для получения приза убедитесь, что у вас в профиле указана Steam Trade ссылка.</p>
-                </div>
-            </div>
+
+        <div id="admin-access-controls" class="admin-controls" style="display: none; bottom: calc(60px + env(safe-area-inset-bottom) + 60px);">
+            <button id="grant-access-btn" style="background: linear-gradient(90deg, #007bff, #55aaff);">Выдать доступ</button>
+        </div>
+        <div id="admin-controls" class="admin-controls" style="display: none;">
+            <button id="edit-btn">Редактировать</button>
+            <button id="save-btn">Сохранить</button>
         </div>
     </div>
     
-    <div id="admin-access-controls" class="admin-controls" style="display: none; bottom: calc(120px + env(safe-area-inset-bottom));">
-        <button id="grant-access-btn" style="background: #007aff;">Выдать доступ</button>
-    </div>
-    <div id="admin-controls" class="admin-controls" style="display: none;">
-        <button id="edit-btn">Редактировать</button>
-        <button id="save-btn">Сохранить</button>
-    </div>
-
-    <div id="event-modal" class="modal-overlay hidden"> </div>
-    <div id="text-modal" class="modal-overlay hidden"> </div>
-    <div id="timer-modal" class="modal-overlay hidden"> </div>
-    <div id="ticket-modal" class="modal-overlay hidden"> </div>
-    <div id="participants-modal" class="modal-overlay hidden"> </div>
-    
-    <footer class="app-footer">
-        <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-        <a href="/events" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>
-        <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>Профиль</span></a>
-    </footer>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const tg = window.Telegram.WebApp;
-        let pageContent = {};
-        let countdownInterval = null;
-        let freeTicketInterval = null;
-        let userData = {};
-        const dom = {
-            adminControls: document.getElementById('admin-controls'),
-            editBtn: document.getElementById('edit-btn'),
-            saveBtn: document.getElementById('save-btn'),
-            adminAccessControls: document.getElementById('admin-access-controls'),
-            grantAccessBtn: document.getElementById('grant-access-btn'),
-            // ... остальной dom ...
-        };
-        const editableKeys = ['mainTitle', /*...*/];
-
-        // ... остальные функции (hexToRgba, startCountdown и т.д.) ...
-
-        async function initialize() {
-            tg.ready();
-            tg.expand();
-
-            const unlockPage = () => {
-                document.body.classList.remove('access-denied');
-                const overlay = document.getElementById('access-overlay');
-                if (overlay) overlay.style.display = 'none';
-            };
-
-            if (tg.initData && tg.initData.length > 0) {
-                try {
-                    const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
-                    if (!userRes.ok) throw new Error("Ошибка при проверке пользователя");
-                    userData = await userRes.json();
-
-                    if (userData.is_admin || userData.has_events_access) {
-                        unlockPage();
-                    }
-
-                    const contentRes = await fetch('/api/v1/events/content', { cache: 'no-store' });
-                    if (!contentRes.ok) throw new Error("Ошибка при загрузке контента");
-                    pageContent = await contentRes.json();
+    <div id="reward-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="reward-modal-title">Новая награда</h3>
+                <button type="button" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="reward-modal-form" class="modal-form">
+                    <input type="hidden" id="reward-index-input">
+                    <label>Уровень (стоимость в звездах)</label>
+                    <input type="number" id="reward-level-input" required min="1">
                     
-                    renderPage();
+                    <label>Название награды</label>
+                    <input type="text" id="reward-title-input" required placeholder="Например: 5 билетов">
 
-                    if (userData.is_admin) {
-                        dom.adminControls.style.display = 'block';
-                        dom.adminAccessControls.style.display = 'block';
-                        dom.editBtn.onclick = () => { /* ... */ };
-                        dom.saveBtn.onclick = async () => { /* ... */ };
-                    }
-                } catch (error) {
-                    console.error("Ошибка инициализации:", error);
-                    // Оставляем экран блокировки видимым
-                }
-            }
-        }
+                    <label>Описание (необязательно)</label>
+                    <input type="text" id="reward-desc-input" placeholder="Например: Для участия в ивентах">
+                    
+                    <label>Иконка (Font Awesome class)</label>
+                    <input type="text" id="reward-icon-input" required placeholder="Например: fa-solid fa-ticket">
+                    
+                    <label>Тип награды</label>
+                    <select id="reward-type-input">
+                        <option value="tickets">Билеты</option>
+                        <option value="promocode">Промокод</option>
+                        <option value="custom">Другое</option>
+                    </select>
+
+                    <label>Значение награды</label>
+                    <input type="text" id="reward-value-input" required placeholder="5 (для билетов) или текст промокода">
+
+                    <button type="submit">Сохранить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+      <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>ГЛАВНАЯ</span></a>
+      <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>ИВЕНТЫ</span></a>
+      <a href="/checkpoint" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-star"></i></div><span>ЧЕКПОИНТ</span></a>
+      <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>ПРОФИЛЬ</span></a>
+    </footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    let checkpointContent = { rewards: [] };
+    let userData = {};
+
+    const dom = {
+        rewardTrack: document.getElementById('reward-track'),
+        userStarsCount: document.getElementById('user-stars-count'),
+        adminControls: document.getElementById('admin-controls'),
+        editBtn: document.getElementById('edit-btn'),
+        saveBtn: document.getElementById('save-btn'),
         
-        // ... остальные функции (makeModalDraggable, обработчики событий) ...
+        // Модальное окно
+        rewardModal: document.getElementById('reward-modal'),
+        rewardModalTitle: document.getElementById('reward-modal-title'),
+        rewardModalForm: document.getElementById('reward-modal-form'),
+        rewardIndexInput: document.getElementById('reward-index-input'),
+        rewardLevelInput: document.getElementById('reward-level-input'),
+        rewardTitleInput: document.getElementById('reward-title-input'),
+        rewardDescInput: document.getElementById('reward-desc-input'),
+        rewardIconInput: document.getElementById('reward-icon-input'),
+        rewardTypeInput: document.getElementById('reward-type-input'),
+        rewardValueInput: document.getElementById('reward-value-input'),
 
-        dom.grantAccessBtn.addEventListener('click', async () => {
-            const userId = prompt("Введите Telegram ID пользователя, которому нужно выдать доступ:");
-            if (userId && !isNaN(parseInt(userId))) {
-                tg.MainButton.showProgress();
-                try {
-                    const response = await fetch('/api/v1/admin/events/grant-access', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            initData: tg.initData, 
-                            user_id_to_grant: parseInt(userId) 
-                        })
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.detail || 'Не удалось выдать доступ.');
-                    tg.showAlert(result.message);
-                } catch (error) {
-                    tg.showAlert(error.message);
-                } finally {
-                    tg.MainButton.hideProgress();
-                }
-            } else if (userId) {
-                tg.showAlert("Неверный ID. Введите только цифры.");
+        // Access Control
+        accessOverlay: document.getElementById('access-overlay'),
+        adminAccessControls: document.getElementById('admin-access-controls'),
+        grantAccessBtn: document.getElementById('grant-access-btn'),
+    };
+
+    const unlockPage = () => {
+        document.body.classList.remove('access-denied');
+        if (dom.accessOverlay) dom.accessOverlay.style.display = 'none';
+    };
+
+    function renderPage() {
+        dom.userStarsCount.textContent = userData.checkpoint_stars || 0;
+        dom.rewardTrack.innerHTML = '';
+        const isEditMode = document.body.classList.contains('edit-mode');
+        
+        const sortedRewards = [...(checkpointContent.rewards || [])].sort((a, b) => a.level - b.level);
+
+        sortedRewards.forEach((reward, index) => {
+            const userLevel = userData.checkpoint_level || 0;
+            const userStars = userData.checkpoint_stars || 0;
+
+            const isClaimed = userLevel >= reward.level;
+            const isClaimable = !isClaimed && userStars >= reward.level;
+            const isLocked = !isClaimed && !isClaimable;
+            
+            const item = document.createElement('div');
+            item.className = 'reward-item';
+            if (isClaimed) item.classList.add('is-claimed');
+            if (isClaimable) item.classList.add('is-claimable');
+            if (isLocked) item.classList.add('is-locked');
+
+            let buttonHtml = '';
+            if (isClaimed) {
+                buttonHtml = `<button class="action-button claimed-btn" disabled><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
+            } else if (isClaimable) {
+                buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}">ЗАБРАТЬ</button>`;
+            } else {
+                buttonHtml = `<button class="action-button locked-btn" disabled><i class="fa-solid fa-lock"></i> ${reward.level} <i class="fa-solid fa-star"></i></button>`;
             }
+
+            const descriptionHtml = reward.description ? `<div class="reward-description">${reward.description}</div>` : '';
+            
+            const editOverlayHtml = isEditMode ? `
+                <div class="edit-overlay">
+                    <button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button>
+                </div>` : '';
+
+            item.innerHTML = `
+                <div class="reward-level">${reward.level}</div>
+                <div class="reward-icon"><i class="${reward.icon || 'fa-solid fa-question'}"></i></div>
+                <div class="reward-details">
+                    <div class="reward-title">${reward.title || 'Без названия'}</div>
+                    ${descriptionHtml}
+                </div>
+                ${buttonHtml}
+                ${editOverlayHtml}
+            `;
+            dom.rewardTrack.appendChild(item);
         });
 
-        initialize();
+        if (isEditMode) {
+            dom.rewardTrack.insertAdjacentHTML('beforeend', `<div class="reward-item create-reward-card" style="align-items: center; justify-content: center;"><i class="fa-solid fa-plus" style="font-size: 24px;"></i></div>`);
+        }
+    }
+
+    function showRewardModal(rewardData, index) {
+        dom.rewardModalTitle.textContent = index === null ? 'НОВАЯ НАГРАДА' : 'РЕДАКТИРОВАТЬ НАГРАДУ';
+        dom.rewardIndexInput.value = index;
+        dom.rewardLevelInput.value = rewardData ? rewardData.level : '';
+        dom.rewardTitleInput.value = rewardData ? rewardData.title : '';
+        dom.rewardDescInput.value = rewardData ? rewardData.description : '';
+        dom.rewardIconInput.value = rewardData ? rewardData.icon : 'fa-solid fa-star';
+        dom.rewardTypeInput.value = rewardData ? rewardData.type : 'tickets';
+        dom.rewardValueInput.value = rewardData ? rewardData.value : '';
+        dom.rewardModal.classList.remove('hidden');
+    }
+
+    function hideModal(modalElement) {
+        modalElement.classList.add('hidden');
+    }
+
+    async function initialize() {
+        if (!tg.initData || tg.initData.length === 0) {
+            // Если нет initData, возможно, открыто не из Telegram.
+            // Для разработки можно временно разблокировать, но в продакшене лучше оставить
+            // dom.accessOverlay.style.display = 'none'; 
+            // document.body.classList.remove('access-denied');
+            console.warn("Telegram.WebApp.initData не найдено. Запустите приложение из Telegram.");
+            return;
+        }
+
+        try {
+            // Загрузка данных пользователя для проверки доступа
+            const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
+            if (!userRes.ok) throw new Error("Ошибка при загрузке данных пользователя.");
+            userData = await userRes.json();
+
+            // Проверка доступа: админ или пользователь с has_checkpoint_access
+            if (userData.is_admin || userData.has_checkpoint_access) {
+                unlockPage();
+            } else {
+                // Если нет доступа, страница остается заблокированной, выходим из initialize
+                return; 
+            }
+
+            // Если доступ есть, продолжаем загрузку контента для страницы
+            // Здесь будет запрос к вашему API для получения checkpointContent
+            // Пока используем заглушку
+            checkpointContent = {
+                rewards: [
+                    { level: 1, title: '5 БИЛЕТОВ', description: 'Для участия в ивентах', icon: 'fa-solid fa-ticket', type: 'tickets', value: '5' },
+                    { level: 2, title: 'ПРОМОКОД "GEM100"', icon: 'fa-solid fa-gem', type: 'promocode', value: 'GEM100' },
+                    { level: 3, title: 'УНИКАЛЬНЫЙ СКИН', description: 'Будет выдан лично', icon: 'fa-solid fa-shield-halved', type: 'custom', value: 'skin_1' },
+                    { level: 4, title: '1000 ТОКЕНОВ', icon: 'fa-solid fa-coins', type: 'tokens', value: '1000' },
+                    { level: 5, title: 'СЕКРЕТНЫЙ БОНУС', description: 'Откроется позже', icon: 'fa-solid fa-lock', type: 'custom', value: 'mystery_box' }
+                ]
+            };
+            
+            renderPage();
+
+            if (userData.is_admin) {
+                dom.adminControls.style.display = 'flex'; // Используем flex для кнопок рядом
+                dom.adminAccessControls.style.display = 'flex'; // Показываем админ-кнопку доступа
+            }
+
+        } catch (e) {
+            console.error("Ошибка инициализации Чекпоинта:", e);
+            // В случае ошибки оставляем экран блокировки
+        }
+    }
+
+    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
+
+    dom.editBtn.addEventListener('click', () => {
+        document.body.classList.add('edit-mode');
+        dom.adminControls.classList.add('edit-mode-active');
+        renderPage();
     });
+
+    dom.saveBtn.addEventListener('click', async () => {
+        document.body.classList.remove('edit-mode');
+        dom.adminControls.classList.remove('edit-mode-active');
+        // TODO: Логика сохранения данных на сервер
+        tg.showAlert('Изменения сохранены (симуляция)');
+        renderPage();
+    });
+
+    dom.rewardModalForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const index = dom.rewardIndexInput.value;
+        const updatedReward = {
+            level: parseInt(dom.rewardLevelInput.value),
+            title: dom.rewardTitleInput.value,
+            description: dom.rewardDescInput.value,
+            icon: dom.rewardIconInput.value,
+            type: dom.rewardTypeInput.value,
+            value: dom.rewardValueInput.value,
+        };
+
+        if (index && index !== 'null' && index !== '') {
+            checkpointContent.rewards[index] = updatedReward;
+        } else {
+            checkpointContent.rewards.push(updatedReward);
+        }
+        hideModal(dom.rewardModal);
+        renderPage();
+    });
+
+    document.body.addEventListener('click', (e) => {
+        const target = e.target;
+        // Закрытие модального окна
+        if (target.matches('.modal-close-btn') || target.matches('.modal-overlay')) {
+            hideModal(target.closest('.modal-overlay'));
+            return;
+        }
+
+        if (document.body.classList.contains('edit-mode')) {
+            if (target.closest('.create-reward-card')) {
+                showRewardModal(null, null);
+            }
+            const editBtn = target.closest('.card-edit-btn');
+            if (editBtn) {
+                const index = editBtn.dataset.index;
+                const sortedRewards = [...(checkpointContent.rewards || [])].sort((a, b) => a.level - b.level);
+                showRewardModal(sortedRewards[index], index);
+            }
+            const deleteBtn = target.closest('.card-delete-btn');
+            if (deleteBtn) {
+                tg.showConfirm('Удалить эту награду?', (ok) => {
+                    if (ok) {
+                        // Важно: удаляем по оригинальному индексу в несортированном массиве,
+                        // иначе при удалении после сортировки может быть ошибка
+                        const originalIndex = checkpointContent.rewards.findIndex(r => r.level === sortedRewards[deleteBtn.dataset.index].level);
+                        if (originalIndex > -1) {
+                            checkpointContent.rewards.splice(originalIndex, 1);
+                        }
+                        renderPage();
+                    }
+                });
+            }
+        } else {
+            // Логика для обычных пользователей
+            const claimBtn = target.closest('.claim-btn');
+            if (claimBtn) {
+                // TODO: Логика отправки запроса на получение награды
+                tg.showAlert(`Вы забрали награду за уровень ${claimBtn.dataset.level} (симуляция)`);
+                userData.checkpoint_level = parseInt(claimBtn.dataset.level);
+                renderPage();
+            }
+        }
+    });
+
+    dom.grantAccessBtn.addEventListener('click', async () => {
+        const userId = prompt("Введите Telegram ID пользователя, которому нужно выдать доступ к Чекпоинту:");
+        if (userId && !isNaN(parseInt(userId))) {
+            tg.MainButton.showProgress();
+            try {
+                const response = await fetch('/api/v1/admin/checkpoint/grant-access', { // <-- Новый эндпоинт
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        initData: tg.initData, 
+                        user_id_to_grant: parseInt(userId) 
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Не удалось выдать доступ.');
+                tg.showAlert(result.message);
+            } catch (error) {
+                tg.showAlert(error.message);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        } else if (userId) {
+            tg.showAlert("Неверный ID. Введите только цифры.");
+        }
+    });
+
+    initialize();
+});
 </script>
 </body>
 </html>
