@@ -1096,7 +1096,6 @@
                 
                 const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
                 
-                // ✅ ИЗМЕНЕНИЕ: Теперь главная функция сама решает, показывать ли кнопку "Начать испытание"
                 const questChooseWrapper = document.getElementById('quest-choose-wrapper');
                 if (questChooseWrapper) {
                     questChooseWrapper.classList.toggle('hidden', !!activeQuest);
@@ -1109,10 +1108,11 @@
                 }
 
                 console.log("4. Собираемся вызывать renderChallenge. Передаём в неё:", challengeData);
+                // ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Передаём информацию о кулдауне, даже если челлендж null
                 if (challengeData) {
                     renderChallenge(challengeData, !userData.twitch_id);
                 } else {
-                    renderChallenge(null, !userData.twitch_id);
+                    renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
                 console.log("5. Функция renderChallenge вызвана.");
 
