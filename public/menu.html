@@ -542,7 +542,6 @@
 
         function renderChallenge(challengeData, isGuest) {
             dom.challengeContainer.innerHTML = '';
-            // ✅ ИЗМЕНЕНИЕ: Мы убрали отсюда всю логику, управляющую кнопкой заданий.
             
             if (isGuest) {
                 dom.challengeContainer.innerHTML = `
@@ -569,7 +568,8 @@
                 return;
             }
 
-            if (!challengeData || !challengeData.description) {
+            // ✅ ИСПРАВЛЕНИЕ: Проверяем наличие challenge_id, чтобы отличить активный челлендж от пустого состояния
+            if (!challengeData || !challengeData.challenge_id) {
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card challenge-card">
                         <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
@@ -582,7 +582,7 @@
                 return;
             }
             
-            const challenge = challengeData; 
+            const challenge = challengeData;
             const currentProgress = challenge.progress_value || 0;
             const target = challenge.target_value || 1;
             const percent = target > 0 ? Math.min(100, (currentProgress / target) * 100) : 0;
@@ -1070,14 +1070,10 @@
                     dom.newPromoNotification.classList.remove('hidden');
                 }
 
-                console.log("1. Отправляем запрос на /api/v1/user/me...");
                 const dashboardData = await makeApiRequest("/api/v1/user/me");
-                console.log("2. Получен ответ от сервера:", dashboardData);
                 
                 userData = dashboardData || {}; 
                 const challengeData = dashboardData.challenge;
-                console.log("3. Разобрали данные. Переменная challengeData:", challengeData);
-                
                 const isGuest = !userData || !userData.full_name;
 
                 if (isGuest) {
@@ -1094,27 +1090,24 @@
                 allQuests = questsDataResp || [];
                 questsForRoulette = allQuests.filter(q => q.quest_type && q.quest_type.startsWith('automatic') && !q.is_completed);
                 
+                // ✅ ИСПРАВЛЕНИЕ: Логика отображения кнопки "Начать испытание" и активного квеста
                 const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
-                
                 const questChooseWrapper = document.getElementById('quest-choose-wrapper');
-                if (questChooseWrapper) {
-                    questChooseWrapper.classList.toggle('hidden', !!activeQuest);
-                }
-
+                
                 if (activeQuest) {
+                    // Если есть активное ЗАДАНИЕ, показываем его карточку и прячем кнопку
                     renderActiveAutomaticQuest(activeQuest, userData);
+                    if (questChooseWrapper) questChooseWrapper.classList.add('hidden');
                 } else {
+                    // Если активного ЗАДАНИЯ нет, чистим его контейнер и показываем кнопку
                     dom.activeAutomaticQuestContainer.innerHTML = '';
+                    if (questChooseWrapper) questChooseWrapper.classList.remove('hidden');
                 }
 
-                console.log("4. Собираемся вызывать renderChallenge. Передаём в неё:", challengeData);
-                // ✅ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Передаём информацию о кулдауне, даже если челлендж null
-                if (challengeData) {
-                    renderChallenge(challengeData, !userData.twitch_id);
-                } else {
-                    renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
-                }
-                console.log("5. Функция renderChallenge вызвана.");
+                // ✅ ИСПРАВЛЕНИЕ: Логика отображения ЧЕЛЛЕНДЖА (с кулдауном)
+                // Передаём в функцию или сам объект челленджа, или объект с информацией о кулдауне
+                const challengeState = challengeData || { cooldown_until: userData.challenge_cooldown_until };
+                renderChallenge(challengeState, isGuest);
 
             } catch (e) {
                 console.error("Критическая ошибка при основной загрузке:", e);
