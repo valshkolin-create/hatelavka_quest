@@ -542,14 +542,8 @@
 
         function renderChallenge(challengeData, isGuest) {
             dom.challengeContainer.innerHTML = '';
-            const questChooseWrapper = document.getElementById('quest-choose-wrapper');
-
-            const hasActiveQuest = !!userData.active_quest_id;
-            const hasChallengeState = !!(challengeData || isGuest);
-            if (questChooseWrapper) {
-                questChooseWrapper.classList.toggle('hidden', hasActiveQuest || hasChallengeState);
-            }
-
+            // ✅ ИЗМЕНЕНИЕ: Мы убрали отсюда всю логику, управляющую кнопкой заданий.
+            
             if (isGuest) {
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card quest-locked">
@@ -575,7 +569,6 @@
                 return;
             }
 
-            // ✅ ИЗМЕНЕНИЕ: Проверяем наличие описания, а не вложенного объекта.
             if (!challengeData || !challengeData.description) {
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card challenge-card">
@@ -588,31 +581,24 @@
                     </div>`;
                 return;
             }
-
-            // ✅ ИЗМЕНЕНИЕ: Берём данные напрямую из challengeData, а не из challengeData.challenges
+            
             const challenge = challengeData; 
             const currentProgress = challenge.progress_value || 0;
             const target = challenge.target_value || 1;
             const percent = target > 0 ? Math.min(100, (currentProgress / target) * 100) : 0;
-            
             const canClaim = currentProgress >= target && !challenge.claimed_at;
             const isCompleted = currentProgress >= target;
-            
             let statusText = '';
             if (challenge.claimed_at) {
                 statusText = '<div style="color: #34C759; font-size: 12px; margin: 5px 0;">✅ Награда получена</div>';
             } else if (isCompleted) {
                 statusText = '<div style="color: #FFCC00; font-size: 12px; margin: 5px 0;">🎁 Награда готова!</div>';
             }
-
             const isTwitchChallenge = challenge.condition_type && challenge.condition_type.includes('twitch');
             const twitchNotice = isTwitchChallenge ? createTwitchNoticeHtml() : '';
-
             const claimButton = `<button id="claim-challenge-btn" data-challenge-id="${challenge.challenge_id}" class="claim-reward-button" ${!canClaim ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> <span>Забрать награду</span></button>`;
-
             let progressTextContent = `${currentProgress} / ${target}`;
             const conditionType = challenge.condition_type || '';
-
             if (conditionType.includes('twitch_uptime')) {
                 progressTextContent = `${currentProgress} / ${target} мин.`;
             } else if (conditionType.includes('twitch_messages')) {
@@ -620,7 +606,6 @@
             } else if (conditionType.includes('telegram_messages')) {
                 progressTextContent = `✉️ ${currentProgress} / ${target}`;
             }
-
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
                     <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
@@ -628,7 +613,7 @@
                     ${statusText}
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${percent}%;"></div>
-                        <div class.progress-content">
+                        <div class="progress-content">
                             <span class="progress-text">${progressTextContent}</span>
                         </div>
                     </div>
@@ -636,7 +621,6 @@
                     ${twitchNotice}
                     ${claimButton}
                 </div>`;
-
             if (challenge.expires_at) {
                 startCountdown(document.getElementById('challenge-timer'), challenge.expires_at, 'challenge');
             }
@@ -1111,19 +1095,24 @@
                 questsForRoulette = allQuests.filter(q => q.quest_type && q.quest_type.startsWith('automatic') && !q.is_completed);
                 
                 const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+                
+                // ✅ ИЗМЕНЕНИЕ: Теперь главная функция сама решает, показывать ли кнопку "Начать испытание"
+                const questChooseWrapper = document.getElementById('quest-choose-wrapper');
+                if (questChooseWrapper) {
+                    questChooseWrapper.classList.toggle('hidden', !!activeQuest);
+                }
+
                 if (activeQuest) {
                     renderActiveAutomaticQuest(activeQuest, userData);
                 } else {
                     dom.activeAutomaticQuestContainer.innerHTML = '';
-                    dom.questChooseBtn.classList.remove('hidden');
-                    dom.questChooseContainer.classList.add('hidden');
                 }
 
                 console.log("4. Собираемся вызывать renderChallenge. Передаём в неё:", challengeData);
                 if (challengeData) {
                     renderChallenge(challengeData, !userData.twitch_id);
                 } else {
-                    renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+                    renderChallenge(null, !userData.twitch_id);
                 }
                 console.log("5. Функция renderChallenge вызвана.");
 
