@@ -544,10 +544,12 @@
             dom.challengeContainer.innerHTML = '';
             const questChooseWrapper = document.getElementById('quest-choose-wrapper');
 
-            // ✅ ГЛАВНОЕ ИЗМЕНЕНИЕ: Прячем кнопку "Получить челлендж", если он уже есть или на перезарядке
-            const hasActiveState = (challengeData && (challengeData.challenges || challengeData.cooldown_until)) || isGuest;
-            if (questChooseWrapper) {
-                questChooseWrapper.classList.toggle('hidden', hasActiveState);
+            // Прячем или показываем кнопку-рулетку "Начать испытание"
+            // Она должна быть видна, только если нет ни активного квеста, ни челленджа
+            const hasActiveQuest = !!userData.active_quest_id;
+            const hasChallengeState = !!(challengeData || isGuest);
+             if (questChooseWrapper) {
+                questChooseWrapper.classList.toggle('hidden', hasActiveQuest || hasChallengeState);
             }
 
             if (isGuest) {
@@ -571,16 +573,26 @@
                         </p>
                         <div id="challenge-cooldown-timer" class="challenge-timer" style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-top: 10px;">...</div>
                     </div>`;
-                
                 if (!countdownIntervals['challenge_cooldown']) {
                     startCountdown(document.getElementById('challenge-cooldown-timer'), challengeData.cooldown_until, 'challenge_cooldown');
                 }
                 return;
             }
 
-            // ✅ ИЗМЕНЕНИЕ: Убрали лишний блок, так как кнопка теперь скрывается глобально
             if (!challengeData || !challengeData.challenges) {
-                // Этот блок теперь может быть пустым, так как кнопка отображается по умолчанию
+                // ✅ ИСПРАВЛЕНИЕ: Возвращаем на место блок "Получить челлендж"
+                dom.challengeContainer.innerHTML = `
+                    <div class="quest-card challenge-card">
+                        <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
+                        <h2 class="quest-title">Случайный челлендж</h2>
+                        <p class="quest-subtitle">
+                            Испытай удачу! Получи случайное задание и выполни его.
+                        </p>
+                        <button id="get-challenge-btn" class="claim-reward-button">
+                            <i class="fa-solid fa-play"></i> 
+                            <span>Получить челлендж</span>
+                        </button>
+                    </div>`;
                 return;
             }
 
