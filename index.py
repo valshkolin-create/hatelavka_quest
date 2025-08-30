@@ -558,6 +558,9 @@ async def twitch_oauth_callback(
 # --- Pydantic модели ---
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
 class InitDataRequest(BaseModel): initData: str
+class GrantCheckpointAccessRequest(BaseModel):
+    initData: str
+    user_id_to_grant: int
 class QuestSubmission(BaseModel): initData: str; submittedData: str
 class QuestSubmissionRequest(BaseModel): initData: str; submittedData: str    
 class QuestCreateRequest(BaseModel): 
@@ -824,6 +827,7 @@ async def get_current_user_data(
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
             "has_events_access": profile_data.get("has_events_access", False), # <-- ДОБАВЬ ЭТУ СТРОКУ
+            "has_checkpoint_access": profile_data.get("has_checkpoint_access", False), # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
             "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- Это поле из новой версии сохранено
             "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
@@ -921,6 +925,31 @@ async def update_quest(request_data: QuestUpdateRequest, supabase: httpx.AsyncCl
     await supabase.patch("/quests", params={"id": f"eq.{quest_id}"}, json=quest_data_to_update)
 
     return {"message": f"Квест '{request_data.title}' успешно обновлен!"}
+
+@app.post("/api/v1/admin/checkpoint/grant-access")
+async def grant_checkpoint_access(
+    request_data: GrantCheckpointAccessRequest, # Используем новую модель
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Выдает пользователю доступ к странице Чекпоинта."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    user_id_to_grant = request_data.user_id_to_grant
+
+    # Проверяем, существует ли пользователь
+    user_response = await supabase.get(f"/users?telegram_id=eq.{user_id_to_grant}")
+    if not user_response.json():
+        raise HTTPException(status_code=404, detail=f"Пользователь с ID {user_id_to_grant} не найден.")
+
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{user_id_to_grant}"},
+        json={"has_checkpoint_access": True}
+    )
+
+    return {"message": f"Доступ к Чекпоинту для пользователя {user_id_to_grant} успешно предоставлен!"}
 
 @app.post("/api/v1/admin/events/grant-access")
 async def grant_events_access(
