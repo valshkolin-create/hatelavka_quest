@@ -844,7 +844,8 @@
                     inner.style.transform = `translateY(-${centeredPosition}px)`;
                     setTimeout(() => {
                         overlay.remove();
-                        renderChallenge(assignedChallenge, false);
+                        // ✅ ИЗМЕНЕНИЕ: Вместо частичного обновления, полностью перезагружаем состояние экрана
+                        main();
                     }, 7000);
                 }
             } catch (e) {
