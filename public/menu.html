@@ -542,6 +542,13 @@
 
         function renderChallenge(challengeData, isGuest) {
             dom.challengeContainer.innerHTML = '';
+            const questChooseWrapper = document.getElementById('quest-choose-wrapper');
+
+            // ✅ ГЛАВНОЕ ИЗМЕНЕНИЕ: Прячем кнопку "Получить челлендж", если он уже есть или на перезарядке
+            const hasActiveState = (challengeData && (challengeData.challenges || challengeData.cooldown_until)) || isGuest;
+            if (questChooseWrapper) {
+                questChooseWrapper.classList.toggle('hidden', hasActiveState);
+            }
 
             if (isGuest) {
                 dom.challengeContainer.innerHTML = `
@@ -571,19 +578,9 @@
                 return;
             }
 
+            // ✅ ИЗМЕНЕНИЕ: Убрали лишний блок, так как кнопка теперь скрывается глобально
             if (!challengeData || !challengeData.challenges) {
-                dom.challengeContainer.innerHTML = `
-                    <div class="quest-card challenge-card">
-                        <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
-                        <h2 class="quest-title">Случайный челлендж</h2>
-                        <p class="quest-subtitle">
-                            Испытай удачу! Получи случайное задание и выполни его.
-                        </p>
-                        <button id="get-challenge-btn" class="claim-reward-button">
-                            <i class="fa-solid fa-play"></i> 
-                            <span>Получить челлендж</span>
-                        </button>
-                    </div>`;
+                // Этот блок теперь может быть пустым, так как кнопка отображается по умолчанию
                 return;
             }
 
