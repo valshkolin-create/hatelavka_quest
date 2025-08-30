@@ -1996,7 +1996,15 @@ async def toggle_sleep_mode(request_data: SleepModeRequest, supabase: httpx.Asyn
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     resp = await supabase.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
-    current_sleep_data = resp.json()[0].get('value', {})
+    settings_data = resp.json()
+
+    # ✅ ИЗМЕНЕНИЕ: Добавляем проверку, что данные из базы вообще пришли
+    if settings_data:
+        current_sleep_data = settings_data[0].get('value', {})
+    else:
+        # Если в базе нет строки 'sleep_mode', считаем, что бот не спит
+        current_sleep_data = {"is_sleeping": False, "wake_up_at": None}
+
     is_currently_sleeping = current_sleep_data.get('is_sleeping', False)
 
     if is_currently_sleeping:
@@ -2012,7 +2020,13 @@ async def toggle_sleep_mode(request_data: SleepModeRequest, supabase: httpx.Asyn
         new_value = {"is_sleeping": True, "wake_up_at": wake_up_at}
         message = "Ботик отправился спать."
     
-    await supabase.patch("/settings", params={"key": "eq.sleep_mode"}, json={"value": new_value})
+    # Используем "upsert" для надёжности: если строки нет, она создастся
+    await supabase.post(
+        "/settings",
+        json={"key": "sleep_mode", "value": new_value},
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+    
     return {"message": message, "new_status": new_value}
     
 @app.post("/api/v1/admin/challenges")
