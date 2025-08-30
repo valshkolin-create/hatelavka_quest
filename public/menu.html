@@ -544,11 +544,9 @@
             dom.challengeContainer.innerHTML = '';
             const questChooseWrapper = document.getElementById('quest-choose-wrapper');
 
-            // Прячем или показываем кнопку-рулетку "Начать испытание"
-            // Она должна быть видна, только если нет ни активного квеста, ни челленджа
             const hasActiveQuest = !!userData.active_quest_id;
             const hasChallengeState = !!(challengeData || isGuest);
-             if (questChooseWrapper) {
+            if (questChooseWrapper) {
                 questChooseWrapper.classList.toggle('hidden', hasActiveQuest || hasChallengeState);
             }
 
@@ -568,9 +566,7 @@
                     <div class="quest-card challenge-card">
                         <div class="quest-icon"><i class="fa-solid fa-hourglass-half"></i></div>
                         <h2 class="quest-title">Следующий челлендж</h2>
-                        <p class="quest-subtitle">
-                            Новое задание будет доступно после окончания таймера.
-                        </p>
+                        <p class="quest-subtitle">Новое задание будет доступно после окончания таймера.</p>
                         <div id="challenge-cooldown-timer" class="challenge-timer" style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-top: 10px;">...</div>
                     </div>`;
                 if (!countdownIntervals['challenge_cooldown']) {
@@ -579,33 +575,31 @@
                 return;
             }
 
-            if (!challengeData || !challengeData.challenges) {
-                // ✅ ИСПРАВЛЕНИЕ: Возвращаем на место блок "Получить челлендж"
+            // ✅ ИЗМЕНЕНИЕ: Проверяем наличие описания, а не вложенного объекта.
+            if (!challengeData || !challengeData.description) {
                 dom.challengeContainer.innerHTML = `
                     <div class="quest-card challenge-card">
                         <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
                         <h2 class="quest-title">Случайный челлендж</h2>
-                        <p class="quest-subtitle">
-                            Испытай удачу! Получи случайное задание и выполни его.
-                        </p>
+                        <p class="quest-subtitle">Испытай удачу! Получи случайное задание и выполни его.</p>
                         <button id="get-challenge-btn" class="claim-reward-button">
-                            <i class="fa-solid fa-play"></i> 
-                            <span>Получить челлендж</span>
+                            <i class="fa-solid fa-play"></i> <span>Получить челлендж</span>
                         </button>
                     </div>`;
                 return;
             }
 
-            const challenge = challengeData.challenges;
-            const currentProgress = challengeData.progress_value || 0;
+            // ✅ ИЗМЕНЕНИЕ: Берём данные напрямую из challengeData, а не из challengeData.challenges
+            const challenge = challengeData; 
+            const currentProgress = challenge.progress_value || 0;
             const target = challenge.target_value || 1;
             const percent = target > 0 ? Math.min(100, (currentProgress / target) * 100) : 0;
             
-            const canClaim = currentProgress >= target && !challengeData.claimed_at;
+            const canClaim = currentProgress >= target && !challenge.claimed_at;
             const isCompleted = currentProgress >= target;
             
             let statusText = '';
-            if (challengeData.claimed_at) {
+            if (challenge.claimed_at) {
                 statusText = '<div style="color: #34C759; font-size: 12px; margin: 5px 0;">✅ Награда получена</div>';
             } else if (isCompleted) {
                 statusText = '<div style="color: #FFCC00; font-size: 12px; margin: 5px 0;">🎁 Награда готова!</div>';
@@ -614,7 +608,7 @@
             const isTwitchChallenge = challenge.condition_type && challenge.condition_type.includes('twitch');
             const twitchNotice = isTwitchChallenge ? createTwitchNoticeHtml() : '';
 
-            const claimButton = `<button id="claim-challenge-btn" data-challenge-id="${challenge.id}" class="claim-reward-button" ${!canClaim ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> <span>Забрать награду</span></button>`;
+            const claimButton = `<button id="claim-challenge-btn" data-challenge-id="${challenge.challenge_id}" class="claim-reward-button" ${!canClaim ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> <span>Забрать награду</span></button>`;
 
             let progressTextContent = `${currentProgress} / ${target}`;
             const conditionType = challenge.condition_type || '';
@@ -634,7 +628,7 @@
                     ${statusText}
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${percent}%;"></div>
-                        <div class="progress-content">
+                        <div class.progress-content">
                             <span class="progress-text">${progressTextContent}</span>
                         </div>
                     </div>
@@ -643,8 +637,8 @@
                     ${claimButton}
                 </div>`;
 
-            if (challengeData.expires_at) {
-                startCountdown(document.getElementById('challenge-timer'), challengeData.expires_at, 'challenge');
+            if (challenge.expires_at) {
+                startCountdown(document.getElementById('challenge-timer'), challenge.expires_at, 'challenge');
             }
         }
         
