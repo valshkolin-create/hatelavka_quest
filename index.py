@@ -1942,54 +1942,7 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
     new_user_challenge['challenges'] = challenge_details
 
     return new_user_challenge
-    
-@app.post("/api/v1/user/challenge/status")
-async def get_user_challenge_status(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """
-    Проверяет статус челленджа. Сначала ищет активный, если нет - ищет выполненный, но не полученный.
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
-        raise HTTPException(status_code=401, detail="Доступ запрещен")
-    telegram_id = user_info["id"]
-
-    # 1. Сначала ищем активный (pending) челлендж
-    pending_resp = await supabase.get(
-        "/user_challenges",
-        params={
-            "user_id": f"eq.{telegram_id}",
-            "status": "eq.pending",
-            "select": "*,challenges(*)"
-        }
-    )
-    pending_challenges = pending_resp.json()
-    if pending_challenges:
-        # Проверяем, не истёк ли срок
-        current_challenge = pending_challenges[0]
-        expires_at_str = current_challenge.get("expires_at")
-        if expires_at_str and datetime.fromisoformat(expires_at_str.replace('Z', '+00:00')) < datetime.now(timezone.utc):
-            await supabase.patch("/user_challenges", params={"id": f"eq.{current_challenge['id']}"}, json={"status": "expired"})
-        else:
-            return current_challenge
-
-    # 2. Если активных нет, ищем выполненный, за который ещё не забрали награду
-    completed_resp = await supabase.get(
-        "/user_challenges",
-        params={
-            "user_id": f"eq.{telegram_id}",
-            "status": "eq.completed",
-            "claimed_at": "is.null", # Ключевое условие: награда не получена
-            "select": "*,challenges(*)",
-            "limit": 1
-        }
-    )
-    completed_challenges = completed_resp.json()
-    if completed_challenges:
-        return completed_challenges[0]
-    
-    # 3. Если ничего не найдено, возвращаем пустой ответ
-    return Response(status_code=204)
-    
+       
 @app.post("/api/v1/user/challenge/check")
 async def check_challenge_progress(
     request_data: InitDataRequest,
