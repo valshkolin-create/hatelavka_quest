@@ -817,24 +817,29 @@
         async function startChallengeRoulette() {
             const getChallengeBtn = document.getElementById('get-challenge-btn');
             if(getChallengeBtn) getChallengeBtn.disabled = true;
-            dom.loaderOverlay.classList.remove('hidden');
+            dom.loaderOverlay.classList.remove('hidden'); // Показываем загрузчик
+            
             try {
-                const [available, assignedChallenge] = await Promise.all([
-                    makeApiRequest('/api/v1/user/challenge/available'),
-                    makeApiRequest('/api/v1/user/challenge')
-                ]);
-                dom.loaderOverlay.classList.add('hidden');
+                // ШАГ 1: СНАЧАЛА получаем список доступных челленджей
+                const available = await makeApiRequest('/api/v1/user/challenge/available');
+
+                // ШАГ 2: ТОЛЬКО ПОТОМ просим назначить нам один из них
+                const assignedChallenge = await makeApiRequest('/api/v1/user/challenge');
+                
+                dom.loaderOverlay.classList.add('hidden'); // Прячем загрузчик
                 
                 if (assignedChallenge && assignedChallenge.cooldown_until) {
                     renderChallenge(assignedChallenge, false);
                     return;
                 }
 
-                if (!available || available.length === 0 || !assignedChallenge) {
+                if (!available || available.length === 0 || !assignedChallenge || !assignedChallenge.challenges) {
                     Telegram.WebApp.showAlert('Нет доступных челленджей или произошла ошибка.');
                     if(getChallengeBtn) getChallengeBtn.disabled = false;
                     return;
                 }
+
+                // Эта часть кода для анимации рулетки остаётся без изменений
                 const overlay = document.createElement('div');
                 overlay.className = 'prompt-overlay';
                 overlay.innerHTML = `<div style="width: 90%; max-width: 400px; height: 150px; background: var(--surface-glass-bg); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;"><div id="roulette-inner" style="position: absolute; width: 100%; top: 0;"></div><div style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: 50px; border-top: 2px solid var(--primary-color); border-bottom: 2px solid var(--primary-color); box-sizing: border-box; z-index: 1;"></div></div>`;
@@ -859,6 +864,7 @@
                     }, 7000);
                 }
             } catch (e) {
+                // makeApiRequest уже покажет ошибку (например, 409)
                 dom.loaderOverlay.classList.add('hidden');
                 if(getChallengeBtn) getChallengeBtn.disabled = false;
             }
