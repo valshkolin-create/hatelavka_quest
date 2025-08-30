@@ -37,6 +37,10 @@ from contextlib import asynccontextmanager
 class InitDataRequest(BaseModel):
     initData: str
 
+class SleepModeRequest(BaseModel):
+    initData: str
+    minutes: Optional[int] = None # Сколько минут спать
+
 class QuestStartRequest(BaseModel):
     initData: str
     quest_id: int
@@ -781,6 +785,91 @@ async def get_current_user_data(
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
+
+# --- Middlewares ---
+@app.middleware("http")
+async def sleep_mode_check(request: Request, call_next):
+    # Этот middleware будет проверять режим сна ПЕРЕД каждым запросом
+    path = request.url.path
+    is_admin_path = path.startswith("/api/v1/admin") or path == "/admin"
+    is_sleep_toggle_path = path == "/api/v1/admin/toggle_sleep_mode"
+    
+    # Пропускаем админские страницы и сам переключатель
+    if not (is_admin_path or is_sleep_toggle_path):
+        try:
+            async with httpx.AsyncClient(base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1", headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}) as client:
+                resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
+                settings = resp.json()
+                if settings:
+                    sleep_data = settings[0].get('value', {})
+                    is_sleeping = sleep_data.get('is_sleeping', False)
+                    wake_up_at_str = sleep_data.get('wake_up_at')
+
+                    should_wake_up = False
+                    if is_sleeping and wake_up_at_str:
+                        wake_up_time = datetime.fromisoformat(wake_up_at_str)
+                        if datetime.now(timezone.utc) > wake_up_time:
+                            should_wake_up = True
+                            await client.patch("/settings", params={"key": "eq.sleep_mode"}, json={"value": {"is_sleeping": False, "wake_up_at": None}})
+                    
+                    if is_sleeping and not should_wake_up:
+                        # Если бот спит, отдаём ошибку 503 Service Unavailable
+                        return JSONResponse(
+                            status_code=503,
+                            content={"detail": "Ботик спит, набирается сил"}
+                        )
+        except Exception as e:
+            logging.error(f"Ошибка проверки режима сна: {e}")
+            # В случае ошибки, позволяем запросу пройти, чтобы не блокировать всё приложение
+            pass
+
+    response = await call_next(request)
+    return response
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+# ... остальной код log_requests ...
+
+# --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ УПРАВЛЕНИЯ СНОМ ---
+@app.post("/api/v1/admin/sleep_mode_status")
+async def get_sleep_mode_status(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    resp = await supabase.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
+    settings = resp.json()
+    if not settings:
+        return {"is_sleeping": False, "wake_up_at": None}
+    return settings[0].get('value', {"is_sleeping": False, "wake_up_at": None})
+
+
+@app.post("/api/v1/admin/toggle_sleep_mode")
+async def toggle_sleep_mode(request_data: SleepModeRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    resp = await supabase.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
+    current_sleep_data = resp.json()[0].get('value', {})
+    is_currently_sleeping = current_sleep_data.get('is_sleeping', False)
+
+    if is_currently_sleeping:
+        # Разбудить бота
+        new_value = {"is_sleeping": False, "wake_up_at": None}
+        message = "Ботик проснулся!"
+    else:
+        # Уложить спать
+        wake_up_at = None
+        if request_data.minutes and request_data.minutes > 0:
+            wake_up_at = (datetime.now(timezone.utc) + timedelta(minutes=request_data.minutes)).isoformat()
+        
+        new_value = {"is_sleeping": True, "wake_up_at": wake_up_at}
+        message = "Ботик отправился спать."
+    
+    await supabase.patch("/settings", params={"key": "eq.sleep_mode"}, json={"value": new_value})
+    return {"message": message, "new_status": new_value}
 
 @app.post("/api/v1/admin/quest/submissions")
 async def get_submissions_for_quest(request_data: QuestDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
