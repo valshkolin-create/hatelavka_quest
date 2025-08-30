@@ -790,7 +790,6 @@
         
         async function refreshDataSilently() {
             try {
-                // ИСПРАВЛЕНО: Теперь делаем только один запрос к /user/me
                 const dashboardData = await makeApiRequest("/api/v1/user/me", {}, 'POST', true);
 
                 if (dashboardData) {
@@ -1078,7 +1077,6 @@
                     dom.newPromoNotification.classList.remove('hidden');
                 }
 
-                // ИСПРАВЛЕНО: Делаем ОДИН запрос, который возвращает всё
                 const dashboardData = await makeApiRequest("/api/v1/user/me");
                 
                 userData = dashboardData || {}; 
@@ -1114,8 +1112,6 @@
                 } else {
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
-
-
             } catch (e) {
                 console.error("Ошибка при основной загрузке:", e);
                 dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Не удалось загрузить челлендж.</p>`;
