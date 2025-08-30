@@ -155,9 +155,36 @@
         color: var(--status-active-color);
     }
     /* --- Конец стилей для окна победителей --- */
+
+    /* ✅ НОВЫЕ СТИЛИ ДЛЯ КНОПКИ СНА */
+    .sleep-mode-toggle {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 44px;
+        height: 44px;
+        background-color: var(--action-color);
+        border-radius: 50%;
+        border: none;
+        color: white;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        z-index: 1000;
+    }
+    .sleep-mode-toggle.is-sleeping {
+        background-color: var(--danger-color);
+    }
   </style>
 </head>
 <body>
+
+    <button id="sleep-mode-toggle" class="sleep-mode-toggle hidden" title="Режим сна">
+        <i class="fa-solid fa-power-off"></i>
+    </button>
 
     <div id="loader-overlay" class="loader-overlay hidden">
         <div class="spinner"></div>
@@ -444,6 +471,18 @@
         </div>
     </div>
 
+    <div id="sleep-prompt-overlay" class="modal-overlay hidden">
+        <div class="prompt-modal">
+            <h3>Уложить бота спать?</h3>
+            <p style="font-size: 14px; color: var(--text-color-muted);">0 = спать вечно (до ручного включения)</p>
+            <input type="number" id="sleep-minutes-input" class="admin-form" style="margin-top: 15px;" placeholder="Количество минут..." value="60">
+            <div class="prompt-actions">
+                <button id="sleep-prompt-cancel" class="cancel-btn">Отмена</button>
+                <button id="sleep-prompt-confirm" class="confirm-btn">Уложить</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     try {
         const dom = {
@@ -473,8 +512,12 @@
             winnersModal: document.getElementById('winners-modal'),
             winnersModalBody: document.getElementById('winners-modal-body'),
             winnersModalCloseBtn: document.getElementById('winners-modal-close-btn'),
-            // --- НОВАЯ КНОПКА ---
             resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
+            sleepModeToggle: document.getElementById('sleep-mode-toggle'),
+            sleepPromptOverlay: document.getElementById('sleep-prompt-overlay'),
+            sleepMinutesInput: document.getElementById('sleep-minutes-input'),
+            sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
+            sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
         };
 
         let categoriesCache = [];
@@ -877,7 +920,46 @@
             return finalData;
         }
 
+        // ✅ НОВАЯ ФУНКЦИЯ ДЛЯ ОБНОВЛЕНИЯ ВИДА КНОПКИ
+        function updateSleepButton(status) {
+            if (status.is_sleeping) {
+                dom.sleepModeToggle.classList.add('is-sleeping');
+                dom.sleepModeToggle.title = "Разбудить бота";
+            } else {
+                dom.sleepModeToggle.classList.remove('is-sleeping');
+                dom.sleepModeToggle.title = "Уложить бота спать";
+            }
+        }
+
         function setupEventListeners() {
+            // ✅ НОВЫЕ ОБРАБОТЧИКИ ДЛЯ КНОПКИ СНА
+            dom.sleepModeToggle.addEventListener('click', async () => {
+                const isSleeping = dom.sleepModeToggle.classList.contains('is-sleeping');
+                if (isSleeping) {
+                    Telegram.WebApp.showConfirm('Разбудить бота?', async (ok) => {
+                        if (ok) {
+                            const result = await makeApiRequest('/api/v1/admin/toggle_sleep_mode');
+                            updateSleepButton(result.new_status);
+                            Telegram.WebApp.showAlert(result.message);
+                        }
+                    });
+                } else {
+                    dom.sleepPromptOverlay.classList.remove('hidden');
+                }
+            });
+
+            dom.sleepPromptCancel.addEventListener('click', () => {
+                dom.sleepPromptOverlay.classList.add('hidden');
+            });
+
+            dom.sleepPromptConfirm.addEventListener('click', async () => {
+                const minutes = parseInt(dom.sleepMinutesInput.value) || 0;
+                dom.sleepPromptOverlay.classList.add('hidden');
+                const result = await makeApiRequest('/api/v1/admin/toggle_sleep_mode', { minutes: minutes });
+                updateSleepButton(result.new_status);
+                Telegram.WebApp.showAlert(result.message);
+            });
+
             dom.checkWinnersBtn.addEventListener('click', async () => {
                 const winners = await makeApiRequest('/api/v1/admin/events/winners');
                 renderWinners(winners);
@@ -889,8 +971,7 @@
             dom.winnersModal.addEventListener('click', (e) => {
                 if (e.target === dom.winnersModal) dom.winnersModal.classList.add('hidden');
             });
-
-            // --- ОБРАБОТЧИК КНОПКИ СБРОСА КВЕСТОВ ---
+            
             dom.resetAllQuestsBtn.addEventListener('click', () => {
                 Telegram.WebApp.showConfirm(
                     'Вы уверены, что хотите сбросить ВСЕ активные автоматические квесты у ВСЕХ пользователей? Это действие необратимо и вернет их к экрану выбора испытания.',
@@ -1118,8 +1199,19 @@
             try {
                 Telegram.WebApp.expand();
                 if (!Telegram.WebApp.initData) throw new Error("Требуется авторизация в Telegram.");
-                const userData = await makeApiRequest("/api/v1/user/me");
+                
+                // ✅ ИЗМЕНЕНИЕ: Запрашиваем и данные пользователя, и статус сна
+                const [userData, sleepStatus] = await Promise.all([
+                    makeApiRequest("/api/v1/user/me"),
+                    makeApiRequest("/api/v1/admin/sleep_mode_status")
+                ]);
+                
                 if (!userData.is_admin) throw new Error("Доступ запрещен.");
+
+                // ✅ ИЗМЕНЕНИЕ: Показываем и настраиваем кнопку сна
+                updateSleepButton(sleepStatus);
+                dom.sleepModeToggle.classList.remove('hidden');
+
                 switchView('view-admin-main');
             } catch (e) {
                 dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
