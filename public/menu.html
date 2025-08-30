@@ -790,24 +790,27 @@
         
         async function refreshDataSilently() {
             try {
-                const [newUserData, newChallengeData] = await Promise.all([
-                    makeApiRequest("/api/v1/user/me", {}, 'POST', true),
-                    makeApiRequest("/api/v1/user/challenge/status", {}, 'POST', true)
-                ]);
+                // ИЗМЕНЕНИЕ: Убрали вызов старого API. Теперь делаем только ОДИН запрос к /user/me
+                const dashboardData = await makeApiRequest("/api/v1/user/me", {}, 'POST', true);
 
-                if (newUserData) {
-                    userData = newUserData;
+                // Если данные пришли, обновляем всё на странице
+                if (dashboardData) {
+                    userData = dashboardData || {}; // Обновляем глобальные данные пользователя
+                    const challengeData = dashboardData.challenge;
+                    
                     const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
                     if (activeQuest) {
                         renderActiveAutomaticQuest(activeQuest, userData);
                     }
-                }
-                if (newChallengeData) {
-                    renderChallenge(newChallengeData, !userData.twitch_id);
-                } else {
-                    renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+                    
+                    if (challengeData) {
+                        renderChallenge(challengeData, !userData.twitch_id);
+                    } else {
+                        renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+                    }
                 }
             } catch (e) {
+                // Ошибку в консоль выводим, но пользователю не показываем, так как это фоновый процесс
                 console.error("Ошибка фонового обновления:", e);
             }
         }
