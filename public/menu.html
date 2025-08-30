@@ -1054,6 +1054,7 @@
         } // <--- ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ ЗАКРЫВАЮЩЕЙ СКОБКИ
 
         async function main() {
+            console.log("--- Запуск функции main() ---");
             if (!Telegram.WebApp.initData) {
                 document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
                 return;
@@ -1062,7 +1063,7 @@
             try {
                 const day = new Date().getDay();
                 const questButton = dom.questChooseBtn;
-                if (day === 0 || day === 1) { // Воскресенье или Понедельник
+                if (day === 0 || day === 1) { 
                     questButton.classList.remove('twitch-theme');
                     questButton.classList.add('telegram-theme');
                     questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> ВЫХОДНЫЕ ИСПЫТАНИЯ';
@@ -1076,10 +1077,13 @@
                     dom.newPromoNotification.classList.remove('hidden');
                 }
 
+                console.log("1. Отправляем запрос на /api/v1/user/me...");
                 const dashboardData = await makeApiRequest("/api/v1/user/me");
+                console.log("2. Получен ответ от сервера:", dashboardData);
                 
                 userData = dashboardData || {}; 
                 const challengeData = dashboardData.challenge;
+                console.log("3. Разобрали данные. Переменная challengeData:", challengeData);
                 
                 const isGuest = !userData || !userData.full_name;
 
@@ -1106,13 +1110,16 @@
                     dom.questChooseContainer.classList.add('hidden');
                 }
 
+                console.log("4. Собираемся вызывать renderChallenge. Передаём в неё:", challengeData);
                 if (challengeData) {
                     renderChallenge(challengeData, !userData.twitch_id);
                 } else {
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
+                console.log("5. Функция renderChallenge вызвана.");
+
             } catch (e) {
-                console.error("Ошибка при основной загрузке:", e);
+                console.error("Критическая ошибка при основной загрузке:", e);
                 dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Не удалось загрузить челлендж.</p>`;
             } finally {
                 dom.mainContent.classList.add('visible');
