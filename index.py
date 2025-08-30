@@ -747,104 +747,36 @@ async def get_current_user_data(
         return JSONResponse(content={"is_guest": True})
 
     telegram_id = user_info["id"]
-    is_admin = telegram_id in ADMIN_IDS
 
     try:
-        is_previous_winner = False
-        try:
-            content_resp = await supabase.get(
-                "/pages_content",
-                params={"page_name": "eq.events", "select": "content", "limit": 1}
-            )
-            content_resp.raise_for_status()
-            content_data = content_resp.json()
-            if content_data:
-                all_events = content_data[0].get("content", {}).get("events", [])
-                winner_ids = {event['winner_id'] for event in all_events if 'winner_id' in event}
-                if telegram_id in winner_ids:
-                    is_previous_winner = True
-        except Exception as e:
-            logging.error(f"Не удалось проверить статус победителя для {telegram_id}: {e}")
-            is_previous_winner = False
-
-        user_resp = await supabase.get(
-            "/users",
-            params={"telegram_id": f"eq.{telegram_id}", "select": "*", "limit": 1}
+        # Вот она, магия! Один-единственный вызов к нашей новой функции.
+        response = await supabase.post(
+            "/rpc/get_user_dashboard_data", # Вызываем "помощника" по имени
+            json={"p_telegram_id": telegram_id} # Передаём ему ID пользователя
         )
-        user_resp.raise_for_status()
-        user_data = user_resp.json()
+        response.raise_for_status() # Проверяем, что всё прошло без ошибок
+        
+        data = response.json()
 
-        if not user_data:
+        # Если профиль пустой, значит пользователь новый. Создаём его.
+        if not data.get('profile'):
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
             await supabase.post(
                 "/users",
                 json={"telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg},
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
-            user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "*", "limit": 1})
-            user_data = user_resp.json()
+            # И снова запрашиваем данные, теперь уже для созданного пользователя
+            response = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
+            data = response.json()
 
-        if not user_data:
-            return JSONResponse(content={"is_guest": True, "is_admin": is_admin})
-
-        profile_data = user_data[0]
+        # Наша функция возвращает JSON вида: {"profile": {...}, "challenge": {...}}
+        # Нам нужно "собрать" из этого финальный ответ для фронтенда.
+        final_response = data.get('profile', {})
+        final_response['challenge'] = data.get('challenge')
+        final_response['event_participations'] = data.get('event_participations', {})
         
-        # --- НАЧАЛО ВОССТАНОВЛЕННОЙ ЛОГИКИ ИЗ СТАРОЙ ВЕРСИИ ---
-        active_quest_id = profile_data.get("active_quest_id")
-        active_progress = 0
-        if active_quest_id:
-            progress_resp = await supabase.get(
-                "/user_quest_progress",
-                params={"user_id": f"eq.{telegram_id}", "quest_id": f"eq.{active_quest_id}", "select": "current_progress"}
-            )
-            progress_data = progress_resp.json()
-            if progress_data:
-                active_progress = progress_data[0].get("current_progress", 0)
-        # --- КОНЕЦ ВОССТАНОВЛЕННОЙ ЛОГИКИ ---
-
-        entries_resp = await supabase.get(
-            "/event_entries",
-            params={"user_id": f"eq.{telegram_id}", "select": "event_id, tickets_spent"}
-        )
-        entries_data = entries_resp.json()
-        event_participations = {}
-        for entry in entries_data:
-            event_id = entry.get("event_id")
-            tickets_spent = entry.get("tickets_spent", 0)
-            if event_id is not None:
-                event_participations[event_id] = event_participations.get(event_id, 0) + tickets_spent
-
-        final_response_data = {
-            "id": telegram_id,
-            "is_guest": False,
-            "full_name": profile_data.get("full_name"),
-            "twitch_id": profile_data.get("twitch_id"),
-            "twitch_login": profile_data.get("twitch_login"),
-            "is_admin": is_admin,
-            "is_previous_winner": is_previous_winner,
-            "active_quest_id": active_quest_id,
-            "active_quest_progress": active_progress, # Отдаем правильное значение на фронтенд
-            "tickets": profile_data.get("tickets", 0),
-            "trade_link": profile_data.get("trade_link"),
-            "has_events_access": profile_data.get("has_events_access", False), # <-- ДОБАВЬ ЭТУ СТРОКУ
-            "has_checkpoint_access": profile_data.get("has_checkpoint_access", False), # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
-            "completed_challenges": profile_data.get("completed_challenges_count", 0),
-            "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- Это поле из новой версии сохранено
-            "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
-            "last_free_ticket_claimed_at": profile_data.get("last_free_ticket_claimed_at"),
-            "event_participations": event_participations,
-            "twitch_stats": {
-                "messages": profile_data.get("total_message_count", 0),
-                "daily_messages": profile_data.get("daily_message_count", 0),
-                "weekly_messages": profile_data.get("weekly_message_count", 0),
-                "monthly_messages": profile_data.get("monthly_message_count", 0),
-                "uptime": profile_data.get("total_uptime_minutes", 0),
-                "daily_uptime": profile_data.get("daily_uptime_minutes", 0),
-                "weekly_uptime": profile_data.get("weekly_uptime_minutes", 0),
-                "monthly_uptime": profile_data.get("monthly_uptime_minutes", 0),
-            }
-        }
-        return JSONResponse(content=final_response_data)
+        return JSONResponse(content=final_response)
 
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/user/me: {e}", exc_info=True)
