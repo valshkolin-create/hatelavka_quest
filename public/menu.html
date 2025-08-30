@@ -790,12 +790,11 @@
         
         async function refreshDataSilently() {
             try {
-                // ИЗМЕНЕНИЕ: Убрали вызов старого API. Теперь делаем только ОДИН запрос к /user/me
+                // ИСПРАВЛЕНО: Теперь делаем только один запрос к /user/me
                 const dashboardData = await makeApiRequest("/api/v1/user/me", {}, 'POST', true);
 
-                // Если данные пришли, обновляем всё на странице
                 if (dashboardData) {
-                    userData = dashboardData || {}; // Обновляем глобальные данные пользователя
+                    userData = dashboardData || {};
                     const challengeData = dashboardData.challenge;
                     
                     const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
@@ -810,7 +809,6 @@
                     }
                 }
             } catch (e) {
-                // Ошибку в консоль выводим, но пользователю не показываем, так как это фоновый процесс
                 console.error("Ошибка фонового обновления:", e);
             }
         }
@@ -1057,7 +1055,7 @@
             });
         } // <--- ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ ЗАКРЫВАЮЩЕЙ СКОБКИ
 
-       async function main() {
+        async function main() {
             if (!Telegram.WebApp.initData) {
                 document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
                 return;
@@ -1080,11 +1078,9 @@
                     dom.newPromoNotification.classList.remove('hidden');
                 }
 
+                // ИСПРАВЛЕНО: Делаем ОДИН запрос, который возвращает всё
                 const dashboardData = await makeApiRequest("/api/v1/user/me");
                 
-                // --- ВОТ ИСПРАВЛЕНИЕ ---
-                // Раньше было: userData = dashboardData.profile || {};
-                // Теперь мы берём данные напрямую, так как бэкенд их больше не вкладывает в .profile
                 userData = dashboardData || {}; 
                 const challengeData = dashboardData.challenge;
                 
