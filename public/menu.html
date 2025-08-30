@@ -1054,7 +1054,7 @@
             });
         } // <--- ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ ЗАКРЫВАЮЩЕЙ СКОБКИ
 
-        async function main() {
+       async function main() {
             if (!Telegram.WebApp.initData) {
                 document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
                 return;
@@ -1077,11 +1077,12 @@
                     dom.newPromoNotification.classList.remove('hidden');
                 }
 
-                // ИЗМЕНЕНИЕ: Делаем один запрос, который возвращает всё
                 const dashboardData = await makeApiRequest("/api/v1/user/me");
                 
-                // ИЗМЕНЕНИЕ: Разбираем полученные данные на части
-                userData = dashboardData.profile || {}; 
+                // --- ВОТ ИСПРАВЛЕНИЕ ---
+                // Раньше было: userData = dashboardData.profile || {};
+                // Теперь мы берём данные напрямую, так как бэкенд их больше не вкладывает в .profile
+                userData = dashboardData || {}; 
                 const challengeData = dashboardData.challenge;
                 
                 const isGuest = !userData || !userData.full_name;
@@ -1095,7 +1096,6 @@
 
                 document.getElementById('ticketStats').textContent = userData.tickets || 0;
   
-                // ИЗМЕНЕНИЕ: Запрашиваем список квестов отдельно
                 const questsDataResp = await makeApiRequest("/api/v1/quests/list");
 
                 allQuests = questsDataResp || [];
@@ -1110,11 +1110,9 @@
                     dom.questChooseContainer.classList.add('hidden');
                 }
 
-                // ИЗМЕНЕНИЕ: Используем challengeData, полученные из /user/me
                 if (challengeData) {
                     renderChallenge(challengeData, !userData.twitch_id);
                 } else {
-                    // Передаём информацию о кулдауне, если она есть в профиле
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
 
