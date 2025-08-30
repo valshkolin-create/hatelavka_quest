@@ -121,6 +121,10 @@ class QuestCancelRequest(BaseModel):
 class FreeTicketClaimRequest(BaseModel):
     initData: str
 
+class GrantAccessRequest(BaseModel):
+    initData: str
+    user_id_to_grant: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -819,6 +823,7 @@ async def get_current_user_data(
             "active_quest_progress": active_progress, # Отдаем правильное значение на фронтенд
             "tickets": profile_data.get("tickets", 0),
             "trade_link": profile_data.get("trade_link"),
+            "has_events_access": profile_data.get("has_events_access", False), # <-- ДОБАВЬ ЭТУ СТРОКУ
             "completed_challenges": profile_data.get("completed_challenges_count", 0),
             "challenge_cooldown_until": profile_data.get("challenge_cooldown_until"), # <-- Это поле из новой версии сохранено
             "last_quest_cancel_at": profile_data.get("last_quest_cancel_at"),
@@ -916,6 +921,26 @@ async def update_quest(request_data: QuestUpdateRequest, supabase: httpx.AsyncCl
     await supabase.patch("/quests", params={"id": f"eq.{quest_id}"}, json=quest_data_to_update)
 
     return {"message": f"Квест '{request_data.title}' успешно обновлен!"}
+
+@app.post("/api/v1/admin/events/grant-access")
+async def grant_events_access(
+    request_data: GrantAccessRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Выдает пользователю доступ к странице ивентов."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    user_id_to_grant = request_data.user_id_to_grant
+
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{user_id_to_grant}"},
+        json={"has_events_access": True}
+    )
+
+    return {"message": f"Доступ к ивентам для пользователя {user_id_to_grant} успешно предоставлен!"}
 
 @app.post("/api/v1/admin/user_challenges")
 async def get_user_challenges_by_admin(
