@@ -34,11 +34,10 @@
     .admin-form input, .admin-form textarea, .admin-form select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background-color: #333; color: white; font-size: 16px; box-sizing: border-box; }
     .admin-form label { font-weight: 600; font-size: 14px; margin-top: 5px; }
     .admin-form button { background-color: var(--primary-color); border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
-    .admin-menu-buttons { display: flex; flex-direction: column; gap: 15px; width: 100%; }
     .admin-menu-button { background-color: var(--action-color); width: 100%; border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
     .admin-submission-card { text-align: left; gap: 8px; }
     .submission-user strong { color: var(--primary-color); }
-    .submission-data { background-color: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; word-break: break-all; font-family: monospace; }
+    .submission-data { background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 6px; word-break: break-all; font-family: monospace; font-size: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;}
     .submission-actions { display: flex; gap: 10px; margin-top: 15px; }
     .admin-action-btn { flex-grow: 1; border: none; padding: 10px; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
     .admin-action-btn.approve { background-color: var(--primary-color); }
@@ -77,15 +76,8 @@
     .prompt-actions > * { flex:1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
     .prompt-actions .confirm-btn { background-color: var(--primary-color); color: white; }
     .prompt-actions .cancel-btn { background-color: #555; color: white; }
-    .category-actions .sort-btn, .sort-quest-btn {
-        background-color: #555;
-        padding: 4px 8px;
-        font-size: 14px;
-    }
-    .sort-btn:disabled, .sort-quest-btn:disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
-    }
+    .category-actions .sort-btn, .sort-quest-btn { background-color: #555; padding: 4px 8px; font-size: 14px; }
+    .sort-btn:disabled, .sort-quest-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .quest-category-accordion { width: 100%;}
     .quest-category-header { cursor: pointer; font-size: 16px; font-weight: 600; padding: 12px; background-color: rgba(44, 44, 46, 0.85); border-radius: 8px; list-style: none; display: flex; align-items: center; justify-content: space-between; }
     .quest-category-header::-webkit-details-marker { display: none; }
@@ -94,90 +86,68 @@
     .quest-category-body { display: flex; flex-direction: column; gap: 10px; padding: 10px 0 5px; }
     .quest-category-header .category-info { flex-grow: 1; display: flex; align-items: center; }
     .quest-category-header .category-actions-in-header { display: flex; gap: 10px; align-items: center; }
-
-    /* --- Стили для нового окна победителей --- */
-    .winner-item {
-        border-bottom: 1px solid var(--divider-glass-color);
-        padding: 15px 0;
-        text-align: left;
+    .winner-item { border-bottom: 1px solid var(--divider-glass-color); padding: 15px 0; text-align: left; }
+    .winner-item:last-child { border-bottom: none; }
+    .winner-item p { margin: 5px 0; font-size: 14px; word-break: break-word; }
+    .winner-item strong { color: var(--text-color-muted); display: inline-block; width: 80px; }
+    .winner-actions { display: flex; gap: 10px; margin-top: 15px; }
+    .winner-actions .admin-action-btn { flex-grow: 1; text-align: center; text-decoration: none; padding: 10px; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+    .winner-actions .write-user { background-color: var(--action-color); }
+    .winner-actions .issue-prize { background-color: var(--primary-color); }
+    .winner-actions .admin-action-btn.disabled { background-color: #555; cursor: not-allowed; opacity: 0.6; }
+    .winner-confirmation { margin-top: 15px; }
+    .confirm-prize-sent-btn { width: 100%; background-color: #ff9500; }
+    .confirmation-status-badge { text-align: center; font-weight: 600; color: var(--status-active-color); }
+    .sleep-mode-toggle { position: fixed; top: 20px; right: 20px; width: 24px; height: 24px; background-color: var(--action-color); border-radius: 50%; border: none; color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 1000; }
+    .sleep-mode-toggle.is-sleeping { background-color: var(--danger-color); }
+    
+    /* --- ✅ СТИЛИ ДЛЯ НОВОГО МЕНЮ ИКОНОК --- */
+    .admin-icon-menu {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 20px;
+        padding: 10px 0;
     }
-    .winner-item:last-child {
-        border-bottom: none;
-    }
-    .winner-item p {
-        margin: 5px 0;
-        font-size: 14px;
-        word-break: break-word;
-    }
-    .winner-item strong {
-        color: var(--text-color-muted);
-        display: inline-block;
-        width: 80px;
-    }
-    .winner-actions {
+    .admin-icon-button {
         display: flex;
-        gap: 10px;
-        margin-top: 15px;
-    }
-    .winner-actions .admin-action-btn {
-        flex-grow: 1;
+        flex-direction: column;
+        align-items: center;
         text-align: center;
-        text-decoration: none;
-        padding: 10px;
-        border-radius: 8px;
-        color: white;
-        font-size: 14px;
-        font-weight: 600;
         cursor: pointer;
-        border: none;
+        text-decoration: none;
+        color: var(--text-color);
+        gap: 8px;
     }
-    .winner-actions .write-user {
-        background-color: var(--action-color);
-    }
-    .winner-actions .issue-prize {
-        background-color: var(--primary-color);
-    }
-    .winner-actions .admin-action-btn.disabled {
-        background-color: #555;
-        cursor: not-allowed;
-        opacity: 0.6;
-    }
-    .winner-confirmation {
-        margin-top: 15px;
-    }
-    .confirm-prize-sent-btn {
-        width: 100%;
-        background-color: #ff9500;
-    }
-    .confirmation-status-badge {
-        text-align: center;
-        font-weight: 600;
-        color: var(--status-active-color);
-    }
-    /* --- Конец стилей для окна победителей --- */
-
-    /* ✅ НОВЫЕ СТИЛИ ДЛЯ КНОПКИ СНА */
-    .sleep-mode-toggle {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        width: 24px;
-        height: 24px;
-        background-color: var(--action-color);
-        border-radius: 50%;
-        border: none;
-        color: white;
-        font-size: 15px;
+    .admin-icon-button .icon-wrapper {
+        width: 64px;
+        height: 64px;
+        background-color: var(--surface-glass-bg);
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        z-index: 1000;
+        font-size: 26px;
+        transition: background-color 0.2s, transform 0.2s;
     }
-    .sleep-mode-toggle.is-sleeping {
-        background-color: var(--danger-color);
+    .admin-icon-button:active .icon-wrapper {
+        transform: scale(0.95);
     }
+    .admin-icon-button span {
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.2;
+    }
+    .admin-icon-button.danger .icon-wrapper {
+        background-color: rgba(255, 59, 48, 0.25);
+        color: var(--danger-color);
+    }
+    .admin-icon-button.warning .icon-wrapper {
+        background-color: rgba(255, 149, 0, 0.25);
+        color: #ff9500;
+    }
+    .admin-icon-button .icon-wrapper .fa-user-check { color: #5856d6; }
+    .admin-icon-button .icon-wrapper .fa-ticket { color: var(--primary-color); }
+
   </style>
 </head>
 <body>
@@ -197,15 +167,34 @@
                 <h1 class="page-header-title">Админка</h1>
                 <div style="width: 80px;"></div>
             </div>
-            <div class="quest-card">
-                <div class="admin-menu-buttons">
-                    <button class="admin-menu-button" data-view="view-admin-quests">Управление заданиями</button>
-                    <button class="admin-menu-button" data-view="view-admin-categories">Управление категориями</button>
-                    <button class="admin-menu-button" data-view="view-admin-challenges">Управление челленджами</button>
-                    <button class="admin-menu-button" data-view="view-admin-check">Проверить заявки</button>
-                    <button class="admin-menu-button" data-view="view-admin-promocodes">Добавить промокоды</button>
-                    <button id="check-winners-btn" class="admin-menu-button" style="background-color: #ff9500;">Победители розыгрышей</button>
-                    <button id="reset-all-quests-btn" class="admin-menu-button" style="background-color: var(--danger-color); margin-top: 15px;">Сбросить все активные квесты</button>
+            <div class="admin-icon-menu">
+                <div class="admin-icon-button" data-view="view-admin-quests">
+                    <div class="icon-wrapper"><i class="fa-solid fa-list-check"></i></div>
+                    <span>Задания</span>
+                </div>
+                <div class="admin-icon-button" data-view="view-admin-categories">
+                    <div class="icon-wrapper"><i class="fa-solid fa-folder-tree"></i></div>
+                    <span>Категории</span>
+                </div>
+                <div class="admin-icon-button" data-view="view-admin-challenges">
+                    <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+                    <span>Челленджи</span>
+                </div>
+                <div class="admin-icon-button" data-view="view-admin-check">
+                    <div class="icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
+                    <span>Проверка</span>
+                </div>
+                <div class="admin-icon-button" data-view="view-admin-promocodes">
+                    <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
+                    <span>Промокоды</span>
+                </div>
+                <div class="admin-icon-button warning" data-trigger="check-winners">
+                    <div class="icon-wrapper"><i class="fa-solid fa-crown"></i></div>
+                    <span>Победители</span>
+                </div>
+                <div class="admin-icon-button danger" data-trigger="reset-all-quests">
+                    <div class="icon-wrapper"><i class="fa-solid fa-trash-arrow-up"></i></div>
+                    <span>Сброс квестов</span>
                 </div>
             </div>
         </div>
@@ -508,11 +497,9 @@
             genericPromptInput: document.getElementById('generic-prompt-input'),
             genericPromptCancel: document.getElementById('generic-prompt-cancel'),
             genericPromptConfirm: document.getElementById('generic-prompt-confirm'),
-            checkWinnersBtn: document.getElementById('check-winners-btn'),
             winnersModal: document.getElementById('winners-modal'),
             winnersModalBody: document.getElementById('winners-modal-body'),
             winnersModalCloseBtn: document.getElementById('winners-modal-close-btn'),
-            resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
             sleepModeToggle: document.getElementById('sleep-mode-toggle'),
             sleepPromptOverlay: document.getElementById('sleep-prompt-overlay'),
             sleepMinutesInput: document.getElementById('sleep-minutes-input'),
@@ -527,6 +514,12 @@
             dom.views.forEach(view => view.classList.add('hidden'));
             const targetView = document.getElementById(targetViewId);
             if (targetView) targetView.classList.remove('hidden');
+
+            // ✅ Кнопка сна видна только на главной странице админки
+            if (dom.sleepModeToggle) {
+                const isAdmin = document.body.dataset.isAdmin === 'true';
+                dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
+            }
         };
 
         const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
@@ -773,6 +766,7 @@
             });
         }
         
+        // ✅ ОБНОВЛЁННАЯ ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ЗАЯВОК
         function renderPendingSubmissions(submissions) {
             dom.submissionsList.innerHTML = '';
             if (!submissions || submissions.length === 0) {
@@ -780,11 +774,29 @@
                 return;
             }
             submissions.forEach(sub => {
+                let submissionContent = '';
+                const data = sub.submitted_data || '';
+                // Проверяем, является ли строка URL-адресом
+                const isUrl = data.startsWith('http://') || data.startsWith('https://');
+
+                if (isUrl) {
+                    // Если данные - это ссылка, делаем её кликабельной
+                    submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline;">${data}</a>`;
+                } else {
+                    // Если это текст (ник), просто показываем его
+                    submissionContent = `<span>${data}</span>`;
+                    // И если для квеста есть action_url, добавляем кнопку "Перейти"
+                    if (sub.quest_action_url) {
+                        submissionContent += ` <a href="${sub.quest_action_url}" target="_blank" rel="noopener noreferrer" class="admin-edit-quest-btn" style="margin-left: 10px; font-size: 11px; padding: 4px 8px;">Перейти к заданию</a>`;
+                    }
+                }
+
                 const cardHtml = `
                 <div class="quest-card admin-submission-card" id="submission-card-${sub.id}">
                     <h3 class="quest-title">${sub.quest_title || 'Неизвестный квест'}</h3>
                     <p>Пользователь: <strong>${sub.user_full_name || 'Неизвестный пользователь'}</strong></p>
-                    <div class="submission-data">${sub.submitted_data}</div>
+                    <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные от пользователя:</p>
+                    <div class="submission-data">${submissionContent}</div>
                     <div class="submission-actions">
                         <button class="admin-action-btn approve" data-id="${sub.id}" data-action="approved">Одобрить</button>
                         <button class="admin-action-btn reject" data-id="${sub.id}" data-action="rejected">Отклонить</button>
@@ -920,7 +932,6 @@
             return finalData;
         }
 
-        // ✅ НОВАЯ ФУНКЦИЯ ДЛЯ ОБНОВЛЕНИЯ ВИДА КНОПКИ
         function updateSleepButton(status) {
             if (status.is_sleeping) {
                 dom.sleepModeToggle.classList.add('is-sleeping');
@@ -932,7 +943,6 @@
         }
 
         function setupEventListeners() {
-            // ✅ НОВЫЕ ОБРАБОТЧИКИ ДЛЯ КНОПКИ СНА
             dom.sleepModeToggle.addEventListener('click', async () => {
                 const isSleeping = dom.sleepModeToggle.classList.contains('is-sleeping');
                 if (isSleeping) {
@@ -960,34 +970,12 @@
                 Telegram.WebApp.showAlert(result.message);
             });
 
-            dom.checkWinnersBtn.addEventListener('click', async () => {
-                const winners = await makeApiRequest('/api/v1/admin/events/winners');
-                renderWinners(winners);
-                dom.winnersModal.classList.remove('hidden');
-            });
-
             dom.winnersModalCloseBtn.addEventListener('click', () => dom.winnersModal.classList.add('hidden'));
 
             dom.winnersModal.addEventListener('click', (e) => {
                 if (e.target === dom.winnersModal) dom.winnersModal.classList.add('hidden');
             });
             
-            dom.resetAllQuestsBtn.addEventListener('click', () => {
-                Telegram.WebApp.showConfirm(
-                    'Вы уверены, что хотите сбросить ВСЕ активные автоматические квесты у ВСЕХ пользователей? Это действие необратимо и вернет их к экрану выбора испытания.',
-                    async (ok) => {
-                        if (ok) {
-                            try {
-                                await makeApiRequest('/api/v1/admin/quests/reset-all-active');
-                                Telegram.WebApp.showAlert('Все активные квесты были успешно сброшены.');
-                            } catch (e) {
-                                // Ошибка уже обработана и показана в makeApiRequest
-                            }
-                        }
-                    }
-                );
-            });
-
             dom.winnersModalBody.addEventListener('click', async (e) => {
                 const confirmButton = e.target.closest('.confirm-prize-sent-btn');
                 if (confirmButton) {
@@ -1017,9 +1005,12 @@
             
             dom.appContainer.addEventListener('click', async (event) => {
                 const target = event.target;
-                const navButton = target.closest('.admin-menu-button, .back-button, #go-create-quest, #go-create-challenge');
-                if (navButton && navButton.id !== 'reset-all-quests-btn') { // Исключаем новую кнопку из общей навигации
+                const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
+                
+                if (navButton) {
                     const view = navButton.dataset.view;
+                    const trigger = navButton.dataset.trigger;
+
                     if (view) {
                         switchView(view);
                         if (view === 'view-admin-quests') {
@@ -1034,6 +1025,20 @@
                             await fetchAndCacheCategories();
                             renderCategoriesList();
                         }
+                    } else if (trigger === 'check-winners') {
+                        const winners = await makeApiRequest('/api/v1/admin/events/winners');
+                        renderWinners(winners);
+                        dom.winnersModal.classList.remove('hidden');
+                    } else if (trigger === 'reset-all-quests') {
+                        Telegram.WebApp.showConfirm(
+                            'Вы уверены, что хотите сбросить ВСЕ активные автоматические квесты у ВСЕХ пользователей? Это действие необратимо.',
+                            async (ok) => {
+                                if (ok) {
+                                    await makeApiRequest('/api/v1/admin/quests/reset-all-active');
+                                    Telegram.WebApp.showAlert('Все активные квесты были успешно сброшены.');
+                                }
+                            }
+                        );
                     } else if (navButton.id === 'go-create-quest') {
                         await fetchAndCacheCategories();
                         populateCategorySelects();
@@ -1200,20 +1205,20 @@
                 Telegram.WebApp.expand();
                 if (!Telegram.WebApp.initData) throw new Error("Требуется авторизация в Telegram.");
                 
-                // ✅ ИЗМЕНЕНИЕ: Запрашиваем и данные пользователя, и статус сна
                 const [userData, sleepStatus] = await Promise.all([
                     makeApiRequest("/api/v1/user/me"),
                     makeApiRequest("/api/v1/admin/sleep_mode_status")
                 ]);
                 
                 if (!userData.is_admin) throw new Error("Доступ запрещен.");
-
-                // ✅ ИЗМЕНЕНИЕ: Показываем и настраиваем кнопку сна
+                
+                document.body.dataset.isAdmin = 'true';
                 updateSleepButton(sleepStatus);
-                dom.sleepModeToggle.classList.remove('hidden');
 
                 switchView('view-admin-main');
             } catch (e) {
+                document.body.dataset.isAdmin = 'false';
+                dom.sleepModeToggle.classList.add('hidden');
                 dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
             } finally {
                 hideLoader();
