@@ -724,39 +724,40 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ЗАПУСКА КВЕСТА ---
 @app.post("/api/v1/quests/start")
 async def start_quest(request_data: QuestStartRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 🟢 INFO: Запрос принят
+    logging.info("Принят запрос на старт квеста.")
+
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+
+    # 🟢 INFO: Проверка initData
+    logging.info(f"Проверка initData. Валидно: {user_info is not None}")
+
     if not user_info or "id" not in user_info:
+        # ❌ ERROR: Неверные данные аутентификации
+        logging.error("Неверные данные аутентификации.")
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
     quest_id = request_data.quest_id
 
-    # СТАЛО: Проверяем тип квеста перед стартом
-    quest_resp = await supabase.get("/quests", params={"id": f"eq.{quest_id}", "select": "quest_type"})
-    quest_resp.raise_for_status()
-    quest_data = quest_resp.json()
-    if not quest_data:
-        raise HTTPException(status_code=404, detail="Задание не найдено.")
-    
-    is_telegram_quest = quest_data[0].get("quest_type", "").startswith("automatic_telegram")
+    # 🟢 INFO: Данные пользователя и квеста получены
+    logging.info(f"Пользователь: {telegram_id}, ID квеста: {quest_id}")
 
     try:
-        # БЫЛО: await supabase.post("/rpc/start_quest_atomic", ...)
-        # СТАЛО: Обновляем нужные поля напрямую
-        update_payload = {"active_quest_id": quest_id}
-        if is_telegram_quest:
-            update_payload["last_telegram_quest_start"] = datetime.now(timezone.utc).isoformat()
-        
-        await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_payload)
-        
+        # 🟢 INFO: Отправка запроса в Supabase
+        logging.info(f"Отправка запроса в Supabase RPC start_quest_atomic с параметрами: p_user_id={telegram_id}, p_quest_id={quest_id}")
+
+        # Эта функция в базе данных делает всё что нужно: и квест активирует, и прогресс создаёт.
         await supabase.post(
-            "/user_quest_progress",
-            json={"user_id": telegram_id, "quest_id": quest_id, "status": "in_progress"},
-            headers={"Prefer": "resolution=merge-duplicates"}
+            "/rpc/start_quest_atomic",
+            json={"p_user_id": telegram_id, "p_quest_id": quest_id}
         )
 
+        # 🟢 INFO: Запрос в Supabase успешен
+        logging.info("Квест успешно активирован в Supabase.")
         return {"message": "Квест успешно активирован."}
     except Exception as e:
+        # ❌ ERROR: Ошибка при активации
         logging.error(f"Ошибка при активации квеста {quest_id} для пользователя {telegram_id}: {e}")
         raise HTTPException(status_code=500, detail="Не удалось активировать квест.")
         
