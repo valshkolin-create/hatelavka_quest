@@ -470,15 +470,11 @@ async def get_public_quests(
     if not telegram_id:
         return []
 
-    # БЫЛО: user_resp = await supabase.get("users", params={"telegram_id": f"eq.{telegram_id}", "select": "active_quest_id"})
-    # СТАЛО: Запрашиваем новое поле last_telegram_quest_start
-    user_resp = await supabase.get("users", params={"telegram_id": f"eq.{telegram_id}", "select": "active_quest_id,last_telegram_quest_start"})
+    user_resp = await supabase.get("users", params={"telegram_id": f"eq.{telegram_id}", "select": "active_quest_id"})
     user_resp.raise_for_status()
     user_data = user_resp.json()
     
     active_quest_id = user_data[0].get("active_quest_id") if user_data else None
-    # СТАЛО: Новая переменная для хранения времени
-    last_telegram_start = user_data[0].get("last_telegram_quest_start") if user_data else None
 
     if active_quest_id:
         quest_check_resp = await supabase.get("/quests", params={"id": f"eq.{active_quest_id}", "select": "is_active"})
@@ -509,39 +505,10 @@ async def get_public_quests(
     all_quests_resp.raise_for_status()
     all_active_quests = all_quests_resp.json()
     
-    try:
-        moscow_tz = ZoneInfo("Europe/Moscow")
-        now_moscow = datetime.now(moscow_tz)
-        current_day = now_moscow.weekday()
-    except Exception:
-        now_moscow = datetime.now(timezone.utc)
-        current_day = now_moscow.weekday()
-
-    filtered_quests = []
-
-    # СТАЛО: Новый блок проверки кулдауна для TG-квестов
-    can_start_telegram_quest = True
-    if last_telegram_start:
-        last_start_time = datetime.fromisoformat(last_telegram_start.replace('Z', '+00:00'))
-        if (now_moscow.astimezone(timezone.utc) - last_start_time) < timedelta(hours=24):
-            can_start_telegram_quest = False
-    
-    if current_day == 6 or current_day == 0:
-        if can_start_telegram_quest:
-            logging.info(f"День недели {current_day}: Выдаем Telegram задания.")
-            for quest in all_active_quests:
-                if quest.get("quest_type", "").startswith("automatic_telegram"):
-                    filtered_quests.append(quest)
-        else:
-            logging.info(f"TG-квесты на кулдауне для пользователя {telegram_id}")
-    else: 
-        logging.info(f"День недели {current_day}: Выдаем Twitch задания.")
-        for quest in all_active_quests:
-            if quest.get("quest_type", "").startswith("automatic_twitch"):
-                filtered_quests.append(quest)
-
+    # ВОТ ИЗМЕНЕНИЕ: Мы больше не фильтруем квесты по дням недели.
+    # Мы просто берём все активные автоматические квесты.
     available_quests = [
-        quest for quest in filtered_quests
+        quest for quest in all_active_quests 
         if quest.get('is_repeatable') or quest['id'] not in completed_quest_ids
     ]
     
