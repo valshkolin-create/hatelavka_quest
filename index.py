@@ -724,40 +724,32 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ЗАПУСКА КВЕСТА ---
 @app.post("/api/v1/quests/start")
 async def start_quest(request_data: QuestStartRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # 🟢 INFO: Запрос принят
     logging.info("Принят запрос на старт квеста.")
 
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
 
-    # 🟢 INFO: Проверка initData
-    logging.info(f"Проверка initData. Валидно: {user_info is not None}")
-
     if not user_info or "id" not in user_info:
-        # ❌ ERROR: Неверные данные аутентификации
         logging.error("Неверные данные аутентификации.")
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
     quest_id = request_data.quest_id
 
-    # 🟢 INFO: Данные пользователя и квеста получены
     logging.info(f"Пользователь: {telegram_id}, ID квеста: {quest_id}")
 
     try:
-        # 🟢 INFO: Отправка запроса в Supabase
-        logging.info(f"Отправка запроса в Supabase RPC start_quest_atomic с параметрами: p_user_id={telegram_id}, p_quest_id={quest_id}")
+        logging.info(f"Отправка запроса в Supabase RPC start_quest_atomic...")
 
-        # Эта функция в базе данных делает всё что нужно: и квест активирует, и прогресс создаёт.
+        # Эта функция в базе данных (RPC) делает всё что нужно:
+        # и квест активирует, и запись в user_quest_progress создаёт.
         await supabase.post(
             "/rpc/start_quest_atomic",
             json={"p_user_id": telegram_id, "p_quest_id": quest_id}
         )
 
-        # 🟢 INFO: Запрос в Supabase успешен
         logging.info("Квест успешно активирован в Supabase.")
         return {"message": "Квест успешно активирован."}
     except Exception as e:
-        # ❌ ERROR: Ошибка при активации
         logging.error(f"Ошибка при активации квеста {quest_id} для пользователя {telegram_id}: {e}")
         raise HTTPException(status_code=500, detail="Не удалось активировать квест.")
         
