@@ -510,7 +510,7 @@
                     } 
                     // СТАЛО: Убираем "Время вышло" для заданий, чтобы исправить визуальный баг
                     else if (intervalKey.startsWith('quest_')) {
-                        currentTimerElement.textContent = "Задание истекло";
+                        currentTimerElement.style.display = 'none';
                     }
 
                     if (intervalKey === 'challenge_cooldown') {
