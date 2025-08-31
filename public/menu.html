@@ -468,71 +468,66 @@
             }
         }
 
-       function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
-            if (countdownIntervals[intervalKey]) {
+   function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
+        if (countdownIntervals[intervalKey]) {
+            clearInterval(countdownIntervals[intervalKey]);
+        }
+
+        const endTime = new Date(expiresAt).getTime();
+
+        const updateTimer = () => {
+            const currentTimerElement = document.getElementById(timerElement.id);
+            if (!currentTimerElement) {
                 clearInterval(countdownIntervals[intervalKey]);
-            }
-            // СТАЛО: Добавляем проверку, что элемент таймера вообще существует, чтобы избежать ошибок
-            if (!timerElement) { 
                 return;
             }
 
-            const endTime = new Date(expiresAt).getTime();
-            
-            const updateTimer = () => {
-                const currentTimerElement = document.getElementById(timerElement.id);
-                if (!currentTimerElement) {
-                    clearInterval(countdownIntervals[intervalKey]);
-                    return;
+            const now = new Date().getTime();
+            const distance = endTime - now;
+
+            if (distance < 0) {
+                clearInterval(countdownIntervals[intervalKey]);
+                delete countdownIntervals[intervalKey];
+                if (onEndCallback) {
+                    onEndCallback();
+            } else {
+                const cardElement = currentTimerElement.closest('.quest-card');
+                if (cardElement && intervalKey === 'challenge') { // Убедимся, что это таймер челленджа
+                    currentTimerElement.remove(); // Удаляем таймер
+
+                    // Создаем новую кнопку
+                    const completeButton = document.createElement('button');
+                    completeButton.id = 'check-challenge-progress-btn';
+                    completeButton.className = 'claim-reward-button'; // Используем стиль кнопки "Забрать награду"
+                    completeButton.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
+
+                    // Добавляем кнопку в карточку
+                    cardElement.appendChild(completeButton);
+                } else {
+                    // Стандартное поведение для других таймеров
+                    currentTimerElement.textContent = "Время вышло!";
                 }
-
-                const now = new Date().getTime();
-                const distance = endTime - now;
-
-                if (distance < 0) {
-                    clearInterval(countdownIntervals[intervalKey]);
-                    delete countdownIntervals[intervalKey];
-                    
-                    if (onEndCallback) {
-                        onEndCallback();
-                    } 
-                    // СТАЛО: Добавляем блок для завершения челленджа
-                    else if (intervalKey === 'challenge') {
-                        const cardElement = currentTimerElement.closest('.quest-card');
-                        if (cardElement) {
-                           currentTimerElement.remove();
-                           const completeButton = document.createElement('button');
-                           completeButton.id = 'check-challenge-progress-btn';
-                           completeButton.className = 'claim-reward-button';
-                           completeButton.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
-                           cardElement.appendChild(completeButton);
-                        }
-                    } 
-                    // СТАЛО: Убираем "Время вышло" для заданий, чтобы исправить визуальный баг
-                    else if (intervalKey.startsWith('quest_')) {
-                        currentTimerElement.textContent = "Задание истекло";
-                    }
-
-                    if (intervalKey === 'challenge_cooldown') {
-                        refreshDataSilently();
-                    }
-                    return;
+            }
+                if (intervalKey === 'challenge_cooldown') {
+                    // --- FIX: Replaced main() with a silent refresh to prevent loop ---
+                    refreshDataSilently();
                 }
+                return;
+            }
+            const d = Math.floor(distance / 86400000);
+            const h = Math.floor((distance % 86400000) / 3600000);
+            const m = Math.floor((distance % 3600000) / 60000);
+            const s = Math.floor((distance % 60000) / 1000);
 
-                const d = Math.floor(distance / 86400000);
-                const h = Math.floor((distance % 86400000) / 3600000);
-                const m = Math.floor((distance % 3600000) / 60000);
-                const s = Math.floor((distance % 60000) / 1000);
-                
-                let result = '';
-                if (d > 0) result += `${d}д `;
-                result += `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-                currentTimerElement.textContent = result;
-            };
-            
-            countdownIntervals[intervalKey] = setInterval(updateTimer, 1000);
-            updateTimer();
-        }
+            let result = '';
+            if (d > 0) result += `${d}д `;
+            result += `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            currentTimerElement.textContent = result;
+        };
+
+        countdownIntervals[intervalKey] = setInterval(updateTimer, 1000);
+        updateTimer();
+    }
         
         function clearAllCountdowns() {
             Object.keys(countdownIntervals).forEach(key => {
