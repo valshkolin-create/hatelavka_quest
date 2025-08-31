@@ -505,10 +505,28 @@ async def get_public_quests(
     all_quests_resp.raise_for_status()
     all_active_quests = all_quests_resp.json()
     
-    # ВОТ ИЗМЕНЕНИЕ: Мы больше не фильтруем квесты по дням недели.
-    # Мы просто берём все активные автоматические квесты.
+    # --- НОВЫЙ БЛОК: Фильтрация квестов по дню недели ---
+    try:
+        moscow_tz = ZoneInfo("Europe/Moscow")
+        current_day = datetime.now(moscow_tz).weekday() # Понедельник = 0, Воскресенье = 6
+    except Exception:
+        current_day = datetime.now(timezone.utc).weekday() # Fallback to UTC
+
+    filtered_quests = []
+    if current_day == 6 or current_day == 0: # Воскресенье или Понедельник
+        logging.info(f"День недели {current_day}: Выдаем Telegram задания.")
+        for quest in all_active_quests:
+            if quest.get("quest_type", "").startswith("automatic_telegram"):
+                filtered_quests.append(quest)
+    else: # Вторник - Суббота
+        logging.info(f"День недели {current_day}: Выдаем Twitch задания.")
+        for quest in all_active_quests:
+            if quest.get("quest_type", "").startswith("automatic_twitch"):
+                filtered_quests.append(quest)
+    # --- КОНЕЦ НОВОГО БЛОКА ---
+
     available_quests = [
-        quest for quest in all_active_quests 
+        quest for quest in filtered_quests # Работаем с уже отфильтрованным списком
         if quest.get('is_repeatable') or quest['id'] not in completed_quest_ids
     ]
     
@@ -691,32 +709,39 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ЗАПУСКА КВЕСТА ---
 @app.post("/api/v1/quests/start")
 async def start_quest(request_data: QuestStartRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 🟢 INFO: Запрос принят
     logging.info("Принят запрос на старт квеста.")
 
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    
+    # 🟢 INFO: Проверка initData
+    logging.info(f"Проверка initData. Валидно: {user_info is not None}")
 
     if not user_info or "id" not in user_info:
+        # ❌ ERROR: Неверные данные аутентификации
         logging.error("Неверные данные аутентификации.")
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
     quest_id = request_data.quest_id
 
+    # 🟢 INFO: Данные пользователя и квеста получены
     logging.info(f"Пользователь: {telegram_id}, ID квеста: {quest_id}")
 
     try:
-        logging.info(f"Отправка запроса в Supabase RPC start_quest_atomic...")
+        # 🟢 INFO: Отправка запроса в Supabase
+        logging.info(f"Отправка запроса в Supabase RPC start_quest_atomic с параметрами: p_user_id={telegram_id}, p_quest_id={quest_id}")
 
-        # Эта функция в базе данных (RPC) делает всё что нужно:
-        # и квест активирует, и запись в user_quest_progress создаёт.
         await supabase.post(
             "/rpc/start_quest_atomic",
             json={"p_user_id": telegram_id, "p_quest_id": quest_id}
         )
 
+        # 🟢 INFO: Запрос в Supabase успешен
         logging.info("Квест успешно активирован в Supabase.")
         return {"message": "Квест успешно активирован."}
     except Exception as e:
+        # ❌ ERROR: Ошибка при активации
         logging.error(f"Ошибка при активации квеста {quest_id} для пользователя {telegram_id}: {e}")
         raise HTTPException(status_code=500, detail="Не удалось активировать квест.")
         
