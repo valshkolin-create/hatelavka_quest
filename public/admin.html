@@ -111,7 +111,6 @@
     .toggle-slider:before { position: absolute; content: ""; height: 23px; width: 23px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
     input:checked + .toggle-slider { background-color: var(--primary-color); }
     input:checked + .toggle-slider:before { transform: translateX(20px); }
-    
     .tabs-container {
       display: flex;
       gap: 10px;
@@ -565,8 +564,6 @@
             sleepMinutesInput: document.getElementById('sleep-minutes-input'),
             sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
             sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
-            // Элемент удален, так как его заменили три контейнера для вкладок
-            // pendingActionsList: document.getElementById('pending-actions-list'),
             tabsContainer: document.querySelector('.tabs-container'),
             tabContentSubmissions: document.getElementById('tab-content-submissions'),
             tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
@@ -624,7 +621,7 @@
                 categoriesCache = [];
             }
         }
-
+        
         function populateCategorySelects(selectedId = null) {
             const selects = document.querySelectorAll('select[name="category_id"]');
             selects.forEach(select => {
@@ -725,15 +722,15 @@
             currentEditingCategoryId = null;
         }
 
+        // --- ОСНОВНЫЕ ФУНКЦИИ ---
+
         function renderPendingActions(actions) {
+            // Эта функция теперь отвечает только за "Проверки" и "Чекпоинт"
             dom.tabContentSubmissions.innerHTML = '';
-            dom.tabContentEventPrizes.innerHTML = '';
             dom.tabContentCheckpointPrizes.innerHTML = '';
             
-            if (!actions || actions.length === 0) {
-                dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых задач.</p>';
-                return;
-            }
+            const submissions = actions.filter(a => a.type === 'submission');
+            const checkpointPrizes = actions.filter(a => a.type === 'prize' && a.source_display_name && a.source_display_name.toLowerCase().includes('чекпоинт'));
 
             const createCardHtml = (action) => {
                 if (action.type === 'submission') {
@@ -759,7 +756,7 @@
                             <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
                         </div>
                     </div>`;
-                } else if (action.type === 'prize') {
+                } else if (action.type === 'prize') { // Карточка для Чекпоинта
                     return `
                     <div class="quest-card admin-submission-card" id="prize-card-${action.id}">
                         <h3 class="quest-title">${action.title || 'Выдача награды'}</h3>
@@ -773,22 +770,46 @@
                 return '';
             };
 
-            actions.forEach(action => {
-                const cardHtml = createCardHtml(action);
-                if (action.type === 'submission') {
-                    dom.tabContentSubmissions.innerHTML += cardHtml;
-                } else if (action.type === 'prize') {
-                    if (action.source_display_name && action.source_display_name.toLowerCase().includes('ивент')) {
-                        dom.tabContentEventPrizes.innerHTML += cardHtml;
-                    } else if (action.source_display_name && action.source_display_name.toLowerCase().includes('чекпоинт')) {
-                        dom.tabContentCheckpointPrizes.innerHTML += cardHtml;
-                    }
-                }
+            submissions.forEach(action => {
+                dom.tabContentSubmissions.innerHTML += createCardHtml(action);
+            });
+            checkpointPrizes.forEach(action => {
+                dom.tabContentCheckpointPrizes.innerHTML += createCardHtml(action);
             });
 
             if (dom.tabContentSubmissions.innerHTML === '') dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
-            if (dom.tabContentEventPrizes.innerHTML === '') dom.tabContentEventPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград за розыгрыши.</p>';
             if (dom.tabContentCheckpointPrizes.innerHTML === '') dom.tabContentCheckpointPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград из Чекпоинта.</p>';
+        }
+
+        // НОВАЯ ФУНКЦИЯ СПЕЦИАЛЬНО ДЛЯ ОТОБРАЖЕНИЯ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ
+        function renderWinners(winners) {
+            dom.tabContentEventPrizes.innerHTML = '';
+            if (!winners || winners.length === 0) {
+                dom.tabContentEventPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет победителей для отображения.</p>';
+                return;
+            }
+            
+            winners.forEach(winner => {
+                const hasValidTradeLink = winner.trade_link && winner.trade_link !== 'Не указана' && winner.trade_link.startsWith('http');
+                const tradeLinkClass = hasValidTradeLink ? '' : 'disabled';
+                const tradeLinkHref = hasValidTradeLink ? winner.trade_link : '#';
+                
+                // Кнопка "Подтвердить", если приз еще не был подтвержден как отправленный
+                const confirmationHtml = winner.prize_sent_confirmed
+                    ? '<p style="text-align:center; color: var(--status-active-color); font-weight: 600;">✅ Приз выдан</p>'
+                    : `<button class="admin-action-btn confirm confirm-winner-prize-btn" data-event-id="${winner.event_id}">Подтвердить выдачу</button>`;
+
+                const cardHtml = `
+                    <div class="quest-card admin-submission-card" id="winner-card-${winner.event_id}">
+                        <h3 class="quest-title">${winner.prize_title || 'Без названия'}</h3>
+                        <p>Победитель: <strong>${winner.winner_name || 'Неизвестно'}</strong></p>
+                        <p>Трейд-ссылка: ${hasValidTradeLink ? `<a href="${tradeLinkHref}" target="_blank" style="color: var(--action-color);">Открыть</a>` : '<span style="color:var(--warning-color);">Не указана</span>'}</p>
+                        <div class="submission-actions">
+                            ${confirmationHtml}
+                        </div>
+                    </div>`;
+                dom.tabContentEventPrizes.innerHTML += cardHtml;
+            });
         }
         
         async function loadAndRenderSettings() {
@@ -984,8 +1005,13 @@
                             await fetchAndCacheCategories();
                             renderQuests(allQuests, categoriesCache);
                         } else if (view === 'view-admin-pending-actions') {
-                            const actions = await makeApiRequest('/api/v1/admin/pending_actions');
-                            renderPendingActions(actions);
+                            // ИЗМЕНЕНО: Запрашиваем оба типа данных
+                            const [actions, winners] = await Promise.all([
+                                makeApiRequest('/api/v1/admin/pending_actions'),
+                                makeApiRequest('/api/v1/admin/events/winners')
+                            ]);
+                            renderPendingActions(actions); // Рендерит "Проверки" и "Чекпоинт"
+                            renderWinners(winners);       // Рендерит "Розыгрыши"
                         } else if (view === 'view-admin-challenges') {
                             renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
                         } else if (view === 'view-admin-categories') {
@@ -1010,6 +1036,20 @@
                     return;
                 }
 
+                // ИЗМЕНЕНО: Добавляем обработчик для новой кнопки подтверждения у победителей
+                const confirmWinnerBtn = target.closest('.confirm-winner-prize-btn');
+                if (confirmWinnerBtn) {
+                    const eventId = confirmWinnerBtn.dataset.eventId;
+                    tg.showConfirm('Вы уверены, что выдали этот приз победителю?', async (ok) => {
+                        if (ok) {
+                            await makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(eventId) });
+                            tg.showAlert('Выдача приза подтверждена.');
+                            confirmWinnerBtn.closest('.admin-submission-card')?.remove();
+                        }
+                    });
+                    return;
+                }
+                
                 const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .sort-btn, .sort-quest-btn');
                 if (!actionButton) return;
                 const id = actionButton.dataset.id;
@@ -1060,7 +1100,6 @@
                     } else if (action === 'confirm_prize') {
                         tg.showConfirm('Вы уверены, что выдали этот приз?', async (ok) => {
                              if(ok) {
-                                // ❗️❗️❗️ ИСПРАВЛЕНИЕ ЗДЕСЬ ❗️❗️❗️
                                 await makeApiRequest('/api/v1/admin/manual_rewards/complete', { reward_id: parseInt(id) });
                                 tg.showAlert('Выдача приза подтверждена.');
                                 card?.remove();
