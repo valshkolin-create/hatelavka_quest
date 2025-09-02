@@ -128,6 +128,21 @@ class FreeTicketClaimRequest(BaseModel):
 class GrantAccessRequest(BaseModel):
     initData: str
     user_id_to_grant: int
+    
+class CheckpointReward(BaseModel):
+    level: int
+    title: str
+    description: Optional[str] = ""
+    icon: str
+    type: str
+    value: str
+
+class CheckpointContent(BaseModel):
+    rewards: List[CheckpointReward] = Field(default_factory=list)
+
+class CheckpointUpdateRequest(BaseModel):
+    initData: str
+    content: CheckpointContent
 
 class CheckpointClaimRequest(BaseModel):
     initData: str
@@ -2779,6 +2794,46 @@ async def claim_free_ticket(
         logging.error(f"Критическая ошибка при получении билета для user {telegram_id}: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
+@app.get("/api/v1/checkpoint/content")
+async def get_checkpoint_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Отдает JSON с контентом для страницы 'Чекпоинт'."""
+    try:
+        resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.checkpoint", "select": "content", "limit": 1}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not data or 'rewards' not in data[0].get('content', {}):
+            # Возвращаем пустую структуру по умолчанию, если в базе ничего нет
+            return {"rewards": []}
+        return data[0]['content']
+    except Exception as e:
+        logging.error(f"Ошибка при получении контента Чекпоинта: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось загрузить контент страницы.")
+
+@app.post("/api/v1/admin/checkpoint/update")
+async def update_checkpoint_content(
+    request_data: CheckpointUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обновляет контент страницы 'Чекпоинт' (только для админов)."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Используем "upsert": если строки нет, она создастся. Если есть - обновится.
+        await supabase.post(
+            "/pages_content",
+            json={"page_name": "checkpoint", "content": request_data.content.dict()},
+            headers={"Prefer": "resolution=merge-duplicates"}
+        )
+        return {"message": "Контент марафона успешно обновлен."}
+    except Exception as e:
+        logging.error(f"Ошибка при обновлении контента Чекпоинта: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
+
 @app.post("/api/v1/checkpoint/claim")
 async def claim_checkpoint_reward(
     request_data: CheckpointClaimRequest,
@@ -2802,11 +2857,11 @@ async def claim_checkpoint_reward(
             }
         )
         response.raise_for_status()
-
+        
         # Функция вернет новый уровень пользователя
         result = response.json()
         
-        # TODO: Здесь можно добавить логику выдачи конкретной награды (билеты, промокод и т.д.)
+        # TODO: Здесь можно добавить логику немедленной выдачи награды (билеты, промокод и т.д.)
         # Например, найти в JSON-контенте награду для level_to_claim и выдать ее.
         
         return {
