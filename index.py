@@ -1731,21 +1731,51 @@ async def get_available_challenges(request_data: InitDataRequest, supabase: http
     if not user_info or "id" not in user_info: raise HTTPException(status_code=401, detail="Доступ запрещен")
     telegram_id = user_info["id"]
 
-    pending_resp = await supabase.get("/user_challenges", params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "id"})
-    if pending_resp.json(): raise HTTPException(status_code=409, detail="У вас уже есть активный челлендж.")
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+    # Проверяем активные челленджи, но также учитываем, не истек ли их срок
+    pending_resp = await supabase.get(
+        "/user_challenges", 
+        params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "id,expires_at"}
+    )
+    pending_challenges = pending_resp.json()
 
-    # 🔥 ИСПРАВЛЕНИЕ 1: Проверяем, привязан ли Twitch у пользователя
+    if pending_challenges:
+        current_challenge = pending_challenges[0]
+        expires_at_str = current_challenge.get("expires_at")
+        
+        is_expired = False
+        if expires_at_str:
+            try:
+                # Преобразуем строку в объект времени с часовым поясом
+                expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
+                if expires_at < datetime.now(timezone.utc):
+                    is_expired = True
+                    # Срок челленджа истек, обновляем его статус в базе
+                    await supabase.patch(
+                        "/user_challenges",
+                        params={"id": f"eq.{current_challenge['id']}"},
+                        json={"status": "expired"}
+                    )
+            except ValueError:
+                # На случай, если дата в базе имеет неверный формат
+                logging.warning(f"Неверный формат даты истечения срока для челленджа {current_challenge['id']}")
+
+        # Выдаем ошибку, только если челлендж действительно активен (не истек)
+        if not is_expired:
+            raise HTTPException(status_code=409, detail="У вас уже есть активный челлендж.")
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+    # Проверяем, привязан ли Twitch у пользователя
     user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_id"})
     user_has_twitch = user_resp.json() and user_resp.json()[0].get("twitch_id") is not None
 
     completed_resp = await supabase.get("/user_challenges", params={"user_id": f"eq.{telegram_id}", "status": "in.(claimed,expired)", "select": "challenge_id"})
     completed_ids = {c['challenge_id'] for c in completed_resp.json()}
     
-    # 🔥 ИСПРАВЛЕНИЕ 2: Запрашиваем тип квеста (condition_type), чтобы его отфильтровать
     available_resp = await supabase.get("/challenges", params={"is_active": "eq.true", "select": "id,description,reward_amount,condition_type"})
     all_available = [c for c in available_resp.json() if c['id'] not in completed_ids]
 
-    # 🔥 ИСПРАВЛЕНИЕ 3: Фильтруем квесты, если нет Twitch
+    # Фильтруем квесты, если нет Twitch
     if not user_has_twitch:
         final_available = [c for c in all_available if c.get("condition_type") != 'twitch_points']
     else:
