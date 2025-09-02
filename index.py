@@ -162,6 +162,9 @@ class AdminSettingsUpdateRequest(BaseModel):
     initData: str
     settings: AdminSettings
 
+class PendingActionRequest(BaseModel): # Добавьте эту модель в начало файла, где все Pydantic модели
+    initData: str
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -3008,6 +3011,49 @@ async def complete_manual_reward(
         json={"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}
     )
     return {"message": "Награда помечена как выданная."}
+
+@app.post("/api/v1/admin/pending_actions")
+async def get_pending_actions(
+    request_data: PendingActionRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Собирает все действия, ожидающие решения администратора:
+    1. Заявки на ручные квесты (submissions).
+    2. Награды, ожидающие ручной выдачи (prizes/manual_rewards).
+    """
+    # 1. Проверяем права администратора
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        all_actions = []
+
+        # 2. Получаем заявки на проверку (submissions)
+        submissions_resp = await supabase.post("/rpc/get_pending_submissions_with_details")
+        submissions_resp.raise_for_status()
+        submissions = submissions_resp.json()
+        for sub in submissions:
+            sub['type'] = 'submission' # Добавляем тип для фронтенда
+            all_actions.append(sub)
+
+        # 3. Получаем ручные награды на выдачу (prizes)
+        rewards_resp = await supabase.post("/rpc/get_pending_manual_rewards_with_user")
+        rewards_resp.raise_for_status()
+        rewards = rewards_resp.json()
+        for reward in rewards:
+            reward['type'] = 'prize' # Добавляем тип для фронтенда
+            all_actions.append(reward)
+            
+        # 4. Сортируем все действия по дате создания, чтобы новые были сверху
+        all_actions.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        return all_actions
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении pending_actions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить список действий.")
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
