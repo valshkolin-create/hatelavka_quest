@@ -32,6 +32,7 @@ from fastapi import BackgroundTasks
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
+from aiogram.utils.markdown import html_decoration
 
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
@@ -726,21 +727,23 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
         "submitted_data": request_data.submittedData
     })
 
-    # 4. (Опционально) Уведомляем админа о новой заявке
-    if ADMIN_NOTIFY_CHAT_ID:
-        try:
-            user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-            message_text = (
-                f"🔔 Новая заявка на проверку!\n\n"
-                f"<b>Задание:</b> «{quest_title}»\n"
-                f"<b>Пользователь:</b> {user_name} (ID: {telegram_id})\n"
-                f"<b>Данные:</b>\n<code>{request_data.submittedData}</code>"
-            )
-            await bot.send_message(ADMIN_NOTIFY_CHAT_ID, message_text, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            logging.error(f"Не удалось отправить уведомление админу: {e}")
-
-    return {"message": "Ваша заявка принята и отправлена на проверку!"}
+# 4. (Опционально) Уведомляем админа о новой заявке
+        if ADMIN_NOTIFY_CHAT_ID:
+            try:
+                # Делаем имя пользователя и название квеста безопасными для HTML
+                user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                safe_user_name = html_decoration.quote(user_name)
+                safe_quest_title = html_decoration.quote(quest_title)
+                
+                message_text = (
+                    f"🔔 Новая заявка на проверку!\n\n"
+                    f"<b>Задание:</b> «{safe_quest_title}»\n"
+                    f"<b>Пользователь:</b> {safe_user_name} (ID: {telegram_id})\n"
+                    f"<b>Данные:</b>\n<code>{html_decoration.quote(request_data.submittedData)}</code>"
+                )
+                await bot.send_message(ADMIN_NOTIFY_CHAT_ID, message_text, parse_mode=ParseMode.HTML)
+            except Exception as e:
+                logging.error(f"Не удалось отправить уведомление админу: {e}")
     
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ЗАПУСКА КВЕСТА ---
 @app.post("/api/v1/quests/start")
