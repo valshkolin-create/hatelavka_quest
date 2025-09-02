@@ -571,71 +571,8 @@
             }
         }
         
-        function renderPendingActions(actions) {
-            dom.pendingActionsList.innerHTML = '';
-            if (!actions || actions.length === 0) {
-                dom.pendingActionsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых задач для проверки.</p>';
-                return;
-            }
-            actions.forEach(action => {
-                let cardHtml = '';
-                if (action.type === 'submission') {
-                    let submissionContent = '';
-                    const data = action.submitted_data || '';
-                    const isUrl = data.startsWith('http://') || data.startsWith('https://');
-                    if (isUrl) {
-                        submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline;">${data}</a>`;
-                    } else {
-                        submissionContent = `<span>${data}</span>`;
-                        if (action.quest_action_url) {
-                            submissionContent += ` <a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="admin-edit-quest-btn" style="margin-left: 10px; font-size: 11px; padding: 4px 8px;">Перейти</a>`;
-                        }
-                    }
-                    cardHtml = `
-                    <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
-                        <div class="pending-action-header">
-                            <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
-                            <span class="pending-action-type-badge type-submission">Проверка</span>
-                        </div>
-                        <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
-                        <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные:</p>
-                        <div class="submission-data">${submissionContent}</div>
-                        <div class="submission-actions">
-                            <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
-                            <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
-                        </div>
-                    </div>`;
-                } else if (action.type === 'prize') {
-                    cardHtml = `
-                    <div class="quest-card admin-submission-card" id="prize-card-${action.id}">
-                        <div class="pending-action-header">
-                            <h3 class="quest-title">Выдача: ${action.title || 'Награда'}</h3>
-                            <span class="pending-action-type-badge type-prize">Приз</span>
-                        </div>
-                        <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
-                        <p>Источник: <strong>${action.source_display_name}</strong></p>
-                        ${action.user_trade_link ? `<p>Ссылка: <a href="${action.user_trade_link}" target="_blank" style="color: var(--action-color);">Проверить трейд-ссылку</a></p>` : '<p style="color:var(--warning-color);">Трейд-ссылка не указана!</p>'}
-                        <div class="submission-actions">
-                            <button class="admin-action-btn confirm" data-id="${action.id}" data-action="confirm_prize">✅ Подтвердить выдачу</button>
-                        </div>
-                    </div>`;
-                }
-                dom.pendingActionsList.insertAdjacentHTML('beforeend', cardHtml);
-            });
-        }
-        
-        async function loadAndRenderSettings() {
-            try {
-                const settings = await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges');
-                dom.settingQuestsEnabled.checked = settings.quests_enabled;
-                dom.settingChallengesEnabled.checked = settings.challenges_enabled;
-                dom.settingQuestRewardsEnabled.checked = settings.quest_rewards_enabled;
-                dom.settingChallengeRewardsEnabled.checked = settings.challenge_rewards_enabled;
-            } catch(e) {
-                 tg.showAlert(`Не удалось загрузить настройки: ${e.message}`);
-            }
-        }
-        
+        // --- ВОССТАНОВЛЕННЫЕ И ИСПРАВЛЕННЫЕ ФУНКЦИИ ---
+
         function populateCategorySelects(selectedId = null) {
             const selects = document.querySelectorAll('select[name="category_id"]');
             selects.forEach(select => {
@@ -651,7 +588,7 @@
                 });
             });
         }
-
+        
         function renderCategoriesList() {
             dom.categoriesList.innerHTML = '';
             if (categoriesCache.length === 0) {
@@ -660,19 +597,19 @@
             }
             categoriesCache.forEach((cat, index) => {
                  dom.categoriesList.insertAdjacentHTML('beforeend', `
-                    <div class="quest-card category-card" data-category-id="${cat.id}">
-                        <span class="category-name">${cat.name}</span>
-                        <div class="category-actions">
-                            <button class="admin-edit-quest-btn sort-btn" data-index="${index}" data-direction="up" ${index === 0 ? 'disabled' : ''}>▲</button>
-                            <button class="admin-edit-quest-btn sort-btn" data-index="${index}" data-direction="down" ${index === categoriesCache.length - 1 ? 'disabled' : ''}>▼</button>
-                            <button class="admin-edit-quest-btn edit-category-btn" data-id="${cat.id}" data-name="${cat.name}">Редакт.</button>
-                            <button class="admin-delete-quest-btn delete-category-btn" data-id="${cat.id}">Удалить</button>
-                        </div>
-                    </div>
+                     <div class="quest-card category-card" data-category-id="${cat.id}">
+                         <span class="category-name">${cat.name}</span>
+                         <div class="category-actions">
+                             <button class="admin-edit-quest-btn sort-btn" data-index="${index}" data-direction="up" ${index === 0 ? 'disabled' : ''}>▲</button>
+                             <button class="admin-edit-quest-btn sort-btn" data-index="${index}" data-direction="down" ${index === categoriesCache.length - 1 ? 'disabled' : ''}>▼</button>
+                             <button class="admin-edit-quest-btn edit-category-btn" data-id="${cat.id}" data-name="${cat.name}">Редакт.</button>
+                             <button class="admin-delete-quest-btn delete-category-btn" data-id="${cat.id}">Удалить</button>
+                         </div>
+                     </div>
                  `);
             });
         }
-
+        
         function renderChallenges(challenges) {
             dom.challengesList.innerHTML = '';
             if (!challenges || challenges.length === 0) {
@@ -710,6 +647,94 @@
                 periodWrapper.classList.toggle('hidden', !showPeriod);
             }
         }
+        
+        function updateQuestFormUI(form) {
+            const questType = form.querySelector('select[name="quest_type"]').value;
+            const isManual = questType === 'manual_check';
+            form.querySelector('.manual-options-wrapper').classList.toggle('hidden', !isManual);
+            form.querySelector('.automatic-options-wrapper').classList.toggle('hidden', isManual);
+            if (!isManual) {
+                const twitchPeriodWrapper = form.querySelector('.twitch-period-wrapper');
+                const showPeriodSelector = questType === 'automatic_twitch_messages' || questType === 'automatic_twitch_uptime';
+                twitchPeriodWrapper.classList.toggle('hidden', !showPeriodSelector);
+            }
+        }
+        
+        function showGenericPrompt(title, value, id) {
+            currentEditingCategoryId = id;
+            dom.genericPromptTitle.textContent = title;
+            dom.genericPromptInput.value = value;
+            dom.genericPromptOverlay.classList.remove('hidden');
+            dom.genericPromptInput.focus();
+        }
+        
+        function hideGenericPrompt() {
+            dom.genericPromptOverlay.classList.add('hidden');
+            currentEditingCategoryId = null;
+        }
+
+        // --- ОСНОВНЫЕ ФУНКЦИИ ---
+
+        function renderPendingActions(actions) {
+            dom.pendingActionsList.innerHTML = '';
+            if (!actions || actions.length === 0) {
+                dom.pendingActionsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых задач для проверки.</p>';
+                return;
+            }
+            actions.forEach(action => {
+                let cardHtml = '';
+                if (action.type === 'submission') {
+                    let submissionContent = '';
+                    const data = action.submitted_data || '';
+                    const isUrl = data.startsWith('http://') || data.startsWith('https://');
+                    if (isUrl) {
+                        submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline;">${data}</a>`;
+                    } else {
+                        submissionContent = `<span>${data}</span>`;
+                        if (action.quest_action_url) {
+                            submissionContent += ` <a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="admin-edit-quest-btn" style="margin-left: 10px; font-size: 11px; padding: 4px 8px;">Перейти</a>`;
+                        }
+                    }
+                    cardHtml = `
+                    <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
+                        <div class="pending-action-header">
+                            <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
+                            <span class="pending-action-type-badge type-submission">Проверка</span>
+                        </div>
+                        <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
+                        <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные:</p>
+                        <div class="submission-data">${submissionContent}</div>
+                        <div class="submission-actions">
+                            <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
+                            <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
+                        </div>
+                    </div>`;
+                } else if (action.type === 'prize') {
+                    // ИЗМЕНЕНИЕ: Теперь ярлык 'source_display_name' используется для отображения причины выдачи
+                    cardHtml = `
+                    <div class="quest-card admin-submission-card" id="prize-card-${action.id}">
+                        <div class="pending-action-header">
+                            <h3 class="quest-title">${action.title || 'Выдача награды'}</h3>
+                            <span class="pending-action-type-badge type-prize">${action.source_display_name || 'Приз'}</span>
+                        </div>
+                        <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
+                        ${action.user_trade_link ? `<p>Ссылка: <a href="${action.user_trade_link}" target="_blank" style="color: var(--action-color);">Проверить трейд-ссылку</a></p>` : '<p style="color:var(--warning-color);">Трейд-ссылка не указана!</p>'}
+                        <div class="submission-actions">
+                            <button class="admin-action-btn confirm" data-id="${action.id}" data-action="confirm_prize">✅ Подтвердить выдачу</button>
+                        </div>
+                    </div>`;
+                }
+                dom.pendingActionsList.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+        
+        async function loadAndRenderSettings() {
+            const settings = await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges');
+            dom.settingQuestsEnabled.checked = settings.quests_enabled;
+            dom.settingChallengesEnabled.checked = settings.challenges_enabled;
+            dom.settingQuestRewardsEnabled.checked = settings.quest_rewards_enabled;
+            dom.settingChallengeRewardsEnabled.checked = settings.challenge_rewards_enabled;
+        }
 
         function renderQuests(quests, categories) {
             dom.questsList.innerHTML = '';
@@ -728,6 +753,7 @@
                 const baseType = Object.keys(questTypeMap).find(key => type.startsWith(key));
                 return baseType ? questTypeMap[baseType] : { name: type, color: '#98989d' };
             };
+
             const groupedQuests = quests.reduce((acc, quest) => {
                 const categoryId = quest.category_id || 'no_category';
                 if (!acc[categoryId]) acc[categoryId] = [];
@@ -769,31 +795,6 @@
                     </details>`;
                 dom.questsList.insertAdjacentHTML('beforeend', accordionHtml);
             });
-        }
-        
-        function showGenericPrompt(title, value, id) {
-            currentEditingCategoryId = id;
-            dom.genericPromptTitle.textContent = title;
-            dom.genericPromptInput.value = value;
-            dom.genericPromptOverlay.classList.remove('hidden');
-            dom.genericPromptInput.focus();
-        }
-        
-        function hideGenericPrompt() {
-            dom.genericPromptOverlay.classList.add('hidden');
-            currentEditingCategoryId = null;
-        }
-        
-        function updateQuestFormUI(form) {
-            const questType = form.querySelector('select[name="quest_type"]').value;
-            const isManual = questType === 'manual_check';
-            form.querySelector('.manual-options-wrapper').classList.toggle('hidden', !isManual);
-            form.querySelector('.automatic-options-wrapper').classList.toggle('hidden', isManual);
-            if (!isManual) {
-                const twitchPeriodWrapper = form.querySelector('.twitch-period-wrapper');
-                const showPeriodSelector = questType === 'automatic_twitch_messages' || questType === 'automatic_twitch_uptime';
-                twitchPeriodWrapper.classList.toggle('hidden', !showPeriodSelector);
-            }
         }
         
         function renderSubmissionsInModal(submissions, questTitle) {
@@ -928,9 +929,7 @@
 
                 const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .sort-btn, .sort-quest-btn');
                 if (!actionButton) return;
-                
                 const id = actionButton.dataset.id;
-
                 if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.sort-quest-btn')) {
                     const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: parseInt(id) });
                     await fetchAndCacheCategories();
