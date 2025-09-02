@@ -30,7 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
 
 # --- Pydantic Models ---
