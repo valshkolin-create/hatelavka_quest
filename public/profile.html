@@ -81,7 +81,6 @@
         }
         .settings-card-info {
             flex-grow: 1;
-            /* Убрал overflow: hidden, чтобы текст был полностью виден */
         }
         .settings-card-info p {
             margin: 0;
@@ -99,8 +98,7 @@
             color: var(--text-color-muted);
             display: block;
             margin-top: 2px;
-            /* Убрал nowrap, overflow и text-overflow для полного отображения текста */
-            white-space: normal; 
+            white-space: normal; /* Полное отображение текста */
         }
         .settings-card-btn {
             background-color: var(--action-color);
@@ -121,32 +119,78 @@
         .settings-card-btn.unlink { background-color: var(--danger-color); }
         .settings-card-btn.twitch { background-color: #9146ff; }
 
-        /* --- Новый стиль для карточки уведомлений --- */
-        .notification-card {
+        /* --- Стиль для уведомления (Notification Card) --- */
+        .notification-alert {
             background-color: var(--notification-bg); /* Более светлый фон */
             border-radius: 12px;
             padding: 10px 15px; /* Немного уменьшил паддинги */
             display: flex;
-            align-items: center;
+            flex-direction: column; /* Элементы в столбик для лучшего размещения кнопки "Скрыть" */
+            gap: 10px;
+            margin-bottom: 15px; /* Отступ снизу */
+            position: relative; /* Для позиционирования кнопки закрытия */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.3s ease-in-out;
+        }
+        .notification-alert.hidden {
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+            border: none;
+        }
+        .notification-alert-content {
+            display: flex;
+            align-items: flex-start; /* Выравнивание по верху для многострочного текста */
             gap: 15px;
-            margin-bottom: 12px; /* Добавил отступ снизу для отделения от других карточек */
         }
-        .notification-card .settings-card-info p {
+        .notification-alert-info {
+            flex-grow: 1;
+            padding-right: 25px; /* Отступ, чтобы не перекрывать кнопку закрытия */
+        }
+        .notification-alert-info p {
+            margin: 0;
+            font-weight: 600;
             font-size: 14px; /* Чуть меньше заголовок */
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .notification-card .settings-card-info p i {
+        .notification-alert-info p i {
             font-size: 16px; /* Чуть меньше иконка */
             color: var(--notification-icon-color); /* Выделенный цвет иконки */
         }
-        .notification-card .settings-card-info span {
+        .notification-alert-info span {
             font-size: 11px; /* Чуть меньше текст описания */
             color: var(--text-color-muted);
             line-height: 1.3;
+            margin-top: 4px;
         }
-        .notification-card .settings-card-btn {
+        .notification-alert .settings-card-btn {
             padding: 6px 12px; /* Уменьшил размер кнопки */
             font-size: 12px; /* Уменьшил размер текста кнопки */
             border-radius: 6px;
+            align-self: flex-start; /* Выравнивание кнопки по левому краю в колонке */
+            margin-top: 5px; /* Отступ от текста */
+        }
+        .notification-alert-dismiss {
+            background: none;
+            border: none;
+            color: var(--text-color-muted);
+            font-size: 18px;
+            cursor: pointer;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px;
+            transition: color 0.2s ease;
+        }
+        .notification-alert-dismiss:hover {
+            color: var(--danger-color);
         }
 
         /* --- Секция наград --- */
@@ -353,6 +397,8 @@
             <div style="width: 50px;"></div> 
         </div>
         
+        <div id="notification-area"></div>
+
         <div id="settings-list" class="card-container">
             </div>
         
@@ -406,6 +452,7 @@ try {
         settingsList: document.getElementById('settings-list'),
         deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
         completedChallengesCount: document.getElementById('completed-challenges-count'),
+        notificationArea: document.getElementById('notification-area'), // Новый элемент для уведомления
         // Элементы кастомного окна
         customPopupOverlay: document.getElementById('custom-popup-overlay'),
         popupTradeLinkInput: document.getElementById('popup-trade-link-input'),
@@ -437,26 +484,45 @@ try {
         }
     }
     
+    // Функция для рендеринга уведомления
+    function renderNotification() {
+        const NOTIFICATION_KEY = 'hide_notification_quest_bot';
+        if (localStorage.getItem(NOTIFICATION_KEY) === 'true') {
+            dom.notificationArea.innerHTML = ''; // Если скрыто, ничего не рендерим
+            return;
+        }
+
+        const notificationCard = document.createElement('div');
+        notificationCard.id = 'notification-quest-bot';
+        notificationCard.className = 'notification-alert';
+        notificationCard.innerHTML = `
+            <button class="notification-alert-dismiss" id="dismiss-notification-btn" title="Скрыть уведомление навсегда">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="notification-alert-content">
+                <div class="notification-alert-info">
+                    <p><i class="fa-solid fa-bell"></i> Уведомления от бота</p>
+                    <span>Нажмите "Перейти" и запустите бота <br>@quest_hatelavka_bot, чтобы он мог отправлять вам награды и напоминания о челленджах.</span>
+                </div>
+            </div>
+            <a href="https://t.me/quest_hatelavka_bot" target="_blank" rel="noopener noreferrer" class="settings-card-btn" style="width: fit-content;">
+                Перейти в бота
+            </a>
+        `;
+        dom.notificationArea.appendChild(notificationCard);
+
+        // Обработчик для кнопки "Скрыть"
+        document.getElementById('dismiss-notification-btn').addEventListener('click', () => {
+            notificationCard.classList.add('hidden');
+            localStorage.setItem(NOTIFICATION_KEY, 'true'); // Сохраняем, что уведомление скрыто
+            setTimeout(() => notificationCard.remove(), 300); // Удаляем после анимации
+        });
+    }
+
+
     function renderSettings(userData) {
         dom.settingsList.innerHTML = ''; // Очищаем перед рендерингом
         
-        // --- НОВАЯ КАРТОЧКА: Уведомления (перенесена наверх) ---
-        const notificationCard = document.createElement('div');
-        notificationCard.className = 'notification-card'; // Используем новый класс для стиля
-        notificationCard.innerHTML = `
-            <div class="settings-card-info">
-                <p>
-                    <i class="fa-solid fa-bell"></i> Уведомления
-                </p>
-                <span>Нажмите "Перейти" и запустите бота <a href="https://t.me/quest_hatelavka_bot" target="_blank" rel="noopener noreferrer">@quest_hatelavka_bot</a>, чтобы он мог отправлять вам награды и напоминания о челленджах.</span>
-            </div>
-            <a href="https://t.me/quest_hatelavka_bot" target="_blank" rel="noopener noreferrer" class="settings-card-btn">
-                Перейти
-            </a>
-        `;
-        dom.settingsList.appendChild(notificationCard);
-
-
         // --- Карточка Steam ---
         const steamCard = document.createElement('div');
         steamCard.className = 'settings-card';
@@ -553,6 +619,8 @@ try {
         try {
             const [userData, rewards] = await Promise.all([ makeApiRequest("/api/v1/user/me"), makeApiRequest("/api/v1/user/rewards") ]);
             dom.profileName.textContent = userData.is_guest ? "Гость" : (userData.full_name || 'Профиль');
+            
+            renderNotification(); // Рендерим уведомление в самом начале
             renderSettings(userData);
             renderRewards(rewards);
         } catch (e) {
@@ -610,8 +678,8 @@ try {
                     card.style.transform = 'scale(0.95)';
                     setTimeout(() => {
                         card.remove();
-                        if (dom.rewardsList.children.length === 1 && dom.rewardsList.children[0].tagName !== 'DIV') {
-                            renderRewards([]);
+                        if (dom.rewardsList.children.length === 0) { // Проверяем после удаления
+                            renderRewards([]); // Перерендерим пустой список
                         }
                     }, 300);
                 }
