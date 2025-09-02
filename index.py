@@ -1213,30 +1213,33 @@ async def trigger_draws(
             
             logging.info(f"✅ Победитель для ивента {event_id}: {winner_name} (ID: {winner_id})")
 
-                try:
-        # Создаем запись о ручной награде
-        await supabase.post(
-            "/manual_rewards",
-            json={
-                "user_id": winner_id,
-                "source_type": "event_win",
-                "source_description": f"Победа в ивенте «{event.get('title', '')}»",
-                "reward_details": event.get('title', 'Не указан'),
-                "status": "pending"
-            }
-        )
-
-        # Отправляем уведомление админу
-        if ADMIN_NOTIFY_CHAT_ID:
-            await bot.send_message(
-                ADMIN_NOTIFY_CHAT_ID,
-                f"🏆 <b>Победитель в ивенте!</b>\n\n"
-                f"<b>Пользователь:</b> {winner_name} (ID: <code>{winner_id}</code>)\n"
-                f"<b>Приз:</b> {event.get('title', 'Не указан')}\n\n"
-                f"Пожалуйста, выдайте награду и отметьте в админ-панели."
-            )
-    except Exception as e:
-        logging.error(f"Не удалось создать заявку на ручную награду для ивента {event_id}: {e}")
+            try:
+                # Создаем запись о ручной награде
+                await supabase.post(
+                    "/manual_rewards",
+                    json={
+                        "user_id": winner_id,
+                        "source_type": "event_win",
+                        "source_description": f"Победа в ивенте «{event.get('title', '')}»",
+                        "reward_details": event.get('title', 'Не указан'),
+                        "status": "pending"
+                    }
+                )
+        
+                # Отправляем уведомление админу
+                if ADMIN_NOTIFY_CHAT_ID:
+                    await bot.send_message(
+                        ADMIN_NOTIFY_CHAT_ID,
+                        f"🏆 <b>Победитель в ивенте!</b>\n\n"
+                        f"<b>Пользователь:</b> {winner_name} (ID: <code>{winner_id}</code>)\n"
+                        f"<b>Приз:</b> {event.get('title', 'Не указан')}\n\n"
+                        f"Пожалуйста, выдайте награду и отметьте в админ-панели."
+                    )
+            except Exception as e:
+                logging.error(f"Не удалось создать заявку на ручную награду для ивента {event_id}: {e}")
+            #
+            # КОНЕЦ БЛОКА ДЛЯ ЗАМЕНЫ
+            #
 
             try:
                 message_text = (
