@@ -17,6 +17,7 @@
       --surface-glass-bg: rgba(28, 28, 30, 0.75);
       --divider-glass-color: rgba(58, 58, 60, 0.6);
       --danger-color: #ff3b30;
+      --warning-color: #ff9500;
       --status-active-color: #32d74b;
       --status-inactive-color: #98989d;
       --status-approved-color: #5856d6;
@@ -42,6 +43,7 @@
     .admin-action-btn { flex-grow: 1; border: none; padding: 10px; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
     .admin-action-btn.approve { background-color: var(--primary-color); }
     .admin-action-btn.reject { background-color: var(--danger-color); }
+    .admin-action-btn.confirm { background-color: var(--status-approved-color); }
     .admin-delete-quest-btn, .admin-edit-quest-btn, .admin-view-subs-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn { width: fit-content; font-size: 12px; padding: 8px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; color: white; }
     .admin-delete-quest-btn, .admin-delete-challenge-btn { background-color: var(--danger-color); }
     .admin-edit-quest-btn, .admin-edit-challenge-btn { background-color: var(--action-color); }
@@ -101,52 +103,28 @@
     .sleep-mode-toggle { position: fixed; top: 20px; right: 20px; width: 24px; height: 24px; background-color: var(--action-color); border-radius: 50%; border: none; color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 1000; }
     .sleep-mode-toggle.is-sleeping { background-color: var(--danger-color); }
     
-    /* --- ✅ СТИЛИ ДЛЯ НОВОГО МЕНЮ ИКОНОК --- */
-    .admin-icon-menu {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-        gap: 20px;
-        padding: 10px 0;
-    }
-    .admin-icon-button {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        cursor: pointer;
-        text-decoration: none;
-        color: var(--text-color);
-        gap: 8px;
-    }
-    .admin-icon-button .icon-wrapper {
-        width: 64px;
-        height: 64px;
-        background-color: var(--surface-glass-bg);
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 26px;
-        transition: background-color 0.2s, transform 0.2s;
-    }
-    .admin-icon-button:active .icon-wrapper {
-        transform: scale(0.95);
-    }
-    .admin-icon-button span {
-        font-size: 12px;
-        font-weight: 500;
-        line-height: 1.2;
-    }
-    .admin-icon-button.danger .icon-wrapper {
-        background-color: rgba(255, 59, 48, 0.25);
-        color: var(--danger-color);
-    }
-    .admin-icon-button.warning .icon-wrapper {
-        background-color: rgba(255, 149, 0, 0.25);
-        color: #ff9500;
-    }
-    .admin-icon-button .icon-wrapper .fa-user-check { color: #5856d6; }
-    .admin-icon-button .icon-wrapper .fa-ticket { color: var(--primary-color); }
+    /* --- NEW Icon Menu Styles & Others --- */
+    .admin-icon-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 20px; padding: 10px 0; }
+    .admin-icon-button { display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; text-decoration: none; color: var(--text-color); gap: 8px; }
+    .admin-icon-button .icon-wrapper { width: 64px; height: 64px; background-color: var(--surface-glass-bg); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; transition: background-color 0.2s, transform 0.2s; }
+    .admin-icon-button:active .icon-wrapper { transform: scale(0.95); }
+    .admin-icon-button span { font-size: 12px; font-weight: 500; line-height: 1.2; }
+    .admin-icon-button .icon-wrapper .fa-user-check { color: var(--warning-color); }
+    .admin-icon-button .icon-wrapper .fa-sliders { color: var(--action-color); }
+    .pending-action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
+    .pending-action-type-badge { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 8px; color: white; }
+    .type-submission { background-color: var(--warning-color); }
+    .type-prize { background-color: var(--status-approved-color); }
+    .settings-group { display: flex; flex-direction: column; gap: 15px; margin-top: 20px; }
+    .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--divider-glass-color); }
+    .setting-item:last-child { border-bottom: none; }
+    .setting-label { font-size: 15px; font-weight: 500; }
+    .toggle-switch { position: relative; display: inline-block; width: 51px; height: 31px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
+    .toggle-slider:before { position: absolute; content: ""; height: 23px; width: 23px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .toggle-slider { background-color: var(--primary-color); }
+    input:checked + .toggle-slider:before { transform: translateX(20px); }
 
   </style>
 </head>
@@ -180,21 +158,78 @@
                     <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
                     <span>Челленджи</span>
                 </div>
-                <div class="admin-icon-button" data-view="view-admin-check">
-                    <div class="icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
-                    <span>Проверка</span>
-                </div>
                 <div class="admin-icon-button" data-view="view-admin-promocodes">
                     <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
                     <span>Промокоды</span>
                 </div>
-                <div class="admin-icon-button warning" data-trigger="check-winners">
-                    <div class="icon-wrapper"><i class="fa-solid fa-crown"></i></div>
-                    <span>Победители</span>
+                <div class="admin-icon-button" data-view="view-admin-pending-actions">
+                    <div class="icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
+                    <span>К действию</span>
                 </div>
-                <div class="admin-icon-button danger" data-trigger="reset-all-quests">
-                    <div class="icon-wrapper"><i class="fa-solid fa-trash-arrow-up"></i></div>
-                    <span>Сброс квестов</span>
+                <div class="admin-icon-button" data-view="view-admin-settings">
+                    <div class="icon-wrapper"><i class="fa-solid fa-sliders"></i></div>
+                    <span>Настройки</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-admin-pending-actions" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Ожидают действия</h1>
+                <div style="width: 60px;"></div>
+            </div>
+            <div id="pending-actions-list" class="quests-container"></div>
+        </div>
+
+        <div id="view-admin-settings" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Настройки</h1>
+                <div style="width: 60px;"></div>
+            </div>
+            <div class="quest-card">
+                <h3 style="margin-top:0;">Системы</h3>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <span class="setting-label">Система Заданий</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-quests-enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Система Челленджей</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-challenges-enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="quest-card" style="margin-top: 20px;">
+                <h3>Награды</h3>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <span class="setting-label">Награды за Задания</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-quest-rewards-enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Награды за Челленджи</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-challenge-rewards-enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+             <div class="quest-card" style="margin-top: 20px;">
+                <h3>Опасно</h3>
+                <div class="settings-group">
+                    <button id="reset-all-quests-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить квесты у всех</button>
                 </div>
             </div>
         </div>
@@ -212,8 +247,7 @@
                     <button type="submit">Создать категорию</button>
                 </form>
             </div>
-             <div id="categories-list" class="quests-container" style="margin-top: 20px;">
-                </div>
+             <div id="categories-list" class="quests-container" style="margin-top: 20px;"></div>
         </div>
 
         <div id="view-admin-challenges" class="view hidden">
@@ -274,15 +308,6 @@
                 <button id="go-create-quest" class="admin-menu-button" style="width: auto; padding: 8px 12px; font-size: 14px;">Создать</button>
             </div>
             <div id="quests-list" class="quests-container"></div>
-        </div>
-
-        <div id="view-admin-check" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Проверка заявок</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div id="submissions-list" class="quests-container"></div>
         </div>
         
         <div id="view-admin-promocodes" class="view hidden">
@@ -474,6 +499,10 @@
 
     <script>
     try {
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
         const dom = {
             loaderOverlay: document.getElementById('loader-overlay'),
             appContainer: document.getElementById('app-container'),
@@ -505,6 +534,13 @@
             sleepMinutesInput: document.getElementById('sleep-minutes-input'),
             sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
             sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
+            // NEW
+            pendingActionsList: document.getElementById('pending-actions-list'),
+            settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
+            settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
+            settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
+            settingChallengeRewardsEnabled: document.getElementById('setting-challenge-rewards-enabled'),
+            resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
         };
 
         let categoriesCache = [];
@@ -515,7 +551,6 @@
             const targetView = document.getElementById(targetViewId);
             if (targetView) targetView.classList.remove('hidden');
 
-            // ✅ Кнопка сна видна только на главной странице админки
             if (dom.sleepModeToggle) {
                 const isAdmin = document.body.dataset.isAdmin === 'true';
                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
@@ -531,7 +566,7 @@
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...body, initData: Telegram.WebApp.initData })
+                    body: JSON.stringify({ ...body, initData: tg.initData })
                 });
                 const result = await response.json();
                 if (!response.ok) {
@@ -539,7 +574,7 @@
                 }
                 return result;
             } catch (e) {
-                Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
+                tg.showAlert(`Ошибка: ${e.message}`);
                 throw e;
             } finally {
                 hideLoader();
@@ -548,30 +583,89 @@
         
         async function fetchAndCacheCategories() {
             try {
-                const categories = await makeApiRequest('/api/v1/admin/categories');
-                categoriesCache = categories || [];
+                categoriesCache = await makeApiRequest('/api/v1/admin/categories') || [];
             } catch (e) {
                 console.error("Не удалось загрузить категории", e);
                 categoriesCache = [];
             }
         }
         
+        // --- NEW AND UPDATED FUNCTIONS ---
+        function renderPendingActions(actions) {
+            dom.pendingActionsList.innerHTML = '';
+            if (!actions || actions.length === 0) {
+                dom.pendingActionsList.innerHTML = '<p style="text-align: center;">Нет новых задач для проверки.</p>';
+                return;
+            }
+            actions.forEach(action => {
+                let cardHtml = '';
+                if (action.type === 'submission') {
+                    let submissionContent = '';
+                    const data = action.submitted_data || '';
+                    const isUrl = data.startsWith('http://') || data.startsWith('https://');
+                    if (isUrl) {
+                        submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline;">${data}</a>`;
+                    } else {
+                        submissionContent = `<span>${data}</span>`;
+                        if (action.quest_action_url) {
+                            submissionContent += ` <a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="admin-edit-quest-btn" style="margin-left: 10px; font-size: 11px; padding: 4px 8px;">Перейти</a>`;
+                        }
+                    }
+                    cardHtml = `
+                    <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
+                        <div class="pending-action-header">
+                            <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
+                            <span class="pending-action-type-badge type-submission">Проверка</span>
+                        </div>
+                        <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
+                        <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные:</p>
+                        <div class="submission-data">${submissionContent}</div>
+                        <div class="submission-actions">
+                            <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
+                            <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
+                        </div>
+                    </div>`;
+                } else if (action.type === 'prize') {
+                    cardHtml = `
+                    <div class="quest-card admin-submission-card" id="prize-card-${action.id}">
+                        <div class="pending-action-header">
+                            <h3 class="quest-title">Выдача: ${action.title || 'Награда'}</h3>
+                            <span class="pending-action-type-badge type-prize">Приз</span>
+                        </div>
+                        <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
+                        <p>Источник: <strong>${action.source_display_name}</strong></p>
+                        ${action.user_trade_link ? `<p>Ссылка: <a href="${action.user_trade_link}" target="_blank" style="color: var(--action-color);">Проверить трейд-ссылку</a></p>` : '<p style="color:var(--warning-color);">Трейд-ссылка не указана!</p>'}
+                        <div class="submission-actions">
+                            <button class="admin-action-btn confirm" data-id="${action.id}" data-action="confirm_prize">✅ Подтвердить выдачу</button>
+                        </div>
+                    </div>`;
+                }
+                dom.pendingActionsList.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+        
+        async function loadAndRenderSettings() {
+            const settings = await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges');
+            dom.settingQuestsEnabled.checked = settings.quests_enabled;
+            dom.settingChallengesEnabled.checked = settings.challenges_enabled;
+            dom.settingQuestRewardsEnabled.checked = settings.quest_rewards_enabled;
+            dom.settingChallengeRewardsEnabled.checked = settings.challenge_rewards_enabled;
+        }
+
+        // --- ORIGINAL FUNCTIONS ---
         function renderWinners(winners) {
             if (!winners || winners.length === 0) {
                 dom.winnersModalBody.innerHTML = '<p style="text-align:center; color: var(--text-color-muted);">Победителей пока нет.</p>';
                 return;
             }
-            
             dom.winnersModalBody.innerHTML = winners.map(winner => {
                 const hasValidTradeLink = winner.trade_link && winner.trade_link !== 'Не указана' && winner.trade_link.startsWith('http');
                 const tradeLinkClass = hasValidTradeLink ? '' : 'disabled';
                 const tradeLinkHref = hasValidTradeLink ? winner.trade_link : '#';
                 const writeUserHref = `tg://user?id=${winner.winner_id}`;
-                
                 const confirmationHtml = winner.confirmed 
                     ? '<p class="confirmation-status-badge">✅ Отправка подтверждена</p>'
                     : `<button class="admin-menu-button confirm-prize-sent-btn" data-event-id="${winner.event_id}">Подтвердить отправление</button>`;
-
                 return `
                 <div class="winner-item" id="winner-item-${winner.event_id}">
                     <p><strong>Имя:</strong> ${winner.winner_name || 'Неизвестно'}</p>
@@ -581,11 +675,8 @@
                         <a href="${writeUserHref}" target="_blank" class="admin-action-btn write-user">Написать пользователю</a>
                         <a href="${tradeLinkHref}" target="_blank" class="admin-action-btn issue-prize ${tradeLinkClass}">Выдать скин</a>
                     </div>
-                    <div class="winner-confirmation" id="confirmation-area-${winner.event_id}">
-                        ${confirmationHtml}
-                    </div>
-                </div>
-                `;
+                    <div class="winner-confirmation" id="confirmation-area-${winner.event_id}">${confirmationHtml}</div>
+                </div>`;
             }).join('');
         }
 
@@ -597,9 +688,7 @@
                     const option = document.createElement('option');
                     option.value = cat.id;
                     option.textContent = cat.name;
-                    if (selectedId && parseInt(selectedId) === cat.id) {
-                        option.selected = true;
-                    }
+                    if (selectedId && parseInt(selectedId) === cat.id) option.selected = true;
                     select.appendChild(option);
                 });
             });
@@ -621,8 +710,7 @@
                             <button class="admin-edit-quest-btn edit-category-btn" data-id="${cat.id}" data-name="${cat.name}">Редакт.</button>
                             <button class="admin-delete-quest-btn delete-category-btn" data-id="${cat.id}">Удалить</button>
                         </div>
-                    </div>
-                 `);
+                    </div>`);
             });
         }
         
@@ -642,10 +730,8 @@
         function updateQuestFormUI(form) {
             const questType = form.querySelector('select[name="quest_type"]').value;
             const isManual = questType === 'manual_check';
-            
             form.querySelector('.manual-options-wrapper').classList.toggle('hidden', !isManual);
             form.querySelector('.automatic-options-wrapper').classList.toggle('hidden', isManual);
-
             if (!isManual) {
                 const twitchPeriodWrapper = form.querySelector('.twitch-period-wrapper');
                 const showPeriodSelector = questType === 'automatic_twitch_messages' || questType === 'automatic_twitch_uptime';
@@ -697,7 +783,6 @@
                  dom.questsList.innerHTML = `<p style="text-align: center;">Созданных заданий нет.</p>`;
                  return;
             }
-
             const questTypeMap = {
                 'manual_check': { name: 'Ручная проверка', color: '#5856d6' },
                 'automatic_telegram_messages': { name: 'Авто: Telegram', color: '#007aff' },
@@ -705,40 +790,27 @@
                 'automatic_twitch_messages': { name: 'Авто: Twitch Сообщения', color: '#6441a5' },
                 'automatic_twitch_uptime': { name: 'Авто: Twitch Время', color: '#6441a5' },
             };
-
-            const getQuestTypeDetails = (type) => {
-                if (questTypeMap[type]) return questTypeMap[type];
-                const baseType = Object.keys(questTypeMap).find(key => type.startsWith(key));
-                return baseType ? questTypeMap[baseType] : { name: type, color: '#98989d' };
-            };
-
+            const getQuestTypeDetails = (type) => questTypeMap[type] || { name: type, color: '#98989d' };
             const groupedQuests = quests.reduce((acc, quest) => {
                 const categoryId = quest.category_id || 'no_category';
-                if (!acc[categoryId]) {
-                    acc[categoryId] = [];
-                }
+                if (!acc[categoryId]) acc[categoryId] = [];
                 acc[categoryId].push(quest);
                 return acc;
             }, {});
-
             const allCategories = [{ id: 'no_category', name: 'Автоматические и без категории' }, ...categories];
-            
             allCategories.forEach(cat => {
                 const questsInCategory = (groupedQuests[cat.id] || []).sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
-                if (questsInCategory.length === 0) {
-                    return;
-                }
+                if (questsInCategory.length === 0) return;
                 const questsHtml = questsInCategory.map((quest, index) => {
                     const statusClass = quest.is_active ? 'status-active' : 'status-inactive';
                     const typeDetails = getQuestTypeDetails(quest.quest_type);
-
                     return `
                     <div class="quest-card manage-quest-card" data-quest-id="${quest.id}">
                         <div class="quest-admin-meta">
                             <span class="quest-status-badge ${statusClass}">${quest.is_active ? 'Активен' : 'Неактивен'}</span>
                             <span class="quest-status-badge" style="background-color: ${typeDetails.color}20; color: ${typeDetails.color};">${typeDetails.name}</span>
-                            <button class="admin-edit-quest-btn sort-quest-btn" data-quest-id="${quest.id}" data-category-id="${cat.id}" data-index="${index}" data-direction="up" ${index === 0 ? 'disabled' : ''}>▲</button>
-                            <button class="admin-edit-quest-btn sort-quest-btn" data-quest-id="${quest.id}" data-category-id="${cat.id}" data-index="${index}" data-direction="down" ${index === questsInCategory.length - 1 ? 'disabled' : ''}>▼</button>
+                            <button class="admin-edit-quest-btn sort-quest-btn" data-quest-id="${quest.id}" data-category-id="${cat.id === 'no_category' ? '' : cat.id}" data-index="${index}" data-direction="up" ${index === 0 ? 'disabled' : ''}>▲</button>
+                            <button class="admin-edit-quest-btn sort-quest-btn" data-quest-id="${quest.id}" data-category-id="${cat.id === 'no_category' ? '' : cat.id}" data-index="${index}" data-direction="down" ${index === questsInCategory.length - 1 ? 'disabled' : ''}>▼</button>
                         </div>
                         <div class="manage-quest-info">
                             <span>${quest.title}</span><br>
@@ -751,58 +823,14 @@
                         </div>
                     </div>`;
                 }).join('');
-
                 const accordionHtml = `
                     <details class="quest-category-accordion" ${cat.id === 'no_category' ? 'open' : ''}>
                         <summary class="quest-category-header">
                             <div class="category-info">${cat.name}</div>
                         </summary>
-                        <div class="quest-category-body">
-                            ${questsHtml}
-                        </div>
-                    </details>
-                `;
+                        <div class="quest-category-body">${questsHtml}</div>
+                    </details>`;
                 dom.questsList.insertAdjacentHTML('beforeend', accordionHtml);
-            });
-        }
-        
-        // ✅ ОБНОВЛЁННАЯ ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ЗАЯВОК
-        function renderPendingSubmissions(submissions) {
-            dom.submissionsList.innerHTML = '';
-            if (!submissions || submissions.length === 0) {
-                dom.submissionsList.innerHTML = '<p style="text-align: center;">Нет новых заявок для проверки.</p>';
-                return;
-            }
-            submissions.forEach(sub => {
-                let submissionContent = '';
-                const data = sub.submitted_data || '';
-                // Проверяем, является ли строка URL-адресом
-                const isUrl = data.startsWith('http://') || data.startsWith('https://');
-
-                if (isUrl) {
-                    // Если данные - это ссылка, делаем её кликабельной
-                    submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline;">${data}</a>`;
-                } else {
-                    // Если это текст (ник), просто показываем его
-                    submissionContent = `<span>${data}</span>`;
-                    // И если для квеста есть action_url, добавляем кнопку "Перейти"
-                    if (sub.quest_action_url) {
-                        submissionContent += ` <a href="${sub.quest_action_url}" target="_blank" rel="noopener noreferrer" class="admin-edit-quest-btn" style="margin-left: 10px; font-size: 11px; padding: 4px 8px;">Перейти к заданию</a>`;
-                    }
-                }
-
-                const cardHtml = `
-                <div class="quest-card admin-submission-card" id="submission-card-${sub.id}">
-                    <h3 class="quest-title">${sub.quest_title || 'Неизвестный квест'}</h3>
-                    <p>Пользователь: <strong>${sub.user_full_name || 'Неизвестный пользователь'}</strong></p>
-                    <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные от пользователя:</p>
-                    <div class="submission-data">${submissionContent}</div>
-                    <div class="submission-actions">
-                        <button class="admin-action-btn approve" data-id="${sub.id}" data-action="approved">Одобрить</button>
-                        <button class="admin-action-btn reject" data-id="${sub.id}" data-action="rejected">Отклонить</button>
-                    </div>
-                </div>`;
-                dom.submissionsList.insertAdjacentHTML('beforeend', cardHtml);
             });
         }
         
@@ -816,119 +844,23 @@
                 </div>`).join('');
         }
 
-        async function handleAdminAction(target) {
-            if (!target) return;
-            const id = target.dataset.id;
-            
-            if (target.matches('.admin-edit-quest-btn') && !target.matches('.sort-quest-btn')) {
-                const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: parseInt(id) });
-                await fetchAndCacheCategories();
-                populateCategorySelects(quest.category_id);
-                const form = dom.editQuestForm;
-                
-                let questType = quest.quest_type;
-                let twitchPeriod = 'session';
-                if (quest.quest_type.startsWith('automatic_twitch_')) {
-                    const parts = quest.quest_type.split('_');
-                    if (parts.length > 3) { // e.g., automatic_twitch_messages_week
-                       questType = parts.slice(0, 3).join('_');
-                       twitchPeriod = parts[3];
-                    }
-                }
-
-                form.elements['quest_id'].value = quest.id;
-                form.elements['title'].value = quest.title;
-                form.elements['icon_url'].value = quest.icon_url || '';
-                form.elements['description'].value = quest.description || '';
-                form.elements['reward_amount'].value = quest.reward_amount;
-                form.elements['category_id'].value = quest.category_id || '';
-                form.elements['quest_type'].value = questType;
-                form.elements['action_url'].value = quest.action_url || '';
-                form.elements['twitch_period'].value = twitchPeriod;
-                form.elements['target_value'].value = quest.target_value || '';
-                form.elements['duration_days'].value = quest.duration_days || 0;
-                form.elements['is_active'].value = quest.is_active.toString();
-                form.elements['is_repeatable'].value = quest.is_repeatable.toString();
-                updateQuestFormUI(form);
-                switchView('view-admin-edit');
-            } 
-            else if (target.matches('.admin-delete-quest-btn')) {
-                Telegram.WebApp.showConfirm(`Удалить задание ID ${id}?`, async (ok) => {
-                    if (ok) {
-                        await makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) });
-                        const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                        const categories = await makeApiRequest('/api/v1/admin/categories');
-                        renderQuests(allQuests, categories);
-                    }
-                });
-            } 
-            else if (target.matches('.admin-view-subs-btn')) {
-                const submissions = await makeApiRequest('/api/v1/admin/quest/submissions', { quest_id: parseInt(id) });
-                renderSubmissionsInModal(submissions, target.dataset.title);
-                dom.submissionsModal.classList.remove('hidden');
-            }
-            else if (target.matches('.admin-action-btn')) {
-                const action = target.dataset.action;
-                await makeApiRequest('/api/v1/admin/submission/update', { submission_id: parseInt(id), action });
-                Telegram.WebApp.showAlert(`Заявка ${action === 'approved' ? 'одобрена' : 'отклонена'}.`);
-                target.closest('.admin-submission-card')?.remove();
-            }
-            else if (target.matches('.admin-edit-challenge-btn')) {
-                const c = JSON.parse(target.dataset.challenge);
-                const form = dom.challengeForm;
-                let condType = c.condition_type, period = 'session';
-                const parts = c.condition_type.split('_');
-                if (['twitch_messages', 'twitch_uptime'].includes(parts.slice(0, -1).join('_'))) {
-                    condType = parts.slice(0, -1).join('_');
-                    period = parts[parts.length - 1];
-                }
-                form.elements['challenge_id'].value = c.id;
-                form.elements['description'].value = c.description;
-                form.elements['condition_type'].value = condType;
-                form.elements['challenge_period'].value = period;
-                form.elements['target_value'].value = c.target_value;
-                form.elements['reward_amount'].value = c.reward_amount;
-                form.elements['duration_days'].value = c.duration_days;
-                form.elements['is_active'].value = c.is_active.toString();
-                updateChallengeFormUI(form);
-                dom.challengeFormTitle.textContent = 'Редактирование';
-                switchView('view-admin-challenge-form');
-            }
-            else if (target.matches('.admin-delete-challenge-btn')) {
-                 Telegram.WebApp.showConfirm(`Удалить челлендж ID ${id}?`, async (ok) => {
-                    if (ok) {
-                        await makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) });
-                        const challenges = await makeApiRequest('/api/v1/admin/challenges');
-                        renderChallenges(challenges);
-                    }
-                });
-            }
-        }
-        
         function getQuestFormData(form) {
             const data = Object.fromEntries(new FormData(form));
             let questType = data.quest_type;
-
             if (questType === 'automatic_twitch_messages' || questType === 'automatic_twitch_uptime') {
                 questType = `${questType}_${data.twitch_period}`;
             }
-
             const finalData = {
-                title: data.title,
-                icon_url: data.icon_url,
-                description: data.description,
-                reward_amount: parseInt(data.reward_amount, 10),
-                quest_type: questType,
+                title: data.title, icon_url: data.icon_url, description: data.description,
+                reward_amount: parseInt(data.reward_amount, 10), quest_type: questType,
                 target_value: data.target_value ? parseInt(data.target_value, 10) : null,
                 duration_days: data.duration_days ? parseInt(data.duration_days, 10) : 0,
             };
-
             if (data.quest_type === 'manual_check') {
                 finalData.category_id = data.category_id ? parseInt(data.category_id, 10) : null;
                 finalData.is_repeatable = data.is_repeatable === 'true';
                 finalData.action_url = data.action_url;
             }
-
             return finalData;
         }
 
@@ -946,11 +878,11 @@
             dom.sleepModeToggle.addEventListener('click', async () => {
                 const isSleeping = dom.sleepModeToggle.classList.contains('is-sleeping');
                 if (isSleeping) {
-                    Telegram.WebApp.showConfirm('Разбудить бота?', async (ok) => {
+                    tg.showConfirm('Разбудить бота?', async (ok) => {
                         if (ok) {
                             const result = await makeApiRequest('/api/v1/admin/toggle_sleep_mode');
                             updateSleepButton(result.new_status);
-                            Telegram.WebApp.showAlert(result.message);
+                            tg.showAlert(result.message);
                         }
                     });
                 } else {
@@ -958,87 +890,86 @@
                 }
             });
 
-            dom.sleepPromptCancel.addEventListener('click', () => {
-                dom.sleepPromptOverlay.classList.add('hidden');
-            });
-
+            dom.sleepPromptCancel.addEventListener('click', () => dom.sleepPromptOverlay.classList.add('hidden'));
             dom.sleepPromptConfirm.addEventListener('click', async () => {
                 const minutes = parseInt(dom.sleepMinutesInput.value) || 0;
                 dom.sleepPromptOverlay.classList.add('hidden');
                 const result = await makeApiRequest('/api/v1/admin/toggle_sleep_mode', { minutes: minutes });
                 updateSleepButton(result.new_status);
-                Telegram.WebApp.showAlert(result.message);
+                tg.showAlert(result.message);
             });
 
             dom.winnersModalCloseBtn.addEventListener('click', () => dom.winnersModal.classList.add('hidden'));
-
             dom.winnersModal.addEventListener('click', (e) => {
                 if (e.target === dom.winnersModal) dom.winnersModal.classList.add('hidden');
             });
-            
             dom.winnersModalBody.addEventListener('click', async (e) => {
                 const confirmButton = e.target.closest('.confirm-prize-sent-btn');
                 if (confirmButton) {
                     const eventId = confirmButton.dataset.eventId;
                     if (!eventId) return;
-
-                    Telegram.WebApp.showConfirm(
-                        'Вы уверены, что отправили приз и хотите подтвердить это действие? Уведомления для администраторов прекратятся.',
-                        async (ok) => {
-                            if (ok) {
-                                try {
-                                    await makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(eventId) });
-                                    
-                                    const confirmationArea = document.getElementById(`confirmation-area-${eventId}`);
-                                    if(confirmationArea) {
-                                        confirmationArea.innerHTML = '<p class="confirmation-status-badge">✅ Отправка подтверждена</p>';
-                                    }
-                                    Telegram.WebApp.showAlert('Действие подтверждено.');
-                                } catch (err) {
-                                    console.error('Failed to confirm prize sent:', err);
-                                }
-                            }
+                    tg.showConfirm('Вы уверены, что отправили приз?', async (ok) => {
+                        if (ok) {
+                            await makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(eventId) });
+                            const confirmationArea = document.getElementById(`confirmation-area-${eventId}`);
+                            if(confirmationArea) confirmationArea.innerHTML = '<p class="confirmation-status-badge">✅ Отправка подтверждена</p>';
+                            tg.showAlert('Действие подтверждено.');
                         }
-                    );
+                    });
                 }
             });
+
+            // --- NEW: Settings Listeners ---
+            const settingsToggles = [
+                dom.settingQuestsEnabled, dom.settingChallengesEnabled, 
+                dom.settingQuestRewardsEnabled, dom.settingChallengeRewardsEnabled
+            ];
+            settingsToggles.forEach(toggle => {
+                toggle.addEventListener('change', async () => {
+                    const payload = {
+                        quests_enabled: dom.settingQuestsEnabled.checked,
+                        challenges_enabled: dom.settingChallengesEnabled.checked,
+                        quest_rewards_enabled: dom.settingQuestRewardsEnabled.checked,
+                        challenge_rewards_enabled: dom.settingChallengeRewardsEnabled.checked
+                    };
+                    await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges/update', { settings: payload });
+                    tg.showAlert('Настройки сохранены!');
+                });
+            });
             
+            dom.resetAllQuestsBtn.addEventListener('click', () => {
+                 tg.showConfirm('Вы уверены, что хотите сбросить ВСЕ активные квесты у ВСЕХ пользователей?', async (ok) => {
+                    if (ok) {
+                        await makeApiRequest('/api/v1/admin/quests/reset-all-active');
+                        tg.showAlert('Все активные квесты успешно сброшены.');
+                    }
+                 });
+            });
+            
+            // --- MODIFIED: Main Click Handler ---
             dom.appContainer.addEventListener('click', async (event) => {
                 const target = event.target;
                 const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
                 
                 if (navButton) {
                     const view = navButton.dataset.view;
-                    const trigger = navButton.dataset.trigger;
-
                     if (view) {
                         switchView(view);
                         if (view === 'view-admin-quests') {
                             const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
                             const categories = await makeApiRequest('/api/v1/admin/categories');
                             renderQuests(allQuests, categories);
-                        } else if (view === 'view-admin-check') {
-                            renderPendingSubmissions(await makeApiRequest('/api/v1/admin/submissions'));
+                        } else if (view === 'view-admin-pending-actions') {
+                            const actions = await makeApiRequest('/api/v1/admin/pending_actions');
+                            renderPendingActions(actions);
                         } else if (view === 'view-admin-challenges') {
                             renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
                         } else if (view === 'view-admin-categories') {
                             await fetchAndCacheCategories();
                             renderCategoriesList();
+                        } else if (view === 'view-admin-settings') {
+                            loadAndRenderSettings();
                         }
-                    } else if (trigger === 'check-winners') {
-                        const winners = await makeApiRequest('/api/v1/admin/events/winners');
-                        renderWinners(winners);
-                        dom.winnersModal.classList.remove('hidden');
-                    } else if (trigger === 'reset-all-quests') {
-                        Telegram.WebApp.showConfirm(
-                            'Вы уверены, что хотите сбросить ВСЕ активные автоматические квесты у ВСЕХ пользователей? Это действие необратимо.',
-                            async (ok) => {
-                                if (ok) {
-                                    await makeApiRequest('/api/v1/admin/quests/reset-all-active');
-                                    Telegram.WebApp.showAlert('Все активные квесты были успешно сброшены.');
-                                }
-                            }
-                        );
                     } else if (navButton.id === 'go-create-quest') {
                         await fetchAndCacheCategories();
                         populateCategorySelects();
@@ -1049,55 +980,124 @@
                         switchView('view-admin-challenge-form');
                         dom.challengeForm.reset();
                         dom.challengeForm.elements['challenge_id'].value = '';
-                        updateQuestFormUI(dom.challengeForm);
+                        updateChallengeFormUI(dom.challengeForm);
                         dom.challengeFormTitle.textContent = 'Новый челлендж';
                     }
                     return;
                 }
 
-                const editCategoryBtn = target.closest('.edit-category-btn');
-                const deleteCategoryBtn = target.closest('.delete-category-btn');
-                const sortBtn = target.closest('.sort-btn');
-                const sortQuestBtn = target.closest('.sort-quest-btn');
-                const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn');
+                // --- ORIGINAL CLICK HANDLERS (MERGED) ---
+                const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .sort-btn, .sort-quest-btn');
+                if (!actionButton) return;
 
-                if (editCategoryBtn) {
-                    const id = editCategoryBtn.dataset.id;
-                    const name = editCategoryBtn.dataset.name;
-                    showGenericPrompt('Редактировать категорию', name, id);
-                } else if (deleteCategoryBtn) {
-                    const id = deleteCategoryBtn.dataset.id;
-                    Telegram.WebApp.showConfirm('Вы уверены, что хотите удалить эту категорию?', async (ok) => {
+                const id = actionButton.dataset.id;
+
+                if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.sort-quest-btn')) {
+                    const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: parseInt(id) });
+                    await fetchAndCacheCategories();
+                    populateCategorySelects(quest.category_id);
+                    const form = dom.editQuestForm;
+                    let questType = quest.quest_type, twitchPeriod = 'session';
+                    if (quest.quest_type.startsWith('automatic_twitch_')) {
+                        const parts = quest.quest_type.split('_');
+                        if (parts.length > 3) { questType = parts.slice(0, 3).join('_'); twitchPeriod = parts[3]; }
+                    }
+                    form.elements['quest_id'].value = quest.id;
+                    form.elements['title'].value = quest.title;
+                    form.elements['icon_url'].value = quest.icon_url || '';
+                    form.elements['description'].value = quest.description || '';
+                    form.elements['reward_amount'].value = quest.reward_amount;
+                    form.elements['category_id'].value = quest.category_id || '';
+                    form.elements['quest_type'].value = questType;
+                    form.elements['action_url'].value = quest.action_url || '';
+                    form.elements['twitch_period'].value = twitchPeriod;
+                    form.elements['target_value'].value = quest.target_value || '';
+                    form.elements['duration_days'].value = quest.duration_days || 0;
+                    form.elements['is_active'].value = quest.is_active.toString();
+                    form.elements['is_repeatable'].value = quest.is_repeatable.toString();
+                    updateQuestFormUI(form);
+                    switchView('view-admin-edit');
+                } else if (actionButton.matches('.admin-delete-quest-btn')) {
+                    tg.showConfirm(`Удалить задание ID ${id}?`, async (ok) => {
+                        if (ok) {
+                            await makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) });
+                            const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
+                            const categories = await makeApiRequest('/api/v1/admin/categories');
+                            renderQuests(allQuests, categories);
+                        }
+                    });
+                } else if (actionButton.matches('.admin-view-subs-btn')) {
+                    const submissions = await makeApiRequest('/api/v1/admin/quest/submissions', { quest_id: parseInt(id) });
+                    renderSubmissionsInModal(submissions, actionButton.dataset.title);
+                    dom.submissionsModal.classList.remove('hidden');
+                } else if (actionButton.matches('.admin-action-btn')) {
+                    const action = actionButton.dataset.action;
+                    if (action === 'approved' || action === 'rejected') {
+                         await makeApiRequest('/api/v1/admin/submission/update', { submission_id: parseInt(id), action });
+                         tg.showAlert(`Заявка ${action === 'approved' ? 'одобрена' : 'отклонена'}.`);
+                         actionButton.closest('.admin-submission-card')?.remove();
+                    } else if (action === 'confirm_prize') {
+                        tg.showConfirm('Вы уверены, что выдали этот приз?', async (ok) => {
+                             if(ok) {
+                                await makeApiRequest('/api/v1/admin/pending_actions/confirm', { item_id: parseInt(id) });
+                                tg.showAlert('Выдача приза подтверждена.');
+                                actionButton.closest('.admin-submission-card')?.remove();
+                             }
+                        });
+                    }
+                } else if (actionButton.matches('.admin-edit-challenge-btn')) {
+                    const c = JSON.parse(actionButton.dataset.challenge);
+                    const form = dom.challengeForm;
+                    let condType = c.condition_type, period = 'session';
+                    const parts = c.condition_type.split('_');
+                    if (['twitch_messages', 'twitch_uptime'].includes(parts.slice(0, 2).join('_'))) {
+                        condType = parts.slice(0, 2).join('_');
+                        period = parts[parts.length - 1];
+                    }
+                    form.elements['challenge_id'].value = c.id;
+                    form.elements['description'].value = c.description;
+                    form.elements['condition_type'].value = condType;
+                    form.elements['challenge_period'].value = period;
+                    form.elements['target_value'].value = c.target_value;
+                    form.elements['reward_amount'].value = c.reward_amount;
+                    form.elements['duration_days'].value = c.duration_days;
+                    form.elements['is_active'].value = c.is_active.toString();
+                    updateChallengeFormUI(form);
+                    dom.challengeFormTitle.textContent = 'Редактирование';
+                    switchView('view-admin-challenge-form');
+                } else if (actionButton.matches('.admin-delete-challenge-btn')) {
+                     tg.showConfirm(`Удалить челлендж ID ${id}?`, async (ok) => {
+                        if (ok) {
+                            await makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) });
+                            renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
+                        }
+                    });
+                } else if (actionButton.matches('.edit-category-btn')) {
+                    showGenericPrompt('Редактировать категорию', actionButton.dataset.name, id);
+                } else if (actionButton.matches('.delete-category-btn')) {
+                    tg.showConfirm('Вы уверены, что хотите удалить эту категорию?', async (ok) => {
                         if (ok) {
                             await makeApiRequest('/api/v1/admin/categories/delete', { category_id: parseInt(id) });
                             await fetchAndCacheCategories();
                             renderCategoriesList();
                         }
                     });
-                } else if (sortBtn) {
-                    const index = parseInt(sortBtn.dataset.index);
-                    const direction = sortBtn.dataset.direction;
+                } else if (actionButton.matches('.sort-btn')) {
+                    const index = parseInt(actionButton.dataset.index);
+                    const direction = actionButton.dataset.direction;
                     const newIndex = direction === 'up' ? index - 1 : index + 1;
                     if (newIndex >= 0 && newIndex < categoriesCache.length) {
                         [categoriesCache[index], categoriesCache[newIndex]] = [categoriesCache[newIndex], categoriesCache[index]];
                         renderCategoriesList();
-                        const orderedIds = categoriesCache.map(cat => cat.id);
-                        makeApiRequest('/api/v1/admin/categories/reorder', { ordered_ids: orderedIds });
+                        makeApiRequest('/api/v1/admin/categories/reorder', { ordered_ids: categoriesCache.map(c => c.id) });
                     }
-                } else if (sortQuestBtn) {
-                    const questId = parseInt(sortQuestBtn.dataset.questId);
-                    const categoryId = sortQuestBtn.dataset.categoryId === 'no_category' ? null : parseInt(sortQuestBtn.dataset.categoryId);
-                    const direction = sortQuestBtn.dataset.direction;
-                    await makeApiRequest('/api/v1/admin/quests/reorder', {
-                        quest_id: questId,
-                        category_id: categoryId,
-                        direction: direction
-                    });
+                } else if (actionButton.matches('.sort-quest-btn')) {
+                    const questId = parseInt(actionButton.dataset.questId);
+                    const categoryId = actionButton.dataset.categoryId ? parseInt(actionButton.dataset.categoryId) : null;
+                    const direction = actionButton.dataset.direction;
+                    await makeApiRequest('/api/v1/admin/quests/reorder', { quest_id: questId, category_id: categoryId, direction: direction });
                     const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                    const categories = await makeApiRequest('/api/v1/admin/categories');
-                    renderQuests(allQuests, categories);
-                } else if (actionButton) {
-                    handleAdminAction(actionButton);
+                    renderQuests(allQuests, categoriesCache);
                 }
             });
             
@@ -1129,8 +1129,7 @@
                 const questData = getQuestFormData(e.target);
                 await makeApiRequest('/api/v1/admin/quests', questData);
                 const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                const categories = await makeApiRequest('/api/v1/admin/categories');
-                renderQuests(allQuests, categories);
+                renderQuests(allQuests, categoriesCache);
                 switchView('view-admin-quests');
             });
 
@@ -1138,17 +1137,14 @@
                 e.preventDefault();
                 const form = e.target;
                 const questData = getQuestFormData(form);
-                
                 const finalData = {
                     ...questData,
                     quest_id: parseInt(form.elements['quest_id'].value, 10),
                     is_active: form.elements['is_active'].value === 'true'
                 };
-
                 await makeApiRequest('/api/v1/admin/quest/update', finalData);
                 const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                const categories = await makeApiRequest('/api/v1/admin/categories');
-                renderQuests(allQuests, categories);
+                renderQuests(allQuests, categoriesCache);
                 switchView('view-admin-quests');
             });
             
@@ -1157,26 +1153,23 @@
                 const form = e.target;
                 const categoryName = form.elements['name'].value;
                 if (!categoryName) return;
-                
                 await makeApiRequest('/api/v1/admin/categories/create', { name: categoryName });
                 form.reset();
-                Telegram.WebApp.showAlert('Категория создана!');
+                tg.showAlert('Категория создана!');
                 await fetchAndCacheCategories();
                 renderCategoriesList();
             });
 
             dom.addPromocodesForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-    
                 const formData = Object.fromEntries(new FormData(e.target));
                 const body = {
-                codes: formData.codes,
-                reward_value: parseInt(formData.reward_value, 10),
-                description: formData.description
-            };
-
+                    codes: formData.codes,
+                    reward_value: parseInt(formData.reward_value, 10),
+                    description: formData.description
+                };
                 const result = await makeApiRequest('/api/v1/admin/promocodes', body);
-                Telegram.WebApp.showAlert(result.message);
+                tg.showAlert(result.message);
                 e.target.reset();
             });
           
@@ -1188,12 +1181,10 @@
             dom.genericPromptConfirm.addEventListener('click', async () => {
                 const newName = dom.genericPromptInput.value.trim();
                 if (!newName || !currentEditingCategoryId) return;
-
                 await makeApiRequest('/api/v1/admin/categories/update', {
                     category_id: parseInt(currentEditingCategoryId),
                     name: newName
                 });
-                
                 hideGenericPrompt();
                 await fetchAndCacheCategories();
                 renderCategoriesList();
@@ -1202,8 +1193,8 @@
 
         async function main() {
             try {
-                Telegram.WebApp.expand();
-                if (!Telegram.WebApp.initData) throw new Error("Требуется авторизация в Telegram.");
+                tg.expand();
+                if (!tg.initData) throw new Error("Требуется авторизация в Telegram.");
                 
                 const [userData, sleepStatus] = await Promise.all([
                     makeApiRequest("/api/v1/user/me"),
@@ -1214,7 +1205,6 @@
                 
                 document.body.dataset.isAdmin = 'true';
                 updateSleepButton(sleepStatus);
-
                 switchView('view-admin-main');
             } catch (e) {
                 document.body.dataset.isAdmin = 'false';
@@ -1225,11 +1215,9 @@
             }
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            Telegram.WebApp.ready();
-            setupEventListeners();
-            main();
-        });
+        setupEventListeners();
+        main();
+
     } catch (e) {
         console.error(`Критическая ошибка на старте: ${e.message}`);
         alert(`Критическая ошибка: ${e.message}`);
