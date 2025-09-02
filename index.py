@@ -1135,13 +1135,15 @@ async def trigger_draws(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    Проверяет все активные ивенты. Если время розыгрыша истекло и победитель
-    еще не определен, запускает розыгрыш для этого ивента.
-    Защищено секретным ключом в заголовке Authorization.
-    """
     cron_secret = os.getenv("CRON_SECRET")
     auth_header = request.headers.get("Authorization")
+
+    # --- 👇👇👇 ДОБАВЬТЕ ЭТИ СТРОКИ ДЛЯ ДИАГНОСТИКИ 👇👇👇 ---
+    logging.info(f"СЕКРЕТ ИЗ VERCEL: |{cron_secret}|")
+    logging.info(f"ПОЛУЧЕННЫЙ ЗАГОЛОВОК: |{auth_header}|")
+    logging.info(f"СТРОКА, С КОТОРОЙ СРАВНИВАЕМ: |Bearer {cron_secret}|")
+    # --- 👆👆👆 КОНЕЦ БЛОКА ДИАГНОСТИКИ 👆👆👆 ---
+
     if not cron_secret or auth_header != f"Bearer {cron_secret}":
         raise HTTPException(status_code=403, detail="Forbidden: Invalid secret")
 
