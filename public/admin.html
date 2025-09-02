@@ -681,8 +681,14 @@
                 dom.pendingActionsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых задач для проверки.</p>';
                 return;
             }
-            actions.forEach(action => {
-                let cardHtml = '';
+
+            // 1. Разделяем все задачи на три группы
+            const submissions = actions.filter(a => a.type === 'submission');
+            const eventPrizes = actions.filter(a => a.type === 'prize' && a.source_display_name && a.source_display_name.toLowerCase().includes('ивент'));
+            const checkpointPrizes = actions.filter(a => a.type === 'prize' && a.source_display_name && a.source_display_name.toLowerCase().includes('чекпоинт'));
+
+            // Вспомогательная функция для отрисовки одной карточки
+            const createCardHtml = (action) => {
                 if (action.type === 'submission') {
                     let submissionContent = '';
                     const data = action.submitted_data || '';
@@ -695,12 +701,9 @@
                             submissionContent += ` <a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="admin-edit-quest-btn" style="margin-left: 10px; font-size: 11px; padding: 4px 8px;">Перейти</a>`;
                         }
                     }
-                    cardHtml = `
+                    return `
                     <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
-                        <div class="pending-action-header">
-                            <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
-                            <span class="pending-action-type-badge type-submission">Проверка</span>
-                        </div>
+                        <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
                         <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
                         <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные:</p>
                         <div class="submission-data">${submissionContent}</div>
@@ -710,13 +713,9 @@
                         </div>
                     </div>`;
                 } else if (action.type === 'prize') {
-                    // ИЗМЕНЕНИЕ: Теперь ярлык 'source_display_name' используется для отображения причины выдачи
-                    cardHtml = `
+                    return `
                     <div class="quest-card admin-submission-card" id="prize-card-${action.id}">
-                        <div class="pending-action-header">
-                            <h3 class="quest-title">${action.title || 'Выдача награды'}</h3>
-                            <span class="pending-action-type-badge type-prize">${action.source_display_name || 'Приз'}</span>
-                        </div>
+                        <h3 class="quest-title">${action.title || 'Выдача награды'}</h3>
                         <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
                         ${action.user_trade_link ? `<p>Ссылка: <a href="${action.user_trade_link}" target="_blank" style="color: var(--action-color);">Проверить трейд-ссылку</a></p>` : '<p style="color:var(--warning-color);">Трейд-ссылка не указана!</p>'}
                         <div class="submission-actions">
@@ -724,8 +723,24 @@
                         </div>
                     </div>`;
                 }
-                dom.pendingActionsList.insertAdjacentHTML('beforeend', cardHtml);
-            });
+                return '';
+            };
+
+            // 2. Отрисовываем каждую группу под своим заголовком
+            if (submissions.length > 0) {
+                dom.pendingActionsList.innerHTML += `<h3><span class="pending-action-type-badge type-submission">Проверка заданий</span></h3>`;
+                submissions.forEach(action => dom.pendingActionsList.innerHTML += createCardHtml(action));
+            }
+
+            if (eventPrizes.length > 0) {
+                dom.pendingActionsList.innerHTML += `<h3 style="margin-top: 25px;"><span class="pending-action-type-badge type-prize">Победители розыгрышей</span></h3>`;
+                eventPrizes.forEach(action => dom.pendingActionsList.innerHTML += createCardHtml(action));
+            }
+
+            if (checkpointPrizes.length > 0) {
+                dom.pendingActionsList.innerHTML += `<h3 style="margin-top: 25px;"><span class="pending-action-type-badge type-prize">Награды из Чекпоинта</span></h3>`;
+                checkpointPrizes.forEach(action => dom.pendingActionsList.innerHTML += createCardHtml(action));
+            }
         }
         
         async function loadAndRenderSettings() {
