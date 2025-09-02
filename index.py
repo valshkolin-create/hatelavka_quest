@@ -148,6 +148,20 @@ class CheckpointClaimRequest(BaseModel):
     initData: str
     level: int
 
+class ManualRewardCompleteRequest(BaseModel):
+    initData: str
+    reward_id: int
+
+class AdminSettings(BaseModel):
+    challenge_promocodes_enabled: bool = True
+    quest_promocodes_enabled: bool = True
+    challenges_enabled: bool = True
+    quests_enabled: bool = True
+
+class AdminSettingsUpdateRequest(BaseModel):
+    initData: str
+    settings: AdminSettings
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -1198,6 +1212,31 @@ async def trigger_draws(
             updated = True
             
             logging.info(f"✅ Победитель для ивента {event_id}: {winner_name} (ID: {winner_id})")
+
+                try:
+        # Создаем запись о ручной награде
+        await supabase.post(
+            "/manual_rewards",
+            json={
+                "user_id": winner_id,
+                "source_type": "event_win",
+                "source_description": f"Победа в ивенте «{event.get('title', '')}»",
+                "reward_details": event.get('title', 'Не указан'),
+                "status": "pending"
+            }
+        )
+
+        # Отправляем уведомление админу
+        if ADMIN_NOTIFY_CHAT_ID:
+            await bot.send_message(
+                ADMIN_NOTIFY_CHAT_ID,
+                f"🏆 <b>Победитель в ивенте!</b>\n\n"
+                f"<b>Пользователь:</b> {winner_name} (ID: <code>{winner_id}</code>)\n"
+                f"<b>Приз:</b> {event.get('title', 'Не указан')}\n\n"
+                f"Пожалуйста, выдайте награду и отметьте в админ-панели."
+            )
+    except Exception as e:
+        logging.error(f"Не удалось создать заявку на ручную награду для ивента {event_id}: {e}")
 
             try:
                 message_text = (
@@ -2839,43 +2878,133 @@ async def claim_checkpoint_reward(
     request_data: CheckpointClaimRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Обрабатывает получение награды за уровень в марафоне 'Чекпоинт'."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
+    if not user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
     level_to_claim = request_data.level
+    user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
 
     try:
-        # Вызываем RPC-функцию в базе данных для атомарного обновления
+        # Получаем контент, чтобы найти детали награды
+        content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": 1})
+        content_data = content_resp.json()
+        reward_details = None
+        if content_data:
+            rewards = content_data[0].get('content', {}).get('rewards', [])
+            for r in rewards:
+                if r.get('level') == level_to_claim:
+                    reward_details = r
+                    break
+        
+        if not reward_details:
+             raise HTTPException(status_code=404, detail="Награда для этого уровня не найдена.")
+
+        # Вызываем RPC для атомарного обновления уровня и списания звезд
         response = await supabase.post(
             "/rpc/claim_checkpoint_reward",
-            json={
-                "p_user_id": telegram_id,
-                "p_level_to_claim": level_to_claim
-            }
+            json={"p_user_id": telegram_id, "p_level_to_claim": level_to_claim}
         )
         response.raise_for_status()
-        
-        # Функция вернет новый уровень пользователя
-        result = response.json()
-        
-        # TODO: Здесь можно добавить логику немедленной выдачи награды (билеты, промокод и т.д.)
-        # Например, найти в JSON-контенте награду для level_to_claim и выдать ее.
-        
-        return {
-            "message": "Награда успешно получена!",
-            "new_level": result
-        }
+        new_level = response.json()
+
+        # Если награда - скин, создаем заявку на ручную выдачу
+        if reward_details.get('type') == 'cs2_skin':
+            await supabase.post(
+                "/manual_rewards",
+                json={
+                    "user_id": telegram_id,
+                    "source_type": "checkpoint",
+                    "source_description": f"Чекпоинт: {reward_details.get('title', 'Без названия')}",
+                    "reward_details": reward_details.get('value', 'Не указан'),
+                    "status": "pending"
+                }
+            )
+            # Отправляем уведомление админу
+            if ADMIN_NOTIFY_CHAT_ID:
+                await bot.send_message(
+                    ADMIN_NOTIFY_CHAT_ID,
+                    f"🔔 <b>Новая ручная награда (Чекпоинт)</b>\n\n"
+                    f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
+                    f"<b>Награда:</b> Скин CS2 - {reward_details.get('value', 'Не указан')}\n\n"
+                    f"Пожалуйста, выдайте награду и отметьте в админ-панели."
+                )
+
+        return {"message": "Награда успешно получена!", "new_level": new_level}
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Не удалось получить награду.")
-        logging.error(f"Ошибка RPC при получении награды Чекпоинта для user {telegram_id}: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении награды Чекпоинта для user {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+@app.post("/api/v1/admin/settings")
+async def get_admin_settings(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Получает текущие настройки админ-панели."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
+    resp.raise_for_status()
+    data = resp.json()
+
+    if not data or not data[0].get('value'):
+        # Возвращаем настройки по умолчанию, если в базе ничего нет
+        return AdminSettings().dict()
+    
+    return data[0]['value']
+
+@app.post("/api/v1/admin/settings/update")
+async def update_admin_settings(
+    request_data: AdminSettingsUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обновляет настройки админ-панели."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    await supabase.post(
+        "/settings",
+        json={"key": "admin_controls", "value": request_data.settings.dict()},
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+    return {"message": "Настройки успешно сохранены."}
+
+@app.post("/api/v1/admin/manual_rewards")
+async def get_manual_rewards(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Получает список всех наград, ожидающих ручной выдачи."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    resp = await supabase.post("/rpc/get_pending_manual_rewards_with_user")
+    resp.raise_for_status()
+    return resp.json()
+
+@app.post("/api/v1/admin/manual_rewards/complete")
+async def complete_manual_reward(
+    request_data: ManualRewardCompleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Помечает ручную награду как выданную."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    await supabase.patch(
+        "/manual_rewards",
+        params={"id": f"eq.{request_data.reward_id}"},
+        json={"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}
+    )
+    return {"message": "Награда помечена как выданная."}
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
