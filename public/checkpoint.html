@@ -210,7 +210,21 @@
         
         .reward-level { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent-glow); min-width: 35px; text-align: center; text-shadow: 0 0 5px var(--accent-glow); }
         .reward-item.is-locked .reward-level { color: var(--locked-color); text-shadow: none; }
-        .reward-icon { font-size: 30px; width: 45px; text-align: center; color: var(--text-primary); text-shadow: 0 0 5px var(--accent-glow); }
+        
+        /* --- НАЧАЛО ИЗМЕНЕНИЙ --- */
+        .reward-icon {
+            font-size: 30px;
+            width: 45px;
+            height: 45px; /* Добавлено для предсказуемости */
+            text-align: center;
+            color: var(--text-primary);
+            text-shadow: 0 0 5px var(--accent-glow);
+            display: flex; /* Включаем Flexbox */
+            align-items: center; /* Выравниваем по вертикали */
+            justify-content: center; /* Выравниваем по горизонтали */
+        }
+        /* --- КОНЕЦ ИЗМЕНЕНИЙ --- */
+
         .reward-item.is-locked .reward-icon { color: var(--locked-color); text-shadow: none; }
         .reward-details { flex-grow: 1; }
         .reward-title { font-size: 17px; font-weight: 600; margin: 0 0 4px; color: var(--text-primary); }
