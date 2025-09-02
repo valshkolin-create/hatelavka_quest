@@ -112,7 +112,6 @@
     input:checked + .toggle-slider { background-color: var(--primary-color); }
     input:checked + .toggle-slider:before { transform: translateX(20px); }
     
-    /* НОВЫЕ СТИЛИ ДЛЯ ВКЛАДОК */
     .tabs-container {
       display: flex;
       gap: 10px;
@@ -215,7 +214,7 @@
             <div id="tab-content-submissions" class="tab-content active quests-container"></div>
             <div id="tab-content-event-prizes" class="tab-content hidden quests-container"></div>
             <div id="tab-content-checkpoint-prizes" class="tab-content hidden quests-container"></div>
-            </div>
+        </div>
 
         <div id="view-admin-settings" class="view hidden">
             <div class="page-header">
@@ -566,13 +565,12 @@
             sleepMinutesInput: document.getElementById('sleep-minutes-input'),
             sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
             sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
-            pendingActionsList: document.getElementById('pending-actions-list'),
-            // ДОБАВЛЕНЫ НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ВКЛАДОК
+            // Элемент удален, так как его заменили три контейнера для вкладок
+            // pendingActionsList: document.getElementById('pending-actions-list'),
             tabsContainer: document.querySelector('.tabs-container'),
             tabContentSubmissions: document.getElementById('tab-content-submissions'),
             tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
             tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
-            // КОНЕЦ НОВЫХ ЭЛЕМЕНТОВ
             settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
             settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
             settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
@@ -626,8 +624,6 @@
                 categoriesCache = [];
             }
         }
-        
-        // --- ВОССТАНОВЛЕННЫЕ И ИСПРАВЛЕННЫЕ ФУНКЦИИ ---
 
         function populateCategorySelects(selectedId = null) {
             const selects = document.querySelectorAll('select[name="category_id"]');
@@ -729,21 +725,16 @@
             currentEditingCategoryId = null;
         }
 
-        // --- ОСНОВНЫЕ ФУНКЦИИ ---
-
         function renderPendingActions(actions) {
-            // Очищаем все контейнеры
             dom.tabContentSubmissions.innerHTML = '';
             dom.tabContentEventPrizes.innerHTML = '';
             dom.tabContentCheckpointPrizes.innerHTML = '';
             
-            // Если задач нет, показываем одно общее сообщение
             if (!actions || actions.length === 0) {
                 dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых задач.</p>';
                 return;
             }
 
-            // Вспомогательная функция для отрисовки карточки (она осталась почти без изменений)
             const createCardHtml = (action) => {
                 if (action.type === 'submission') {
                     let submissionContent = '';
@@ -782,7 +773,6 @@
                 return '';
             };
 
-            // Распределяем задачи по контейнерам
             actions.forEach(action => {
                 const cardHtml = createCardHtml(action);
                 if (action.type === 'submission') {
@@ -796,7 +786,6 @@
                 }
             });
 
-            // Если какая-то вкладка осталась пустой, добавляем сообщение
             if (dom.tabContentSubmissions.innerHTML === '') dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
             if (dom.tabContentEventPrizes.innerHTML === '') dom.tabContentEventPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград за розыгрыши.</p>';
             if (dom.tabContentCheckpointPrizes.innerHTML === '') dom.tabContentCheckpointPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград из Чекпоинта.</p>';
@@ -804,15 +793,14 @@
         
         async function loadAndRenderSettings() {
             try {
-                 const settings = await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges');
+                 const settings = await makeApiRequest('/api/v1/admin/settings');
                  dom.settingQuestsEnabled.checked = settings.quests_enabled;
                  dom.settingChallengesEnabled.checked = settings.challenges_enabled;
-                 dom.settingQuestRewardsEnabled.checked = settings.quest_rewards_enabled;
-                 dom.settingChallengeRewardsEnabled.checked = settings.challenge_rewards_enabled;
+                 dom.settingQuestRewardsEnabled.checked = settings.quest_promocodes_enabled;
+                 dom.settingChallengeRewardsEnabled.checked = settings.challenge_promocodes_enabled;
             } catch (e) {
                  console.error("Не удалось загрузить настройки:", e);
-                 // Можно скрыть блок настроек или показать сообщение об ошибке
-                 tg.showAlert("Не удалось загрузить настройки. Возможно, API-эндпоинт недоступен.");
+                 tg.showAlert("Не удалось загрузить настройки.");
             }
         }
 
@@ -918,19 +906,14 @@
         }
 
         function setupEventListeners() {
-            // ДОБАВЛЕН НОВЫЙ ОБРАБОТЧИК ДЛЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
             if (dom.tabsContainer) {
                 dom.tabsContainer.addEventListener('click', (e) => {
                     const button = e.target.closest('.tab-button');
                     if (!button) return;
 
                     const tabId = button.dataset.tab;
-
-                    // Управление активным состоянием кнопок
                     dom.tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                     button.classList.add('active');
-
-                    // Управление видимостью контента
                     document.querySelectorAll('.tab-content').forEach(content => {
                         content.classList.toggle('hidden', content.id !== `tab-content-${tabId}`);
                         content.classList.toggle('active', content.id === `tab-content-${tabId}`);
@@ -971,10 +954,10 @@
                     const payload = {
                         quests_enabled: dom.settingQuestsEnabled.checked,
                         challenges_enabled: dom.settingChallengesEnabled.checked,
-                        quest_rewards_enabled: dom.settingQuestRewardsEnabled.checked,
-                        challenge_rewards_enabled: dom.settingChallengeRewardsEnabled.checked
+                        quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
+                        challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked
                     };
-                    await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges/update', { settings: payload });
+                    await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
                     tg.showAlert('Настройки сохранены!');
                 });
             });
@@ -1069,16 +1052,18 @@
                     dom.submissionsModal.classList.remove('hidden');
                 } else if (actionButton.matches('.admin-action-btn')) {
                     const action = actionButton.dataset.action;
+                    const card = actionButton.closest('.admin-submission-card');
                     if (action === 'approved' || action === 'rejected') {
                          await makeApiRequest('/api/v1/admin/submission/update', { submission_id: parseInt(id), action });
                          tg.showAlert(`Заявка ${action === 'approved' ? 'одобрена' : 'отклонена'}.`);
-                         actionButton.closest('.admin-submission-card')?.remove();
+                         card?.remove();
                     } else if (action === 'confirm_prize') {
                         tg.showConfirm('Вы уверены, что выдали этот приз?', async (ok) => {
                              if(ok) {
-                                await makeApiRequest('/api/v1/admin/pending_actions/confirm', { item_id: parseInt(id) });
+                                // ❗️❗️❗️ ИСПРАВЛЕНИЕ ЗДЕСЬ ❗️❗️❗️
+                                await makeApiRequest('/api/v1/admin/manual_rewards/complete', { reward_id: parseInt(id) });
                                 tg.showAlert('Выдача приза подтверждена.');
-                                actionButton.closest('.admin-submission-card')?.remove();
+                                card?.remove();
                              }
                         });
                     }
