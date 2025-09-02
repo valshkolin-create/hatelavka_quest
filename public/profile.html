@@ -17,6 +17,9 @@
             --danger-color: #ff3b30;
             --surface-glass-bg: rgba(28, 28, 30, 0.75);
             --surface-color-2: rgba(44, 44, 46, 0.85);
+            /* Новый цвет для уведомлений */
+            --notification-bg: rgba(255, 255, 255, 0.1); 
+            --notification-icon-color: #00c0e3; /* Более яркий синий */
         }
         
         /* --- Общие стили --- */
@@ -78,7 +81,7 @@
         }
         .settings-card-info {
             flex-grow: 1;
-            overflow: hidden; /* Prevent long text from breaking layout */
+            /* Убрал overflow: hidden, чтобы текст был полностью виден */
         }
         .settings-card-info p {
             margin: 0;
@@ -86,19 +89,18 @@
             font-size: 15px;
             display: flex;
             align-items: center;
-            gap: 12px; /* Увеличен отступ для иконки */
+            gap: 12px;
         }
         .settings-card-info p i {
-            font-size: 18px; /* Увеличен размер иконки */
+            font-size: 18px;
         }
         .settings-card-info span {
             font-size: 12px;
             color: var(--text-color-muted);
             display: block;
             margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            /* Убрал nowrap, overflow и text-overflow для полного отображения текста */
+            white-space: normal; 
         }
         .settings-card-btn {
             background-color: var(--action-color);
@@ -118,6 +120,34 @@
         }
         .settings-card-btn.unlink { background-color: var(--danger-color); }
         .settings-card-btn.twitch { background-color: #9146ff; }
+
+        /* --- Новый стиль для карточки уведомлений --- */
+        .notification-card {
+            background-color: var(--notification-bg); /* Более светлый фон */
+            border-radius: 12px;
+            padding: 10px 15px; /* Немного уменьшил паддинги */
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 12px; /* Добавил отступ снизу для отделения от других карточек */
+        }
+        .notification-card .settings-card-info p {
+            font-size: 14px; /* Чуть меньше заголовок */
+        }
+        .notification-card .settings-card-info p i {
+            font-size: 16px; /* Чуть меньше иконка */
+            color: var(--notification-icon-color); /* Выделенный цвет иконки */
+        }
+        .notification-card .settings-card-info span {
+            font-size: 11px; /* Чуть меньше текст описания */
+            color: var(--text-color-muted);
+            line-height: 1.3;
+        }
+        .notification-card .settings-card-btn {
+            padding: 6px 12px; /* Уменьшил размер кнопки */
+            font-size: 12px; /* Уменьшил размер текста кнопки */
+            border-radius: 6px;
+        }
 
         /* --- Секция наград --- */
         .rewards-header {
@@ -408,8 +438,25 @@ try {
     }
     
     function renderSettings(userData) {
-        dom.settingsList.innerHTML = '';
+        dom.settingsList.innerHTML = ''; // Очищаем перед рендерингом
         
+        // --- НОВАЯ КАРТОЧКА: Уведомления (перенесена наверх) ---
+        const notificationCard = document.createElement('div');
+        notificationCard.className = 'notification-card'; // Используем новый класс для стиля
+        notificationCard.innerHTML = `
+            <div class="settings-card-info">
+                <p>
+                    <i class="fa-solid fa-bell"></i> Уведомления
+                </p>
+                <span>Нажмите "Перейти" и запустите бота <a href="https://t.me/quest_hatelavka_bot" target="_blank" rel="noopener noreferrer">@quest_hatelavka_bot</a>, чтобы он мог отправлять вам награды и напоминания о челленджах.</span>
+            </div>
+            <a href="https://t.me/quest_hatelavka_bot" target="_blank" rel="noopener noreferrer" class="settings-card-btn">
+                Перейти
+            </a>
+        `;
+        dom.settingsList.appendChild(notificationCard);
+
+
         // --- Карточка Steam ---
         const steamCard = document.createElement('div');
         steamCard.className = 'settings-card';
@@ -457,25 +504,7 @@ try {
         }
         dom.settingsList.appendChild(twitchCard);
 
-        // --- НОВАЯ КАРТОЧКА: Уведомления ---
-        const notificationCard = document.createElement('div');
-        notificationCard.className = 'settings-card';
-        notificationCard.innerHTML = `
-            <div class="settings-card-info">
-                <p>
-                    <i class="fa-solid fa-bell" style="color: #fdd835;"></i>
-                    Уведомления
-                </p>
-                <span>Нажмите "Перейти" и запустите бота, чтобы он мог отправлять вам награды.</span>
-            </div>
-            <a href="https://t.me/HATElavka_bot" target="_blank" rel="noopener noreferrer" class="settings-card-btn">
-                Перейти
-            </a>
-        `;
-        dom.settingsList.appendChild(notificationCard);
-
         // --- ЛОГИКА СЧЕТЧИКА ЧЕЛЛЕНДЖЕЙ ---
-        // Эта строка корректна. Если userData.completed_challenges приходит с сервера, значение обновится.
         dom.completedChallengesCount.textContent = userData.completed_challenges || 0;
     }
 
