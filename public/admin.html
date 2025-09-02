@@ -111,6 +111,43 @@
     .toggle-slider:before { position: absolute; content: ""; height: 23px; width: 23px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
     input:checked + .toggle-slider { background-color: var(--primary-color); }
     input:checked + .toggle-slider:before { transform: translateX(20px); }
+    
+    /* НОВЫЕ СТИЛИ ДЛЯ ВКЛАДОК */
+    .tabs-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--divider-glass-color);
+      padding-bottom: 10px;
+    }
+    .tab-button {
+      flex: 1;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-color-muted);
+      background-color: transparent;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .tab-button.active {
+      color: var(--text-color);
+      background-color: var(--surface-glass-bg);
+    }
+    .tab-content {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    .tab-content.hidden {
+        display: none;
+    }
   </style>
 </head>
 <body>
@@ -164,8 +201,21 @@
                 <h1 class="page-header-title">Ожидают действия</h1>
                 <div style="width: 60px;"></div>
             </div>
-            <div id="pending-actions-list" class="quests-container"></div>
-        </div>
+            <div class="tabs-container">
+                <button class="tab-button active" data-tab="submissions">
+                    <i class="fa-solid fa-user-check"></i> Проверки
+                </button>
+                <button class="tab-button" data-tab="event-prizes">
+                    <i class="fa-solid fa-trophy"></i> Розыгрыши
+                </button>
+                <button class="tab-button" data-tab="checkpoint-prizes">
+                    <i class="fa-solid fa-flag-checkered"></i> Чекпоинт
+                </button>
+            </div>
+            <div id="tab-content-submissions" class="tab-content active quests-container"></div>
+            <div id="tab-content-event-prizes" class="tab-content hidden quests-container"></div>
+            <div id="tab-content-checkpoint-prizes" class="tab-content hidden quests-container"></div>
+            </div>
 
         <div id="view-admin-settings" class="view hidden">
             <div class="page-header">
@@ -517,6 +567,12 @@
             sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
             sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
             pendingActionsList: document.getElementById('pending-actions-list'),
+            // ДОБАВЛЕНЫ НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ВКЛАДОК
+            tabsContainer: document.querySelector('.tabs-container'),
+            tabContentSubmissions: document.getElementById('tab-content-submissions'),
+            tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
+            tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
+            // КОНЕЦ НОВЫХ ЭЛЕМЕНТОВ
             settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
             settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
             settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
@@ -676,18 +732,18 @@
         // --- ОСНОВНЫЕ ФУНКЦИИ ---
 
         function renderPendingActions(actions) {
-            dom.pendingActionsList.innerHTML = '';
+            // Очищаем все контейнеры
+            dom.tabContentSubmissions.innerHTML = '';
+            dom.tabContentEventPrizes.innerHTML = '';
+            dom.tabContentCheckpointPrizes.innerHTML = '';
+            
+            // Если задач нет, показываем одно общее сообщение
             if (!actions || actions.length === 0) {
-                dom.pendingActionsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых задач для проверки.</p>';
+                dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых задач.</p>';
                 return;
             }
 
-            // 1. Разделяем все задачи на три группы
-            const submissions = actions.filter(a => a.type === 'submission');
-            const eventPrizes = actions.filter(a => a.type === 'prize' && a.source_display_name && a.source_display_name.toLowerCase().includes('ивент'));
-            const checkpointPrizes = actions.filter(a => a.type === 'prize' && a.source_display_name && a.source_display_name.toLowerCase().includes('чекпоинт'));
-
-            // Вспомогательная функция для отрисовки одной карточки
+            // Вспомогательная функция для отрисовки карточки (она осталась почти без изменений)
             const createCardHtml = (action) => {
                 if (action.type === 'submission') {
                     let submissionContent = '';
@@ -726,21 +782,24 @@
                 return '';
             };
 
-            // 2. Отрисовываем каждую группу под своим заголовком
-            if (submissions.length > 0) {
-                dom.pendingActionsList.innerHTML += `<h3><span class="pending-action-type-badge type-submission">Проверка заданий</span></h3>`;
-                submissions.forEach(action => dom.pendingActionsList.innerHTML += createCardHtml(action));
-            }
+            // Распределяем задачи по контейнерам
+            actions.forEach(action => {
+                const cardHtml = createCardHtml(action);
+                if (action.type === 'submission') {
+                    dom.tabContentSubmissions.innerHTML += cardHtml;
+                } else if (action.type === 'prize') {
+                    if (action.source_display_name && action.source_display_name.toLowerCase().includes('ивент')) {
+                        dom.tabContentEventPrizes.innerHTML += cardHtml;
+                    } else if (action.source_display_name && action.source_display_name.toLowerCase().includes('чекпоинт')) {
+                        dom.tabContentCheckpointPrizes.innerHTML += cardHtml;
+                    }
+                }
+            });
 
-            if (eventPrizes.length > 0) {
-                dom.pendingActionsList.innerHTML += `<h3 style="margin-top: 25px;"><span class="pending-action-type-badge type-prize">Победители розыгрышей</span></h3>`;
-                eventPrizes.forEach(action => dom.pendingActionsList.innerHTML += createCardHtml(action));
-            }
-
-            if (checkpointPrizes.length > 0) {
-                dom.pendingActionsList.innerHTML += `<h3 style="margin-top: 25px;"><span class="pending-action-type-badge type-prize">Награды из Чекпоинта</span></h3>`;
-                checkpointPrizes.forEach(action => dom.pendingActionsList.innerHTML += createCardHtml(action));
-            }
+            // Если какая-то вкладка осталась пустой, добавляем сообщение
+            if (dom.tabContentSubmissions.innerHTML === '') dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
+            if (dom.tabContentEventPrizes.innerHTML === '') dom.tabContentEventPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград за розыгрыши.</p>';
+            if (dom.tabContentCheckpointPrizes.innerHTML === '') dom.tabContentCheckpointPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград из Чекпоинта.</p>';
         }
         
         async function loadAndRenderSettings() {
@@ -859,6 +918,26 @@
         }
 
         function setupEventListeners() {
+            // ДОБАВЛЕН НОВЫЙ ОБРАБОТЧИК ДЛЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
+            if (dom.tabsContainer) {
+                dom.tabsContainer.addEventListener('click', (e) => {
+                    const button = e.target.closest('.tab-button');
+                    if (!button) return;
+
+                    const tabId = button.dataset.tab;
+
+                    // Управление активным состоянием кнопок
+                    dom.tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    // Управление видимостью контента
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.toggle('hidden', content.id !== `tab-content-${tabId}`);
+                        content.classList.toggle('active', content.id === `tab-content-${tabId}`);
+                    });
+                });
+            }
+
             dom.sleepModeToggle.addEventListener('click', async () => {
                 const isSleeping = dom.sleepModeToggle.classList.contains('is-sleeping');
                 if (isSleeping) {
