@@ -1316,7 +1316,22 @@ async def claim_challenge(
     try:
         logging.info(f"🔹 Пользователь {current_user_id} запрашивает награду за челлендж {challenge_id}")
 
-        # Делаем один-единственный вызов к нашей новой мощной функции
+        # --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        # 1. Получаем информацию о награде челленджа, чтобы знать, сколько звезд начислить
+        challenge_info_resp = await supabase.get(
+            "challenges",
+            params={"id": f"eq.{challenge_id}", "select": "reward_amount"}
+        )
+        challenge_info_resp.raise_for_status()
+        challenge_info = challenge_info_resp.json()
+        
+        if not challenge_info:
+            raise HTTPException(status_code=404, detail="Челлендж не найден.")
+            
+        reward_for_checkpoint = challenge_info[0].get("reward_amount", 0)
+        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
+
+        # Делаем основной вызов для получения награды за челлендж
         rpc_payload = {
             "p_user_id": current_user_id,
             "p_challenge_id": challenge_id
@@ -1331,6 +1346,16 @@ async def claim_challenge(
 
         # Функция возвращает сам промокод в виде текста
         promocode_text = rpc_response.text.strip('"')
+
+        # --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        # 2. Если основная награда выдана успешно, начисляем звезды для марафона "Чекпоинт"
+        if reward_for_checkpoint > 0:
+            await supabase.post(
+                "/rpc/increment_checkpoint_stars",
+                json={"p_user_id": current_user_id, "p_amount": reward_for_checkpoint}
+            )
+            logging.info(f"✅ Пользователю {current_user_id} начислено {reward_for_checkpoint} звезд для Чекпоинта.")
+        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
         return {
             "success": True,
