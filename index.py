@@ -129,6 +129,10 @@ class GrantAccessRequest(BaseModel):
     initData: str
     user_id_to_grant: int
 
+class CheckpointClaimRequest(BaseModel):
+    initData: str
+    level: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -2773,6 +2777,49 @@ async def claim_free_ticket(
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
         logging.error(f"Критическая ошибка при получении билета для user {telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+
+@app.post("/api/v1/checkpoint/claim")
+async def claim_checkpoint_reward(
+    request_data: CheckpointClaimRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обрабатывает получение награды за уровень в марафоне 'Чекпоинт'."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+
+    telegram_id = user_info["id"]
+    level_to_claim = request_data.level
+
+    try:
+        # Вызываем RPC-функцию в базе данных для атомарного обновления
+        response = await supabase.post(
+            "/rpc/claim_checkpoint_reward",
+            json={
+                "p_user_id": telegram_id,
+                "p_level_to_claim": level_to_claim
+            }
+        )
+        response.raise_for_status()
+
+        # Функция вернет новый уровень пользователя
+        result = response.json()
+        
+        # TODO: Здесь можно добавить логику выдачи конкретной награды (билеты, промокод и т.д.)
+        # Например, найти в JSON-контенте награду для level_to_claim и выдать ее.
+        
+        return {
+            "message": "Награда успешно получена!",
+            "new_level": result
+        }
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Не удалось получить награду.")
+        logging.error(f"Ошибка RPC при получении награды Чекпоинта для user {telegram_id}: {error_details}")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Критическая ошибка при получении награды Чекпоинта для user {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 # --- HTML routes ---
