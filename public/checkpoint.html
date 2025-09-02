@@ -22,6 +22,7 @@
             --star-color: #ffd700;
             --locked-color: #48484a;
             --claimed-color: #34c759;
+            --danger-color: #ff3b30;
             --gradient-start: #1c0f42; /* Darker blue-purple */
             --gradient-end: #0a0a0f; /* Even darker */
             --grid-color: rgba(0, 255, 255, 0.1); /* Light cyan grid */
@@ -33,7 +34,7 @@
         }
 
         body {
-            font-family: 'Oxanium', sans-serif; /* Более читабельный основной шрифт */
+            font-family: 'Oxanium', sans-serif;
             background: radial-gradient(circle at 50% 100%, var(--gradient-start), var(--gradient-end));
             background-color: var(--background-main);
             color: var(--text-primary);
@@ -43,13 +44,10 @@
             position: relative;
         }
 
-        body::before { /* Анимированный фон сетки */
+        body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background-image:
                 linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
                 linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
@@ -71,241 +69,155 @@
             transition: filter 0.3s ease;
         }
 
-        /* --- Access Denied Styles --- */
-        .access-denied .container,
-        .access-denied .app-footer,
-        .access-denied .admin-controls {
+        .access-denied .container, .access-denied .app-footer, .access-denied .admin-controls {
             filter: blur(8px);
             pointer-events: none;
             user-select: none;
         }
         
         .access-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 500;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
-            color: var(--text-primary);
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 500;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 20px; color: var(--text-primary);
             background: rgba(0, 0, 0, 0.9);
-            animation: glitchEffect 1s infinite alternate; /* Анимация глитча */
         }
-
-        @keyframes glitchEffect {
-            0% { text-shadow: 2px 2px var(--accent-glow), -2px -2px var(--accent-purple); transform: translate(0); }
-            25% { text-shadow: -2px 0 var(--accent-glow), 2px 0 var(--accent-purple); transform: translate(-1px, 1px); }
-            50% { text-shadow: 2px -2px var(--accent-glow), -2px 2px var(--accent-purple); transform: translate(1px, -1px); }
-            75% { text-shadow: -2px 2px var(--accent-glow), 2px -2px var(--accent-purple); transform: translate(-1px, -1px); }
-            100% { text-shadow: 2px 2px var(--accent-glow), -2px -2px var(--accent-purple); transform: translate(0); }
-        }
-
-        .access-overlay i {
-            font-size: 56px;
-            margin-bottom: 20px;
-            color: var(--accent-glow);
-            text-shadow: 0 0 15px var(--accent-glow);
-        }
-        .access-overlay h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 28px;
-            margin: 0 0 10px;
-            color: var(--accent-glow);
-            text-shadow: 0 0 10px var(--accent-glow);
-        }
-        .access-overlay p {
-            font-size: 16px;
-            color: var(--text-secondary);
-            max-width: 300px;
-            margin-bottom: 30px;
-        }
+        .access-overlay i { font-size: 56px; margin-bottom: 20px; color: var(--accent-glow); text-shadow: 0 0 15px var(--accent-glow); }
+        .access-overlay h2 { font-family: 'Orbitron', sans-serif; font-size: 28px; margin: 0 0 10px; color: var(--accent-glow); text-shadow: 0 0 10px var(--accent-glow); }
+        .access-overlay p { font-size: 16px; color: var(--text-secondary); max-width: 300px; margin-bottom: 30px; }
         .back-button {
-            padding: 12px 30px;
-            background: linear-gradient(90deg, var(--accent-glow) 0%, var(--accent-purple) 100%);
-            color: #000;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: 700;
-            font-family: 'Orbitron', sans-serif;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px var(--accent-glow);
+            padding: 12px 30px; background: linear-gradient(90deg, var(--accent-glow) 0%, var(--accent-purple) 100%);
+            color: #000; text-decoration: none; border-radius: 25px; font-weight: 700;
+            font-family: 'Orbitron', sans-serif; transition: all 0.3s ease; box-shadow: 0 0 15px var(--accent-glow);
         }
-        .back-button:hover {
-            box-shadow: 0 0 25px var(--accent-glow);
-            transform: translateY(-2px);
-        }
+        .back-button:hover { box-shadow: 0 0 25px var(--accent-glow); transform: translateY(-2px); }
 
-
-        /* --- Header --- */
         .header { text-align: center; margin-bottom: 30px; }
         .page-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 26px;
-            font-weight: 700;
-            margin: 0 0 10px;
+            font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 700; margin: 0 0 10px;
             background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
         }
         .user-stars-balance {
-            font-size: 20px;
-            font-weight: 600;
-            color: var(--star-color);
+            font-size: 20px; font-weight: 600; color: var(--star-color);
             text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .user-stars-balance i { font-size: 24px; }
 
-        /* --- Reward Track --- */
-        .reward-track { display: flex; flex-direction: column; gap: 18px; }
+        /* --- NEW REWARD DESIGN --- */
+        .reward-track {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
         .reward-item {
             background-color: var(--surface-primary);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 15px;
+            padding: 12px;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 15px;
+            text-align: center;
             position: relative;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
-        .reward-item::before { /* Декоративная линия */
-            content: '';
+
+        .reward-level {
+            font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700;
+            background: linear-gradient(45deg, var(--accent-purple), var(--accent-glow));
+            color: var(--background-main);
+            padding: 4px 10px;
+            border-radius: 20px;
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 3px;
-            background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
-            opacity: 0.3;
-            border-radius: 12px 12px 0 0;
+            top: -12px;
+            box-shadow: 0 2px 8px rgba(0, 255, 255, 0.4);
         }
 
-        /* Reward States */
-        .reward-item.is-claimed { background-color: rgba(52, 199, 89, 0.2); border-color: var(--claimed-color); }
-        .reward-item.is-claimed::before { background: linear-gradient(90deg, transparent, var(--claimed-color), transparent); opacity: 0.6; }
+        .reward-icon {
+            font-size: 48px;
+            margin: 25px 0 15px;
+            color: var(--text-primary);
+            text-shadow: 0 0 8px var(--accent-glow);
+            width: 60px; height: 60px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .reward-details { width: 100%; margin-bottom: 12px; flex-grow: 1;}
+        .reward-title { font-size: 16px; font-weight: 600; margin: 0 0 4px; color: var(--text-primary); }
+        .reward-description { font-size: 12px; color: var(--text-secondary); margin: 0; }
+        
+        .action-button {
+            width: 100%; border: none; padding: 10px; border-radius: 8px;
+            font-weight: 600; cursor: pointer;
+            text-align: center; transition: all 0.3s ease;
+            font-family: 'Oxanium', sans-serif; text-transform: uppercase;
+        }
+
+        /* Card States */
+        .reward-item.is-claimed { border-color: var(--claimed-color); background-color: rgba(52, 199, 89, 0.1); }
+        .reward-item.is-claimed .reward-level { background: var(--claimed-color); color: white; box-shadow: none; }
+        .reward-item.is-claimed .reward-icon { color: var(--claimed-color); text-shadow: none;}
 
         .reward-item.is-claimable {
             border-color: var(--star-color);
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
             animation: pulseGlow 1.5s infinite alternate;
         }
-        .reward-item.is-claimable::before { background: linear-gradient(90deg, transparent, var(--star-color), transparent); opacity: 0.8; }
-
         @keyframes pulseGlow {
-            from { box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
-            to { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+            from { box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+            to { box-shadow: 0 0 20px rgba(255, 215, 0, 0.7); }
         }
 
-        .reward-item.is-locked { background-color: var(--surface-secondary); border-color: var(--locked-color); color: var(--text-secondary); opacity: 0.7; }
-        .reward-item.is-locked::before { background: linear-gradient(90deg, transparent, var(--locked-color), transparent); opacity: 0.2; }
-        
-        .reward-level { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent-glow); min-width: 35px; text-align: center; text-shadow: 0 0 5px var(--accent-glow); }
-        .reward-item.is-locked .reward-level { color: var(--locked-color); text-shadow: none; }
-        
-        /* --- НАЧАЛО ИЗМЕНЕНИЙ --- */
-        .reward-icon {
-            font-size: 30px;
-            width: 45px;
-            height: 45px; /* Добавлено для предсказуемости */
-            text-align: center;
-            color: var(--text-primary);
-            text-shadow: 0 0 5px var(--accent-glow);
-            display: flex; /* Включаем Flexbox */
-            align-items: center; /* Выравниваем по вертикали */
-            justify-content: center; /* Выравниваем по горизонтали */
-        }
-        /* --- КОНЕЦ ИЗМЕНЕНИЙ --- */
-
+        .reward-item.is-locked { opacity: 0.6; }
         .reward-item.is-locked .reward-icon { color: var(--locked-color); text-shadow: none; }
-        .reward-details { flex-grow: 1; }
-        .reward-title { font-size: 17px; font-weight: 600; margin: 0 0 4px; color: var(--text-primary); }
-        .reward-description { font-size: 13px; color: var(--text-secondary); margin: 0; }
-        .reward-item.is-locked .reward-title, .reward-item.is-locked .reward-description { color: var(--text-secondary); }
 
-        .action-button {
-            border: none; padding: 10px 18px; border-radius: 20px;
-            font-weight: 600; cursor: pointer; min-width: 120px;
-            text-align: center; transition: all 0.3s ease;
-            font-family: 'Oxanium', sans-serif;
-            text-transform: uppercase;
-        }
         .claim-btn { background: linear-gradient(90deg, var(--star-color) 0%, #ffc107 100%); color: #000; box-shadow: 0 0 10px rgba(255, 215, 0, 0.6); }
-        .claim-btn:active { transform: translateY(1px); box-shadow: 0 0 5px rgba(255, 215, 0, 0.4); }
-        .claimed-btn { background-color: var(--claimed-color); color: #fff; opacity: 0.8; cursor: default; }
-        .locked-btn { background-color: var(--locked-color); color: var(--text-secondary); cursor: not-allowed; }
+        .claimed-btn { background-color: var(--claimed-color); color: #fff; cursor: default; }
+        .locked-btn { background-color: var(--locked-color); color: var(--text-secondary); cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 5px;}
 
-        /* --- Admin Controls --- */
+        /* --- Admin --- */
         .admin-controls { position: fixed; bottom: calc(60px + env(safe-area-inset-bottom) + 15px); left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 10px;}
         .admin-controls button {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-glow));
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            border: none;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.3s ease;
-            font-family: 'Oxanium', sans-serif;
+            color: white; padding: 10px 20px; border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); border: none; font-size: 14px;
+            font-weight: 600; cursor: pointer; transition: all 0.2s ease;
         }
-        .admin-controls button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-        }
-        #save-btn { display: none; }
+        .admin-controls button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); }
         .edit-mode-active #edit-btn { display: none; }
-        .edit-mode-active #save-btn { display: inline-block; }
-        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 12px; display: flex; gap: 8px; justify-content: center; align-items: center; z-index: 5; }
+        .edit-mode-active #save-btn { display: block; }
+
+        .edit-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 12px; display: flex; gap: 8px; justify-content: center; align-items: flex-end; padding-bottom: 10px; z-index: 5; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .edit-mode-active .reward-item:hover .edit-overlay { opacity: 1; pointer-events: all; }
+
         .card-btn {
-            border: none; border-radius: 50%; width: 40px; height: 40px;
-            color: white; font-size: 18px; cursor: pointer; transition: transform 0.2s ease;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            border: none; border-radius: 50%; width: 36px; height: 36px; color: white;
+            font-size: 16px; cursor: pointer; transition: transform 0.2s ease;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
         .card-btn:hover { transform: scale(1.1); }
         .card-edit-btn { background-color: #007aff; }
         .card-delete-btn { background-color: var(--danger-color); }
+
         .create-reward-card {
-            border: 2px dashed var(--accent-glow);
-            justify-content: center;
-            cursor: pointer;
-            background: rgba(0, 255, 255, 0.05);
-            color: var(--accent-glow);
-            min-height: 90px;
-            text-shadow: 0 0 5px var(--accent-glow);
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-            animation: pulseBorder 2s infinite alternate;
+            border: 2px dashed var(--accent-glow); justify-content: center; cursor: pointer;
+            background: rgba(0, 255, 255, 0.05); color: var(--accent-glow); min-height: 220px;
+            text-shadow: 0 0 5px var(--accent-glow); box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            transition: all 0.3s ease;
         }
-        .create-reward-card:hover { border-color: var(--accent-purple); color: var(--accent-purple); box-shadow: 0 0 15px rgba(138, 43, 226, 0.5); }
-        @keyframes pulseBorder {
-            from { border-color: var(--accent-glow); }
-            to { border-color: var(--accent-purple); }
-        }
+        .create-reward-card:hover { border-color: var(--accent-purple); color: var(--accent-purple); box-shadow: 0 0 15px rgba(138, 43, 226, 0.5); transform: translateY(-5px); }
         
-        /* --- Footer --- */
-        .app-footer {
-            display: flex; justify-content: space-around;
-            background-color: rgba(28, 26, 39, 0.8); backdrop-filter: blur(15px);
-            border-top: 1px solid var(--border-color);
-            width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
-            position: fixed; bottom: 0; left: 0; z-index: 100;
-        }
+        /* --- Footer & Modal --- */
+        .app-footer { display: flex; justify-content: space-around; background-color: rgba(28, 26, 39, 0.8); backdrop-filter: blur(15px); border-top: 1px solid var(--border-color); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; }
         .footer-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-secondary); font-size: 11px; text-decoration: none; flex: 1; }
         .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
         .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-glow); font-weight: 600; text-shadow: 0 0 5px var(--accent-glow); }
         .hidden { display: none !important; }
 
-        /* --- Modal --- */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
         .modal-content { background-color: var(--surface-secondary); border: 1px solid var(--accent-glow); padding: 0; border-radius: 14px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column; max-height: 85vh; }
         .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
@@ -314,21 +226,9 @@
         .modal-body { overflow-y: auto; padding: 20px; }
         .modal-form { display: flex; flex-direction: column; gap: 15px; }
         .modal-form label { font-size: 14px; color: var(--text-secondary); margin-bottom: -10px; }
-        .modal-form input, .modal-form select {
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent-glow);
-            background-color: var(--background-main); color: var(--text-primary); font-size: 16px;
-            box-shadow: inset 0 0 5px rgba(0, 255, 255, 0.2);
-        }
+        .modal-form input, .modal-form select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent-glow); background-color: var(--background-main); color: var(--text-primary); font-size: 16px; box-shadow: inset 0 0 5px rgba(0, 255, 255, 0.2); }
         .modal-form input:focus, .modal-form select:focus { outline: none; border-color: var(--accent-purple); box-shadow: inset 0 0 8px rgba(138, 43, 226, 0.4); }
-        .modal-form button[type="submit"] {
-            background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple));
-            border: none; padding: 12px; border-radius: 10px; color: #000;
-            font-size: 16px; font-weight: 600; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            font-family: 'Orbitron', sans-serif;
-            text-transform: uppercase;
-        }
-        .modal-form button[type="submit"]:active { transform: translateY(1px); }
+        .modal-form button[type="submit"] { background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple)); border: none; padding: 12px; border-radius: 10px; color: #000; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
     </style>
 </head>
 <body class="access-denied">
@@ -343,19 +243,18 @@
         <div class="header">
             <h1 class="page-title">МАРАФОН "ЧЕКПОИНТ"</h1>
             <div class="user-stars-balance">
-                <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span> ЗВЕЗД
+                <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span>
             </div>
         </div>
 
-        <div id="reward-track" class="reward-track">
-            </div>
+        <div id="reward-track" class="reward-track"></div>
 
         <div id="admin-access-controls" class="admin-controls" style="display: none; bottom: calc(60px + env(safe-area-inset-bottom) + 60px);">
-            <button id="grant-access-btn" style="background: linear-gradient(90deg, #007bff, #55aaff);">Выдать доступ</button>
+            <button id="grant-access-btn">Выдать доступ</button>
         </div>
         <div id="admin-controls" class="admin-controls" style="display: none;">
             <button id="edit-btn">Редактировать</button>
-            <button id="save-btn">Сохранить</button>
+            <button id="save-btn" style="display:none;">Сохранить</button>
         </div>
     </div>
     
@@ -388,7 +287,7 @@
                     </select>
 
                     <label>Значение награды</label>
-                    <input type="text" id="reward-value-input" required placeholder="5 (для билетов) или текст промокода">
+                    <input type="text" id="reward-value-input" required placeholder="5 или текст промокода">
 
                     <button type="submit">Сохранить</button>
                 </form>
@@ -411,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let checkpointContent = { rewards: [] };
     let userData = {};
+    let originalRewardIndex = null; 
 
     const dom = {
         rewardTrack: document.getElementById('reward-track'),
@@ -418,20 +318,15 @@ document.addEventListener('DOMContentLoaded', () => {
         adminControls: document.getElementById('admin-controls'),
         editBtn: document.getElementById('edit-btn'),
         saveBtn: document.getElementById('save-btn'),
-        
-        // Модальное окно
         rewardModal: document.getElementById('reward-modal'),
         rewardModalTitle: document.getElementById('reward-modal-title'),
         rewardModalForm: document.getElementById('reward-modal-form'),
-        rewardIndexInput: document.getElementById('reward-index-input'),
         rewardLevelInput: document.getElementById('reward-level-input'),
         rewardTitleInput: document.getElementById('reward-title-input'),
         rewardDescInput: document.getElementById('reward-desc-input'),
         rewardIconInput: document.getElementById('reward-icon-input'),
         rewardTypeInput: document.getElementById('reward-type-input'),
         rewardValueInput: document.getElementById('reward-value-input'),
-
-        // Access Control
         accessOverlay: document.getElementById('access-overlay'),
         adminAccessControls: document.getElementById('admin-access-controls'),
         grantAccessBtn: document.getElementById('grant-access-btn'),
@@ -449,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sortedRewards = [...(checkpointContent.rewards || [])].sort((a, b) => a.level - b.level);
 
-        sortedRewards.forEach((reward, index) => {
+        sortedRewards.forEach((reward) => {
             const userLevel = userData.checkpoint_level || 0;
             const userStars = userData.checkpoint_stars || 0;
 
@@ -465,23 +360,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let buttonHtml = '';
             if (isClaimed) {
-                buttonHtml = `<button class="action-button claimed-btn" disabled><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
+                buttonHtml = `<button class="action-button claimed-btn" disabled><i class="fa-solid fa-check"></i> Получено</button>`;
             } else if (isClaimable) {
-                buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}">ЗАБРАТЬ</button>`;
+                buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}">Забрать</button>`;
             } else {
-                buttonHtml = `<button class="action-button locked-btn" disabled><i class="fa-solid fa-lock"></i> ${reward.level} <i class="fa-solid fa-star"></i></button>`;
+                buttonHtml = `<button class="action-button locked-btn" disabled>${reward.level} <i class="fa-solid fa-star"></i></button>`;
             }
 
             const descriptionHtml = reward.description ? `<div class="reward-description">${reward.description}</div>` : '';
             
+            const originalIndex = checkpointContent.rewards.findIndex(r => r.level === reward.level && r.title === reward.title);
             const editOverlayHtml = isEditMode ? `
                 <div class="edit-overlay">
-                    <button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button>
-                    <button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button>
+                    <button class="card-btn card-edit-btn" data-original-index="${originalIndex}"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="card-btn card-delete-btn" data-original-index="${originalIndex}"><i class="fa-solid fa-trash"></i></button>
                 </div>` : '';
 
             item.innerHTML = `
-                <div class="reward-level">${reward.level}</div>
+                <div class="reward-level">LVL ${reward.level}</div>
                 <div class="reward-icon"><i class="${reward.icon || 'fa-solid fa-question'}"></i></div>
                 <div class="reward-details">
                     <div class="reward-title">${reward.title || 'Без названия'}</div>
@@ -494,13 +390,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (isEditMode) {
-            dom.rewardTrack.insertAdjacentHTML('beforeend', `<div class="reward-item create-reward-card" style="align-items: center; justify-content: center;"><i class="fa-solid fa-plus" style="font-size: 24px;"></i></div>`);
+            dom.rewardTrack.insertAdjacentHTML('beforeend', `<div class="reward-item create-reward-card"><i class="fa-solid fa-plus" style="font-size: 32px;"></i></div>`);
         }
     }
 
     function showRewardModal(rewardData, index) {
+        originalRewardIndex = index;
         dom.rewardModalTitle.textContent = index === null ? 'НОВАЯ НАГРАДА' : 'РЕДАКТИРОВАТЬ НАГРАДУ';
-        dom.rewardIndexInput.value = index;
         dom.rewardLevelInput.value = rewardData ? rewardData.level : '';
         dom.rewardTitleInput.value = rewardData ? rewardData.title : '';
         dom.rewardDescInput.value = rewardData ? rewardData.description : '';
@@ -515,74 +411,72 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initialize() {
-        if (!tg.initData || tg.initData.length === 0) {
-            // Если нет initData, возможно, открыто не из Telegram.
-            // Для разработки можно временно разблокировать, но в продакшене лучше оставить
-            // dom.accessOverlay.style.display = 'none'; 
-            // document.body.classList.remove('access-denied');
-            console.warn("Telegram.WebApp.initData не найдено. Запустите приложение из Telegram.");
+        if (!tg.initData) {
+            console.warn("Telegram.WebApp.initData не найдено.");
             return;
         }
 
         try {
-            // Загрузка данных пользователя для проверки доступа
-            const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
+            const [userRes, contentRes] = await Promise.all([
+                fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
+                fetch('/api/v1/checkpoint/content')
+            ]);
+
             if (!userRes.ok) throw new Error("Ошибка при загрузке данных пользователя.");
             userData = await userRes.json();
-
-            // Проверка доступа: админ или пользователь с has_checkpoint_access
+            
             if (userData.is_admin || userData.has_checkpoint_access) {
                 unlockPage();
             } else {
-                // Если нет доступа, страница остается заблокированной, выходим из initialize
                 return; 
             }
-
-            // Если доступ есть, продолжаем загрузку контента для страницы
-            // Здесь будет запрос к вашему API для получения checkpointContent
-            // Пока используем заглушку
-            checkpointContent = {
-                rewards: [
-                    { level: 1, title: '5 БИЛЕТОВ', description: 'Для участия в ивентах', icon: 'fa-solid fa-ticket', type: 'tickets', value: '5' },
-                    { level: 2, title: 'ПРОМОКОД "GEM100"', icon: 'fa-solid fa-gem', type: 'promocode', value: 'GEM100' },
-                    { level: 3, title: 'УНИКАЛЬНЫЙ СКИН', description: 'Будет выдан лично', icon: 'fa-solid fa-shield-halved', type: 'custom', value: 'skin_1' },
-                    { level: 4, title: '1000 ТОКЕНОВ', icon: 'fa-solid fa-coins', type: 'tokens', value: '1000' },
-                    { level: 5, title: 'СЕКРЕТНЫЙ БОНУС', description: 'Откроется позже', icon: 'fa-solid fa-lock', type: 'custom', value: 'mystery_box' }
-                ]
-            };
+            
+            if (!contentRes.ok) throw new Error("Ошибка при загрузке контента марафона.");
+            checkpointContent = await contentRes.json();
             
             renderPage();
 
             if (userData.is_admin) {
-                dom.adminControls.style.display = 'flex'; // Используем flex для кнопок рядом
-                dom.adminAccessControls.style.display = 'flex'; // Показываем админ-кнопку доступа
+                dom.adminControls.style.display = 'flex';
+                dom.adminAccessControls.style.display = 'flex';
             }
 
         } catch (e) {
             console.error("Ошибка инициализации Чекпоинта:", e);
-            // В случае ошибки оставляем экран блокировки
+            tg.showAlert(e.message);
         }
     }
 
-    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
-
     dom.editBtn.addEventListener('click', () => {
         document.body.classList.add('edit-mode');
-        dom.adminControls.classList.add('edit-mode-active');
         renderPage();
     });
 
     dom.saveBtn.addEventListener('click', async () => {
-        document.body.classList.remove('edit-mode');
-        dom.adminControls.classList.remove('edit-mode-active');
-        // TODO: Логика сохранения данных на сервер
-        tg.showAlert('Изменения сохранены (симуляция)');
-        renderPage();
+        tg.MainButton.showProgress();
+        try {
+            const response = await fetch('/api/v1/admin/checkpoint/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    initData: tg.initData,
+                    content: checkpointContent
+                })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || "Ошибка сохранения");
+            tg.showAlert('Марафон успешно сохранен!');
+            document.body.classList.remove('edit-mode');
+            renderPage();
+        } catch(e) {
+            tg.showAlert(e.message);
+        } finally {
+            tg.MainButton.hideProgress();
+        }
     });
 
     dom.rewardModalForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const index = dom.rewardIndexInput.value;
         const updatedReward = {
             level: parseInt(dom.rewardLevelInput.value),
             title: dom.rewardTitleInput.value,
@@ -592,8 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
             value: dom.rewardValueInput.value,
         };
 
-        if (index && index !== 'null' && index !== '') {
-            checkpointContent.rewards[index] = updatedReward;
+        if (originalRewardIndex !== null) {
+            checkpointContent.rewards[originalRewardIndex] = updatedReward;
         } else {
             checkpointContent.rewards.push(updatedReward);
         }
@@ -601,9 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPage();
     });
 
-    document.body.addEventListener('click', (e) => {
+    document.body.addEventListener('click', async (e) => {
         const target = e.target;
-        // Закрытие модального окна
         if (target.matches('.modal-close-btn') || target.matches('.modal-overlay')) {
             hideModal(target.closest('.modal-overlay'));
             return;
@@ -615,48 +508,60 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const editBtn = target.closest('.card-edit-btn');
             if (editBtn) {
-                const index = editBtn.dataset.index;
-                const sortedRewards = [...(checkpointContent.rewards || [])].sort((a, b) => a.level - b.level);
-                showRewardModal(sortedRewards[index], index);
+                const index = parseInt(editBtn.dataset.originalIndex);
+                showRewardModal(checkpointContent.rewards[index], index);
             }
             const deleteBtn = target.closest('.card-delete-btn');
             if (deleteBtn) {
                 tg.showConfirm('Удалить эту награду?', (ok) => {
                     if (ok) {
-                        // Важно: удаляем по оригинальному индексу в несортированном массиве,
-                        // иначе при удалении после сортировки может быть ошибка
-                        const originalIndex = checkpointContent.rewards.findIndex(r => r.level === sortedRewards[deleteBtn.dataset.index].level);
-                        if (originalIndex > -1) {
-                            checkpointContent.rewards.splice(originalIndex, 1);
-                        }
+                        const index = parseInt(deleteBtn.dataset.originalIndex);
+                        checkpointContent.rewards.splice(index, 1);
                         renderPage();
                     }
                 });
             }
         } else {
-            // Логика для обычных пользователей
             const claimBtn = target.closest('.claim-btn');
             if (claimBtn) {
-                // TODO: Логика отправки запроса на получение награды
-                tg.showAlert(`Вы забрали награду за уровень ${claimBtn.dataset.level} (симуляция)`);
-                userData.checkpoint_level = parseInt(claimBtn.dataset.level);
-                renderPage();
+                const levelToClaim = parseInt(claimBtn.dataset.level);
+                claimBtn.disabled = true;
+                claimBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+                try {
+                    const response = await fetch('/api/v1/checkpoint/claim', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData, level: levelToClaim })
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.detail || 'Не удалось забрать награду.');
+
+                    userData.checkpoint_level = result.new_level;
+                    tg.showAlert('Награда успешно получена!');
+                    
+                    const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
+                    userData = await userRes.json();
+                    
+                    renderPage();
+                } catch (error) {
+                    tg.showAlert(error.message);
+                    claimBtn.disabled = false;
+                    claimBtn.innerHTML = 'ЗАБРАТЬ';
+                }
             }
         }
     });
 
     dom.grantAccessBtn.addEventListener('click', async () => {
-        const userId = prompt("Введите Telegram ID пользователя, которому нужно выдать доступ к Чекпоинту:");
+        const userId = prompt("Введите Telegram ID пользователя:");
         if (userId && !isNaN(parseInt(userId))) {
             tg.MainButton.showProgress();
             try {
-                const response = await fetch('/api/v1/admin/checkpoint/grant-access', { // <-- Новый эндпоинт
+                const response = await fetch('/api/v1/admin/checkpoint/grant-access', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        initData: tg.initData, 
-                        user_id_to_grant: parseInt(userId) 
-                    })
+                    body: JSON.stringify({ initData: tg.initData, user_id_to_grant: parseInt(userId) })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || 'Не удалось выдать доступ.');
@@ -676,3 +581,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
