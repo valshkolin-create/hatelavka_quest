@@ -729,11 +729,17 @@
         }
         
         async function loadAndRenderSettings() {
-            const settings = await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges');
-            dom.settingQuestsEnabled.checked = settings.quests_enabled;
-            dom.settingChallengesEnabled.checked = settings.challenges_enabled;
-            dom.settingQuestRewardsEnabled.checked = settings.quest_rewards_enabled;
-            dom.settingChallengeRewardsEnabled.checked = settings.challenge_rewards_enabled;
+            try {
+                 const settings = await makeApiRequest('/api/v1/admin/settings/tasks_and_challenges');
+                 dom.settingQuestsEnabled.checked = settings.quests_enabled;
+                 dom.settingChallengesEnabled.checked = settings.challenges_enabled;
+                 dom.settingQuestRewardsEnabled.checked = settings.quest_rewards_enabled;
+                 dom.settingChallengeRewardsEnabled.checked = settings.challenge_rewards_enabled;
+            } catch (e) {
+                 console.error("Не удалось загрузить настройки:", e);
+                 // Можно скрыть блок настроек или показать сообщение об ошибке
+                 tg.showAlert("Не удалось загрузить настройки. Возможно, API-эндпоинт недоступен.");
+            }
         }
 
         function renderQuests(quests, categories) {
