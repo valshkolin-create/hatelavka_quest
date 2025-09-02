@@ -320,7 +320,8 @@
         <div class="page-header">
             <a href="/menu" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
             <h1 id="profileName" class="page-header-title">Профиль</h1>
-            <div style="width: 50px;"></div> </div>
+            <div style="width: 50px;"></div> 
+        </div>
         
         <div id="settings-list" class="card-container">
             </div>
@@ -347,7 +348,6 @@
         </div>
     </main>
 
-    <!-- HTML для кастомного диалогового окна -->
     <div id="custom-popup-overlay" class="custom-popup-overlay">
         <div class="custom-popup">
             <h3>Steam Trade ссылка</h3>
@@ -375,6 +375,7 @@ try {
         rewardsList: document.getElementById('rewards-list'),
         settingsList: document.getElementById('settings-list'),
         deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
+        completedChallengesCount: document.getElementById('completed-challenges-count'),
         // Элементы кастомного окна
         customPopupOverlay: document.getElementById('custom-popup-overlay'),
         popupTradeLinkInput: document.getElementById('popup-trade-link-input'),
@@ -409,6 +410,7 @@ try {
     function renderSettings(userData) {
         dom.settingsList.innerHTML = '';
         
+        // --- Карточка Steam ---
         const steamCard = document.createElement('div');
         steamCard.className = 'settings-card';
         const hasTradeLink = !!userData.trade_link;
@@ -426,6 +428,7 @@ try {
         `;
         dom.settingsList.appendChild(steamCard);
 
+        // --- Карточка Twitch ---
         const twitchCard = document.createElement('div');
         twitchCard.className = 'settings-card';
         if (userData.twitch_login) {
@@ -454,8 +457,26 @@ try {
         }
         dom.settingsList.appendChild(twitchCard);
 
-        // 🔥 ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ НОВОЙ СТРОКИ:        
-        document.getElementById('completed-challenges-count').textContent = userData.completed_challenges || 0;
+        // --- НОВАЯ КАРТОЧКА: Уведомления ---
+        const notificationCard = document.createElement('div');
+        notificationCard.className = 'settings-card';
+        notificationCard.innerHTML = `
+            <div class="settings-card-info">
+                <p>
+                    <i class="fa-solid fa-bell" style="color: #fdd835;"></i>
+                    Уведомления
+                </p>
+                <span>Нажмите "Перейти" и запустите бота, чтобы он мог отправлять вам награды.</span>
+            </div>
+            <a href="https://t.me/HATElavka_bot" target="_blank" rel="noopener noreferrer" class="settings-card-btn">
+                Перейти
+            </a>
+        `;
+        dom.settingsList.appendChild(notificationCard);
+
+        // --- ЛОГИКА СЧЕТЧИКА ЧЕЛЛЕНДЖЕЙ ---
+        // Эта строка корректна. Если userData.completed_challenges приходит с сервера, значение обновится.
+        dom.completedChallengesCount.textContent = userData.completed_challenges || 0;
     }
 
     function renderRewards(rewards) {
