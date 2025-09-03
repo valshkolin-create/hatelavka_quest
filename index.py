@@ -360,6 +360,26 @@ async def track_message(message: types.Message, supabase: httpx.AsyncClient = De
     except Exception as e:
         logging.error(f"Ошибка в handle_user_message для user_id={user.id}: {e}", exc_info=True)
 
+async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings:
+    """Вспомогательная функция для получения настроек админки."""
+    try:
+        resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
+        resp.raise_for_status()
+        data = resp.json()
+        if data and data[0].get('value'):
+            # Убедимся, что все поля присутствуют, иначе используем значения по умолчанию
+            settings_data = data[0]['value']
+            return AdminSettings(
+                challenge_promocodes_enabled=settings_data.get('challenge_promocodes_enabled', True),
+                quest_promocodes_enabled=settings_data.get('quest_promocodes_enabled', True),
+                challenges_enabled=settings_data.get('challenges_enabled', True),
+                quests_enabled=settings_data.get('quests_enabled', True)
+            )
+    except Exception as e:
+        logging.error(f"Не удалось получить admin_settings, используются значения по умолчанию: {e}")
+    # Возвращаем дефолтные настройки, если в базе ничего нет или произошла ошибка
+    return AdminSettings()
+
 @app.post("/api/v1/webhook")
 async def telegram_webhook(update: dict, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # --- НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ ---
@@ -1382,9 +1402,26 @@ async def claim_challenge(
 
     try:
         logging.info(f"🔹 Пользователь {current_user_id} запрашивает награду за челлендж {challenge_id}")
+        
+        # --- 👇 НАЧАЛО ИЗМЕНЕНИЯ ---
+        admin_settings = await get_admin_settings_async(supabase)
 
-        # --- НАЧАЛО ИЗМЕНЕНИЙ ---
-        # 1. Получаем информацию о награде челленджа, чтобы знать, сколько звезд начислить
+        # Проверяем, включены ли награды за челленджи
+        if not admin_settings.challenge_promocodes_enabled:
+            logging.info(f"Награды за челленджи отключены. Обработка для user {current_user_id}")
+            # Вызываем SQL-функцию, которая просто завершает челлендж и ставит кулдаун
+            await supabase.post(
+                "/rpc/complete_challenge_and_set_cooldown",
+                json={"p_user_id": current_user_id, "p_challenge_id": challenge_id}
+            )
+            return {
+                "success": True,
+                "message": "Челлендж выполнен! Выдача наград временно отключена.",
+                "promocode": None
+            }
+        # --- 👆 КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        # Если награды включены, выполняем стандартную логику
         challenge_info_resp = await supabase.get(
             "challenges",
             params={"id": f"eq.{challenge_id}", "select": "reward_amount"}
@@ -1396,9 +1433,7 @@ async def claim_challenge(
             raise HTTPException(status_code=404, detail="Челлендж не найден.")
             
         reward_for_checkpoint = challenge_info[0].get("reward_amount", 0)
-        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-        # Делаем основной вызов для получения награды за челлендж
         rpc_payload = {
             "p_user_id": current_user_id,
             "p_challenge_id": challenge_id
@@ -1406,23 +1441,18 @@ async def claim_challenge(
         
         rpc_response = await supabase.post("/rpc/claim_challenge_and_get_reward", json=rpc_payload)
         
-        # Если функция вернула ошибку (например, промокоды кончились), она попадет сюда
         if rpc_response.status_code != 200:
             error_details = rpc_response.json().get("message", "Не удалось получить награду.")
             raise HTTPException(status_code=400, detail=error_details)
 
-        # Функция возвращает сам промокод в виде текста
         promocode_text = rpc_response.text.strip('"')
 
-        # --- НАЧАЛО ИЗМЕНЕНИЙ ---
-        # 2. Если основная награда выдана успешно, начисляем звезды для марафона "Чекпоинт"
         if reward_for_checkpoint > 0:
             await supabase.post(
                 "/rpc/increment_checkpoint_stars",
                 json={"p_user_id": current_user_id, "p_amount": reward_for_checkpoint}
             )
             logging.info(f"✅ Пользователю {current_user_id} начислено {reward_for_checkpoint} звезд для Чекпоинта.")
-        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
         return {
             "success": True,
@@ -1857,7 +1887,15 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
         raise HTTPException(status_code=401, detail="Доступ запрещен")
     telegram_id = user_info["id"]
 
-    # --- 🔥 НАЧАЛО ПОЛНОСТЬЮ ПЕРЕПИСАННОГО БЛОКА ПРОВЕРКИ ---
+    # --- Проверка настроек админа ---
+    admin_settings = await get_admin_settings_async(supabase)
+    if not admin_settings.challenges_enabled:
+        return JSONResponse(
+            status_code=403,
+            content={"message": "Система челленджей временно отключена."}
+        )
+
+    # --- Проверка кулдауна ---
     user_resp = await supabase.get(
         "/users",
         params={"telegram_id": f"eq.{telegram_id}", "select": "challenge_cooldown_until"}
@@ -1866,12 +1904,9 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
     
     if user_data and user_data[0].get("challenge_cooldown_until"):
         cooldown_until_str = user_data[0]["challenge_cooldown_until"]
-        # Превращаем строку из базы в объект времени с часовым поясом
         cooldown_until_utc = datetime.fromisoformat(cooldown_until_str.replace('Z', '+00:00'))
         
-        # Сравниваем с текущим временем в UTC
         if cooldown_until_utc > datetime.now(timezone.utc):
-            # Если кулдаун активен, отправляем клиенту точное время его окончания
             return JSONResponse(
                 status_code=429, 
                 content={
@@ -1879,9 +1914,8 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
                     "cooldown_until": cooldown_until_utc.isoformat()
                 }
             )
-    # --- 🔥 КОНЕЦ НОВОГО БЛОКА ---
 
-    # 1. Проверяем, есть ли уже активный челлендж
+    # --- 1. Проверяем, есть ли уже активный (не истёкший) челлендж ---
     pending_resp = await supabase.get(
         "/user_challenges",
         params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "*,challenges(*)"}
@@ -1893,15 +1927,17 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
         if expires_at_str:
             expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
             if expires_at < datetime.now(timezone.utc):
+                # Если челлендж истёк, помечаем его и продолжаем, чтобы выдать новый
                 await supabase.patch(
                     "/user_challenges",
                     params={"id": f"eq.{current_challenge['id']}"},
                     json={"status": "expired"}
                 )
             else:
+                # Если челлендж активен, возвращаем его
                 return current_challenge
 
-    # 2. Получаем все данные пользователя и доступные челленджи
+    # --- 2. Логика назначения нового челленджа ---
     user_resp = await supabase.get(
         "/users",
         params={"telegram_id": f"eq.{telegram_id}", "select": "*", "limit": 1}
@@ -1922,40 +1958,33 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
     )
     all_available = [c for c in available_resp.json() if c['id'] not in completed_ids]
 
-    if not user_has_twitch:
-        final_available = [c for c in all_available if c.get("condition_type") != 'twitch_points']
-    else:
-        final_available = all_available
+    # Фильтруем челленджи, если у пользователя не привязан Twitch
+    final_available = [c for c in all_available if "twitch" not in c.get("condition_type", "")] if not user_has_twitch else all_available
 
     if not final_available:
         return JSONResponse(status_code=404, content={"message": "Для вас пока нет новых челленджей."})
 
-    # 3. Выбираем случайный челлендж и получаем детали
     chosen_challenge_id = random.choice(final_available)['id']
     details_resp = await supabase.get("/challenges", params={"id": f"eq.{chosen_challenge_id}", "select": "*"})
     challenge_details = details_resp.json()[0]
 
-    # --- ИЗМЕНЕНИЕ: Используем часы вместо дней ---
     duration_in_hours = challenge_details['duration_days']
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_in_hours)).isoformat()
     
-    # 🔥 НОВОЕ: Рассчитываем start_value прямо в FastAPI
     condition_type = challenge_details['condition_type']
     start_value = user_stats.get(CONDITION_TO_COLUMN.get(condition_type), 0)
 
-    # 4. Создаем новый челлендж
     payload = {
         "user_id": telegram_id,
         "challenge_id": chosen_challenge_id,
         "status": "pending",
-        "assigned_at": datetime.now(timezone.utc).isoformat(), # Добавлено: дата назначения
+        "assigned_at": datetime.now(timezone.utc).isoformat(),
         "expires_at": expires_at,
         "progress_value": 0,
         "start_value": start_value,
         "baseline_value": 0
     }
     
-    # 🔥 НОВОЕ: Добавляем логирование перед отправкой
     logging.info(f"Отправка данных в Supabase для нового челленджа: {payload}")
 
     try:
@@ -1964,7 +1993,6 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
             json=payload,
             headers={"Prefer": "return=representation"}
         )
-        # 🔥 НОВОЕ: Проверяем статус-код ответа
         new_user_challenge_resp.raise_for_status()
         
         new_user_challenge = new_user_challenge_resp.json()[0]
@@ -1973,71 +2001,12 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
         return new_user_challenge
 
     except httpx.HTTPStatusError as e:
-        # Теперь вы получите детальную ошибку
         logging.error(f"Ошибка при создании челленджа в Supabase: {e.response.text}")
         raise HTTPException(status_code=500, detail=f"Ошибка сервера: {e.response.text}")
     except Exception as e:
         logging.error(f"Неизвестная ошибка: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
-    # 2. Получаем все данные пользователя и доступные челленджи
-    user_resp = await supabase.post("/rpc/get_user_profile_and_stats", json={"p_telegram_id": telegram_id})
-    user_resp.raise_for_status()
-    user_stats = user_resp.json()[0] if user_resp.json() else {}
-
-    user_has_twitch = user_stats.get("twitch_id") is not None
-    completed_resp = await supabase.get(
-        "/user_challenges",
-        params={"user_id": f"eq.{telegram_id}", "status": "in.(claimed,expired)", "select": "challenge_id"}
-    )
-    completed_ids = {c['challenge_id'] for c in completed_resp.json()}
-    
-    available_resp = await supabase.get(
-        "/challenges",
-        params={"is_active": "eq.true", "select": "id,condition_type"}
-    )
-    all_available = [c for c in available_resp.json() if c['id'] not in completed_ids]
-
-    if not user_has_twitch:
-        final_available = [c for c in all_available if c.get("condition_type") != 'twitch_points']
-    else:
-        final_available = all_available
-
-    if not final_available:
-        return JSONResponse(status_code=404, content={"message": "Для вас пока нет новых челленджей."})
-
-    # 3. Выбираем случайный челлендж и получаем детали
-    chosen_challenge_id = random.choice(final_available)['id']
-    details_resp = await supabase.get("/challenges", params={"id": f"eq.{chosen_challenge_id}", "select": "*"})
-    challenge_details = details_resp.json()[0]
-
-    duration_in_hours = challenge_details['duration_days']
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_in_hours)).isoformat()
-    
-    # 🔥 НОВОЕ: Рассчитываем start_value прямо в FastAPI
-    condition_type = challenge_details['condition_type']
-    start_value = user_stats.get(CONDITION_TO_COLUMN.get(condition_type), 0)
-
-    # 4. Создаем новый челлендж
-    new_user_challenge_resp = await supabase.post(
-        "/user_challenges",
-        json={
-            "user_id": telegram_id,
-            "challenge_id": chosen_challenge_id,
-            "status": "pending",
-            "expires_at": expires_at,
-            "start_value": start_value,  # Теперь это правильное значение
-            "progress_value": 0,         # Сбрасываем прогресс
-            "baseline_value": 0          # Оставляем, как было
-        },
-        headers={"Prefer": "return=representation"}
-    )
-    new_user_challenge_resp.raise_for_status() # Добавлена проверка на ошибку!
-    new_user_challenge = new_user_challenge_resp.json()[0]
-    new_user_challenge['challenges'] = challenge_details
-
-    return new_user_challenge
-       
 @app.post("/api/v1/user/challenge/check")
 async def check_challenge_progress(
     request_data: InitDataRequest,
