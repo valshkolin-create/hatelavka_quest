@@ -425,11 +425,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userRes.ok) throw new Error("Ошибка при загрузке данных пользователя.");
             userData = await userRes.json();
             
-            if (userData.is_admin || userData.has_checkpoint_access) {
+            // --- НАЧАЛО ИСПРАВЛЕННОГО БЛОКА ---
+            const isGloballyEnabled = userData.is_checkpoint_globally_enabled;
+            const hasIndividualAccess = userData.has_checkpoint_access;
+            const isAdmin = userData.is_admin;
+
+            // Пускаем, если:
+            // 1. Пользователь - админ (им можно всегда).
+            // 2. ИЛИ система глобально включена И у пользователя есть индивидуальный доступ.
+            if (isAdmin || (isGloballyEnabled && hasIndividualAccess)) {
                 unlockPage();
             } else {
+                // Если ни одно из условий не выполнено, оставляем страницу заблокированной.
                 return; 
             }
+            // --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
             
             if (!contentRes.ok) throw new Error("Ошибка при загрузке контента марафона.");
             checkpointContent = await contentRes.json();
