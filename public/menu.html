@@ -988,17 +988,13 @@
                         const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
                         
                         if (result.success) {
-                            // Проверяем, пришёл ли в ответе сам промокод
                             if (result.promocode) {
-                                // Если ДА, то показываем модальное окно с кнопкой "Профиль"
                                 showRewardClaimedModal(); 
                                 dom.rewardCloseBtn.onclick = async () => {
                                     hideRewardClaimedModal();
                                     await main();
                                 };
                             } else {
-                                // Если НЕТ (награды отключены), просто перезагружаем главный экран,
-                                // так как сообщение "Награды отключены" уже было показано
                                 await main();
                             }
                         } else {
@@ -1009,8 +1005,6 @@
                         target.disabled = false;
                         target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
                     }
-                
-                }
                 
                 } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
                     const questId = target.dataset.questId;
@@ -1037,12 +1031,9 @@
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
                     try {
-                        // Вызываем эндпоинт, который проверит прогресс на сервере
                         await makeApiRequest("/api/v1/user/challenge/check");
-                        // Перезагружаем данные, чтобы отобразить результат (например, готовую к сбору награду)
                         await main();
                     } catch (e) {
-                        // В случае ошибки возвращаем кнопку в исходное состояние
                         target.disabled = false;
                         target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
                     }
@@ -1055,12 +1046,13 @@
                                 Telegram.WebApp.showAlert('Задание отменено. Теперь вы можете выбрать новое.');
                                 await main();
                             } catch (e) {
+                                // Пустой catch, чтобы не показывать пользователю ошибку, если она будет
                             }
                         }
                     });
                 }
             });
-        } // <--- ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ ЗАКРЫВАЮЩЕЙ СКОБКИ
+        }
 
         async function main() {
             console.log("--- Запуск функции main() ---");
