@@ -133,6 +133,9 @@ class CheckpointReward(BaseModel):
     icon: str
     type: str
     value: str
+    # --- ДОБАВЬТЕ ЭТИ ДВЕ СТРОКИ ---
+    total_quantity: Optional[int] = None
+    claimed_quantity: Optional[int] = None
 
 class CheckpointContent(BaseModel):
     rewards: List[CheckpointReward] = Field(default_factory=list)
