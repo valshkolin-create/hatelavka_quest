@@ -62,17 +62,16 @@
             from { background-position: 0 0; }
             to { background-position: 40px 40px; }
         }
-
+        
+        /* --- ИЗМЕНЕНИЕ 1: Скрываем основной контейнер по умолчанию --- */
         .container {
             max-width: 800px;
             margin: 0 auto;
-            transition: filter 0.3s ease;
+            opacity: 0; /* Скрыто по умолчанию */
+            transition: opacity 0.4s ease-in-out;
         }
-
-        .access-denied .container, .access-denied .app-footer, .access-denied .admin-controls {
-            filter: blur(8px);
-            pointer-events: none;
-            user-select: none;
+        .container.visible {
+            opacity: 1; /* Показываем плавно */
         }
         
         .access-overlay {
@@ -105,7 +104,6 @@
         }
         .user-stars-balance i { font-size: 24px; }
 
-        /* --- NEW REWARD DESIGN --- */
         .reward-track {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -157,7 +155,6 @@
             font-family: 'Oxanium', sans-serif; text-transform: uppercase;
         }
 
-        /* Card States */
         .reward-item.is-claimed { border-color: var(--claimed-color); background-color: rgba(52, 199, 89, 0.1); }
         .reward-item.is-claimed .reward-level { background: var(--claimed-color); color: white; box-shadow: none; }
         .reward-item.is-claimed .reward-icon { color: var(--claimed-color); text-shadow: none;}
@@ -179,7 +176,6 @@
         .claimed-btn { background-color: var(--claimed-color); color: #fff; cursor: default; }
         .locked-btn { background-color: var(--locked-color); color: var(--text-secondary); cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 5px;}
 
-        /* --- Admin --- */
         .admin-controls { position: fixed; bottom: calc(60px + env(safe-area-inset-bottom) + 15px); left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 10px;}
         .admin-controls button {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-glow));
@@ -211,7 +207,6 @@
         }
         .create-reward-card:hover { border-color: var(--accent-purple); color: var(--accent-purple); box-shadow: 0 0 15px rgba(138, 43, 226, 0.5); transform: translateY(-5px); }
         
-        /* --- Footer & Modal --- */
         .app-footer { display: flex; justify-content: space-around; background-color: rgba(28, 26, 39, 0.8); backdrop-filter: blur(15px); border-top: 1px solid var(--border-color); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; }
         .footer-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-secondary); font-size: 11px; text-decoration: none; flex: 1; }
         .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
@@ -229,17 +224,27 @@
         .modal-form input, .modal-form select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent-glow); background-color: var(--background-main); color: var(--text-primary); font-size: 16px; box-shadow: inset 0 0 5px rgba(0, 255, 255, 0.2); }
         .modal-form input:focus, .modal-form select:focus { outline: none; border-color: var(--accent-purple); box-shadow: inset 0 0 8px rgba(138, 43, 226, 0.4); }
         .modal-form button[type="submit"] { background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple)); border: none; padding: 12px; border-radius: 10px; color: #000; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
+
+        /* --- ИЗМЕНЕНИЕ 2: Стили для загрузчика --- */
+        .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1500; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(0, 255, 255, 0.2); border-top-color: var(--accent-glow); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
     </style>
 </head>
-<body class="access-denied">
-    <div id="access-overlay" class="access-overlay">
+<body>
+    <div id="loader-overlay" class="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="access-overlay" class="access-overlay hidden">
         <i class="fa-solid fa-lock"></i>
         <h2>ДОСТУП ЗАБЛОКИРОВАН</h2>
         <p>Для входа требуется специальное разрешение. Пожалуйста, свяжитесь с администратором.</p>
         <a href="/menu" class="back-button">ВЕРНУТЬСЯ В МЕНЮ</a>
     </div>
 
-    <div class="container">
+    <div class="container" id="container">
         <div class="header">
             <h1 class="page-title">МАРАФОН "ЧЕКПОИНТ"</h1>
             <div class="user-stars-balance">
@@ -249,12 +254,12 @@
 
         <div id="reward-track" class="reward-track"></div>
 
-        <div id="admin-access-controls" class="admin-controls" style="display: none; bottom: calc(60px + env(safe-area-inset-bottom) + 60px);">
+        <div id="admin-access-controls" class="admin-controls hidden" style="bottom: calc(60px + env(safe-area-inset-bottom) + 60px);">
             <button id="grant-access-btn">Выдать доступ</button>
         </div>
-        <div id="admin-controls" class="admin-controls" style="display: none;">
+        <div id="admin-controls" class="admin-controls hidden">
             <button id="edit-btn">Редактировать</button>
-            <button id="save-btn" style="display:none;">Сохранить</button>
+            <button id="save-btn" class="hidden">Сохранить</button>
         </div>
     </div>
     
@@ -283,6 +288,7 @@
                     <select id="reward-type-input">
                         <option value="tickets">Билеты</option>
                         <option value="promocode">Промокод</option>
+                        <option value="cs2_skin">Скин CS2</option>
                         <option value="custom">Другое</option>
                     </select>
 
@@ -313,6 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalRewardIndex = null; 
 
     const dom = {
+        loaderOverlay: document.getElementById('loader-overlay'), // ✅
+        container: document.getElementById('container'), // ✅
         rewardTrack: document.getElementById('reward-track'),
         userStarsCount: document.getElementById('user-stars-count'),
         adminControls: document.getElementById('admin-controls'),
@@ -330,11 +338,6 @@ document.addEventListener('DOMContentLoaded', () => {
         accessOverlay: document.getElementById('access-overlay'),
         adminAccessControls: document.getElementById('admin-access-controls'),
         grantAccessBtn: document.getElementById('grant-access-btn'),
-    };
-
-    const unlockPage = () => {
-        document.body.classList.remove('access-denied');
-        if (dom.accessOverlay) dom.accessOverlay.style.display = 'none';
     };
 
     function renderPage() {
@@ -410,9 +413,12 @@ document.addEventListener('DOMContentLoaded', () => {
         modalElement.classList.add('hidden');
     }
 
+    // ✅ ИЗМЕНЕНИЕ 5: Полностью заменяем функцию initialize
     async function initialize() {
         if (!tg.initData) {
             console.warn("Telegram.WebApp.initData не найдено.");
+            dom.loaderOverlay.classList.add('hidden');
+            dom.accessOverlay.classList.remove('hidden');
             return;
         }
 
@@ -425,41 +431,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userRes.ok) throw new Error("Ошибка при загрузке данных пользователя.");
             userData = await userRes.json();
             
-            // --- НАЧАЛО ИСПРАВЛЕННОГО БЛОКА ---
             const isGloballyEnabled = userData.is_checkpoint_globally_enabled;
             const hasIndividualAccess = userData.has_checkpoint_access;
             const isAdmin = userData.is_admin;
 
-            // Новая, правильная логика доступа:
-            // 1. Админам можно всегда.
-            // 2. Если Чекпоинт включен глобально, можно всем.
-            // 3. Если Чекпоинт выключен глобально, можно только тем, у кого есть индивидуальный доступ.
             if (isAdmin || isGloballyEnabled || (!isGloballyEnabled && hasIndividualAccess)) {
-                unlockPage();
-            } else {
-                // Если ни одно из условий не выполнено, оставляем страницу заблокированной.
-                return; 
-            }
-            // --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
-            
-            if (!contentRes.ok) throw new Error("Ошибка при загрузке контента марафона.");
-            checkpointContent = await contentRes.json();
-            
-            renderPage();
+                if (!contentRes.ok) throw new Error("Ошибка при загрузке контента марафона.");
+                checkpointContent = await contentRes.json();
+                
+                renderPage();
+                dom.container.classList.add('visible'); // Показываем основной контент
 
-            if (userData.is_admin) {
-                dom.adminControls.style.display = 'flex';
-                dom.adminAccessControls.style.display = 'flex';
+                if (userData.is_admin) {
+                    dom.adminControls.classList.remove('hidden');
+                    dom.adminAccessControls.classList.remove('hidden');
+                }
+            } else {
+                dom.accessOverlay.classList.remove('hidden'); // Показываем экран блокировки
             }
 
         } catch (e) {
             console.error("Ошибка инициализации Чекпоинта:", e);
             tg.showAlert(e.message);
+            dom.accessOverlay.classList.remove('hidden'); // Показываем ошибку, если что-то пошло не так
+        } finally {
+            dom.loaderOverlay.classList.add('hidden'); // Убираем загрузчик в любом случае
         }
     }
 
     dom.editBtn.addEventListener('click', () => {
         document.body.classList.add('edit-mode');
+        dom.saveBtn.classList.remove('hidden');
+        dom.editBtn.classList.add('hidden');
         renderPage();
     });
 
@@ -478,6 +481,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(result.detail || "Ошибка сохранения");
             tg.showAlert('Марафон успешно сохранен!');
             document.body.classList.remove('edit-mode');
+            dom.saveBtn.classList.add('hidden');
+            dom.editBtn.classList.remove('hidden');
             renderPage();
         } catch(e) {
             tg.showAlert(e.message);
@@ -592,4 +597,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
