@@ -115,10 +115,6 @@ class AdminResetCooldownRequest(BaseModel):
     initData: str
     user_id_to_reset: int
 
-class AdminUpdateSettingsRequest(BaseModel):
-    initData: str
-    cooldown_hours: int
-
 # --- НОВЫЕ МОДЕЛИ ---
 class QuestCancelRequest(BaseModel):
     initData: str
@@ -2063,28 +2059,6 @@ async def check_challenge_progress(
         logging.error(f"Ошибка при вызове recalculate_single_challenge: {e}")
         return {"message": "Не удалось обновить прогресс."}
         
-# --- Админские эндпоинты ---
-@app.post("/api/v1/admin/settings/update")
-async def update_settings(
-    request_data: AdminUpdateSettingsRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-    
-    hours = request_data.cooldown_hours
-    if not (0 <= hours <= 168): # Ограничение от 0 до недели
-        raise HTTPException(status_code=400, detail="Кулдаун должен быть от 0 до 168 часов.")
-
-    await supabase.patch(
-        "/settings",
-        params={"key": "eq.challenge_cooldown_hours"},
-        json={"value": str(hours)}
-    )
-    return {"message": f"Кулдаун для челленджей установлен на {hours} часов."}
-
-
 @app.post("/api/v1/admin/challenges/reset-cooldown")
 async def reset_challenge_cooldown(
     request_data: AdminResetCooldownRequest,
