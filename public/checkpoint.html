@@ -39,7 +39,6 @@
         .title-container { display: flex; align-items: center; justify-content: center; gap: 10px; }
         .page-title { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; margin: 0; background: linear-gradient(90deg, var(--text-primary), var(--accent-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
         
-        /* Стили для новой кнопки "КАК ЗАРАБОТАТЬ?" */
         .how-to-earn-button {
             background: linear-gradient(90deg, var(--accent-glow) 0%, var(--accent-purple) 100%);
             color: #000;
@@ -121,7 +120,6 @@
 
         .modal-overlay, .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.8); z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 15px; backdrop-filter: blur(var(--backdrop-blur)); }
         
-        /* Исправленные стили для экрана доступа */
         .access-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -276,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let checkpointContent = { rewards: [] };
     let checkpointInfo = "";
     let userData = {};
-    let editingRewardIndex = null; // Изменено с originalRewardIndex на editingRewardIndex для ясности
+    let editingRewardIndex = null; 
 
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
@@ -300,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cs2SkinFields: document.getElementById('cs2-skin-fields'),
         totalQuantityInput: document.getElementById('reward-total-quantity-input'),
         claimedQuantityInput: document.getElementById('reward-claimed-quantity-input'),
-        howToEarnBtn: document.getElementById('how-to-earn-btn'), // Новая кнопка
+        howToEarnBtn: document.getElementById('how-to-earn-btn'),
         infoModal: document.getElementById('info-modal'),
         infoModalContent: document.getElementById('info-modal-content'),
         infoModalFooter: document.getElementById('info-modal-footer'),
@@ -315,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sortedRewards = [...(checkpointContent.rewards || [])].sort((a, b) => a.level - b.level);
 
-        sortedRewards.forEach((reward, index) => {
+        sortedRewards.forEach((reward) => {
             const userLevel = userData.checkpoint_level || 0;
             const userStars = userData.checkpoint_stars || 0;
 
@@ -328,7 +326,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isClaimed) item.classList.add('is-claimed');
             if (isClaimable) item.classList.add('is-claimable');
             if (isLocked) item.classList.add('is-locked');
-            item.style.animation = `fadeInUp 0.5s ${index * 0.05}s ease-out backwards`;
 
             let buttonHtml = '';
             let extraInfoHtml = '';
@@ -366,13 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const descriptionHtml = reward.description ? `<div class="reward-description">${reward.description}</div>` : '';
             
-            // Находим реальный индекс награды в checkpointContent.rewards для редактирования/удаления
-            // Это важно, так как sortedRewards может иметь другой порядок
-            const actualIndex = checkpointContent.rewards.findIndex(r => 
-                r.level === reward.level && 
-                r.title === reward.title && 
-                r.icon === reward.icon // Дополнительная проверка, чтобы быть уверенным в уникальности
-            );
+            const actualIndex = checkpointContent.rewards.findIndex(r => r === reward);
 
             const editOverlayHtml = `
                 <div class="edit-overlay">
@@ -404,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showRewardModal(rewardData, index) {
-        editingRewardIndex = index; // Сохраняем индекс редактируемой карточки
+        editingRewardIndex = index; 
         dom.rewardModal.querySelector('h3').textContent = index === null ? 'НОВАЯ НАГРАДА' : 'РЕДАКТИРОВАТЬ НАГРАДУ';
         
         dom.rewardLevelInput.value = rewardData ? rewardData.level : '';
@@ -446,8 +437,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function runLocalDevMode() {
         console.warn('--- РЕЖИМ ЛОКАЛЬНОЙ РАЗРАБОТКИ АКТИВИРОВАН ---');
-        console.warn('Данные пользователя и наград смоделированы. Сохранение на сервер не будет работать.');
-
         userData = {
             checkpoint_stars: 100,
             checkpoint_level: 2,
@@ -458,9 +447,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         checkpointContent = {
             rewards: [
-                {level: 1, title: "+50 Монет", description: "Тестовая награда 1", icon: "https://i.ibb.co/bFmdZg2/coin.png", type: "coins", value: "50"},
+                {level: 1, title: "+50 Монет", description: "Тестовая награда 1", icon: "https://i.ibb.co/bFmdZg2/coin.png", type: "coins", value: "50", total_quantity: null, claimed_quantity: null},
                 {level: 10, title: "AK-47 | Redline", description: "Тестовый скин", icon: "https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6YLfkjlRd6dd2j6eT8Nyl2VDl-0s6Mjv7I4SWJgE8ZFnS_FG2lenp05-6vM-bnhnizA9i5yPbgVXp1Q/360fx360f", type: "cs2_skin", value: "AK-47", total_quantity: 10, claimed_quantity: 3, last_claimer: { username: '@tester' }},
-                {level: 25, title: "x1 Ключ", description: "Тестовая награда 2", icon: "https://i.ibb.co/qY505r5/key.png", type: "keys", value: "1"}
+                {level: 25, title: "x1 Ключ", description: "Тестовая награда 2", icon: "https://i.ibb.co/qY505r5/key.png", type: "keys", value: "1", total_quantity: null, claimed_quantity: null}
             ]
         };
         
@@ -510,10 +499,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     dom.infoModalContent.innerHTML = getDefaultInfoText();
                 }
 
-                if (userData.is_admin) {
-                    dom.infoModalFooter.classList.remove('hidden');
-                }
-
+                if (userData.is_admin) dom.infoModalFooter.classList.remove('hidden');
+                
                 renderPage();
                 dom.container.classList.add('visible');
 
@@ -534,7 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    dom.howToEarnBtn.addEventListener('click', () => dom.infoModal.classList.remove('hidden')); // Привязка к новой кнопке
+    dom.howToEarnBtn.addEventListener('click', () => dom.infoModal.classList.remove('hidden'));
     
     dom.editInfoBtn.addEventListener('click', () => {
         dom.infoModalContent.setAttribute('contenteditable', 'true');
@@ -568,9 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    dom.rewardTypeInput.addEventListener('change', (e) => {
-        toggleSkinFields(e.target.value);
-    });
+    dom.rewardTypeInput.addEventListener('change', (e) => toggleSkinFields(e.target.value));
 
     dom.rewardModalForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -583,20 +568,24 @@ document.addEventListener('DOMContentLoaded', () => {
             value: dom.rewardValueInput.value,
         };
         
+        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+        // Добавляем поля количества ко всем типам наград, чтобы пройти валидацию на сервере
         if (updatedReward.type === 'cs2_skin') {
             updatedReward.total_quantity = parseInt(dom.totalQuantityInput.value) || 0;
             updatedReward.claimed_quantity = parseInt(dom.claimedQuantityInput.value) || 0;
+        } else {
+            // Для всех остальных типов (монеты, ключи и т.д.) добавляем `null`
+            updatedReward.total_quantity = null;
+            updatedReward.claimed_quantity = null;
         }
 
         if (editingRewardIndex !== null) {
-            // Обновляем существующую награду
             checkpointContent.rewards[editingRewardIndex] = updatedReward;
         } else {
-            // Добавляем новую награду
             checkpointContent.rewards.push(updatedReward);
         }
         dom.rewardModal.classList.add('hidden');
-        renderPage(); // Перерисовываем страницу, чтобы изменения отобразились
+        renderPage(); 
     });
 
     dom.editBtn.addEventListener('click', () => {
@@ -614,7 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     initData: tg.initData,
-                    content: checkpointContent // Отправляем обновленный checkpointContent
+                    content: checkpointContent 
                 })
             });
             const result = await response.json();
@@ -639,17 +628,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Исправленная логика обработки нажатий в режиме редактирования
         if (document.body.classList.contains('edit-mode')) {
             const createCard = target.closest('.create-reward-card');
             if (createCard) {
-                showRewardModal(null, null); // Для создания новой карточки index = null
+                showRewardModal(null, null);
                 return; 
             }
             
             const editBtn = target.closest('.card-edit-btn');
             if (editBtn) {
-                const actualIndex = parseInt(editBtn.dataset.actualIndex); // Используем data-actual-index
+                const actualIndex = parseInt(editBtn.dataset.actualIndex);
                 if (!isNaN(actualIndex) && checkpointContent.rewards[actualIndex]) {
                     showRewardModal(checkpointContent.rewards[actualIndex], actualIndex);
                 }
@@ -660,10 +648,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (deleteBtn) {
                 tg.showConfirm('Удалить эту награду?', (ok) => {
                     if (ok) {
-                        const actualIndex = parseInt(deleteBtn.dataset.actualIndex); // Используем data-actual-index
+                        const actualIndex = parseInt(deleteBtn.dataset.actualIndex);
                          if (!isNaN(actualIndex) && checkpointContent.rewards[actualIndex]) {
                             checkpointContent.rewards.splice(actualIndex, 1);
-                            renderPage(); // Перерисовываем после удаления
+                            renderPage();
                         }
                     }
                 });
@@ -671,7 +659,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } 
         
-        // Логика для обычного режима
         const claimBtn = target.closest('.claim-btn');
         if (claimBtn && !claimBtn.disabled) {
             const levelToClaim = parseInt(claimBtn.dataset.level);
@@ -693,7 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
                 userData = await userRes.json();
                 
-                // Обновляем данные о скинах, если они изменились
                 if (result.updated_reward) {
                     const rewardIndex = checkpointContent.rewards.findIndex(r => r.level === result.updated_reward.level);
                     if (rewardIndex !== -1) {
