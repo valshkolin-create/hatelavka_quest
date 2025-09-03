@@ -83,7 +83,7 @@
             transition: opacity 0.3s; 
             pointer-events: none; 
         }
-        .edit-mode-active .reward-item:hover .edit-overlay { 
+        .edit-mode .reward-item:hover .edit-overlay { 
             opacity: 1; 
             pointer-events: all; 
         }
@@ -100,7 +100,27 @@
         
         .hidden { display: none !important; }
 
-        .modal-overlay, .loader-overlay, .access-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.8); z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 15px; backdrop-filter: blur(var(--backdrop-blur)); }
+        .modal-overlay, .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.8); z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 15px; backdrop-filter: blur(var(--backdrop-blur)); }
+        
+        /* Исправленные стили для экрана доступа */
+        .access-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 20px; color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+        }
+        .access-overlay i { font-size: 56px; margin-bottom: 20px; color: var(--accent-glow); text-shadow: 0 0 15px var(--accent-glow); }
+        .access-overlay h2 { font-family: 'Orbitron', sans-serif; font-size: 28px; margin: 0 0 10px; color: var(--accent-glow); text-shadow: 0 0 10px var(--accent-glow); }
+        .access-overlay p { font-size: 16px; color: var(--text-secondary); max-width: 350px; margin-bottom: 30px; line-height: 1.5; }
+        .back-button {
+            padding: 12px 30px; background: linear-gradient(90deg, var(--accent-glow) 0%, var(--accent-purple) 100%);
+            color: #000; text-decoration: none; border-radius: 25px; font-weight: 700;
+            font-family: 'Orbitron', sans-serif; transition: all 0.3s ease; box-shadow: 0 0 15px var(--accent-glow);
+        }
+        .back-button:hover { box-shadow: 0 0 25px var(--accent-glow); transform: translateY(-2px); }
+
+
         .modal-content { background-color: var(--surface-secondary); border: 1px solid var(--accent-purple); padding: 0; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column; max-height: 85vh; }
         .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
         .modal-header h3 { margin: 0; color: var(--accent-glow); font-family: 'Orbitron', sans-serif; }
@@ -328,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const descriptionHtml = reward.description ? `<div class="reward-description">${reward.description}</div>` : '';
             const originalIndex = checkpointContent.rewards.findIndex(r => r.level === reward.level && r.title === reward.title);
 
+            // ВАЖНО: раньше здесь был класс edit-mode-active, который не устанавливался. Убрал его.
             const editOverlayHtml = `
                 <div class="edit-overlay">
                     <button class="card-btn card-edit-btn" data-original-index="${originalIndex}"><i class="fa-solid fa-pencil"></i></button>
@@ -432,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initialize() {
-        if (!tg.initData) {
+        if (!tg.initData || !tg.initDataUnsafe?.user) {
             runLocalDevMode();
             dom.loaderOverlay.classList.add('hidden');
             return;
@@ -590,54 +611,74 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.add('hidden');
             return;
         }
-
+        
+        // Исправленная логика обработки нажатий в режиме редактирования
         if (document.body.classList.contains('edit-mode')) {
-            if (target.closest('.create-reward-card')) {
+            const createCard = target.closest('.create-reward-card');
+            if (createCard) {
                 showRewardModal(null, null);
+                return; // Выходим, чтобы не было других срабатываний
             }
+            
             const editBtn = target.closest('.card-edit-btn');
             if (editBtn) {
                 const index = parseInt(editBtn.dataset.originalIndex);
-                showRewardModal(checkpointContent.rewards[index], index);
+                if (!isNaN(index) && checkpointContent.rewards[index]) {
+                    showRewardModal(checkpointContent.rewards[index], index);
+                }
+                return;
             }
+
             const deleteBtn = target.closest('.card-delete-btn');
             if (deleteBtn) {
                 tg.showConfirm('Удалить эту награду?', (ok) => {
                     if (ok) {
                         const index = parseInt(deleteBtn.dataset.originalIndex);
-                        checkpointContent.rewards.splice(index, 1);
-                        renderPage();
+                         if (!isNaN(index) && checkpointContent.rewards[index]) {
+                            checkpointContent.rewards.splice(index, 1);
+                            renderPage();
+                        }
                     }
                 });
+                return;
             }
-        } else {
-            const claimBtn = target.closest('.claim-btn');
-            if (claimBtn && !claimBtn.disabled) {
-                const levelToClaim = parseInt(claimBtn.dataset.level);
-                claimBtn.disabled = true;
-                claimBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        } 
+        
+        // Логика для обычного режима
+        const claimBtn = target.closest('.claim-btn');
+        if (claimBtn && !claimBtn.disabled) {
+            const levelToClaim = parseInt(claimBtn.dataset.level);
+            claimBtn.disabled = true;
+            claimBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
-                try {
-                    const response = await fetch('/api/v1/checkpoint/claim', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: tg.initData, level: levelToClaim })
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.detail || 'Не удалось забрать награду.');
+            try {
+                const response = await fetch('/api/v1/checkpoint/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, level: levelToClaim })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Не удалось забрать награду.');
 
-                    userData.checkpoint_level = result.new_level;
-                    tg.showAlert('Награда успешно получена!');
-                    
-                    const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
-                    userData = await userRes.json();
-                    
-                    renderPage();
-                } catch (error) {
-                    tg.showAlert(error.message);
-                    claimBtn.disabled = false;
-                    claimBtn.innerHTML = `Забрать за ${levelToClaim} <i class="fa-solid fa-star"></i>`;
+                userData.checkpoint_level = result.new_level;
+                tg.showAlert('Награда успешно получена!');
+                
+                const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
+                userData = await userRes.json();
+                
+                // Обновляем данные о скинах, если они изменились
+                if (result.updated_reward) {
+                    const rewardIndex = checkpointContent.rewards.findIndex(r => r.level === result.updated_reward.level);
+                    if (rewardIndex !== -1) {
+                        checkpointContent.rewards[rewardIndex] = { ...checkpointContent.rewards[rewardIndex], ...result.updated_reward };
+                    }
                 }
+
+                renderPage();
+            } catch (error) {
+                tg.showAlert(error.message);
+                claimBtn.disabled = false;
+                claimBtn.innerHTML = `Забрать за ${levelToClaim} <i class="fa-solid fa-star"></i>`;
             }
         }
     });
