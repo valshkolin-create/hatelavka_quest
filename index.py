@@ -154,7 +154,8 @@ class AdminSettings(BaseModel):
     quest_promocodes_enabled: bool = True
     challenges_enabled: bool = True
     quests_enabled: bool = True
-
+    checkpoint_enabled: bool = False
+    
 class AdminSettingsUpdateRequest(BaseModel):
     initData: str
     settings: AdminSettings
@@ -367,13 +368,13 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
         resp.raise_for_status()
         data = resp.json()
         if data and data[0].get('value'):
-            # Убедимся, что все поля присутствуют, иначе используем значения по умолчанию
             settings_data = data[0]['value']
             return AdminSettings(
                 challenge_promocodes_enabled=settings_data.get('challenge_promocodes_enabled', True),
                 quest_promocodes_enabled=settings_data.get('quest_promocodes_enabled', True),
                 challenges_enabled=settings_data.get('challenges_enabled', True),
-                quests_enabled=settings_data.get('quests_enabled', True)
+                quests_enabled=settings_data.get('quests_enabled', True),
+                checkpoint_enabled=settings_data.get('checkpoint_enabled', False) # ✅ ДОБАВЬ ЭТУ СТРОКУ
             )
     except Exception as e:
         logging.error(f"Не удалось получить admin_settings, используются значения по умолчанию: {e}")
@@ -875,6 +876,8 @@ async def get_current_user_data(
         final_response = data.get('profile', {})
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
+        admin_settings = await get_admin_settings_async(supabase)
+        final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
         
         return JSONResponse(content=final_response)
 
