@@ -38,7 +38,26 @@
         .header { text-align: center; margin-bottom: 30px; }
         .title-container { display: flex; align-items: center; justify-content: center; gap: 10px; }
         .page-title { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; margin: 0; background: linear-gradient(90deg, var(--text-primary), var(--accent-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
-        .info-button { background: none; border: none; color: var(--accent-glow); font-size: 22px; cursor: pointer; padding: 5px; }
+        
+        /* Стили для новой кнопки "КАК ЗАРАБОТАТЬ?" */
+        .how-to-earn-button {
+            background: linear-gradient(90deg, var(--accent-glow) 0%, var(--accent-purple) 100%);
+            color: #000;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        .how-to-earn-button:hover {
+            box-shadow: 0 4px 20px rgba(0, 229, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
         .user-stars-balance { margin-top: 15px; font-size: 20px; font-weight: 700; color: var(--accent-gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.6); display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--surface-primary); padding: 8px 18px; border-radius: 30px; border: 1px solid var(--border-color); display: inline-flex; }
         .user-stars-balance i { font-size: 22px; }
         
@@ -164,8 +183,8 @@
         <div class="header">
             <div class="title-container">
                 <h1 class="page-title">ЧЕКПОИНТ</h1>
-                <button id="info-btn" class="info-button"><i class="fa-solid fa-circle-question"></i></button>
             </div>
+            <button id="how-to-earn-btn" class="how-to-earn-button">КАК ЗАРАБОТАТЬ?</button>
             <div class="user-stars-balance"> <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span> </div>
         </div>
         <div id="reward-track" class="reward-track"></div>
@@ -257,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let checkpointContent = { rewards: [] };
     let checkpointInfo = "";
     let userData = {};
-    let originalRewardIndex = null; 
+    let editingRewardIndex = null; // Изменено с originalRewardIndex на editingRewardIndex для ясности
 
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
@@ -281,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cs2SkinFields: document.getElementById('cs2-skin-fields'),
         totalQuantityInput: document.getElementById('reward-total-quantity-input'),
         claimedQuantityInput: document.getElementById('reward-claimed-quantity-input'),
-        infoBtn: document.getElementById('info-btn'),
+        howToEarnBtn: document.getElementById('how-to-earn-btn'), // Новая кнопка
         infoModal: document.getElementById('info-modal'),
         infoModalContent: document.getElementById('info-modal-content'),
         infoModalFooter: document.getElementById('info-modal-footer'),
@@ -346,13 +365,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const descriptionHtml = reward.description ? `<div class="reward-description">${reward.description}</div>` : '';
-            const originalIndex = checkpointContent.rewards.findIndex(r => r.level === reward.level && r.title === reward.title);
+            
+            // Находим реальный индекс награды в checkpointContent.rewards для редактирования/удаления
+            // Это важно, так как sortedRewards может иметь другой порядок
+            const actualIndex = checkpointContent.rewards.findIndex(r => 
+                r.level === reward.level && 
+                r.title === reward.title && 
+                r.icon === reward.icon // Дополнительная проверка, чтобы быть уверенным в уникальности
+            );
 
-            // ВАЖНО: раньше здесь был класс edit-mode-active, который не устанавливался. Убрал его.
             const editOverlayHtml = `
                 <div class="edit-overlay">
-                    <button class="card-btn card-edit-btn" data-original-index="${originalIndex}"><i class="fa-solid fa-pencil"></i></button>
-                    <button class="card-btn card-delete-btn" data-original-index="${originalIndex}"><i class="fa-solid fa-trash"></i></button>
+                    <button class="card-btn card-edit-btn" data-actual-index="${actualIndex}"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="card-btn card-delete-btn" data-actual-index="${actualIndex}"><i class="fa-solid fa-trash"></i></button>
                 </div>`;
 
             item.innerHTML = `
@@ -379,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showRewardModal(rewardData, index) {
-        originalRewardIndex = index;
+        editingRewardIndex = index; // Сохраняем индекс редактируемой карточки
         dom.rewardModal.querySelector('h3').textContent = index === null ? 'НОВАЯ НАГРАДА' : 'РЕДАКТИРОВАТЬ НАГРАДУ';
         
         dom.rewardLevelInput.value = rewardData ? rewardData.level : '';
@@ -509,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    dom.infoBtn.addEventListener('click', () => dom.infoModal.classList.remove('hidden'));
+    dom.howToEarnBtn.addEventListener('click', () => dom.infoModal.classList.remove('hidden')); // Привязка к новой кнопке
     
     dom.editInfoBtn.addEventListener('click', () => {
         dom.infoModalContent.setAttribute('contenteditable', 'true');
@@ -563,13 +588,15 @@ document.addEventListener('DOMContentLoaded', () => {
             updatedReward.claimed_quantity = parseInt(dom.claimedQuantityInput.value) || 0;
         }
 
-        if (originalRewardIndex !== null) {
-            checkpointContent.rewards[originalRewardIndex] = updatedReward;
+        if (editingRewardIndex !== null) {
+            // Обновляем существующую награду
+            checkpointContent.rewards[editingRewardIndex] = updatedReward;
         } else {
+            // Добавляем новую награду
             checkpointContent.rewards.push(updatedReward);
         }
         dom.rewardModal.classList.add('hidden');
-        renderPage();
+        renderPage(); // Перерисовываем страницу, чтобы изменения отобразились
     });
 
     dom.editBtn.addEventListener('click', () => {
@@ -587,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     initData: tg.initData,
-                    content: checkpointContent
+                    content: checkpointContent // Отправляем обновленный checkpointContent
                 })
             });
             const result = await response.json();
@@ -616,15 +643,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.body.classList.contains('edit-mode')) {
             const createCard = target.closest('.create-reward-card');
             if (createCard) {
-                showRewardModal(null, null);
-                return; // Выходим, чтобы не было других срабатываний
+                showRewardModal(null, null); // Для создания новой карточки index = null
+                return; 
             }
             
             const editBtn = target.closest('.card-edit-btn');
             if (editBtn) {
-                const index = parseInt(editBtn.dataset.originalIndex);
-                if (!isNaN(index) && checkpointContent.rewards[index]) {
-                    showRewardModal(checkpointContent.rewards[index], index);
+                const actualIndex = parseInt(editBtn.dataset.actualIndex); // Используем data-actual-index
+                if (!isNaN(actualIndex) && checkpointContent.rewards[actualIndex]) {
+                    showRewardModal(checkpointContent.rewards[actualIndex], actualIndex);
                 }
                 return;
             }
@@ -633,10 +660,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (deleteBtn) {
                 tg.showConfirm('Удалить эту награду?', (ok) => {
                     if (ok) {
-                        const index = parseInt(deleteBtn.dataset.originalIndex);
-                         if (!isNaN(index) && checkpointContent.rewards[index]) {
-                            checkpointContent.rewards.splice(index, 1);
-                            renderPage();
+                        const actualIndex = parseInt(deleteBtn.dataset.actualIndex); // Используем data-actual-index
+                         if (!isNaN(actualIndex) && checkpointContent.rewards[actualIndex]) {
+                            checkpointContent.rewards.splice(actualIndex, 1);
+                            renderPage(); // Перерисовываем после удаления
                         }
                     }
                 });
