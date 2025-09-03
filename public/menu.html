@@ -988,11 +988,19 @@
                         const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
                         
                         if (result.success) {
-                            showRewardClaimedModal(); 
-                            dom.rewardCloseBtn.onclick = async () => {
-                                hideRewardClaimedModal();
+                            // Проверяем, пришёл ли в ответе сам промокод
+                            if (result.promocode) {
+                                // Если ДА, то показываем модальное окно с кнопкой "Профиль"
+                                showRewardClaimedModal(); 
+                                dom.rewardCloseBtn.onclick = async () => {
+                                    hideRewardClaimedModal();
+                                    await main();
+                                };
+                            } else {
+                                // Если НЕТ (награды отключены), просто перезагружаем главный экран,
+                                // так как сообщение "Награды отключены" уже было показано
                                 await main();
-                            };
+                            }
                         } else {
                             Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
                         }
@@ -1001,6 +1009,8 @@
                         target.disabled = false;
                         target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
                     }
+                
+                }
                 
                 } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
                     const questId = target.dataset.questId;
