@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initialize() {
-        if (!tg.initData || !tg.initDataUnsafe?.user) {
+        if (!tg.initData) {
             runLocalDevMode();
             dom.loaderOverlay.classList.add('hidden');
             return;
