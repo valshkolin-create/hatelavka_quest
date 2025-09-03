@@ -236,6 +236,12 @@
                         <label class="toggle-switch">
                             <input type="checkbox" id="setting-challenges-enabled">
                             <span class="toggle-slider"></span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Система Чекпоинта</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-checkpoint-enabled">
+                            <span class="toggle-slider"></span>
                         </label>
                     </div>
                 </div>
@@ -573,6 +579,7 @@
             settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
             settingChallengeRewardsEnabled: document.getElementById('setting-challenge-rewards-enabled'),
             resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
+            settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'), // ✅ ДОБАВЬ ЭТУ СТРОКУ
         };
 
         let categoriesCache = [];
@@ -819,6 +826,7 @@
                  dom.settingChallengesEnabled.checked = settings.challenges_enabled;
                  dom.settingQuestRewardsEnabled.checked = settings.quest_promocodes_enabled;
                  dom.settingChallengeRewardsEnabled.checked = settings.challenge_promocodes_enabled;
+                 dom.settingCheckpointEnabled.checked = settings.checkpoint_enabled;
             } catch (e) {
                  console.error("Не удалось загрузить настройки:", e);
                  tg.showAlert("Не удалось загрузить настройки.");
@@ -968,7 +976,8 @@
 
             const settingsToggles = [
                 dom.settingQuestsEnabled, dom.settingChallengesEnabled, 
-                dom.settingQuestRewardsEnabled, dom.settingChallengeRewardsEnabled
+                dom.settingQuestRewardsEnabled, dom.settingChallengeRewardsEnabled,
+                dom.settingCheckpointEnabled // ✅ ДОБАВЬ ЭЛЕМЕНТ В СПИСОК
             ];
             settingsToggles.forEach(toggle => {
                 toggle.addEventListener('change', async () => {
@@ -976,7 +985,8 @@
                         quests_enabled: dom.settingQuestsEnabled.checked,
                         challenges_enabled: dom.settingChallengesEnabled.checked,
                         quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
-                        challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked
+                        challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked,
+                        checkpoint_enabled: dom.settingCheckpointEnabled.checked // ✅ ДОБАВЬ ЭТУ СТРОКУ
                     };
                     await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
                     tg.showAlert('Настройки сохранены!');
