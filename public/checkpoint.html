@@ -430,10 +430,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasIndividualAccess = userData.has_checkpoint_access;
             const isAdmin = userData.is_admin;
 
-            // Пускаем, если:
-            // 1. Пользователь - админ (им можно всегда).
-            // 2. ИЛИ система глобально включена И у пользователя есть индивидуальный доступ.
-            if (isAdmin || (isGloballyEnabled && hasIndividualAccess)) {
+            // Новая, правильная логика доступа:
+            // 1. Админам можно всегда.
+            // 2. Если Чекпоинт включен глобально, можно всем.
+            // 3. Если Чекпоинт выключен глобально, можно только тем, у кого есть индивидуальный доступ.
+            if (isAdmin || isGloballyEnabled || (!isGloballyEnabled && hasIndividualAccess)) {
                 unlockPage();
             } else {
                 // Если ни одно из условий не выполнено, оставляем страницу заблокированной.
