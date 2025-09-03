@@ -27,480 +27,114 @@
             --backdrop-blur: 12px;
         }
 
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-        }
-
-        body { 
-            font-family: 'Montserrat', sans-serif; 
-            background: linear-gradient(135deg, var(--background-start), var(--background-end)); 
-            color: var(--text-primary); 
-            margin: 0; 
-            padding: 20px 10px 120px; 
-            overflow-x: hidden; 
-            position: relative; 
-        }
-
-        body::before { 
-            content: ''; 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 200%; 
-            height: 200%; 
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px); 
-            background-size: 25px 25px; 
-            pointer-events: none; 
-            z-index: -1; 
-            opacity: 0.5; 
-            animation: cosmicDust 40s linear infinite; 
-        }
-
-        @keyframes cosmicDust { 
-            from { transform: translate(0, 0); } 
-            to { transform: translate(-50%, -50%); } 
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Montserrat', sans-serif; background: linear-gradient(135deg, var(--background-start), var(--background-end)); color: var(--text-primary); margin: 0; padding: 20px 10px 120px; overflow-x: hidden; position: relative; }
+        body::before { content: ''; position: fixed; top: 0; left: 0; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px); background-size: 25px 25px; pointer-events: none; z-index: -1; opacity: 0.5; animation: cosmicDust 40s linear infinite; }
+        @keyframes cosmicDust { from { transform: translate(0, 0); } to { transform: translate(-50%, -50%); } }
         
-        .container { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            opacity: 0; 
-            transform: translateY(20px); 
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out; 
-        }
-
-        .container.visible { 
-            opacity: 1; 
-            transform: translateY(0); 
-        }
+        .container { max-width: 800px; margin: 0 auto; opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+        .container.visible { opacity: 1; transform: translateY(0); }
         
-        .header { 
-            text-align: center; 
-            margin-bottom: 30px; 
-        }
-
-        .page-title { 
-            font-family: 'Orbitron', sans-serif; 
-            font-size: 28px; 
-            font-weight: 900; 
-            margin: 0 0 15px; 
-            background: linear-gradient(90deg, var(--text-primary), var(--accent-gold)); 
-            -webkit-background-clip: text; 
-            -webkit-text-fill-color: transparent; 
-            text-shadow: 0 0 15px rgba(255, 215, 0, 0.3); 
-        }
-
-        .user-stars-balance { 
-            font-size: 20px; 
-            font-weight: 700; 
-            color: var(--accent-gold); 
-            text-shadow: 0 0 10px rgba(255, 215, 0, 0.6); 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 10px; 
-            background: var(--surface-primary); 
-            padding: 8px 18px; 
-            border-radius: 30px; 
-            border: 1px solid var(--border-color); 
-            display: inline-flex; 
-        }
-
-        .user-stars-balance i { 
-            font-size: 22px; 
-        }
+        .header { text-align: center; margin-bottom: 30px; }
+        .title-container { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .page-title { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; margin: 0; background: linear-gradient(90deg, var(--text-primary), var(--accent-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+        .info-button { background: none; border: none; color: var(--accent-glow); font-size: 22px; cursor: pointer; padding: 5px; }
+        .user-stars-balance { margin-top: 15px; font-size: 20px; font-weight: 700; color: var(--accent-gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.6); display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--surface-primary); padding: 8px 18px; border-radius: 30px; border: 1px solid var(--border-color); display: inline-flex; }
+        .user-stars-balance i { font-size: 22px; }
         
-        .reward-track {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
+        .reward-track { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
         
-        .reward-item {
-            background: linear-gradient(145deg, var(--surface-secondary), var(--surface-primary));
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            display: flex; 
-            flex-direction: column;
-            position: relative;
-            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
+        .reward-item { background: linear-gradient(145deg, var(--surface-secondary), var(--surface-primary)); border: 1px solid var(--border-color); border-radius: 16px; display: flex; flex-direction: column; position: relative; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .reward-level { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700; background: linear-gradient(45deg, var(--accent-purple), var(--accent-glow)); color: #000; padding: 5px 15px; border-radius: 20px; position: absolute; top: 10px; left: 10px; z-index: 3; box-shadow: 0 4px 12px rgba(0,0,0, 0.4); }
+        .reward-image-container { width: 100%; height: 130px; background-color: rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .reward-image { width: 100%; height: 100%; object-fit: contain; transition: transform 0.3s ease; }
+        .reward-item:hover .reward-image { transform: scale(1.05); }
 
-        .reward-level {
-            font-family: 'Orbitron', sans-serif; 
-            font-size: 14px; 
-            font-weight: 700;
-            background: linear-gradient(45deg, var(--accent-purple), var(--accent-glow));
-            color: #000; 
-            padding: 5px 15px; 
-            border-radius: 20px;
-            position: absolute; 
-            top: 10px; 
-            left: 10px;
+        .reward-content { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; text-align: center; }
+        .reward-details { flex-grow: 1; margin-bottom: 15px; }
+        .reward-title { font-size: 16px; font-weight: 700; margin: 0 0 5px; color: var(--text-primary); }
+        .reward-description { font-size: 12px; color: var(--text-secondary); margin: 0; }
+        
+        .action-button { width: 100%; border: none; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; text-align: center; transition: all 0.3s ease; font-family: 'Montserrat', sans-serif; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin-top: auto; flex-shrink: 0; }
+        
+        .reward-item.is-claimed { border-color: var(--claimed-color); }
+        .reward-item.is-claimed .reward-level { background: var(--claimed-color); color: white; box-shadow: none; }
+        .reward-item.is-claimable { border-color: var(--accent-gold); box-shadow: 0 0 25px rgba(255, 215, 0, 0.4); animation: pulseGold 2s infinite alternate; }
+        @keyframes pulseGold { from { box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); } to { box-shadow: 0 0 30px rgba(255, 215, 0, 0.6); } }
+        .reward-item.is-locked { opacity: 0.7; }
+        .reward-item.is-locked .reward-image-container { filter: grayscale(80%); }
+        .claim-btn { background: linear-gradient(90deg, var(--accent-gold) 0%, #ffc107 100%); color: #000; box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
+        .claimed-btn { background-color: var(--claimed-color); color: #fff; cursor: default; }
+        .locked-btn { background-color: var(--locked-color); color: var(--text-secondary); cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 8px;}
+        .locked-btn i { color: var(--accent-gold); }
+        
+        .admin-controls-wrapper { position: fixed; bottom: calc(env(safe-area-inset-bottom) + 80px); left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
+        .admin-controls { display: flex; gap: 10px; pointer-events: all; }
+        .admin-controls button { background: linear-gradient(90deg, var(--accent-purple), var(--accent-glow)); color: white; padding: 10px 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        
+        .edit-overlay { 
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
+            background: rgba(0,0,0,0.7); 
+            border-radius: 16px; 
+            display: flex; gap: 10px; 
+            justify-content: center; align-items: center;
             z-index: 2;
-            box-shadow: 0 4px 12px rgba(0,0,0, 0.4);
-        }
-
-        .reward-image-container {
-            width: 100%;
-            height: 130px;
-            background-color: rgba(0,0,0,0.25);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .reward-image {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            transition: transform 0.3s ease;
-        }
-
-        .reward-item:hover .reward-image {
-            transform: scale(1.05);
-        }
-
-        .reward-content {
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
-            text-align: center;
-        }
-        
-        .reward-details {
-            flex-grow: 1;
-            margin-bottom: 15px;
-        }
-
-        .reward-title { 
-            font-size: 16px; 
-            font-weight: 700; 
-            margin: 0 0 5px; 
-            color: var(--text-primary); 
-        }
-
-        .reward-description { 
-            font-size: 12px; 
-            color: var(--text-secondary); 
-            margin: 0; 
-        }
-        
-        .action-button { 
-            width: 100%; 
-            border: none; 
-            padding: 12px; 
-            border-radius: 10px; 
-            font-weight: 700; 
-            cursor: pointer; 
-            text-align: center; 
-            transition: all 0.3s ease; 
-            font-family: 'Montserrat', sans-serif; 
-            text-transform: uppercase; 
-            font-size: 14px; 
-            letter-spacing: 0.5px; 
-            margin-top: auto; 
-            flex-shrink: 0; 
-        }
-        
-        .reward-item.is-claimed { 
-            border-color: var(--claimed-color); 
-        }
-
-        .reward-item.is-claimed .reward-level { 
-            background: var(--claimed-color); 
-            color: white; 
-            box-shadow: none; 
-        }
-        
-        .reward-item.is-claimable { 
-            border-color: var(--accent-gold); 
-            box-shadow: 0 0 25px rgba(255, 215, 0, 0.4); 
-            animation: pulseGold 2s infinite alternate; 
-        }
-
-        @keyframes pulseGold { 
-            from { box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); } 
-            to { box-shadow: 0 0 30px rgba(255, 215, 0, 0.6); } 
-        }
-
-        .reward-item.is-locked { 
-            opacity: 0.7; 
-        }
-
-        .reward-item.is-locked .reward-image-container { 
-            filter: grayscale(80%); 
-        }
-
-        .claim-btn { 
-            background: linear-gradient(90deg, var(--accent-gold) 0%, #ffc107 100%); 
-            color: #000; 
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); 
-        }
-
-        .claimed-btn { 
-            background-color: var(--claimed-color); 
-            color: #fff; 
-            cursor: default; 
-        }
-
-        .locked-btn { 
-            background-color: var(--locked-color); 
-            color: var(--text-secondary); 
-            cursor: not-allowed; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 8px;
-        }
-
-        .locked-btn i { 
-            color: var(--accent-gold); 
-        }
-        
-        .admin-controls-wrapper { 
-            position: fixed; 
-            bottom: calc(env(safe-area-inset-bottom) + 80px); 
-            left: 50%; 
-            transform: translateX(-50%); 
-            z-index: 1000; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            gap: 10px; 
+            opacity: 0; 
+            transition: opacity 0.3s; 
             pointer-events: none; 
         }
-
-        .admin-controls { 
-            display: flex; 
-            gap: 10px; 
+        .edit-mode-active .reward-item:hover .edit-overlay { 
+            opacity: 1; 
             pointer-events: all; 
         }
-
-        .admin-controls button { 
-            background: linear-gradient(90deg, var(--accent-purple), var(--accent-glow)); 
-            color: white; 
-            padding: 10px 20px; 
-            border-radius: 20px; 
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); 
-            border: none; 
-            font-size: 14px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            transition: all 0.2s ease; 
-        }
+        .card-btn { border: none; border-radius: 50%; width: 40px; height: 40px; color: white; font-size: 16px; cursor: pointer; transition: transform 0.2s ease; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+        .card-btn:hover { transform: scale(1.1); }
+        .card-edit-btn { background-color: #007aff; }
+        .card-delete-btn { background-color: var(--danger-color); }
         
-        .create-reward-card { 
-            border: 2px dashed var(--accent-purple); 
-            justify-content: center; 
-            align-items: center;
-            cursor: pointer; 
-            background: rgba(154, 119, 255, 0.05); 
-            color: var(--accent-purple); 
-            min-height: 280px; 
-            text-shadow: 0 0 5px var(--accent-purple); 
-            box-shadow: 0 0 15px rgba(154, 119, 255, 0.3); 
-            transition: all 0.3s ease; 
-        }
+        .create-reward-card { border: 2px dashed var(--accent-purple); justify-content: center; align-items: center; cursor: pointer; background: rgba(154, 119, 255, 0.05); color: var(--accent-purple); min-height: 280px; text-shadow: 0 0 5px var(--accent-purple); box-shadow: 0 0 15px rgba(154, 119, 255, 0.3); transition: all 0.3s ease; }
+        .app-footer { display: flex; justify-content: space-around; background-color: rgba(20, 18, 35, 0.8); backdrop-filter: blur(var(--backdrop-blur)); border-top: 1px solid var(--border-color); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; }
+        .footer-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-secondary); font-size: 11px; text-decoration: none; flex: 1; }
+        .footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
+        .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-glow); font-weight: 600; text-shadow: 0 0 5px var(--accent-glow); }
+        
+        .hidden { display: none !important; }
 
-        .app-footer { 
-            display: flex; 
-            justify-content: space-around; 
-            background-color: rgba(20, 18, 35, 0.8); 
-            backdrop-filter: blur(var(--backdrop-blur)); 
-            border-top: 1px solid var(--border-color); 
-            width: 100%; 
-            padding-top: 8px; 
-            padding-bottom: calc(8px + env(safe-area-inset-bottom)); 
-            position: fixed; 
-            bottom: 0; 
-            left: 0; 
-            z-index: 100; 
-        }
+        .modal-overlay, .loader-overlay, .access-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.8); z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 15px; backdrop-filter: blur(var(--backdrop-blur)); }
+        .modal-content { background-color: var(--surface-secondary); border: 1px solid var(--accent-purple); padding: 0; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column; max-height: 85vh; }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; color: var(--accent-glow); font-family: 'Orbitron', sans-serif; }
+        .modal-close-btn { background: none; border: none; color: var(--text-secondary); font-size: 24px; cursor: pointer; }
+        .modal-body { overflow-y: auto; padding: 20px; }
+        .modal-form { display: flex; flex-direction: column; gap: 15px; }
+        .modal-form label { font-size: 14px; color: var(--text-secondary); margin-bottom: -10px; }
+        .modal-form input, .modal-form select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent-purple); background-color: var(--background-start); color: var(--text-primary); font-size: 16px; box-shadow: inset 0 0 5px rgba(154, 119, 255, 0.2); }
+        .modal-form button[type="submit"] { background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple)); border: none; padding: 12px; border-radius: 10px; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
+        
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(0, 229, 255, 0.2); border-top-color: var(--accent-glow); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .skin-info { font-size: 11px; color: var(--text-secondary); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; width: 100%; }
+        .skin-counter { font-weight: 600; color: var(--text-primary); }
+        .skin-counter .remaining { color: var(--accent-gold); }
+        .last-claimer .username { font-weight: 700; color: var(--accent-purple); }
+        .form-group.hidden { display: none; }
+        
+        #info-modal .modal-body { line-height: 1.6; }
+        #info-modal-content { padding: 10px; border-radius: 8px; transition: background-color 0.3s; }
+        #info-modal-content[contenteditable="true"] { background-color: rgba(0,0,0,0.2); outline: 1px solid var(--accent-purple); }
+        #info-modal-content p { margin: 0 0 1em 0; }
+        #info-modal-content h4 { color: var(--accent-glow); margin: 1.5em 0 0.5em; font-family: 'Orbitron'; }
+        #info-modal-content ul { padding-left: 20px; margin: 0; }
+        .modal-footer { padding: 10px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; }
+        .admin-action-btn { background-color: var(--accent-purple); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
 
-        .footer-item { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            gap: 4px; 
-            color: var(--text-secondary); 
-            font-size: 11px; 
-            text-decoration: none; 
-            flex: 1; 
-        }
-
-        .footer-item .icon-wrapper { 
-            font-size: 24px; 
-            width: 30px; 
-            height: 30px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-        }
-
-        .footer-item.active span, .footer-item.active .icon-wrapper { 
-            color: var(--accent-glow); 
-            font-weight: 600; 
-            text-shadow: 0 0 5px var(--accent-glow); 
-        }
-
-        .hidden { 
-            display: none !important; 
-        }
-
-        .modal-overlay, .loader-overlay, .access-overlay { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: rgba(10, 10, 20, 0.8); 
-            z-index: 1200; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            backdrop-filter: blur(var(--backdrop-blur)); 
-        }
-
-        .modal-content { 
-            background-color: var(--surface-secondary); 
-            border: 1px solid var(--accent-purple); 
-            padding: 0; 
-            border-radius: 16px; 
-            width: 90%; 
-            max-width: 400px; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.7); 
-            display: flex; 
-            flex-direction: column; 
-            max-height: 85vh; 
-        }
-
-        .modal-header { 
-            padding: 15px 20px; 
-            border-bottom: 1px solid var(--border-color); 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-        }
-
-        .modal-header h3 { 
-            margin: 0; 
-            color: var(--accent-glow); 
-            font-family: 'Orbitron', sans-serif; 
-        }
-
-        .modal-close-btn { 
-            background: none; 
-            border: none; 
-            color: var(--text-secondary); 
-            font-size: 24px; 
-            cursor: pointer; 
-        }
-
-        .modal-body { 
-            overflow-y: auto; 
-            padding: 20px; 
-        }
-
-        .modal-form { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 15px; 
-        }
-
-        .modal-form label { 
-            font-size: 14px; 
-            color: var(--text-secondary); 
-            margin-bottom: -10px; 
-        }
-
-        .modal-form input, .modal-form select { 
-            width: 100%; 
-            padding: 12px; 
-            border-radius: 8px; 
-            border: 1px solid var(--accent-purple); 
-            background-color: var(--background-start); 
-            color: var(--text-primary); 
-            font-size: 16px; 
-            box-shadow: inset 0 0 5px rgba(154, 119, 255, 0.2); 
-        }
-
-        .modal-form input:focus, .modal-form select:focus { 
-            outline: none; 
-            border-color: var(--accent-glow); 
-            box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.4); 
-        }
-
-        .modal-form button[type="submit"] { 
-            background: linear-gradient(90deg, var(--accent-glow), var(--accent-purple)); 
-            border: none; 
-            padding: 12px; 
-            border-radius: 10px; 
-            color: #fff; 
-            font-size: 16px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
-            font-family: 'Orbitron', sans-serif; 
-            text-transform: uppercase; 
-        }
-
-        .spinner { 
-            width: 50px; 
-            height: 50px; 
-            border: 4px solid rgba(0, 229, 255, 0.2); 
-            border-top-color: var(--accent-glow); 
-            border-radius: 50%; 
-            animation: spin 1s linear infinite; 
-        }
-
-        @keyframes spin { 
-            to { transform: rotate(360deg); } 
-        }
-
-        .skin-info {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-        }
-
-        .skin-counter { 
-            font-weight: 600; 
-            color: var(--text-primary); 
-        }
-
-        .skin-counter .remaining { 
-            color: var(--accent-gold); 
-        }
-
-        .last-claimer .username { 
-            font-weight: 700; 
-            color: var(--accent-purple); 
-        }
-
-        .form-group.hidden {
-            display: none;
-        }
     </style>
 </head>
 <body>
-    <div id="loader-overlay" class="loader-overlay">
-        <div class="spinner"></div>
-    </div>
-
+    <div id="loader-overlay" class="loader-overlay"> <div class="spinner"></div> </div>
     <div id="access-overlay" class="access-overlay hidden">
-        <i class="fa-solid fa-shield-halved"></i>
+         <i class="fa-solid fa-shield-halved"></i>
         <h2>ДОСТУП ОГРАНИЧЕН</h2>
         <p>Для просмотра этой страницы требуется специальное разрешение. Пожалуйста, свяжитесь с администратором.</p>
         <a href="/menu" class="back-button">ВЕРНУТЬСЯ В МЕНЮ</a>
@@ -508,19 +142,17 @@
 
     <div class="container" id="container">
         <div class="header">
-            <h1 class="page-title">ЧЕКПОИНТ</h1>
-            <div class="user-stars-balance"> 
-                <i class="fa-solid fa-star"></i> 
-                <span id="user-stars-count">0</span> 
+            <div class="title-container">
+                <h1 class="page-title">ЧЕКПОИНТ</h1>
+                <button id="info-btn" class="info-button"><i class="fa-solid fa-circle-question"></i></button>
             </div>
+            <div class="user-stars-balance"> <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span> </div>
         </div>
         <div id="reward-track" class="reward-track"></div>
     </div>
     
     <div class="admin-controls-wrapper">
-        <div id="admin-access-controls" class="admin-controls hidden">
-            <button id="grant-access-btn">Выдать доступ</button>
-        </div>
+        <div id="admin-access-controls" class="admin-controls hidden"> <button id="grant-access-btn">Выдать доступ</button> </div>
         <div id="admin-controls" class="admin-controls hidden">
             <button id="edit-btn">Редактировать</button>
             <button id="save-btn" class="hidden">Сохранить</button>
@@ -572,6 +204,23 @@
         </div>
     </div>
 
+    <div id="info-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Что такое "Чекпоинт"?</h3>
+                <button type="button" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="info-modal-content" contenteditable="false">
+                </div>
+            </div>
+            <div id="info-modal-footer" class="modal-footer hidden">
+                 <button id="edit-info-btn" class="admin-action-btn">Редактировать</button>
+                 <button id="save-info-btn" class="admin-action-btn hidden">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="app-footer">
       <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>ГЛАВНАЯ</span></a>
       <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>ИВЕНТЫ</span></a>
@@ -586,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tg.expand();
 
     let checkpointContent = { rewards: [] };
+    let checkpointInfo = "";
     let userData = {};
     let originalRewardIndex = null; 
 
@@ -611,6 +261,12 @@ document.addEventListener('DOMContentLoaded', () => {
         cs2SkinFields: document.getElementById('cs2-skin-fields'),
         totalQuantityInput: document.getElementById('reward-total-quantity-input'),
         claimedQuantityInput: document.getElementById('reward-claimed-quantity-input'),
+        infoBtn: document.getElementById('info-btn'),
+        infoModal: document.getElementById('info-modal'),
+        infoModalContent: document.getElementById('info-modal-content'),
+        infoModalFooter: document.getElementById('info-modal-footer'),
+        editInfoBtn: document.getElementById('edit-info-btn'),
+        saveInfoBtn: document.getElementById('save-info-btn'),
     };
     
     function renderPage() {
@@ -672,8 +328,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const descriptionHtml = reward.description ? `<div class="reward-description">${reward.description}</div>` : '';
             const originalIndex = checkpointContent.rewards.findIndex(r => r.level === reward.level && r.title === reward.title);
 
+            const editOverlayHtml = `
+                <div class="edit-overlay">
+                    <button class="card-btn card-edit-btn" data-original-index="${originalIndex}"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="card-btn card-delete-btn" data-original-index="${originalIndex}"><i class="fa-solid fa-trash"></i></button>
+                </div>`;
+
             item.innerHTML = `
                 <div class="reward-level">LVL ${reward.level}</div>
+                ${editOverlayHtml}
                 <div class="reward-image-container">
                     <img src="${reward.icon || 'https://i.ibb.co/3s7vXG5/placeholder.png'}" class="reward-image" alt="${reward.title}">
                 </div>
@@ -724,19 +387,62 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.cs2SkinFields.classList.add('hidden');
         }
     }
+    
+    function getDefaultInfoText() {
+        return `
+            <h4>Как это работает?</h4>
+            <p>Чекпоинт — это марафон наград. Выполняй челленджи во время стримов, чтобы заработать звёзды <i class="fa-solid fa-star" style="color: var(--accent-gold);"></i>.</p>
+            <p>Накопленные звёзды можно обменять на ценные призы. Чем выше уровень награды — тем больше звёзд она требует.</p>
+            <h4>🔥 Важное правило!</h4>
+            <p>Прогресс марафона сбрасывается до нуля, если ты пропускаешь челленджи на <b>двух стримах подряд</b>. Один пропуск — не страшно, но два обнуляют твой путь. Не пропускай стримы, чтобы дойти до конца!</p>
+        `;
+    }
+    
+    function runLocalDevMode() {
+        console.warn('--- РЕЖИМ ЛОКАЛЬНОЙ РАЗРАБОТКИ АКТИВИРОВАН ---');
+        console.warn('Данные пользователя и наград смоделированы. Сохранение на сервер не будет работать.');
+
+        userData = {
+            checkpoint_stars: 100,
+            checkpoint_level: 2,
+            is_admin: true,
+            is_checkpoint_globally_enabled: true,
+            has_checkpoint_access: true
+        };
+
+        checkpointContent = {
+            rewards: [
+                {level: 1, title: "+50 Монет", description: "Тестовая награда 1", icon: "https://i.ibb.co/bFmdZg2/coin.png", type: "coins", value: "50"},
+                {level: 10, title: "AK-47 | Redline", description: "Тестовый скин", icon: "https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6YLfkjlRd6dd2j6eT8Nyl2VDl-0s6Mjv7I4SWJgE8ZFnS_FG2lenp05-6vM-bnhnizA9i5yPbgVXp1Q/360fx360f", type: "cs2_skin", value: "AK-47", total_quantity: 10, claimed_quantity: 3, last_claimer: { username: '@tester' }},
+                {level: 25, title: "x1 Ключ", description: "Тестовая награда 2", icon: "https://i.ibb.co/qY505r5/key.png", type: "keys", value: "1"}
+            ]
+        };
+        
+        checkpointInfo = getDefaultInfoText();
+        dom.infoModalContent.innerHTML = checkpointInfo;
+
+        dom.container.classList.add('visible');
+        if (userData.is_admin) {
+            dom.adminControls.classList.remove('hidden');
+            dom.adminAccessControls.classList.remove('hidden');
+            dom.infoModalFooter.classList.remove('hidden');
+        }
+        
+        renderPage();
+    }
 
     async function initialize() {
-        if (!tg.initData) {
-            console.error("Telegram WebApp initData not found. Cannot authenticate.");
+        if (!tg.initData || !tg.initDataUnsafe?.user) {
+            runLocalDevMode();
             dom.loaderOverlay.classList.add('hidden');
-            dom.accessOverlay.classList.remove('hidden');
             return;
         }
 
         try {
-            const [userRes, contentRes] = await Promise.all([
+            const [userRes, contentRes, infoRes] = await Promise.all([
                 fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
-                fetch('/api/v1/checkpoint/content')
+                fetch('/api/v1/checkpoint/content'),
+                fetch('/api/v1/checkpoint/info')
             ]);
 
             if (!userRes.ok) throw new Error("Ошибка при загрузке данных пользователя.");
@@ -750,6 +456,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!contentRes.ok) throw new Error("Ошибка при загрузке контента марафона.");
                 checkpointContent = await contentRes.json();
                 
+                if (infoRes.ok) {
+                    const infoData = await infoRes.json();
+                    checkpointInfo = infoData.content || getDefaultInfoText();
+                    dom.infoModalContent.innerHTML = checkpointInfo;
+                } else {
+                    dom.infoModalContent.innerHTML = getDefaultInfoText();
+                }
+
+                if (userData.is_admin) {
+                    dom.infoModalFooter.classList.remove('hidden');
+                }
+
                 renderPage();
                 dom.container.classList.add('visible');
 
@@ -769,6 +487,40 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.loaderOverlay.classList.add('hidden');
         }
     }
+
+    dom.infoBtn.addEventListener('click', () => dom.infoModal.classList.remove('hidden'));
+    
+    dom.editInfoBtn.addEventListener('click', () => {
+        dom.infoModalContent.setAttribute('contenteditable', 'true');
+        dom.infoModalContent.focus();
+        dom.editInfoBtn.classList.add('hidden');
+        dom.saveInfoBtn.classList.remove('hidden');
+    });
+
+    dom.saveInfoBtn.addEventListener('click', async () => {
+        const newContent = dom.infoModalContent.innerHTML;
+        dom.saveInfoBtn.textContent = "Сохранение...";
+        
+        try {
+            const response = await fetch('/api/v1/admin/checkpoint/info/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData, content: newContent })
+            });
+            if (!response.ok) throw new Error("Ошибка сохранения");
+            
+            checkpointInfo = newContent;
+            tg.showAlert("Информация успешно обновлена!");
+
+        } catch (e) {
+            tg.showAlert(e.message);
+        } finally {
+            dom.infoModalContent.setAttribute('contenteditable', 'false');
+            dom.saveInfoBtn.textContent = "Сохранить";
+            dom.saveInfoBtn.classList.add('hidden');
+            dom.editInfoBtn.classList.remove('hidden');
+        }
+    });
 
     dom.rewardTypeInput.addEventListener('change', (e) => {
         toggleSkinFields(e.target.value);
