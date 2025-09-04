@@ -38,7 +38,9 @@
     .admin-menu-button { background-color: var(--action-color); width: 100%; border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
     .admin-submission-card { text-align: left; gap: 8px; }
     .submission-user strong { color: var(--primary-color); }
-    .submission-data { background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 6px; word-break: break-all; font-family: monospace; font-size: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;}
+    .submission-data { background-color: rgba(0,0,0,0.4); padding: 10px; border-radius: 6px; word-break: break-all; font-family: monospace; font-size: 14px; flex-grow: 1; }
+    .submission-wrapper { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+    .action-link-btn { background-color: #5856d6; padding: 8px 12px; font-size: 12px; border-radius: 6px; color: white; text-decoration: none; font-weight: 600; flex-shrink: 0; text-align: center; }
     .submission-actions { display: flex; gap: 10px; margin-top: 15px; }
     .admin-action-btn { flex-grow: 1; border: none; padding: 10px; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
     .admin-action-btn.approve { background-color: var(--primary-color); }
@@ -732,7 +734,6 @@
         // --- ОСНОВНЫЕ ФУНКЦИИ ---
 
         function renderPendingActions(actions) {
-            // Эта функция теперь отвечает только за "Проверки" и "Чекпоинт"
             dom.tabContentSubmissions.innerHTML = '';
             dom.tabContentCheckpointPrizes.innerHTML = '';
             
@@ -741,28 +742,41 @@
 
             const createCardHtml = (action) => {
                 if (action.type === 'submission') {
+                    // Создаем контент от пользователя
                     let submissionContent = '';
                     const data = action.submitted_data || '';
                     const isUrl = data.startsWith('http://') || data.startsWith('https://');
                     if (isUrl) {
-                        submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline;">${data}</a>`;
+                        submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${data}</a>`;
                     } else {
                         submissionContent = `<span>${data}</span>`;
-                        if (action.quest_action_url) {
-                            submissionContent += ` <a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="admin-edit-quest-btn" style="margin-left: 10px; font-size: 11px; padding: 4px 8px;">Перейти</a>`;
-                        }
                     }
+
+                    // Создаем кнопку "Перейти", если есть ссылка
+                    const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
+                        ? `<a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
+                        : '';
+                    
                     return `
                     <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
                         <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
+                        <p style="font-size: 14px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 12px;">${action.quest_description || 'Описание отсутствует.'}</p>
+                        <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${action.reward_amount || '?'} ⭐</p>
+                        
                         <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
-                        <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные:</p>
-                        <div class="submission-data">${submissionContent}</div>
+                        <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
+                        
+                        <div class="submission-wrapper">
+                            <div class="submission-data">${submissionContent}</div>
+                            ${actionLinkHtml}
+                        </div>
+
                         <div class="submission-actions">
                             <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
                             <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
                         </div>
                     </div>`;
+
                 } else if (action.type === 'prize') { // Карточка для Чекпоинта
                     return `
                     <div class="quest-card admin-submission-card" id="prize-card-${action.id}">
