@@ -542,10 +542,10 @@
             const isEditMode = document.body.classList.contains('edit-mode');
 
             if (pageContent.events && pageContent.events.length === 1) {
-                dom.eventsContainer.style.gridTemplateColumns = 'minmax(auto, 390px)';
+                dom.eventsContainer.style.display = 'flex';
                 dom.eventsContainer.style.justifyContent = 'center';
             } else {
-                dom.eventsContainer.style.gridTemplateColumns = '';
+                dom.eventsContainer.style.display = '';
                 dom.eventsContainer.style.justifyContent = '';
             }
 
