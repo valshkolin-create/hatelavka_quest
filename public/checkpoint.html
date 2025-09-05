@@ -312,14 +312,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const isEditMode = document.body.classList.contains('edit-mode');
         
         const sortedRewards = [...(checkpointContent.rewards || [])].sort((a, b) => a.level - b.level);
-
-        // Получаем новый список уже купленных наград
         const claimedLevels = userData.claimed_rewards || [];
 
         sortedRewards.forEach((reward) => {
             const userStars = userData.checkpoint_stars || 0;
 
-            // Новая логика определения статуса
             const isClaimed = claimedLevels.includes(reward.level);
             const isClaimable = !isClaimed && userStars >= reward.level;
             const isLocked = !isClaimed && !isClaimable;
@@ -358,7 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isClaimed) {
                     buttonHtml = `<button class="action-button claimed-btn" disabled><i class="fa-solid fa-check"></i> Получено</button>`;
                 } else if (isClaimable) {
-                    buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}">Забрать за ${reward.level} <i class="fa-solid fa-star"></i></button>`;
+                    // --- ИЗМЕНЕНИЕ: Добавляем data-reward-type в кнопку ---
+                    buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}" data-reward-type="${reward.type}">Забрать за ${reward.level} <i class="fa-solid fa-star"></i></button>`;
                 } else {
                     buttonHtml = `<button class="action-button locked-btn" disabled>${reward.level} <i class="fa-solid fa-star"></i></button>`;
                 }
@@ -436,39 +434,22 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
     
-    function runLocalDevMode() {
-        console.warn('--- РЕЖИМ ЛОКАЛЬНОЙ РАЗРАБОТКИ АКТИВИРОВАН ---');
-        // Можно оставить тестовые данные пользователя для удобства отладки
-        userData = {
-            checkpoint_stars: 100,
-            checkpoint_level: 2,
-            is_admin: true,
-            is_checkpoint_globally_enabled: true,
-            has_checkpoint_access: true
-        };
-
-        // ГЛАВНОЕ ИЗМЕНЕНИЕ: Мы больше не создаем "зашитые" в код карточки.
-        // Оставляем структуру пустой, чтобы на странице не было ложных данных.
-        checkpointContent = {
-            rewards: []
-        };
-        
-        checkpointInfo = getDefaultInfoText();
-        dom.infoModalContent.innerHTML = checkpointInfo;
-
-        dom.container.classList.add('visible');
-        if (userData.is_admin) {
-            dom.adminControls.classList.remove('hidden');
-            dom.adminAccessControls.classList.remove('hidden');
-            dom.infoModalFooter.classList.remove('hidden');
-        }
-        
-        renderPage();
-    }
-
     async function initialize() {
+        dom.loaderOverlay.classList.remove('hidden');
         if (!tg.initData || !tg.initDataUnsafe?.user) {
-            runLocalDevMode();
+            console.warn("Local development mode is active.");
+            // Mock data for local testing
+            userData = { checkpoint_stars: 150, claimed_rewards: [], is_admin: true, is_checkpoint_globally_enabled: true, has_checkpoint_access: true };
+            checkpointContent = { rewards: [] };
+            checkpointInfo = getDefaultInfoText();
+            dom.infoModalContent.innerHTML = checkpointInfo;
+            dom.container.classList.add('visible');
+            if (userData.is_admin) {
+                dom.adminControls.classList.remove('hidden');
+                dom.adminAccessControls.classList.remove('hidden');
+                dom.infoModalFooter.classList.remove('hidden');
+            }
+            renderPage();
             dom.loaderOverlay.classList.add('hidden');
             return;
         }
@@ -568,13 +549,10 @@ document.addEventListener('DOMContentLoaded', () => {
             value: dom.rewardValueInput.value,
         };
         
-        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-        // Добавляем поля количества ко всем типам наград, чтобы пройти валидацию на сервере
         if (updatedReward.type === 'cs2_skin') {
             updatedReward.total_quantity = parseInt(dom.totalQuantityInput.value) || 0;
             updatedReward.claimed_quantity = parseInt(dom.claimedQuantityInput.value) || 0;
         } else {
-            // Для всех остальных типов (монеты, ключи и т.д.) добавляем `null`
             updatedReward.total_quantity = null;
             updatedReward.claimed_quantity = null;
         }
@@ -659,9 +637,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } 
         
+        // --- НАЧАЛО ИЗМЕНЕНИЯ ---
+        // Ловим клик по кнопке "Забрать"
         const claimBtn = target.closest('.claim-btn');
         if (claimBtn && !claimBtn.disabled) {
             const levelToClaim = parseInt(claimBtn.dataset.level);
+            // Получаем тип награды, который мы добавили ранее
+            const rewardType = claimBtn.dataset.rewardType;
+
+            // Перед отправкой запроса проверяем трейд-ссылку, ЕСЛИ это скин
+            if (rewardType === 'cs2_skin' && (!userData.trade_link || userData.trade_link.trim() === '')) {
+                tg.showConfirm(
+                    "Для получения скина необходимо указать вашу Steam Trade ссылку в профиле. Перейти в профиль сейчас?",
+                    (ok) => {
+                        if (ok) {
+                            // Перенаправляем пользователя в профиль
+                            window.location.href = '/profile';
+                        }
+                    }
+                );
+                return; // Прерываем выполнение функции, чтобы не отправлять запрос
+            }
+            
+            // Если проверка пройдена (или это не скин), продолжаем
             claimBtn.disabled = true;
             claimBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
@@ -673,27 +671,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || 'Не удалось забрать награду.');
-
-                userData.checkpoint_level = result.new_level;
-                tg.showAlert('Награда успешно получена!');
                 
+                // В зависимости от типа награды показываем разное сообщение
+                if (rewardType === 'cs2_skin') {
+                    tg.showAlert('Заявка на скин принята! Администратор скоро свяжется с вами для выдачи.');
+                } else {
+                    tg.showAlert('Награда успешно получена!');
+                }
+
+                // Обновляем данные пользователя и контент страницы после успешного получения
                 const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
                 userData = await userRes.json();
                 
-                if (result.updated_reward) {
-                    const rewardIndex = checkpointContent.rewards.findIndex(r => r.level === result.updated_reward.level);
-                    if (rewardIndex !== -1) {
-                        checkpointContent.rewards[rewardIndex] = { ...checkpointContent.rewards[rewardIndex], ...result.updated_reward };
-                    }
-                }
+                // Перезагружаем контент, чтобы обновить количество оставшихся скинов
+                const contentRes = await fetch('/api/v1/checkpoint/content');
+                checkpointContent = await contentRes.json();
 
                 renderPage();
             } catch (error) {
                 tg.showAlert(error.message);
+                // Возвращаем кнопку в исходное состояние в случае ошибки
                 claimBtn.disabled = false;
                 claimBtn.innerHTML = `Забрать за ${levelToClaim} <i class="fa-solid fa-star"></i>`;
             }
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     });
     
     dom.grantAccessBtn.addEventListener('click', () => {
