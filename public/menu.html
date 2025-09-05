@@ -272,16 +272,16 @@
       </div>
     </div>
     
-    <div id="view-dashboard" class="view">
+<div id="view-dashboard" class="view">
         <a href="/events" style="text-decoration: none; display: block; margin-bottom: 15px;">
-            <img src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Гонка за скинами" style="width: 100%; border-radius: 12px;">
+            <img id="menu-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Гонка за скинами" style="width: 100%; border-radius: 12px;">
         </a>
         
         <div id="challenge-container"></div>
         <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
       
         <a id="checkpoint-link" href="/checkpoint" style="text-decoration: none; display: block; margin-bottom: 15px;">
-            <img src="https://i.postimg.cc/6p39wgzJ/1200-324.png" alt="Марафон Чекпоинт" style="width: 100%; border-radius: 12px; display: block;">
+            <img id="checkpoint-banner-img" src="https://i.postimg.cc/6p39wgzJ/1200-324.png" alt="Марафон Чекпоинт" style="width: 100%; border-radius: 12px; display: block;">
         </a>
         <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
       
@@ -1096,6 +1096,26 @@
                 }
 
                 document.getElementById('ticketStats').textContent = userData.tickets || 0;
+
+            // ↓↓↓ ВОТ ВАШ КОД, КОТОРЫЙ НУЖНО ВСТАВИТЬ ↓↓↓
+            const menuContent = await menuContentPromise;
+            if (menuContent) {
+                if (menuContent.menu_banner_url) {
+                    const bannerImg = document.getElementById('menu-banner-img');
+                    if (bannerImg) {
+                        bannerImg.src = menuContent.menu_banner_url;
+                    }
+                }
+                if (menuContent.checkpoint_banner_url) {
+                    const checkpointBannerImg = document.getElementById('checkpoint-banner-img');
+                    if (checkpointBannerImg) {
+                        checkpointBannerImg.src = menuContent.checkpoint_banner_url;
+                    }
+                }
+            }
+            // ↑↑↑ КОНЕЦ ВСТАВКИ ↑↑↑
+
+            const questsDataResp = await makeApiRequest("/api/v1/quests/list");
   
                 const questsDataResp = await makeApiRequest("/api/v1/quests/list");
 
