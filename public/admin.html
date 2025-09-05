@@ -229,9 +229,15 @@
             <div class="quest-card">
                 <div class="settings-group">
                     <h3>Внешний вид</h3>
-                    <div class="admin-form">
-                        <label for="setting-menu-banner-url">URL баннера в меню</label>
-                        <input type="text" id="setting-menu-banner-url" placeholder="https://example.com/banner.png">
+                    <div class="admin-form" style="gap: 20px;">
+                        <div>
+                            <label for="setting-menu-banner-url">URL баннера "Гонка за скинами"</label>
+                            <input type="text" id="setting-menu-banner-url" placeholder="https://example.com/banner.png">
+                        </div>
+                        <div>
+                            <label for="setting-checkpoint-banner-url">URL баннера "Марафон Чекпоинт"</label>
+                            <input type="text" id="setting-checkpoint-banner-url" placeholder="https://example.com/banner2.png">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -603,6 +609,7 @@
             grantStarsForm: document.getElementById('grant-stars-form'),
             freezeStarsForm: document.getElementById('freeze-stars-form'),
             settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
+            settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
             saveSettingsBtn: document.getElementById('save-settings-btn'),
             
             // --- EXISTING SETTINGS ELEMENTS ---
@@ -618,7 +625,7 @@
         let currentEditingCategoryId = null;
 
         // --- OPTIMIZATION: Modified switchView function ---
-        const switchView = async (targetViewId, forceReload = false) => {
+        const switchView = async (targetViewId) => {
             dom.views.forEach(view => view.classList.add('hidden'));
             const targetView = document.getElementById(targetViewId);
             if (targetView) targetView.classList.remove('hidden');
@@ -630,81 +637,87 @@
             
             // --- DYNAMIC DATA LOADING LOGIC ---
             // This ensures data is fresh every time a view is opened.
-            switch (targetViewId) {
-                case 'view-admin-quests': {
-                    const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                    await fetchAndCacheCategories();
-                    renderQuests(allQuests, categoriesCache);
-                    break;
+            showLoader();
+            try {
+                switch (targetViewId) {
+                    case 'view-admin-quests': {
+                        const allQuests = await makeApiRequest('/api/v1/admin/quests/all', {}, 'POST', true);
+                        await fetchAndCacheCategories(true);
+                        renderQuests(allQuests, categoriesCache);
+                        break;
+                    }
+                    case 'view-admin-pending-actions': {
+                        const [submissions, winners, checkpointPrizes] = await Promise.all([
+                            makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),
+                            makeApiRequest('/api/v1/admin/events/winners', {}, 'POST', true),
+                            makeApiRequest('/api/v1/admin/checkpoint_rewards', {}, 'POST', true)
+                        ]);
+                        renderSubmissions(submissions);
+                        renderWinners(winners);
+                        renderCheckpointPrizes(checkpointPrizes);
+                        break;
+                    }
+                    case 'view-admin-challenges': {
+                        renderChallenges(await makeApiRequest('/api/v1/admin/challenges', {}, 'POST', true));
+                        break;
+                    }
+                    case 'view-admin-categories': {
+                        await fetchAndCacheCategories(true);
+                        renderCategoriesList();
+                        break;
+                    }
+                    case 'view-admin-settings': {
+                        await loadAndRenderSettings();
+                        break;
+                    }
+                    case 'view-admin-create': {
+                        await fetchAndCacheCategories(true);
+                        populateCategorySelects();
+                        dom.createQuestForm.reset();
+                        updateQuestFormUI(dom.createQuestForm);
+                        break;
+                    }
+                     case 'view-admin-challenge-form': {
+                        dom.challengeForm.reset();
+                        dom.challengeForm.elements['challenge_id'].value = '';
+                        updateChallengeFormUI(dom.challengeForm);
+                        dom.challengeFormTitle.textContent = 'Новый челлендж';
+                        break;
+                    }
                 }
-                case 'view-admin-pending-actions': {
-                    const [submissions, winners, checkpointPrizes] = await Promise.all([
-                        makeApiRequest('/api/v1/admin/pending_actions'),
-                        makeApiRequest('/api/v1/admin/events/winners'),
-                        makeApiRequest('/api/v1/admin/checkpoint_rewards')
-                    ]);
-                    renderSubmissions(submissions);
-                    renderWinners(winners);
-                    renderCheckpointPrizes(checkpointPrizes);
-                    break;
-                }
-                case 'view-admin-challenges': {
-                    renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
-                    break;
-                }
-                case 'view-admin-categories': {
-                    await fetchAndCacheCategories();
-                    renderCategoriesList();
-                    break;
-                }
-                case 'view-admin-settings': {
-                    loadAndRenderSettings();
-                    break;
-                }
-                case 'view-admin-create': {
-                    await fetchAndCacheCategories();
-                    populateCategorySelects();
-                    dom.createQuestForm.reset();
-                    updateQuestFormUI(dom.createQuestForm);
-                    break;
-                }
-                 case 'view-admin-challenge-form': {
-                    dom.challengeForm.reset();
-                    dom.challengeForm.elements['challenge_id'].value = '';
-                    updateChallengeFormUI(dom.challengeForm);
-                    dom.challengeFormTitle.textContent = 'Новый челлендж';
-                    break;
-                }
+            } finally {
+                hideLoader();
             }
         };
 
         const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
         const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
 
-        async function makeApiRequest(url, body = {}) {
-            showLoader();
+        async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
+            if (!isSilent) showLoader();
             try {
                 const response = await fetch(url, {
-                    method: 'POST',
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...body, initData: tg.initData })
                 });
+                if (response.status === 204) return null;
                 const result = await response.json();
                 if (!response.ok) {
                     throw new Error(result.detail || 'Ошибка сервера');
                 }
                 return result;
             } catch (e) {
-                tg.showAlert(`Ошибка: ${e.message}`);
+                if (!isSilent) tg.showAlert(`Ошибка: ${e.message}`);
                 throw e;
             } finally {
-                hideLoader();
+                if (!isSilent) hideLoader();
             }
         }
         
-        async function fetchAndCacheCategories() {
+        async function fetchAndCacheCategories(isSilent = false) {
             try {
-                categoriesCache = await makeApiRequest('/api/v1/admin/categories') || [];
+                categoriesCache = await makeApiRequest('/api/v1/admin/categories', {}, 'POST', isSilent) || [];
             } catch (e) {
                 console.error("Не удалось загрузить категории", e);
                 categoriesCache = [];
@@ -903,13 +916,14 @@
         
         async function loadAndRenderSettings() {
             try {
-                 const settings = await makeApiRequest('/api/v1/admin/settings');
+                 const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
                  dom.settingQuestsEnabled.checked = settings.quests_enabled;
                  dom.settingChallengesEnabled.checked = settings.challenges_enabled;
                  dom.settingQuestRewardsEnabled.checked = settings.quest_promocodes_enabled;
                  dom.settingChallengeRewardsEnabled.checked = settings.challenge_promocodes_enabled;
                  dom.settingCheckpointEnabled.checked = settings.checkpoint_enabled;
                  dom.settingMenuBannerUrl.value = settings.menu_banner_url || '';
+                 dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
             } catch (e) {
                  console.error("Не удалось загрузить настройки:", e);
                  tg.showAlert("Не удалось загрузить настройки.");
@@ -1065,7 +1079,8 @@
                     quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
                     challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked,
                     checkpoint_enabled: dom.settingCheckpointEnabled.checked,
-                    menu_banner_url: dom.settingMenuBannerUrl.value.trim()
+                    menu_banner_url: dom.settingMenuBannerUrl.value.trim(),
+                    checkpoint_banner_url: dom.settingCheckpointBannerUrl.value.trim()
                 };
                 await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
                 tg.showAlert('Настройки сохранены!');
@@ -1086,12 +1101,11 @@
                 if (navButton) {
                     const view = navButton.dataset.view;
                     if (view) {
-                        // The switchView function now handles data loading
-                        switchView(view);
+                        await switchView(view);
                     } else if (navButton.id === 'go-create-quest') {
-                        switchView('view-admin-create');
+                        await switchView('view-admin-create');
                     } else if (navButton.id === 'go-create-challenge') {
-                        switchView('view-admin-challenge-form');
+                        await switchView('view-admin-challenge-form');
                     }
                     return;
                 }
@@ -1117,7 +1131,7 @@
                 const id = actionButton.dataset.id;
                 if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.sort-quest-btn')) {
                     const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: parseInt(id) });
-                    await fetchAndCacheCategories();
+                    await fetchAndCacheCategories(true);
                     populateCategorySelects(quest.category_id);
                     const form = dom.editQuestForm;
                     let questType = quest.quest_type, twitchPeriod = 'session';
@@ -1139,13 +1153,12 @@
                     form.elements['is_active'].value = quest.is_active.toString();
                     form.elements['is_repeatable'].value = quest.is_repeatable.toString();
                     updateQuestFormUI(form);
-                    switchView('view-admin-edit');
+                    await switchView('view-admin-edit');
                 } else if (actionButton.matches('.admin-delete-quest-btn')) {
                     tg.showConfirm(`Удалить задание ID ${id}?`, async (ok) => {
                         if (ok) {
                             await makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) });
-                            // Reload the current view to show changes
-                            await switchView('view-admin-quests', true); 
+                            await switchView('view-admin-quests'); 
                         }
                     });
                 } else if (actionButton.matches('.admin-view-subs-btn')) {
@@ -1187,12 +1200,12 @@
                     form.elements['is_active'].value = c.is_active.toString();
                     updateChallengeFormUI(form);
                     dom.challengeFormTitle.textContent = 'Редактирование';
-                    switchView('view-admin-challenge-form');
+                    await switchView('view-admin-challenge-form');
                 } else if (actionButton.matches('.admin-delete-challenge-btn')) {
                      tg.showConfirm(`Удалить челлендж ID ${id}?`, async (ok) => {
                         if (ok) {
                             await makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) });
-                            await switchView('view-admin-challenges', true);
+                            await switchView('view-admin-challenges');
                         }
                     });
                 } else if (actionButton.matches('.edit-category-btn')) {
@@ -1201,7 +1214,7 @@
                     tg.showConfirm('Вы уверены, что хотите удалить эту категорию?', async (ok) => {
                         if (ok) {
                             await makeApiRequest('/api/v1/admin/categories/delete', { category_id: parseInt(id) });
-                            await switchView('view-admin-categories', true);
+                            await switchView('view-admin-categories');
                         }
                     });
                 } else if (actionButton.matches('.sort-btn')) {
@@ -1211,14 +1224,14 @@
                     if (newIndex >= 0 && newIndex < categoriesCache.length) {
                         [categoriesCache[index], categoriesCache[newIndex]] = [categoriesCache[newIndex], categoriesCache[index]];
                         renderCategoriesList();
-                        makeApiRequest('/api/v1/admin/categories/reorder', { ordered_ids: categoriesCache.map(c => c.id) });
+                        makeApiRequest('/api/v1/admin/categories/reorder', { ordered_ids: categoriesCache.map(c => c.id) }, 'POST', true);
                     }
                 } else if (actionButton.matches('.sort-quest-btn')) {
                     const questId = parseInt(actionButton.dataset.questId);
                     const categoryId = actionButton.dataset.categoryId ? parseInt(actionButton.dataset.categoryId) : null;
                     const direction = actionButton.dataset.direction;
                     await makeApiRequest('/api/v1/admin/quests/reorder', { quest_id: questId, category_id: categoryId, direction: direction });
-                    await switchView('view-admin-quests', true);
+                    await switchView('view-admin-quests');
                 }
             });
             
@@ -1268,7 +1281,7 @@
                 await makeApiRequest('/api/v1/admin/categories/create', { name: categoryName });
                 form.reset();
                 tg.showAlert('Категория создана!');
-                await switchView('view-admin-categories', true);
+                await switchView('view-admin-categories');
             });
 
             dom.addPromocodesForm.addEventListener('submit', async (e) => {
@@ -1328,7 +1341,7 @@
                     name: newName
                 });
                 hideGenericPrompt();
-                await switchView('view-admin-categories', true);
+                await switchView('view-admin-categories');
             });
         }
 
@@ -1337,9 +1350,10 @@
                 tg.expand();
                 if (!tg.initData) throw new Error("Требуется авторизация в Telegram.");
                 
+                showLoader();
                 const [userData, sleepStatus] = await Promise.all([
-                    makeApiRequest("/api/v1/user/me"),
-                    makeApiRequest("/api/v1/admin/sleep_mode_status")
+                    makeApiRequest("/api/v1/user/me", {}, 'POST', true),
+                    makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true)
                 ]);
                 
                 if (!userData.is_admin) throw new Error("Доступ запрещен.");
@@ -1347,7 +1361,7 @@
                 document.body.dataset.isAdmin = 'true';
                 updateSleepButton(sleepStatus);
 
-                switchView('view-admin-main');
+                await switchView('view-admin-main');
             } catch (e) {
                 document.body.dataset.isAdmin = 'false';
                 dom.sleepModeToggle.classList.add('hidden');
