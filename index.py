@@ -152,12 +152,23 @@ class ManualRewardCompleteRequest(BaseModel):
     initData: str
     reward_id: int
 
+class AdminGrantStarsRequest(BaseModel):
+    initData: str
+    user_id_to_grant: int
+    amount: int
+
+class AdminFreezeStarsRequest(BaseModel):
+    initData: str
+    user_id_to_freeze: int
+    days: int
+
 class AdminSettings(BaseModel):
     challenge_promocodes_enabled: bool = True
     quest_promocodes_enabled: bool = True
     challenges_enabled: bool = True
     quests_enabled: bool = True
     checkpoint_enabled: bool = False
+    menu_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"
     
 class AdminSettingsUpdateRequest(BaseModel):
     initData: str
@@ -3020,6 +3031,91 @@ async def update_admin_settings(
         headers={"Prefer": "resolution=merge-duplicates"}
     )
     return {"message": "Настройки успешно сохранены."}
+
+@app.post("/api/v1/admin/users/grant-stars")
+async def grant_stars_to_user(
+    request_data: AdminGrantStarsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Вручную выдает указанное количество звезд (билетов) пользователю."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    user_id_to_grant = request_data.user_id_to_grant
+    amount = request_data.amount
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Количество звезд должно быть положительным.")
+
+    try:
+        # Мы используем существующую RPC функцию для увеличения билетов (звезд)
+        await supabase.post(
+            "/rpc/increment_tickets",
+            json={"p_user_id": user_id_to_grant, "p_amount": amount}
+        )
+        return {"message": f"{amount} звезд успешно выдано пользователю {user_id_to_grant}."}
+    except Exception as e:
+        logging.error(f"Ошибка при выдаче звезд пользователю {user_id_to_grant}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выдать звезды.")
+
+
+@app.post("/api/v1/admin/users/freeze-stars")
+async def freeze_user_stars(
+    request_data: AdminFreezeStarsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Замораживает звезды пользователя на указанное количество дней."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    user_id_to_freeze = request_data.user_id_to_freeze
+    days = request_data.days
+
+    if days < 0:
+        raise HTTPException(status_code=400, detail="Количество дней не может быть отрицательным.")
+
+    try:
+        # Это предполагает, что у вас есть колонка `stars_frozen_until` типа 'timestamptz' в таблице 'users'.
+        # Если колонка не существует, вам нужно будет добавить ее в вашей панели Supabase.
+        freeze_until_date = None
+        if days > 0:
+            freeze_until_date = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id_to_freeze}"},
+            json={"stars_frozen_until": freeze_until_date}
+        )
+        
+        message = f"Звезды пользователя {user_id_to_freeze} заморожены на {days} дней." if days > 0 else f"Заморозка звезд для пользователя {user_id_to_freeze} снята."
+        return {"message": message}
+    except Exception as e:
+        logging.error(f"Ошибка при заморозке звезд для {user_id_to_freeze}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выполнить заморозку.")
+
+@app.get("/api/v1/content/menu")
+async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Предоставляет динамический контент для главной страницы меню, например, URL баннера."""
+    try:
+        # Мы повторно используем настройки админа, так как это простое хранилище ключ-значение
+        resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
+        resp.raise_for_status()
+        data = resp.json()
+
+        if not data or not data[0].get('value'):
+            # Возвращаем контент по умолчанию, если ничего не найдено
+            return {"menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"}
+        
+        settings = data[0]['value']
+        return {
+            "menu_banner_url": settings.get("menu_banner_url", "https://i.postimg.cc/d0r554hc/1200-600.png?v=2")
+        }
+    except Exception as e:
+        logging.error(f"Ошибка при получении контента для меню: {e}")
+        # Возвращаем контент по умолчанию при ошибке, чтобы не сломать клиент
+        return {"menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"}
 
 @app.post("/api/v1/admin/manual_rewards")
 async def get_manual_rewards(
