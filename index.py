@@ -703,8 +703,45 @@ class QuestStartRequest(BaseModel):
     quest_id: int
 
 # --- Main API Endpoints ---
+# ------------------------------------------------------------------
+# 1. ДОБАВЬТЕ ЭТУ НОВУЮ ВСПОМОГАТЕЛЬНУЮ ФУНКЦИЮ
+# ------------------------------------------------------------------
+async def send_admin_notification_task(quest_title: str, user_info: dict, submitted_data: str):
+    """
+    Отправляет уведомление администратору в фоновом режиме для надежности.
+    """
+    if ADMIN_NOTIFY_CHAT_ID:
+        try:
+            user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Пользователь"
+            safe_user_name = html_decoration.quote(user_name)
+            safe_quest_title = html_decoration.quote(quest_title)
+            telegram_id = user_info.get("id", "N/A")
+
+            message_text = (
+                f"🔔 Новая заявка на проверку!\n\n"
+                f"<b>Задание:</b> «{safe_quest_title}»\n"
+                f"<b>Пользователь:</b> {safe_user_name} (ID: {telegram_id})\n"
+                f"<b>Данные:</b>\n<code>{html_decoration.quote(submitted_data)}</code>"
+            )
+            
+            logging.info("Отправка уведомления админу в фоновом режиме...")
+            await bot.send_message(ADMIN_NOTIFY_CHAT_ID, message_text, parse_mode=ParseMode.HTML)
+            logging.info("Фоновое уведомление админу успешно отправлено.")
+            
+        except Exception as e:
+            logging.error(f"ОШИБКА в фоновой задаче отправки уведомления: {e}", exc_info=True)
+
+
+# ------------------------------------------------------------------
+# 2. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ НА ЭТУ
+# ------------------------------------------------------------------
 @app.post("/api/v1/quests/{quest_id}/submit")
-async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def submit_for_quest(
+    quest_id: int, 
+    request_data: QuestSubmissionRequest, 
+    background_tasks: BackgroundTasks, # <-- Ключевое изменение
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     """
     Принимает заявку от пользователя на квест с ручной проверкой.
     """
@@ -714,8 +751,7 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
     
     telegram_id = user_info["id"]
 
-    # ✅ НАЧАЛО ИСПРАВЛЕННОГО БЛОКА
-    # 1. Проверяем, существует ли такой квест и является ли он многоразовым
+    # 1. Проверяем квест
     quest_resp = await supabase.get("/quests", params={"id": f"eq.{quest_id}", "select": "title, is_repeatable"})
     if not quest_resp.json():
         raise HTTPException(status_code=404, detail="Задание не найдено.")
@@ -724,7 +760,7 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
     quest_title = quest_data['title']
     is_quest_repeatable = quest_data['is_repeatable']
 
-    # 2. Проверяем предыдущие заявки, ТОЛЬКО если квест НЕ многоразовый
+    # 2. Проверяем предыдущие заявки, если квест не многоразовый
     if not is_quest_repeatable:
         submission_check_resp = await supabase.get(
             "/quest_submissions", 
@@ -737,7 +773,6 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
                     raise HTTPException(status_code=400, detail="Ваша предыдущая заявка еще на рассмотрении.")
                 if submission.get("status") == "approved":
                     raise HTTPException(status_code=400, detail="Вы уже успешно выполнили это одноразовое задание.")
-    # ✅ КОНЕЦ ИСПРАВЛЕННОГО БЛОКА
 
     # 3. Создаем новую заявку
     await supabase.post("/quest_submissions", json={
@@ -747,23 +782,13 @@ async def submit_for_quest(quest_id: int, request_data: QuestSubmissionRequest, 
         "submitted_data": request_data.submittedData
     })
 
-    # 4. (Опционально) Уведомляем админа о новой заявке
-    if ADMIN_NOTIFY_CHAT_ID:
-        try:
-            # Делаем имя пользователя и название квеста безопасными для HTML
-            user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-            safe_user_name = html_decoration.quote(user_name)
-            safe_quest_title = html_decoration.quote(quest_title)
-
-            message_text = (
-                f"🔔 Новая заявка на проверку!\n\n"
-                f"<b>Задание:</b> «{safe_quest_title}»\n"
-                f"<b>Пользователь:</b> {safe_user_name} (ID: {telegram_id})\n"
-                f"<b>Данные:</b>\n<code>{html_decoration.quote(request_data.submittedData)}</code>"
-            )
-            await bot.send_message(ADMIN_NOTIFY_CHAT_ID, message_text, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            logging.error(f"Не удалось отправить уведомление админу: {e}")
+    # 4. Отправляем уведомление админу в ФОНОВОМ РЕЖИМЕ
+    background_tasks.add_task(
+        send_admin_notification_task,
+        quest_title=quest_title,
+        user_info=user_info,
+        submitted_data=request_data.submittedData
+    )
 
     return {"message": "Ваша заявка принята и отправлена на проверку!"}
     
