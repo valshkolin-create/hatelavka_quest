@@ -2841,20 +2841,19 @@ async def claim_checkpoint_reward(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Обрабатывает получение награды пользователем из Чекпоинта.
-    ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Добавлены все обязательные поля (включая title)
-    при создании заявки в manual_rewards.
+    Handles a user's claim for a checkpoint reward.
+    FINAL FIX: The JSON request now fully matches the schema of the public.manual_rewards table.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
-        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+        raise HTTPException(status_code=401, detail="Invalid authentication data.")
 
     telegram_id = user_info["id"]
     level_to_claim = request_data.level
-    user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Без имени")
+    user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "No name")
 
     try:
-        # 1. Получаем детали награды
+        # 1. Get reward details
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": 1})
         content_resp.raise_for_status()
         content_data = content_resp.json()
@@ -2867,9 +2866,9 @@ async def claim_checkpoint_reward(
                     break
         
         if not reward_details:
-             raise HTTPException(status_code=404, detail="Награда для этого уровня не найдена.")
+             raise HTTPException(status_code=404, detail="Reward for this level not found.")
 
-        # 2. Вызываем RPC для списания звезд
+        # 2. Call RPC to deduct stars
         response = await supabase.post(
             "/rpc/claim_checkpoint_reward",
             json={"p_user_id": telegram_id, "p_level_to_claim": level_to_claim}
@@ -2877,34 +2876,31 @@ async def claim_checkpoint_reward(
         response.raise_for_status()
         new_level = response.json()
 
-        # 3. Если это скин, создаем заявку на ручную выдачу
+        # 3. If it's a skin, create a manual reward request
         if reward_details.get('type') == 'cs2_skin':
-            logging.info(f"Награда типа 'cs2_skin' для уровня {level_to_claim}. Создание заявки.")
+            logging.info(f"Reward type 'cs2_skin' for level {level_to_claim}. Creating request.")
             
             try:
-                # 3.1. Создаем запись в manual_rewards, ДОБАВЛЯЯ ВСЕ НУЖНЫЕ ПОЛЯ
-                await supabase.post(
-                    "/manual_rewards",
-                    json={
-                        # --- НАЧАЛО ФИНАЛЬНОГО ИСПРАВЛЕНИЯ ---
-                        "title": reward_details.get('title', 'Награда из Чекпоинта'), # <--- ВОТ ОНО, САМОЕ ГЛАВНОЕ ИЗМЕНЕНИЕ
-                        # --- КОНЕЦ ФИНАЛЬНОГО ИСПРАВЛЕНИЯ ---
-                        "user_id": telegram_id,
-                        "source_type": "checkpoint",
-                        "source_id": reward_details.get('level'),
-                        "source_description": f"Чекпоинт: {reward_details.get('title', 'Без названия')}",
-                        "reward_details": reward_details.get('value', 'Не указан'),
-                        "status": "pending"
-                    }
-                )
+                # --- START OF FINAL FIX ---
+                # Formulate the JSON strictly according to the provided table schema
+                payload = {
+                    "user_id": telegram_id,
+                    "status": "pending",
+                    "reward_details": reward_details.get('value', 'CS2 Skin not specified'),
+                    "source_description": f"Чекпоинт (Уровень {reward_details.get('level')}): {reward_details.get('title', 'No title')}"
+                }
+                # --- END OF FINAL FIX ---
+
+                # 3.1. Create the record in manual_rewards
+                await supabase.post("/manual_rewards", json=payload)
                 
-                # 3.2. Обновляем счетчик скинов
+                # 3.2. Update the skin counter
                 await supabase.post(
                     "/rpc/update_checkpoint_reward_quantity",
                     json={ "p_level_to_update": level_to_claim, "p_claimer_name": user_full_name }
                 )
 
-                # 3.3. Отправляем уведомление админу
+                # 3.3. Notify the admin
                 if ADMIN_NOTIFY_CHAT_ID:
                     await bot.send_message(
                         ADMIN_NOTIFY_CHAT_ID,
@@ -2914,19 +2910,19 @@ async def claim_checkpoint_reward(
                         f"Заявка ждет подтверждения в админ-панели."
                     )
             except Exception as e_manual:
-                logging.error(f"Критическая ошибка при создании ручной награды: {e_manual}", exc_info=True)
-                raise HTTPException(status_code=500, detail="Не удалось создать заявку на награду. Обратитесь к администратору.")
+                logging.error(f"Critical error creating manual reward: {e_manual}", exc_info=True)
+                raise HTTPException(status_code=500, detail="Could not create reward request. Contact an administrator.")
 
-        # 4. Возвращаем успешный ответ
-        return {"message": "Награда успешно получена!", "new_level": new_level}
+        # 4. Return a success response
+        return {"message": "Reward claimed successfully!", "new_level": new_level}
 
     except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Не удалось получить награду.")
+        error_details = e.response.json().get("message", "Could not claim reward.")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-  
+        logging.error(f"Critical error in /api/v1/checkpoint/claim: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
 @app.post("/api/v1/admin/settings")
 async def get_admin_settings(
     request_data: InitDataRequest,
