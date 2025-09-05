@@ -2846,11 +2846,12 @@ async def claim_checkpoint_reward(
 
     telegram_id = user_info["id"]
     level_to_claim = request_data.level
-    user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
+    user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Без имени")
 
     try:
         # Получаем контент, чтобы найти детали награды
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": 1})
+        content_resp.raise_for_status()
         content_data = content_resp.json()
         reward_details = None
         if content_data:
@@ -2871,8 +2872,9 @@ async def claim_checkpoint_reward(
         response.raise_for_status()
         new_level = response.json()
 
-        # Если награда - скин, создаем заявку на ручную выдачу
+        # ЕСЛИ НАГРАДА - СКИН, ВЫПОЛНЯЕМ ДОПОЛНИТЕЛЬНЫЕ ДЕЙСТВИЯ
         if reward_details.get('type') == 'cs2_skin':
+            # 1. Создаем заявку на ручную выдачу
             await supabase.post(
                 "/manual_rewards",
                 json={
@@ -2883,7 +2885,17 @@ async def claim_checkpoint_reward(
                     "status": "pending"
                 }
             )
-            # Отправляем уведомление админу
+            
+            # 2. Обновляем счётчик количества скинов
+            await supabase.post(
+                "/rpc/update_checkpoint_reward_quantity",
+                json={
+                    "p_level_to_update": level_to_claim,
+                    "p_claimer_name": user_full_name
+                }
+            )
+
+            # 3. Отправляем уведомление админу
             if ADMIN_NOTIFY_CHAT_ID:
                 await bot.send_message(
                     ADMIN_NOTIFY_CHAT_ID,
@@ -2899,7 +2911,9 @@ async def claim_checkpoint_reward(
         error_details = e.response.json().get("message", "Не удалось получить награду.")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
+        logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+        
 @app.post("/api/v1/admin/settings")
 async def get_admin_settings(
     request_data: InitDataRequest,
