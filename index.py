@@ -1456,7 +1456,7 @@ async def claim_challenge(
         if reward_for_checkpoint > 0:
             await supabase.post(
                 "/rpc/increment_checkpoint_stars",
-                json={"p_user_id": current_user_id, "p_amount": reward_for_checkpoint}
+                json={"p_user_id": current_user_id, "p_amount": 1} # Заменили переменную на 1
             )
             logging.info(f"✅ Пользователю {current_user_id} начислено {reward_for_checkpoint} звезд для Чекпоинта.")
 
