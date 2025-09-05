@@ -169,6 +169,7 @@ class AdminSettings(BaseModel):
     quests_enabled: bool = True
     checkpoint_enabled: bool = False
     menu_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"
+    checkpoint_banner_url: Optional[str] = "https://i.postimg.cc/6p39wgzJ/1200-324.png"
     
 class AdminSettingsUpdateRequest(BaseModel):
     initData: str
@@ -3104,18 +3105,25 @@ async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_cl
         resp.raise_for_status()
         data = resp.json()
 
+        # Значения по умолчанию
+        defaults = {
+            "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
+            "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png"
+        }
+
         if not data or not data[0].get('value'):
             # Возвращаем контент по умолчанию, если ничего не найдено
-            return {"menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"}
+            return defaults
         
         settings = data[0]['value']
         return {
-            "menu_banner_url": settings.get("menu_banner_url", "https://i.postimg.cc/d0r554hc/1200-600.png?v=2")
+            "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
+            "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"])
         }
     except Exception as e:
         logging.error(f"Ошибка при получении контента для меню: {e}")
         # Возвращаем контент по умолчанию при ошибке, чтобы не сломать клиент
-        return {"menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"}
+        return defaults
 
 @app.post("/api/v1/admin/manual_rewards")
 async def get_manual_rewards(
