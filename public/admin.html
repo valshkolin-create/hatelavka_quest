@@ -99,11 +99,13 @@
     .admin-icon-button span { font-size: 12px; font-weight: 500; line-height: 1.2; }
     .admin-icon-button .icon-wrapper .fa-user-check { color: var(--warning-color); }
     .admin-icon-button .icon-wrapper .fa-sliders { color: var(--action-color); }
+    .admin-icon-button .icon-wrapper .fa-user-gear { color: var(--status-approved-color); } /* New Icon */
     .pending-action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
     .pending-action-type-badge { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 8px; color: white; }
     .type-submission { background-color: var(--warning-color); }
     .type-prize { background-color: var(--status-approved-color); }
     .settings-group { display: flex; flex-direction: column; gap: 15px; margin-top: 20px; }
+    .settings-group h3 { margin-top: 0; margin-bottom: 5px; font-size: 18px; }
     .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--divider-glass-color); }
     .setting-item:last-child { border-bottom: none; }
     .setting-label { font-size: 15px; font-weight: 500; }
@@ -113,41 +115,11 @@
     .toggle-slider:before { position: absolute; content: ""; height: 23px; width: 23px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
     input:checked + .toggle-slider { background-color: var(--primary-color); }
     input:checked + .toggle-slider:before { transform: translateX(20px); }
-    .tabs-container {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      border-bottom: 1px solid var(--divider-glass-color);
-      padding-bottom: 10px;
-    }
-    .tab-button {
-      flex: 1;
-      padding: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-color-muted);
-      background-color: transparent;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.2s, color 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    .tab-button.active {
-      color: var(--text-color);
-      background-color: var(--surface-glass-bg);
-    }
-    .tab-content {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-    }
-    .tab-content.hidden {
-        display: none;
-    }
+    .tabs-container { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--divider-glass-color); padding-bottom: 10px; }
+    .tab-button { flex: 1; padding: 10px; font-size: 14px; font-weight: 600; color: var(--text-color-muted); background-color: transparent; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s, color 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .tab-button.active { color: var(--text-color); background-color: var(--surface-glass-bg); }
+    .tab-content { display: flex; flex-direction: column; gap: 15px; }
+    .tab-content.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -186,12 +158,42 @@
                 </div>
                 <div class="admin-icon-button" data-view="view-admin-pending-actions">
                     <div class="icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
-                    <span>Выдача промокодов и предметов</span>
+                    <span>Выдача и проверки</span>
+                </div>
+                <div class="admin-icon-button" data-view="view-admin-user-management">
+                    <div class="icon-wrapper"><i class="fa-solid fa-user-gear"></i></div>
+                    <span>Пользователи</span>
                 </div>
                 <div class="admin-icon-button" data-view="view-admin-settings">
                     <div class="icon-wrapper"><i class="fa-solid fa-sliders"></i></div>
                     <span>Настройки</span>
                 </div>
+            </div>
+        </div>
+        
+        <div id="view-admin-user-management" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Управление</h1>
+                <div style="width: 60px;"></div>
+            </div>
+
+            <div class="quest-card">
+                <form id="grant-stars-form" class="admin-form">
+                    <label>Выдать звезды пользователю</label>
+                    <input type="number" name="user_id_to_grant" required placeholder="Telegram ID пользователя">
+                    <input type="number" name="amount" required placeholder="Количество звезд">
+                    <button type="submit">Выдать</button>
+                </form>
+            </div>
+
+            <div class="quest-card" style="margin-top: 20px;">
+                <form id="freeze-stars-form" class="admin-form">
+                    <label>Заморозка/разморозка звезд</label>
+                    <input type="number" name="user_id_to_freeze" required placeholder="Telegram ID пользователя">
+                    <input type="number" name="days" required placeholder="Кол-во дней (0 для разморозки)">
+                    <button type="submit">Применить</button>
+                </form>
             </div>
         </div>
 
@@ -223,9 +225,20 @@
                 <h1 class="page-header-title">Настройки</h1>
                 <div style="width: 60px;"></div>
             </div>
+            
             <div class="quest-card">
-                <h3 style="margin-top:0;">Системы</h3>
                 <div class="settings-group">
+                    <h3>Внешний вид</h3>
+                    <div class="admin-form">
+                        <label for="setting-menu-banner-url">URL баннера в меню</label>
+                        <input type="text" id="setting-menu-banner-url" placeholder="https://example.com/banner.png">
+                    </div>
+                </div>
+            </div>
+
+            <div class="quest-card" style="margin-top: 20px;">
+                <div class="settings-group">
+                    <h3>Системы</h3>
                     <div class="setting-item">
                         <span class="setting-label">Система Заданий</span>
                         <label class="toggle-switch">
@@ -238,6 +251,7 @@
                         <label class="toggle-switch">
                             <input type="checkbox" id="setting-challenges-enabled">
                             <span class="toggle-slider"></span>
+                        </label>
                     </div>
                     <div class="setting-item">
                         <span class="setting-label">Система Чекпоинта</span>
@@ -248,9 +262,10 @@
                     </div>
                 </div>
             </div>
+
             <div class="quest-card" style="margin-top: 20px;">
-                <h3>Награды</h3>
                 <div class="settings-group">
+                    <h3>Награды</h3>
                     <div class="setting-item">
                         <span class="setting-label">Награды за Задания</span>
                         <label class="toggle-switch">
@@ -267,9 +282,16 @@
                     </div>
                 </div>
             </div>
+            
              <div class="quest-card" style="margin-top: 20px;">
-                <h3>Опасно</h3>
                 <div class="settings-group">
+                    <button id="save-settings-btn" class="admin-action-btn approve" style="width: 100%;">Сохранить все настройки</button>
+                </div>
+            </div>
+
+             <div class="quest-card" style="margin-top: 20px;">
+                <div class="settings-group">
+                    <h3>Опасно</h3>
                     <button id="reset-all-quests-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить квесты у всех</button>
                 </div>
             </div>
@@ -576,18 +598,27 @@
             tabContentSubmissions: document.getElementById('tab-content-submissions'),
             tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
             tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
+            
+            // --- NEW DOM ELEMENTS ---
+            grantStarsForm: document.getElementById('grant-stars-form'),
+            freezeStarsForm: document.getElementById('freeze-stars-form'),
+            settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
+            saveSettingsBtn: document.getElementById('save-settings-btn'),
+            
+            // --- EXISTING SETTINGS ELEMENTS ---
             settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
             settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
             settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
             settingChallengeRewardsEnabled: document.getElementById('setting-challenge-rewards-enabled'),
             resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
-            settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'), // ✅ ДОБАВЬ ЭТУ СТРОКУ
+            settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
         };
 
         let categoriesCache = [];
         let currentEditingCategoryId = null;
 
-        const switchView = (targetViewId) => {
+        // --- OPTIMIZATION: Modified switchView function ---
+        const switchView = async (targetViewId, forceReload = false) => {
             dom.views.forEach(view => view.classList.add('hidden'));
             const targetView = document.getElementById(targetViewId);
             if (targetView) targetView.classList.remove('hidden');
@@ -595,6 +626,55 @@
             if (dom.sleepModeToggle) {
                 const isAdmin = document.body.dataset.isAdmin === 'true';
                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
+            }
+            
+            // --- DYNAMIC DATA LOADING LOGIC ---
+            // This ensures data is fresh every time a view is opened.
+            switch (targetViewId) {
+                case 'view-admin-quests': {
+                    const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
+                    await fetchAndCacheCategories();
+                    renderQuests(allQuests, categoriesCache);
+                    break;
+                }
+                case 'view-admin-pending-actions': {
+                    const [submissions, winners, checkpointPrizes] = await Promise.all([
+                        makeApiRequest('/api/v1/admin/pending_actions'),
+                        makeApiRequest('/api/v1/admin/events/winners'),
+                        makeApiRequest('/api/v1/admin/checkpoint_rewards')
+                    ]);
+                    renderSubmissions(submissions);
+                    renderWinners(winners);
+                    renderCheckpointPrizes(checkpointPrizes);
+                    break;
+                }
+                case 'view-admin-challenges': {
+                    renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
+                    break;
+                }
+                case 'view-admin-categories': {
+                    await fetchAndCacheCategories();
+                    renderCategoriesList();
+                    break;
+                }
+                case 'view-admin-settings': {
+                    loadAndRenderSettings();
+                    break;
+                }
+                case 'view-admin-create': {
+                    await fetchAndCacheCategories();
+                    populateCategorySelects();
+                    dom.createQuestForm.reset();
+                    updateQuestFormUI(dom.createQuestForm);
+                    break;
+                }
+                 case 'view-admin-challenge-form': {
+                    dom.challengeForm.reset();
+                    dom.challengeForm.elements['challenge_id'].value = '';
+                    updateChallengeFormUI(dom.challengeForm);
+                    dom.challengeFormTitle.textContent = 'Новый челлендж';
+                    break;
+                }
             }
         };
 
@@ -731,8 +811,6 @@
             currentEditingCategoryId = null;
         }
 
-        // --- ОСНОВНЫЕ ФУНКЦИИ ---
-
         function renderSubmissions(submissions) {
             dom.tabContentSubmissions.innerHTML = '';
             if (!submissions || submissions.length === 0) {
@@ -793,8 +871,7 @@
                 dom.tabContentCheckpointPrizes.innerHTML += cardHtml;
             });
         }
-
-        // ... (остальной JS код остается без изменений) ...
+        
         function renderWinners(winners) {
             dom.tabContentEventPrizes.innerHTML = '';
             if (!winners || winners.length === 0) {
@@ -832,6 +909,7 @@
                  dom.settingQuestRewardsEnabled.checked = settings.quest_promocodes_enabled;
                  dom.settingChallengeRewardsEnabled.checked = settings.challenge_promocodes_enabled;
                  dom.settingCheckpointEnabled.checked = settings.checkpoint_enabled;
+                 dom.settingMenuBannerUrl.value = settings.menu_banner_url || '';
             } catch (e) {
                  console.error("Не удалось загрузить настройки:", e);
                  tg.showAlert("Не удалось загрузить настройки.");
@@ -979,23 +1057,18 @@
                 tg.showAlert(result.message);
             });
 
-            const settingsToggles = [
-                dom.settingQuestsEnabled, dom.settingChallengesEnabled, 
-                dom.settingQuestRewardsEnabled, dom.settingChallengeRewardsEnabled,
-                dom.settingCheckpointEnabled // ✅ ДОБАВЬ ЭЛЕМЕНТ В СПИСОК
-            ];
-            settingsToggles.forEach(toggle => {
-                toggle.addEventListener('change', async () => {
-                    const payload = {
-                        quests_enabled: dom.settingQuestsEnabled.checked,
-                        challenges_enabled: dom.settingChallengesEnabled.checked,
-                        quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
-                        challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked,
-                        checkpoint_enabled: dom.settingCheckpointEnabled.checked // ✅ ДОБАВЬ ЭТУ СТРОКУ
-                    };
-                    await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
-                    tg.showAlert('Настройки сохранены!');
-                });
+            // --- SETTINGS SAVE BUTTON ---
+            dom.saveSettingsBtn.addEventListener('click', async () => {
+                const payload = {
+                    quests_enabled: dom.settingQuestsEnabled.checked,
+                    challenges_enabled: dom.settingChallengesEnabled.checked,
+                    quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
+                    challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked,
+                    checkpoint_enabled: dom.settingCheckpointEnabled.checked,
+                    menu_banner_url: dom.settingMenuBannerUrl.value.trim()
+                };
+                await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
+                tg.showAlert('Настройки сохранены!');
             });
             
             dom.resetAllQuestsBtn.addEventListener('click', () => {
@@ -1007,51 +1080,24 @@
                  });
             });
 
+            // --- OPTIMIZATION: Main navigation handler ---
             dom.appContainer.addEventListener('click', async (event) => {
-                const target = event.target;
-                const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
-                
+                const navButton = event.target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
                 if (navButton) {
                     const view = navButton.dataset.view;
                     if (view) {
+                        // The switchView function now handles data loading
                         switchView(view);
-                        if (view === 'view-admin-quests') {
-                            const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                            await fetchAndCacheCategories();
-                            renderQuests(allQuests, categoriesCache);
-                        } else if (view === 'view-admin-pending-actions') {
-                            // ИЗМЕНЕНО: Запрашиваем ТРИ типа данных по отдельности
-                            const [submissions, winners, checkpointPrizes] = await Promise.all([
-                                makeApiRequest('/api/v1/admin/pending_actions'),
-                                makeApiRequest('/api/v1/admin/events/winners'),
-                                makeApiRequest('/api/v1/admin/checkpoint_rewards') // Новый запрос
-                            ]);
-                            renderSubmissions(submissions);         // Новая функция для проверок
-                            renderWinners(winners);               // Функция для розыгрышей (без изменений)
-                            renderCheckpointPrizes(checkpointPrizes); // Новая функция для чекпоинта
-                        } else if (view === 'view-admin-challenges') {
-                            renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
-                        } else if (view === 'view-admin-categories') {
-                            await fetchAndCacheCategories();
-                            renderCategoriesList();
-                        } else if (view === 'view-admin-settings') {
-                            loadAndRenderSettings();
-                        }
                     } else if (navButton.id === 'go-create-quest') {
-                        await fetchAndCacheCategories();
-                        populateCategorySelects();
                         switchView('view-admin-create');
-                        dom.createQuestForm.reset();
-                        updateQuestFormUI(dom.createQuestForm);
                     } else if (navButton.id === 'go-create-challenge') {
                         switchView('view-admin-challenge-form');
-                        dom.challengeForm.reset();
-                        dom.challengeForm.elements['challenge_id'].value = '';
-                        updateChallengeFormUI(dom.challengeForm);
-                        dom.challengeFormTitle.textContent = 'Новый челлендж';
                     }
                     return;
                 }
+
+                // Keep other event handlers below...
+                const target = event.target;
 
                 const confirmWinnerBtn = target.closest('.confirm-winner-prize-btn');
                 if (confirmWinnerBtn) {
@@ -1098,8 +1144,8 @@
                     tg.showConfirm(`Удалить задание ID ${id}?`, async (ok) => {
                         if (ok) {
                             await makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) });
-                            const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                            renderQuests(allQuests, categoriesCache);
+                            // Reload the current view to show changes
+                            await switchView('view-admin-quests', true); 
                         }
                     });
                 } else if (actionButton.matches('.admin-view-subs-btn')) {
@@ -1146,7 +1192,7 @@
                      tg.showConfirm(`Удалить челлендж ID ${id}?`, async (ok) => {
                         if (ok) {
                             await makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) });
-                            renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
+                            await switchView('view-admin-challenges', true);
                         }
                     });
                 } else if (actionButton.matches('.edit-category-btn')) {
@@ -1155,8 +1201,7 @@
                     tg.showConfirm('Вы уверены, что хотите удалить эту категорию?', async (ok) => {
                         if (ok) {
                             await makeApiRequest('/api/v1/admin/categories/delete', { category_id: parseInt(id) });
-                            await fetchAndCacheCategories();
-                            renderCategoriesList();
+                            await switchView('view-admin-categories', true);
                         }
                     });
                 } else if (actionButton.matches('.sort-btn')) {
@@ -1173,8 +1218,7 @@
                     const categoryId = actionButton.dataset.categoryId ? parseInt(actionButton.dataset.categoryId) : null;
                     const direction = actionButton.dataset.direction;
                     await makeApiRequest('/api/v1/admin/quests/reorder', { quest_id: questId, category_id: categoryId, direction: direction });
-                    const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                    renderQuests(allQuests, categoriesCache);
+                    await switchView('view-admin-quests', true);
                 }
             });
             
@@ -1197,17 +1241,14 @@
                 const challengeId = form.elements['challenge_id'].value;
                 if (challengeId) await makeApiRequest('/api/v1/admin/challenges/update', { ...data, challenge_id: parseInt(challengeId) });
                 else await makeApiRequest('/api/v1/admin/challenges/create', data);
-                renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
-                switchView('view-admin-challenges');
+                await switchView('view-admin-challenges');
             });
 
             dom.createQuestForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const questData = getQuestFormData(e.target);
                 await makeApiRequest('/api/v1/admin/quests', questData);
-                const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                renderQuests(allQuests, categoriesCache);
-                switchView('view-admin-quests');
+                await switchView('view-admin-quests');
             });
 
             dom.editQuestForm.addEventListener('submit', async (e) => {
@@ -1216,9 +1257,7 @@
                 const questData = getQuestFormData(form);
                 const finalData = { ...questData, quest_id: parseInt(form.elements['quest_id'].value, 10), is_active: form.elements['is_active'].value === 'true' };
                 await makeApiRequest('/api/v1/admin/quest/update', finalData);
-                const allQuests = await makeApiRequest('/api/v1/admin/quests/all');
-                renderQuests(allQuests, categoriesCache);
-                switchView('view-admin-quests');
+                await switchView('view-admin-quests');
             });
             
             dom.createCategoryForm.addEventListener('submit', async (e) => {
@@ -1229,8 +1268,7 @@
                 await makeApiRequest('/api/v1/admin/categories/create', { name: categoryName });
                 form.reset();
                 tg.showAlert('Категория создана!');
-                await fetchAndCacheCategories();
-                renderCategoriesList();
+                await switchView('view-admin-categories', true);
             });
 
             dom.addPromocodesForm.addEventListener('submit', async (e) => {
@@ -1244,6 +1282,37 @@
                 const result = await makeApiRequest('/api/v1/admin/promocodes', body);
                 tg.showAlert(result.message);
                 e.target.reset();
+            });
+            
+            // --- NEW EVENT LISTENERS FOR USER MANAGEMENT ---
+            dom.grantStarsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id_to_grant'].value);
+                const amount = parseInt(form.elements['amount'].value);
+                if (!userId || !amount) return;
+                
+                const result = await makeApiRequest('/api/v1/admin/users/grant-stars', {
+                    user_id_to_grant: userId,
+                    amount: amount
+                });
+                tg.showAlert(result.message);
+                form.reset();
+            });
+            
+            dom.freezeStarsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id_to_freeze'].value);
+                const days = parseInt(form.elements['days'].value);
+                if (!userId || isNaN(days)) return;
+
+                const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', {
+                    user_id_to_freeze: userId,
+                    days: days
+                });
+                tg.showAlert(result.message);
+                form.reset();
             });
           
             dom.modalCloseBtn.addEventListener('click', () => dom.submissionsModal.classList.add('hidden'));
@@ -1259,8 +1328,7 @@
                     name: newName
                 });
                 hideGenericPrompt();
-                await fetchAndCacheCategories();
-                renderCategoriesList();
+                await switchView('view-admin-categories', true);
             });
         }
 
