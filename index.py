@@ -2824,17 +2824,17 @@ async def update_checkpoint_content(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Используем "upsert": если строки нет, она создастся. Если есть - обновится.
-        await supabase.post(
+        # Используем PATCH для обновления конкретной записи, где page_name = 'checkpoint'
+        await supabase.patch(
             "/pages_content",
-            json={"page_name": "checkpoint", "content": request_data.content.dict()},
-            headers={"Prefer": "resolution=merge-duplicates"}
+            params={"page_name": "eq.checkpoint"},
+            json={"content": request_data.content.dict()}
         )
         return {"message": "Контент марафона успешно обновлен."}
     except Exception as e:
         logging.error(f"Ошибка при обновлении контента Чекпоинта: {e}")
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
-
+        
 @app.post("/api/v1/checkpoint/claim")
 async def claim_checkpoint_reward(
     request_data: CheckpointClaimRequest,
