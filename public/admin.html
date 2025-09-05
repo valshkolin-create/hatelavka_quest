@@ -1020,12 +1020,15 @@
                             await fetchAndCacheCategories();
                             renderQuests(allQuests, categoriesCache);
                         } else if (view === 'view-admin-pending-actions') {
-                            const [actions, winners] = await Promise.all([
+                            // ИЗМЕНЕНО: Запрашиваем ТРИ типа данных по отдельности
+                            const [submissions, winners, checkpointPrizes] = await Promise.all([
                                 makeApiRequest('/api/v1/admin/pending_actions'),
-                                makeApiRequest('/api/v1/admin/events/winners')
+                                makeApiRequest('/api/v1/admin/events/winners'),
+                                makeApiRequest('/api/v1/admin/checkpoint_rewards') // Новый запрос
                             ]);
-                            renderPendingActions(actions);
-                            renderWinners(winners);
+                            renderSubmissions(submissions);         // Новая функция для проверок
+                            renderWinners(winners);               // Функция для розыгрышей (без изменений)
+                            renderCheckpointPrizes(checkpointPrizes); // Новая функция для чекпоинта
                         } else if (view === 'view-admin-challenges') {
                             renderChallenges(await makeApiRequest('/api/v1/admin/challenges'));
                         } else if (view === 'view-admin-categories') {
