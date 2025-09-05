@@ -2842,7 +2842,8 @@ async def claim_checkpoint_reward(
 ):
     """
     Обрабатывает получение награды пользователем из Чекпоинта.
-    ИСПРАВЛЕНИЕ: Добавлен source_id и улучшена обработка ошибок.
+    ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Добавлены все обязательные поля (включая title)
+    при создании заявки в manual_rewards.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -2853,7 +2854,7 @@ async def claim_checkpoint_reward(
     user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Без имени")
 
     try:
-        # 1. Получаем детали награды из общего JSON-файла
+        # 1. Получаем детали награды
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": 1})
         content_resp.raise_for_status()
         content_data = content_resp.json()
@@ -2868,36 +2869,36 @@ async def claim_checkpoint_reward(
         if not reward_details:
              raise HTTPException(status_code=404, detail="Награда для этого уровня не найдена.")
 
-        # 2. Вызываем RPC, которая списывает звезды у пользователя
-        # Этот шаг должен идти ПЕРЕД созданием заявки, чтобы убедиться, что у пользователя достаточно звезд
+        # 2. Вызываем RPC для списания звезд
         response = await supabase.post(
             "/rpc/claim_checkpoint_reward",
             json={"p_user_id": telegram_id, "p_level_to_claim": level_to_claim}
         )
-        response.raise_for_status() # Если здесь будет ошибка (например, мало звезд), выполнение прервется
+        response.raise_for_status()
         new_level = response.json()
 
         # 3. Если это скин, создаем заявку на ручную выдачу
         if reward_details.get('type') == 'cs2_skin':
             logging.info(f"Награда типа 'cs2_skin' для уровня {level_to_claim}. Создание заявки.")
             
-            # --- НАЧАЛО ГЛАВНОГО ИСПРАВЛЕНИЯ ---
-            # Оборачиваем критические операции в try...except
             try:
-                # 3.1. Создаем запись в manual_rewards, ДОБАВЛЯЯ source_id
+                # 3.1. Создаем запись в manual_rewards, ДОБАВЛЯЯ ВСЕ НУЖНЫЕ ПОЛЯ
                 await supabase.post(
                     "/manual_rewards",
                     json={
+                        # --- НАЧАЛО ФИНАЛЬНОГО ИСПРАВЛЕНИЯ ---
+                        "title": reward_details.get('title', 'Награда из Чекпоинта'), # <--- ВОТ ОНО, САМОЕ ГЛАВНОЕ ИЗМЕНЕНИЕ
+                        # --- КОНЕЦ ФИНАЛЬНОГО ИСПРАВЛЕНИЯ ---
                         "user_id": telegram_id,
                         "source_type": "checkpoint",
-                        "source_id": reward_details.get('level'), # <--- ВОТ ОНО, КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
+                        "source_id": reward_details.get('level'),
                         "source_description": f"Чекпоинт: {reward_details.get('title', 'Без названия')}",
                         "reward_details": reward_details.get('value', 'Не указан'),
                         "status": "pending"
                     }
                 )
                 
-                # 3.2. Обновляем счетчик количества оставшихся скинов
+                # 3.2. Обновляем счетчик скинов
                 await supabase.post(
                     "/rpc/update_checkpoint_reward_quantity",
                     json={ "p_level_to_update": level_to_claim, "p_claimer_name": user_full_name }
@@ -2913,23 +2914,19 @@ async def claim_checkpoint_reward(
                         f"Заявка ждет подтверждения в админ-панели."
                     )
             except Exception as e_manual:
-                # Если создание заявки провалилось, логируем это и возвращаем ошибку пользователю
                 logging.error(f"Критическая ошибка при создании ручной награды: {e_manual}", exc_info=True)
-                # В идеале, здесь нужно "откатить" списание звезд, но для простоты пока просто сообщаем об ошибке
                 raise HTTPException(status_code=500, detail="Не удалось создать заявку на награду. Обратитесь к администратору.")
-            # --- КОНЕЦ ГЛАВНОГО ИСПРАВЛЕНИЯ ---
 
-        # 4. Если всё прошло успешно, возвращаем успешный ответ
+        # 4. Возвращаем успешный ответ
         return {"message": "Награда успешно получена!", "new_level": new_level}
 
     except httpx.HTTPStatusError as e:
-        # Эта ошибка сработает, если, например, у пользователя не хватило звезд
         error_details = e.response.json().get("message", "Не удалось получить награду.")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-       
+  
 @app.post("/api/v1/admin/settings")
 async def get_admin_settings(
     request_data: InitDataRequest,
