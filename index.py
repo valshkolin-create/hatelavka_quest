@@ -2840,6 +2840,11 @@ async def claim_checkpoint_reward(
     request_data: CheckpointClaimRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """
+    Обрабатывает получение награды пользователем из Чекпоинта.
+    КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Теперь создает заявку на ручную выдачу
+    ТОЛЬКО для наград типа 'cs2_skin'.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
@@ -2849,7 +2854,7 @@ async def claim_checkpoint_reward(
     user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Без имени")
 
     try:
-        # Получаем контент, чтобы найти детали награды
+        # 1. Получаем контент, чтобы найти детали награды по её уровню
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": 1})
         content_resp.raise_for_status()
         content_data = content_resp.json()
@@ -2864,7 +2869,8 @@ async def claim_checkpoint_reward(
         if not reward_details:
              raise HTTPException(status_code=404, detail="Награда для этого уровня не найдена.")
 
-        # Вызываем RPC для атомарного обновления уровня и списания звезд
+        # 2. Вызываем RPC для атомарного обновления уровня пользователя и списания звезд
+        # Эта часть остается неизменной, так как она отвечает за логику пользователя
         response = await supabase.post(
             "/rpc/claim_checkpoint_reward",
             json={"p_user_id": telegram_id, "p_level_to_claim": level_to_claim}
@@ -2872,21 +2878,24 @@ async def claim_checkpoint_reward(
         response.raise_for_status()
         new_level = response.json()
 
-        # ЕСЛИ НАГРАДА - СКИН, ВЫПОЛНЯЕМ ДОПОЛНИТЕЛЬНЫЕ ДЕЙСТВИЯ
+        # --- НАЧАЛО ГЛАВНОГО ИЗМЕНЕНИЯ ---
+        # 3. ПРОВЕРЯЕМ ТИП НАГРАДЫ. Создаем заявку только для скинов.
         if reward_details.get('type') == 'cs2_skin':
-            # 1. Создаем заявку на ручную выдачу
+            logging.info(f"Награда типа 'cs2_skin' для уровня {level_to_claim}. Создание заявки на ручную выдачу.")
+            
+            # 3.1. Создаем запись в таблице manual_rewards
             await supabase.post(
                 "/manual_rewards",
                 json={
                     "user_id": telegram_id,
-                    "source_type": "checkpoint",
+                    "source_type": "checkpoint", # Источник - Чекпоинт
                     "source_description": f"Чекпоинт: {reward_details.get('title', 'Без названия')}",
                     "reward_details": reward_details.get('value', 'Не указан'),
-                    "status": "pending"
+                    "status": "pending" # Статус "ожидает"
                 }
             )
             
-            # 2. Обновляем счётчик количества скинов
+            # 3.2. Обновляем счетчик количества оставшихся скинов
             await supabase.post(
                 "/rpc/update_checkpoint_reward_quantity",
                 json={
@@ -2895,15 +2904,19 @@ async def claim_checkpoint_reward(
                 }
             )
 
-            # 3. Отправляем уведомление админу
+            # 3.3. (Опционально) Отправляем уведомление админу в Telegram
             if ADMIN_NOTIFY_CHAT_ID:
                 await bot.send_message(
                     ADMIN_NOTIFY_CHAT_ID,
-                    f"🔔 <b>Новая ручная награда (Чекпоинт)</b>\n\n"
+                    f"🔔 <b>Заявка на скин из Чекпоинта!</b>\n\n"
                     f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
-                    f"<b>Награда:</b> Скин CS2 - {reward_details.get('value', 'Не указан')}\n\n"
-                    f"Пожалуйста, выдайте награду и отметьте в админ-панели."
+                    f"<b>Награда:</b> {reward_details.get('value', 'Не указан')}\n\n"
+                    f"Заявка ждет подтверждения в админ-панели."
                 )
+        else:
+            # Если это не скин (монеты, ключи и т.д.), просто логируем это и ничего не делаем
+            logging.info(f"Награда типа '{reward_details.get('type')}' для уровня {level_to_claim}. Ручная выдача не требуется.")
+        # --- КОНЕЦ ГЛАВНОГО ИЗМЕНЕНИЯ ---
 
         return {"message": "Награда успешно получена!", "new_level": new_level}
 
@@ -2913,7 +2926,7 @@ async def claim_checkpoint_reward(
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-        
+       
 @app.post("/api/v1/admin/settings")
 async def get_admin_settings(
     request_data: InitDataRequest,
