@@ -215,7 +215,7 @@ async def lifespan(app: FastAPI):
     logging.info("🚀 Приложение запускается...")
     yield
     logging.info("👋 Приложение останавливается...")
-    await bot.session.close()
+    # await bot.session.close() # <-- Просто удалите или закомментируйте эту строку
 
 app = FastAPI(title="Quest Bot API")
 
