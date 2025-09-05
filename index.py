@@ -3026,27 +3026,56 @@ async def get_checkpoint_rewards(
 ):
     """
     Получает ТОЛЬКО ручные награды из системы Чекпоинт.
+    ФИНАЛЬНАЯ ВЕРСИЯ: Использует прямой запрос к таблицам для максимальной надежности.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     try:
-        # Вызываем RPC функцию, которая получает все ручные награды с данными пользователя
-        rewards_resp = await supabase.post("/rpc/get_pending_manual_rewards_with_user")
+        # Шаг 1: Получаем все ожидающие награды напрямую из таблицы
+        rewards_resp = await supabase.get(
+            "/manual_rewards",
+            params={
+                "status": "eq.pending",
+                "select": "id,user_id,reward_details,source_description,created_at"
+            }
+        )
         rewards_resp.raise_for_status()
-        all_rewards = rewards_resp.json()
+        all_pending_rewards = rewards_resp.json()
 
-        # Фильтруем в Python, чтобы остались только награды из Чекпоинта
-        checkpoint_rewards = [
-            reward for reward in all_rewards
-            if reward.get("source_description") and "чекпоинт" in reward.get("source_description").lower()
+        # Шаг 2: Фильтруем в Python, чтобы остались только награды из Чекпоинта
+        checkpoint_rewards_raw = [
+            r for r in all_pending_rewards
+            if r.get("source_description") and "чекпоинт" in r["source_description"].lower()
         ]
-        
-        # Сортируем по дате создания
-        checkpoint_rewards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
 
-        return checkpoint_rewards
+        if not checkpoint_rewards_raw:
+            return [] # Возвращаем пустой список, если наград нет
+
+        # Шаг 3: Собираем ID пользователей и запрашиваем их данные
+        user_ids = {r["user_id"] for r in checkpoint_rewards_raw}
+        users_resp = await supabase.get(
+            "/users",
+            params={
+                "telegram_id": f"in.({','.join(map(str, user_ids))})",
+                "select": "telegram_id,full_name,trade_link"
+            }
+        )
+        users_resp.raise_for_status()
+        users_data = {u["telegram_id"]: u for u in users_resp.json()}
+
+        # Шаг 4: Объединяем данные о наградах с данными о пользователях
+        final_rewards = []
+        for reward in checkpoint_rewards_raw:
+            user_details = users_data.get(reward["user_id"], {})
+            reward["user_full_name"] = user_details.get("full_name", "N/A")
+            reward["user_trade_link"] = user_details.get("trade_link")
+            final_rewards.append(reward)
+
+        # Шаг 5: Сортируем и возвращаем
+        final_rewards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return final_rewards
 
     except Exception as e:
         logging.error(f"Ошибка при получении наград из Чекпоинта: {e}", exc_info=True)
