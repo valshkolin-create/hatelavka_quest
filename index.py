@@ -702,17 +702,21 @@ class QuestStartRequest(BaseModel):
     initData: str
     quest_id: int
 
-# --- Main API Endpoints ---
 # ------------------------------------------------------------------
-# 1. ДОБАВЬТЕ ЭТУ НОВУЮ ВСПОМОГАТЕЛЬНУЮ ФУНКЦИЮ
+# 1. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВСПОМОГАТЕЛЬНУЮ ФУНКЦИЮ НА ЭТУ ВЕРСИЮ
 # ------------------------------------------------------------------
 async def send_admin_notification_task(quest_title: str, user_info: dict, submitted_data: str):
     """
-    Отправляет уведомление администратору в фоновом режиме для надежности.
+    Отправляет уведомление администратору в фоновом режиме
+    с явным созданием и закрытием сессии бота для максимальной надежности.
     """
-    if ADMIN_NOTIFY_CHAT_ID:
-        try:
+    # Создаем новый, временный экземпляр бота специально для этой задачи
+    temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    
+    try:
+        if ADMIN_NOTIFY_CHAT_ID:
             user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Пользователь"
+            # Для html_decoration не нужен bot, поэтому используем его напрямую
             safe_user_name = html_decoration.quote(user_name)
             safe_quest_title = html_decoration.quote(quest_title)
             telegram_id = user_info.get("id", "N/A")
@@ -724,13 +728,18 @@ async def send_admin_notification_task(quest_title: str, user_info: dict, submit
                 f"<b>Данные:</b>\n<code>{html_decoration.quote(submitted_data)}</code>"
             )
             
-            logging.info("Отправка уведомления админу в фоновом режиме...")
-            await bot.send_message(ADMIN_NOTIFY_CHAT_ID, message_text, parse_mode=ParseMode.HTML)
+            logging.info("Отправка уведомления админу в новой сессии...")
+            # Используем временный экземпляр бота для отправки
+            await temp_bot.send_message(ADMIN_NOTIFY_CHAT_ID, message_text, parse_mode=ParseMode.HTML)
             logging.info("Фоновое уведомление админу успешно отправлено.")
             
-        except Exception as e:
-            logging.error(f"ОШИБКА в фоновой задаче отправки уведомления: {e}", exc_info=True)
-
+    except Exception as e:
+        logging.error(f"ОШИБКА в фоновой задаче с новой сессией: {e}", exc_info=True)
+    finally:
+        # Это КЛЮЧЕВОЙ момент: мы всегда закрываем сессию временного бота,
+        # чтобы не оставлять "висящих" соединений.
+        await temp_bot.session.close()
+        logging.info("Сессия временного бота в фоновой задаче закрыта.")
 
 # ------------------------------------------------------------------
 # 2. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ НА ЭТУ
