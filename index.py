@@ -2842,7 +2842,7 @@ async def claim_checkpoint_reward(
 ):
     """
     Handles a user's claim for a checkpoint reward.
-    FINAL FIX: The JSON request now fully matches the schema of the public.manual_rewards table.
+    FINAL FIX v2: Adds notification logic after confirming manual reward creation.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -2876,31 +2876,30 @@ async def claim_checkpoint_reward(
         response.raise_for_status()
         new_level = response.json()
 
-        # 3. If it's a skin, create a manual reward request
+        # 3. If it's a skin, create a manual reward request AND NOTIFY
         if reward_details.get('type') == 'cs2_skin':
             logging.info(f"Reward type 'cs2_skin' for level {level_to_claim}. Creating request.")
             
             try:
-                # --- START OF FINAL FIX ---
-                # Formulate the JSON strictly according to the provided table schema
+                # Formulate the JSON strictly according to the table schema
                 payload = {
                     "user_id": telegram_id,
                     "status": "pending",
                     "reward_details": reward_details.get('value', 'CS2 Skin not specified'),
                     "source_description": f"Чекпоинт (Уровень {reward_details.get('level')}): {reward_details.get('title', 'No title')}"
                 }
-                # --- END OF FINAL FIX ---
 
-                # 3.1. Create the record in manual_rewards
-                await supabase.post("/manual_rewards", json=payload)
+                # Create the record in manual_rewards
+                # --- START OF FINAL FIX ---
+                manual_reward_resp = await supabase.post("/manual_rewards", json=payload, headers={"Prefer": "return=representation"})
+                manual_reward_resp.raise_for_status() # This will raise an error if creation fails
                 
-                # 3.2. Update the skin counter
+                # If creation is successful, THEN update counter and notify
                 await supabase.post(
                     "/rpc/update_checkpoint_reward_quantity",
                     json={ "p_level_to_update": level_to_claim, "p_claimer_name": user_full_name }
                 )
 
-                # 3.3. Notify the admin
                 if ADMIN_NOTIFY_CHAT_ID:
                     await bot.send_message(
                         ADMIN_NOTIFY_CHAT_ID,
@@ -2909,8 +2908,11 @@ async def claim_checkpoint_reward(
                         f"<b>Награда:</b> {reward_details.get('value', 'Не указан')}\n\n"
                         f"Заявка ждет подтверждения в админ-панели."
                     )
+                # --- END OF FINAL FIX ---
+
             except Exception as e_manual:
                 logging.error(f"Critical error creating manual reward: {e_manual}", exc_info=True)
+                # OPTIONAL: Here you could try to refund the stars to the user
                 raise HTTPException(status_code=500, detail="Could not create reward request. Contact an administrator.")
 
         # 4. Return a success response
