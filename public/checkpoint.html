@@ -313,11 +313,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sortedRewards = [...(checkpointContent.rewards || [])].sort((a, b) => a.level - b.level);
 
+        // Получаем новый список уже купленных наград
+        const claimedLevels = userData.claimed_rewards || [];
+
         sortedRewards.forEach((reward) => {
-            const userLevel = userData.checkpoint_level || 0;
             const userStars = userData.checkpoint_stars || 0;
 
-            const isClaimed = userLevel >= reward.level;
+            // Новая логика определения статуса
+            const isClaimed = claimedLevels.includes(reward.level);
             const isClaimable = !isClaimed && userStars >= reward.level;
             const isLocked = !isClaimed && !isClaimable;
             
@@ -362,9 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const descriptionHtml = reward.description ? `<div class="reward-description">${reward.description}</div>` : '';
-            
             const actualIndex = checkpointContent.rewards.findIndex(r => r === reward);
-
             const editOverlayHtml = `
                 <div class="edit-overlay">
                     <button class="card-btn card-edit-btn" data-actual-index="${actualIndex}"><i class="fa-solid fa-pencil"></i></button>
