@@ -437,6 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function runLocalDevMode() {
         console.warn('--- РЕЖИМ ЛОКАЛЬНОЙ РАЗРАБОТКИ АКТИВИРОВАН ---');
+        // Можно оставить тестовые данные пользователя для удобства отладки
         userData = {
             checkpoint_stars: 100,
             checkpoint_level: 2,
@@ -445,12 +446,10 @@ document.addEventListener('DOMContentLoaded', () => {
             has_checkpoint_access: true
         };
 
+        // ГЛАВНОЕ ИЗМЕНЕНИЕ: Мы больше не создаем "зашитые" в код карточки.
+        // Оставляем структуру пустой, чтобы на странице не было ложных данных.
         checkpointContent = {
-            rewards: [
-                {level: 1, title: "+50 Монет", description: "Тестовая награда 1", icon: "https://i.ibb.co/bFmdZg2/coin.png", type: "coins", value: "50", total_quantity: null, claimed_quantity: null},
-                {level: 10, title: "AK-47 | Redline", description: "Тестовый скин", icon: "https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6YLfkjlRd6dd2j6eT8Nyl2VDl-0s6Mjv7I4SWJgE8ZFnS_FG2lenp05-6vM-bnhnizA9i5yPbgVXp1Q/360fx360f", type: "cs2_skin", value: "AK-47", total_quantity: 10, claimed_quantity: 3, last_claimer: { username: '@tester' }},
-                {level: 25, title: "x1 Ключ", description: "Тестовая награда 2", icon: "https://i.ibb.co/qY505r5/key.png", type: "keys", value: "1", total_quantity: null, claimed_quantity: null}
-            ]
+            rewards: []
         };
         
         checkpointInfo = getDefaultInfoText();
