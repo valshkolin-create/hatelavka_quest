@@ -325,7 +325,7 @@ dp.include_router(router)
 
 # --- Telegram handlers ---
 @router.message(Command("start"))
-async def cmd_start(message: types.Message, command: CommandObject, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def cmd_start(message: types.Message, command: CommandObject, background_tasks: BackgroundTasks, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     token = command.args or ""
     user_id = message.from_user.id
     if token:
@@ -338,15 +338,17 @@ async def cmd_start(message: types.Message, command: CommandObject, supabase: ht
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="🚀 Открыть приложение", web_app=WebAppInfo(url=WEB_APP_URL))
             ]])
-            await message.answer("✅ Авторизация завершена! Можете вернуться на сайт.", reply_markup=keyboard)
+            # Используем фоновую задачу для надежности
+            background_tasks.add_task(safe_send_message, chat_id=user_id, text="✅ Авторизация завершена! Можете вернуться на сайт.", reply_markup=keyboard)
         except Exception as e:
             logging.error(f"Ошибка привязки токена {token}: {e}")
-            await message.answer("⚠️ Произошла ошибка при авторизации.")
+            background_tasks.add_task(safe_send_message, chat_id=user_id, text="⚠️ Произошла ошибка при авторизации.")
     else:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🚀 Открыть приложение", web_app=WebAppInfo(url=WEB_APP_URL))
         ]])
-        await message.answer("👋 Привет! Открой наше веб-приложение:", reply_markup=keyboard)
+        # Используем фоновую задачу для надежности
+        background_tasks.add_task(safe_send_message, chat_id=user_id, text="👋 Привет! Открой наше веб-приложение:", reply_markup=keyboard)
 
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -740,6 +742,20 @@ async def send_admin_notification_task(quest_title: str, user_info: dict, submit
         # чтобы не оставлять "висящих" соединений.
         await temp_bot.session.close()
         logging.info("Сессия временного бота в фоновой задаче закрыта.")
+
+async def safe_send_message(chat_id: int, text: str, **kwargs):
+    """
+    Универсальная и надежная функция для отправки сообщений,
+    которая создает временную сессию бота для каждой отправки.
+    """
+    temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    try:
+        await temp_bot.send_message(chat_id=chat_id, text=text, **kwargs)
+        logging.info(f"Безопасная отправка сообщения в чат {chat_id} выполнена.")
+    except Exception as e:
+        logging.error(f"ОШИБКА безопасной отправки в чат {chat_id}: {e}", exc_info=True)
+    finally:
+        await temp_bot.session.close()
 
 # ------------------------------------------------------------------
 # 2. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ НА ЭТУ
@@ -1639,7 +1655,7 @@ async def send_approval_notification(user_id: int, quest_title: str, promo_code:
             f"<i>Нажми на кнопку ниже, чтобы активировать.</i>"
         )
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)]])
-        await bot.send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        await safe_send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
         logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
     except Exception as e:
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
@@ -1671,7 +1687,7 @@ async def update_submission_status(
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
         # Можно и сюда добавить фоновую задачу для надежности
-        background_tasks.add_task(bot.send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
+        background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
         return {"message": "Заявка отклонена."}
 
     elif action == 'approved':
@@ -2935,7 +2951,7 @@ async def claim_checkpoint_reward(
                 )
 
                 if ADMIN_NOTIFY_CHAT_ID:
-                    await bot.send_message(
+                    await safe_send_message(
                         ADMIN_NOTIFY_CHAT_ID,
                         f"🔔 <b>Заявка на скин из Чекпоинта!</b>\n\n"
                         f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
