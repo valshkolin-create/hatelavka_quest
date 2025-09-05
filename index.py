@@ -1459,7 +1459,6 @@ async def claim_challenge(
     try:
         logging.info(f"🔹 Пользователь {current_user_id} запрашивает награду за челлендж {challenge_id}")
         
-        # --- 👇 НАЧАЛО ИЗМЕНЕНИЯ ---
         admin_settings = await get_admin_settings_async(supabase)
 
         # Проверяем, включены ли награды за челленджи
@@ -1475,7 +1474,6 @@ async def claim_challenge(
                 "message": "Челлендж выполнен! Выдача наград временно отключена.",
                 "promocode": None
             }
-        # --- 👆 КОНЕЦ ИЗМЕНЕНИЯ ---
 
         # Если награды включены, выполняем стандартную логику
         challenge_info_resp = await supabase.get(
@@ -1508,7 +1506,18 @@ async def claim_challenge(
                 "/rpc/increment_checkpoint_stars",
                 json={"p_user_id": current_user_id, "p_amount": 1} # Заменили переменную на 1
             )
-            logging.info(f"✅ Пользователю {current_user_id} начислено {reward_for_checkpoint} звезд для Чекпоинта.")
+            logging.info(f"✅ Пользователю {current_user_id} начислена 1 звезда для Чекпоинта.")
+
+        # 👇👇👇 ДОБАВЛЕННЫЙ БЛОК ДЛЯ ОБНОВЛЕНИЯ ТАЙМЕРА 👇👇👇
+        try:
+            await supabase.post(
+                "/rpc/update_last_challenge_time",
+                json={"p_user_id": current_user_id}
+            )
+            logging.info(f"✅ Обновлена дата последнего челленджа для пользователя {current_user_id}.")
+        except Exception as e:
+            logging.error(f"Не удалось обновить last_challenge_completed_at для user {current_user_id}: {e}")
+        # 👆👆👆 КОНЕЦ БЛОКА 👆👆👆
 
         return {
             "success": True,
