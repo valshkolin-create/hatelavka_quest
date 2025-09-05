@@ -3012,9 +3012,24 @@ async def get_pending_actions(
         rewards_resp = await supabase.post("/rpc/get_pending_manual_rewards_with_user")
         rewards_resp.raise_for_status()
         rewards = rewards_resp.json()
+        
+        # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+        # Перебираем награды и добавляем недостающее поле для фильтрации в админке
         for reward in rewards:
             reward['type'] = 'prize' # Добавляем тип для фронтенда
+            
+            # Создаем поле `source_display_name`, которое ожидает JavaScript в admin.html
+            source_type = reward.get("source_type")
+            if source_type == "checkpoint":
+                reward["source_display_name"] = "Чекпоинт"
+            elif source_type == "event_win":
+                reward["source_display_name"] = "Победа в ивенте"
+            else:
+                # На случай появления других типов наград в будущем
+                reward["source_display_name"] = "Ручная награда"
+                
             all_actions.append(reward)
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
             
         # 4. Сортируем все действия по дате создания, чтобы новые были сверху
         all_actions.sort(key=lambda x: x.get('created_at', ''), reverse=True)
@@ -3024,6 +3039,7 @@ async def get_pending_actions(
     except Exception as e:
         logging.error(f"Ошибка при получении pending_actions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить список действий.")
+
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
