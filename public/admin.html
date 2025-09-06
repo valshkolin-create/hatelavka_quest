@@ -99,7 +99,7 @@
     .admin-icon-button span { font-size: 12px; font-weight: 500; line-height: 1.2; }
     .admin-icon-button .icon-wrapper .fa-user-check { color: var(--warning-color); }
     .admin-icon-button .icon-wrapper .fa-sliders { color: var(--action-color); }
-    .admin-icon-button .icon-wrapper .fa-user-gear { color: var(--status-approved-color); } /* New Icon */
+    .admin-icon-button .icon-wrapper .fa-user-gear { color: var(--status-approved-color); } 
     .pending-action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
     .pending-action-type-badge { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 8px; color: white; }
     .type-submission { background-color: var(--warning-color); }
@@ -120,6 +120,14 @@
     .tab-button.active { color: var(--text-color); background-color: var(--surface-glass-bg); }
     .tab-content { display: flex; flex-direction: column; gap: 15px; }
     .tab-content.hidden { display: none; }
+    .user-management-section h3 {
+        font-size: 16px;
+        color: var(--primary-color);
+        margin-top: 0;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--divider-glass-color);
+    }
   </style>
 </head>
 <body>
@@ -179,21 +187,39 @@
             </div>
 
             <div class="quest-card">
-                <form id="grant-stars-form" class="admin-form">
-                    <label>Выдать звезды пользователю</label>
-                    <input type="number" name="user_id_to_grant" required placeholder="Telegram ID пользователя">
-                    <input type="number" name="amount" required placeholder="Количество звезд">
-                    <button type="submit">Выдать</button>
-                </form>
+                <div class="user-management-section">
+                    <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Управление Звездами (Чекпоинт)</h3>
+                    <form id="grant-checkpoint-stars-form" class="admin-form">
+                        <label>Выдать звезды Чекпоинта</label>
+                        <input type="number" name="user_id_to_grant_cp" required placeholder="Telegram ID пользователя">
+                        <input type="number" name="amount_cp" required placeholder="Количество звезд">
+                        <button type="submit">Выдать</button>
+                    </form>
+                    <form id="freeze-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
+                        <label>Заморозка/разморозка звезд Чекпоинта</label>
+                        <input type="number" name="user_id_to_freeze_cp" required placeholder="Telegram ID пользователя">
+                        <input type="number" name="days_cp" required placeholder="Кол-во дней (0 для разморозки)">
+                        <button type="submit">Применить</button>
+                    </form>
+                </div>
             </div>
 
             <div class="quest-card" style="margin-top: 20px;">
-                <form id="freeze-stars-form" class="admin-form">
-                    <label>Заморозка/разморозка звезд</label>
-                    <input type="number" name="user_id_to_freeze" required placeholder="Telegram ID пользователя">
-                    <input type="number" name="days" required placeholder="Кол-во дней (0 для разморозки)">
-                    <button type="submit">Применить</button>
-                </form>
+                 <div class="user-management-section">
+                    <h3><i class="fa-solid fa-ticket" style="color: #34c759;"></i> Управление Билетами (Ивенты)</h3>
+                    <form id="grant-tickets-form" class="admin-form">
+                        <label>Выдать билеты</label>
+                        <input type="number" name="user_id_to_grant_tickets" required placeholder="Telegram ID пользователя">
+                        <input type="number" name="amount_tickets" required placeholder="Количество билетов">
+                        <button type="submit">Выдать</button>
+                    </form>
+                    <form id="freeze-tickets-form" class="admin-form" style="margin-top: 20px;">
+                        <label>Заморозка/разморозка билетов</label>
+                        <input type="number" name="user_id_to_freeze_tickets" required placeholder="Telegram ID пользователя">
+                        <input type="number" name="days_tickets" required placeholder="Кол-во дней (0 для разморозки)">
+                        <button type="submit">Применить</button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -606,13 +632,15 @@
             tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
             
             // --- NEW DOM ELEMENTS ---
-            grantStarsForm: document.getElementById('grant-stars-form'),
-            freezeStarsForm: document.getElementById('freeze-stars-form'),
+            grantCheckpointStarsForm: document.getElementById('grant-checkpoint-stars-form'),
+            freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
+            grantTicketsForm: document.getElementById('grant-tickets-form'),
+            freezeTicketsForm: document.getElementById('freeze-tickets-form'),
+
             settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
             settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
             saveSettingsBtn: document.getElementById('save-settings-btn'),
             
-            // --- EXISTING SETTINGS ELEMENTS ---
             settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
             settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
             settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
@@ -624,7 +652,6 @@
         let categoriesCache = [];
         let currentEditingCategoryId = null;
 
-        // --- OPTIMIZATION: Modified switchView function ---
         const switchView = async (targetViewId) => {
             dom.views.forEach(view => view.classList.add('hidden'));
             const targetView = document.getElementById(targetViewId);
@@ -635,8 +662,6 @@
                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
             }
             
-            // --- DYNAMIC DATA LOADING LOGIC ---
-            // This ensures data is fresh every time a view is opened.
             showLoader();
             try {
                 switch (targetViewId) {
@@ -1071,7 +1096,6 @@
                 tg.showAlert(result.message);
             });
 
-            // --- SETTINGS SAVE BUTTON ---
             dom.saveSettingsBtn.addEventListener('click', async () => {
                 const payload = {
                     quests_enabled: dom.settingQuestsEnabled.checked,
@@ -1095,7 +1119,6 @@
                  });
             });
 
-            // --- OPTIMIZATION: Main navigation handler ---
             dom.appContainer.addEventListener('click', async (event) => {
                 const navButton = event.target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
                 if (navButton) {
@@ -1110,7 +1133,6 @@
                     return;
                 }
 
-                // Keep other event handlers below...
                 const target = event.target;
 
                 const confirmWinnerBtn = target.closest('.confirm-winner-prize-btn');
@@ -1297,12 +1319,43 @@
                 e.target.reset();
             });
             
-            // --- NEW EVENT LISTENERS FOR USER MANAGEMENT ---
-            dom.grantStarsForm.addEventListener('submit', async (e) => {
+            // --- EVENT LISTENERS FOR CHECKPOINT STARS ---
+            dom.grantCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
-                const userId = parseInt(form.elements['user_id_to_grant'].value);
-                const amount = parseInt(form.elements['amount'].value);
+                const userId = parseInt(form.elements['user_id_to_grant_cp'].value);
+                const amount = parseInt(form.elements['amount_cp'].value);
+                if (!userId || !amount) return;
+                
+                const result = await makeApiRequest('/api/v1/admin/users/grant-checkpoint-stars', {
+                    user_id_to_grant: userId,
+                    amount: amount
+                });
+                tg.showAlert(result.message);
+                form.reset();
+            });
+            
+            dom.freezeCheckpointStarsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id_to_freeze_cp'].value);
+                const days = parseInt(form.elements['days_cp'].value);
+                if (!userId || isNaN(days)) return;
+
+                const result = await makeApiRequest('/api/v1/admin/users/freeze-checkpoint-stars', {
+                    user_id_to_freeze: userId,
+                    days: days
+                });
+                tg.showAlert(result.message);
+                form.reset();
+            });
+
+            // --- EVENT LISTENERS FOR TICKETS (OLD FORMS) ---
+            dom.grantTicketsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id_to_grant_tickets'].value);
+                const amount = parseInt(form.elements['amount_tickets'].value);
                 if (!userId || !amount) return;
                 
                 const result = await makeApiRequest('/api/v1/admin/users/grant-stars', {
@@ -1313,11 +1366,11 @@
                 form.reset();
             });
             
-            dom.freezeStarsForm.addEventListener('submit', async (e) => {
+            dom.freezeTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
-                const userId = parseInt(form.elements['user_id_to_freeze'].value);
-                const days = parseInt(form.elements['days'].value);
+                const userId = parseInt(form.elements['user_id_to_freeze_tickets'].value);
+                const days = parseInt(form.elements['days_tickets'].value);
                 if (!userId || isNaN(days)) return;
 
                 const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', {
