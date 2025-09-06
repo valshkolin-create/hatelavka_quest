@@ -162,6 +162,11 @@ class AdminGrantCheckpointStarsRequest(BaseModel):
     user_id_to_grant: int
     amount: int
 
+class AdminFreezeCheckpointStarsRequest(BaseModel):
+    initData: str
+    user_id_to_freeze: int
+    days: int
+
 class AdminFreezeStarsRequest(BaseModel):
     initData: str
     user_id_to_freeze: int
@@ -3071,22 +3076,35 @@ async def freeze_checkpoint_stars(
     request_data: AdminFreezeCheckpointStarsRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) ЗАГЛУШКА: Замораживает звезды Чекпоинта на N дней."""
+    """(Админ) Замораживает звезды Чекпоинта пользователя на указанное количество дней."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # ВАЖНО: Эта функция пока не работает, так как в таблице users
-    # нет поля checkpoint_stars_frozen_until.
-    # Как только оно будет добавлено, здесь нужно будет написать логику,
-    # аналогичную заморозке билетов.
-    
     user_id_to_freeze = request_data.user_id_to_freeze
     days = request_data.days
 
-    logging.warning(f"Попытка заморозить звезды Чекпоинта для {user_id_to_freeze} на {days} дней. Функция пока не реализована в базе.")
+    if days < 0:
+        raise HTTPException(status_code=400, detail="Количество дней не может быть отрицательным.")
 
-    return {"message": f"Функция заморозки звезд Чекпоинта пока неактивна. Поле в базе данных отсутствует."}
+    try:
+        freeze_until_date = None
+        # Если дни > 0, считаем дату окончания заморозки
+        if days > 0:
+            freeze_until_date = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+        # Обновляем новое поле в базе данных
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id_to_freeze}"},
+            json={"checkpoint_stars_frozen_until": freeze_until_date}
+        )
+        
+        message = f"Звезды Чекпоинта для пользователя {user_id_to_freeze} заморожены на {days} дней." if days > 0 else f"Заморозка звезд Чекпоинта для пользователя {user_id_to_freeze} снята."
+        return {"message": message}
+    except Exception as e:
+        logging.error(f"Ошибка при заморозке звезд Чекпоинта для {user_id_to_freeze}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выполнить заморозку звезд Чекпоинта.")
 
 @app.post("/api/v1/admin/users/grant-stars")
 async def grant_stars_to_user(
