@@ -152,7 +152,12 @@ class ManualRewardCompleteRequest(BaseModel):
     initData: str
     reward_id: int
 
-class AdminGrantStarsRequest(BaseModel):
+class AdminGrantTicketsRequest(BaseModel):
+    initData: str
+    user_id_to_grant: int
+    amount: int
+
+class AdminGrantCheckpointStarsRequest(BaseModel):
     initData: str
     user_id_to_grant: int
     amount: int
@@ -3032,6 +3037,56 @@ async def update_admin_settings(
         headers={"Prefer": "resolution=merge-duplicates"}
     )
     return {"message": "Настройки успешно сохранены."}
+
+@app.post("/api/v1/admin/users/grant-checkpoint-stars")
+async def grant_checkpoint_stars_to_user(
+    request_data: AdminGrantCheckpointStarsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Вручную выдает звезды для Чекпоинта."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    user_id_to_grant = request_data.user_id_to_grant
+    amount = request_data.amount
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Количество звезд должно быть положительным.")
+
+    try:
+        # Вызываем новую RPC функцию, которую мы создали
+        await supabase.post(
+            "/rpc/increment_checkpoint_stars",
+            json={"p_user_id": user_id_to_grant, "p_amount": amount}
+        )
+        return {"message": f"{amount} звезд Чекпоинта успешно выдано пользователю {user_id_to_grant}."}
+    except Exception as e:
+        logging.error(f"Ошибка при выдаче звезд Чекпоинта: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выдать звезды Чекпоинта.")
+
+
+@app.post("/api/v1/admin/users/freeze-checkpoint-stars")
+async def freeze_checkpoint_stars(
+    request_data: AdminFreezeCheckpointStarsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) ЗАГЛУШКА: Замораживает звезды Чекпоинта на N дней."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # ВАЖНО: Эта функция пока не работает, так как в таблице users
+    # нет поля checkpoint_stars_frozen_until.
+    # Как только оно будет добавлено, здесь нужно будет написать логику,
+    # аналогичную заморозке билетов.
+    
+    user_id_to_freeze = request_data.user_id_to_freeze
+    days = request_data.days
+
+    logging.warning(f"Попытка заморозить звезды Чекпоинта для {user_id_to_freeze} на {days} дней. Функция пока не реализована в базе.")
+
+    return {"message": f"Функция заморозки звезд Чекпоинта пока неактивна. Поле в базе данных отсутствует."}
 
 @app.post("/api/v1/admin/users/grant-stars")
 async def grant_stars_to_user(
