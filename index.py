@@ -157,6 +157,11 @@ class AdminGrantTicketsRequest(BaseModel):
     user_id_to_grant: int
     amount: int
 
+class AdminGrantStarsRequest(BaseModel):
+    initData: str
+    user_id_to_grant: int
+    amount: int
+
 class AdminGrantCheckpointStarsRequest(BaseModel):
     initData: str
     user_id_to_grant: int
