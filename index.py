@@ -218,6 +218,11 @@ class TwitchReward(BaseModel):
     notify_admin: bool = True
     icon_url: Optional[str] = None
 
+class TwitchRewardPurchaseCreate(BaseModel):
+    initData: str
+    reward_id: int
+    trade_link: str
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -1366,6 +1371,45 @@ async def update_twitch_reward(
         json=update_fields
     )
     return {"status": "ok"}
+
+@app.post("/api/v1/twitch_rewards/purchase")
+async def create_twitch_reward_purchase(
+    request_data: TwitchRewardPurchaseCreate,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Invalid Telegram initData")
+
+    telegram_id = user_info["id"]
+    username = user_info.get("username") or user_info.get("first_name") or "Unknown"
+
+    resp = await supabase.post(
+        "/twitch_reward_purchases",
+        json={
+            "reward_id": request_data.reward_id,
+            "user_id": telegram_id,
+            "username": username,
+            "trade_link": request_data.trade_link,
+        },
+        headers={"Prefer": "return=representation"}
+    )
+    return resp.json()
+
+@app.get("/api/v1/admin/twitch_rewards/{reward_id}/purchases")
+async def get_twitch_reward_purchases(
+    reward_id: int,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    resp = await supabase.get(
+        "/twitch_reward_purchases",
+        params={
+            "reward_id": f"eq.{reward_id}",
+            "select": "id,user_id,username,trade_link,created_at",
+            "order": "created_at.desc"
+        }
+    )
+    return {"purchases": resp.json()}
 
 @app.post("/api/v1/promocode")
 async def get_promocode(
