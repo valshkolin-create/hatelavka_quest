@@ -187,31 +187,33 @@
         cursor: help;
         font-size: 11px;
         font-weight: bold;
+        flex-shrink: 0; /* <-- ДОБАВЛЕНА ЭТА СТРОКА */
     }
-    .tooltip .tooltip-text {
-        visibility: hidden;
-        width: 220px;
-        background-color: #222;
-        color: #fff;
-        text-align: left;
-        border-radius: 6px;
-        padding: 8px;
-        position: absolute;
-        z-index: 1;
-        
-        /* --- ИЗМЕНЕНИЯ ЗДЕСЬ --- */
-        bottom: 100%; /* Располагаем над элементом */
-        left: 50%;   /* Центрируем относительно родителя */
-        transform: translateX(-50%); /* Смещаем влево на половину своей ширины */
-        margin-bottom: 8px; /* Добавляем небольшой отступ снизу */
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 240px; /* Немного увеличим ширину для комфорта */
+    background-color: #222;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px; /* Сделаем чуть более скруглённым */
+    padding: 10px;
+    position: absolute;
+    z-index: 1;
 
-        opacity: 0;
-        transition: opacity 0.3s;
-        font-size: 12px;
-        font-weight: 400;
-        line-height: 1.4;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    }
+    /* --- НОВЫЕ ПРАВИЛА ПОЗИЦИОНИРОВАНИЯ --- */
+    bottom: 100%; /* Всегда появляться над иконкой */
+    left: 50%; /* Начинаем с центра иконки */
+    transform: translateX(-95%); /* Смещаем влево почти на всю свою ширину */
+    margin-bottom: 8px;
+
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 13px; /* Чуть крупнее для читаемости */
+    font-weight: 400;
+    line-height: 1.5;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    pointer-events: none; /* Предотвращает "мигание" подсказки */
+}
     .tooltip:hover .tooltip-text {
         visibility: visible;
         opacity: 1;
