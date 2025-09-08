@@ -256,6 +256,10 @@
         box-shadow: 0 0 0 4px var(--primary-color), 0 0 25px var(--primary-color);
         transition: box-shadow 0.3s ease-in-out;
     }
+    /* Для футера убираем скругление, чтобы подсветка была по всей ширине */
+    .app-footer.tutorial-highlight {
+        border-radius: 0;
+    }
     .tutorial-modal {
         position: absolute;
         background-color: var(--surface-glass-bg);
@@ -339,6 +343,10 @@
 
   <main id="main-content" class="main-content">
 
+    <div class="start-tutorial-btn-wrapper">
+        <button id="start-tutorial-btn"><i class="fa-solid fa-circle-question"></i> Как пользоваться?</button>
+    </div>
+
     <div id="new-promo-notification" class="promo-notification hidden">
         <span>🏆 Новый промокод добавлен в ваш профиль!</span>
         <button id="close-promo-notification" class="promo-notification-close">&times;</button>
@@ -369,10 +377,6 @@
     </div>
     
 <div id="view-dashboard" class="view">
-        <div class="start-tutorial-btn-wrapper">
-            <button id="start-tutorial-btn"><i class="fa-solid fa-circle-question"></i> Как пользоваться?</button>
-        </div>
-
         <a id="events-link-wrapper" href="/events" style="text-decoration: none; display: block; margin-bottom: 15px;">
             <img id="menu-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Гонка за скинами" style="width: 100%; border-radius: 12px;">
         </a>
@@ -546,14 +550,16 @@
                 text: 'Выбирайте и выполняйте автоматические задания. Во время стримов доступны Twitch-испытания, а на выходных — Telegram-испытания.'
             },
             {
-                element: '#nav-leaderboard',
+                // ИЗМЕНЕНО: Подсвечиваем всю панель
+                element: '.app-footer',
                 title: 'Лидерборд',
-                text: 'Следите за статистикой самых активных пользователей в Twitch и Telegram чатах. Ваша активность тоже учитывается!'
+                text: 'Следите за статистикой самых активных пользователей в Twitch и Telegram чатах. Нужная кнопка находится в панели снизу.'
             },
             {
-                element: '#nav-quests',
+                // ИЗМЕНЕНО: Подсвечиваем всю панель
+                element: '.app-footer',
                 title: 'Задания',
-                text: 'В этом разделе находятся задания с ручной проверкой. Выполняйте их, отправляйте отчёт и получайте награду после одобрения.'
+                text: 'В этом разделе находятся задания с ручной проверкой. Найдите иконку в панели снизу, чтобы посмотреть их.'
             }
         ];
         let currentTutorialStep = 0;
@@ -721,7 +727,6 @@
             if (countdownIntervals[intervalKey]) {
                 clearInterval(countdownIntervals[intervalKey]);
             }
-            // СТАЛО: Добавляем проверку, что элемент таймера вообще существует, чтобы избежать ошибок
             if (!timerElement) { 
                 return;
             }
@@ -745,7 +750,6 @@
                     if (onEndCallback) {
                         onEndCallback();
                     } 
-                    // СТАЛО: Добавляем блок для завершения челленджа
                     else if (intervalKey === 'challenge') {
                         const cardElement = currentTimerElement.closest('.quest-card');
                         if (cardElement) {
@@ -757,7 +761,6 @@
                            cardElement.appendChild(completeButton);
                         }
                     } 
-                    // СТАЛО: Убираем "Время вышло" для заданий, чтобы исправить визуальный баг
                     else if (intervalKey.startsWith('quest_')) {
                         currentTimerElement.style.display = 'none';
                     }
@@ -796,7 +799,6 @@
 
         function renderChallenge(challengeData, isGuest) {
             dom.challengeContainer.innerHTML = '';
-            // ✅ ИЗМЕНЕНИЕ: Мы убрали отсюда всю логику, управляющую кнопкой заданий.
             
             if (isGuest) {
                 dom.challengeContainer.innerHTML = `
@@ -1055,16 +1057,12 @@
         async function startChallengeRoulette() {
             const getChallengeBtn = document.getElementById('get-challenge-btn');
             if(getChallengeBtn) getChallengeBtn.disabled = true;
-            dom.loaderOverlay.classList.remove('hidden'); // Показываем загрузчик
+            dom.loaderOverlay.classList.remove('hidden'); 
             
             try {
-                // ШАГ 1: СНАЧАЛА получаем список доступных челленджей
                 const available = await makeApiRequest('/api/v1/user/challenge/available');
-
-                // ШАГ 2: ТОЛЬКО ПОТОМ просим назначить нам один из них
                 const assignedChallenge = await makeApiRequest('/api/v1/user/challenge');
-                
-                dom.loaderOverlay.classList.add('hidden'); // Прячем загрузчик
+                dom.loaderOverlay.classList.add('hidden'); 
                 
                 if (assignedChallenge && assignedChallenge.cooldown_until) {
                     renderChallenge(assignedChallenge, false);
@@ -1077,7 +1075,6 @@
                     return;
                 }
 
-                // Эта часть кода для анимации рулетки остаётся без изменений
                 const overlay = document.createElement('div');
                 overlay.className = 'prompt-overlay';
                 overlay.innerHTML = `<div style="width: 90%; max-width: 400px; height: 150px; background: var(--surface-glass-bg); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;"><div id="roulette-inner" style="position: absolute; width: 100%; top: 0;"></div><div style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: 50px; border-top: 2px solid var(--primary-color); border-bottom: 2px solid var(--primary-color); box-sizing: border-box; z-index: 1;"></div></div>`;
@@ -1098,12 +1095,10 @@
                     inner.style.transform = `translateY(-${centeredPosition}px)`;
                     setTimeout(() => {
                         overlay.remove();
-                        // ✅ ИЗМЕНЕНИЕ: Вместо частичного обновления, полностью перезагружаем состояние экрана
                         main();
                     }, 7000);
                 }
             } catch (e) {
-                // makeApiRequest уже покажет ошибку (например, 409)
                 dom.loaderOverlay.classList.add('hidden');
                 if(getChallengeBtn) getChallengeBtn.disabled = false;
             }
@@ -1150,7 +1145,6 @@
                             Telegram.WebApp.showAlert(`✅ Вы выбрали задание: ${quest.title}`);
                             await main();
                         } catch(e) {
-                            // handle error
                         } finally {
                             container.innerHTML = "";
                             dom.questChooseBtn.disabled = false;
@@ -1219,11 +1213,9 @@
                 sessionStorage.removeItem('newPromoReceived');
             });
             
-            // --- ОБРАБОТЧИКИ ДЛЯ ОБУЧЕНИЯ ---
             dom.startTutorialBtn.addEventListener('click', startTutorial);
             dom.tutorialNextBtn.addEventListener('click', tutorialNextHandler);
             dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
-            // --- КОНЕЦ ОБРАБОТЧИКОВ ДЛЯ ОБУЧЕНИЯ ---
 
 
             document.body.addEventListener('click', async (event) => {
@@ -1302,7 +1294,6 @@
                                 Telegram.WebApp.showAlert('Задание отменено. Теперь вы можете выбрать новое.');
                                 await main();
                             } catch (e) {
-                                // Пустой catch, чтобы не показывать пользователю ошибку, если она будет
                             }
                         }
                     });
@@ -1311,14 +1302,12 @@
         }
 
         async function main() {
-            console.log("--- Запуск функции main() ---");
             if (!Telegram.WebApp.initData) {
                 document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
                 return;
             }
             
             try {
-                // ШАГ 1: Запускаем загрузку контента меню в фоне (это мы пропустили)
                 const menuContentPromise = fetch("/api/v1/content/menu").then(res => res.json());
 
                 const day = new Date().getDay();
@@ -1337,13 +1326,10 @@
                     dom.newPromoNotification.classList.remove('hidden');
                 }
 
-                console.log("1. Отправляем запрос на /api/v1/user/me...");
                 const dashboardData = await makeApiRequest("/api/v1/user/me");
-                console.log("2. Получен ответ от сервера:", dashboardData);
                 
                 userData = dashboardData || {}; 
                 const challengeData = dashboardData.challenge;
-                console.log("3. Разобрали данные. Переменная challengeData:", challengeData);
                 
                 const isGuest = !userData || !userData.full_name;
 
@@ -1356,7 +1342,6 @@
 
                 document.getElementById('ticketStats').textContent = userData.tickets || 0;
 
-                // ШАГ 2: Дожидаемся загрузки контента меню и обновляем баннеры
                 const menuContent = await menuContentPromise;
                 if (menuContent) {
                     if (menuContent.menu_banner_url) {
@@ -1373,7 +1358,6 @@
                     }
                 }
   
-                // ШАГ 3: Загружаем квесты (УБРАНА ДУБЛИРУЮЩАЯСЯ СТРОКА)
                 const questsDataResp = await makeApiRequest("/api/v1/quests/list");
 
                 allQuests = questsDataResp || [];
@@ -1392,19 +1376,15 @@
                     dom.activeAutomaticQuestContainer.innerHTML = '';
                 }
 
-                console.log("4. Собираемся вызывать renderChallenge. Передаём в неё:", challengeData);
                 if (challengeData) {
                     renderChallenge(challengeData, !userData.twitch_id);
                 } else {
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
-                console.log("5. Функция renderChallenge вызвана.");
 
-                // --- ЗАПУСК ОБУЧЕНИЯ ПРИ ПЕРВОМ ВХОДЕ ---
                 if (!localStorage.getItem('tutorialCompleted')) {
-                    setTimeout(startTutorial, 700); // Небольшая задержка, чтобы контент успел прогрузиться
+                    setTimeout(startTutorial, 700); 
                 }
-                // --- КОНЕЦ ---
 
             } catch (e) {
                 console.error("Критическая ошибка при основной загрузке:", e);
