@@ -176,6 +176,10 @@
                     <div class="icon-wrapper"><i class="fa-solid fa-sliders"></i></div>
                     <span>Настройки</span>
                 </div>
+                <div class="admin-icon-button" data-view="view-admin-statistics">
+                    <div class="icon-wrapper"><i class="fa fa-chart-line"></i></div>
+                    <span>Статистика</span>
+                </div>
             </div>
         </div>
         
@@ -546,6 +550,17 @@
                 </form>
             </div>
         </div>
+
+        <div id="view-admin-statistics" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Статистика</h1>
+                <div style="width: 60px;"></div>
+            </div>
+            <div id="statistics-content">
+            </div>
+        </div>
+
     </main>
 
     <div id="submissions-modal" class="modal-overlay hidden">
@@ -647,10 +662,39 @@
             settingChallengeRewardsEnabled: document.getElementById('setting-challenge-rewards-enabled'),
             resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
             settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
+            statisticsContent: document.getElementById('statistics-content'),
         };
 
         let categoriesCache = [];
         let currentEditingCategoryId = null;
+
+        async function loadStatistics() {
+            showLoader();
+            try {
+                const stats = await makeApiRequest("/api/v1/admin/stats", {}, 'POST', true);
+                let visitorsHtml = `
+                    <div class="quest-card">
+                        <h3>Посетители</h3>
+                        <p><strong>За день:</strong> ${stats.visitors.day}</p>
+                        <p><strong>За месяц:</strong> ${stats.visitors.month}</p>
+                        <p><strong>За год:</strong> ${stats.visitors.year}</p>
+                    </div>
+                `;
+
+                let eventsHtml = `<div class="quest-card" style="margin-top: 20px;"><h3>Участники в розыгрышах</h3>`;
+                stats.events.forEach(event => {
+                    eventsHtml += `<p><strong>${event.title}:</strong> ${event.participants} участников</p>`;
+                });
+                eventsHtml += `</div>`;
+                
+                dom.statisticsContent.innerHTML = visitorsHtml + eventsHtml;
+
+            } catch (e) {
+                dom.statisticsContent.innerHTML = `<p class="error-message">Не удалось загрузить статистику: ${e.message}</p>`;
+            } finally {
+                hideLoader();
+            }
+        }
 
         const switchView = async (targetViewId) => {
             dom.views.forEach(view => view.classList.add('hidden'));
@@ -693,6 +737,10 @@
                     }
                     case 'view-admin-settings': {
                         await loadAndRenderSettings();
+                        break;
+                    }
+                    case 'view-admin-statistics': {
+                        await loadStatistics();
                         break;
                     }
                     case 'view-admin-create': {
