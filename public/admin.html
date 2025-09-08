@@ -238,16 +238,27 @@
         right: 10px; /* Сдвигаем стрелочку направо */
         margin-left: 0;
     }
-    /* Twitch награды в сетку */
+    /* Twitch награды: компактная сетка */
     #twitch-rewards-container {
         display: grid;
-        grid-template-columns: repeat(3, 1fr); /* три колонки */
-        gap: 15px;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* гибкая сетка */
+        gap: 10px;
     }
 
     #twitch-rewards-container .quest-card {
-        padding: 10px;       /* делаем компактнее */
-        font-size: 14px;     /* уменьшаем текст */
+        padding: 8px;
+        font-size: 12px;
+        border-radius: 8px;
+    }
+
+    #twitch-rewards-container .quest-title {
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+
+    #twitch-rewards-container p {
+        font-size: 11px;
+        margin: 3px 0;
     }
   </style>
 </head>
