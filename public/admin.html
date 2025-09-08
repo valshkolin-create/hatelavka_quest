@@ -33,7 +33,7 @@
     .back-button { background: none; border: none; color: var(--action-color); font-size: 16px; cursor: pointer; padding: 5px; font-weight: 500; text-decoration: none; }
     .admin-form { display: flex; flex-direction: column; gap: 15px; text-align: left; }
     .admin-form input, .admin-form textarea, .admin-form select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background-color: #333; color: white; font-size: 16px; box-sizing: border-box; }
-    .admin-form label { font-weight: 600; font-size: 14px; margin-top: 5px; }
+    .admin-form label { font-weight: 600; font-size: 14px; margin-top: 5px; display: flex; align-items: center; gap: 6px; }
     .admin-form button { background-color: var(--primary-color); border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
     .admin-menu-button { background-color: var(--action-color); width: 100%; border: none; padding: 12px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
     .admin-submission-card { text-align: left; gap: 8px; }
@@ -138,7 +138,7 @@
         border-radius: 12px;
         padding: 15px;
         text-align: center;
-        position: relative; /* <-- ДОБАВЛЕНА ЭТА СТРОКА */
+        position: relative;
     }
     .stat-card-header {
         display: flex;
@@ -175,6 +175,8 @@
         font-weight: 600;
         font-size: 16px;
     }
+    
+    /* --- ИСПРАВЛЕННЫЙ БЛОК ДЛЯ ТУЛТИПОВ --- */
     .tooltip {
         position: relative;
         display: inline-flex;
@@ -188,34 +190,39 @@
         cursor: help;
         font-size: 11px;
         font-weight: bold;
-        flex-shrink: 0; /* <-- ДОБАВЛЕНА ЭТА СТРОКА */
+        flex-shrink: 0;
     }
-.tooltip .tooltip-text {
-    visibility: hidden;
-    width: 240px;
-    max-width: calc(100% - 16px); /* Не шире, чем сама карточка */
-    background-color: #222;
-    color: #fff;
-    text-align: center; /* Центрируем текст для красоты */
-    border-radius: 8px;
-    padding: 10px;
-    position: absolute;
-    z-index: 10;
-    
-    /* --- НОВАЯ УНИВЕРСАЛЬНАЯ ЛОГИКА ПОЗИЦИОНИРОВАНИЯ --- */
-    bottom: 100%; 
-    left: 50%;
-    transform: translateX(-50%);
-    margin-bottom: 10px; /* Отступ от иконки */
-
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 1.5;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    pointer-events: none;
-}
+    .tooltip .tooltip-text {
+        visibility: hidden;
+        width: 240px;
+        background-color: #222;
+        color: #fff;
+        text-align: left;
+        border-radius: 8px;
+        padding: 10px;
+        position: absolute;
+        z-index: 10;
+        bottom: 125%; /* Располагаем над иконкой с отступом */
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 13px;
+        font-weight: 400;
+        line-height: 1.5;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        pointer-events: none; /* Чтобы не мешал наведению */
+    }
+    .tooltip .tooltip-text::after { /* Маленькая стрелочка-треугольник */
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #222 transparent transparent transparent;
+    }
     .tooltip:hover .tooltip-text {
         visibility: visible;
         opacity: 1;
@@ -286,15 +293,49 @@
                 <div class="user-management-section">
                     <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Управление Звездами (Чекпоинт)</h3>
                     <form id="grant-checkpoint-stars-form" class="admin-form">
-                        <label>Выдать звезды Чекпоинта</label>
+                        <label>Выдать звезды Чекпоинта
+                             <div class="tooltip">?
+                                <span class="tooltip-text">Добавляет указанное количество звёзд Чекпоинта пользователю. Не отнимает существующие.</span>
+                            </div>
+                        </label>
                         <input type="number" name="user_id_to_grant_cp" required placeholder="Telegram ID пользователя">
                         <input type="number" name="amount_cp" required placeholder="Количество звезд">
                         <button type="submit">Выдать</button>
                     </form>
                     <form id="freeze-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
-                        <label>Заморозка/разморозка звезд Чекпоинта</label>
+                        <label>Заморозка/разморозка звезд
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Временно запрещает пользователю тратить звёзды Чекпоинта. Введите 0 дней для немедленной разморозки.</span>
+                            </div>
+                        </label>
                         <input type="number" name="user_id_to_freeze_cp" required placeholder="Telegram ID пользователя">
                         <input type="number" name="days_cp" required placeholder="Кол-во дней (0 для разморозки)">
+                        <button type="submit">Применить</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="quest-card" style="margin-top: 20px;">
+                 <div class="user-management-section">
+                    <h3><i class="fa-solid fa-ticket" style="color: var(--primary-color);"></i> Управление Билетами (Ивенты)</h3>
+                    <form id="grant-tickets-form" class="admin-form">
+                        <label>Выдать билеты
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Добавляет указанное количество билетов для участия в розыгрышах.</span>
+                            </div>
+                        </label>
+                        <input type="number" name="user_id_to_grant_tickets" required placeholder="Telegram ID пользователя">
+                        <input type="number" name="amount_tickets" required placeholder="Количество билетов">
+                        <button type="submit">Выдать</button>
+                    </form>
+                    <form id="freeze-tickets-form" class="admin-form" style="margin-top: 20px;">
+                        <label>Заморозка/разморозка билетов
+                             <div class="tooltip">?
+                                <span class="tooltip-text">Временно запрещает пользователю участвовать в розыгрышах. Введите 0 дней для немедленной разморозки.</span>
+                            </div>
+                        </label>
+                        <input type="number" name="user_id_to_freeze_tickets" required placeholder="Telegram ID пользователя">
+                        <input type="number" name="days_tickets" required placeholder="Кол-во дней (0 для разморозки)">
                         <button type="submit">Применить</button>
                     </form>
                 </div>
@@ -302,21 +343,19 @@
 
             <div class="quest-card" style="margin-top: 20px;">
                  <div class="user-management-section">
-                    <h3><i class="fa-solid fa-ticket" style="color: #34c759;"></i> Управление Билетами (Ивенты)</h3>
-                    <form id="grant-tickets-form" class="admin-form">
-                        <label>Выдать билеты</label>
-                        <input type="number" name="user_id_to_grant_tickets" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="amount_tickets" required placeholder="Количество билетов">
-                        <button type="submit">Выдать</button>
-                    </form>
-                    <form id="freeze-tickets-form" class="admin-form" style="margin-top: 20px;">
-                        <label>Заморозка/разморозка билетов</label>
-                        <input type="number" name="user_id_to_freeze_tickets" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="days_tickets" required placeholder="Кол-во дней (0 для разморозки)">
-                        <button type="submit">Применить</button>
+                    <h3 style="color: var(--danger-color);"><i class="fa-solid fa-broom"></i> Очистка прогресса (Чекпоинт)</h3>
+                    <form id="reset-checkpoint-form" class="admin-form">
+                        <label>Сбросить прогресс Чекпоинта
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Удаляет все полученные награды Чекпоинта и обнуляет баланс звёзд для указанного пользователя. Действие необратимо.</span>
+                            </div>
+                        </label>
+                        <input type="number" name="user_id_to_reset" required placeholder="Telegram ID пользователя">
+                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Очистить прогресс</button>
                     </form>
                 </div>
             </div>
+
         </div>
 
         <div id="view-admin-pending-actions" class="view hidden">
@@ -420,7 +459,10 @@
              <div class="quest-card" style="margin-top: 20px;">
                 <div class="settings-group">
                     <h3>Опасно</h3>
-                    <button id="reset-all-quests-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить квесты у всех</button>
+                    <div class="admin-form" style="gap: 10px;">
+                        <button id="reset-all-quests-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить квесты у всех</button>
+                        <button id="reset-all-checkpoints-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить Чекпоинт у всех</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -803,6 +845,7 @@
             freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
             grantTicketsForm: document.getElementById('grant-tickets-form'),
             freezeTicketsForm: document.getElementById('freeze-tickets-form'),
+            resetCheckpointForm: document.getElementById('reset-checkpoint-form'),
 
             settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
             settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
@@ -813,6 +856,7 @@
             settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
             settingChallengeRewardsEnabled: document.getElementById('setting-challenge-rewards-enabled'),
             resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
+            resetAllCheckpointsBtn: document.getElementById('reset-all-checkpoints-btn'),
             settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
             statisticsContent: document.getElementById('statistics-content'),
         };
@@ -825,7 +869,6 @@
             try {
                 const stats = await makeApiRequest("/api/v1/admin/stats", {}, 'POST', true);
                 
-                // --- Блок "Пульс проекта" ---
                 const pulse = stats.pulse || {};
                 const dau = pulse.dau || 0;
                 const wau = pulse.wau || 0;
@@ -839,22 +882,18 @@
                 document.getElementById('stat-new-today').textContent = newToday;
                 document.getElementById('stat-new-week').textContent = newWeek;
 
-                // Считаем "липкость"
                 const stickiness = mau > 0 ? ((dau / mau) * 100).toFixed(1) : 0;
                 document.getElementById('stat-stickiness').textContent = `${stickiness}%`;
 
-                // --- Блок "Активные розыгрыши" ---
                 const eventsList = document.getElementById('events-stats-list');
-                eventsList.innerHTML = ''; // Очищаем старые данные
+                eventsList.innerHTML = '';
                 if (stats.events && stats.events.length > 0) {
                     stats.events.forEach(event => {
-                        const eventHtml = `
+                        eventsList.insertAdjacentHTML('beforeend', `
                             <div class="event-stat-item">
                                 <strong>${event.title}</strong>
                                 <span>${event.participants} уч.</span>
-                            </div>
-                        `;
-                        eventsList.insertAdjacentHTML('beforeend', eventHtml);
+                            </div>`);
                     });
                 } else {
                     eventsList.innerHTML = '<p style="color: var(--text-color-muted); text-align: center;">Нет активных розыгрышей.</p>';
@@ -1338,6 +1377,15 @@
                  });
             });
 
+            dom.resetAllCheckpointsBtn.addEventListener('click', () => {
+                 tg.showConfirm('ЭТО ДЕЙСТВИЕ НЕОБРАТИМО! Вы уверены, что хотите сбросить ВЕСЬ прогресс Чекпоинта у ВСЕХ пользователей?', async (ok) => {
+                    if (ok) {
+                        await makeApiRequest('/api/v1/admin/users/reset-all-checkpoints');
+                        tg.showAlert('Прогресс Чекпоинта сброшен у всех пользователей.');
+                    }
+                 });
+            });
+
             dom.appContainer.addEventListener('click', async (event) => {
                 const navButton = event.target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
                 if (navButton) {
@@ -1596,6 +1644,23 @@
                 });
                 tg.showAlert(result.message);
                 form.reset();
+            });
+
+            dom.resetCheckpointForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id_to_reset'].value);
+                if (!userId) return;
+
+                tg.showConfirm(`Вы уверены, что хотите ПОЛНОСТЬЮ сбросить прогресс Чекпоинта для пользователя ${userId}? Это действие необратимо.`, async (ok) => {
+                    if (ok) {
+                        const result = await makeApiRequest('/api/v1/admin/users/reset-checkpoint', {
+                            user_id_to_reset: userId
+                        });
+                        tg.showAlert(result.message);
+                        form.reset();
+                    }
+                });
             });
           
             dom.modalCloseBtn.addEventListener('click', () => dom.submissionsModal.classList.add('hidden'));
