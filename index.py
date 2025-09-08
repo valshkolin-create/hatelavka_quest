@@ -991,22 +991,26 @@ async def get_admin_stats(
         users_yearly_resp = await supabase.get(f"/rpc/count_yearly_users")
         
         # Получение статистики по розыгрышам (Гонка за скинами)
-        # Получаем данные из таблицы events
-        events_resp = await supabase.get("/events?select=id,title")
+        # Получаем только актуальные (не завершенные) события
+        now = datetime.now(timezone.utc).isoformat()
+        events_resp = await supabase.get(f"/events?end_date=gt.{now}&select=id,title")
         events_resp.raise_for_status()
         events = events_resp.json()
 
         event_stats = []
         for event in events:
-            # Считаем количество участников для каждого event_id из таблицы event_participations
-            participants_resp = await supabase.get(f"/event_participations?event_id=eq.{event['id']}&select=user_id", headers={"Range": "0-99999"})
-            participants_resp.raise_for_status()
-            participants = participants_resp.json()
-            unique_participants = len({p['user_id'] for p in participants})
+            # Считаем количество участников и суммарное количество билетов
+            entries_resp = await supabase.get(f"/event_entries?event_id=eq.{event['id']}&select=user_id,tickets", headers={"Range": "0-99999"})
+            entries_resp.raise_for_status()
+            entries = entries_resp.json()
+            
+            unique_participants = len({e['user_id'] for e in entries})
+            total_tickets = sum(e['tickets'] for e in entries)
             
             event_stats.append({
                 "title": event["title"],
-                "participants": unique_participants
+                "participants": unique_participants,
+                "tickets": total_tickets
             })
 
         return JSONResponse(content={
