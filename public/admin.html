@@ -128,6 +128,90 @@
         padding-bottom: 10px;
         border-bottom: 1px solid var(--divider-glass-color);
     }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 15px;
+    }
+    .stat-card {
+        background-color: var(--surface-glass-bg);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+    }
+    .stat-card-header {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 5px;
+        margin: 0 0 10px;
+    }
+    .stat-card-header h4 {
+        margin: 0;
+        font-size: 14px;
+        color: var(--text-color-muted);
+        font-weight: 500;
+    }
+    .stat-card p {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+    .event-stat-item {
+        background-color: var(--surface-glass-bg);
+        border-radius: 10px;
+        padding: 12px 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .event-stat-item strong {
+        font-weight: 500;
+    }
+    .event-stat-item span {
+        font-weight: 600;
+        font-size: 16px;
+    }
+    .tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: #555;
+        color: #fff;
+        cursor: help;
+        font-size: 11px;
+        font-weight: bold;
+    }
+    .tooltip .tooltip-text {
+        visibility: hidden;
+        width: 220px;
+        background-color: #222;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 8px;
+        position: absolute;
+        z-index: 1;
+        bottom: 150%;
+        left: 50%;
+        margin-left: -110px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 1.4;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    .tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -558,6 +642,67 @@
                 <div style="width: 60px;"></div>
             </div>
             <div id="statistics-content">
+                <h2 style="font-size: 20px; margin-bottom: 15px;">Пульс проекта 🩺</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <h4>Активных сегодня (DAU)</h4>
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Daily Active Users. Уникальные пользователи, которые заходили в приложение сегодня (с 00:00).</span>
+                            </div>
+                        </div>
+                        <p id="stat-dau">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <h4>Активных за неделю (WAU)</h4>
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Weekly Active Users. Уникальные пользователи, которые заходили в приложение за последние 7 дней.</span>
+                            </div>
+                        </div>
+                        <p id="stat-wau">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <h4>Активных за месяц (MAU)</h4>
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Monthly Active Users. Уникальные пользователи, которые заходили в приложение за последние 30 дней.</span>
+                            </div>
+                        </div>
+                        <p id="stat-mau">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                             <h4>"Липкость" (DAU/MAU)</h4>
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Ключевой показатель вовлечённости. Показывает, какой % месячной аудитории заходит каждый день. Хорошим считается значение >20%.</span>
+                            </div>
+                        </div>
+                        <p id="stat-stickiness">0%</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <h4>Новых сегодня</h4>
+                             <div class="tooltip">?
+                                <span class="tooltip-text">Количество пользователей, которые зарегистрировались сегодня (с 00:00).</span>
+                            </div>
+                        </div>
+                        <p id="stat-new-today">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <h4>Новых за неделю</h4>
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Количество пользователей, которые зарегистрировались за последние 7 дней.</span>
+                            </div>
+                        </div>
+                        <p id="stat-new-week">0</p>
+                    </div>
+                </div>
+                <div id="events-stats-container" style="margin-top: 25px;">
+                    <h2 style="font-size: 20px; margin-bottom: 15px;">Активные розыгрыши 🔥</h2>
+                    <div id="events-stats-list"></div>
+                </div>
             </div>
         </div>
 
@@ -646,7 +791,6 @@
             tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
             tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
             
-            // --- NEW DOM ELEMENTS ---
             grantCheckpointStarsForm: document.getElementById('grant-checkpoint-stars-form'),
             freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
             grantTicketsForm: document.getElementById('grant-tickets-form'),
@@ -672,25 +816,44 @@
             showLoader();
             try {
                 const stats = await makeApiRequest("/api/v1/admin/stats", {}, 'POST', true);
-                let visitorsHtml = `
-                    <div class="quest-card">
-                        <h3>Посетители</h3>
-                        <p><strong>За день:</strong> ${stats.visitors.day}</p>
-                        <p><strong>За месяц:</strong> ${stats.visitors.month}</p>
-                        <p><strong>За год:</strong> ${stats.visitors.year}</p>
-                    </div>
-                `;
-
-                let eventsHtml = `<div class="quest-card" style="margin-top: 20px;"><h3>Участники в розыгрышах</h3>`;
-                stats.events.forEach(event => {
-                    eventsHtml += `<p><strong>${event.title}:</strong> ${event.participants} участников</p>`;
-                });
-                eventsHtml += `</div>`;
                 
-                dom.statisticsContent.innerHTML = visitorsHtml + eventsHtml;
+                // --- Блок "Пульс проекта" ---
+                const pulse = stats.pulse || {};
+                const dau = pulse.dau || 0;
+                const wau = pulse.wau || 0;
+                const mau = pulse.mau || 0;
+                const newToday = pulse.new_users_today || 0;
+                const newWeek = pulse.new_users_week || 0;
+
+                document.getElementById('stat-dau').textContent = dau;
+                document.getElementById('stat-wau').textContent = wau;
+                document.getElementById('stat-mau').textContent = mau;
+                document.getElementById('stat-new-today').textContent = newToday;
+                document.getElementById('stat-new-week').textContent = newWeek;
+
+                // Считаем "липкость"
+                const stickiness = mau > 0 ? ((dau / mau) * 100).toFixed(1) : 0;
+                document.getElementById('stat-stickiness').textContent = `${stickiness}%`;
+
+                // --- Блок "Активные розыгрыши" ---
+                const eventsList = document.getElementById('events-stats-list');
+                eventsList.innerHTML = ''; // Очищаем старые данные
+                if (stats.events && stats.events.length > 0) {
+                    stats.events.forEach(event => {
+                        const eventHtml = `
+                            <div class="event-stat-item">
+                                <strong>${event.title}</strong>
+                                <span>${event.participants} уч.</span>
+                            </div>
+                        `;
+                        eventsList.insertAdjacentHTML('beforeend', eventHtml);
+                    });
+                } else {
+                    eventsList.innerHTML = '<p style="color: var(--text-color-muted); text-align: center;">Нет активных розыгрышей.</p>';
+                }
 
             } catch (e) {
-                dom.statisticsContent.innerHTML = `<p class="error-message">Не удалось загрузить статистику: ${e.message}</p>`;
+                dom.statisticsContent.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить статистику: ${e.message}</p>`;
             } finally {
                 hideLoader();
             }
@@ -1367,7 +1530,6 @@
                 e.target.reset();
             });
             
-            // --- EVENT LISTENERS FOR CHECKPOINT STARS ---
             dom.grantCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
@@ -1398,7 +1560,6 @@
                 form.reset();
             });
 
-            // --- EVENT LISTENERS FOR TICKETS (OLD FORMS) ---
             dom.grantTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
