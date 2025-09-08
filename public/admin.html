@@ -1264,9 +1264,7 @@
             container.innerHTML = "<p>Загрузка...</p>";
 
             try {
-                const resp = await fetch("/rest/v1/twitch_rewards?select=id,title,is_active", {
-                    headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
-                });
+                const resp = await fetch("/api/v1/admin/twitch_rewards/list");
                 const rewards = await resp.json();
 
                 container.innerHTML = "";
