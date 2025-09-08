@@ -234,6 +234,102 @@
         cursor: pointer;
         opacity: 0.7;
     }
+    
+    /* --- СТИЛИ ДЛЯ ОБУЧЕНИЯ --- */
+    .tutorial-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.75);
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+    .tutorial-highlight {
+        position: relative;
+        z-index: 1000;
+        border-radius: 12px;
+        box-shadow: 0 0 0 4px var(--primary-color), 0 0 25px var(--primary-color);
+        transition: box-shadow 0.3s ease-in-out;
+    }
+    .tutorial-modal {
+        position: absolute;
+        background-color: var(--surface-glass-bg);
+        border: 1px solid rgba(58, 58, 60, 0.6);
+        padding: 15px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 320px;
+        z-index: 1001;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        transition: top 0.4s ease-in-out, opacity 0.4s ease-in-out;
+    }
+    .tutorial-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .tutorial-modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        color: var(--primary-color);
+    }
+    #tutorial-step-counter {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-color-muted);
+    }
+    .tutorial-modal p {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-color-muted);
+        margin: 0 0 15px 0;
+    }
+    .tutorial-modal-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .tutorial-modal-actions button {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    #tutorial-skip-btn {
+        background: none;
+        color: var(--text-color-muted);
+        font-size: 13px;
+    }
+    #tutorial-next-btn {
+        background-color: var(--primary-color);
+        color: white;
+        font-size: 14px;
+    }
+    .start-tutorial-btn-wrapper {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    #start-tutorial-btn {
+        background-color: rgba(0, 122, 255, 0.15);
+        border: 1px solid var(--action-color);
+        color: var(--action-color);
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ОБУЧЕНИЯ --- */
 </style>
 </head>
 <body>
@@ -273,7 +369,11 @@
     </div>
     
 <div id="view-dashboard" class="view">
-        <a href="/events" style="text-decoration: none; display: block; margin-bottom: 15px;">
+        <div class="start-tutorial-btn-wrapper">
+            <button id="start-tutorial-btn"><i class="fa-solid fa-circle-question"></i> Как пользоваться?</button>
+        </div>
+
+        <a id="events-link-wrapper" href="/events" style="text-decoration: none; display: block; margin-bottom: 15px;">
             <img id="menu-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Гонка за скинами" style="width: 100%; border-radius: 12px;">
         </a>
         
@@ -299,7 +399,7 @@
   </main>
   
   <footer class="app-footer">
-    <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
+    <a href="/leaderboard" id="nav-leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
     <a href="#" id="nav-dashboard" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
     <a href="#" id="nav-quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>    
     <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>    
@@ -346,6 +446,19 @@
     </div>
 </div>
 
+<div id="tutorial-overlay" class="tutorial-overlay hidden">
+    <div id="tutorial-modal" class="tutorial-modal">
+        <div class="tutorial-modal-header">
+            <h3 id="tutorial-title">Добро пожаловать!</h3>
+            <span id="tutorial-step-counter"></span>
+        </div>
+        <p id="tutorial-text">Давайте быстро пробежимся по основным функциям.</p>
+        <div class="tutorial-modal-actions">
+            <button id="tutorial-skip-btn">Пропустить</button>
+            <button id="tutorial-next-btn">Далее</button>
+        </div>
+    </div>
+</div>
 <script>
     try {
         Telegram.WebApp.ready();
@@ -387,6 +500,16 @@
 
             newPromoNotification: document.getElementById('new-promo-notification'),
             closePromoNotification: document.getElementById('close-promo-notification'),
+
+            // --- Элементы для обучения ---
+            tutorialOverlay: document.getElementById('tutorial-overlay'),
+            tutorialModal: document.getElementById('tutorial-modal'),
+            tutorialTitle: document.getElementById('tutorial-title'),
+            tutorialText: document.getElementById('tutorial-text'),
+            tutorialStepCounter: document.getElementById('tutorial-step-counter'),
+            tutorialNextBtn: document.getElementById('tutorial-next-btn'),
+            tutorialSkipBtn: document.getElementById('tutorial-skip-btn'),
+            startTutorialBtn: document.getElementById('start-tutorial-btn'),
         };
 
         let currentQuestId = null;
@@ -394,6 +517,132 @@
         let allQuests = [];
         let userData = {};
         let questsForRoulette = [];
+        
+        // --- ЛОГИКА ОБУЧЕНИЯ ---
+        const tutorialSteps = [
+            {
+                element: '.user-profile',
+                title: 'Ваш Профиль',
+                text: 'Здесь вы можете привязать Twitch, указать трейд-ссылку для наград и посмотреть все полученные промокоды.'
+            },
+            {
+                element: '#events-link-wrapper',
+                title: 'Гонка за скинами',
+                text: 'Это главный розыгрыш. Участвуйте, используя бесплатные билеты, которые можно заработать за выполнение заданий.'
+            },
+            {
+                element: '#challenge-container',
+                title: 'Случайный челлендж',
+                text: 'Проходите ежедневные испытания и получайте за это награды! Новые челленджи появляются регулярно.'
+            },
+            {
+                element: '#checkpoint-link',
+                title: 'Марафон "Чекпоинт"',
+                text: 'Выполняйте челленджи во время стримов, чтобы заработать звёзды и обменять их на ценные призы в марафоне.'
+            },
+            {
+                element: '#quest-choose-wrapper',
+                title: 'Испытания',
+                text: 'Выбирайте и выполняйте автоматические задания. Во время стримов доступны Twitch-испытания, а на выходных — Telegram-испытания.'
+            },
+            {
+                element: '#nav-leaderboard',
+                title: 'Лидерборд',
+                text: 'Следите за статистикой самых активных пользователей в Twitch и Telegram чатах. Ваша активность тоже учитывается!'
+            },
+            {
+                element: '#nav-quests',
+                title: 'Задания',
+                text: 'В этом разделе находятся задания с ручной проверкой. Выполняйте их, отправляйте отчёт и получайте награду после одобрения.'
+            }
+        ];
+        let currentTutorialStep = 0;
+
+        function positionTutorialModal(element) {
+            const rect = element.getBoundingClientRect();
+            const modal = dom.tutorialModal;
+            
+            modal.style.left = '5%';
+            modal.style.right = '5%';
+            modal.style.width = '90%';
+
+            // Позиционируем модалку снизу или сверху элемента
+            if (rect.bottom + modal.offsetHeight + 20 > window.innerHeight) {
+                modal.style.top = `${rect.top - modal.offsetHeight - 15}px`;
+            } else {
+                modal.style.top = `${rect.bottom + 15}px`;
+            }
+        }
+
+        function showTutorialStep(stepIndex) {
+            // Убираем подсветку с предыдущего элемента
+            document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+            
+            if (stepIndex >= tutorialSteps.length) {
+                endTutorial(true); // Завершаем обучение
+                return;
+            }
+
+            const step = tutorialSteps[stepIndex];
+            const element = document.querySelector(step.element);
+
+            if (element) {
+                element.classList.add('tutorial-highlight');
+                dom.tutorialTitle.textContent = step.title;
+                dom.tutorialText.innerHTML = step.text; // Используем innerHTML для возможных тегов
+                dom.tutorialStepCounter.textContent = `Шаг ${stepIndex + 1} из ${tutorialSteps.length}`;
+                
+                // Прокручиваем к элементу
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Ждем завершения прокрутки и позиционируем
+                setTimeout(() => positionTutorialModal(element), 300);
+
+                if (stepIndex === tutorialSteps.length - 1) {
+                    dom.tutorialNextBtn.textContent = 'Завершить';
+                } else {
+                    dom.tutorialNextBtn.textContent = 'Далее';
+                }
+            } else {
+                // Если элемент не найден, пропускаем шаг
+                currentTutorialStep++;
+                showTutorialStep(currentTutorialStep);
+            }
+        }
+
+        function startTutorial() {
+            currentTutorialStep = 0;
+            dom.tutorialOverlay.classList.remove('hidden');
+            showTutorialStep(currentTutorialStep);
+        }
+
+        function endTutorial(completed = false) {
+            document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+            if (completed) {
+                // Показываем финальное сообщение
+                dom.tutorialTitle.textContent = 'Готово!';
+                dom.tutorialText.innerHTML = 'Теперь вы знаете всё необходимое. <br><br><b>Важно:</b> все задания и розыгрыши в этом боте абсолютно бесплатны. Удачи!';
+                dom.tutorialStepCounter.textContent = '';
+                dom.tutorialSkipBtn.classList.add('hidden');
+                dom.tutorialNextBtn.textContent = 'Отлично!';
+                // При клике на финальную кнопку — закрываем
+                dom.tutorialNextBtn.onclick = () => {
+                    dom.tutorialOverlay.classList.add('hidden');
+                    dom.tutorialNextBtn.onclick = tutorialNextHandler; // Возвращаем обработчик
+                    dom.tutorialSkipBtn.classList.remove('hidden');
+                };
+            } else {
+                 dom.tutorialOverlay.classList.add('hidden');
+            }
+            localStorage.setItem('tutorialCompleted', 'true');
+        }
+
+        const tutorialNextHandler = () => {
+            currentTutorialStep++;
+            showTutorialStep(currentTutorialStep);
+        };
+
+        // --- КОНЕЦ ЛОГИКИ ОБУЧЕНИЯ ---
 
         function showNewPromoNotification() {
             sessionStorage.setItem('newPromoReceived', 'true');
@@ -970,6 +1219,13 @@
                 sessionStorage.removeItem('newPromoReceived');
             });
             
+            // --- ОБРАБОТЧИКИ ДЛЯ ОБУЧЕНИЯ ---
+            dom.startTutorialBtn.addEventListener('click', startTutorial);
+            dom.tutorialNextBtn.addEventListener('click', tutorialNextHandler);
+            dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
+            // --- КОНЕЦ ОБРАБОТЧИКОВ ДЛЯ ОБУЧЕНИЯ ---
+
+
             document.body.addEventListener('click', async (event) => {
                 const target = event.target.closest('button');
                 if (!target) return;
@@ -1143,6 +1399,12 @@
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
                 console.log("5. Функция renderChallenge вызвана.");
+
+                // --- ЗАПУСК ОБУЧЕНИЯ ПРИ ПЕРВОМ ВХОДЕ ---
+                if (!localStorage.getItem('tutorialCompleted')) {
+                    setTimeout(startTutorial, 700); // Небольшая задержка, чтобы контент успел прогрузиться
+                }
+                // --- КОНЕЦ ---
 
             } catch (e) {
                 console.error("Критическая ошибка при основной загрузке:", e);
