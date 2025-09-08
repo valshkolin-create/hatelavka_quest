@@ -238,6 +238,17 @@
         right: 10px; /* Сдвигаем стрелочку направо */
         margin-left: 0;
     }
+    /* Twitch награды в сетку */
+    #twitch-rewards-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr); /* три колонки */
+        gap: 15px;
+    }
+
+    #twitch-rewards-container .quest-card {
+        padding: 10px;       /* делаем компактнее */
+        font-size: 14px;     /* уменьшаем текст */
+    }
   </style>
 </head>
 <body>
@@ -790,7 +801,7 @@
                 <div style="width: 60px;"></div>
             </div>
 
-            <div id="twitch-rewards-container" class="quests-container">
+            <div id="twitch-rewards-container">
                 <!-- Сюда будут подгружаться награды -->
             </div>
         </div>
