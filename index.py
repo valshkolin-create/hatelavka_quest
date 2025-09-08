@@ -1007,9 +1007,9 @@ async def get_admin_stats(
             # Считаем количество участников для каждого event_id
             # Используем count=exact для эффективности
             participants_resp = await supabase.get(
-                "/event_participations", 
+                "/event_entries", 
                 params={"event_id": f"eq.{event['id']}", "select": "user_id"},
-                headers={"Range": "0-99999"} # Ограничение, чтобы получить всех
+                headers={"Range": "0-99999"}
             )
             participants_resp.raise_for_status()
             participants = participants_resp.json()
