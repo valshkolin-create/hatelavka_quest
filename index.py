@@ -200,6 +200,17 @@ class AdminCheckpointUserRequest(BaseModel):
     initData: str
     user_id: int
 
+class TwitchRewardInfo(BaseModel):
+    title: str
+
+class TwitchEventData(BaseModel):
+    user_login: str
+    reward: TwitchRewardInfo
+
+class TwitchWebhookPayload(BaseModel):
+    subscription: dict
+    event: TwitchEventData
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -467,6 +478,85 @@ async def telegram_webhook(update: dict, supabase: httpx.AsyncClient = Depends(g
         # Возвращаем 200, чтобы не заставлять Telegram повторять запрос
         return JSONResponse(content={"status": "error", "message": str(e)})
     # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
+
+@app.post("/api/v1/webhooks/twitch")
+async def handle_twitch_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Принимает и обрабатывает вебхуки от Twitch EventSub."""
+    
+    # Проверка подлинности запроса от Twitch
+    body = await request.body()
+    headers = request.headers
+    message_id = headers.get("Twitch-Eventsub-Message-Id")
+    timestamp = headers.get("Twitch-Eventsub-Message-Timestamp")
+    signature = headers.get("Twitch-Eventsub-Message-Signature")
+    
+    if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
+        raise HTTPException(status_code=403, detail="Отсутствуют заголовки подписи.")
+
+    hmac_message = (message_id + timestamp).encode() + body
+    expected_signature = "sha256=" + hmac.new(
+        TWITCH_WEBHOOK_SECRET.encode(), hmac_message, hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_signature, signature):
+        raise HTTPException(status_code=403, detail="Неверная подпись.")
+
+    # Обработка запроса
+    message_type = headers.get("Twitch-Eventsub-Message-Type")
+    data = json.loads(body)
+
+    # Ответ на challenge-запрос от Twitch для активации вебхука
+    if message_type == "webhook_callback_verification":
+        challenge = data.get("challenge")
+        return Response(content=challenge, media_type="text/plain")
+
+    # Обработка уведомления о событии
+    if message_type == "notification":
+        try:
+            payload = TwitchWebhookPayload(**data)
+            twitch_login = payload.event.user_login.lower()
+            reward_title = payload.event.reward.title
+
+            # Поиск пользователя в базе данных
+            user_resp = await supabase.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, full_name"}) #
+            user_data = user_resp.json()
+
+            if not user_data:
+                return {"status": "ok", "detail": "Пользователь не привязан."}
+
+            telegram_id = user_data[0]["telegram_id"] #
+            user_full_name = user_data[0].get("full_name", twitch_login) #
+
+            # Создание задачи на ручную выдачу
+            await supabase.post("/manual_rewards", json={ #
+                "user_id": telegram_id, #
+                "status": "pending",
+                "reward_details": reward_title,
+                "source_description": "Награда Twitch (Баллы канала)"
+            })
+
+            # Отправка уведомления администратору
+            if ADMIN_NOTIFY_CHAT_ID: #
+                notification_text = (
+                    f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
+                    f"<b>Пользователь:</b> {html_decoration.quote(user_full_name)}\n"
+                    f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n\n"
+                    f"Заявка ждет подтверждения в админ-панели."
+                )
+                background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text) #
+
+            return {"status": "ok"}
+        
+        except Exception as e:
+            logging.error(f"Ошибка обработки уведомления от Twitch: {e}", exc_info=True)
+            return {"status": "error_processing"}
+            
+    return {"status": "ok", "detail": "Запрос обработан."}
+
 @app.get("/api/v1/auth/check_token")
 async def check_token_auth(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     try:
