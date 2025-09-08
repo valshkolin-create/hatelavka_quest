@@ -983,13 +983,14 @@
                         updateQuestFormUI(dom.createQuestForm);
                         break;
                     }
-                     case 'view-admin-challenge-form': {
-                        dom.challengeForm.reset();
-                        dom.challengeForm.elements['challenge_id'].value = '';
-                        updateChallengeFormUI(dom.challengeForm);
-                        dom.challengeFormTitle.textContent = 'Новый челлендж';
-                        break;
-                    }
+                    // =================================================================
+                    // ========= НАЧАЛО ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
+                    // =================================================================
+                    // БЛОК case 'view-admin-challenge-form' БЫЛ УДАЛЕН ОТСЮДА
+                    // ЧТОБЫ ОН НЕ СБРАСЫВАЛ ФОРМУ КАЖДЫЙ РАЗ ПРИ ПЕРЕКЛЮЧЕНИИ.
+                    // ===============================================================
+                    // ========= КОНЕЦ ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
+                    // ===============================================================
                 }
             } finally {
                 hideLoader();
@@ -1426,9 +1427,20 @@
                         await switchView(view);
                     } else if (navButton.id === 'go-create-quest') {
                         await switchView('view-admin-create');
+                    // =================================================================
+                    // ========= НАЧАЛО ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
+                    // =================================================================
                     } else if (navButton.id === 'go-create-challenge') {
+                        // ЯВНО СБРАСЫВАЕМ ФОРМУ И МЕНЯЕМ ЗАГОЛОВОК ПЕРЕД ОТКРЫТИЕМ
+                        dom.challengeForm.reset();
+                        dom.challengeForm.elements['challenge_id'].value = '';
+                        updateChallengeFormUI(dom.challengeForm);
+                        dom.challengeFormTitle.textContent = 'Новый челлендж';
                         await switchView('view-admin-challenge-form');
                     }
+                    // ===============================================================
+                    // ========= КОНЕЦ ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
+                    // ===============================================================
                     return;
                 }
 
@@ -1447,15 +1459,11 @@
                     return;
                 }
                 
-                // =================================================================
-                // ========= НАЧАЛО ИСПРАВЛЕННОГО БЛОКА ОБРАБОТКИ КЛИКОВ =========
-                // =================================================================
                 const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .sort-btn, .sort-quest-btn');
                 if (!actionButton) return;
                 
                 const id = actionButton.dataset.id;
 
-                // Сначала проверяем самые конкретные классы
                 if (actionButton.matches('.edit-category-btn')) {
                     showGenericPrompt('Редактировать категорию', actionButton.dataset.name, id);
 
@@ -1496,7 +1504,6 @@
                         }
                     });
 
-                // Теперь проверяем более общие классы
                 } else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.sort-quest-btn') && !actionButton.matches('.edit-category-btn')) {
                     const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: parseInt(id) });
                     await fetchAndCacheCategories(true);
@@ -1570,9 +1577,6 @@
                     await makeApiRequest('/api/v1/admin/quests/reorder', { quest_id: questId, category_id: categoryId, direction: direction });
                     await switchView('view-admin-quests');
                 }
-                // ===============================================================
-                // ========= КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ОБРАБОТКИ КЛИКОВ =========
-                // ===============================================================
             });
             
             dom.createQuestForm.querySelector('select[name="quest_type"]').addEventListener('change', () => updateQuestFormUI(dom.createQuestForm));
