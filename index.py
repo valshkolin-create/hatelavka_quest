@@ -1544,6 +1544,8 @@ async def claim_challenge(
         
         admin_settings = await get_admin_settings_async(supabase)
 
+        promocode_text = None # Переменная для промокода
+        
         # Проверяем, включены ли награды за челленджи
         if not admin_settings.challenge_promocodes_enabled:
             logging.info(f"Награды за челленджи отключены. Обработка для user {current_user_id}")
@@ -1552,46 +1554,31 @@ async def claim_challenge(
                 "/rpc/complete_challenge_and_set_cooldown",
                 json={"p_user_id": current_user_id, "p_challenge_id": challenge_id}
             )
-            return {
-                "success": True,
-                "message": "Челлендж выполнен! Выдача наград временно отключена.",
-                "promocode": None
+            message = "Челлендж выполнен! Выдача наград временно отключена."
+        else:
+            # Если награды включены, выполняем стандартную логику с выдачей промокода
+            rpc_payload = {
+                "p_user_id": current_user_id,
+                "p_challenge_id": challenge_id
             }
-
-        # Если награды включены, выполняем стандартную логику
-        challenge_info_resp = await supabase.get(
-            "challenges",
-            params={"id": f"eq.{challenge_id}", "select": "reward_amount"}
-        )
-        challenge_info_resp.raise_for_status()
-        challenge_info = challenge_info_resp.json()
-        
-        if not challenge_info:
-            raise HTTPException(status_code=404, detail="Челлендж не найден.")
+            rpc_response = await supabase.post("/rpc/claim_challenge_and_get_reward", json=rpc_payload)
             
-        reward_for_checkpoint = challenge_info[0].get("reward_amount", 0)
+            if rpc_response.status_code != 200:
+                error_details = rpc_response.json().get("message", "Не удалось получить награду.")
+                raise HTTPException(status_code=400, detail=error_details)
 
-        rpc_payload = {
-            "p_user_id": current_user_id,
-            "p_challenge_id": challenge_id
-        }
-        
-        rpc_response = await supabase.post("/rpc/claim_challenge_and_get_reward", json=rpc_payload)
-        
-        if rpc_response.status_code != 200:
-            error_details = rpc_response.json().get("message", "Не удалось получить награду.")
-            raise HTTPException(status_code=400, detail=error_details)
+            promocode_text = rpc_response.text.strip('"')
+            message = "Награда получена!"
+            
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА: Начисляем звезду Чекпоинта ВСЕГДА после успешного выполнения ---
+        # Эта логика теперь выполняется независимо от того, включены промокоды или нет.
+        await supabase.post(
+            "/rpc/increment_checkpoint_stars",
+            json={"p_user_id": current_user_id, "p_amount": 1} # Всегда начисляем 1 звезду
+        )
+        logging.info(f"✅ Пользователю {current_user_id} начислена 1 звезда для Чекпоинта.")
 
-        promocode_text = rpc_response.text.strip('"')
-
-        if reward_for_checkpoint > 0:
-            await supabase.post(
-                "/rpc/increment_checkpoint_stars",
-                json={"p_user_id": current_user_id, "p_amount": 1} # Заменили переменную на 1
-            )
-            logging.info(f"✅ Пользователю {current_user_id} начислена 1 звезда для Чекпоинта.")
-
-        # 👇👇👇 ДОБАВЛЕННЫЙ БЛОК ДЛЯ ОБНОВЛЕНИЯ ТАЙМЕРА 👇👇👇
+        # Обновляем таймер последнего выполненного челленджа
         try:
             await supabase.post(
                 "/rpc/update_last_challenge_time",
@@ -1600,11 +1587,10 @@ async def claim_challenge(
             logging.info(f"✅ Обновлена дата последнего челленджа для пользователя {current_user_id}.")
         except Exception as e:
             logging.error(f"Не удалось обновить last_challenge_completed_at для user {current_user_id}: {e}")
-        # 👆👆👆 КОНЕЦ БЛОКА 👆👆👆
 
         return {
             "success": True,
-            "message": "Награда получена!",
+            "message": message,
             "promocode": promocode_text 
         }
 
