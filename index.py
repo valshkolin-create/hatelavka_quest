@@ -530,55 +530,61 @@ async def handle_twitch_webhook(
             reward_title = payload.event.reward.title
 
             # Поиск пользователя в базе данных
-            user_resp = await supabase.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, full_name"}) #
+            user_resp = await supabase.get(
+                "/users",
+                params={
+                    "twitch_login": f"eq.{twitch_login}",
+                    "select": "telegram_id, full_name"
+                }
+            )
             user_data = user_resp.json()
 
             if not user_data:
                 return {"status": "ok", "detail": "Пользователь не привязан."}
 
-            telegram_id = user_data[0]["telegram_id"] #
-            user_full_name = user_data[0].get("full_name", twitch_login) #
+            telegram_id = user_data[0]["telegram_id"]
+            user_full_name = user_data[0].get("full_name", twitch_login)
+
+            # 🔹 НОВЫЙ БЛОК: проверка в таблице twitch_rewards
+            reward_resp = await supabase.get(
+                "/twitch_rewards",
+                params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
+            )
+            reward_settings = reward_resp.json()
+
+            if not reward_settings:
+                insert_resp = await supabase.post("/twitch_rewards", json={
+                    "title": reward_title,
+                    "is_active": True,
+                    "notify_admin": True
+                })
+                reward_settings = [insert_resp.json()]
+
+            if not reward_settings[0]["is_active"]:
+                return {"status": "ok", "detail": "Эта награда отключена админом."}
 
             # Создание задачи на ручную выдачу
-    reward_resp = await supabase.get(
-        "/twitch_rewards",
-        params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
-    )
-    reward_settings = reward_resp.json()
+            await supabase.post("/manual_rewards", json={
+                "user_id": telegram_id,
+                "status": "pending",
+                "reward_details": reward_title,
+                "source_description": "Награда Twitch (Баллы канала)"
+            })
 
-    # Если награды нет в таблице — создаём автоматически
-    if not reward_settings:
-        insert_resp = await supabase.post("/twitch_rewards", json={
-            "title": reward_title,
-            "is_active": True,
-            "notify_admin": True
-        })
-        reward_settings = [insert_resp.json()]
-
-    # Если награда отключена — просто выходим
-    if not reward_settings[0]["is_active"]:
-        return {"status": "ok", "detail": "Эта награда отключена админом."}
-
-    # Создание задачи на ручную выдачу
-    await supabase.post("/manual_rewards", json={
-        "user_id": telegram_id,
-        "status": "pending",
-        "reward_details": reward_title,
-        "source_description": "Награда Twitch (Баллы канала)"
-    })
-
-    # Отправка уведомления администратору (если включено)
-    if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
-        notification_text = (
-            f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
-            f"<b>Пользователь:</b> {html_decoration.quote(user_full_name)}\n"
-            f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n\n"
-            f"Заявка ждет подтверждения в админ-панели."
-        )
-        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text) #
+            # Отправка уведомления администратору (если включено)
+            if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
+                notification_text = (
+                    f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
+                    f"<b>Пользователь:</b> {html_decoration.quote(user_full_name)}\n"
+                    f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n\n"
+                    f"Заявка ждет подтверждения в админ-панели."
+                )
+                background_tasks.add_task(
+                    safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text
+                )
 
             return {"status": "ok"}
-        
+
         except Exception as e:
             logging.error(f"Ошибка обработки уведомления от Twitch: {e}", exc_info=True)
             return {"status": "error_processing"}
