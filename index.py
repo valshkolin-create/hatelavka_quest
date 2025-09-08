@@ -1570,13 +1570,22 @@ async def claim_challenge(
             promocode_text = rpc_response.text.strip('"')
             message = "Награда получена!"
             
-        # --- ИСПРАВЛЕННАЯ ЛОГИКА: Начисляем звезду Чекпоинта ВСЕГДА после успешного выполнения ---
-        # Эта логика теперь выполняется независимо от того, включены промокоды или нет.
+        # --- НАЧИСЛЯЕМ ВСЕГДА ПОСЛЕ УСПЕШНОГО ВЫПОЛНЕНИЯ ---
+        
+        # 1. Начисляем звезду Чекпоинта
         await supabase.post(
             "/rpc/increment_checkpoint_stars",
-            json={"p_user_id": current_user_id, "p_amount": 1} # Всегда начисляем 1 звезду
+            json={"p_user_id": current_user_id, "p_amount": 1} 
         )
         logging.info(f"✅ Пользователю {current_user_id} начислена 1 звезда для Чекпоинта.")
+
+        # 2. Начисляем билет (НОВОЕ)
+        await supabase.post(
+            "/rpc/increment_tickets",
+            json={"p_user_id": current_user_id, "p_amount": 1}
+        )
+        logging.info(f"✅ Пользователю {current_user_id} начислен 1 билет за челлендж.")
+
 
         # Обновляем таймер последнего выполненного челленджа
         try:
