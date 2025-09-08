@@ -1276,12 +1276,12 @@
                         <div class="admin-buttons-wrapper">
                             <label>
                                 Активна:
-                                <input type="checkbox" ${r.is_active ? "checked" : ""} 
+                                <input type="checkbox" ${r.is_active ? "checked" : ""}
                                     onchange="updateTwitchReward(${r.id}, 'is_active', this.checked)">
                             </label>
                             <label>
                                 Уведомлять админов:
-                                <input type="checkbox" ${r.notify_admin ? "checked" : ""} 
+                                <input type="checkbox" ${r.notify_admin ? "checked" : ""}
                                     onchange="updateTwitchReward(${r.id}, 'notify_admin', this.checked)">
                             </label>
                             <button class="admin-view-subs-btn" onclick="openTwitchPurchases(${r.id})">Просмотреть покупки</button>
