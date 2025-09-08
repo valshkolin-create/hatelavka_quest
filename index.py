@@ -1348,7 +1348,10 @@ async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase
 
 
 @app.post("/api/v1/admin/twitch_rewards/update")
-async def update_twitch_reward(data: dict, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def update_twitch_reward(
+    data: dict = Body(...),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     reward_id = data.get("id")
     if not reward_id:
         raise HTTPException(status_code=400, detail="Reward ID is required")
