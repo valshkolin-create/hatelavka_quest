@@ -978,19 +978,13 @@ async def get_admin_stats(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # --- ИЗМЕНЕНИЕ: Вызываем новые, правильные функции ---
-        users_daily_resp = await supabase.post("/rpc/get_daily_active_users")
-        users_weekly_resp = await supabase.post("/rpc/get_weekly_active_users")
-        users_monthly_resp = await supabase.post("/rpc/get_monthly_active_users")
+        # Делаем один-единственный вызов к нашей новой мощной функции
+        pulse_resp = await supabase.post("/rpc/get_project_pulse_stats")
+        pulse_resp.raise_for_status()
+        pulse_data = pulse_resp.json()[0] if pulse_resp.json() else {}
 
-        users_daily_resp.raise_for_status()
-        users_weekly_resp.raise_for_status()
-        users_monthly_resp.raise_for_status()
-
-        events_resp = await supabase.get(
-            "/events",
-            params={"select": "id,title"}
-        )
+        # Получаем статистику по ивентам отдельно
+        events_resp = await supabase.get("/events", params={"select": "id,title"})
         events_resp.raise_for_status()
         events = events_resp.json()
 
@@ -1010,20 +1004,17 @@ async def get_admin_stats(
                 "participants": unique_participants
             })
 
+        # Собираем финальный ответ
         return JSONResponse(content={
-            "visitors": {
-                "day": users_daily_resp.json()[0]['count'],
-                "week": users_weekly_resp.json()[0]['count'], # <-- Добавили неделю
-                "month": users_monthly_resp.json()[0]['count'],
-            },
+            "pulse": pulse_data,
             "events": event_stats
         })
 
     except httpx.HTTPStatusError as e:
-        logging.error(f"Ошибка HTTP при получении статистики админки: {e.response.status_code} - {e.response.text}")
+        logging.error(f"Ошибка HTTP при получении статистики: {e.response.status_code} - {e.response.text}")
         raise HTTPException(status_code=500, detail=f"Ошибка при загрузке статистики: {e.response.text}")
     except Exception as e:
-        logging.error(f"Ошибка получения статистики админки: {e}", exc_info=True)
+        logging.error(f"Ошибка получения статистики: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка при загрузке статистики.")
         
 @app.post("/api/v1/admin/quest/submissions")
