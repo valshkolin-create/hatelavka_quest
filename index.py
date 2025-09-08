@@ -196,6 +196,10 @@ class StatisticsRequest(BaseModel):
 class PendingActionRequest(BaseModel): # Добавьте эту модель в начало файла, где все Pydantic модели
     initData: str
 
+class AdminResetCheckpointRequest(BaseModel):
+    initData: str
+    user_id_to_reset: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -3373,6 +3377,66 @@ async def get_checkpoint_rewards(
     except Exception as e:
         logging.error(f"Ошибка при получении наград из Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить награды из Чекпоинта.")
+
+app.post("/api/v1/admin/users/reset-checkpoint")
+async def reset_user_checkpoint(
+    request_data: AdminResetCheckpointRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Полностью сбрасывает прогресс Чекпоинта для одного пользователя."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    user_id = request_data.user_id_to_reset
+
+    # Шаг 1: Удаляем все записи о полученных наградах
+    await supabase.delete(
+        "/claimed_checkpoint_rewards",
+        params={"user_id": f"eq.{user_id}"}
+    )
+
+    # Шаг 2: Сбрасываем количество звёзд
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{user_id}"},
+        json={"checkpoint_stars": 0}
+    )
+
+    return {"message": f"Прогресс Чекпоинта для пользователя {user_id} полностью сброшен."}
+
+
+@app.post("/api/v1/admin/users/reset-all-checkpoints")
+async def reset_all_checkpoints(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) ВНИМАНИЕ: Сбрасывает прогресс Чекпоинта для ВСЕХ пользователей."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # Шаг 1: Очищаем всю таблицу с записями о наградах (быстрее чем DELETE)
+    # Примечание: TRUNCATE требует более высоких прав, но для Supabase service_role это нормально.
+    await supabase.post(
+        "/rpc/truncate_claimed_checkpoint_rewards" 
+        # Тебе нужно будет создать простую SQL-функцию в Supabase:
+        # CREATE OR REPLACE FUNCTION truncate_claimed_checkpoint_rewards()
+        # RETURNS void AS $$
+        # BEGIN
+        #   TRUNCATE TABLE public.claimed_checkpoint_rewards;
+        # END;
+        # $$ LANGUAGE plpgsql;
+    )
+
+    # Шаг 2: Обнуляем звёзды у всех пользователей
+    await supabase.patch(
+        "/users",
+        params={"checkpoint_stars": "gt.0"}, # Обновляем только тех, у кого есть звёзды
+        json={"checkpoint_stars": 0}
+    )
+
+    return {"message": "Прогресс Чекпоинта был полностью сброшен для ВСЕХ пользователей."}
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
