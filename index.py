@@ -24,7 +24,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import Update, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode
 from aiogram.client.bot import DefaultBotProperties
-from fastapi import FastAPI, Request, HTTPException, Query, Depends
+from fastapi import FastAPI, Request, HTTPException, Query, Depends, Body
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
