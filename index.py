@@ -494,14 +494,14 @@ async def handle_twitch_webhook(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """Принимает и обрабатывает вебхуки от Twitch EventSub."""
-    
+
     # Проверка подлинности запроса от Twitch
     body = await request.body()
     headers = request.headers
     message_id = headers.get("Twitch-Eventsub-Message-Id")
     timestamp = headers.get("Twitch-Eventsub-Message-Timestamp")
     signature = headers.get("Twitch-Eventsub-Message-Signature")
-    
+
     if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
         raise HTTPException(status_code=403, detail="Отсутствуют заголовки подписи.")
 
@@ -545,21 +545,27 @@ async def handle_twitch_webhook(
             telegram_id = user_data[0]["telegram_id"]
             user_full_name = user_data[0].get("full_name", twitch_login)
 
-            # 🔹 НОВЫЙ БЛОК: проверка в таблице twitch_rewards
+            # Проверка награды в таблице twitch_rewards
             reward_resp = await supabase.get(
                 "/twitch_rewards",
                 params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
             )
             reward_settings = reward_resp.json()
 
+            # Если награды нет в таблице — создаём автоматически
             if not reward_settings:
-                insert_resp = await supabase.post("/twitch_rewards", json={
-                    "title": reward_title,
-                    "is_active": True,
-                    "notify_admin": True
-                })
-                reward_settings = [insert_resp.json()]
+                insert_resp = await supabase.post(
+                    "/twitch_rewards",
+                    json={
+                        "title": reward_title,
+                        "is_active": True,
+                        "notify_admin": True
+                    },
+                    headers={"Prefer": "return=representation"}
+                )
+                reward_settings = insert_resp.json()
 
+            # Если награда отключена — выходим
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
@@ -588,7 +594,7 @@ async def handle_twitch_webhook(
         except Exception as e:
             logging.error(f"Ошибка обработки уведомления от Twitch: {e}", exc_info=True)
             return {"status": "error_processing"}
-            
+
     return {"status": "ok", "detail": "Запрос обработан."}
 
 @app.get("/api/v1/auth/check_token")
