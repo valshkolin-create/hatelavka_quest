@@ -23,7 +23,8 @@
       --telegram-color: #0088CC;
     }
     body { margin: 0; min-height: 100vh; background-color: var(--bg-color); background-image: var(--bg-gradient); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
-    .main-content { flex-grow: 1; padding: 20px 15px 120px; overflow-y: auto; opacity: 0; transition: opacity 0.4s ease-in-out; }
+    /* ИЗМЕНЕНО: Уменьшен верхний отступ */
+    .main-content { flex-grow: 1; padding: 15px 15px 120px; overflow-y: auto; opacity: 0; transition: opacity 0.4s ease-in-out; }
     .main-content.visible { opacity: 1; }
     .user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .user-info { display: flex; flex-direction: column; }
@@ -145,7 +146,6 @@
       transition: transform 0.2s, box-shadow 0.2s, background 0.4s ease;
       box-shadow: 0 0 12px rgba(255, 204, 0, 0.5);
     }
-    /* --- НОВЫЕ СТИЛИ ДЛЯ КНОПКИ --- */
     .quest-choose-btn-roulette.twitch-theme {
       background: linear-gradient(90deg, #a97cff, var(--twitch-color));
       color: white;
@@ -256,9 +256,9 @@
         box-shadow: 0 0 0 4px var(--primary-color), 0 0 25px var(--primary-color);
         transition: box-shadow 0.3s ease-in-out;
     }
-    /* Для футера убираем скругление, чтобы подсветка была по всей ширине */
-    .app-footer.tutorial-highlight {
-        border-radius: 0;
+    /* НОВЫЙ КЛАСС: Делает футер видимым во время обучения его элементов */
+    .app-footer.tutorial-footer-active {
+        z-index: 1000;
     }
     .tutorial-modal {
         position: absolute;
@@ -316,9 +316,10 @@
         color: white;
         font-size: 14px;
     }
+    /* ИЗМЕНЕНО: Уменьшен отступ */
     .start-tutorial-btn-wrapper {
         text-align: center;
-        margin-bottom: 15px;
+        margin-bottom: 8px;
     }
     #start-tutorial-btn {
         background-color: rgba(0, 122, 255, 0.15);
@@ -505,7 +506,6 @@
             newPromoNotification: document.getElementById('new-promo-notification'),
             closePromoNotification: document.getElementById('close-promo-notification'),
 
-            // --- Элементы для обучения ---
             tutorialOverlay: document.getElementById('tutorial-overlay'),
             tutorialModal: document.getElementById('tutorial-modal'),
             tutorialTitle: document.getElementById('tutorial-title'),
@@ -527,37 +527,42 @@
             {
                 element: '.user-profile',
                 title: 'Ваш Профиль',
-                text: 'Здесь вы можете привязать Twitch, указать трейд-ссылку для наград и посмотреть все полученные промокоды.'
+                text: 'Здесь вы можете привязать Twitch, указать трейд-ссылку для наград и посмотреть все полученные промокоды.',
+                view: 'view-dashboard'
             },
             {
                 element: '#events-link-wrapper',
                 title: 'Гонка за скинами',
-                text: 'Это главный розыгрыш. Участвуйте, используя бесплатные билеты, которые можно заработать за выполнение заданий.'
+                text: 'Это главный розыгрыш. Участвуйте, используя бесплатные билеты, которые можно заработать за выполнение заданий.',
+                view: 'view-dashboard'
             },
             {
                 element: '#challenge-container',
                 title: 'Случайный челлендж',
-                text: 'Проходите ежедневные испытания и получайте за это награды! Новые челленджи появляются регулярно.'
+                text: 'Проходите ежедневные испытания и получайте за это награды! Новые челленджи появляются регулярно.',
+                view: 'view-dashboard'
             },
             {
                 element: '#checkpoint-link',
                 title: 'Марафон "Чекпоинт"',
-                text: 'Выполняйте челленджи во время стримов, чтобы заработать звёзды и обменять их на ценные призы в марафоне.'
+                text: 'Выполняйте челленджи во время стримов, чтобы заработать звёзды и обменять их на ценные призы в марафоне.',
+                view: 'view-dashboard'
             },
             {
                 element: '#quest-choose-wrapper',
                 title: 'Испытания',
-                text: 'Выбирайте и выполняйте автоматические задания. Во время стримов доступны Twitch-испытания, а на выходных — Telegram-испытания.'
+                text: 'Выбирайте и выполняйте автоматические задания. Во время стримов доступны Twitch-испытания, а на выходных — Telegram-испытания.',
+                view: 'view-dashboard'
             },
             {
-                // ИЗМЕНЕНО: Подсвечиваем всю панель
-                element: '.app-footer',
+                // ИЗМЕНЕНО: Теперь подсвечиваем конкретную иконку
+                element: '#nav-leaderboard',
                 title: 'Лидерборд',
                 text: 'Следите за статистикой самых активных пользователей в Twitch и Telegram чатах. Нужная кнопка находится в панели снизу.'
             },
             {
-                // ИЗМЕНЕНО: Подсвечиваем всю панель
-                element: '.app-footer',
+                // ИЗМЕНЕНО: Теперь подсвечиваем конкретную иконку
+                element: '#nav-quests',
                 title: 'Задания',
                 text: 'В этом разделе находятся задания с ручной проверкой. Найдите иконку в панели снизу, чтобы посмотреть их.'
             }
@@ -572,7 +577,6 @@
             modal.style.right = '5%';
             modal.style.width = '90%';
 
-            // Позиционируем модалку снизу или сверху элемента
             if (rect.bottom + modal.offsetHeight + 20 > window.innerHeight) {
                 modal.style.top = `${rect.top - modal.offsetHeight - 15}px`;
             } else {
@@ -581,27 +585,37 @@
         }
 
         function showTutorialStep(stepIndex) {
-            // Убираем подсветку с предыдущего элемента
+            const footer = document.querySelector('.app-footer');
+            footer.classList.remove('tutorial-footer-active');
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
             
             if (stepIndex >= tutorialSteps.length) {
-                endTutorial(true); // Завершаем обучение
+                endTutorial(true);
                 return;
             }
 
             const step = tutorialSteps[stepIndex];
+
+            // ИСПРАВЛЕНО: Логика переключения вкладок
+            if (step.view && document.getElementById(step.view).classList.contains('hidden')) {
+                switchView(step.view);
+            }
+
             const element = document.querySelector(step.element);
 
             if (element) {
+                 // ИСПРАВЛЕНО: Логика для подсветки футера
+                if (element.closest('.app-footer')) {
+                    footer.classList.add('tutorial-footer-active');
+                }
+
                 element.classList.add('tutorial-highlight');
                 dom.tutorialTitle.textContent = step.title;
-                dom.tutorialText.innerHTML = step.text; // Используем innerHTML для возможных тегов
+                dom.tutorialText.innerHTML = step.text;
                 dom.tutorialStepCounter.textContent = `Шаг ${stepIndex + 1} из ${tutorialSteps.length}`;
                 
-                // Прокручиваем к элементу
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                // Ждем завершения прокрутки и позиционируем
                 setTimeout(() => positionTutorialModal(element), 300);
 
                 if (stepIndex === tutorialSteps.length - 1) {
@@ -610,7 +624,7 @@
                     dom.tutorialNextBtn.textContent = 'Далее';
                 }
             } else {
-                // Если элемент не найден, пропускаем шаг
+                console.warn(`Tutorial element not found: ${step.element}. Skipping step.`);
                 currentTutorialStep++;
                 showTutorialStep(currentTutorialStep);
             }
@@ -623,18 +637,17 @@
         }
 
         function endTutorial(completed = false) {
+            document.querySelector('.app-footer').classList.remove('tutorial-footer-active');
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
             if (completed) {
-                // Показываем финальное сообщение
                 dom.tutorialTitle.textContent = 'Готово!';
                 dom.tutorialText.innerHTML = 'Теперь вы знаете всё необходимое. <br><br><b>Важно:</b> все задания и розыгрыши в этом боте абсолютно бесплатны. Удачи!';
                 dom.tutorialStepCounter.textContent = '';
                 dom.tutorialSkipBtn.classList.add('hidden');
                 dom.tutorialNextBtn.textContent = 'Отлично!';
-                // При клике на финальную кнопку — закрываем
                 dom.tutorialNextBtn.onclick = () => {
                     dom.tutorialOverlay.classList.add('hidden');
-                    dom.tutorialNextBtn.onclick = tutorialNextHandler; // Возвращаем обработчик
+                    dom.tutorialNextBtn.onclick = tutorialNextHandler;
                     dom.tutorialSkipBtn.classList.remove('hidden');
                 };
             } else {
@@ -647,8 +660,6 @@
             currentTutorialStep++;
             showTutorialStep(currentTutorialStep);
         };
-
-        // --- КОНЕЦ ЛОГИКИ ОБУЧЕНИЯ ---
 
         function showNewPromoNotification() {
             sessionStorage.setItem('newPromoReceived', 'true');
@@ -1302,12 +1313,15 @@
         }
 
         async function main() {
-            if (!Telegram.WebApp.initData) {
-                document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
-                return;
-            }
-            
             try {
+                // ИСПРАВЛЕНО: Прокрутка в самый верх при каждой загрузке
+                window.scrollTo(0, 0);
+
+                if (!Telegram.WebApp.initData) {
+                    document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
+                    return;
+                }
+            
                 const menuContentPromise = fetch("/api/v1/content/menu").then(res => res.json());
 
                 const day = new Date().getDay();
@@ -1382,8 +1396,9 @@
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
 
+                // ИСПРАВЛЕНО: Запуск обучения перенесен в конец, после полной отрисовки
                 if (!localStorage.getItem('tutorialCompleted')) {
-                    setTimeout(startTutorial, 700); 
+                    startTutorial();
                 }
 
             } catch (e) {
