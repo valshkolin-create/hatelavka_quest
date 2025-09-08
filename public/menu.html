@@ -524,14 +524,14 @@
         let allQuests = [];
         let userData = {};
         let questsForRoulette = [];
-        let tutorialCountdownInterval = null; // ИСПРАВЛЕНО: Для хранения интервала таймера кнопки
+        let tutorialCountdownInterval = null; // Для хранения интервала таймера кнопки
         
         const tutorialSteps = [
             {
                 element: '.user-profile',
                 title: 'Ваш Профиль и Билеты',
-                // ИСПРАВЛЕНО: Обновлен текст обучения по вашему запросу
-                text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch и указать трейд-ссылку для наград и посмотреть все полученные промокоды. <br><br>Справа — <b>Ваши билеты</b>, которые вы зарабатываете за задания и используете в "Гонке за скинами".',
+                // Обновлен текст обучения по вашему запросу
+                text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch и указать трейд-ссылку. <br><br>Справа — <b>Ваши билеты</b>, которые вы зарабатываете за задания и используете в "Гонке за скинами".',
                 view: 'view-dashboard'
             },
             {
@@ -590,7 +590,7 @@
         }
 
         function showTutorialStep(stepIndex) {
-            // ИСПРАВЛЕНО: Очистка предыдущего таймера, если он был
+            // Очистка предыдущего таймера, если он был
             if (tutorialCountdownInterval) {
                 clearInterval(tutorialCountdownInterval);
                 tutorialCountdownInterval = null;
@@ -607,7 +607,7 @@
 
             let step = { ...tutorialSteps[stepIndex] };
 
-            // ИСПРАВЛЕНО: Динамическая замена шага, если у пользователя есть активное испытание
+            // Динамическая замена шага, если у пользователя есть активное испытание
             if (step.element === '#quest-choose-wrapper') {
                 const activeQuestContainer = document.getElementById('active-automatic-quest-container');
                 if (activeQuestContainer && activeQuestContainer.innerHTML.trim() !== '') {
@@ -639,7 +639,7 @@
                 const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
                 dom.tutorialNextBtn.textContent = originalButtonText;
 
-                // ИСПРАВЛЕНО: Добавлен 5-секундный таймер для кнопки "Далее"
+                // Добавлен 5-секундный таймер для кнопки "Далее"
                 const nextBtn = dom.tutorialNextBtn;
                 nextBtn.disabled = true;
                 let countdown = 5;
@@ -659,7 +659,7 @@
 
             } else {
                 console.warn(`Tutorial element not found: ${step.element}. Trying next step.`);
-                // ИСПРАВЛЕНО: Предотвращение бесконечной рекурсии
+                // Предотвращение бесконечной рекурсии
                 setTimeout(() => {
                     currentTutorialStep++;
                     showTutorialStep(currentTutorialStep);
@@ -689,6 +689,7 @@
                 dom.tutorialNextBtn.disabled = false; // Убедимся, что кнопка активна
                 dom.tutorialNextBtn.onclick = () => {
                     dom.tutorialOverlay.classList.add('hidden');
+                    // Восстанавливаем основной обработчик
                     dom.tutorialNextBtn.onclick = tutorialNextHandler;
                     dom.tutorialSkipBtn.classList.remove('hidden');
                 };
@@ -1267,7 +1268,10 @@
             });
             
             dom.startTutorialBtn.addEventListener('click', startTutorial);
-            dom.tutorialNextBtn.addEventListener('click', tutorialNextHandler);
+            
+            // ИСПРАВЛЕНО: Заменен addEventListener на .onclick, чтобы избежать дублирования обработчиков
+            dom.tutorialNextBtn.onclick = tutorialNextHandler;
+            
             dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
 
 
