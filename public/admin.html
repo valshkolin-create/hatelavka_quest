@@ -1898,34 +1898,6 @@
         }
       }
 
-      async function updateTwitchReward(id, field, value) {
-        try {
-          await fetch("/api/v1/admin/twitch_rewards/update", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({id: id, [field]: value})
-          });
-        } catch (err) {
-          alert("Ошибка обновления");
-          console.error(err);
-        }
-      }
-
-      // Автозагрузка при переходе в раздел
-      document.querySelector("[data-view='view-admin-twitch-rewards']")
-        .addEventListener("click", loadTwitchRewards);
     </script>
-    <!-- Модальное окно покупок Twitch награды -->
-    <div id="twitch-purchases-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Покупки награды</h2>
-                <button class="modal-close-btn" onclick="closeTwitchPurchasesModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="twitch-purchases-list">
-                <!-- Список покупок подгружается сюда -->
-            </div>
-        </div>
-    </div>
 </body>
 </html>
