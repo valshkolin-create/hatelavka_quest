@@ -1261,6 +1261,7 @@
         // --- Twitch Rewards ---
         async function loadTwitchRewards() {
             try {
+                // загружаем список наград (GET, не POST!)
                 const rewards = await makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true);
                 const container = document.getElementById('twitch-rewards-container');
                 container.innerHTML = '';
