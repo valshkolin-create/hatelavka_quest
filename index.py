@@ -190,6 +190,9 @@ class AdminSettingsUpdateRequest(BaseModel):
     initData: str
     settings: AdminSettings
 
+class StatisticsRequest(BaseModel):
+    initData: str
+
 class PendingActionRequest(BaseModel): # Добавьте эту модель в начало файла, где все Pydantic модели
     initData: str
 
@@ -964,6 +967,60 @@ async def get_current_user_data(
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
+
+@app.post("/api/v1/admin/stats")
+async def get_admin_stats(
+    request_data: StatisticsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Получение статистики по уникальным пользователям
+        today = datetime.now(timezone.utc).date()
+        start_of_month = today.replace(day=1)
+        start_of_year = today.replace(month=1, day=1)
+
+        # Здесь предполагается, что у вас есть таблица для регистрации уникальных визитов.
+        # Если такой таблицы нет, вам нужно будет создать ее или изменить RPC-функцию handle_user_message
+        # для записи посещений.
+        users_daily_resp = await supabase.get(f"/rpc/count_daily_users")
+        users_monthly_resp = await supabase.get(f"/rpc/count_monthly_users")
+        users_yearly_resp = await supabase.get(f"/rpc/count_yearly_users")
+        
+        # Получение статистики по розыгрышам (Гонка за скинами)
+        # Получаем данные из таблицы events
+        events_resp = await supabase.get("/events?select=id,title")
+        events_resp.raise_for_status()
+        events = events_resp.json()
+
+        event_stats = []
+        for event in events:
+            # Считаем количество участников для каждого event_id из таблицы event_participations
+            participants_resp = await supabase.get(f"/event_participations?event_id=eq.{event['id']}&select=user_id", headers={"Range": "0-99999"})
+            participants_resp.raise_for_status()
+            participants = participants_resp.json()
+            unique_participants = len({p['user_id'] for p in participants})
+            
+            event_stats.append({
+                "title": event["title"],
+                "participants": unique_participants
+            })
+
+        return JSONResponse(content={
+            "visitors": {
+                "day": users_daily_resp.json()[0]['count'],
+                "month": users_monthly_resp.json()[0]['count'],
+                "year": users_yearly_resp.json()[0]['count'],
+            },
+            "events": event_stats
+        })
+
+    except Exception as e:
+        logging.error(f"Ошибка получения статистики админки: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при загрузке статистики.")
 
 @app.post("/api/v1/admin/quest/submissions")
 async def get_submissions_for_quest(request_data: QuestDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
