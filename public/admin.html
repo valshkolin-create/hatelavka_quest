@@ -1260,38 +1260,66 @@
 
         // --- Twitch Rewards ---
         async function loadTwitchRewards() {
-            const container = document.getElementById("twitch-rewards-container");
-            container.innerHTML = "<p>Загрузка...</p>";
-
             try {
-                const resp = await fetch("/api/v1/admin/twitch_rewards/list");
-                const rewards = await resp.json();
+                const rewards = await makeApiRequest('/api/v1/admin/twitch_rewards', {}, 'POST', true);
+                const container = document.getElementById('twitch-rewards-container');
+                container.innerHTML = '';
 
-                container.innerHTML = "";
+                if (!rewards || rewards.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Наград пока нет.</p>';
+                    return;
+                }
+
                 rewards.forEach(r => {
-                    const card = document.createElement("div");
-                    card.className = "quest-card manage-quest-card";
-                    card.innerHTML = `
-                        <h3 class="quest-title">${r.title}</h3>
-                        <div class="admin-buttons-wrapper">
-                            <label>
-                                Активна:
-                                <input type="checkbox" ${r.is_active ? "checked" : ""} 
-                                    onchange="updateTwitchReward(${r.id}, 'is_active', this.checked)">
-                            </label>
-                            <label>
-                                Уведомлять админов:
-                                <input type="checkbox" ${r.notify_admin ? "checked" : ""} 
-                                    onchange="updateTwitchReward(${r.id}, 'notify_admin', this.checked)">
-                            </label>
-                            <button class="admin-view-subs-btn" onclick="openTwitchPurchases(${r.id})">Просмотреть покупки</button>
+                    const cardHtml = `
+                        <div class="quest-card manage-quest-card" data-id="${r.id}">
+                            <h3 class="quest-title">${r.title}</h3>
+                            <div class="setting-item">
+                                <span class="setting-label">Активна</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" class="reward-toggle-active" data-id="${r.id}" ${r.is_active ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <span class="setting-label">Уведомлять админа</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" class="reward-toggle-notify" data-id="${r.id}" ${r.notify_admin ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
                     `;
-                    container.appendChild(card);
+                    container.insertAdjacentHTML('beforeend', cardHtml);
+                });
+
+                // обработчик для is_active
+                document.querySelectorAll('.reward-toggle-active').forEach(chk => {
+                    chk.addEventListener('change', async (e) => {
+                        const rewardId = e.target.dataset.id;
+                        const isActive = e.target.checked;
+                        await makeApiRequest('/api/v1/admin/twitch_rewards/update', {
+                            id: rewardId,
+                            is_active: isActive
+                        }, 'POST', true);
+                    });
+                });
+
+                // обработчик для notify_admin
+                document.querySelectorAll('.reward-toggle-notify').forEach(chk => {
+                    chk.addEventListener('change', async (e) => {
+                        const rewardId = e.target.dataset.id;
+                        const notify = e.target.checked;
+                        await makeApiRequest('/api/v1/admin/twitch_rewards/update', {
+                            id: rewardId,
+                            notify_admin: notify
+                        }, 'POST', true);
+                    });
                 });
             } catch (e) {
-                container.innerHTML = "<p>Ошибка загрузки наград</p>";
-                console.error(e);
+                console.error("Ошибка загрузки Twitch наград:", e);
+                const container = document.getElementById('twitch-rewards-container');
+                container.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград.</p>';
             }
         }
 
