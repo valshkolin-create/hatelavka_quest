@@ -1288,7 +1288,7 @@
         }
 
         async function openTwitchPurchases(rewardId) {
-            const listEl = document.getElementById("twitch-purchases-list");
+            const listEl = document.getElementById("twitch-purchases-modal").querySelector(".modal-body");
             listEl.innerHTML = "<p>Загрузка...</p>";
 
             try {
