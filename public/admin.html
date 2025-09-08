@@ -202,7 +202,7 @@
         padding: 10px;
         position: absolute;
         z-index: 10;
-        bottom: 125%; /* Располагаем над иконкой с отступом */
+        bottom: 125%;
         left: 50%;
         transform: translateX(-50%);
         opacity: 0;
@@ -211,9 +211,9 @@
         font-weight: 400;
         line-height: 1.5;
         box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        pointer-events: none; /* Чтобы не мешал наведению */
+        pointer-events: none;
     }
-    .tooltip .tooltip-text::after { /* Маленькая стрелочка-треугольник */
+    .tooltip .tooltip-text::after {
         content: "";
         position: absolute;
         top: 100%;
@@ -226,6 +226,17 @@
     .tooltip:hover .tooltip-text {
         visibility: visible;
         opacity: 1;
+    }
+    /* --- ДОБАВЛЕННЫЙ ФИКС ДЛЯ ПРАВЫХ ТУЛТИПОВ --- */
+    .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text {
+        left: auto;
+        right: 0;
+        transform: translateX(0);
+    }
+    .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text::after {
+        left: auto;
+        right: 10px; /* Сдвигаем стрелочку направо */
+        margin-left: 0;
     }
   </style>
 </head>
@@ -344,14 +355,23 @@
             <div class="quest-card" style="margin-top: 20px;">
                  <div class="user-management-section">
                     <h3 style="color: var(--danger-color);"><i class="fa-solid fa-broom"></i> Очистка прогресса (Чекпоинт)</h3>
-                    <form id="reset-checkpoint-form" class="admin-form">
-                        <label>Сбросить прогресс Чекпоинта
+                    <form id="reset-checkpoint-progress-form" class="admin-form">
+                        <label>Сбросить награды Чекпоинта
                             <div class="tooltip">?
-                                <span class="tooltip-text">Удаляет все полученные награды Чекпоинта и обнуляет баланс звёзд для указанного пользователя. Действие необратимо.</span>
+                                <span class="tooltip-text">Удаляет все полученные награды Чекпоинта, но НЕ ТРОГАЕТ баланс звёзд пользователя. Действие необратимо.</span>
                             </div>
                         </label>
                         <input type="number" name="user_id_to_reset" required placeholder="Telegram ID пользователя">
-                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Очистить прогресс</button>
+                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Сбросить награды</button>
+                    </form>
+                    <form id="clear-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
+                        <label>Обнулить звёзды Чекпоинта
+                            <div class="tooltip">?
+                                <span class="tooltip-text">Устанавливает баланс звёзд Чекпоинта на 0, но НЕ ТРОГАЕТ список полученных наград. Действие необратимо.</span>
+                            </div>
+                        </label>
+                        <input type="number" name="user_id_to_clear" required placeholder="Telegram ID пользователя">
+                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Обнулить звёзды</button>
                     </form>
                 </div>
             </div>
@@ -461,7 +481,8 @@
                     <h3>Опасно</h3>
                     <div class="admin-form" style="gap: 10px;">
                         <button id="reset-all-quests-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить квесты у всех</button>
-                        <button id="reset-all-checkpoints-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить Чекпоинт у всех</button>
+                        <button id="reset-all-checkpoint-progress-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить награды Чекпоинта у всех</button>
+                        <button id="clear-all-checkpoint-stars-btn" class="admin-action-btn reject" style="width: 100%;">Обнулить звёзды Чекпоинта у всех</button>
                     </div>
                 </div>
             </div>
@@ -845,7 +866,8 @@
             freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
             grantTicketsForm: document.getElementById('grant-tickets-form'),
             freezeTicketsForm: document.getElementById('freeze-tickets-form'),
-            resetCheckpointForm: document.getElementById('reset-checkpoint-form'),
+            resetCheckpointProgressForm: document.getElementById('reset-checkpoint-progress-form'),
+            clearCheckpointStarsForm: document.getElementById('clear-checkpoint-stars-form'),
 
             settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
             settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
@@ -856,7 +878,8 @@
             settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
             settingChallengeRewardsEnabled: document.getElementById('setting-challenge-rewards-enabled'),
             resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
-            resetAllCheckpointsBtn: document.getElementById('reset-all-checkpoints-btn'),
+            resetAllCheckpointProgressBtn: document.getElementById('reset-all-checkpoint-progress-btn'),
+            clearAllCheckpointStarsBtn: document.getElementById('clear-all-checkpoint-stars-btn'),
             settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
             statisticsContent: document.getElementById('statistics-content'),
         };
@@ -1377,11 +1400,20 @@
                  });
             });
 
-            dom.resetAllCheckpointsBtn.addEventListener('click', () => {
-                 tg.showConfirm('ЭТО ДЕЙСТВИЕ НЕОБРАТИМО! Вы уверены, что хотите сбросить ВЕСЬ прогресс Чекпоинта у ВСЕХ пользователей?', async (ok) => {
+            dom.resetAllCheckpointProgressBtn.addEventListener('click', () => {
+                 tg.showConfirm('ЭТО ДЕЙСТВИЕ НЕОБРАТИМО! Вы уверены, что хотите сбросить ТОЛЬКО СПИСОК НАГРАД Чекпоинта у ВСЕХ пользователей? Их звёзды останутся.', async (ok) => {
                     if (ok) {
-                        await makeApiRequest('/api/v1/admin/users/reset-all-checkpoints');
-                        tg.showAlert('Прогресс Чекпоинта сброшен у всех пользователей.');
+                        await makeApiRequest('/api/v1/admin/users/reset-all-checkpoint-progress');
+                        tg.showAlert('Список наград Чекпоинта сброшен у всех пользователей.');
+                    }
+                 });
+            });
+
+            dom.clearAllCheckpointStarsBtn.addEventListener('click', () => {
+                 tg.showConfirm('ЭТО ДЕЙСТВИЕ НЕОБРАТИМО! Вы уверены, что хотите ОБНУЛИТЬ БАЛАНС ЗВЁЗД Чекпоинта у ВСЕХ пользователей? Их полученные награды останутся.', async (ok) => {
+                    if (ok) {
+                        await makeApiRequest('/api/v1/admin/users/clear-all-checkpoint-stars');
+                        tg.showAlert('Баланс звёзд Чекпоинта обнулён у всех пользователей.');
                     }
                  });
             });
@@ -1646,17 +1678,30 @@
                 form.reset();
             });
 
-            dom.resetCheckpointForm.addEventListener('submit', async (e) => {
+            dom.resetCheckpointProgressForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_reset'].value);
                 if (!userId) return;
 
-                tg.showConfirm(`Вы уверены, что хотите ПОЛНОСТЬЮ сбросить прогресс Чекпоинта для пользователя ${userId}? Это действие необратимо.`, async (ok) => {
+                tg.showConfirm(`Вы уверены, что хотите сбросить ТОЛЬКО СПИСОК НАГРАД Чекпоинта для пользователя ${userId}? Его звёзды останутся.`, async (ok) => {
                     if (ok) {
-                        const result = await makeApiRequest('/api/v1/admin/users/reset-checkpoint', {
-                            user_id_to_reset: userId
-                        });
+                        const result = await makeApiRequest('/api/v1/admin/users/reset-checkpoint-progress', { user_id: userId });
+                        tg.showAlert(result.message);
+                        form.reset();
+                    }
+                });
+            });
+
+            dom.clearCheckpointStarsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id_to_clear'].value);
+                if (!userId) return;
+
+                tg.showConfirm(`Вы уверены, что хотите ОБНУЛИТЬ БАЛАНС ЗВЁЗД Чекпоинта для пользователя ${userId}? Его полученные награды останутся.`, async (ok) => {
+                    if (ok) {
+                        const result = await makeApiRequest('/api/v1/admin/users/clear-checkpoint-stars', { user_id: userId });
                         tg.showAlert(result.message);
                         form.reset();
                     }
