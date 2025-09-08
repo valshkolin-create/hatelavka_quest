@@ -978,36 +978,26 @@ async def get_admin_stats(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # --- ИСПРАВЛЕНИЕ 1: Используем POST для вызова RPC-функций ---
-        users_daily_resp = await supabase.post("/rpc/count_daily_users")
-        users_monthly_resp = await supabase.post("/rpc/count_monthly_users")
-        users_yearly_resp = await supabase.post("/rpc/count_yearly_users")
+        # --- ИЗМЕНЕНИЕ: Вызываем новые, правильные функции ---
+        users_daily_resp = await supabase.post("/rpc/get_daily_active_users")
+        users_weekly_resp = await supabase.post("/rpc/get_weekly_active_users")
+        users_monthly_resp = await supabase.post("/rpc/get_monthly_active_users")
 
-        # Проверяем успешность каждого запроса
         users_daily_resp.raise_for_status()
+        users_weekly_resp.raise_for_status()
         users_monthly_resp.raise_for_status()
-        users_yearly_resp.raise_for_status()
 
-        # --- ИСПРАВЛЕНИЕ 2: Улучшенный и более безопасный запрос к событиям ---
-        # Предполагаем, что у событий есть поле end_date. Если нет, этот фильтр можно убрать.
-        # Этот запрос более эффективен, т.к. не тянет все события за всю историю.
-        # УБЕДИСЬ, ЧТО ТАБЛИЦА НАЗЫВАЕТСЯ ИМЕННО "events" В SUPABASE!
         events_resp = await supabase.get(
-            "/events", 
-            params={
-                "end_date": f"gt.{datetime.now(timezone.utc).isoformat()}", # Получаем только активные события
-                "select": "id,title"
-            }
+            "/events",
+            params={"select": "id,title"}
         )
         events_resp.raise_for_status()
         events = events_resp.json()
 
         event_stats = []
         for event in events:
-            # Считаем количество участников для каждого event_id
-            # Используем count=exact для эффективности
             participants_resp = await supabase.get(
-                "/event_entries", 
+                "/event_entries",
                 params={"event_id": f"eq.{event['id']}", "select": "user_id"},
                 headers={"Range": "0-99999"}
             )
@@ -1023,20 +1013,19 @@ async def get_admin_stats(
         return JSONResponse(content={
             "visitors": {
                 "day": users_daily_resp.json()[0]['count'],
+                "week": users_weekly_resp.json()[0]['count'], # <-- Добавили неделю
                 "month": users_monthly_resp.json()[0]['count'],
-                "year": users_yearly_resp.json()[0]['count'],
             },
             "events": event_stats
         })
 
     except httpx.HTTPStatusError as e:
-        # Добавляем более детальное логирование, чтобы понять, какой запрос упал
         logging.error(f"Ошибка HTTP при получении статистики админки: {e.response.status_code} - {e.response.text}")
         raise HTTPException(status_code=500, detail=f"Ошибка при загрузке статистики: {e.response.text}")
     except Exception as e:
         logging.error(f"Ошибка получения статистики админки: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка при загрузке статистики.")
-
+        
 @app.post("/api/v1/admin/quest/submissions")
 async def get_submissions_for_quest(request_data: QuestDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
