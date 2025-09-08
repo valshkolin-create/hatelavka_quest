@@ -211,6 +211,13 @@ class TwitchWebhookPayload(BaseModel):
     subscription: dict
     event: TwitchEventData
 
+class TwitchReward(BaseModel):
+    id: Optional[int] = None
+    title: str
+    is_active: bool = True
+    notify_admin: bool = True
+    icon_url: Optional[str] = None
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -533,22 +540,42 @@ async def handle_twitch_webhook(
             user_full_name = user_data[0].get("full_name", twitch_login) #
 
             # Создание задачи на ручную выдачу
-            await supabase.post("/manual_rewards", json={ #
-                "user_id": telegram_id, #
-                "status": "pending",
-                "reward_details": reward_title,
-                "source_description": "Награда Twitch (Баллы канала)"
-            })
+    reward_resp = await supabase.get(
+        "/twitch_rewards",
+        params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
+    )
+    reward_settings = reward_resp.json()
 
-            # Отправка уведомления администратору
-            if ADMIN_NOTIFY_CHAT_ID: #
-                notification_text = (
-                    f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
-                    f"<b>Пользователь:</b> {html_decoration.quote(user_full_name)}\n"
-                    f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n\n"
-                    f"Заявка ждет подтверждения в админ-панели."
-                )
-                background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text) #
+    # Если награды нет в таблице — создаём автоматически
+    if not reward_settings:
+        insert_resp = await supabase.post("/twitch_rewards", json={
+            "title": reward_title,
+            "is_active": True,
+            "notify_admin": True
+        })
+        reward_settings = [insert_resp.json()]
+
+    # Если награда отключена — просто выходим
+    if not reward_settings[0]["is_active"]:
+        return {"status": "ok", "detail": "Эта награда отключена админом."}
+
+    # Создание задачи на ручную выдачу
+    await supabase.post("/manual_rewards", json={
+        "user_id": telegram_id,
+        "status": "pending",
+        "reward_details": reward_title,
+        "source_description": "Награда Twitch (Баллы канала)"
+    })
+
+    # Отправка уведомления администратору (если включено)
+    if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
+        notification_text = (
+            f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
+            f"<b>Пользователь:</b> {html_decoration.quote(user_full_name)}\n"
+            f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n\n"
+            f"Заявка ждет подтверждения в админ-панели."
+        )
+        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text) #
 
             return {"status": "ok"}
         
@@ -1300,6 +1327,20 @@ async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.As
         except (ValueError, TypeError): 
             quest['duration_days'] = 0
     return quest
+
+@app.get("/api/v1/admin/twitch_rewards/list")
+async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    resp = await supabase.get("/twitch_rewards", params={"select": "*", "order": "id.desc"})
+    resp.raise_for_status()
+    return resp.json()
+
+
+@app.post("/api/v1/admin/twitch_rewards/update")
+async def update_twitch_reward(reward: TwitchReward, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not reward.id:
+        raise HTTPException(status_code=400, detail="Reward ID is required")
+    await supabase.patch("/twitch_rewards", params={"id": f"eq.{reward.id}"}, json=reward.dict(exclude_unset=True))
+    return {"status": "ok"}
 
 @app.post("/api/v1/promocode")
 async def get_promocode(
