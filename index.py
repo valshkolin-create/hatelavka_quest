@@ -3378,7 +3378,7 @@ async def get_checkpoint_rewards(
         logging.error(f"Ошибка при получении наград из Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить награды из Чекпоинта.")
 
-app.post("/api/v1/admin/users/reset-checkpoint")
+@app.post("/api/v1/admin/users/reset-checkpoint")
 async def reset_user_checkpoint(
     request_data: AdminResetCheckpointRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
