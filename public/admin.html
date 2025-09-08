@@ -198,9 +198,13 @@
         padding: 8px;
         position: absolute;
         z-index: 1;
-        bottom: 150%;
-        left: 50%;
-        margin-left: -110px;
+        
+        /* --- ИЗМЕНЕНИЯ ЗДЕСЬ --- */
+        bottom: 100%; /* Располагаем над элементом */
+        left: 50%;   /* Центрируем относительно родителя */
+        transform: translateX(-50%); /* Смещаем влево на половину своей ширины */
+        margin-bottom: 8px; /* Добавляем небольшой отступ снизу */
+
         opacity: 0;
         transition: opacity 0.3s;
         font-size: 12px;
