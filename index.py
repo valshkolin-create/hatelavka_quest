@@ -978,39 +978,46 @@ async def get_admin_stats(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Получение статистики по уникальным пользователям
-        today = datetime.now(timezone.utc).date()
-        start_of_month = today.replace(day=1)
-        start_of_year = today.replace(month=1, day=1)
+        # --- ИСПРАВЛЕНИЕ 1: Используем POST для вызова RPC-функций ---
+        users_daily_resp = await supabase.post("/rpc/count_daily_users")
+        users_monthly_resp = await supabase.post("/rpc/count_monthly_users")
+        users_yearly_resp = await supabase.post("/rpc/count_yearly_users")
 
-        # Здесь предполагается, что у вас есть таблица для регистрации уникальных визитов.
-        # Если такой таблицы нет, вам нужно будет создать ее или изменить RPC-функцию handle_user_message
-        # для записи посещений.
-        users_daily_resp = await supabase.get(f"/rpc/count_daily_users")
-        users_monthly_resp = await supabase.get(f"/rpc/count_monthly_users")
-        users_yearly_resp = await supabase.get(f"/rpc/count_yearly_users")
-        
-        # Получение статистики по розыгрышам (Гонка за скинами)
-        # Получаем только актуальные (не завершенные) события
-        now = datetime.now(timezone.utc).isoformat()
-        events_resp = await supabase.get(f"/events?end_date=gt.{now}&select=id,title")
+        # Проверяем успешность каждого запроса
+        users_daily_resp.raise_for_status()
+        users_monthly_resp.raise_for_status()
+        users_yearly_resp.raise_for_status()
+
+        # --- ИСПРАВЛЕНИЕ 2: Улучшенный и более безопасный запрос к событиям ---
+        # Предполагаем, что у событий есть поле end_date. Если нет, этот фильтр можно убрать.
+        # Этот запрос более эффективен, т.к. не тянет все события за всю историю.
+        # УБЕДИСЬ, ЧТО ТАБЛИЦА НАЗЫВАЕТСЯ ИМЕННО "events" В SUPABASE!
+        events_resp = await supabase.get(
+            "/events", 
+            params={
+                "end_date": f"gt.{datetime.now(timezone.utc).isoformat()}", # Получаем только активные события
+                "select": "id,title"
+            }
+        )
         events_resp.raise_for_status()
         events = events_resp.json()
 
         event_stats = []
         for event in events:
-            # Считаем количество участников и суммарное количество билетов
-            entries_resp = await supabase.get(f"/event_entries?event_id=eq.{event['id']}&select=user_id,tickets", headers={"Range": "0-99999"})
-            entries_resp.raise_for_status()
-            entries = entries_resp.json()
-            
-            unique_participants = len({e['user_id'] for e in entries})
-            total_tickets = sum(e['tickets'] for e in entries)
+            # Считаем количество участников для каждого event_id
+            # Используем count=exact для эффективности
+            participants_resp = await supabase.get(
+                "/event_participations", 
+                params={"event_id": f"eq.{event['id']}", "select": "user_id"},
+                headers={"Range": "0-99999"} # Ограничение, чтобы получить всех
+            )
+            participants_resp.raise_for_status()
+            participants = participants_resp.json()
+            unique_participants = len({p['user_id'] for p in participants})
             
             event_stats.append({
                 "title": event["title"],
-                "participants": unique_participants,
-                "tickets": total_tickets
+                "participants": unique_participants
             })
 
         return JSONResponse(content={
@@ -1022,8 +1029,12 @@ async def get_admin_stats(
             "events": event_stats
         })
 
+    except httpx.HTTPStatusError as e:
+        # Добавляем более детальное логирование, чтобы понять, какой запрос упал
+        logging.error(f"Ошибка HTTP при получении статистики админки: {e.response.status_code} - {e.response.text}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при загрузке статистики: {e.response.text}")
     except Exception as e:
-        logging.error(f"Ошибка получения статистики админки: {e}")
+        logging.error(f"Ошибка получения статистики админки: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка при загрузке статистики.")
 
 @app.post("/api/v1/admin/quest/submissions")
