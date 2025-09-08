@@ -1259,9 +1259,9 @@
         }
 
         // --- Twitch Rewards ---
-        async function loadTwitchRewards() {
+         async function loadTwitchRewards() {
             try {
-                // грузим список наград
+                // загружаем список наград
                 const rewards = await makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true);
                 const container = document.getElementById('twitch-rewards-container');
                 container.innerHTML = '';
@@ -1339,7 +1339,7 @@
                 container.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград.</p>';
             }
         }
-
+      
         async function openTwitchPurchases(rewardId) {
             const modal = document.getElementById("twitch-purchases-modal");
             const listEl = modal.querySelector(".modal-body");
