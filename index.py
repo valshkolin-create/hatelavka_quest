@@ -1348,10 +1348,20 @@ async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase
 
 
 @app.post("/api/v1/admin/twitch_rewards/update")
-async def update_twitch_reward(reward: TwitchReward, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    if not reward.id:
+async def update_twitch_reward(data: dict, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    reward_id = data.get("id")
+    if not reward_id:
         raise HTTPException(status_code=400, detail="Reward ID is required")
-    await supabase.patch("/twitch_rewards", params={"id": f"eq.{reward.id}"}, json=reward.dict(exclude_unset=True))
+
+    update_fields = {k: v for k, v in data.items() if k != "id"}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    await supabase.patch(
+        "/twitch_rewards",
+        params={"id": f"eq.{reward_id}"},
+        json=update_fields
+    )
     return {"status": "ok"}
 
 @app.post("/api/v1/promocode")
