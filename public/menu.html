@@ -256,6 +256,8 @@
         /* ИСПРАВЛЕНО: Уменьшена тень для обводки */
         box-shadow: 0 0 0 3px var(--primary-color), 0 0 15px var(--primary-color);
         transition: box-shadow 0.3s ease-in-out;
+        /* ИСПРАВЛЕНО: Добавлен фон, чтобы избежать просвечивания оверлея */
+        background-color: var(--bg-color);
     }
     .app-footer.tutorial-footer-active {
         z-index: 1000;
@@ -315,6 +317,7 @@
         background-color: var(--primary-color);
         color: white;
         font-size: 14px;
+        min-width: 100px; /* Добавлено для стабильности размера кнопки */
     }
     /* ИСПРАВЛЕНО: Уменьшен отступ */
     .start-tutorial-btn-wrapper {
@@ -521,12 +524,14 @@
         let allQuests = [];
         let userData = {};
         let questsForRoulette = [];
+        let tutorialCountdownInterval = null; // ИСПРАВЛЕНО: Для хранения интервала таймера кнопки
         
         const tutorialSteps = [
             {
                 element: '.user-profile',
-                title: 'Ваш Профиль',
-                text: 'Здесь вы можете привязать Twitch, указать трейд-ссылку для наград и посмотреть все полученные промокоды.',
+                title: 'Ваш Профиль и Билеты',
+                // ИСПРАВЛЕНО: Обновлен текст обучения по вашему запросу
+                text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch и указать трейд-ссылку. <br><br>Справа — <b>Ваши билеты</b>, которые вы зарабатываете за задания и используете в "Гонке за скинами".',
                 view: 'view-dashboard'
             },
             {
@@ -585,6 +590,12 @@
         }
 
         function showTutorialStep(stepIndex) {
+            // ИСПРАВЛЕНО: Очистка предыдущего таймера, если он был
+            if (tutorialCountdownInterval) {
+                clearInterval(tutorialCountdownInterval);
+                tutorialCountdownInterval = null;
+            }
+
             const footer = document.querySelector('.app-footer');
             footer.classList.remove('tutorial-footer-active');
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
@@ -594,7 +605,16 @@
                 return;
             }
 
-            const step = tutorialSteps[stepIndex];
+            let step = { ...tutorialSteps[stepIndex] };
+
+            // ИСПРАВЛЕНО: Динамическая замена шага, если у пользователя есть активное испытание
+            if (step.element === '#quest-choose-wrapper') {
+                const activeQuestContainer = document.getElementById('active-automatic-quest-container');
+                if (activeQuestContainer && activeQuestContainer.innerHTML.trim() !== '') {
+                    step.element = '#active-automatic-quest-container';
+                    step.text = 'Здесь отображается ваше активное испытание. Когда вы его выполните, сможете забрать награду и выбрать новое.';
+                }
+            }
 
             if (step.view && document.getElementById(step.view).classList.contains('hidden')) {
                 switchView(step.view);
@@ -616,11 +636,27 @@
                 
                 setTimeout(() => positionTutorialModal(element), 300);
 
-                if (stepIndex === tutorialSteps.length - 1) {
-                    dom.tutorialNextBtn.textContent = 'Завершить';
-                } else {
-                    dom.tutorialNextBtn.textContent = 'Далее';
-                }
+                const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
+                dom.tutorialNextBtn.textContent = originalButtonText;
+
+                // ИСПРАВЛЕНО: Добавлен 5-секундный таймер для кнопки "Далее"
+                const nextBtn = dom.tutorialNextBtn;
+                nextBtn.disabled = true;
+                let countdown = 5;
+                nextBtn.textContent = `${originalButtonText} (${countdown})`;
+
+                tutorialCountdownInterval = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        nextBtn.textContent = `${originalButtonText} (${countdown})`;
+                    } else {
+                        clearInterval(tutorialCountdownInterval);
+                        tutorialCountdownInterval = null;
+                        nextBtn.disabled = false;
+                        nextBtn.textContent = originalButtonText;
+                    }
+                }, 1000);
+
             } else {
                 console.warn(`Tutorial element not found: ${step.element}. Trying next step.`);
                 // ИСПРАВЛЕНО: Предотвращение бесконечной рекурсии
@@ -638,6 +674,10 @@
         }
 
         function endTutorial(completed = false) {
+            if (tutorialCountdownInterval) {
+                clearInterval(tutorialCountdownInterval);
+                tutorialCountdownInterval = null;
+            }
             document.querySelector('.app-footer').classList.remove('tutorial-footer-active');
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
             if (completed) {
@@ -646,6 +686,7 @@
                 dom.tutorialStepCounter.textContent = '';
                 dom.tutorialSkipBtn.classList.add('hidden');
                 dom.tutorialNextBtn.textContent = 'Отлично!';
+                dom.tutorialNextBtn.disabled = false; // Убедимся, что кнопка активна
                 dom.tutorialNextBtn.onclick = () => {
                     dom.tutorialOverlay.classList.add('hidden');
                     dom.tutorialNextBtn.onclick = tutorialNextHandler;
