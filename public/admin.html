@@ -249,28 +249,36 @@
         padding: 8px;
         font-size: 12px;
         border-radius: 8px;
+        text-align: center; /* выравнивание */
     }
 
     #twitch-rewards-container .quest-title {
-        font-size: 13px;
-        margin-bottom: 5px;
+        font-size: 12px;     /* уменьшили заголовок */
+        font-weight: 600;
+        margin: 0 0 8px 0;
+        text-align: center;
     }
 
     #twitch-rewards-container p {
         font-size: 11px;
         margin: 3px 0;
     }
-    /* Компактные тумблеры (настройки) */
-    .setting-item {
+
+    /* Компактные тумблеры (настройки + награды) */
+    .setting-item,
+    .reward-setting-item {
         display: flex;
-        justify-content: space-between;
+        flex-direction: column; /* тумблер под подписью */
         align-items: center;
-        padding: 8px 0;
+        gap: 4px;
+        margin: 6px 0;
     }
 
-    .setting-label {
-        font-size: 13px;
+    .setting-label,
+    .reward-setting-label {
+        font-size: 12px;
         font-weight: 500;
+        text-align: center;
     }
 
     .toggle-switch {
@@ -301,7 +309,7 @@
     .toggle-slider:before {
         position: absolute;
         content: "";
-        height: 12px;   /* уменьшили круг */
+        height: 12px;
         width: 12px;
         left: 3px;
         bottom: 3px;
@@ -315,7 +323,7 @@
     }
 
     .toggle-switch input:checked + .toggle-slider:before {
-        transform: translateX(12px); /* сдвиг для маленького тумблера */
+        transform: translateX(12px);
     }
   </style>
 </head>
@@ -870,7 +878,67 @@
             </div>
 
             <div id="twitch-rewards-container">
-                <!-- Сюда будут подгружаться награды -->
+
+                <div class="quest-card">
+                    <h3 class="quest-title">Награда 1</h3>
+
+                    <div class="reward-setting-item">
+                        <span class="reward-setting-label">Активна</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="reward-setting-item">
+                        <span class="reward-setting-label">Уведомлять админа</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="quest-card">
+                    <h3 class="quest-title">Награда 2</h3>
+
+                    <div class="reward-setting-item">
+                        <span class="reward-setting-label">Активна</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="reward-setting-item">
+                        <span class="reward-setting-label">Уведомлять админа</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="quest-card">
+                    <h3 class="quest-title">Награда 3</h3>
+
+                    <div class="reward-setting-item">
+                        <span class="reward-setting-label">Активна</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="reward-setting-item">
+                        <span class="reward-setting-label">Уведомлять админа</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
             </div>
         </div>
     </main>
