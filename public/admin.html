@@ -290,6 +290,10 @@
                     <div class="icon-wrapper"><i class="fa fa-chart-line"></i></div>
                     <span>Статистика</span>
                 </div>
+                <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
+                    <div class="icon-wrapper"><i class="fa-brands fa-twitch"></i></div>
+                    <span>Twitch награды</span>
+                </div>
             </div>
         </div>
         
@@ -776,7 +780,20 @@
                 </div>
             </div>
         </div>
+      
+        <div id="view-admin-twitch-rewards" class="view hidden">
+          <div class="page-header">
+            <button class="back-button" data-view="view-admin-main">
+              <i class="fa-solid fa-arrow-left"></i> Назад
+            </button>
+            <h1 class="page-header-title">Twitch награды</h1>
+            <div style="width: 60px;"></div>
+          </div>
 
+          <div class="quests-container" id="twitch-rewards-list">
+            <!-- Сюда подгрузим список наград -->
+          </div>
+        </div>
     </main>
 
     <div id="submissions-modal" class="modal-overlay hidden">
@@ -1783,6 +1800,56 @@
         console.error(`Критическая ошибка на старте: ${e.message}`);
         alert(`Критическая ошибка: ${e.message}`);
     }
+      async function loadTwitchRewards() {
+        const container = document.getElementById("twitch-rewards-list");
+        container.innerHTML = "<p>Загрузка...</p>";
+
+        try {
+          const resp = await fetch("/api/v1/admin/twitch_rewards/list");
+          const rewards = await resp.json();
+
+          container.innerHTML = "";
+          rewards.forEach(r => {
+            const card = document.createElement("div");
+            card.className = "quest-card";
+
+            card.innerHTML = `
+              <p><strong>${r.title}</strong></p>
+              <label>
+                Активна:
+                <input type="checkbox" ${r.is_active ? "checked" : ""} 
+                  onchange="updateTwitchReward(${r.id}, 'is_active', this.checked)">
+              </label>
+              <label>
+                Уведомлять админов:
+                <input type="checkbox" ${r.notify_admin ? "checked" : ""} 
+                  onchange="updateTwitchReward(${r.id}, 'notify_admin', this.checked)">
+              </label>
+            `;
+            container.appendChild(card);
+          });
+        } catch (err) {
+          container.innerHTML = "<p style='color:red'>Ошибка загрузки</p>";
+          console.error(err);
+        }
+      }
+
+      async function updateTwitchReward(id, field, value) {
+        try {
+          await fetch("/api/v1/admin/twitch_rewards/update", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id: id, [field]: value})
+          });
+        } catch (err) {
+          alert("Ошибка обновления");
+          console.error(err);
+        }
+      }
+
+      // Автозагрузка при переходе в раздел
+      document.querySelector("[data-view='view-admin-twitch-rewards']")
+        .addEventListener("click", loadTwitchRewards);
     </script>
 </body>
 </html>
