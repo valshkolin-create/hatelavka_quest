@@ -993,6 +993,10 @@
                         await loadStatistics();
                         break;
                     }
+                    case 'view-admin-twitch-rewards': {
+                        await loadTwitchRewards();
+                        break;
+                    }
                     case 'view-admin-create': {
                         await fetchAndCacheCategories(true);
                         populateCategorySelects();
