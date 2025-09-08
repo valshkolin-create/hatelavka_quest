@@ -1261,7 +1261,7 @@
         // --- Twitch Rewards ---
         async function loadTwitchRewards() {
             try {
-                // загружаем список наград (GET, не POST!)
+                // грузим список наград
                 const rewards = await makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true);
                 const container = document.getElementById('twitch-rewards-container');
                 container.innerHTML = '';
@@ -1289,34 +1289,50 @@
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
+                            <div class="admin-buttons-wrapper" style="margin-top: 10px;">
+                                <button class="admin-view-subs-btn" onclick="openTwitchPurchases(${r.id})">
+                                    Покупки
+                                </button>
+                            </div>
                         </div>
                     `;
                     container.insertAdjacentHTML('beforeend', cardHtml);
                 });
 
-                // обработчик для is_active
+                // переключение "Активна"
                 document.querySelectorAll('.reward-toggle-active').forEach(chk => {
                     chk.addEventListener('change', async (e) => {
                         const rewardId = e.target.dataset.id;
                         const isActive = e.target.checked;
-                        await makeApiRequest('/api/v1/admin/twitch_rewards/update', {
-                            id: rewardId,
-                            is_active: isActive
-                        }, 'POST', true);
+                        try {
+                            await makeApiRequest('/api/v1/admin/twitch_rewards/update', {
+                                id: rewardId,
+                                is_active: isActive
+                            }, 'POST', true);
+                        } catch (err) {
+                            console.error("Ошибка обновления is_active:", err);
+                            e.target.checked = !isActive; // откат при ошибке
+                        }
                     });
                 });
 
-                // обработчик для notify_admin
+                // переключение "Уведомлять админа"
                 document.querySelectorAll('.reward-toggle-notify').forEach(chk => {
                     chk.addEventListener('change', async (e) => {
                         const rewardId = e.target.dataset.id;
                         const notify = e.target.checked;
-                        await makeApiRequest('/api/v1/admin/twitch_rewards/update', {
-                            id: rewardId,
-                            notify_admin: notify
-                        }, 'POST', true);
+                        try {
+                            await makeApiRequest('/api/v1/admin/twitch_rewards/update', {
+                                id: rewardId,
+                                notify_admin: notify
+                            }, 'POST', true);
+                        } catch (err) {
+                            console.error("Ошибка обновления notify_admin:", err);
+                            e.target.checked = !notify; // откат при ошибке
+                        }
                     });
                 });
+
             } catch (e) {
                 console.error("Ошибка загрузки Twitch наград:", e);
                 const container = document.getElementById('twitch-rewards-container');
@@ -1325,11 +1341,13 @@
         }
 
         async function openTwitchPurchases(rewardId) {
-            const listEl = document.getElementById("twitch-purchases-modal").querySelector(".modal-body");
+            const modal = document.getElementById("twitch-purchases-modal");
+            const listEl = modal.querySelector(".modal-body");
             listEl.innerHTML = "<p>Загрузка...</p>";
 
             try {
                 const resp = await fetch(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`);
+                if (!resp.ok) throw new Error("Ошибка ответа сервера");
                 const data = await resp.json();
 
                 if (!data.purchases || data.purchases.length === 0) {
@@ -1338,19 +1356,20 @@
                     listEl.innerHTML = data.purchases.map(p => `
                         <div class="submission-item">
                             <p><strong>${p.username}</strong> (ID: ${p.user_id})</p>
-                            <p>Трейд: <a href="${p.trade_link}" target="_blank">${p.trade_link}</a></p>
+                            <p>Трейд: ${p.trade_link 
+                                ? `<a href="${p.trade_link}" target="_blank">${p.trade_link}</a>` 
+                                : '<span style="color: var(--warning-color);">Не указан</span>'}</p>
                             <p><small>${new Date(p.created_at).toLocaleString()}</small></p>
                         </div>
                     `).join("");
                 }
 
-                document.getElementById("twitch-purchases-modal").classList.remove("hidden");
+                modal.classList.remove("hidden");
             } catch (e) {
-                listEl.innerHTML = "<p>Ошибка загрузки покупок</p>";
+                listEl.innerHTML = "<p style='color: var(--danger-color);'>Ошибка загрузки покупок</p>";
                 console.error(e);
             }
         }
-
         function closeTwitchPurchasesModal() {
             document.getElementById("twitch-purchases-modal").classList.add("hidden");
         }
