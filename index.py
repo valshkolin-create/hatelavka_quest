@@ -240,6 +240,10 @@ class TwitchRewardIssueRequest(BaseModel):
     initData: str
     purchase_id: int
 
+class TwitchRewardDeleteRequest(BaseModel):
+    initData: str
+    reward_id: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -3905,6 +3909,27 @@ async def handle_confirm_reward(
     except Exception as e:
         logging.error(f"Ошибка при обработке подтверждения награды: {e}", exc_info=True)
         await callback.answer("Произошла непредвиденная ошибка.", show_alert=True)
+
+@app.post("/api/v1/admin/twitch_rewards/delete")
+async def delete_twitch_reward(
+    request_data: TwitchRewardDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Полностью удаляет Twitch награду и все связанные с ней покупки."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    reward_id_to_delete = request_data.reward_id
+
+    # Supabase настроен с 'ON DELETE CASCADE', поэтому при удалении награды
+    # автоматически удалятся все связанные покупки.
+    await supabase.delete(
+        "/twitch_rewards",
+        params={"id": f"eq.{reward_id_to_delete}"}
+    )
+    
+    return {"message": "Награда и все ее покупки успешно удалены."}
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
