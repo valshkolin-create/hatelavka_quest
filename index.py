@@ -1991,7 +1991,7 @@ async def send_approval_notification(user_id: int, quest_title: str, promo_code:
 @app.post("/api/v1/admin/submission/update")
 async def update_submission_status(
     request_data: SubmissionUpdateRequest,
-    background_tasks: BackgroundTasks, # <-- Добавили это
+    background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -2014,22 +2014,24 @@ async def update_submission_status(
 
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
-        # Можно и сюда добавить фоновую задачу для надежности
-        background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
+        background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{html_decoration.quote(quest_title)}» была отклонена.")
         return {"message": "Заявка отклонена."}
 
     elif action == 'approved':
         try:
+            # --- ИЗМЕНЕНИЕ: Используем RPC функцию, которая также удаляет заявку ---
             response = await supabase.post(
-                "/rpc/award_reward_and_get_promocode",
-                json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
+                "/rpc/approve_submission_and_get_promocode",
+                json={ "p_submission_id": submission_id }
             )
             response.raise_for_status()
-            promo_code = response.text.strip('"')
+            
+            result = response.json()[0]
+            promo_code = result.get("promocode")
+            if not promo_code:
+                 raise Exception("RPC функция не вернула промокод.")
 
-            # Вместо await bot.send_message используем фоновую задачу
             background_tasks.add_task(send_approval_notification, user_to_notify, quest_title, promo_code)
-
             return {"message": "Заявка одобрена. Награда отправляется пользователю.", "promocode": promo_code}
 
         except httpx.HTTPStatusError as e:
@@ -3737,6 +3739,7 @@ async def issue_twitch_reward_promocode(
     background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """(Админ) Выдает промокод за покупку на Twitch с проверкой условий."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -3744,72 +3747,164 @@ async def issue_twitch_reward_promocode(
     purchase_id = request_data.purchase_id
 
     try:
-        # 1. Получаем данные о покупке и связанной награде
+        # 1. Получаем детали покупки, включая ID пользователя и ID награды
         purchase_resp = await supabase.get(
-            "twitch_reward_purchases",
-            params={
-                "id": f"eq.{purchase_id}",
-                "select": "*,reward:twitch_rewards(title,promocode_amount)"
-            }
+            "/twitch_reward_purchases",
+            params={"id": f"eq.{purchase_id}", "select": "user_id, reward_id"}
         )
+        purchase_resp.raise_for_status()
         purchase_data = purchase_resp.json()
         if not purchase_data:
             raise HTTPException(status_code=404, detail="Покупка не найдена.")
         
-        purchase = purchase_data[0]
-        user_id_to_reward = purchase.get("user_id")
-        reward_info = purchase.get("reward")
+        user_id = purchase_data[0].get("user_id")
+        reward_id = purchase_data[0].get("reward_id")
 
-        if not user_id_to_reward:
+        if not user_id:
             raise HTTPException(status_code=400, detail="Нельзя выдать награду непривязанному пользователю.")
-        if purchase.get("rewarded_at"):
-            raise HTTPException(status_code=400, detail="Награда уже была выдана ранее.")
-        if not reward_info:
-            raise HTTPException(status_code=404, detail="Настройки награды не найдены.")
-
-        # 2. Вызываем RPC для создания промокода
-        response = await supabase.post(
-            "/rpc/award_reward_and_get_promocode",
-            json={
-                "p_user_id": user_id_to_reward,
-                "p_source_type": "twitch_reward",
-                "p_source_id": purchase_id,
-                "p_reward_value_override": reward_info.get("promocode_amount")
-            }
-        )
-        response.raise_for_status()
-        promocode_data = response.json()
-
-        # 3. Помечаем покупку как обработанную
-        await supabase.patch(
-            "twitch_reward_purchases",
-            params={"id": f"eq.{purchase_id}"},
-            json={"rewarded_at": datetime.now(timezone.utc).isoformat()}
-        )
-
-        # 4. Отправляем уведомление пользователю в фоне
-        async def notify_user():
-            promo_code = promocode_data['code']
-            activation_url = f"https://t.me/HATElavka_bot?start={promo_code}"
-            notification_text = (
-                f"<b>🎉 Ваша награда за баллы Twitch!</b>\n\n"
-                f"Вы получили награду «{reward_info.get('title')}».\n"
-                f"Используйте промокод в @HATElavka_bot для получения звёзд.\n\n"
-                f"Ваш промокод:\n<code>{promo_code}</code>"
-            )
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Активировать", url=activation_url)]])
-            await safe_send_message(user_id_to_reward, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
-        background_tasks.add_task(notify_user)
         
-        return {"message": "Награда успешно выдана!", "promocode": promocode_data['code']}
+        # 2. Получаем детали награды, включая ее условия
+        reward_resp = await supabase.get(
+            "/twitch_rewards",
+            params={"id": f"eq.{reward_id}", "select": "title, condition_type, target_value"}
+        )
+        reward_resp.raise_for_status()
+        reward_data = reward_resp.json()
+        if not reward_data:
+            raise HTTPException(status_code=404, detail="Награда не найдена.")
+
+        condition_type = reward_data[0].get("condition_type")
+        target_value = reward_data[0].get("target_value")
+
+        # 3. ЕСЛИ есть условие, проверяем его выполнение
+        if condition_type and target_value is not None and target_value > 0:
+            column_to_check = CONDITION_TO_COLUMN.get(condition_type)
+            if not column_to_check:
+                # Если условие задано, но мы не знаем, как его проверить - это ошибка конфигурации
+                raise HTTPException(status_code=500, detail=f"Ошибка конфигурации: неизвестный тип условия '{condition_type}'")
+
+            user_stats_resp = await supabase.get(
+                "/users",
+                params={"telegram_id": f"eq.{user_id}", "select": column_to_check}
+            )
+            user_stats_resp.raise_for_status()
+            user_stats = user_stats_resp.json()
+            
+            current_progress = 0
+            if user_stats:
+                current_progress = user_stats[0].get(column_to_check, 0)
+
+            if current_progress < target_value:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Условие не выполнено! Прогресс пользователя: {current_progress} / {target_value}"
+                )
+
+        # 4. Если все проверки пройдены, вызываем RPC для выдачи промокода
+        rpc_response = await supabase.post(
+            "/rpc/issue_promocode_for_twitch_purchase",
+            json={"p_purchase_id": purchase_id}
+        )
+        rpc_response.raise_for_status()
+        
+        result = rpc_response.json()[0]
+        user_id_to_notify = result.get("user_id")
+        promo_code = result.get("promocode")
+        reward_title = result.get("reward_title")
+
+        if not all([user_id_to_notify, promo_code, reward_title]):
+            raise HTTPException(status_code=404, detail="Не удалось получить все данные для отправки уведомления.")
+            
+        # Отправляем уведомление в фоне
+        safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
+        activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
+        
+        notification_text = (
+            f"<b>🎉 Ваша награда за «{html_decoration.quote(reward_title)}»!</b>\n\n"
+            f"Скопируйте промокод и используйте его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
+            f"Ваш промокод:\n<code>{promo_code}</code>"
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
+            [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
+        ])
+
+        background_tasks.add_task(safe_send_message, user_id_to_notify, text=notification_text, reply_markup=keyboard)
+
+        return {"message": f"Награда успешно отправлена пользователю. Промокод: {promo_code}"}
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка базы данных.")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Критическая ошибка при выдаче Twitch награды: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+        logging.error(f"Ошибка при выдаче промокода за Twitch награду: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выдать награду.")
+
+# 2. ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ send_approval_notification НА ЭТУ:
+async def send_approval_notification(user_id: int, quest_title: str, promo_code: str):
+    """Отправляет уведомление об одобрении заявки в фоне."""
+    try:
+        safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
+        activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
+        notification_text = (
+            f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
+            f"Скопируй промокод и используй его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
+            f"Твой промокод:\n<code>{promo_code}</code>"
+        )
+        
+        # --- ИЗМЕНЕНИЕ: Добавлена кнопка подтверждения ---
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
+            [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
+        ])
+
+        await safe_send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
+    except Exception as e:
+        logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
+
+@router.callback_query(F.data.startswith("confirm_reward:"))
+async def handle_confirm_reward(
+    callback: types.CallbackQuery,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Обрабатывает кнопку 'подтвердить и удалить' для наград.
+    Удаляет запись из БД и обновляет сообщение.
+    """
+    try:
+        parts = callback.data.split(":")
+        if len(parts) != 3:
+            await callback.answer("Ошибка: неверные данные.", show_alert=True)
+            return
+
+        action, reward_type, reward_identifier = parts
+
+        if reward_type == "promocode":
+            # Удаляем промокод, так как он больше не нужен пользователю в списке
+            await supabase.delete(
+                "/promocodes",
+                params={"code": f"eq.{reward_identifier}"}
+            )
+            
+            await callback.bot.edit_message_text(
+                chat_id=callback.from_user.id,
+                message_id=callback.message.message_id,
+                text=f"✅ <b>Награда подтверждена и удалена из вашего списка.</b>\n\nКод был: <code>{html_decoration.quote(reward_identifier)}</code>",
+                reply_markup=None # Убираем кнопки
+            )
+            
+            await callback.answer("Промокод удален из вашего списка.")
+        else:
+            await callback.answer(f"Неизвестный тип награды: {reward_type}", show_alert=True)
+
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Ошибка Supabase при подтверждении награды: {e.response.text}")
+        await callback.answer("Ошибка базы данных. Попробуйте позже.", show_alert=True)
+    except Exception as e:
+        logging.error(f"Ошибка при обработке подтверждения награды: {e}", exc_info=True)
+        await callback.answer("Произошла непредвиденная ошибка.", show_alert=True)
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
