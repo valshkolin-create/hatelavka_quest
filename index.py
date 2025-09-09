@@ -1757,9 +1757,17 @@ async def trigger_draws(
             logging.info(f"CRON: Время розыгрыша ({end_time_moscow}) еще не наступило. Текущее время UTC: {now_utc}.")
             return {"message": "Raffle time has not yet come."}
 
-        logging.info("CRON: Время розыгрыша наступило. Поиск ивентов без победителя...")
-        
-        events_to_draw = [e for e in content.get("events", []) if "winner_name" not in e]
+        # --- 👇👇👇 ДОБАВЛЕННЫЙ КОД ДЛЯ ФИЛЬТРАЦИИ 👇👇👇 ---
+        logging.info("CRON: Время розыгрыша наступило. Получаем ивенты, которые еще не разыграны...")
+
+        # Получаем список event_id, которые уже были разыграны
+        winners_resp = await supabase.get("/event_winners", params={"select": "event_id"})
+        winners_resp.raise_for_status()
+        events_with_winners = {e['event_id'] for e in winners_resp.json()}
+
+        # Фильтруем ивенты, оставляя только те, у которых еще нет победителя в таблице `event_winners`
+        events_to_draw = [e for e in content.get("events", []) if e.get('id') not in events_with_winners]
+        # --- 👆👆👆 КОНЕЦ ДОБАВЛЕННОГО КОДА 👆👆👆 ---
         
         if not events_to_draw:
             logging.info("CRON: Нет ивентов для розыгрыша (у всех уже есть победители).")
@@ -1820,7 +1828,7 @@ async def trigger_draws(
                         "status": "pending"
                     }
                 )
-        
+            
                 # Отправляем уведомление админу
                 if ADMIN_NOTIFY_CHAT_ID:
                     await bot.send_message(
