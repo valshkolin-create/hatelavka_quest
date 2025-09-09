@@ -432,6 +432,23 @@ def validate_twitch_state(state: str, init_data: str) -> bool:
     expected_state = create_twitch_state(init_data)
     return hmac.compare_digest(expected_state, state)
 
+# --- WebSocket Endpoint ---
+# ИСПРАВЛЕНИЕ: Перемещено сюда, после middleware
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Просто держим соединение открытым
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+async def process_telegram_update(update: dict, supabase: httpx.AsyncClient):
+    # Мы используем run_in_threadpool, чтобы безопасно выполнить наш асинхронный код
+    # в фоновой задаче, которую предоставляет FastAPI
+    await run_in_threadpool(dp.feed_update, bot=bot, update=Update(**update), supabase=supabase)
+
 # --- Telegram Bot/Dispatcher ---
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 router = Router()
