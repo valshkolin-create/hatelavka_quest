@@ -869,13 +869,30 @@
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
+
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
+                        <label>Условие для выдачи (необязательно)</label>
+                        <select name="condition_type">
+                            <option value="">Нет условия</option>
+                            <option value="twitch_messages_session">Сообщения Twitch (за стрим)</option>
+                            <option value="twitch_messages_week">Сообщения Twitch (за неделю)</option>
+                            <option value="twitch_messages_month">Сообщения Twitch (за месяц)</option>
+                        </select>
+                        <input type="number" name="target_value" placeholder="Например, 500 (сообщений)">
+                    </div>
+
                     <div style="margin-top: 15px;">
                       <label for="promocode-amount-input">Сумма промокода (звёзды)</label>
                       <input type="number" id="promocode-amount-input" name="promocode_amount" placeholder="Например, 10" required>
                     </div>
+
                     <div class="prompt-actions" style="margin-top: 20px;">
                         <button type="button" class="cancel-btn" data-close-modal="twitch-reward-settings-modal">Отмена</button>
                         <button type="submit" class="confirm-btn">Сохранить</button>
+                    </div>
+                    
+                    <div style="margin-top: 25px; border-top: 1px solid var(--divider-glass-color); padding-top: 15px;">
+                        <button type="button" id="delete-twitch-reward-btn" class="admin-action-btn reject" style="width: 100%;">Удалить награду</button>
                     </div>
                 </form>
             </div>
@@ -1356,6 +1373,8 @@
             form.elements['notify_admin'].checked = reward.notify_admin;
             form.elements['show_user_input'].checked = reward.show_user_input;
             form.elements['promocode_amount'].value = reward.promocode_amount;
+            form.elements['condition_type'].value = reward.condition_type || "";
+            form.elements['target_value'].value = reward.target_value || "";
 
             modal.classList.remove('hidden');
         }
@@ -1532,13 +1551,37 @@
                     is_active: form.elements['is_active'].checked,
                     notify_admin: form.elements['notify_admin'].checked,
                     show_user_input: form.elements['show_user_input'].checked,
-                    promocode_amount: parseInt(form.elements['promocode_amount'].value)
+                    promocode_amount: parseInt(form.elements['promocode_amount'].value),
+                    condition_type: form.elements['condition_type'].value || null,
+                    target_value: form.elements['target_value'].value ? parseInt(form.elements['target_value'].value) : null
                 };
                 
                 await makeApiRequest('/api/v1/admin/twitch_rewards/update', payload);
                 document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
                 tg.showAlert('Настройки сохранены!');
                 await loadTwitchRewards(); // Refresh the list
+            });
+
+            document.getElementById('delete-twitch-reward-btn').addEventListener('click', async () => {
+                const form = document.getElementById('twitch-reward-settings-form');
+                const rewardId = parseInt(form.elements['reward_id'].value);
+                if (!rewardId) {
+                    tg.showAlert('Ошибка: ID награды не найден.');
+                    return;
+                }
+
+                tg.showConfirm('Вы уверены, что хотите удалить эту награду? Это действие необратимо и удалит ВСЕ связанные с ней покупки.', async (ok) => {
+                    if (ok) {
+                        try {
+                            await makeApiRequest('/api/v1/admin/twitch_rewards/delete', { reward_id: rewardId });
+                            tg.showAlert('Награда успешно удалена.');
+                            document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
+                            await loadTwitchRewards(); // Обновляем список наград
+                        } catch (e) {
+                            tg.showAlert(`Ошибка при удалении: ${e.message}`);
+                        }
+                    }
+                });
             });
             // --- КОНЕЦ: НОВЫЕ ОБРАБОТЧИКИ ---
 
