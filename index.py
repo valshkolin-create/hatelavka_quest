@@ -332,16 +332,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Quest Bot API")
 
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            # Просто держим соединение открытым
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
 # --- Middlewares ---
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
@@ -389,6 +379,18 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     logging.info(f"🔹 Response status: {response.status_code}")
     return response
+
+# --- WebSocket Endpoint ---
+# ИСПРАВЛЕНИЕ: Перемещено сюда, после middleware
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Просто держим соединение открытым
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 async def process_telegram_update(update: dict, supabase: httpx.AsyncClient):
     # Мы используем run_in_threadpool, чтобы безопасно выполнить наш асинхронный код
