@@ -522,8 +522,6 @@ async def handle_twitch_webhook(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """Принимает и обрабатывает вебхуки от Twitch EventSub."""
-
-    # Проверка подлинности запроса от Twitch
     body = await request.body()
     headers = request.headers
     message_id = headers.get("Twitch-Eventsub-Message-Id")
@@ -541,25 +539,21 @@ async def handle_twitch_webhook(
     if not hmac.compare_digest(expected_signature, signature):
         raise HTTPException(status_code=403, detail="Неверная подпись.")
 
-    # Обработка запроса
     message_type = headers.get("Twitch-Eventsub-Message-Type")
     data = json.loads(body)
 
-    # Ответ на challenge-запрос от Twitch для активации вебхука
     if message_type == "webhook_callback_verification":
         challenge = data.get("challenge")
         return Response(content=challenge, media_type="text/plain")
 
-    # Обработка уведомления о событии
     if message_type == "notification":
         try:
             event_data = data.get("event", {})
             twitch_login = event_data.get("user_login", "unknown_user").lower()
             reward_data = event_data.get("reward", {})
             reward_title = reward_data.get("title", "Unknown Reward")
-            user_input = event_data.get("user_input") # <-- Получаем сообщение пользователя
+            user_input = event_data.get("user_input")
 
-            # Поиск пользователя в базе данных
             user_resp = await supabase.get(
                 "/users",
                 params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, full_name, trade_link"}
@@ -584,7 +578,6 @@ async def handle_twitch_webhook(
                     "status": "Не привязан"
                 }
 
-            # Проверка награды в таблице twitch_rewards
             reward_resp = await supabase.get(
                 "/twitch_rewards",
                 params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
@@ -602,22 +595,22 @@ async def handle_twitch_webhook(
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
-            # Создаем запись о покупке, используя собранные данные
+            # --- ИЗМЕНЕНИЕ: Добавляем twitch_login в запись о покупке ---
             await supabase.post("/twitch_reward_purchases", json={
                 "reward_id": reward_settings[0]["id"],
                 "user_id": payload_for_purchase["user_id"],
                 "username": payload_for_purchase["username"],
+                "twitch_login": twitch_login, # <-- ВОТ ЭТА СТРОКА ДОБАВЛЕНА
                 "trade_link": payload_for_purchase["trade_link"],
                 "status": payload_for_purchase["status"],
-                "user_input": user_input # <-- Сохраняем сообщение
+                "user_input": user_input
             })
 
-            # Отправка уведомления администратору
             if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
                 user_display_name = payload_for_purchase["username"]
                 notification_text = (
                     f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
-                    f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)}\n"
+                    f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
                     f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n"
                     f"<b>Статус:</b> {payload_for_purchase['status']}"
                 )
@@ -1439,22 +1432,55 @@ async def get_twitch_reward_purchases(
     reward_id: int,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Получаем информацию о самой награде (нужны ее настройки)
-    reward_resp = await supabase.get("twitch_rewards", params={"id": f"eq.{reward_id}", "select": "show_user_input"})
+    # 1. Получаем полную информацию о награде, включая ее условия
+    reward_resp = await supabase.get(
+        "twitch_rewards",
+        params={"id": f"eq.{reward_id}", "select": "show_user_input,condition_type,target_value"}
+    )
     reward_info = reward_resp.json()[0] if reward_resp.json() else {}
     
-    # Получаем список покупок
+    # 2. Получаем список всех покупок этой награды
     purchases_resp = await supabase.get(
         "/twitch_reward_purchases",
         params={
             "reward_id": f"eq.{reward_id}",
-            "select": "id,user_id,username,trade_link,created_at,status,user_input,rewarded_at",
+            "select": "id,user_id,username,twitch_login,trade_link,created_at,status,user_input,rewarded_at",
             "order": "created_at.desc"
         }
     )
+    purchases = purchases_resp.json()
+
+    # 3. Если у награды есть условие, собираем прогресс для всех пользователей
+    condition_type = reward_info.get("condition_type")
+    if purchases and condition_type and CONDITION_TO_COLUMN.get(condition_type):
+        column_to_check = CONDITION_TO_COLUMN[condition_type]
+        
+        # Собираем ID всех привязанных пользователей, чтобы сделать один запрос
+        user_ids_to_check = {p['user_id'] for p in purchases if p.get('user_id')}
+        
+        if user_ids_to_check:
+            # Получаем статистику всех нужных пользователей одним запросом
+            stats_resp = await supabase.get(
+                "/users",
+                params={
+                    "telegram_id": f"in.({','.join(map(str, user_ids_to_check))})",
+                    "select": f"telegram_id,{column_to_check}"
+                }
+            )
+            # Превращаем ответ в удобный словарь: {user_id: progress}
+            progress_map = {
+                user['telegram_id']: user.get(column_to_check, 0)
+                for user in stats_resp.json()
+            }
+            
+            # Добавляем информацию о прогрессе в каждую покупку
+            for purchase in purchases:
+                if purchase.get('user_id') in progress_map:
+                    purchase['progress_value'] = progress_map[purchase['user_id']]
+
     return {
         "reward_settings": reward_info,
-        "purchases": purchases_resp.json()
+        "purchases": purchases
     }
 
 @app.post("/api/v1/promocode")
