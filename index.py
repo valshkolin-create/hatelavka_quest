@@ -439,11 +439,15 @@ def validate_twitch_state(state: str, init_data: str) -> bool:
     return hmac.compare_digest(expected_state, state)
 
 # --- WebSocket Endpoint ---
-# ИСПРАВЛЕНИЕ: Перемещено сюда, после middleware
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept() # Просто принимаем соединение
-    await websocket.close()  # И сразу закрываем
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"echo: {data}")
+    except WebSocketDisconnect:
+        logging.info("WebSocket disconnected")
 
 # --- Telegram Bot/Dispatcher ---
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
