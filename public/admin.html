@@ -317,6 +317,14 @@
                     <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
                     <span>Twitch награды</span>
                 </div>
+                <div class="admin-icon-button" data-view="view-admin-roulette">
+                    <div class="icon-wrapper" style="color: var(--warning-color);"><i class="fa-solid fa-dice"></i></div>
+                    <span>Рулетки</span>
+                </div>
+                 <a href="/roulette.html" target="_blank" class="admin-icon-button">
+                    <div class="icon-wrapper"><i class="fa-solid fa-eye"></i></div>
+                    <span>Просмотр рулетки</span>
+                </a>
             </div>
              <div class="quest-card" style="margin-top: 20px; text-align: center;">
                 <p style="font-size: 14px; color: var(--text-color-muted); margin:0;">
@@ -821,6 +829,37 @@
             </div>
         </div>
 
+        <div id="view-admin-roulette" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Призы для рулеток</h1>
+                <div style="width: 60px;"></div>
+            </div>
+            <div class="quest-card">
+                <form id="create-roulette-prize-form" class="admin-form">
+                    <label>Название Twitch награды (триггер)</label>
+                    <input type="text" name="reward_title" required placeholder="Например: Крутить рулетку">
+                    
+                    <label>Название скина</label>
+                    <input type="text" name="skin_name" required placeholder="Например: AWP | Asiimov">
+                    
+                    <label>URL картинки скина</label>
+                    <input type="text" name="image_url" required placeholder="https:// ... .png">
+
+                    <label>Вес шанса
+                        <div class="tooltip">?
+                           <span class="tooltip-text">Чем выше число, тем выше шанс. Если у одного скина вес 90, а у другого 10, то их шансы будут 90% и 10%.</span>
+                       </div>
+                    </label>
+                    <input type="number" name="chance_weight" required value="10">
+
+                    <button type="submit">Добавить приз</button>
+                </form>
+            </div>
+            <div id="roulette-prizes-list" class="quests-container" style="margin-top: 20px;">
+                </div>
+        </div>
+
     </main>
 
     <div id="submissions-modal" class="modal-overlay hidden">
@@ -997,6 +1036,10 @@
             clearAllCheckpointStarsBtn: document.getElementById('clear-all-checkpoint-stars-btn'),
             settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
             statisticsContent: document.getElementById('statistics-content'),
+            
+            // -- ДОБАВЛЕНО ДЛЯ РУЛЕТКИ --
+            createRoulettePrizeForm: document.getElementById('create-roulette-prize-form'),
+            roulettePrizesList: document.getElementById('roulette-prizes-list'),
         };
 
         let categoriesCache = [];
@@ -1093,6 +1136,12 @@
                     }
                     case 'view-admin-twitch-rewards': {
                         await loadTwitchRewards();
+                        break;
+                    }
+                    // -- ДОБАВЛЕНО ДЛЯ РУЛЕТКИ --
+                    case 'view-admin-roulette': {
+                        const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                        renderRoulettePrizes(prizes);
                         break;
                     }
                     case 'view-admin-create': {
@@ -1443,7 +1492,6 @@
                         ? `<div class="purchase-user-input">${p.user_input}</div>`
                         : '';
                     
-                    // --- ИСПРАВЛЕННАЯ И УЛУЧШЕННАЯ ЛОГИКА КНОПОК ---
                     let actionButtonsHtml;
                     if (p.rewarded_at) {
                         actionButtonsHtml = `
@@ -1491,7 +1539,6 @@
                        `;
                     }
                     
-                    // --- ИСПРАВЛЕННАЯ ЛОГИКА ОТОБРАЖЕНИЯ ИМЕНИ ---
                     const telegramNameDisplay = p.status === 'Привязан' 
                         ? `<span style="color: var(--text-color-muted); font-weight: normal; margin-left: 5px;">(${p.username || '...'})</span>`
                         : `<span style="color: var(--warning-color); font-weight: normal; margin-left: 5px;">(Не привязан)</span>`;
@@ -1515,6 +1562,50 @@
 
             } catch(e) {
                 body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
+            }
+        }
+
+        // -- ДОБАВЛЕНО ДЛЯ РУЛЕТКИ --
+        function renderRoulettePrizes(prizes) {
+            dom.roulettePrizesList.innerHTML = '';
+            if (!prizes || prizes.length === 0) {
+                dom.roulettePrizesList.innerHTML = '<p style="text-align: center;">Призов для рулеток пока нет.</p>';
+                return;
+            }
+
+            const groupedPrizes = prizes.reduce((acc, prize) => {
+                if (!acc[prize.reward_title]) {
+                    acc[prize.reward_title] = [];
+                }
+                acc[prize.reward_title].push(prize);
+                return acc;
+            }, {});
+
+            for (const rewardTitle in groupedPrizes) {
+                const prizesHtml = groupedPrizes[rewardTitle].map(prize => `
+                    <div class="quest-card" style="flex-direction: row; align-items: center; gap: 15px;">
+                        <img src="${prize.image_url}" alt="skin" style="width: 56px; height: 56px; object-fit: contain; border-radius: 8px;">
+                        <div style="flex-grow: 1;">
+                            <p style="margin: 0; font-weight: 600;">${prize.skin_name}</p>
+                            <small style="color: var(--text-color-muted);">Вес шанса: ${prize.chance_weight}</small>
+                        </div>
+                        <button class="admin-delete-quest-btn delete-roulette-prize-btn" data-id="${prize.id}">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+
+                const groupHtml = `
+                    <details class="quest-category-accordion" open>
+                        <summary class="quest-category-header">
+                           ${rewardTitle}
+                        </summary>
+                        <div class="quest-category-body">
+                            ${prizesHtml}
+                        </div>
+                    </details>
+                `;
+                dom.roulettePrizesList.insertAdjacentHTML('beforeend', groupHtml);
             }
         }
 
@@ -1751,11 +1842,11 @@
                  });
             });
             
-            // ✅✅✅ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Слушаем клики по всему документу, а не только в #app-container ✅✅✅
             document.body.addEventListener('click', async (event) => {
                 const target = event.target;
                 const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
-                if (navButton) {
+                if (navButton && navButton.tagName.toLowerCase() !== 'a') {
+                    event.preventDefault();
                     const view = navButton.dataset.view;
                     if (view) await switchView(view);
                     else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
@@ -1794,7 +1885,6 @@
                                 const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
                                 if(itemDiv) {
                                     const actionDiv = itemDiv.querySelector('.purchase-actions');
-                                    // Обновляем блок, чтобы показать, что награда выдана, и сохраняем кнопку удаления
                                     actionDiv.innerHTML = `
                                         <div class="rewarded-info" style="flex-grow: 1;">
                                             <i class="fa-solid fa-check-circle"></i> Награда выдана
@@ -2161,6 +2251,42 @@
                 });
                 hideGenericPrompt();
                 await switchView('view-admin-categories');
+            });
+
+            // -- ДОБАВЛЕНО ДЛЯ РУЛЕТКИ --
+            dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const data = {
+                    reward_title: form.elements['reward_title'].value,
+                    skin_name: form.elements['skin_name'].value,
+                    image_url: form.elements['image_url'].value,
+                    chance_weight: parseInt(form.elements['chance_weight'].value),
+                };
+
+                await makeApiRequest('/api/v1/admin/roulette/create', data);
+                tg.showAlert('Приз добавлен!');
+                form.elements['skin_name'].value = '';
+                form.elements['image_url'].value = '';
+                form.elements['chance_weight'].value = 10;
+                form.elements['skin_name'].focus();
+                
+                const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                renderRoulettePrizes(prizes);
+            });
+
+            dom.roulettePrizesList.addEventListener('click', async (e) => {
+                const deleteBtn = e.target.closest('.delete-roulette-prize-btn');
+                if (deleteBtn) {
+                    const prizeId = parseInt(deleteBtn.dataset.id);
+                    tg.showConfirm('Удалить этот приз?', async (ok) => {
+                        if (ok) {
+                            await makeApiRequest('/api/v1/admin/roulette/delete', { prize_id: prizeId });
+                            const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                            renderRoulettePrizes(prizes);
+                        }
+                    });
+                }
             });
         }
 
