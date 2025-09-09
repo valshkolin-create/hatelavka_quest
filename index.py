@@ -24,7 +24,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import Update, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode
 from aiogram.client.bot import DefaultBotProperties
-from fastapi import FastAPI, Request, HTTPException, Query, Depends, Body
+from fastapi import FastAPI, Request, HTTPException, Query, Depends, Body, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -261,6 +261,23 @@ class RoulettePrizeDeleteRequest(BaseModel):
     initData: str
     prize_id: int
 
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -315,6 +332,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Quest Bot API")
 
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Просто держим соединение открытым
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 # --- Middlewares ---
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
@@ -569,93 +596,106 @@ async def handle_twitch_webhook(
             reward_title = reward_data.get("title", "Unknown Reward")
             user_input = event_data.get("user_input")
 
+            # --- НАЧАЛО НОВОЙ ЛОГИКИ С РУЛЕТКОЙ ---
+            
+            # 1. Проверяем, является ли эта награда триггером для рулетки
+            prizes_resp = await supabase.get(
+                "/roulette_prizes", 
+                params={"reward_title": f"eq.{reward_title}", "select": "skin_name,image_url,chance_weight"}
+            )
+            prizes_resp.raise_for_status()
+            roulette_prizes = prizes_resp.json()
+
+            # Ищем пользователя в нашей базе
             user_resp = await supabase.get(
                 "/users",
                 params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, full_name, trade_link"}
             )
             user_data = user_resp.json()
+            user_record = user_data[0] if user_data else None
 
-            payload_for_purchase = {}
-
-            if user_data:
-                user_record = user_data[0]
-                telegram_id = user_record.get("telegram_id")
+            # 2. ЕСЛИ ЭТО РУЛЕТКА (найдены призы для этой награды)
+            if roulette_prizes and user_record:
+                logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
                 
-                payload_for_purchase = {
-                    "user_id": telegram_id,
-                    "username": user_record.get("full_name", twitch_login),
-                    "trade_link": user_record.get("trade_link"),
-                    "status": "Привязан"
-                }
+                # 3. Определяем победителя на сервере с учетом весов
+                weights = [p['chance_weight'] for p in roulette_prizes]
+                winner_prize = random.choices(roulette_prizes, weights=weights, k=1)[0]
+                
+                # 4. Создаем заявку на ручную выдачу приза в админке
+                await supabase.post("/manual_rewards", json={
+                    "user_id": user_record.get("telegram_id"),
+                    "status": "pending",
+                    "reward_details": winner_prize.get('skin_name'),
+                    # Делаем описание похожим на Чекпоинт, чтобы оно появилось в том же разделе админки
+                    "source_description": f"Рулетка (Чекпоинт): «{reward_title}»"
+                })
 
-                # ## --- ДОБАВЛЕННЫЙ БЛОК: НАЧИСЛЕНИЕ БИЛЕТА --- ##
+                # 5. Отправляем команду на запуск анимации в OBS
+                # Ищем индекс победителя, чтобы анимация знала, где остановиться
+                winner_index = next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_prize['skin_name']), 0)
+
+                await manager.broadcast(json.dumps({
+                    "type": "start_spin",
+                    "payload": {
+                        "prizes": roulette_prizes,
+                        "winner": winner_prize,
+                        "winner_index": winner_index,
+                        "user_name": twitch_login
+                    }
+                }))
+                
+                logging.info(f"Победитель рулетки: {winner_prize.get('skin_name')}. Команда на анимацию отправлена.")
+                return {"status": "roulette_triggered"}
+
+            # --- ЕСЛИ ЭТО НЕ РУЛЕТКА, РАБОТАЕМ ПО СТАРОЙ СХЕМЕ ---
+            logging.info(f"Обычная награда '{reward_title}' от {twitch_login}. Рулетка не задействована.")
+            
+            payload_for_purchase = {}
+            if user_record:
+                telegram_id = user_record.get("telegram_id")
+                payload_for_purchase = {
+                    "user_id": telegram_id, "username": user_record.get("full_name", twitch_login),
+                    "trade_link": user_record.get("trade_link"), "status": "Привязан"
+                }
                 if telegram_id:
                     try:
-                        await supabase.post(
-                            "/rpc/increment_tickets",
-                            json={"p_user_id": telegram_id, "p_amount": 1}
-                        )
+                        await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": 1})
                         logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) начислен 1 билет за награду Twitch.")
-                    except Exception as e_ticket:
-                        logging.error(f"❌ Не удалось начислить билет за Twitch награду пользователю {telegram_id}: {e_ticket}")
-                # ## --- КОНЕЦ ДОБАВЛЕННОГО БЛОКА --- ##
-
+                    except Exception as e:
+                        logging.error(f"❌ Не удалось начислить билет за Twitch награду пользователю {telegram_id}: {e}")
             else:
-                payload_for_purchase = {
-                    "user_id": None,
-                    "username": twitch_login,
-                    "trade_link": None,
-                    "status": "Не привязан"
-                }
-
-            reward_resp = await supabase.get(
-                "/twitch_rewards",
-                params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
-            )
-            reward_settings = reward_resp.json()
-
+                payload_for_purchase = { "user_id": None, "username": twitch_login, "trade_link": None, "status": "Не привязан" }
+            
+            reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"})
+            reward_settings = reward_settings_resp.json()
             if not reward_settings:
-                insert_resp = await supabase.post(
-                    "/twitch_rewards",
-                    json={"title": reward_title, "is_active": True, "notify_admin": True},
-                    headers={"Prefer": "return=representation"}
-                )
-                reward_settings = insert_resp.json()
+                reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title, "is_active": True, "notify_admin": True}, headers={"Prefer": "return=representation"})).json()
 
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
             await supabase.post("/twitch_reward_purchases", json={
-                "reward_id": reward_settings[0]["id"],
-                "user_id": payload_for_purchase["user_id"],
-                "username": payload_for_purchase["username"],
-                "twitch_login": twitch_login,
-                "trade_link": payload_for_purchase["trade_link"],
-                "status": payload_for_purchase["status"],
+                "reward_id": reward_settings[0]["id"], "user_id": payload_for_purchase["user_id"],
+                "username": payload_for_purchase["username"], "twitch_login": twitch_login,
+                "trade_link": payload_for_purchase["trade_link"], "status": payload_for_purchase["status"],
                 "user_input": user_input
             })
 
             if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
-                user_display_name = payload_for_purchase["username"]
                 notification_text = (
                     f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
-                    f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
+                    f"<b>Пользователь:</b> {html_decoration.quote(payload_for_purchase['username'])} ({html_decoration.quote(twitch_login)})\n"
                     f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n"
                     f"<b>Статус:</b> {payload_for_purchase['status']}"
                 )
                 if user_input:
                     notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
-                
-                # Добавляем информацию о билете в уведомление, если пользователь привязан
                 if payload_for_purchase.get("user_id"):
                     notification_text += "\n\n✅ Пользователю начислен 1 билет."
-
                 notification_text += "\nИнформация добавлена в раздел 'Покупки'."
-
-                background_tasks.add_task(
-                    safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text
-                )
-
+                background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
+            
             return {"status": "ok"}
 
         except Exception as e:
