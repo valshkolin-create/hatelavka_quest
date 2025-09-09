@@ -568,12 +568,27 @@ async def handle_twitch_webhook(
 
             if user_data:
                 user_record = user_data[0]
+                telegram_id = user_record.get("telegram_id")
+                
                 payload_for_purchase = {
-                    "user_id": user_record.get("telegram_id"),
+                    "user_id": telegram_id,
                     "username": user_record.get("full_name", twitch_login),
                     "trade_link": user_record.get("trade_link"),
                     "status": "Привязан"
                 }
+
+                # ## --- ДОБАВЛЕННЫЙ БЛОК: НАЧИСЛЕНИЕ БИЛЕТА --- ##
+                if telegram_id:
+                    try:
+                        await supabase.post(
+                            "/rpc/increment_tickets",
+                            json={"p_user_id": telegram_id, "p_amount": 1}
+                        )
+                        logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) начислен 1 билет за награду Twitch.")
+                    except Exception as e_ticket:
+                        logging.error(f"❌ Не удалось начислить билет за Twitch награду пользователю {telegram_id}: {e_ticket}")
+                # ## --- КОНЕЦ ДОБАВЛЕННОГО БЛОКА --- ##
+
             else:
                 payload_for_purchase = {
                     "user_id": None,
@@ -599,12 +614,11 @@ async def handle_twitch_webhook(
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
-            # --- ИЗМЕНЕНИЕ: Добавляем twitch_login в запись о покупке ---
             await supabase.post("/twitch_reward_purchases", json={
                 "reward_id": reward_settings[0]["id"],
                 "user_id": payload_for_purchase["user_id"],
                 "username": payload_for_purchase["username"],
-                "twitch_login": twitch_login, # <-- ВОТ ЭТА СТРОКА ДОБАВЛЕНА
+                "twitch_login": twitch_login,
                 "trade_link": payload_for_purchase["trade_link"],
                 "status": payload_for_purchase["status"],
                 "user_input": user_input
@@ -621,7 +635,11 @@ async def handle_twitch_webhook(
                 if user_input:
                     notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
                 
-                notification_text += "\n\nИнформация добавлена в раздел 'Покупки'."
+                # Добавляем информацию о билете в уведомление, если пользователь привязан
+                if payload_for_purchase.get("user_id"):
+                    notification_text += "\n\n✅ Пользователю начислен 1 билет."
+
+                notification_text += "\nИнформация добавлена в раздел 'Покупки'."
 
                 background_tasks.add_task(
                     safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text
