@@ -246,6 +246,10 @@ class TwitchRewardDeleteRequest(BaseModel):
     initData: str
     reward_id: int
 
+class TwitchPurchaseDeleteRequest(BaseModel):
+    initData: str
+    purchase_id: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -3958,6 +3962,25 @@ async def delete_twitch_reward(
     )
     
     return {"message": "Награда и все ее покупки успешно удалены."}
+
+@app.post("/api/v1/admin/twitch_rewards/purchase/delete")
+async def delete_twitch_reward_purchase(
+    request_data: TwitchPurchaseDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Удаляет одну конкретную покупку Twitch награды."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    purchase_id_to_delete = request_data.purchase_id
+
+    await supabase.delete(
+        "/twitch_reward_purchases",
+        params={"id": f"eq.{purchase_id_to_delete}"}
+    )
+    
+    return {"message": "Покупка успешно удалена."}
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
