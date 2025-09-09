@@ -235,6 +235,8 @@ class TwitchRewardUpdateRequest(BaseModel):
     notify_admin: Optional[bool] = None
     promocode_amount: Optional[int] = None
     show_user_input: Optional[bool] = None
+    condition_type: Optional[str] = None # <-- ДОБАВЛЕНО
+    target_value: Optional[int] = None   # <-- ДОБАВЛЕНО
 
 class TwitchRewardIssueRequest(BaseModel):
     initData: str
