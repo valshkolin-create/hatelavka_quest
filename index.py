@@ -4116,6 +4116,8 @@ async def events_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/e
 async def read_root(): return FileResponse(f"{TEMPLATES_DIR}/index.html")
 @app.get("/checkpoint")
 async def checkpoint_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/checkpoint.html")
+@app.get("/roulette.html")
+async def roulette_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/roulette.html")
 
 def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
