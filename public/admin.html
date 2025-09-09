@@ -1060,11 +1060,17 @@
         async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
             if (!isSilent) showLoader();
             try {
-                const response = await fetch(url, {
+                const options = {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...body, initData: tg.initData })
-                });
+                };
+
+                // Только POST/PATCH/PUT запросы могут иметь тело. GET - нет.
+                if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
+                    options.body = JSON.stringify({ ...body, initData: tg.initData });
+                }
+
+                const response = await fetch(url, options);
                 if (response.status === 204) return null;
                 const result = await response.json();
                 if (!response.ok) {
