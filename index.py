@@ -647,13 +647,11 @@ async def handle_twitch_webhook(
     if user_input:
         final_user_input += f" | Сообщение: {user_input}"
     
-    # ❌ ИЗМЕНЕНИЕ: Формируем payload независимо от того, привязан ли пользователь
-    # используем twitch_login и user_input напрямую из вебхука.
     purchase_payload = {
         "reward_id": reward_settings[0]["id"],
         "username": twitch_login, 
         "twitch_login": twitch_login,
-        "trade_link": user_input, # <-- Используем user_input как трейд-ссылку
+        "trade_link": user_input, 
         "status": "Не привязан",
         "user_input": final_user_input 
     }
