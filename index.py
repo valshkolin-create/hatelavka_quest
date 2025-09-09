@@ -630,7 +630,8 @@ async def handle_twitch_webhook(
             user_data = user_resp.json()
             user_record = user_data[0] if user_data else None
 
-            # --- Логика для рулетки ---
+            # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
+            # Сначала проверяем, является ли награда рулеткой.
             if roulette_prizes:
                 logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
                 
@@ -649,25 +650,34 @@ async def handle_twitch_webhook(
                 
                 purchase_payload = {
                     "reward_id": reward_settings[0]["id"],
-                    "username": twitch_login, 
+                    "username": user_record.get("full_name", twitch_login) if user_record else twitch_login,
                     "twitch_login": twitch_login,
-                    "trade_link": user_input, 
-                    "status": "Не привязан",
+                    "trade_link": user_record.get("trade_link") if user_record else user_input, # <-- Используем treade_link из базы, если есть, иначе user_input
+                    "status": "Привязан" if user_record else "Не привязан",
                     "user_input": final_user_input 
                 }
-
+                
+                # Добавляем user_id только если он привязан
+                if user_record:
+                    purchase_payload["user_id"] = user_record.get("telegram_id")
+                else:
+                    purchase_payload["user_id"] = None
+                    
                 await supabase.post("/twitch_reward_purchases", json=purchase_payload)
 
                 if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
                     notification_text = (
                         f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
-                        f"<b>Пользователь:</b> {html_decoration.quote(twitch_login)}\n"
+                        f"<b>Пользователь:</b> {html_decoration.quote(user_record.get('full_name', twitch_login) if user_record else twitch_login)}\n"
                         f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
                         f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
-                        f"<b>Трейд-ссылка:</b> <code>{html_decoration.quote(user_input)}</code>\n\n"
-                        f"Информация добавлена в раздел 'Покупки' для этой награды. Пользователь НЕ привязан к боту."
                     )
-            
+                    
+                    if purchase_payload["trade_link"]:
+                        notification_text += f"<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>\n\n"
+                    
+                    notification_text += "Информация добавлена в раздел 'Покупки' для этой награды."
+
                     background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
                 animation_payload = {
@@ -681,7 +691,7 @@ async def handle_twitch_webhook(
                 logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен через Supabase.")
                 return {"status": "roulette_triggered"}
 
-            # --- Логика для обычных наград ---
+            # --- Логика для обычных наград (сработает, если это не рулетка) ---
             logging.info(f"Обычная награда '{reward_title}' от {twitch_login}. Рулетка не задействована.")
             
             payload_for_purchase = {}
@@ -733,8 +743,7 @@ async def handle_twitch_webhook(
 
         except Exception as e:
             logging.error(f"Ошибка обработки уведомления от Twitch: {e}", exc_info=True)
-            # Возвращаем 200, чтобы не заставлять Telegram повторять запрос
-            return JSONResponse(content={"status": "error", "message": str(e)})
+            return {"status": "error_processing"}
 
     return {"status": "ok", "detail": "Запрос обработан."}
 
