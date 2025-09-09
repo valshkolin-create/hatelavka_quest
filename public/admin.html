@@ -989,7 +989,17 @@
             </div>
         </div>
     </div>
-
+  
+    <div id="twitch-purchases-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Покупки награды Twitch</h2>
+                <button id="twitch-purchases-close-btn" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                </div>
+        </div>
+    </div>
     <script>
     try {
         const tg = window.Telegram.WebApp;
@@ -2028,6 +2038,18 @@
             });
           
             dom.modalCloseBtn.addEventListener('click', () => dom.submissionsModal.classList.add('hidden'));
+        const twitchPurchasesModal = document.getElementById('twitch-purchases-modal');
+        const twitchPurchasesCloseBtn = document.getElementById('twitch-purchases-close-btn');
+
+        if (twitchPurchasesModal && twitchPurchasesCloseBtn) {
+            const closeTwitchModal = () => twitchPurchasesModal.classList.add('hidden');
+            twitchPurchasesCloseBtn.addEventListener('click', closeTwitchModal);
+            twitchPurchasesModal.addEventListener('click', (e) => {
+                if (e.target === twitchPurchasesModal) {
+                    closeTwitchModal();
+                }
+            });
+        }
             dom.submissionsModal.addEventListener('click', (e) => { if (e.target === dom.submissionsModal) dom.submissionsModal.classList.add('hidden'); });
 
             dom.genericPromptCancel.addEventListener('click', hideGenericPrompt);
