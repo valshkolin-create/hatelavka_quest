@@ -223,6 +223,11 @@ class TwitchRewardPurchaseCreate(BaseModel):
     reward_id: int
     trade_link: str
 
+class WizebotCheckRequest(BaseModel):
+    initData: str
+    twitch_username: str
+    period: str = "session" # 'session', 'week', или 'month'
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -3658,6 +3663,57 @@ async def clear_all_checkpoint_stars(
         json={"checkpoint_stars": 0}
     )
     return {"message": "Баланс звёзд Чекпоинта был обнулён для ВСЕХ пользователей."}
+
+@app.post("/api/v1/admin/wizebot/check_user")
+async def check_wizebot_user_stats(
+    request_data: WizebotCheckRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Проверяет статистику конкретного пользователя напрямую через API Wizebot.
+    """
+    # Проверка, что запрос от админа
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    if not WIZEBOT_API_KEY:
+        raise HTTPException(status_code=500, detail="Wizebot API не настроен.")
+
+    twitch_username_to_find = request_data.twitch_username.lower()
+    period = request_data.period
+    limit = 100 # Ищем в топ-100
+
+    # Запрашиваем у Wizebot топ по сообщениям за указанный период
+    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/message/{period}/{limit}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=15.0)
+            resp.raise_for_status()
+            data = resp.json()
+            leaderboard = data.get("list", [])
+
+            # Ищем нашего пользователя в полученном списке
+            for user in leaderboard:
+                if user.get("user_name", "").lower() == twitch_username_to_find:
+                    return {
+                        "found": True,
+                        "username": user.get("user_name"),
+                        "messages": int(user.get("value", 0)),
+                        "rank": user.get("rank"),
+                        "period": period
+                    }
+            
+            # Если пользователь не найден в цикле
+            return {
+                "found": False,
+                "message": f"Пользователь '{request_data.twitch_username}' не найден в топ-{limit} Wizebot за этот период."
+            }
+
+    except Exception as e:
+        logging.error(f"Ошибка при запросе к Wizebot API: {e}")
+        raise HTTPException(status_code=502, detail="Не удалось получить данные от Wizebot.")
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
