@@ -79,7 +79,6 @@
             position: absolute;
             left: 0;
             top: 0;
-            /* Плавность анимации задается через JS */
         }
 
         .item {
@@ -137,9 +136,9 @@
         #winner-title {
             font-size: 80px;
             font-family: 'Teko', sans-serif;
-            color: var(--warning-color);
+            color: #ffc107;
             text-transform: uppercase;
-            text-shadow: 0 0 15px var(--warning-color), 0 0 25px black;
+            text-shadow: 0 0 15px #ffc107, 0 0 25px black;
             animation: glow 1.5s ease-in-out infinite alternate;
         }
         
@@ -183,7 +182,10 @@
         <div id="winner-name"></div>
     </div>
 
-    <script>
+    <script type="module">
+        // Импортируем клиент Supabase из CDN
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
         const dom = {
             container: document.getElementById('roulette-container'),
             userInfo: document.getElementById('user-info'),
@@ -195,64 +197,32 @@
             winSound: document.getElementById('win-sound'),
         };
 
+        // --- ВАЖНО: Вставьте сюда свои данные из Supabase ---
+        const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co'; // Замените на ваш URL
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMyODc5NDUsImV4cCI6MjAzODg2Mzk0NX0.9GqP-p-6-13tXW2vP0w-JV1E1o-v3pcy_nIu1dKXQxA'; // Замените на ваш Anon Key
+        // ----------------------------------------------------
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         const ITEM_WIDTH = 180;
         const ITEM_MARGIN = 10;
         const TOTAL_ITEM_WIDTH = ITEM_WIDTH + (ITEM_MARGIN * 2);
 
-        function connectWebSocket() {
-            // Автоматически определяем протокол (ws/wss) и хост
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-            const wsHost = window.location.host;
-            const socket = new WebSocket(`${wsProtocol}://${wsHost}/ws`);
-
-            socket.onopen = () => {
-                console.log('WebSocket Connected to backend.');
-            };
-
-            socket.onmessage = (event) => {
-                console.log('Message from server:', event.data);
-                try {
-                    const message = JSON.parse(event.data);
-                    if (message.type === 'start_spin') {
-                        startSpin(message.payload);
-                    }
-                } catch (error) {
-                    console.error('Error parsing message:', error);
-                }
-            };
-
-            socket.onclose = () => {
-                console.log('WebSocket Disconnected. Reconnecting in 3 seconds...');
-                setTimeout(connectWebSocket, 3000); // Попытка переподключения
-            };
-
-            socket.onerror = (error) => {
-                console.error('WebSocket Error:', error);
-                socket.close();
-            };
-        }
-
         function startSpin(payload) {
-            // 1. Показываем контейнер и информацию о пользователе
             dom.userInfo.textContent = `КРУТИТ: ${payload.user_name}`;
             dom.container.classList.add('visible');
             
-            // 2. Подготовка и проигрывание звука
             dom.spinSound.currentTime = 0;
             dom.spinSound.play();
 
-            // 3. Заполняем ленту призами
-            // Мы многократно дублируем список призов, чтобы лента была длинной
             const reelItems = [];
             const prizePool = payload.prizes;
             for (let i = 0; i < 10; i++) {
-                // Перемешиваем копию массива, чтобы порядок был разным
                 const shuffledPrizes = [...prizePool].sort(() => Math.random() - 0.5);
                 reelItems.push(...shuffledPrizes);
             }
             
-            // Заменяем N-ный элемент на выигрышный, чтобы гарантировать его показ
-            const winnerIndex = 75 + payload.winner_index; // Целимся в элемент в ~7-м блоке
+            const winnerIndex = 75 + payload.winner_index;
             reelItems[winnerIndex] = payload.winner;
 
             dom.reel.innerHTML = reelItems.map(item => `
@@ -262,43 +232,59 @@
                 </div>
             `).join('');
             
-            // 4. Сбрасываем позицию ленты перед анимацией
             dom.reel.style.transition = 'none';
             dom.reel.style.transform = 'translateX(0px)';
 
-            // 5. Вычисляем финальную позицию для остановки
-            // Центрируем выигрышный элемент + добавляем случайное смещение внутри элемента
             const randomOffset = Math.random() * (TOTAL_ITEM_WIDTH - 20) - ((TOTAL_ITEM_WIDTH - 20) / 2);
             const finalPosition = -((TOTAL_ITEM_WIDTH * winnerIndex) - (window.innerWidth / 2) + (TOTAL_ITEM_WIDTH / 2) + randomOffset);
             
-            // Небольшая задержка, чтобы браузер успел отрисовать сброшенную позицию
             setTimeout(() => {
-                // 6. Запускаем анимацию
                 dom.reel.style.transition = 'transform 8s cubic-bezier(0.25, 0.1, 0.0, 1.0)';
                 dom.reel.style.transform = `translateX(${finalPosition}px)`;
             }, 100);
 
-            // 7. Обрабатываем окончание анимации
             dom.reel.addEventListener('transitionend', () => {
                 dom.winSound.currentTime = 0;
                 dom.winSound.play();
 
-                // Показываем экран победителя
                 dom.winnerImage.src = payload.winner.image_url;
                 dom.winnerName.textContent = payload.winner.skin_name;
                 dom.winnerDisplay.classList.add('visible');
 
-                // Через 7 секунд все скрываем и готовимся к следующему запуску
                 setTimeout(() => {
                     dom.container.classList.remove('visible');
                     dom.winnerDisplay.classList.remove('visible');
                 }, 7000);
 
-            }, { once: true }); // Cобытие сработает только один раз
+            }, { once: true });
         }
 
-        // Запускаем подключение при загрузке страницы
-        document.addEventListener('DOMContentLoaded', connectWebSocket);
+        function listenForSpins() {
+            console.log('Подключение к Supabase Realtime для прослушивания рулетки...');
+
+            const channel = supabase
+                .channel('roulette-triggers-channel')
+                .on(
+                    'postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'roulette_triggers' },
+                    (event) => {
+                        console.log('Получено новое событие для рулетки:', event.new);
+                        if (event.new && event.new.payload) {
+                            startSpin(event.new.payload);
+                        }
+                    }
+                )
+                .subscribe((status, err) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('✅ Успешно подписан на события рулетки!');
+                    }
+                    if (status === 'CHANNEL_ERROR') {
+                        console.error('❌ Ошибка подключения к каналу:', err);
+                    }
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', listenForSpins);
     </script>
 
 </body>
