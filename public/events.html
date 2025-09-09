@@ -916,13 +916,12 @@
             }
         });
 
-        dom.eventModalForm.addEventListener('submit', (e) => {
+        dom.eventModalForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const index = dom.eventIndexInput.value;
             const isNew = !(index && index !== 'null');
-            const eventId = isNew ? Date.now() : pageContent.events[index].id;
-            const updatedEvent = {
-                id: eventId,
+            
+            const eventData = {
                 title: dom.eventTitleInput.value, 
                 description: dom.eventDescriptionInput.value,
                 image_url: dom.eventImageInput.value, 
@@ -932,44 +931,62 @@
                 dot_color: dom.eventDotColorInput.value,
                 image_scale: parseFloat(dom.eventImageScaleInput.value)
             };
-            if (isNew) {
-                (pageContent.events || (pageContent.events = [])).push(updatedEvent);
-            } else {
-                const oldEvent = pageContent.events[index];
-                if(oldEvent.winner_name) updatedEvent.winner_name = oldEvent.winner_name;
-                if(oldEvent.winner_id) updatedEvent.winner_id = oldEvent.winner_id;
-                pageContent.events[index] = updatedEvent;
-            }
-            hideModal(dom.eventModal); renderPage();
-        });
-        
-        dom.textModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent[dom.textKeyInput.value] = dom.textValueInput.value; hideModal(dom.textModal); renderPage(); });
-        dom.timerModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent.raffleEndTime = dom.timerInput.value; hideModal(dom.timerModal); renderPage(); });
-        dom.ticketModalForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const eventId = parseInt(dom.ticketEventIdInput.value);
-            const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
-            if (!ticketsToSpend || ticketsToSpend <= 0) { tg.showAlert('Введите корректное количество билетов.'); return; }
-            if (ticketsToSpend > userData.tickets) { tg.showAlert('У вас недостаточно билетов.'); return; }
-            hideModal(dom.ticketModal); tg.MainButton.showProgress();
-            try {
-                const response = await fetch('/api/v1/events/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId, tickets_to_spend: ticketsToSpend }) });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.detail || 'Ошибка при отправке ставки.');
-                tg.showAlert('Ваша ставка принята!');
-                userData.tickets = result.new_ticket_balance;
-                userData.event_participations = userData.event_participations || {};
-                userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
-                renderPage();
-            } catch (error) { tg.showAlert(error.message); } finally { tg.MainButton.hideProgress(); }
-        });
 
-        document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
-            const closeButton = modalOverlay.querySelector('.modal-close-btn');
-            if (closeButton) {
-                closeButton.addEventListener('click', () => {
-                    hideModal(modalOverlay);
+            hideModal(dom.eventModal); 
+            tg.MainButton.showProgress();
+
+            try {
+                let finalEventData;
+                
+                if (isNew) {
+                    // --- НОВЫЙ БЛОК: Создаем событие в таблице EVENTS ---
+                    const createResponse = await fetch('/api/v1/admin/events/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            initData: tg.initData,
+                            ...eventData,
+                            end_date: null // Пока что оставляем пустым, если он не нужен
+                        })
+                    });
+                    const createResult = await createResponse.json();
+                    if (!createResponse.ok) {
+                        throw new Error(createResult.detail || 'Не удалось создать ивент в базе данных.');
+                    }
+                    
+                    const newEventId = createResult.event_id;
+
+                    // Теперь, когда у нас есть ID, добавляем его в данные для страницы
+                    finalEventData = { ...eventData, id: newEventId };
+                    (pageContent.events || (pageContent.events = [])).push(finalEventData);
+                } else {
+                    // --- БЛОК ДЛЯ СУЩЕСТВУЮЩЕГО ИВЕНТА ---
+                    finalEventData = {
+                        id: pageContent.events[index].id,
+                        ...eventData
+                    };
+                    pageContent.events[index] = finalEventData;
+                }
+
+                // --- ФИНАЛЬНЫЙ ШАГ: Сохраняем весь контент страницы ---
+                const updateResponse = await fetch('/api/v1/admin/events/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, content: pageContent })
                 });
+                if (!updateResponse.ok) {
+                    const updateResult = await updateResponse.json();
+                    throw new Error(updateResult.detail || 'Ошибка сохранения контента страницы.');
+                }
+                
+                tg.showAlert('Изменения сохранены!');
+
+            } catch (e) {
+                tg.showAlert(e.message);
+                console.error(e);
+            } finally {
+                tg.MainButton.hideProgress();
+                renderPage(); // Перерисовываем страницу в любом случае
             }
         });
 
