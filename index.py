@@ -621,23 +621,19 @@ async def handle_twitch_webhook(
             user_data = user_resp.json()
             user_record = user_data[0] if user_data else None
 
-            # --- НАЧАЛО ИЗМЕНЕНИЙ ---
-            # 2. ЕСЛИ ЭТО РУЛЕТКА
+            # --- Логика для рулетки ---
             if roulette_prizes and user_record:
                 logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
                 
-                # Определяем победителя
                 weights = [p['chance_weight'] for p in roulette_prizes]
                 winner_prize = random.choices(roulette_prizes, weights=weights, k=1)[0]
                 winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
                 
-                # Находим или создаем основную награду-триггер в таблице twitch_rewards
                 reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
                 reward_settings = reward_settings_resp.json()
                 if not reward_settings:
                     reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
                 
-                # Создаем запись о "покупке", чтобы она появилась в админке Twitch наград
                 await supabase.post("/twitch_reward_purchases", json={
                     "reward_id": reward_settings[0]["id"],
                     "user_id": user_record.get("telegram_id"),
@@ -645,11 +641,9 @@ async def handle_twitch_webhook(
                     "twitch_login": twitch_login,
                     "trade_link": user_record.get("trade_link"),
                     "status": "Привязан",
-                    # В поле user_input запишем, что именно выиграл пользователь
-                    "user_input": f"Выигрыш в рулетке: {winner_skin_name}" 
+                    "user_input": f"Выигрыш в рулетке: {winner_skin_name}"
                 })
 
-                # Отправляем уведомление админу о выигрыше
                 if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
                     notification_text = (
                         f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
@@ -660,23 +654,19 @@ async def handle_twitch_webhook(
                     )
                     background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
-                # Отправляем команду на запуск анимации в OBS
-                winner_index = next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_skin_name), 0)
-                await manager.broadcast(json.dumps({
-                    "type": "start_spin",
-                    "payload": {
-                        "prizes": roulette_prizes,
-                        "winner": winner_prize,
-                        "winner_index": winner_index,
-                        "user_name": twitch_login
-                    }
-                }))
+                # --- ЗАМЕНА WEBSOCKET НА SUPABASE REALTIME ---
+                animation_payload = {
+                    "prizes": roulette_prizes,
+                    "winner": winner_prize,
+                    "winner_index": next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_skin_name), 0),
+                    "user_name": twitch_login
+                }
+                await supabase.post("/roulette_triggers", json={"payload": animation_payload})
                 
-                logging.info(f"Победитель рулетки: {winner_skin_name}. Команда на анимацию отправлена.")
+                logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен через Supabase.")
                 return {"status": "roulette_triggered"}
-            # --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-            # --- ЕСЛИ ЭТО НЕ РУЛЕТКА, РАБОТАЕМ ПО СТАРОЙ СХЕМЕ ---
+            # --- Логика для обычных наград ---
             logging.info(f"Обычная награда '{reward_title}' от {twitch_login}. Рулетка не задействована.")
             
             payload_for_purchase = {}
