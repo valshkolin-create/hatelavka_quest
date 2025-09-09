@@ -42,17 +42,17 @@
             width: 100%;
             height: 100%;
             /* Усиленный градиент для виньетки и лучшей контрастности */
-            background: linear-gradient(to right, 
+            background: linear-gradient(to right,
                         rgba(0,0,0,0.95) 0%, /* Почти полностью непрозрачный по краям */
                         rgba(0,0,0,0.7) 15%, /* Чуть менее прозрачный */
-                        transparent 50%, 
-                        rgba(0,0,0,0.7) 85%, 
+                        transparent 50%,
+                        rgba(0,0,0,0.7) 85%,
                         rgba(0,0,0,0.95) 100%);
             position: relative;
             display: flex;
             align-items: center;
         }
-        
+
         /* Указатель (стрелка), который показывает на победителя */
         .pointer-line {
             position: absolute;
@@ -92,7 +92,6 @@
             display: flex;
             position: absolute;
             left: 50%; /* Начинаем ленту от центра экрана */
-            transform: translateX(-50%); /* Центрируем ленту */
         }
 
         /* Отдельный элемент (приз) в ленте */
@@ -107,26 +106,28 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 8px; /* Больше отступы внутри */
+            /* Убрали padding, чтобы картинка могла стать больше */
             transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, filter 0.3s ease;
             filter: brightness(1.05) grayscale(5%); /* Еще ярче, меньше серого, немного резкости */
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5); /* Более выраженная тень */
         }
         .item img {
-            width: 90%; /* Скин почти на всю ширину карточки */
-            height: 90%; /* Скин почти на всю высоту карточки */
+            /* --- ИЗМЕНЕНИЕ: Картинка стала больше --- */
+            width: 100%;
+            height: 100%;
             object-fit: contain;
             border-radius: 8px; /* Скругление изображения */
             image-rendering: -webkit-optimize-contrast; /* Повышение резкости изображения */
             image-rendering: crisp-edges;
         }
         .item-name {
+            /* Этот класс больше не используется в ленте, но оставим для справки */
             color: #fff;
-            font-size: 15px; /* Чуть больше шрифт */
-            font-weight: 600; /* Более жирный шрифт */
-            margin-top: 8px; /* Увеличен отступ сверху */
-            text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.95); /* Усиленная тень для текста */
+            font-size: 15px;
+            font-weight: 600;
+            margin-top: 8px;
+            text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.95);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -156,8 +157,7 @@
             color: #fff;
             font-size: 28px; /* Увеличен шрифт */
             font-weight: bold;
-            /* Убрана зеленая тень, заменена на золотистую */
-            box-shadow: 0 0 50px rgba(255, 193, 7, 0.9); 
+            box-shadow: 0 0 50px rgba(255, 193, 7, 0.9);
             opacity: 0;
             transition: opacity 0.6s ease;
             z-index: 20; /* Выше рулетки */
@@ -166,32 +166,29 @@
             opacity: 1;
         }
         .winner-display .winner-prize-image {
-            width: 150px; /* Еще больше */
+            width: 150px;
             height: 150px;
             object-fit: contain;
             border-radius: 12px;
             margin-top: 20px;
-            /* Убрана зеленая рамка, заменена на ярко-желтую */
-            border: 3px solid #ffea00; 
-            /* Убрана зеленая тень, заменена на золотистую */
-            box-shadow: 0 0 25px rgba(255, 234, 0, 0.8); 
-            image-rendering: -webkit-optimize-contrast; /* Повышение резкости изображения */
+            border: 3px solid #ffea00;
+            box-shadow: 0 0 25px rgba(255, 234, 0, 0.8);
+            image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
         }
         .winner-display .winner-prize-name {
-            font-size: 34px; /* Больше шрифт */
-            color: #FFD700; /* Золотистый цвет */
+            font-size: 34px;
+            color: #FFD700;
             margin-top: 15px;
-            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9); /* Более сильная тень */
+            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9);
         }
         .winner-display .winner-user-name {
-            font-size: 40px; /* Больше шрифт */
-            /* Убран зеленый цвет, заменен на золотой */
-            color: #FFD700; 
+            font-size: 40px;
+            color: #FFD700;
             margin-top: 15px;
             text-transform: uppercase;
-            letter-spacing: 2px; /* Еще больше расстояние между буквами */
-            text-shadow: 3px 3px 7px rgba(0, 0, 0, 0.95); /* Очень сильная тень */
+            letter-spacing: 2px;
+            text-shadow: 3px 3px 7px rgba(0, 0, 0, 0.95);
         }
     </style>
 </head>
@@ -216,17 +213,16 @@
 
 <script>
     // ### НАСТРОЙКИ АНИМАЦИИ ###
-    const ITEM_WIDTH = 180; // Ширина одного элемента в пикселях (из CSS)
-    const ITEM_MARGIN = 14; // Сумма отступов (margin-left + margin-right) из CSS (7px * 2)
-    const REEL_REPEAT_COUNT = 20; // Сколько раз дублировать список призов для очень длинной прокрутки
-    const SCROLL_DURATION_SECONDS = 9; // Длительность прокрутки в секундах
-    const WINNER_DISPLAY_DURATION_MS = 8000; // Как долго будет виден экран победителя
+    const ITEM_WIDTH = 180;
+    const ITEM_MARGIN = 14;
+    const REEL_REPEAT_COUNT = 20;
+    const SCROLL_DURATION_SECONDS = 9;
+    const WINNER_DISPLAY_DURATION_MS = 8000;
 
     // ### ПОДКЛЮЧЕНИЕ К SUPABASE ###
     const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
-    // Получаем элементы со страницы
     const rouletteWrapper = document.getElementById('roulette-wrapper');
     const reel = document.getElementById('reel');
     const winnerDisplay = document.getElementById('winner-display');
@@ -238,24 +234,16 @@
     const soundTick = document.getElementById('sound-tick');
     const soundWin = document.getElementById('sound-win');
 
-    let isAnimating = false; // Флаг, чтобы избежать одновременных запусков
+    let isAnimating = false;
 
-    /**
-     * Воспроизводит звук, отлавливая возможные ошибки автовоспроизведения
-     * @param {HTMLAudioElement} audioElem - Элемент Audio
-     */
     function playSound(audioElem) {
-        if (audioElem && audioElem.readyState >= 2) { // Проверяем, что звук готов к воспроизведению
+        if (audioElem && audioElem.readyState >= 2) {
             audioElem.play().catch(e => console.warn(`Ошибка воспроизведения звука ${audioElem.id}:`, e.message));
         } else if (audioElem) {
             console.warn(`Звук ${audioElem.id} не готов к воспроизведению. readyState: ${audioElem.readyState}`);
         }
     }
 
-    /**
-     * Останавливает звук
-     * @param {HTMLAudioElement} audioElem - Элемент Audio
-     */
     function stopSound(audioElem) {
         if (audioElem) {
             audioElem.pause();
@@ -263,10 +251,6 @@
         }
     }
 
-    /**
-     * Основная функция запуска анимации рулетки
-     * @param {object} payload - Данные, пришедшие от Supabase
-     */
     function startRouletteAnimation(payload) {
         if (isAnimating) {
             console.log("Рулетка уже анимируется, игнорируем новый сигнал.");
@@ -275,95 +259,81 @@
         isAnimating = true;
 
         const { prizes, winner_index, user_name } = payload.new.payload;
-        const winnerPrize = prizes[winner_index]; // Получаем сам объект победителя
+        const winnerPrize = prizes[winner_index];
 
-        // 1. Сбрасываем состояния
         reel.innerHTML = '';
         reel.style.transition = 'none';
         reel.style.transform = 'translateX(0px)';
-        winnerDisplay.classList.remove('visible'); // Прячем экран победителя
-        
-        // Удаляем класс 'winner' со всех элементов, если он остался от предыдущего запуска
+        winnerDisplay.classList.remove('visible');
+
         const existingWinner = document.querySelector('.item.winner');
         if (existingWinner) {
             existingWinner.classList.remove('winner');
         }
 
-        // 2. Создаём длинный список призов
         let fullPrizeList = [];
         for (let i = 0; i < REEL_REPEAT_COUNT; i++) {
             fullPrizeList.push(...prizes);
         }
-        
-        // 3. Заполняем ленту призами
+
         fullPrizeList.forEach(prize => {
             const itemElement = document.createElement('div');
             itemElement.className = 'item';
-            itemElement.innerHTML = `
-                <img src="${prize.image_url}" alt="${prize.skin_name}">
-                <div class="item-name">${prize.skin_name}</div>
-            `;
+            // --- ИЗМЕНЕНИЕ: Убрали div с названием скина ---
+            itemElement.innerHTML = `<img src="${prize.image_url}" alt="${prize.skin_name}">`;
             reel.appendChild(itemElement);
         });
 
-        // 4. Вычисляем позицию остановки
+        // --- ИЗМЕНЕНИЕ: Полностью переработанный и точный расчет остановки ---
         const itemFullWidth = ITEM_WIDTH + ITEM_MARGIN;
-        // Winner находится примерно в двух "полных" списках от конца для стабильности
+        // Выбираем победителя из предпоследнего набора для плавной остановки
         const winnerPositionInFullList = (REEL_REPEAT_COUNT - 2) * prizes.length + winner_index;
-        // Случайный оффсет, чтобы остановка не была всегда по центру элемента, а немного плавала
-        const randomShift = Math.random() * (ITEM_WIDTH * 0.4) - (ITEM_WIDTH * 0.2); // От -20% до +20% ширины элемента
-        
-        // Целевая позиция: выравниваем победителя по центру указателя
-        const targetX = winnerPositionInFullList * itemFullWidth + (ITEM_WIDTH / 2);
-        const stopPosition = -(targetX - (rouletteWrapper.offsetWidth / 2) + randomShift);
+        // Случайное смещение, чтобы остановка была "живой" (в пределах центральной части скина)
+        const randomShift = Math.random() * (ITEM_WIDTH * 0.5) - (ITEM_WIDTH * 0.25); // от -25% до +25% ширины
+        // Рассчитываем точное расстояние до центра победившего элемента от начала ленты
+        const distanceToWinnerCenter = (winnerPositionInFullList * itemFullWidth) + (ITEM_WIDTH / 2);
+        // Финальная позиция для transform: сдвигаем ленту влево на рассчитанное расстояние + случайное смещение
+        const stopPosition = -distanceToWinnerCenter + randomShift;
 
 
-        // 5. Показываем рулетку и запускаем стартовый звук
         rouletteWrapper.classList.add('visible');
         playSound(soundStart);
 
-        // 6. Запускаем прокрутку через небольшую задержку
         setTimeout(() => {
-            reel.style.transition = `transform ${SCROLL_DURATION_SECONDS}s cubic-bezier(.25, 1, .5, 1)`; /* Мягкое замедление */
+            reel.style.transition = `transform ${SCROLL_DURATION_SECONDS}s cubic-bezier(.25, 1, .5, 1)`;
             reel.style.transform = `translateX(${stopPosition}px)`;
             playSound(soundTick);
-        }, 800); // Небольшая задержка перед началом прокрутки
+        }, 800);
 
-        // 7. Обработчик завершения анимации
         reel.addEventListener('transitionend', function handler() {
             stopSound(soundTick);
             playSound(soundWin);
 
-            // Подсвечиваем победителя
             const allItems = document.querySelectorAll('.item');
             const actualWinnerElement = allItems[winnerPositionInFullList];
             if (actualWinnerElement) {
                 actualWinnerElement.classList.add('winner');
             }
 
-            // Прячем рулетку и показываем экран победителя
             setTimeout(() => {
                 rouletteWrapper.classList.remove('visible');
                 winnerDisplay.classList.add('visible');
 
-                winnerUserText.textContent = `${user_name}`; // Просто имя, без "Победитель: "
+                winnerUserText.textContent = `${user_name}`;
                 winnerPrizeImage.src = winnerPrize.image_url;
                 winnerPrizeName.textContent = winnerPrize.skin_name;
 
-                // Скрываем экран победителя через WINNER_DISPLAY_DURATION_MS
                 setTimeout(() => {
                     winnerDisplay.classList.remove('visible');
-                    // Сбрасываем флаг, чтобы рулетка могла быть запущена снова
                     isAnimating = false;
                 }, WINNER_DISPLAY_DURATION_MS);
 
-            }, 1000); // Небольшая пауза перед исчезновением рулетки и появлением победителя
+            }, 1000);
 
-            reel.removeEventListener('transitionend', handler); // Удаляем обработчик, чтобы он не срабатывал повторно
+            reel.removeEventListener('transitionend', handler);
         });
     }
 
-    // --- Инициализация Supabase ---
     try {
         console.log('Инициализация клиента Supabase...');
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -374,7 +344,7 @@
                 { event: 'INSERT', schema: 'public', table: 'roulette_triggers' },
                 (payload) => {
                     console.log('✅ ПОЛУЧЕН СИГНАЛ!', payload);
-                    startRouletteAnimation(payload); // <--- ЗАПУСК АНИМАЦИИ
+                    startRouletteAnimation(payload);
                 }
             )
             .subscribe((status, err) => {
