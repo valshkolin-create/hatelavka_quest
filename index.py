@@ -530,29 +530,47 @@ async def handle_twitch_webhook(
     # Обработка уведомления о событии
     if message_type == "notification":
         try:
-            payload = TwitchWebhookPayload(**data)
-            twitch_login = payload.event.user_login.lower()
-            reward_title = payload.event.reward.title
+            # Используем .get() для безопасного извлечения данных
+            event_data = data.get("event", {})
+            twitch_login = event_data.get("user_login", "unknown_user").lower()
+            reward_data = event_data.get("reward", {})
+            reward_title = reward_data.get("title", "Unknown Reward")
+
+            # --- НАЧАЛО ИЗМЕНЕННОГО БЛОКА ---
 
             # Поиск пользователя в базе данных
             user_resp = await supabase.get(
                 "/users",
                 params={
                     "twitch_login": f"eq.{twitch_login}",
-                    "select": "telegram_id, full_name, trade_link" # <-- Теперь запрашиваем и трейд-ссылку
+                    "select": "telegram_id, full_name, trade_link"
                 }
             )
             user_data = user_resp.json()
 
-            if not user_data:
-                return {"status": "ok", "detail": "Пользователь не привязан."}
+            payload_for_purchase = {} # Готовим словарь для данных о покупке
 
-            user_record = user_data[0]
-            telegram_id = user_record["telegram_id"]
-            user_full_name = user_record.get("full_name", twitch_login)
-            user_trade_link = user_record.get("trade_link") # <-- Сохраняем трейд-ссылку
+            if user_data:
+                # Если пользователь НАЙДЕН (привязан)
+                user_record = user_data[0]
+                payload_for_purchase = {
+                    "user_id": user_record.get("telegram_id"),
+                    "username": user_record.get("full_name", twitch_login),
+                    "trade_link": user_record.get("trade_link"),
+                    "status": "Привязан"
+                }
+            else:
+                # Если пользователь НЕ НАЙДЕН (не привязан)
+                payload_for_purchase = {
+                    "user_id": None, # ID оставляем пустым
+                    "username": twitch_login, # Используем ник с Twitch
+                    "trade_link": None,
+                    "status": "Не привязан"
+                }
+            
+            # --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
-            # ...проверка награды (этот блок остается без изменений)...
+            # Проверка награды в таблице twitch_rewards
             reward_resp = await supabase.get(
                 "/twitch_rewards",
                 params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
@@ -571,21 +589,25 @@ async def handle_twitch_webhook(
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
 
-            # +++ Создаем запись о покупке напрямую в twitch_reward_purchases +++
+            # Создаем запись о покупке, используя собранные данные
             await supabase.post("/twitch_reward_purchases", json={
                 "reward_id": reward_settings[0]["id"],
-                "user_id": telegram_id,
-                "username": user_full_name,
-                "trade_link": user_trade_link
+                "user_id": payload_for_purchase["user_id"],
+                "username": payload_for_purchase["username"],
+                "trade_link": payload_for_purchase["trade_link"],
+                "status": payload_for_purchase["status"]
             })
 
             # Отправка уведомления администратору (если включено)
             if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
+                user_display_name = payload_for_purchase["username"]
+                
                 notification_text = (
                     f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
-                    f"<b>Пользователь:</b> {html_decoration.quote(user_full_name)}\n"
-                    f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n\n"
-                    f"Заявка ждет подтверждения в админ-панели."
+                    f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)}\n"
+                    f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n"
+                    f"<b>Статус:</b> {payload_for_purchase['status']}\n\n"
+                    f"Информация добавлена в раздел 'Покупки'."
                 )
                 background_tasks.add_task(
                     safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text
