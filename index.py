@@ -387,23 +387,6 @@ async def log_requests(request: Request, call_next):
     logging.info(f"🔹 Response status: {response.status_code}")
     return response
 
-# --- WebSocket Endpoint ---
-# ИСПРАВЛЕНИЕ: Перемещено сюда, после middleware
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            # Просто держим соединение открытым
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
-async def process_telegram_update(update: dict, supabase: httpx.AsyncClient):
-    # Мы используем run_in_threadpool, чтобы безопасно выполнить наш асинхронный код
-    # в фоновой задаче, которую предоставляет FastAPI
-    await run_in_threadpool(dp.feed_update, bot=bot, update=Update(**update), supabase=supabase)
-
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
 async def get_supabase_client():
     client = httpx.AsyncClient(
