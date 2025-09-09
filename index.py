@@ -603,7 +603,7 @@ async def handle_twitch_webhook(
             twitch_login = event_data.get("user_login", "unknown_user").lower()
             reward_data = event_data.get("reward", {})
             reward_title = reward_data.get("title", "Unknown Reward")
-            user_input = event_data.get("user_input")
+            user_input = event_data.get("user_input") # <--- Получаем сообщение пользователя
 
             # 1. Проверяем, является ли эта награда триггером для рулетки
             prizes_resp = await supabase.get(
@@ -634,6 +634,14 @@ async def handle_twitch_webhook(
                 if not reward_settings:
                     reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
                 
+                # --- НАЧАЛО ИЗМЕНЕНИЯ ---
+                # Формируем новую, более информативную строку для админки
+                final_user_input = f"Выигрыш: {winner_skin_name}"
+                if user_input:
+                    # Добавляем трейд-ссылку, если она была введена
+                    final_user_input += f" | Сообщение: {user_input}"
+                # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
                 await supabase.post("/twitch_reward_purchases", json={
                     "reward_id": reward_settings[0]["id"],
                     "user_id": user_record.get("telegram_id"),
@@ -641,7 +649,8 @@ async def handle_twitch_webhook(
                     "twitch_login": twitch_login,
                     "trade_link": user_record.get("trade_link"),
                     "status": "Привязан",
-                    "user_input": f"Выигрыш в рулетке: {winner_skin_name}"
+                    # --- ИЗМЕНЕНИЕ: Используем новую строку ---
+                    "user_input": final_user_input 
                 })
 
                 if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
@@ -649,9 +658,14 @@ async def handle_twitch_webhook(
                         f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
                         f"<b>Пользователь:</b> {html_decoration.quote(user_record.get('full_name', twitch_login))} ({html_decoration.quote(twitch_login)})\n"
                         f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
-                        f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n\n"
-                        f"Информация добавлена в раздел 'Покупки' для этой награды."
+                        f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n" # <-- Добавили перенос строки для читаемости
                     )
+                    # --- ИЗМЕНЕНИЕ: Добавляем трейд-ссылку в уведомление админу ---
+                    if user_input:
+                        notification_text += f"<b>Трейд-ссылка:</b> <code>{html_decoration.quote(user_input)}</code>\n\n"
+                    
+                    notification_text += "Информация добавлена в раздел 'Покупки' для этой награды."
+
                     background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
                 # --- ЗАМЕНА WEBSOCKET НА SUPABASE REALTIME ---
