@@ -261,6 +261,15 @@ class RoulettePrizeDeleteRequest(BaseModel):
     initData: str
     prize_id: int
 
+# --- НОВАЯ Pydantic модель для создания ивента ---
+class EventCreateRequest(BaseModel):
+    initData: str
+    title: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    tickets_cost: int
+    end_date: Optional[str] = None
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -1240,6 +1249,47 @@ async def get_current_user_data(
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
+
+@app.post("/api/v1/admin/events/create")
+async def create_event(
+    request_data: EventCreateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) Создает новый ивент в таблице public.events и возвращает его ID.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Вставляем данные в таблицу events
+        response = await supabase.post(
+            "/events",
+            json={
+                "title": request_data.title,
+                "description": request_data.description,
+                "image_url": request_data.image_url,
+                "tickets_cost": request_data.tickets_cost,
+                "end_date": request_data.end_date
+            },
+            headers={"Prefer": "return=representation"} # Возвращаем созданную запись
+        )
+        response.raise_for_status()
+        
+        new_event_id = response.json()[0]['id']
+        
+        return {
+            "message": f"Событие '{request_data.title}' успешно создано!",
+            "event_id": new_event_id
+        }
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Неизвестная ошибка Supabase.")
+        logging.error(f"Ошибка Supabase при создании события: {error_details}")
+        raise HTTPException(status_code=400, detail=f"Ошибка базы данных: {error_details}")
+    except Exception as e:
+        logging.error(f"Неизвестная ошибка при создании события: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
