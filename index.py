@@ -605,8 +605,6 @@ async def handle_twitch_webhook(
             reward_title = reward_data.get("title", "Unknown Reward")
             user_input = event_data.get("user_input")
 
-            # --- НАЧАЛО НОВОЙ ЛОГИКИ С РУЛЕТКОЙ ---
-            
             # 1. Проверяем, является ли эта награда триггером для рулетки
             prizes_resp = await supabase.get(
                 "/roulette_prizes", 
@@ -623,27 +621,47 @@ async def handle_twitch_webhook(
             user_data = user_resp.json()
             user_record = user_data[0] if user_data else None
 
-            # 2. ЕСЛИ ЭТО РУЛЕТКА (найдены призы для этой награды)
+            # --- НАЧАЛО ИЗМЕНЕНИЙ ---
+            # 2. ЕСЛИ ЭТО РУЛЕТКА
             if roulette_prizes and user_record:
                 logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
                 
-                # 3. Определяем победителя на сервере с учетом весов
+                # Определяем победителя
                 weights = [p['chance_weight'] for p in roulette_prizes]
                 winner_prize = random.choices(roulette_prizes, weights=weights, k=1)[0]
+                winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
                 
-                # 4. Создаем заявку на ручную выдачу приза в админке
-                await supabase.post("/manual_rewards", json={
+                # Находим или создаем основную награду-триггер в таблице twitch_rewards
+                reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
+                reward_settings = reward_settings_resp.json()
+                if not reward_settings:
+                    reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
+                
+                # Создаем запись о "покупке", чтобы она появилась в админке Twitch наград
+                await supabase.post("/twitch_reward_purchases", json={
+                    "reward_id": reward_settings[0]["id"],
                     "user_id": user_record.get("telegram_id"),
-                    "status": "pending",
-                    "reward_details": winner_prize.get('skin_name'),
-                    # Делаем описание похожим на Чекпоинт, чтобы оно появилось в том же разделе админки
-                    "source_description": f"Рулетка (Чекпоинт): «{reward_title}»"
+                    "username": user_record.get("full_name", twitch_login),
+                    "twitch_login": twitch_login,
+                    "trade_link": user_record.get("trade_link"),
+                    "status": "Привязан",
+                    # В поле user_input запишем, что именно выиграл пользователь
+                    "user_input": f"Выигрыш в рулетке: {winner_skin_name}" 
                 })
 
-                # 5. Отправляем команду на запуск анимации в OBS
-                # Ищем индекс победителя, чтобы анимация знала, где остановиться
-                winner_index = next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_prize['skin_name']), 0)
+                # Отправляем уведомление админу о выигрыше
+                if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
+                    notification_text = (
+                        f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
+                        f"<b>Пользователь:</b> {html_decoration.quote(user_record.get('full_name', twitch_login))} ({html_decoration.quote(twitch_login)})\n"
+                        f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
+                        f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n\n"
+                        f"Информация добавлена в раздел 'Покупки' для этой награды."
+                    )
+                    background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
+                # Отправляем команду на запуск анимации в OBS
+                winner_index = next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_skin_name), 0)
                 await manager.broadcast(json.dumps({
                     "type": "start_spin",
                     "payload": {
@@ -654,8 +672,9 @@ async def handle_twitch_webhook(
                     }
                 }))
                 
-                logging.info(f"Победитель рулетки: {winner_prize.get('skin_name')}. Команда на анимацию отправлена.")
+                logging.info(f"Победитель рулетки: {winner_skin_name}. Команда на анимацию отправлена.")
                 return {"status": "roulette_triggered"}
+            # --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
             # --- ЕСЛИ ЭТО НЕ РУЛЕТКА, РАБОТАЕМ ПО СТАРОЙ СХЕМЕ ---
             logging.info(f"Обычная награда '{reward_title}' от {twitch_login}. Рулетка не задействована.")
