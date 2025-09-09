@@ -250,6 +250,17 @@ class TwitchPurchaseDeleteRequest(BaseModel):
     initData: str
     purchase_id: int
 
+class RoulettePrizeCreateRequest(BaseModel):
+    initData: str
+    reward_title: str
+    skin_name: str
+    image_url: str
+    chance_weight: int
+
+class RoulettePrizeDeleteRequest(BaseModel):
+    initData: str
+    prize_id: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
@@ -3999,6 +4010,54 @@ async def delete_twitch_reward_purchase(
     )
     
     return {"message": "Покупка успешно удалена."}
+
+@app.post("/api/v1/admin/roulette/prizes")
+async def get_roulette_prizes(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Получает список всех призов для всех рулеток."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    resp = await supabase.get("/roulette_prizes", params={"select": "*", "order": "reward_title.asc,chance_weight.desc"})
+    resp.raise_for_status()
+    return resp.json()
+
+@app.post("/api/v1/admin/roulette/create")
+async def create_roulette_prize(
+    request_data: RoulettePrizeCreateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Создает новый приз для рулетки."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    await supabase.post("/roulette_prizes", json={
+        "reward_title": request_data.reward_title.strip(),
+        "skin_name": request_data.skin_name.strip(),
+        "image_url": request_data.image_url.strip(),
+        "chance_weight": request_data.chance_weight
+    })
+    return {"message": "Приз успешно добавлен в рулетку."}
+
+@app.post("/api/v1/admin/roulette/delete")
+async def delete_roulette_prize(
+    request_data: RoulettePrizeDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Удаляет приз из рулетки."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    await supabase.delete(
+        "/roulette_prizes",
+        params={"id": f"eq.{request_data.prize_id}"}
+    )
+    return {"message": "Приз удален."}
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
