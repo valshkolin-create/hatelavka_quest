@@ -309,7 +309,14 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 ALLOWED_CHAT_ID = int(os.getenv("ALLOWED_CHAT_ID", "0") or 0)
 WEB_APP_URL = os.getenv("WEB_APP_URL")
 ADMIN_TELEGRAM_IDS_STR = os.getenv("ADMIN_TELEGRAM_IDS", "")
-ADMIN_IDS = [int(admin_id.strip()) for admin_id in ADMIN_TELEGRAM_IDS_STR.split(',') if admin_id.strip()]
+ADMIN_IDS = []
+if ADMIN_TELEGRAM_IDS_STR:
+    for admin_id in ADMIN_TELEGRAM_IDS_STR.split(','):
+        admin_id = admin_id.strip()
+        if admin_id.isdigit(): # Проверяем, что это число
+            ADMIN_IDS.append(int(admin_id))
+        else:
+            logging.warning(f"Не удалось преобразовать ID администратора в число: '{admin_id}'")
 ADMIN_NOTIFY_CHAT_ID = os.getenv("ADMIN_NOTIFY_CHAT_ID")
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
