@@ -3030,8 +3030,8 @@ async def enter_event(
     event_id_to_enter = request_data.event_id
 
     # --- НАЧАЛО ИЗМЕНЕНИЯ 1: Проверка на участие в других активных ивентах ---
+    # (Этот блок остается без изменений)
     try:
-        # 1. Получаем список всех ивентов, чтобы найти активные
         content_resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.events", "select": "content", "limit": 1}
@@ -3039,18 +3039,15 @@ async def enter_event(
         content_resp.raise_for_status()
         content_data = content_resp.json()
         if not content_data:
-            # Если контента нет, просто пропускаем проверку
             all_events = []
         else:
             all_events = content_data[0].get("content", {}).get("events", [])
         
-        # 2. Собираем ID всех активных (не разыгранных) ивентов, КРОМЕ текущего
         active_event_ids = [
             event['id'] for event in all_events 
             if 'winner_id' not in event and event.get('id') != event_id_to_enter
         ]
         
-        # 3. Проверяем, есть ли у пользователя ставки в других активных ивентах
         if active_event_ids:
             check_resp = await supabase.get(
                 "/event_entries",
@@ -3065,27 +3062,42 @@ async def enter_event(
             
             if check_resp.json():
                 raise HTTPException(
-                    status_code=409, # Conflict
+                    status_code=409,
                     detail="Вы уже участвуете в другом активном розыгрыше. Можно участвовать только в одном ивенте одновременно."
                 )
     except HTTPException as e:
-        raise e # Пробрасываем нашу ошибку 409 дальше
+        raise e
     except Exception as e:
         logging.error(f"Ошибка при проверке участия в ивентах: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
     # --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
 
+    # --- НАЧАЛО НОВОГО БЛОКА: ПРОВЕРКА НАЛИЧИЯ ИВЕНТА В ТАБЛИЦЕ EVENTS ---
+    logging.info(f"Проверка существования event_id={event_id_to_enter} в таблице events.")
+    event_check_resp = await supabase.get(
+        "/events",
+        params={"id": f"eq.{event_id_to_enter}", "select": "id"}
+    )
+    event_check_resp.raise_for_status()
+    if not event_check_resp.json():
+        logging.error(f"Event ID {event_id_to_enter} не найден в таблице events. Отмена операции.")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Событие с ID {event_id_to_enter} не найдено в базе данных."
+        )
+    # --- КОНЕЦ НОВОГО БЛОКА ---
+
     # Используем уже полученные данные об ивентах
     event_min_tickets = next((e['tickets_cost'] for e in all_events if e['id'] == request_data.event_id), 1)
 
-    # 2. Проверяем, что ставка пользователя не меньше минимальной
+    # Проверяем, что ставка пользователя не меньше минимальной
     if request_data.tickets_to_spend < event_min_tickets:
         raise HTTPException(
             status_code=400,
             detail=f"Минимальная ставка для этого ивента - {event_min_tickets} билетов."
         )
 
-    # 3. Вызываем RPC-функцию, передавая ставку пользователя
+    # Вызываем RPC-функцию
     try:
         response = await supabase.post(
             "/rpc/enter_event",
