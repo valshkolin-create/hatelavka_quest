@@ -137,7 +137,6 @@
     .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text { left: auto; right: 0; transform: translateX(0); }
     .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text::after { left: auto; right: 10px; margin-left: 0; }
 
-    /* --- НОВЫЕ СТИЛИ ДЛЯ TWITCH НАГРАД --- */
     #twitch-rewards-container {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -215,12 +214,42 @@
         font-size: 13px;
         padding: 8px;
     }
-     .purchase-actions .rewarded-info {
+    .purchase-actions .rewarded-info {
         text-align: center;
         font-size: 13px;
         font-weight: 500;
         color: var(--primary-color);
     }
+    /* --- НОВЫЕ СТИЛИ --- */
+    .purchase-progress {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-color);
+        margin-top: 8px !important;
+        margin-bottom: 8px !important;
+        background-color: rgba(0,0,0,0.2);
+        padding: 6px 10px;
+        border-radius: 6px;
+    }
+    .purchase-progress .progress-good { color: var(--primary-color); }
+    .purchase-progress .progress-bad { color: var(--warning-color); }
+    .wizebot-check-wrapper {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .wizebot-check-wrapper .wizebot-check-btn {
+        background-color: var(--twitch-color);
+        padding: 8px;
+        font-size: 13px;
+    }
+    .wizebot-result {
+        font-size: 13px;
+        font-weight: 500;
+        text-align: center;
+    }
+
   </style>
 </head>
 <body>
@@ -1384,6 +1413,13 @@
                     body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
                     return;
                 }
+                
+                const conditionType = reward_settings.condition_type || '';
+                const targetValue = reward_settings.target_value;
+                let period = 'session';
+                if (conditionType.endsWith('_week')) period = 'week';
+                if (conditionType.endsWith('_month')) period = 'month';
+
 
                 body.innerHTML = purchases.map(p => {
                     const date = new Date(p.created_at).toLocaleString('ru-RU');
@@ -1396,20 +1432,39 @@
                         actionHtml = `<div class="rewarded-info"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>`;
                     } else if (p.status === 'Привязан') {
                         actionHtml = `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}">Выдать промокод</button>`;
-                    } else {
-                        actionHtml = ``; 
+                    }
+
+                    let progressHtml = '';
+                    if (p.status === 'Привязан' && targetValue > 0 && typeof p.progress_value !== 'undefined') {
+                        const isComplete = p.progress_value >= targetValue;
+                        const progressClass = isComplete ? 'progress-good' : 'progress-bad';
+                        progressHtml = `<p class="purchase-progress">Прогресс: <span class="${progressClass}">${p.progress_value} / ${targetValue}</span></p>`;
+                    }
+                    
+                    let wizebotHtml = '';
+                    if (p.twitch_login) {
+                       wizebotHtml = `
+                       <div class="wizebot-check-wrapper">
+                           <button class="admin-action-btn wizebot-check-btn" data-nickname="${p.twitch_login}" data-period="${period}">
+                               <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
+                           </button>
+                           <div class="wizebot-result" id="wizebot-result-${p.id}"></div>
+                       </div>
+                       `;
                     }
 
                     return `
                     <div class="purchase-item" id="purchase-item-${p.id}">
                         <div class="purchase-item-header">
-                            <strong>${p.username}</strong>
+                            <strong>${p.username} <span style="color: var(--twitch-color); font-weight: normal;">(${p.twitch_login || '???'})</span></strong>
                             <span class="purchase-status-badge purchase-status-${p.status.replace(' ', '.')}">${p.status}</span>
                         </div>
                         <p>Дата: ${date}</p>
                         ${p.trade_link ? `<p>Трейд: <a href="${p.trade_link}" target="_blank" style="color: var(--action-color);">Открыть</a></p>` : ''}
                         ${userInputHtml}
+                        ${progressHtml}
                         <div class="purchase-actions">${actionHtml}</div>
+                        ${wizebotHtml}
                     </div>
                     `;
                 }).join('');
@@ -1704,19 +1759,29 @@
                     return;
                 }
 
-                const checkBtn = target.closest('.check-wizebot-btn');
+                const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
                 if (checkBtn) {
                     const nickname = checkBtn.dataset.nickname;
-                    const card = checkBtn.closest('.admin-submission-card');
-                    const resultDiv = card.querySelector('.wizebot-stats-result');
-                    if (!nickname) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Никнейм не указан в заявке.</p>`; return; }
-                    resultDiv.innerHTML = '<i>Проверяем на Wizebot...</i>';
+                    const period = checkBtn.dataset.period || 'session';
+                    
+                    const card = checkBtn.closest('.admin-submission-card, .purchase-item');
+                    let resultDiv;
+                    if(checkBtn.classList.contains('wizebot-check-btn')){
+                       const purchaseId = card.id.split('-')[2];
+                       resultDiv = card.querySelector(`#wizebot-result-${purchaseId}`);
+                    } else {
+                       resultDiv = card.querySelector('.wizebot-stats-result');
+                    }
+                    
+                    if (!nickname) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Никнейм не найден.</p>`; return; }
+                    
+                    resultDiv.innerHTML = '<i>Проверяем...</i>';
                     checkBtn.disabled = true;
                     try {
-                        const stats = await makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: 'session' }, 'POST', true);
-                        if (stats.found) resultDiv.innerHTML = `<p style="color: var(--primary-color);">✅ Найден! Сообщений за стрим: <strong>${stats.messages}</strong> (Ранг: ${stats.rank})</p>`;
-                        else resultDiv.innerHTML = `<p style="color: var(--warning-color);">⚠️ ${stats.message}</p>`;
-                    } catch (e) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка проверки: ${e.message}</p>`; } 
+                        const stats = await makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: period }, 'POST', true);
+                        if (stats.found) resultDiv.innerHTML = `<p style="color: var(--primary-color);">✅ ${stats.messages} сообщений (ранг ${stats.rank})</p>`;
+                        else resultDiv.innerHTML = `<p style="color: var(--warning-color);">⚠️ Не найден в топ-100</p>`;
+                    } catch (e) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка: ${e.message}</p>`; } 
                     finally { checkBtn.disabled = false; }
                     return;
                 }
