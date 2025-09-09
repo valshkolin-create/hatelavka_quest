@@ -535,28 +535,22 @@ async def handle_twitch_webhook(
     # Обработка уведомления о событии
     if message_type == "notification":
         try:
-            # Используем .get() для безопасного извлечения данных
             event_data = data.get("event", {})
             twitch_login = event_data.get("user_login", "unknown_user").lower()
             reward_data = event_data.get("reward", {})
             reward_title = reward_data.get("title", "Unknown Reward")
-
-            # --- НАЧАЛО ИЗМЕНЕННОГО БЛОКА ---
+            user_input = event_data.get("user_input") # <-- Получаем сообщение пользователя
 
             # Поиск пользователя в базе данных
             user_resp = await supabase.get(
                 "/users",
-                params={
-                    "twitch_login": f"eq.{twitch_login}",
-                    "select": "telegram_id, full_name, trade_link"
-                }
+                params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, full_name, trade_link"}
             )
             user_data = user_resp.json()
 
-            payload_for_purchase = {} # Готовим словарь для данных о покупке
+            payload_for_purchase = {}
 
             if user_data:
-                # Если пользователь НАЙДЕН (привязан)
                 user_record = user_data[0]
                 payload_for_purchase = {
                     "user_id": user_record.get("telegram_id"),
@@ -565,15 +559,12 @@ async def handle_twitch_webhook(
                     "status": "Привязан"
                 }
             else:
-                # Если пользователь НЕ НАЙДЕН (не привязан)
                 payload_for_purchase = {
-                    "user_id": None, # ID оставляем пустым
-                    "username": twitch_login, # Используем ник с Twitch
+                    "user_id": None,
+                    "username": twitch_login,
                     "trade_link": None,
                     "status": "Не привязан"
                 }
-            
-            # --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
             # Проверка награды в таблице twitch_rewards
             reward_resp = await supabase.get(
@@ -593,27 +584,30 @@ async def handle_twitch_webhook(
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
-
             # Создаем запись о покупке, используя собранные данные
             await supabase.post("/twitch_reward_purchases", json={
                 "reward_id": reward_settings[0]["id"],
                 "user_id": payload_for_purchase["user_id"],
                 "username": payload_for_purchase["username"],
                 "trade_link": payload_for_purchase["trade_link"],
-                "status": payload_for_purchase["status"]
+                "status": payload_for_purchase["status"],
+                "user_input": user_input # <-- Сохраняем сообщение
             })
 
-            # Отправка уведомления администратору (если включено)
+            # Отправка уведомления администратору
             if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
                 user_display_name = payload_for_purchase["username"]
-                
                 notification_text = (
                     f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
                     f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)}\n"
                     f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n"
-                    f"<b>Статус:</b> {payload_for_purchase['status']}\n\n"
-                    f"Информация добавлена в раздел 'Покупки'."
+                    f"<b>Статус:</b> {payload_for_purchase['status']}"
                 )
+                if user_input:
+                    notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
+                
+                notification_text += "\n\nИнформация добавлена в раздел 'Покупки'."
+
                 background_tasks.add_task(
                     safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text
                 )
@@ -1378,23 +1372,25 @@ async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase
 
 @app.post("/api/v1/admin/twitch_rewards/update")
 async def update_twitch_reward(
-    data: dict = Body(...),
+    request_data: TwitchRewardUpdateRequest, # Используем новую модель
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    reward_id = data.get("id")
-    if not reward_id:
-        raise HTTPException(status_code=400, detail="Reward ID is required")
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    update_fields = {k: v for k, v in data.items() if k != "id"}
+    reward_id = request_data.id
+    update_fields = request_data.dict(exclude={'initData', 'id'}, exclude_none=True)
+
     if not update_fields:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise HTTPException(status_code=400, detail="Нет полей для обновления")
 
     await supabase.patch(
         "/twitch_rewards",
         params={"id": f"eq.{reward_id}"},
         json=update_fields
     )
-    return {"status": "ok"}
+    return {"status": "ok", "message": "Настройки награды обновлены."}
 
 @app.post("/api/v1/twitch_rewards/purchase")
 async def create_twitch_reward_purchase(
@@ -1425,15 +1421,23 @@ async def get_twitch_reward_purchases(
     reward_id: int,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    resp = await supabase.get(
+    # Получаем информацию о самой награде (нужны ее настройки)
+    reward_resp = await supabase.get("twitch_rewards", params={"id": f"eq.{reward_id}", "select": "show_user_input"})
+    reward_info = reward_resp.json()[0] if reward_resp.json() else {}
+    
+    # Получаем список покупок
+    purchases_resp = await supabase.get(
         "/twitch_reward_purchases",
         params={
             "reward_id": f"eq.{reward_id}",
-            "select": "id,user_id,username,trade_link,created_at",
+            "select": "id,user_id,username,trade_link,created_at,status,user_input,rewarded_at",
             "order": "created_at.desc"
         }
     )
-    return {"purchases": resp.json()}
+    return {
+        "reward_settings": reward_info,
+        "purchases": purchases_resp.json()
+    }
 
 @app.post("/api/v1/promocode")
 async def get_promocode(
@@ -3714,6 +3718,86 @@ async def check_wizebot_user_stats(
     except Exception as e:
         logging.error(f"Ошибка при запросе к Wizebot API: {e}")
         raise HTTPException(status_code=502, detail="Не удалось получить данные от Wizebot.")
+
+@app.post("/api/v1/admin/twitch_rewards/issue_promocode")
+async def issue_twitch_reward_promocode(
+    request_data: TwitchRewardIssueRequest,
+    background_tasks: BackgroundTasks,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    purchase_id = request_data.purchase_id
+
+    try:
+        # 1. Получаем данные о покупке и связанной награде
+        purchase_resp = await supabase.get(
+            "twitch_reward_purchases",
+            params={
+                "id": f"eq.{purchase_id}",
+                "select": "*,reward:twitch_rewards(title,promocode_amount)"
+            }
+        )
+        purchase_data = purchase_resp.json()
+        if not purchase_data:
+            raise HTTPException(status_code=404, detail="Покупка не найдена.")
+        
+        purchase = purchase_data[0]
+        user_id_to_reward = purchase.get("user_id")
+        reward_info = purchase.get("reward")
+
+        if not user_id_to_reward:
+            raise HTTPException(status_code=400, detail="Нельзя выдать награду непривязанному пользователю.")
+        if purchase.get("rewarded_at"):
+            raise HTTPException(status_code=400, detail="Награда уже была выдана ранее.")
+        if not reward_info:
+            raise HTTPException(status_code=404, detail="Настройки награды не найдены.")
+
+        # 2. Вызываем RPC для создания промокода
+        response = await supabase.post(
+            "/rpc/award_reward_and_get_promocode",
+            json={
+                "p_user_id": user_id_to_reward,
+                "p_source_type": "twitch_reward",
+                "p_source_id": purchase_id,
+                "p_reward_value_override": reward_info.get("promocode_amount")
+            }
+        )
+        response.raise_for_status()
+        promocode_data = response.json()
+
+        # 3. Помечаем покупку как обработанную
+        await supabase.patch(
+            "twitch_reward_purchases",
+            params={"id": f"eq.{purchase_id}"},
+            json={"rewarded_at": datetime.now(timezone.utc).isoformat()}
+        )
+
+        # 4. Отправляем уведомление пользователю в фоне
+        async def notify_user():
+            promo_code = promocode_data['code']
+            activation_url = f"https://t.me/HATElavka_bot?start={promo_code}"
+            notification_text = (
+                f"<b>🎉 Ваша награда за баллы Twitch!</b>\n\n"
+                f"Вы получили награду «{reward_info.get('title')}».\n"
+                f"Используйте промокод в @HATElavka_bot для получения звёзд.\n\n"
+                f"Ваш промокод:\n<code>{promo_code}</code>"
+            )
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Активировать", url=activation_url)]])
+            await safe_send_message(user_id_to_reward, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+
+        background_tasks.add_task(notify_user)
+        
+        return {"message": "Награда успешно выдана!", "promocode": promocode_data['code']}
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка базы данных.")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Критическая ошибка при выдаче Twitch награды: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 # --- HTML routes ---
 @app.get('/favicon.ico', include_in_schema=False)
