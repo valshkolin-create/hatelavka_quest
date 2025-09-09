@@ -444,11 +444,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-async def process_telegram_update(update: dict, supabase: httpx.AsyncClient):
-    # Мы используем run_in_threadpool, чтобы безопасно выполнить наш асинхронный код
-    # в фоновой задаче, которую предоставляет FastAPI
-    await run_in_threadpool(dp.feed_update, bot=bot, update=Update(**update), supabase=supabase)
-
 # --- Telegram Bot/Dispatcher ---
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 router = Router()
