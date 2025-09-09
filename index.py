@@ -631,63 +631,57 @@ async def handle_twitch_webhook(
             user_record = user_data[0] if user_data else None
 
             # --- Логика для рулетки ---
-            if roulette_prizes and user_record:
-                logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
-                
-                weights = [p['chance_weight'] for p in roulette_prizes]
-                winner_prize = random.choices(roulette_prizes, weights=weights, k=1)[0]
-                winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
-                
-                reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
-                reward_settings = reward_settings_resp.json()
-                if not reward_settings:
-                    reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
-                
-                # --- НАЧАЛО ИЗМЕНЕНИЯ ---
-                # Формируем новую, более информативную строку для админки
-                final_user_input = f"Выигрыш: {winner_skin_name}"
-                if user_input:
-                    # Добавляем трейд-ссылку, если она была введена
-                    final_user_input += f" | Сообщение: {user_input}"
-                # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            if roulette_prizes:
+    logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
+    
+    weights = [p['chance_weight'] for p in roulette_prizes]
+    winner_prize = random.choices(roulette_prizes, weights=weights, k=1)[0]
+    winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
+    
+    reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
+    reward_settings = reward_settings_resp.json()
+    if not reward_settings:
+        reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
+    
+    final_user_input = f"Выигрыш: {winner_skin_name}"
+    if user_input:
+        final_user_input += f" | Сообщение: {user_input}"
+    
+    # ❌ ИЗМЕНЕНИЕ: Формируем payload независимо от того, привязан ли пользователь
+    # используем twitch_login и user_input напрямую из вебхука.
+    purchase_payload = {
+        "reward_id": reward_settings[0]["id"],
+        "username": twitch_login, 
+        "twitch_login": twitch_login,
+        "trade_link": user_input, # <-- Используем user_input как трейд-ссылку
+        "status": "Не привязан",
+        "user_input": final_user_input 
+    }
+    
+    await supabase.post("/twitch_reward_purchases", json=purchase_payload)
 
-                await supabase.post("/twitch_reward_purchases", json={
-                    "reward_id": reward_settings[0]["id"],
-                    "user_id": user_record.get("telegram_id"),
-                    "username": user_record.get("full_name", twitch_login),
-                    "twitch_login": twitch_login,
-                    "trade_link": user_record.get("trade_link"),
-                    "status": "Привязан",
-                    # --- ИЗМЕНЕНИЕ: Используем новую строку ---
-                    "user_input": final_user_input 
-                })
+    if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
+        notification_text = (
+            f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
+            f"<b>Пользователь:</b> {html_decoration.quote(twitch_login)}\n"
+            f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
+            f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
+            f"<b>Трейд-ссылка:</b> <code>{html_decoration.quote(user_input)}</code>\n\n"
+            f"Информация добавлена в раздел 'Покупки' для этой награды. Пользователь НЕ привязан к боту."
+        )
 
-                if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
-                    notification_text = (
-                        f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
-                        f"<b>Пользователь:</b> {html_decoration.quote(user_record.get('full_name', twitch_login))} ({html_decoration.quote(twitch_login)})\n"
-                        f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
-                        f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n" # <-- Добавили перенос строки для читаемости
-                    )
-                    # --- ИЗМЕНЕНИЕ: Добавляем трейд-ссылку в уведомление админу ---
-                    if user_input:
-                        notification_text += f"<b>Трейд-ссылка:</b> <code>{html_decoration.quote(user_input)}</code>\n\n"
-                    
-                    notification_text += "Информация добавлена в раздел 'Покупки' для этой награды."
+        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
-                    background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
-
-                # --- ЗАМЕНА WEBSOCKET НА SUPABASE REALTIME ---
-                animation_payload = {
-                    "prizes": roulette_prizes,
-                    "winner": winner_prize,
-                    "winner_index": next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_skin_name), 0),
-                    "user_name": twitch_login
-                }
-                await supabase.post("/roulette_triggers", json={"payload": animation_payload})
-                
-                logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен через Supabase.")
-                return {"status": "roulette_triggered"}
+    animation_payload = {
+        "prizes": roulette_prizes,
+        "winner": winner_prize,
+        "winner_index": next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_skin_name), 0),
+        "user_name": twitch_login
+    }
+    await supabase.post("/roulette_triggers", json={"payload": animation_payload})
+    
+    logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен через Supabase.")
+    return {"status": "roulette_triggered"}
 
             # --- Логика для обычных наград ---
             logging.info(f"Обычная награда '{reward_title}' от {twitch_login}. Рулетка не задействована.")
