@@ -764,7 +764,6 @@
             </div>
         </div>
       
-        <!-- --- НАЧАЛО: ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ БЛОК ДЛЯ TWITCH НАГРАД --- -->
         <div id="view-admin-twitch-rewards" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main">
@@ -774,14 +773,11 @@
                 <div style="width: 60px;"></div>
             </div>
             <div id="twitch-rewards-container" class="quests-container">
-                <!-- Карточки наград будут загружаться сюда -->
             </div>
         </div>
-        <!-- --- КОНЕЦ: ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ БЛОК ДЛЯ TWITCH НАГРАД --- -->
 
     </main>
 
-    <!-- --- ОБЩИЕ МОДАЛЬНЫЕ ОКНА --- -->
     <div id="submissions-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -826,7 +822,6 @@
         </div>
     </div>
 
-    <!-- --- НАЧАЛО: НОВЫЕ МОДАЛЬНЫЕ ОКНА ДЛЯ TWITCH --- -->
     <div id="twitch-purchases-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -834,7 +829,6 @@
                 <button class="modal-close-btn" data-close-modal="twitch-purchases-modal">&times;</button>
             </div>
             <div id="twitch-purchases-body" class="modal-body">
-                <!-- Сюда будут загружаться покупки -->
             </div>
         </div>
     </div>
@@ -878,7 +872,7 @@
                             <option value="twitch_messages_week">Сообщения Twitch (за неделю)</option>
                             <option value="twitch_messages_month">Сообщения Twitch (за месяц)</option>
                         </select>
-                        <input type="number" name="target_value" placeholder="Например, 500 (сообщений)">
+                        <input type="number" name="target_value" placeholder="Например, 500 (сообщений)" style="margin-top: 10px;">
                     </div>
 
                     <div style="margin-top: 15px;">
@@ -898,8 +892,6 @@
             </div>
         </div>
     </div>
-    <!-- --- КОНЕЦ: НОВЫЕ МОДАЛЬНЫЕ ОКНА ДЛЯ TWITCH --- -->
-
 
     <script>
     try {
@@ -1082,7 +1074,6 @@
                     headers: { 'Content-Type': 'application/json' },
                 };
 
-                // Только POST/PATCH/PUT запросы могут иметь тело. GET - нет.
                 if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
                     options.body = JSON.stringify({ ...body, initData: tg.initData });
                 }
@@ -1330,7 +1321,6 @@
             }
         }
 
-        // --- НАЧАЛО: ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ БЛОК ДЛЯ TWITCH НАГРАД ---
         async function loadTwitchRewards() {
             const container = document.getElementById('twitch-rewards-container');
             container.innerHTML = '';
@@ -1407,7 +1397,7 @@
                     } else if (p.status === 'Привязан') {
                         actionHtml = `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}">Выдать промокод</button>`;
                     } else {
-                        actionHtml = ``; // No button for unlinked users
+                        actionHtml = ``; 
                     }
 
                     return `
@@ -1428,7 +1418,6 @@
                 body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
             }
         }
-        // --- КОНЕЦ: ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ БЛОК ДЛЯ TWITCH НАГРАД ---
 
         function renderQuests(quests, categories) {
             dom.questsList.innerHTML = '';
@@ -1532,7 +1521,6 @@
         }
 
         function setupEventListeners() {
-            // --- НАЧАЛО: НОВЫЕ ОБРАБОТЧИКИ ДЛЯ TWITCH И МОДАЛЬНЫХ ОКОН ---
             document.body.addEventListener('click', (e) => {
                 const closeBtn = e.target.closest('[data-close-modal]');
                 if (closeBtn) {
@@ -1559,7 +1547,7 @@
                 await makeApiRequest('/api/v1/admin/twitch_rewards/update', payload);
                 document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
                 tg.showAlert('Настройки сохранены!');
-                await loadTwitchRewards(); // Refresh the list
+                await loadTwitchRewards();
             });
 
             document.getElementById('delete-twitch-reward-btn').addEventListener('click', async () => {
@@ -1576,14 +1564,13 @@
                             await makeApiRequest('/api/v1/admin/twitch_rewards/delete', { reward_id: rewardId });
                             tg.showAlert('Награда успешно удалена.');
                             document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
-                            await loadTwitchRewards(); // Обновляем список наград
+                            await loadTwitchRewards();
                         } catch (e) {
                             tg.showAlert(`Ошибка при удалении: ${e.message}`);
                         }
                     }
                 });
             });
-            // --- КОНЕЦ: НОВЫЕ ОБРАБОТЧИКИ ---
 
             if (dom.tabsContainer) {
                 dom.tabsContainer.addEventListener('click', (e) => {
@@ -1682,7 +1669,6 @@
                     return;
                 }
                 
-                // --- НАЧАЛО: ОБРАБОТЧИКИ ДЛЯ TWITCH НАГРАД ---
                 const settingsBtn = target.closest('.settings-btn');
                 if (settingsBtn) {
                     const rewardData = JSON.parse(settingsBtn.dataset.reward);
@@ -1705,7 +1691,6 @@
                            try {
                                 const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', { purchase_id: parseInt(purchaseId) });
                                 tg.showAlert(result.message);
-                                // Update UI for this specific item
                                 const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
                                 if(itemDiv) {
                                     const actionDiv = itemDiv.querySelector('.purchase-actions');
@@ -1718,9 +1703,7 @@
                     });
                     return;
                 }
-                // --- КОНЕЦ: ОБРАБОТЧИКИ ДЛЯ TWITCH НАГРАД ---
 
-                // --- Обработчик для Wizebot ---
                 const checkBtn = target.closest('.check-wizebot-btn');
                 if (checkBtn) {
                     const nickname = checkBtn.dataset.nickname;
