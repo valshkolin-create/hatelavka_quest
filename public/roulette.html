@@ -14,13 +14,12 @@
     <pre id="log"></pre>
 
     <script>
-        // ✅ Ваши данные для подключения к Supabase
+        // Ваши данные для подключения к Supabase
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
         const logElement = document.getElementById('log');
 
-        // Функция для вывода сообщений на экран
         function logMessage(message) {
             console.log(message);
             const content = typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
@@ -28,14 +27,16 @@
         }
 
         // --- Подключение к Supabase ---
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ✅ ИСПРАВЛЕНИЕ ЗДЕСЬ: создаём клиент с новым именем
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         logMessage('Клиент Supabase инициализирован.');
 
-        const channel = supabase.channel('roulette-triggers-channel')
+        // ✅ И ИСПОЛЬЗУЕМ НОВОЕ ИМЯ ЗДЕСЬ
+        const channel = supabaseClient.channel('roulette-triggers-channel')
             .on(
                 'postgres_changes',
                 {
-                    event: 'INSERT',       // Нас интересуют только новые записи
+                    event: 'INSERT',
                     schema: 'public',
                     table: 'roulette_triggers'
                 },
@@ -44,12 +45,9 @@
                     logMessage(payload);
 
                     // Здесь вы должны вызывать вашу функцию для запуска анимации
-                    // const animationData = payload.new.payload;
-                    // startRouletteAnimation(animationData);
                 }
             )
             .subscribe((status, err) => {
-                // Эта часть помогает понять, удалось ли подключиться
                 if (status === 'SUBSCRIBED') {
                     logMessage('✅ Успешная подписка на таблицу roulette_triggers!');
                 } else {
