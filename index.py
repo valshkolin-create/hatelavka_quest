@@ -228,6 +228,18 @@ class WizebotCheckRequest(BaseModel):
     twitch_username: str
     period: str = "session" # 'session', 'week', или 'month'
 
+class TwitchRewardUpdateRequest(BaseModel):
+    initData: str
+    id: int
+    is_active: Optional[bool] = None
+    notify_admin: Optional[bool] = None
+    promocode_amount: Optional[int] = None
+    show_user_input: Optional[bool] = None
+
+class TwitchRewardIssueRequest(BaseModel):
+    initData: str
+    purchase_id: int
+
 # соответствие condition_type ↔ колонка из users
 CONDITION_TO_COLUMN = {
     # Twitch
