@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Красивая Рулетка для Стрима</title>
+    <title>Яркая Рулетка для Стрима</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* Общие стили и сброс */
@@ -41,7 +41,13 @@
         .roulette-container {
             width: 100%;
             height: 100%;
-            background: linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.3) 20%, transparent 50%, rgba(0,0,0,0.3) 80%, rgba(0,0,0,0.8));
+            /* Усиленный градиент для виньетки и лучшей контрастности */
+            background: linear-gradient(to right, 
+                        rgba(0,0,0,0.9) 0%, /* Почти полностью непрозрачный по краям */
+                        rgba(0,0,0,0.6) 15%, /* Чуть менее прозрачный */
+                        transparent 50%, 
+                        rgba(0,0,0,0.6) 85%, 
+                        rgba(0,0,0,0.9) 100%);
             position: relative;
             display: flex;
             align-items: center;
@@ -56,7 +62,7 @@
             width: 4px;
             height: 100%; /* На всю высоту контейнера */
             background: #ffc107;
-            box-shadow: 0 0 15px #ffc107, 0 0 5px rgba(255, 255, 255, 0.7);
+            box-shadow: 0 0 18px #ffc107, 0 0 8px rgba(255, 255, 255, 0.8); /* Усиленная тень */
             z-index: 10;
         }
         .pointer-line::before { /* Верхняя часть указателя */
@@ -94,17 +100,18 @@
             min-width: 150px; /* Чуть шире */
             height: 150px;
             margin: 0 5px; /* Меньше отступ, чтобы было плотнее */
-            background: rgba(255, 255, 255, 0.08); /* Чуть светлее */
+            background: rgba(255, 255, 255, 0.15); /* Чуть светлее фон */
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3); /* Более заметная обводка */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 5px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-            filter: brightness(0.7) grayscale(30%); /* Делаем неактивные призы менее яркими */
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, filter 0.3s ease;
+            filter: brightness(0.9) grayscale(10%); /* Менее затемненные, менее серые */
             text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4); /* Добавлена легкая тень для объема */
         }
         .item img {
             width: 80%;
@@ -117,7 +124,7 @@
             font-size: 13px;
             font-weight: 500;
             margin-top: 5px;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.9); /* Усиленная тень для текста */
             white-space: nowrap; /* Чтобы название не переносилось */
             overflow: hidden;
             text-overflow: ellipsis;
@@ -126,10 +133,10 @@
 
         /* Стиль для победившего элемента */
         .item.winner {
-            transform: scale(1.05); /* Увеличиваем победителя, но не сильно */
+            transform: scale(1.08); /* Увеличиваем победителя чуть больше */
             border-color: #ffeb3b; /* Яркий желтый */
-            box-shadow: 0 0 30px #ffeb3b, 0 0 10px rgba(255, 255, 255, 0.7);
-            filter: brightness(1) grayscale(0%);
+            box-shadow: 0 0 35px #ffeb3b, 0 0 15px rgba(255, 255, 255, 0.8); /* Усиленная тень */
+            filter: brightness(1.2) grayscale(0%); /* Еще ярче и без серого */
         }
 
         /* Секция победителя (появляется после прокрутки) */
@@ -139,15 +146,15 @@
             left: 50%;
             transform: translate(-50%, -50%);
             width: 500px; /* Шире для текста */
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #4CAF50; /* Красивая зеленая рамка */
+            background: rgba(0, 0, 0, 0.9); /* Более темный фон для контраста */
+            border: 3px solid #4CAF50; /* Красивая зеленая рамка, толще */
             border-radius: 15px;
-            padding: 20px;
+            padding: 25px; /* Больше отступов */
             text-align: center;
             color: #fff;
             font-size: 24px;
             font-weight: bold;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.7);
+            box-shadow: 0 0 40px rgba(0, 255, 0, 0.8); /* Усиленная тень */
             opacity: 0;
             transition: opacity 0.5s ease;
             z-index: 20; /* Выше рулетки */
@@ -156,27 +163,27 @@
             opacity: 1;
         }
         .winner-display .winner-prize-image {
-            width: 120px;
-            height: 120px;
+            width: 130px; /* Чуть больше */
+            height: 130px;
             object-fit: contain;
             border-radius: 10px;
             margin-top: 15px;
-            border: 2px solid #5cb85c;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+            border: 3px solid #5cb85c; /* Более толстая рамка */
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.6); /* Усиленная тень */
         }
         .winner-display .winner-prize-name {
-            font-size: 28px;
+            font-size: 30px; /* Больше шрифт */
             color: #8bc34a; /* Более яркий зеленый */
             margin-top: 10px;
-            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+            text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.8); /* Более сильная тень */
         }
         .winner-display .winner-user-name {
-            font-size: 32px;
-            color: #FFC107; /* Золотистый цвет для имени */
+            font-size: 36px; /* Больше шрифт */
+            color: #FFD700; /* Чистое золото */
             margin-top: 15px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9);
+            letter-spacing: 1.5px; /* Больше расстояние между буквами */
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.9); /* Очень сильная тень */
         }
     </style>
 </head>
@@ -194,8 +201,7 @@
     </div>
 
     <div class="winner-display" id="winner-display">
-        <div id="winner-user-text"></div>
-        <img id="winner-prize-image" class="winner-prize-image" src="" alt="Winner Prize">
+        <div id="winner-user-text" class="winner-user-name"></div> <img id="winner-prize-image" class="winner-prize-image" src="" alt="Winner Prize">
         <div id="winner-prize-name" class="winner-prize-name"></div>
     </div>
 
@@ -209,7 +215,7 @@
 
     // ### ПОДКЛЮЧЕНИЕ К SUPABASE ###
     const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg'; // Ваш ключ!
 
     // Получаем элементы со страницы
     const rouletteWrapper = document.getElementById('roulette-wrapper');
@@ -265,6 +271,9 @@
         reel.style.transition = 'none';
         reel.style.transform = 'translateX(0px)';
         winnerDisplay.classList.remove('visible'); // Прячем экран победителя
+        if (document.querySelector('.item.winner')) {
+            document.querySelector('.item.winner').classList.remove('winner'); // Сбрасываем предыдущего победителя
+        }
 
         // 2. Создаём длинный список призов
         let fullPrizeList = [];
