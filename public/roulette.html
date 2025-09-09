@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS Roulette</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&family=Teko:wght@600&display=swap" rel="stylesheet">
+    <style>
+        /* --- ОБЩИЕ СТИЛИ --- */
+        body {
+            background-color: transparent;
+            overflow: hidden;
+            margin: 0;
+            font-family: 'Roboto Condensed', sans-serif;
+        }
+
+        /* --- КОНТЕЙНЕР РУЛЕТКИ --- */
+        #roulette-container {
+            position: fixed;
+            top: 15%;
+            left: 0;
+            width: 100%;
+            height: 350px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        #roulette-container.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* --- ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ --- */
+        #user-info {
+            background: linear-gradient(90deg, rgba(145,70,255,0) 0%, rgba(145,70,255,0.8) 50%, rgba(145,70,255,0) 100%);
+            color: white;
+            padding: 5px 50px;
+            font-size: 28px;
+            font-weight: 700;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.7);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        /* --- ОКНО РУЛЕТКИ И УКАЗАТЕЛЬ --- */
+        #window {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            position: relative;
+            background: rgba(0,0,0,0.3);
+            mask-image: linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%);
+        }
+
+        #ticker {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 220px;
+            background: linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 100%);
+            z-index: 10;
+            box-shadow: 0 0 10px white, 0 0 15px white;
+        }
+
+        /* --- ЛЕНТА С ПРИЗАМИ --- */
+        #reel {
+            display: flex;
+            height: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+            /* Плавность анимации задается через JS */
+        }
+
+        .item {
+            width: 180px;
+            height: 180px;
+            margin: 10px;
+            flex-shrink: 0;
+            background-color: rgba(10, 10, 10, 0.8);
+            border-radius: 12px;
+            border: 2px solid #555;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+        }
+
+        .item-image {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+            margin-bottom: 5px;
+        }
+
+        .item-name {
+            font-size: 16px;
+            padding: 0 5px;
+            text-shadow: 1px 1px 3px black;
+        }
+
+        /* --- ДИСПЛЕЙ С ВЫИГРЫШЕМ --- */
+        #winner-display {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease-in-out;
+            z-index: 100;
+        }
+
+        #winner-display.visible {
+            opacity: 1;
+        }
+
+        #winner-title {
+            font-size: 80px;
+            font-family: 'Teko', sans-serif;
+            color: var(--warning-color);
+            text-transform: uppercase;
+            text-shadow: 0 0 15px var(--warning-color), 0 0 25px black;
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+        
+        #winner-image {
+            width: 300px;
+            height: 300px;
+            object-fit: contain;
+            margin: 20px 0;
+            filter: drop-shadow(0 0 20px rgba(255,255,255,0.5));
+        }
+
+        #winner-name {
+            font-size: 40px;
+            color: white;
+            text-shadow: 2px 2px 8px black;
+        }
+
+        @keyframes glow {
+          from { text-shadow: 0 0 10px #ffc107, 0 0 20px #ffc107, 0 0 30px #ff9800; }
+          to { text-shadow: 0 0 20px #ffc107, 0 0 30px #ff9800, 0 0 40px #ff9800; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <audio id="spin-sound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_5c13f3995b.mp3" preload="auto"></audio>
+    <audio id="win-sound" src="https://cdn.pixabay.com/audio/2022/11/17/audio_7316a362c8.mp3" preload="auto"></audio>
+
+    <div id="roulette-container">
+        <div id="user-info"></div>
+        <div id="window">
+            <div id="reel"></div>
+            <div id="ticker"></div>
+        </div>
+    </div>
+
+    <div id="winner-display">
+        <div id="winner-title">ВЫИГРЫШ</div>
+        <img id="winner-image" src="" alt="Winning prize">
+        <div id="winner-name"></div>
+    </div>
+
+    <script>
+        const dom = {
+            container: document.getElementById('roulette-container'),
+            userInfo: document.getElementById('user-info'),
+            reel: document.getElementById('reel'),
+            winnerDisplay: document.getElementById('winner-display'),
+            winnerImage: document.getElementById('winner-image'),
+            winnerName: document.getElementById('winner-name'),
+            spinSound: document.getElementById('spin-sound'),
+            winSound: document.getElementById('win-sound'),
+        };
+
+        const ITEM_WIDTH = 180;
+        const ITEM_MARGIN = 10;
+        const TOTAL_ITEM_WIDTH = ITEM_WIDTH + (ITEM_MARGIN * 2);
+
+        function connectWebSocket() {
+            // Автоматически определяем протокол (ws/wss) и хост
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsHost = window.location.host;
+            const socket = new WebSocket(`${wsProtocol}://${wsHost}/ws`);
+
+            socket.onopen = () => {
+                console.log('WebSocket Connected to backend.');
+            };
+
+            socket.onmessage = (event) => {
+                console.log('Message from server:', event.data);
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'start_spin') {
+                        startSpin(message.payload);
+                    }
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            };
+
+            socket.onclose = () => {
+                console.log('WebSocket Disconnected. Reconnecting in 3 seconds...');
+                setTimeout(connectWebSocket, 3000); // Попытка переподключения
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket Error:', error);
+                socket.close();
+            };
+        }
+
+        function startSpin(payload) {
+            // 1. Показываем контейнер и информацию о пользователе
+            dom.userInfo.textContent = `КРУТИТ: ${payload.user_name}`;
+            dom.container.classList.add('visible');
+            
+            // 2. Подготовка и проигрывание звука
+            dom.spinSound.currentTime = 0;
+            dom.spinSound.play();
+
+            // 3. Заполняем ленту призами
+            // Мы многократно дублируем список призов, чтобы лента была длинной
+            const reelItems = [];
+            const prizePool = payload.prizes;
+            for (let i = 0; i < 10; i++) {
+                // Перемешиваем копию массива, чтобы порядок был разным
+                const shuffledPrizes = [...prizePool].sort(() => Math.random() - 0.5);
+                reelItems.push(...shuffledPrizes);
+            }
+            
+            // Заменяем N-ный элемент на выигрышный, чтобы гарантировать его показ
+            const winnerIndex = 75 + payload.winner_index; // Целимся в элемент в ~7-м блоке
+            reelItems[winnerIndex] = payload.winner;
+
+            dom.reel.innerHTML = reelItems.map(item => `
+                <div class="item">
+                    <img class="item-image" src="${item.image_url}" alt="${item.skin_name}">
+                    <div class="item-name">${item.skin_name}</div>
+                </div>
+            `).join('');
+            
+            // 4. Сбрасываем позицию ленты перед анимацией
+            dom.reel.style.transition = 'none';
+            dom.reel.style.transform = 'translateX(0px)';
+
+            // 5. Вычисляем финальную позицию для остановки
+            // Центрируем выигрышный элемент + добавляем случайное смещение внутри элемента
+            const randomOffset = Math.random() * (TOTAL_ITEM_WIDTH - 20) - ((TOTAL_ITEM_WIDTH - 20) / 2);
+            const finalPosition = -((TOTAL_ITEM_WIDTH * winnerIndex) - (window.innerWidth / 2) + (TOTAL_ITEM_WIDTH / 2) + randomOffset);
+            
+            // Небольшая задержка, чтобы браузер успел отрисовать сброшенную позицию
+            setTimeout(() => {
+                // 6. Запускаем анимацию
+                dom.reel.style.transition = 'transform 8s cubic-bezier(0.25, 0.1, 0.0, 1.0)';
+                dom.reel.style.transform = `translateX(${finalPosition}px)`;
+            }, 100);
+
+            // 7. Обрабатываем окончание анимации
+            dom.reel.addEventListener('transitionend', () => {
+                dom.winSound.currentTime = 0;
+                dom.winSound.play();
+
+                // Показываем экран победителя
+                dom.winnerImage.src = payload.winner.image_url;
+                dom.winnerName.textContent = payload.winner.skin_name;
+                dom.winnerDisplay.classList.add('visible');
+
+                // Через 7 секунд все скрываем и готовимся к следующему запуску
+                setTimeout(() => {
+                    dom.container.classList.remove('visible');
+                    dom.winnerDisplay.classList.remove('visible');
+                }, 7000);
+
+            }, { once: true }); // Cобытие сработает только один раз
+        }
+
+        // Запускаем подключение при загрузке страницы
+        document.addEventListener('DOMContentLoaded', connectWebSocket);
+    </script>
+
+</body>
+</html>
