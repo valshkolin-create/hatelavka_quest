@@ -946,7 +946,7 @@
                         body: JSON.stringify({
                             initData: tg.initData,
                             ...eventData,
-                            end_date: null // Пока что оставляем пустым, если он не нужен
+                            end_date: null
                         })
                     });
                     const createResult = await createResponse.json();
@@ -987,6 +987,65 @@
             } finally {
                 tg.MainButton.hideProgress();
                 renderPage(); // Перерисовываем страницу в любом случае
+            }
+        });
+        
+        dom.textModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent[dom.textKeyInput.value] = dom.textValueInput.value; hideModal(dom.textModal); renderPage(); });
+        dom.timerModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent.raffleEndTime = dom.timerInput.value; hideModal(dom.timerModal); renderPage(); });
+        dom.ticketModalForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const eventId = parseInt(dom.ticketEventIdInput.value);
+            const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
+            
+            // Проверки перед отправкой
+            if (!ticketsToSpend || ticketsToSpend <= 0) { 
+                tg.showAlert('Введите корректное количество билетов.'); 
+                return; 
+            }
+            if (ticketsToSpend > userData.tickets) { 
+                tg.showAlert('У вас недостаточно билетов.'); 
+                return; 
+            }
+            
+            hideModal(dom.ticketModal);
+            tg.MainButton.showProgress();
+
+            try {
+                const response = await fetch('/api/v1/events/enter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        event_id: eventId,
+                        tickets_to_spend: ticketsToSpend
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.detail || 'Ошибка при отправке ставки.');
+                }
+
+                // Успешный ответ
+                tg.showAlert('Ваша ставка принята!');
+                userData.tickets = result.new_ticket_balance;
+                userData.event_participations = userData.event_participations || {};
+                userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
+                renderPage();
+            } catch (error) {
+                // Обработка ошибок
+                tg.showAlert(error.message);
+                console.error(error);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        });
+
+        document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
+            const closeButton = modalOverlay.querySelector('.modal-close-btn');
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    hideModal(modalOverlay);
+                });
             }
         });
 
