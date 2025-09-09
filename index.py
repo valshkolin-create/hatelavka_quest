@@ -539,7 +539,7 @@ async def handle_twitch_webhook(
                 "/users",
                 params={
                     "twitch_login": f"eq.{twitch_login}",
-                    "select": "telegram_id, full_name"
+                    "select": "telegram_id, full_name, trade_link" # <-- Теперь запрашиваем и трейд-ссылку
                 }
             )
             user_data = user_resp.json()
@@ -547,39 +547,36 @@ async def handle_twitch_webhook(
             if not user_data:
                 return {"status": "ok", "detail": "Пользователь не привязан."}
 
-            telegram_id = user_data[0]["telegram_id"]
-            user_full_name = user_data[0].get("full_name", twitch_login)
+            user_record = user_data[0]
+            telegram_id = user_record["telegram_id"]
+            user_full_name = user_record.get("full_name", twitch_login)
+            user_trade_link = user_record.get("trade_link") # <-- Сохраняем трейд-ссылку
 
-            # Проверка награды в таблице twitch_rewards
+            # ...проверка награды (этот блок остается без изменений)...
             reward_resp = await supabase.get(
                 "/twitch_rewards",
                 params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
             )
             reward_settings = reward_resp.json()
 
-            # Если награды нет в таблице — создаём автоматически
             if not reward_settings:
                 insert_resp = await supabase.post(
                     "/twitch_rewards",
-                    json={
-                        "title": reward_title,
-                        "is_active": True,
-                        "notify_admin": True
-                    },
+                    json={"title": reward_title, "is_active": True, "notify_admin": True},
                     headers={"Prefer": "return=representation"}
                 )
                 reward_settings = insert_resp.json()
 
-            # Если награда отключена — выходим
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
-            # Создание задачи на ручную выдачу
-            await supabase.post("/manual_rewards", json={
+
+            # +++ Создаем запись о покупке напрямую в twitch_reward_purchases +++
+            await supabase.post("/twitch_reward_purchases", json={
+                "reward_id": reward_settings[0]["id"],
                 "user_id": telegram_id,
-                "status": "pending",
-                "reward_details": reward_title,
-                "source_description": "Награда Twitch (Баллы канала)"
+                "username": user_full_name,
+                "trade_link": user_trade_link
             })
 
             # Отправка уведомления администратору (если включено)
