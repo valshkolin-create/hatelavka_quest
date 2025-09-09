@@ -21,6 +21,7 @@
       --status-active-color: #32d74b;
       --status-inactive-color: #98989d;
       --status-approved-color: #5856d6;
+      --twitch-color: #9146FF;
     }
     body { margin: 0; min-height: 100vh; background-color: var(--bg-color); background-image: var(--bg-gradient); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .main-content { padding: 25px 20px; }
@@ -120,213 +121,105 @@
     .tab-button.active { color: var(--text-color); background-color: var(--surface-glass-bg); }
     .tab-content { display: flex; flex-direction: column; gap: 15px; }
     .tab-content.hidden { display: none; }
-    .user-management-section h3 {
-        font-size: 16px;
-        color: var(--primary-color);
-        margin-top: 0;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--divider-glass-color);
-    }
-    .stats-grid {
+    .user-management-section h3 { font-size: 16px; color: var(--primary-color); margin-top: 0; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--divider-glass-color); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+    .stat-card { background-color: var(--surface-glass-bg); border-radius: 12px; padding: 15px; text-align: center; position: relative; }
+    .stat-card-header { display: flex; justify-content: center; align-items: center; gap: 5px; margin: 0 0 10px; }
+    .stat-card-header h4 { margin: 0; font-size: 14px; color: var(--text-color-muted); font-weight: 500; }
+    .stat-card p { margin: 0; font-size: 24px; font-weight: 600; color: var(--text-color); }
+    .event-stat-item { background-color: var(--surface-glass-bg); border-radius: 10px; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .event-stat-item strong { font-weight: 500; }
+    .event-stat-item span { font-weight: 600; font-size: 16px; }
+    .tooltip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background-color: #555; color: #fff; cursor: help; font-size: 11px; font-weight: bold; flex-shrink: 0; }
+    .tooltip .tooltip-text { visibility: hidden; width: 240px; background-color: #222; color: #fff; text-align: left; border-radius: 8px; padding: 10px; position: absolute; z-index: 10; bottom: 125%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s; font-size: 13px; font-weight: 400; line-height: 1.5; box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: none; }
+    .tooltip .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #222 transparent transparent transparent; }
+    .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+    .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text { left: auto; right: 0; transform: translateX(0); }
+    .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text::after { left: auto; right: 10px; margin-left: 0; }
+
+    /* --- НОВЫЕ СТИЛИ ДЛЯ TWITCH НАГРАД --- */
+    #twitch-rewards-container {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         gap: 15px;
     }
-    .stat-card {
-        background-color: var(--surface-glass-bg);
-        border-radius: 12px;
-        padding: 15px;
-        text-align: center;
-        position: relative;
+    .twitch-reward-card {
+        padding: 12px;
     }
-    .stat-card-header {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 5px;
-        margin: 0 0 10px;
+    .twitch-reward-card .quest-title {
+        font-size: 15px;
+        margin-bottom: 12px;
+        text-align: left;
     }
-    .stat-card-header h4 {
-        margin: 0;
-        font-size: 14px;
-        color: var(--text-color-muted);
-        font-weight: 500;
+    .twitch-reward-card .admin-buttons-wrapper {
+        margin-top: auto;
+        padding-top: 10px;
     }
-    .stat-card p {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 600;
-        color: var(--text-color);
+    .twitch-reward-card .admin-buttons-wrapper button {
+        flex: 1;
+        font-size: 13px;
     }
-    .event-stat-item {
-        background-color: var(--surface-glass-bg);
-        border-radius: 10px;
-        padding: 12px 15px;
+    .twitch-reward-card .admin-buttons-wrapper .settings-btn {
+        background-color: var(--action-color);
+    }
+    .twitch-reward-card .admin-buttons-wrapper .purchases-btn {
+        background-color: var(--twitch-color);
+    }
+    
+    .purchase-item {
+        padding: 12px 0;
+        border-bottom: 1px solid var(--divider-glass-color);
+    }
+    .purchase-item:last-child {
+        border-bottom: none;
+    }
+    .purchase-item-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
-    .event-stat-item strong {
-        font-weight: 500;
+    .purchase-item-header strong {
+        font-size: 15px;
     }
-    .event-stat-item span {
-        font-weight: 600;
-        font-size: 16px;
-    }
-    
-    /* --- ИСПРАВЛЕННЫЙ БЛОК ДЛЯ ТУЛТИПОВ --- */
-    .tooltip {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background-color: #555;
-        color: #fff;
-        cursor: help;
+    .purchase-status-badge {
         font-size: 11px;
-        font-weight: bold;
-        flex-shrink: 0;
-    }
-    .tooltip .tooltip-text {
-        visibility: hidden;
-        width: 240px;
-        background-color: #222;
-        color: #fff;
-        text-align: left;
+        font-weight: 600;
+        padding: 3px 8px;
         border-radius: 8px;
-        padding: 10px;
-        position: absolute;
-        z-index: 10;
-        bottom: 125%;
-        left: 50%;
-        transform: translateX(-50%);
-        opacity: 0;
-        transition: opacity 0.3s;
+        color: white;
+    }
+    .purchase-status-Привязан { background-color: var(--primary-color); }
+    .purchase-status-Не.привязан { background-color: var(--status-inactive-color); }
+    
+    .purchase-item p {
+        margin: 4px 0;
         font-size: 13px;
-        font-weight: 400;
-        line-height: 1.5;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        pointer-events: none;
+        color: var(--text-color-muted);
     }
-    .tooltip .tooltip-text::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        margin-left: -5px;
-        border-width: 5px;
-        border-style: solid;
-        border-color: #222 transparent transparent transparent;
+    .purchase-user-input {
+        background-color: rgba(0,0,0,0.3);
+        padding: 8px;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 12px;
+        margin-top: 8px;
+        word-break: break-all;
     }
-    .tooltip:hover .tooltip-text {
-        visibility: visible;
-        opacity: 1;
+    .purchase-actions {
+        margin-top: 12px;
     }
-    /* --- ДОБАВЛЕННЫЙ ФИКС ДЛЯ ПРАВЫХ ТУЛТИПОВ --- */
-    .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text {
-        left: auto;
-        right: 0;
-        transform: translateX(0);
+    .purchase-actions .issue-promo-btn {
+        width: 100%;
+        background-color: var(--warning-color);
+        font-size: 13px;
+        padding: 8px;
     }
-    .stats-grid .stat-card:nth-child(even) .tooltip .tooltip-text::after {
-        left: auto;
-        right: 10px; /* Сдвигаем стрелочку направо */
-        margin-left: 0;
-    }
-    /* Twitch награды: компактная сетка */
-    #twitch-rewards-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 8px; /* меньше расстояние между карточками */
-    }
-
-    #twitch-rewards-container .quest-title {
-        display: block;
-        width: 100%;               /* занимает всю ширину */
+     .purchase-actions .rewarded-info {
         text-align: center;
-        font-size: 11px;           /* ещё меньше заголовок */
-        font-weight: 600;
-        margin: 0 0 6px 0;         /* меньше отступ снизу */
-    }
-
-    #twitch-rewards-container .quest-title {
-        font-size: 12px;     /* уменьшили заголовок */
-        font-weight: 600;
-        margin: 0 0 8px 0;
-        text-align: center;
-    }
-
-    #twitch-rewards-container p {
-        font-size: 11px;
-        margin: 3px 0;
-    }
-
-    /* Компактные тумблеры (настройки + награды) */
-    .setting-item,
-    .reward-setting-item {
-        display: flex;
-        flex-direction: column;    /* подпись над тумблером */
-        align-items: center;       /* центрируем */
-        gap: 3px;                  /* минимальный отступ */
-        margin: 4px 0;             /* меньше вертикальный отступ */
-    }
-
-
-    .setting-label,
-    .reward-setting-label {
-        font-size: 11px;           /* подпись маленькая */
+        font-size: 13px;
         font-weight: 500;
-        text-align: center;
-    }
-
-    .toggle-switch {
-        position: relative;
-        display: inline-block;
-        width: 30px;   /* уменьшили ширину */
-        height: 18px;  /* уменьшили высоту */
-    }
-
-    .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .toggle-slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #444;
-        transition: .3s;
-        border-radius: 20px;
-    }
-
-    .toggle-slider:before {
-        position: absolute;
-        content: "";
-        height: 12px;
-        width: 12px;
-        left: 3px;
-        bottom: 3px;
-        background-color: white;
-        transition: .3s;
-        border-radius: 50%;
-    }
-
-    .toggle-switch input:checked + .toggle-slider {
-        background-color: var(--primary-color);
-    }
-
-    .toggle-switch input:checked + .toggle-slider:before {
-        transform: translateX(11px);
+        color: var(--primary-color);
     }
   </style>
 </head>
@@ -381,7 +274,7 @@
                     <span>Статистика</span>
                 </div>
                 <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
-                    <div class="icon-wrapper"><i class="fa-brands fa-twitch"></i></div>
+                    <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
                     <span>Twitch награды</span>
                 </div>
             </div>
@@ -871,6 +764,7 @@
             </div>
         </div>
       
+        <!-- --- НАЧАЛО: ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ БЛОК ДЛЯ TWITCH НАГРАД --- -->
         <div id="view-admin-twitch-rewards" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main">
@@ -879,73 +773,15 @@
                 <h1 class="page-header-title">Twitch награды</h1>
                 <div style="width: 60px;"></div>
             </div>
-
-            <div id="twitch-rewards-container">
-
-                <div class="quest-card">
-                    <h3 class="quest-title">Награда 1</h3>
-
-                    <div class="reward-setting-item">
-                        <span class="reward-setting-label">Активна в логах</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="reward-setting-item">
-                        <span class="reward-setting-label">Уведомлять админа</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="quest-card">
-                    <h3 class="quest-title">Награда 2</h3>
-
-                    <div class="reward-setting-item">
-                        <span class="reward-setting-label">Активна в логах</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="reward-setting-item">
-                        <span class="reward-setting-label">Уведомлять админа</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="quest-card">
-                    <h3 class="quest-title">Награда 3</h3>
-
-                    <div class="reward-setting-item">
-                        <span class="reward-setting-label">Активна в логах</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="reward-setting-item">
-                        <span class="reward-setting-label">Уведомлять админа</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </div>
-
+            <div id="twitch-rewards-container" class="quests-container">
+                <!-- Карточки наград будут загружаться сюда -->
             </div>
         </div>
+        <!-- --- КОНЕЦ: ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ БЛОК ДЛЯ TWITCH НАГРАД --- -->
+
     </main>
 
+    <!-- --- ОБЩИЕ МОДАЛЬНЫЕ ОКНА --- -->
     <div id="submissions-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -989,17 +825,65 @@
             </div>
         </div>
     </div>
-  
+
+    <!-- --- НАЧАЛО: НОВЫЕ МОДАЛЬНЫЕ ОКНА ДЛЯ TWITCH --- -->
     <div id="twitch-purchases-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Покупки награды Twitch</h2>
-                <button id="twitch-purchases-close-btn" class="modal-close-btn">&times;</button>
+                <h2 id="twitch-purchases-title" class="modal-title">Покупки награды</h2>
+                <button class="modal-close-btn" data-close-modal="twitch-purchases-modal">&times;</button>
             </div>
-            <div class="modal-body">
-                </div>
+            <div id="twitch-purchases-body" class="modal-body">
+                <!-- Сюда будут загружаться покупки -->
+            </div>
         </div>
     </div>
+    
+    <div id="twitch-reward-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="twitch-settings-title" class="modal-title">Настройки награды</h2>
+                <button class="modal-close-btn" data-close-modal="twitch-reward-settings-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="twitch-reward-settings-form" class="admin-form">
+                    <input type="hidden" name="reward_id">
+                    <div class="setting-item">
+                        <span class="setting-label">Активна в логах</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="is_active">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Уведомлять админа</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="notify_admin">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Показывать сообщение от пользователя</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="show_user_input">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="margin-top: 15px;">
+                      <label for="promocode-amount-input">Сумма промокода (звёзды)</label>
+                      <input type="number" id="promocode-amount-input" name="promocode_amount" placeholder="Например, 10" required>
+                    </div>
+                    <div class="prompt-actions" style="margin-top: 20px;">
+                        <button type="button" class="cancel-btn" data-close-modal="twitch-reward-settings-modal">Отмена</button>
+                        <button type="submit" class="confirm-btn">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- --- КОНЕЦ: НОВЫЕ МОДАЛЬНЫЕ ОКНА ДЛЯ TWITCH --- -->
+
+
     <script>
     try {
         const tg = window.Telegram.WebApp;
@@ -1164,14 +1048,6 @@
                         updateQuestFormUI(dom.createQuestForm);
                         break;
                     }
-                    // =================================================================
-                    // ========= НАЧАЛО ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
-                    // =================================================================
-                    // БЛОК case 'view-admin-challenge-form' БЫЛ УДАЛЕН ОТСЮДА
-                    // ЧТОБЫ ОН НЕ СБРАСЫВАЛ ФОРМУ КАЖДЫЙ РАЗ ПРИ ПЕРЕКЛЮЧЕНИИ.
-                    // ===============================================================
-                    // ========= КОНЕЦ ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
-                    // ===============================================================
                 }
             } finally {
                 hideLoader();
@@ -1331,6 +1207,9 @@
                 const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
                     ? `<a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
                     : '';
+                
+                const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
+
                 const cardHtml = `
                 <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
                     <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
@@ -1342,6 +1221,16 @@
                         <div class="submission-data">${submissionContent}</div>
                         ${actionLinkHtml}
                     </div>
+
+                    ${isWizebotQuest ? `
+                    <div class="submission-actions" style="margin-top: 10px;">
+                        <button class="admin-action-btn check-wizebot-btn" data-nickname="${data}" style="background-color: #6441a5;">
+                            <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
+                        </button>
+                    </div>
+                    <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
+                    ` : ''}
+
                     <div class="submission-actions">
                         <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
                         <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
@@ -1418,130 +1307,103 @@
             }
         }
 
-        // --- Twitch Rewards ---
+        // --- НАЧАЛО: ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ БЛОК ДЛЯ TWITCH НАГРАД ---
         async function loadTwitchRewards() {
             const container = document.getElementById('twitch-rewards-container');
-            container.innerHTML = '<p>Загрузка...</p>';
-
+            container.innerHTML = '';
             try {
-                // 1) грузим список наград (GET, без тела)
-                const resp = await fetch('/api/v1/admin/twitch_rewards/list', { method: 'GET' });
-                if (!resp.ok) {
-                    const t = await resp.text().catch(() => '');
-                    throw new Error(`HTTP ${resp.status} /list: ${t}`);
-                }
-                const rewards = await resp.json();
-
-                container.innerHTML = '';
-
+                const rewards = await makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true);
                 if (!Array.isArray(rewards) || rewards.length === 0) {
-                    container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Наград пока нет.</p>';
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Наград пока нет. Они создадутся автоматически, когда пользователь купит первую награду за баллы на Twitch.</p>';
                     return;
                 }
 
-                // 2) отрисовываем карточки
-                rewards.forEach(r => {
+                rewards.forEach(reward => {
                     const cardHtml = `
-                        <div class="quest-card manage-quest-card" data-id="${r.id}">
-                            <h3 class="quest-title">${r.title}</h3>
-                            <div class="setting-item">
-                                <span class="setting-label">Активна в логах</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" class="reward-toggle-active" data-id="${r.id}" ${r.is_active ? 'checked' : ''}>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            <div class="setting-item">
-                                <span class="setting-label">Уведомлять админа</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" class="reward-toggle-notify" data-id="${r.id}" ${r.notify_admin ? 'checked' : ''}>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            <div class="admin-buttons-wrapper" style="margin-top: 10px;">
-                                <button class="admin-view-subs-btn" data-open-purchases="${r.id}">Покупки</button>
+                        <div class="quest-card twitch-reward-card" data-reward-id="${reward.id}">
+                            <h3 class="quest-title">${reward.title}</h3>
+                            <div class="admin-buttons-wrapper">
+                                <button class="admin-action-btn settings-btn" data-reward='${JSON.stringify(reward)}'>
+                                    <i class="fa-solid fa-gear"></i> Настройки
+                                </button>
+                                <button class="admin-action-btn purchases-btn" data-reward-id="${reward.id}" data-reward-title="${reward.title}">
+                                    <i class="fa-solid fa-receipt"></i> Покупки
+                                </button>
                             </div>
                         </div>
                     `;
                     container.insertAdjacentHTML('beforeend', cardHtml);
                 });
-
-                // 3) навешиваем обработчики ОДИН раз (делегирование на контейнер)
-                if (!container.dataset.listenersBound) {
-                    container.addEventListener('change', async (e) => {
-                        const el = e.target;
-                        if (!(el instanceof HTMLInputElement)) return;
-
-                        if (el.classList.contains('reward-toggle-active') || el.classList.contains('reward-toggle-notify')) {
-                            const rewardId = parseInt(el.dataset.id, 10);
-                            const key = el.classList.contains('reward-toggle-active') ? 'is_active' : 'notify_admin';
-                            const prevChecked = !el.checked; // чтобы откатить при ошибке
-
-                            try {
-                                const upd = await fetch('/api/v1/admin/twitch_rewards/update', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ id: rewardId, [key]: el.checked })
-                                });
-                                if (!upd.ok) {
-                                    const t = await upd.text().catch(() => '');
-                                    throw new Error(`HTTP ${upd.status} /update: ${t}`);
-                                }
-                            } catch (err) {
-                                console.error('Ошибка обновления награды:', err);
-                                el.checked = prevChecked; // откат чекбокса при фейле
-                            }
-                        }
-                    });
-
-                    container.addEventListener('click', (e) => {
-                        const btn = e.target.closest('[data-open-purchases]');
-                        if (!btn) return;
-                        const rid = btn.getAttribute('data-open-purchases');
-                        openTwitchPurchases(rid);
-                    });
-
-                    container.dataset.listenersBound = '1';
-                }
             } catch (e) {
                 console.error('Ошибка загрузки Twitch наград:', e);
-                container.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград.</p>';
+                container.innerHTML = `<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград: ${e.message}</p>`;
             }
         }
 
-        async function openTwitchPurchases(rewardId) {
-            const modal = document.getElementById("twitch-purchases-modal");
-            const listEl = modal.querySelector(".modal-body");
-            listEl.innerHTML = "<p>Загрузка...</p>";
+        function openTwitchRewardSettings(reward) {
+            const modal = document.getElementById('twitch-reward-settings-modal');
+            const form = document.getElementById('twitch-reward-settings-form');
+            document.getElementById('twitch-settings-title').textContent = `Настройки: ${reward.title}`;
+            
+            form.elements['reward_id'].value = reward.id;
+            form.elements['is_active'].checked = reward.is_active;
+            form.elements['notify_admin'].checked = reward.notify_admin;
+            form.elements['show_user_input'].checked = reward.show_user_input;
+            form.elements['promocode_amount'].value = reward.promocode_amount;
+
+            modal.classList.remove('hidden');
+        }
+
+        async function openTwitchPurchases(rewardId, rewardTitle) {
+            const modal = document.getElementById('twitch-purchases-modal');
+            const body = document.getElementById('twitch-purchases-body');
+            document.getElementById('twitch-purchases-title').textContent = `Покупки: ${rewardTitle}`;
+            body.innerHTML = '<i>Загрузка...</i>';
+            modal.classList.remove('hidden');
 
             try {
-                const resp = await fetch(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`);
-                if (!resp.ok) throw new Error("Ошибка ответа сервера");
-                const data = await resp.json();
+                const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
+                const { purchases, reward_settings } = data;
 
-                if (!data.purchases || data.purchases.length === 0) {
-                    listEl.innerHTML = "<p>Нет покупок для этой награды.</p>";
-                } else {
-                    listEl.innerHTML = data.purchases.map(p => `
-                        <div class="submission-item">
-                            <p><strong>${p.username}</strong> (ID: ${p.user_id})</p>
-                            <p>Трейд: ${p.trade_link 
-                                ? `<a href="${p.trade_link}" target="_blank">${p.trade_link}</a>` 
-                                : '<span style="color: var(--warning-color);">Не указан</span>'}</p>
-                            <p><small>${new Date(p.created_at).toLocaleString()}</small></p>
-                        </div>
-                    `).join("");
+                if (!purchases || purchases.length === 0) {
+                    body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
+                    return;
                 }
 
-                modal.classList.remove("hidden");
-            } catch (e) {
-                listEl.innerHTML = "<p style='color: var(--danger-color);'>Ошибка загрузки покупок</p>";
-                console.error(e);
+                body.innerHTML = purchases.map(p => {
+                    const date = new Date(p.created_at).toLocaleString('ru-RU');
+                    const userInputHtml = (reward_settings.show_user_input && p.user_input)
+                        ? `<div class="purchase-user-input">${p.user_input}</div>`
+                        : '';
+                    
+                    let actionHtml = '';
+                    if (p.rewarded_at) {
+                        actionHtml = `<div class="rewarded-info"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>`;
+                    } else if (p.status === 'Привязан') {
+                        actionHtml = `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}">Выдать промокод</button>`;
+                    } else {
+                        actionHtml = ``; // No button for unlinked users
+                    }
+
+                    return `
+                    <div class="purchase-item" id="purchase-item-${p.id}">
+                        <div class="purchase-item-header">
+                            <strong>${p.username}</strong>
+                            <span class="purchase-status-badge purchase-status-${p.status.replace(' ', '.')}">${p.status}</span>
+                        </div>
+                        <p>Дата: ${date}</p>
+                        ${p.trade_link ? `<p>Трейд: <a href="${p.trade_link}" target="_blank" style="color: var(--action-color);">Открыть</a></p>` : ''}
+                        ${userInputHtml}
+                        <div class="purchase-actions">${actionHtml}</div>
+                    </div>
+                    `;
+                }).join('');
+
+            } catch(e) {
+                body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
             }
         }
-        function closeTwitchPurchasesModal() {
-            document.getElementById("twitch-purchases-modal").classList.add("hidden");
-        }
+        // --- КОНЕЦ: ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ БЛОК ДЛЯ TWITCH НАГРАД ---
 
         function renderQuests(quests, categories) {
             dom.questsList.innerHTML = '';
@@ -1645,6 +1507,35 @@
         }
 
         function setupEventListeners() {
+            // --- НАЧАЛО: НОВЫЕ ОБРАБОТЧИКИ ДЛЯ TWITCH И МОДАЛЬНЫХ ОКОН ---
+            document.body.addEventListener('click', (e) => {
+                const closeBtn = e.target.closest('[data-close-modal]');
+                if (closeBtn) {
+                    const modalId = closeBtn.dataset.closeModal;
+                    const modal = document.getElementById(modalId);
+                    if (modal) modal.classList.add('hidden');
+                }
+            });
+
+            const twitchSettingsForm = document.getElementById('twitch-reward-settings-form');
+            twitchSettingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const payload = {
+                    id: parseInt(form.elements['reward_id'].value),
+                    is_active: form.elements['is_active'].checked,
+                    notify_admin: form.elements['notify_admin'].checked,
+                    show_user_input: form.elements['show_user_input'].checked,
+                    promocode_amount: parseInt(form.elements['promocode_amount'].value)
+                };
+                
+                await makeApiRequest('/api/v1/admin/twitch_rewards/update', payload);
+                document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
+                tg.showAlert('Настройки сохранены!');
+                await loadTwitchRewards(); // Refresh the list
+            });
+            // --- КОНЕЦ: НОВЫЕ ОБРАБОТЧИКИ ---
+
             if (dom.tabsContainer) {
                 dom.tabsContainer.addEventListener('click', (e) => {
                     const button = e.target.closest('.tab-button');
@@ -1724,33 +1615,80 @@
                     }
                  });
             });
-
+            
             dom.appContainer.addEventListener('click', async (event) => {
-                const navButton = event.target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
+                const target = event.target;
+                const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
                 if (navButton) {
                     const view = navButton.dataset.view;
-                    if (view) {
-                        await switchView(view);
-                    } else if (navButton.id === 'go-create-quest') {
-                        await switchView('view-admin-create');
-                    // =================================================================
-                    // ========= НАЧАЛО ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
-                    // =================================================================
-                    } else if (navButton.id === 'go-create-challenge') {
-                        // ЯВНО СБРАСЫВАЕМ ФОРМУ И МЕНЯЕМ ЗАГОЛОВОК ПЕРЕД ОТКРЫТИЕМ
+                    if (view) await switchView(view);
+                    else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
+                    else if (navButton.id === 'go-create-challenge') {
                         dom.challengeForm.reset();
                         dom.challengeForm.elements['challenge_id'].value = '';
                         updateChallengeFormUI(dom.challengeForm);
                         dom.challengeFormTitle.textContent = 'Новый челлендж';
                         await switchView('view-admin-challenge-form');
                     }
-                    // ===============================================================
-                    // ========= КОНЕЦ ИСПРАВЛЕНИЯ ДЛЯ РЕДАКТИРОВАНИЯ ЧЕЛЛЕНДЖА =========
-                    // ===============================================================
+                    return;
+                }
+                
+                // --- НАЧАЛО: ОБРАБОТЧИКИ ДЛЯ TWITCH НАГРАД ---
+                const settingsBtn = target.closest('.settings-btn');
+                if (settingsBtn) {
+                    const rewardData = JSON.parse(settingsBtn.dataset.reward);
+                    openTwitchRewardSettings(rewardData);
                     return;
                 }
 
-                const target = event.target;
+                const purchasesBtn = target.closest('.purchases-btn');
+                if (purchasesBtn) {
+                    const { rewardId, rewardTitle } = purchasesBtn.dataset;
+                    await openTwitchPurchases(rewardId, rewardTitle);
+                    return;
+                }
+                
+                const issuePromoBtn = target.closest('.issue-promo-btn');
+                if (issuePromoBtn) {
+                    const purchaseId = issuePromoBtn.dataset.purchaseId;
+                    tg.showConfirm('Вы уверены, что хотите выдать промокод этому пользователю?', async (ok) => {
+                        if (ok) {
+                           try {
+                                const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', { purchase_id: parseInt(purchaseId) });
+                                tg.showAlert(result.message);
+                                // Update UI for this specific item
+                                const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                                if(itemDiv) {
+                                    const actionDiv = itemDiv.querySelector('.purchase-actions');
+                                    actionDiv.innerHTML = `<div class="rewarded-info"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>`;
+                                }
+                           } catch(e) {
+                                tg.showAlert(`Ошибка: ${e.message}`);
+                           }
+                        }
+                    });
+                    return;
+                }
+                // --- КОНЕЦ: ОБРАБОТЧИКИ ДЛЯ TWITCH НАГРАД ---
+
+                // --- Обработчик для Wizebot ---
+                const checkBtn = target.closest('.check-wizebot-btn');
+                if (checkBtn) {
+                    const nickname = checkBtn.dataset.nickname;
+                    const card = checkBtn.closest('.admin-submission-card');
+                    const resultDiv = card.querySelector('.wizebot-stats-result');
+                    if (!nickname) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Никнейм не указан в заявке.</p>`; return; }
+                    resultDiv.innerHTML = '<i>Проверяем на Wizebot...</i>';
+                    checkBtn.disabled = true;
+                    try {
+                        const stats = await makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: 'session' }, 'POST', true);
+                        if (stats.found) resultDiv.innerHTML = `<p style="color: var(--primary-color);">✅ Найден! Сообщений за стрим: <strong>${stats.messages}</strong> (Ранг: ${stats.rank})</p>`;
+                        else resultDiv.innerHTML = `<p style="color: var(--warning-color);">⚠️ ${stats.message}</p>`;
+                    } catch (e) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка проверки: ${e.message}</p>`; } 
+                    finally { checkBtn.disabled = false; }
+                    return;
+                }
+
 
                 const confirmWinnerBtn = target.closest('.confirm-winner-prize-btn');
                 if (confirmWinnerBtn) {
@@ -2038,18 +1976,6 @@
             });
           
             dom.modalCloseBtn.addEventListener('click', () => dom.submissionsModal.classList.add('hidden'));
-        const twitchPurchasesModal = document.getElementById('twitch-purchases-modal');
-        const twitchPurchasesCloseBtn = document.getElementById('twitch-purchases-close-btn');
-
-        if (twitchPurchasesModal && twitchPurchasesCloseBtn) {
-            const closeTwitchModal = () => twitchPurchasesModal.classList.add('hidden');
-            twitchPurchasesCloseBtn.addEventListener('click', closeTwitchModal);
-            twitchPurchasesModal.addEventListener('click', (e) => {
-                if (e.target === twitchPurchasesModal) {
-                    closeTwitchModal();
-                }
-            });
-        }
             dom.submissionsModal.addEventListener('click', (e) => { if (e.target === dom.submissionsModal) dom.submissionsModal.classList.add('hidden'); });
 
             dom.genericPromptCancel.addEventListener('click', hideGenericPrompt);
