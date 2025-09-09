@@ -342,15 +342,20 @@ app = FastAPI(title="Quest Bot API")
 # --- Middlewares ---
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
-    # Этот middleware будет проверять режим сна ПЕРЕД каждым запросом
+    # ✅ Пропускаем WebSocket, иначе он ломается
+    if request.scope["type"] == "websocket":
+        return await call_next(request)
+
     path = request.url.path
     is_admin_path = path.startswith("/api/v1/admin") or path == "/admin"
     is_sleep_toggle_path = path == "/api/v1/admin/toggle_sleep_mode"
     
-    # Пропускаем админские страницы и сам переключатель
     if not (is_admin_path or is_sleep_toggle_path):
         try:
-            async with httpx.AsyncClient(base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1", headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}) as client:
+            async with httpx.AsyncClient(
+                base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1",
+                headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}
+            ) as client:
                 resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
                 settings = resp.json()
                 if settings:
@@ -363,17 +368,18 @@ async def sleep_mode_check(request: Request, call_next):
                         wake_up_time = datetime.fromisoformat(wake_up_at_str)
                         if datetime.now(timezone.utc) > wake_up_time:
                             should_wake_up = True
-                            await client.patch("/settings", params={"key": "eq.sleep_mode"}, json={"value": {"is_sleeping": False, "wake_up_at": None}})
-                    
+                            await client.patch("/settings",
+                                params={"key": "eq.sleep_mode"},
+                                json={"value": {"is_sleeping": False, "wake_up_at": None}}
+                            )
+
                     if is_sleeping and not should_wake_up:
-                        # Если бот спит, отдаём ошибку 503 Service Unavailable
                         return JSONResponse(
                             status_code=503,
                             content={"detail": "Ботик спит, набирается сил"}
                         )
         except Exception as e:
             logging.error(f"Ошибка проверки режима сна: {e}")
-            # В случае ошибки, позволяем запросу пройти, чтобы не блокировать всё приложение
             pass
 
     response = await call_next(request)
