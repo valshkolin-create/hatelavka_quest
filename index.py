@@ -436,13 +436,8 @@ def validate_twitch_state(state: str, init_data: str) -> bool:
 # ИСПРАВЛЕНИЕ: Перемещено сюда, после middleware
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            # Просто держим соединение открытым
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+    await websocket.accept() # Просто принимаем соединение
+    await websocket.close()  # И сразу закрываем
 
 # --- Telegram Bot/Dispatcher ---
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
