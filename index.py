@@ -3014,9 +3014,7 @@ class EventsPageContent(BaseModel):
 
 class EventsPageUpdateRequest(BaseModel):
     initData: str
-    content: EventsPageContent
-
-# --- API для страницы ивентов ---
+    content: dict  # Ожидается {"events": [...]}
 
 @app.post("/api/v1/events/participants")
 async def get_event_participants(
