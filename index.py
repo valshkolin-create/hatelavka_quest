@@ -1309,75 +1309,69 @@ async def create_event(
 
 @app.post("/api/v1/admin/events/update")
 async def update_events_page_content(
-    request_data: EventUpdateRequest,  # <-- Измените здесь на EventUpdateRequest
+    request_data: EventsPageUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
     Обновляет контент страницы ивентов (только для админов).
     """
+    logger.info(f"Получен запрос: {request_data.dict()}")
+
+    # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    if not user_info:
+        logger.error("Недействительная initData")
+        raise HTTPException(status_code=403, detail="Недействительная initData")
+    if user_info.get("id") not in ADMIN_IDS:
+        logger.error(f"Пользователь {user_info.get('id')} не является администратором")
+        raise HTTPException(status_code=403, detail="Доступ запрещён.")
+
+    # 2. Валидация структуры content
+    if "events" not in request_data.content:
+        logger.error("Поле content не содержит ключ 'events'")
+        raise HTTPException(status_code=400, detail="Поле content должно содержать ключ 'events'")
 
     try:
-        await supabase.patch(
+        # 3. Проверка существования записи
+        logger.info("Проверка записи pages_content с page_name='events'")
+        content_resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.events", "select": "id,content", "limit": 1}
+        )
+        content_resp.raise_for_status()
+        page_data = content_resp.json()
+        logger.info(f"Ответ Supabase (GET): {page_data}")
+
+        # 4. Если запись отсутствует, создаём новую
+        if not page_data:
+            logger.info("Запись не найдена, создаём новую")
+            initial_content = {"events": []}
+            create_resp = await supabase.post(
+                "/pages_content",
+                json={"page_name": "events", "content": initial_content, "updated_at": "now()"}
+            )
+            create_resp.raise_for_status()
+            logger.info(f"Создана новая запись: {create_resp.json()}")
+
+        # 5. Обновление записи
+        logger.info(f"Отправка PATCH с content: {request_data.content}")
+        update_resp = await supabase.patch(
             "/pages_content",
             params={"page_name": "eq.events"},
-            json={"content": request_data.content.dict()}
+            json={"content": request_data.content, "updated_at": "now()"}
         )
-        return {"message": "Контент страницы успешно обновлен."}
-    except Exception as e:
-        logging.error(f"Ошибка при обновлении контента страницы ивентов: {e}")
-        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
+        update_resp.raise_for_status()
+        logger.info(f"Ответ Supabase (PATCH): {update_resp.json()}")
 
-@app.post("/api/v1/admin/stats")
-async def get_admin_stats(
-    request_data: StatisticsRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    try:
-        # Делаем один-единственный вызов к нашей новой мощной функции
-        pulse_resp = await supabase.post("/rpc/get_project_pulse_stats")
-        pulse_resp.raise_for_status()
-        pulse_data = pulse_resp.json()[0] if pulse_resp.json() else {}
-
-        # Получаем статистику по ивентам отдельно
-        events_resp = await supabase.get("/events", params={"select": "id,title"})
-        events_resp.raise_for_status()
-        events = events_resp.json()
-
-        event_stats = []
-        for event in events:
-            participants_resp = await supabase.get(
-                "/event_entries",
-                params={"event_id": f"eq.{event['id']}", "select": "user_id"},
-                headers={"Range": "0-99999"}
-            )
-            participants_resp.raise_for_status()
-            participants = participants_resp.json()
-            unique_participants = len({p['user_id'] for p in participants})
-            
-            event_stats.append({
-                "title": event["title"],
-                "participants": unique_participants
-            })
-
-        # Собираем финальный ответ
-        return JSONResponse(content={
-            "pulse": pulse_data,
-            "events": event_stats
-        })
+        return {"message": "Контент страницы успешно обновлён."}
 
     except httpx.HTTPStatusError as e:
-        logging.error(f"Ошибка HTTP при получении статистики: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(status_code=500, detail=f"Ошибка при загрузке статистики: {e.response.text}")
+        error_details = e.response.json().get("message", "Ошибка базы данных")
+        logger.error(f"HTTP-ошибка: {error_details}")
+        raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Ошибка получения статистики: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка при загрузке статистики.")
+        logger.error(f"Критическая ошибка: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
         
 @app.post("/api/v1/admin/quest/submissions")
 async def get_submissions_for_quest(request_data: QuestDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
