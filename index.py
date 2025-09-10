@@ -3108,10 +3108,11 @@ async def get_event_participants(
     except Exception as e:
         logging.error(f"Ошибка при получении участников ивента: {e}")
         raise HTTPException(status_code=500, detail="Не удалось получить список участников.")
+        
 @app.get("/api/v1/events/content")
-async def get_events_page_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_events_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    Отдает JSON с контентом для страницы ивентов, запрещая кэширование.
+    Возвращает JSON с контентом для страницы ивентов.
     """
     try:
         resp = await supabase.get(
@@ -3120,20 +3121,21 @@ async def get_events_page_content(supabase: httpx.AsyncClient = Depends(get_supa
         )
         resp.raise_for_status()
         data = resp.json()
-        if not data:
-            raise HTTPException(status_code=404, detail="Контент для страницы ивентов не найден.")
-        
-        # ИЗМЕНЕНИЕ: Добавляем заголовки для отключения кэша
-        headers = {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-        }
-        return JSONResponse(content=data[0]['content'], headers=headers)
 
-    except Exception as e:
-        logging.error(f"Ошибка при получении контента страницы ивентов: {e}")
+        # Если запись не найдена или content пустой, возвращаем пустой массив событий
+        if not data or not data[0].get('content'):
+            logging.info("Контент для страницы ивентов не найден, возвращается пустой массив.")
+            return {"events": []}
+
+        return data[0]['content']
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка базы данных.")
+        logging.error(f"HTTP-ошибка при получении контента страницы ивентов: {error_details}")
         raise HTTPException(status_code=500, detail="Не удалось загрузить контент страницы.")
+    except Exception as e:
+        logging.error(f"Критическая ошибка при получении контента страницы ивентов: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 # --- Эндпоинты API ---
 @app.post("/api/v1/events/enter")
