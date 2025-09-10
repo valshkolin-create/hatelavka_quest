@@ -382,6 +382,8 @@
         <button id="edit-btn">Редактировать</button>
         <button id="save-btn">Сохранить</button>
     </div>
+
+    <!-- Основная модалка для редактирования/создания ивента (существует в обоих вариантах) -->
     <div id="event-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -407,11 +409,45 @@
             </div>
         </div>
     </div>
+
+    <!-- Текстовая модалка -->
     <div id="text-modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h3 id="text-modal-title" style="margin: 0;">Редактировать текст</h3><button type="button" class="modal-close-btn">&times;</button></div><div class="modal-body"><form id="text-modal-form" class="modal-form"><input type="hidden" id="text-key-input"><textarea id="text-value-input" rows="4"></textarea><button type="submit">Сохранить</button></form></div></div></div>
+
+    <!-- Модалка для таймера -->
     <div id="timer-modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h3 style="margin: 0;">Назначить время итогов</h3><button type="button" class="modal-close-btn">&times;</button></div><div class="modal-body"><form id="timer-modal-form" class="modal-form"><label>Выберите дату и время</label><input type="datetime-local" id="timer-input" required><button type="submit">Установить</button></form></div></div></div>
+
+    <!-- Модалка участия -->
     <div id="ticket-modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h3 id="ticket-modal-title" style="margin: 0;">Участие в розыгрыше</h3><button type="button" class="modal-close-btn">&times;</button></div><div class="modal-body"><p style="font-size: 14px; color: var(--text-secondary);">Ваш баланс: <strong id="user-balance-display" style="color: var(--text-primary);">0</strong> 🎟️</p><form id="ticket-modal-form" class="modal-form"><input type="hidden" id="ticket-event-id-input"><label>Сколько билетов поставить?</label><input type="number" id="ticket-amount-input" required min="1" placeholder="Например: 5"><button type="submit">Подтвердить</button></form></div></div></div>
+
+    <!-- Модалка участников -->
     <div id="participants-modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h3 id="participants-modal-title" style="margin: 0;">Топ-участники</h3><button type="button" class="modal-close-btn">&times;</button></div><div class="modal-body"><ul id="participants-list"></ul></div></div></div>
-    
+
+    <!-- === НОВЫЕ ЭЛЕМЕНТЫ (из events (19): new-event-modal и поля для create form) === -->
+    <!-- Новая модалка (режим создания событий через новый UI) -->
+    <div class="new-event-modal modal-overlay hidden" id="new-event-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0">Создать новый ивент (Новый режим)</h3>
+                <button type="button" class="modal-close-btn new-event-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="new-event-form" class="modal-form">
+                    <label>Название</label><input type="text" id="event-title" required>
+                    <label>Описание</label><textarea id="event-description" rows="2"></textarea>
+                    <label>URL картинки</label><input type="text" id="event-image-url" required>
+                    <label>Стоимость билетов</label><input type="number" id="event-tickets-cost" min="1" required>
+                    <label>Дата окончания (опционально)</label><input type="datetime-local" id="event-end-date">
+                    <button type="submit">Создать</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Добавляем скрытую кнопку (если где-то в коде ее ищут) и класс .create-event-button если нужен -->
+    <div style="display:none;">
+        <button class="create-event-button" id="global-create-event-button">Создать (скрытая)</button>
+    </div>
+
     <footer class="app-footer">
         <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
         <a href="/events" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Розыгрыши</span></a>
@@ -501,7 +537,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Новый код для создания события ---
-    const newEventModal = document.querySelector('.new-event-modal');
+    const newEventModal = document.getElementById('new-event-modal');
     const newEventForm = document.getElementById('new-event-form');
     const createEventButton = document.querySelector('.create-event-button');
     const newEventTitleInput = document.getElementById('event-title');
@@ -514,13 +550,18 @@ document.addEventListener('DOMContentLoaded', function() {
         createEventButton.addEventListener('click', () => {
             showModal(newEventModal);
         });
+    } else {
+        // Если кнопки в DOM нет, попытаемся привязать глобальную скрытую кнопку
+        const fallbackCreateBtn = document.getElementById('global-create-event-button');
+        if (fallbackCreateBtn) {
+            fallbackCreateBtn.addEventListener('click', () => showModal(newEventModal));
+        }
     }
 
     if (newEventForm) {
         newEventForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            tg.MainButton.showProgress();
-
+            if (typeof tg?.MainButton?.showProgress === 'function') try{ tg.MainButton.showProgress(); }catch{}
             try {
                 const response = await fetch('/api/v1/admin/events/create', {
                     method: 'POST',
@@ -540,20 +581,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(result.detail || 'Ошибка при создании события.');
                 }
 
-                tg.showAlert('Событие успешно создано!');
+                if (typeof tg?.showAlert === 'function') tg.showAlert('Событие успешно создано!');
                 hideModal(newEventModal);
                 fetchEventsAndRender(); // Обновляем список событий
 
             } catch (error) {
-                tg.showAlert(error.message);
+                if (typeof tg?.showAlert === 'function') tg.showAlert(error.message);
                 console.error(error);
             } finally {
-                tg.MainButton.hideProgress();
+                if (typeof tg?.MainButton?.hideProgress === 'function') try{ tg.MainButton.hideProgress(); }catch{}
             }
         });
     }
-    
+
     // --- Новый код для удаления события ---
+    // (Кнопки .delete-btn создаются динамически, потому обработчик будет делегирован при рендере)
+    // Для совместимости оставляем код, который инициализирует существующие кнопки при загрузке
     const deleteEventButtons = document.querySelectorAll('.delete-btn');
     deleteEventButtons.forEach(button => {
         button.addEventListener('click', async (e) => {
@@ -562,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (confirm('Вы уверены, что хотите удалить этот розыгрыш? Это действие необратимо.')) {
                 try {
-                    tg.MainButton.showProgress();
+                    if (typeof tg?.MainButton?.showProgress === 'function') try{ tg.MainButton.showProgress(); }catch{}
                     const response = await fetch('/api/v1/admin/events/delete', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -577,13 +620,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         throw new Error(result.detail || 'Ошибка при удалении события.');
                     }
 
-                    tg.showAlert('Розыгрыш успешно удален!');
+                    if (typeof tg?.showAlert === 'function') tg.showAlert('Розыгрыш успешно удален!');
                     fetchEventsAndRender(); // Обновляем список событий на странице
                 } catch (error) {
-                    tg.showAlert(error.message);
+                    if (typeof tg?.showAlert === 'function') tg.showAlert(error.message);
                     console.error(error);
                 } finally {
-                    tg.MainButton.hideProgress();
+                    if (typeof tg?.MainButton?.hideProgress === 'function') try{ tg.MainButton.hideProgress(); }catch{}
                 }
             }
         });
@@ -632,501 +675,511 @@ document.addEventListener('DOMContentLoaded', function() {
             freeTicketInterval = setInterval(updateTimer, 1000);
         }
     }
-});
 
-        function renderPage() {
-            editableKeys.forEach(key => {
-                const element = document.querySelector(`[data-key="${key}"]`);
-                if (!element) return;
-                
-                if (key.includes('Icon')) {
-                    element.className = pageContent[key] || 'fa-solid fa-question-circle info-icon';
-                } else {
-                    element.innerHTML = pageContent[key] || '...';
-                }
-            });
-            startCountdown(pageContent.raffleEndTime);
-            renderFreeTicketSection();
-            dom.eventsContainer.innerHTML = '';
-            const isEditMode = document.body.classList.contains('edit-mode');
+    // helper to fetch events content and render (used from new event creation)
+    async function fetchEventsAndRender() {
+        try {
+            const contentRes = await fetch('/api/v1/events/content', { cache: 'no-store' });
+            if (!contentRes.ok) throw new Error('Ошибка при загрузке событий');
+            pageContent = await contentRes.json();
+            renderPage();
+        } catch (e) {
+            console.error('fetchEventsAndRender error', e);
+        }
+    }
 
-            if (pageContent.events && pageContent.events.length === 1) {
-                dom.eventsContainer.style.gridTemplateColumns = 'minmax(0, 392.5px)';
-                dom.eventsContainer.style.justifyContent = 'center';
+    function renderPage() {
+        editableKeys.forEach(key => {
+            const element = document.querySelector(`[data-key="${key}"]`);
+            if (!element) return;
+            
+            if (key.includes('Icon')) {
+                element.className = pageContent[key] || 'fa-solid fa-question-circle info-icon';
             } else {
-                dom.eventsContainer.style.gridTemplateColumns = '';
-                dom.eventsContainer.style.justifyContent = '';
+                element.innerHTML = pageContent[key] || '...';
             }
+        });
+        startCountdown(pageContent.raffleEndTime);
+        renderFreeTicketSection();
+        dom.eventsContainer.innerHTML = '';
+        const isEditMode = document.body.classList.contains('edit-mode');
 
-            let userActiveParticipationId = null;
-            if (userData && userData.event_participations) {
-                const userEventIds = Object.keys(userData.event_participations);
-                for (const eventId of userEventIds) {
-                    const event = (pageContent.events || []).find(e => e.id == eventId);
-                    if (event && !event.winner_name) {
-                        userActiveParticipationId = event.id;
-                        break;
-                    }
+        if (pageContent.events && pageContent.events.length === 1) {
+            dom.eventsContainer.style.gridTemplateColumns = 'minmax(0, 392.5px)';
+            dom.eventsContainer.style.justifyContent = 'center';
+        } else {
+            dom.eventsContainer.style.gridTemplateColumns = '';
+            dom.eventsContainer.style.justifyContent = '';
+        }
+
+        let userActiveParticipationId = null;
+        if (userData && userData.event_participations) {
+            const userEventIds = Object.keys(userData.event_participations);
+            for (const eventId of userEventIds) {
+                const event = (pageContent.events || []).find(e => e.id == eventId);
+                if (event && !event.winner_name) {
+                    userActiveParticipationId = event.id;
+                    break;
                 }
             }
+        }
 
-            (pageContent.events || []).forEach((event, index) => {
-                const card = document.createElement('div');
-                card.className = 'event-card';
-                
-                const isLocked = userActiveParticipationId && userActiveParticipationId !== event.id;
-                if (isLocked) {
-                    card.classList.add('is-locked');
-                }
+        (pageContent.events || []).forEach((event, index) => {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+            
+            const isLocked = userActiveParticipationId && userActiveParticipationId !== event.id;
+            if (isLocked) {
+                card.classList.add('is-locked');
+            }
 
-                const borderColor = event.top_border_color || 'var(--card-default-border)';
-                const bgColor = event.bg_color || 'var(--card-default-bg)';
-                const dotColorHex = event.dot_color || '#f0f0f5';
-                const dotColorRgba = hexToRgba(dotColorHex, 0.1);
-                const dotPattern = `radial-gradient(circle at 1px 1px, ${dotColorRgba} 1px, transparent 0)`;
-                const imageScale = event.image_scale || 1;
-                
-                let cardInnerHtml = `
-                    <div class="card-display-area" style="--card-border-color: ${borderColor};">
-                        <div class="card-background" style="background-color: ${bgColor}; background-image: ${dotPattern}; background-size: 8px 8px;"></div>
-                        <div class="event-image-container">
-                            <img src="${event.image_url}" alt="${event.title}" class="event-image" style="transform: scale(${imageScale});">
+            const borderColor = event.top_border_color || 'var(--card-default-border)';
+            const bgColor = event.bg_color || 'var(--card-default-bg)';
+            const dotColorHex = event.dot_color || '#f0f0f5';
+            const dotColorRgba = hexToRgba(dotColorHex, 0.1);
+            const dotPattern = `radial-gradient(circle at 1px 1px, ${dotColorRgba} 1px, transparent 0)`;
+            const imageScale = event.image_scale || 1;
+            
+            let cardInnerHtml = `
+                <div class="card-display-area" style="--card-border-color: ${borderColor};">
+                    <div class="card-background" style="background-color: ${bgColor}; background-image: ${dotPattern}; background-size: 8px 8px;"></div>
+                    <div class="event-image-container">
+                        <img src="${event.image_url}" alt="${event.title}" class="event-image" style="transform: scale(${imageScale});">
+                    </div>
+                </div>
+            `;
+
+            if (event.winner_name) {
+                card.classList.add('is-winner');
+                cardInnerHtml += `
+                    <div class="card-info-area">
+                        <div class="card-text-content">
+                            <div class="winner-display">
+                                <div class="winner-icon"><i class="fa-solid fa-trophy"></i></div>
+                                <div class="winner-label">Победитель</div>
+                                <div class="winner-name">${event.winner_name}</div>
+                            </div>
                         </div>
                     </div>
+                    ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-reset-btn" data-index="${index}" title="Сбросить победителя и начать заново"><i class="fa-solid fa-arrow-rotate-left"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
                 `;
+            } else {
+                const userTickets = (userData.event_participations || {})[event.id] || 0;
+                const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
+                
+                const participateButtonDisabled = isLocked ? 'disabled' : '';
 
-                if (event.winner_name) {
-                    card.classList.add('is-winner');
-                    cardInnerHtml += `
-                        <div class="card-info-area">
-                            <div class="card-text-content">
-                                <div class="winner-display">
-                                    <div class="winner-icon"><i class="fa-solid fa-trophy"></i></div>
-                                    <div class="winner-label">Победитель</div>
-                                    <div class="winner-name">${event.winner_name}</div>
-                                </div>
-                            </div>
+                cardInnerHtml += `
+                    <div class="card-info-area">
+                        <div class="card-text-content">
+                            <h3 class="event-title">${event.title || ''}</h3>
+                            <p class="event-description">${event.description || ''}</p>
+                            <div class="event-cost">Мин. ставка: ${event.tickets_cost} 🎟️</div>
+                            ${userTicketsHtml}
                         </div>
-                        ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-reset-btn" data-index="${index}" title="Сбросить победителя и начать заново"><i class="fa-solid fa-arrow-rotate-left"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
-                    `;
-                } else {
-                    const userTickets = (userData.event_participations || {})[event.id] || 0;
-                    const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
-                    
-                    const participateButtonDisabled = isLocked ? 'disabled' : '';
-
-                    cardInnerHtml += `
-                        <div class="card-info-area">
-                            <div class="card-text-content">
-                                <h3 class="event-title">${event.title || ''}</h3>
-                                <p class="event-description">${event.description || ''}</p>
-                                <div class="event-cost">Мин. ставка: ${event.tickets_cost} 🎟️</div>
-                                ${userTicketsHtml}
-                            </div>
-                            <div class="event-button-container">
-                                <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}" ${participateButtonDisabled}>Участвовать</button>
-                                <button class="participants-button" data-event-id="${event.id}" data-event-title="${event.title}">Топ-5</button>
-                            </div>
+                        <div class="event-button-container">
+                            <button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}" ${participateButtonDisabled}>Участвовать</button>
+                            <button class="participants-button" data-event-id="${event.id}" data-event-title="${event.title}">Топ-5</button>
                         </div>
-                        ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
-                    `;
-                }
+                    </div>
+                    ${isEditMode ? `<div class="edit-overlay"><button class="card-btn card-edit-btn" data-index="${index}"><i class="fa-solid fa-pencil"></i></button><button class="card-btn card-delete-btn" data-index="${index}"><i class="fa-solid fa-trash"></i></button></div>` : ''}
+                `;
+            }
 
-                if (isLocked) {
-                    cardInnerHtml += `
-                        <div class="lock-overlay">
-                            <div class="lock-overlay-icon"><i class="fa-solid fa-lock"></i></div>
-                            <div class="lock-overlay-text">Вы уже участвуете в другом розыгрыше</div>
-                        </div>
-                    `;
-                }
+            if (isLocked) {
+                cardInnerHtml += `
+                    <div class="lock-overlay">
+                        <div class="lock-overlay-icon"><i class="fa-solid fa-lock"></i></div>
+                        <div class="lock-overlay-text">Вы уже участвуете в другом розыгрыше</div>
+                    </div>
+                `;
+            }
 
-                card.innerHTML = cardInnerHtml;
-                dom.eventsContainer.appendChild(card);
+            card.innerHTML = cardInnerHtml;
+            dom.eventsContainer.appendChild(card);
+        });
+
+        if (isEditMode) {
+            dom.eventsContainer.insertAdjacentHTML('beforeend', `<div class="event-card create-event-card" style="min-height: 200px; align-items: center; justify-content: center;"><i class="fa-solid fa-plus" style="font-size: 24px;"></i></div>`);
+        }
+    }
+
+    function showModal(modalElement) { 
+        modalElement.classList.remove('hidden');
+        if (dom.adminControls) dom.adminControls.style.display = 'none';
+    }
+    function hideModal(modalElement) { 
+        modalElement.classList.add('hidden');
+        if (userData.is_admin) dom.adminControls.style.display = 'block';
+    }
+
+    function showEventModal(eventData, index) {
+        dom.eventModalTitle.textContent = index === null ? 'Новый ивент' : 'Редактировать ивент';
+        dom.eventIndexInput.value = index;
+        dom.eventTitleInput.value = eventData ? eventData.title : '';
+        dom.eventDescriptionInput.value = eventData ? eventData.description : '';
+        dom.eventImageInput.value = eventData ? eventData.image_url : '';
+        dom.eventCostInput.value = eventData ? eventData.tickets_cost : '';
+        dom.eventBorderColorInput.value = eventData && eventData.top_border_color ? eventData.top_border_color : '#d433ff';
+        dom.eventBgColorInput.value = eventData && eventData.bg_color ? eventData.bg_color : '#2a2738';
+        dom.eventDotColorInput.value = eventData && eventData.dot_color ? eventData.dot_color : '#f0f0f5';
+        dom.eventImageScaleInput.value = eventData && eventData.image_scale ? eventData.image_scale : 1;
+        showModal(dom.eventModal);
+    }
+
+    function showTextModal(key, isIcon = false) {
+        dom.textModalTitle.textContent = `Редактировать: ${isIcon ? 'Иконка' : key}`; 
+        dom.textKeyInput.value = key;
+        dom.textValueInput.value = pageContent[key] || '';
+        if(isIcon) dom.textValueInput.placeholder = "Например: fa-solid fa-trophy";
+        showModal(dom.textModal);
+    }
+
+    function showTimerModal() {
+        const now = new Date(); const currentVal = pageContent.raffleEndTime ? new Date(pageContent.raffleEndTime) : now;
+        if (currentVal < now) currentVal.setDate(now.getDate() + 1);
+        const yyyy = currentVal.getFullYear(); const mm = String(currentVal.getMonth() + 1).padStart(2, '0'); const dd = String(currentVal.getDate()).padStart(2, '0'); const hh = String(currentVal.getHours()).padStart(2, '0'); const min = String(currentVal.getMinutes()).padStart(2, '0');
+        dom.timerInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+        showModal(dom.timerModal);
+    }
+    
+    function showTicketModal(eventId, eventTitle) {
+        if (!userData.id) {
+            alert('Пожалуйста, откройте эту страницу в Telegram для участия.');
+            return;
+        }
+        if (!userData.trade_link) {
+            tg.showConfirm('Для участия в розыгрыше необходимо добавить Steam Trade ссылку в вашем профиле. Перейти в профиль?', (ok) => {
+                if (ok) window.location.href = '/profile'; 
             });
-
-            if (isEditMode) {
-                dom.eventsContainer.insertAdjacentHTML('beforeend', `<div class="event-card create-event-card" style="min-height: 200px; align-items: center; justify-content: center;"><i class="fa-solid fa-plus" style="font-size: 24px;"></i></div>`);
-            }
-        }
-
-        function showModal(modalElement) { 
-            modalElement.classList.remove('hidden');
-            if (dom.adminControls) dom.adminControls.style.display = 'none';
-        }
-        function hideModal(modalElement) { 
-            modalElement.classList.add('hidden');
-            if (userData.is_admin) dom.adminControls.style.display = 'block';
-        }
-
-        function showEventModal(eventData, index) {
-            dom.eventModalTitle.textContent = index === null ? 'Новый ивент' : 'Редактировать ивент';
-            dom.eventIndexInput.value = index;
-            dom.eventTitleInput.value = eventData ? eventData.title : '';
-            dom.eventDescriptionInput.value = eventData ? eventData.description : '';
-            dom.eventImageInput.value = eventData ? eventData.image_url : '';
-            dom.eventCostInput.value = eventData ? eventData.tickets_cost : '';
-            dom.eventBorderColorInput.value = eventData && eventData.top_border_color ? eventData.top_border_color : '#d433ff';
-            dom.eventBgColorInput.value = eventData && eventData.bg_color ? eventData.bg_color : '#2a2738';
-            dom.eventDotColorInput.value = eventData && eventData.dot_color ? eventData.dot_color : '#f0f0f5';
-            dom.eventImageScaleInput.value = eventData && eventData.image_scale ? eventData.image_scale : 1;
-            showModal(dom.eventModal);
-        }
-
-        function showTextModal(key, isIcon = false) {
-            dom.textModalTitle.textContent = `Редактировать: ${isIcon ? 'Иконка' : key}`; 
-            dom.textKeyInput.value = key;
-            dom.textValueInput.value = pageContent[key] || '';
-            if(isIcon) dom.textValueInput.placeholder = "Например: fa-solid fa-trophy";
-            showModal(dom.textModal);
-        }
-
-        function showTimerModal() {
-            const now = new Date(); const currentVal = pageContent.raffleEndTime ? new Date(pageContent.raffleEndTime) : now;
-            if (currentVal < now) currentVal.setDate(now.getDate() + 1);
-            const yyyy = currentVal.getFullYear(); const mm = String(currentVal.getMonth() + 1).padStart(2, '0'); const dd = String(currentVal.getDate()).padStart(2, '0'); const hh = String(currentVal.getHours()).padStart(2, '0'); const min = String(currentVal.getMinutes()).padStart(2, '0');
-            dom.timerInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-            showModal(dom.timerModal);
-        }
-        
-        function showTicketModal(eventId, eventTitle) {
-            if (!userData.id) {
-                alert('Пожалуйста, откройте эту страницу в Telegram для участия.');
-                return;
-            }
-            if (!userData.trade_link) {
-                tg.showConfirm('Для участия в розыгрыше необходимо добавить Steam Trade ссылку в вашем профиле. Перейти в профиль?', (ok) => {
-                    if (ok) window.location.href = '/profile'; 
-                });
-                return;
-            }
-            
-            const showTheModal = () => {
-                const eventData = pageContent.events.find(e => e.id == eventId);
-                dom.userBalanceDisplay.textContent = userData.tickets || 0;
-                dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
-                dom.ticketEventIdInput.value = eventId;
-                dom.ticketAmountInput.value = ''; 
-                dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
-                dom.ticketAmountInput.max = userData.tickets || 0;
-                showModal(dom.ticketModal); 
-                dom.ticketAmountInput.focus();
-            };
-
-            if (userData.is_previous_winner) {
-                tg.showConfirm(
-                    'Вы уже побеждали в наших розыгрышах! Чтобы дать шанс и другим участникам, в этот раз ваша удача может быть немного скромнее. Желаете продолжить?',
-                    (ok) => {
-                        if (ok) {
-                            showTheModal();
-                        }
-                    }
-                );
-            } else {
-                showTheModal();
-            }
-        }
-        
-        async function showParticipantsModal(eventId, eventTitle) {
-            if (!tg.initData) {
-                alert('Пожалуйста, откройте эту страницу в Telegram, чтобы посмотреть участников.');
-                return;
-            }
-            dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
-            dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Загрузка...</li>';
-            showModal(dom.participantsModal);
-            try {
-                const response = await fetch('/api/v1/events/participants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId }) });
-                if (!response.ok) throw new Error('Ошибка при загрузке списка.');
-                const result = await response.json();
-                dom.participantsList.innerHTML = '';
-                if (result.participants.length === 0) {
-                    dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Участников пока нет.</li>';
-                } else {
-                    result.participants.forEach((p, index) => {
-                        const li = document.createElement('li'); li.className = 'participant-item';
-                        const fullName = p.full_name || (p.username ? `@${p.username}` : 'Без имени');
-                        li.innerHTML = `<div class="participant-rank">${index + 1}.</div><div class="participant-name">${fullName}</div><div class="participant-tickets">${p.tickets_spent} 🎟️</div>`;
-                        dom.participantsList.appendChild(li);
-                    });
-                }
-            } catch (error) {
-                dom.participantsList.innerHTML = `<li style="text-align: center; color: var(--danger-color);">Не удалось загрузить данные.</li>`; console.error(error);
-            }
-        }
-
-        async function initialize() {
-            tg.ready();
-            tg.expand();
-
-            if (tg.initData && tg.initData.length > 0) {
-                try {
-                    const [contentRes, userRes] = await Promise.all([
-                        fetch('/api/v1/events/content', {cache: 'no-store'}),
-                        fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
-                    ]);
-                    if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
-                    pageContent = await contentRes.json(); 
-                    userData = await userRes.json();
-                    
-                    renderPage();
-
-                    if (userData.is_admin) {
-                        dom.adminControls.style.display = 'block';
-                        dom.editBtn.onclick = () => { 
-                            document.body.classList.add('edit-mode'); 
-                            dom.adminControls.classList.add('edit-mode-active');
-                            renderPage(); 
-                        };
-                        dom.saveBtn.onclick = async () => { 
-                            document.body.classList.remove('edit-mode'); 
-                            dom.adminControls.classList.remove('edit-mode-active');
-                            try {
-                                const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
-                                if(!response.ok) throw new Error('Ошибка сохранения');
-                                tg.showAlert('Изменения сохранены!');
-                            } catch (e) {
-                                tg.showAlert(e.message);
-                            }
-                            renderPage(); 
-                        };
-                    }
-                } catch (error) { 
-                    console.error("Ошибка инициализации в Telegram:", error); 
-                    tg.showAlert("Не удалось загрузить данные."); 
-                }
-            } else {
-                document.body.classList.add('browser-view');
-                try {
-                    const contentRes = await fetch('/api/v1/events/content', {cache: 'no-store'});
-                    if (!contentRes.ok) throw new Error("Ошибка сети при загрузке контента");
-                    pageContent = await contentRes.json();
-                    renderPage();
-                } catch (error) {
-                    console.error("Ошибка инициализации в браузере:", error);
-                    document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Не удалось загрузить информацию о розыгрышах. Попробуйте открыть страницу через Telegram.</p></div>`;
-                }
-            }
-        }
-
-        // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
-        function makeModalDraggable(modalContent) {
-            // --- ИСПРАВЛЕНО: Функция перетаскивания диалоговых окон отключена по просьбе пользователя. ---
             return;
         }
         
-        document.querySelectorAll('.modal-content').forEach(makeModalDraggable);
+        const showTheModal = () => {
+            const eventData = pageContent.events.find(e => e.id == eventId);
+            dom.userBalanceDisplay.textContent = userData.tickets || 0;
+            dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
+            dom.ticketEventIdInput.value = eventId;
+            dom.ticketAmountInput.value = ''; 
+            dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
+            dom.ticketAmountInput.max = userData.tickets || 0;
+            showModal(dom.ticketModal); 
+            dom.ticketAmountInput.focus();
+        };
 
-        document.body.addEventListener('click', async (e) => {
-            const button = e.target.closest('button');
-            const editableText = e.target.closest('[data-editable]');
-            const createCard = e.target.closest('.create-event-card');
-            
-            if (document.body.classList.contains('edit-mode')) {
-                if (button?.matches('.card-edit-btn')) {
-                    showEventModal(pageContent.events[button.dataset.index], button.dataset.index);
-                } else if (button?.matches('.card-delete-btn')) {
-                    tg.showConfirm('Удалить этот ивент?', (ok) => {
-                        if (ok) { pageContent.events.splice(button.dataset.index, 1); renderPage(); }
-                    });
-                } else if (button?.matches('.card-reset-btn')) {
-                    tg.showConfirm('Сбросить победителя и очистить участников, чтобы запустить розыгрыш заново?', async (ok) => {
-                        if (ok) {
-                            const eventIndex = button.dataset.index;
-                            const eventToReset = pageContent.events[eventIndex];
-                            if (!eventToReset) return;
-                            const oldEventId = eventToReset.id;
-                            tg.MainButton.showProgress();
-                            try {
-                                const response = await fetch('/api/v1/admin/events/clear_participants', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ initData: tg.initData, event_id: oldEventId })
-                                });
-                                const result = await response.json();
-                                if (!response.ok) throw new Error(result.detail || 'Не удалось сбросить розыгрыш.');
-                                const targetEvent = pageContent.events.find(e => e.id === oldEventId);
-                                if (targetEvent) {
-                                    targetEvent.id = result.new_event_id;
-                                    delete targetEvent.winner_name;
-                                    delete targetEvent.winner_id;
-                                }
-                                renderPage();
-                                tg.showAlert('Розыгрыш сброшен и готов к новому запуску!');
-                            } catch (error) {
-                                tg.showAlert(error.message || 'Произошла ошибка.');
-                            } finally {
-                                tg.MainButton.hideProgress();
-                            }
-                        }
-                    });
-                } else if (createCard) {
-                    showEventModal(null, null);
-                } else if (editableText) {
-                    const key = editableText.dataset.key;
-                    const isIcon = editableText.tagName === 'I';
-                    if (key === 'raffleEndTime') {
-                        showTimerModal();
-                    } else {
-                        showTextModal(key, isIcon);
+        if (userData.is_previous_winner) {
+            tg.showConfirm(
+                'Вы уже побеждали в наших розыгрышах! Чтобы дать шанс и другим участникам, в этот раз ваша удача может быть немного скромнее. Желаете продолжить?',
+                (ok) => {
+                    if (ok) {
+                        showTheModal();
                     }
                 }
+            );
+        } else {
+            showTheModal();
+        }
+    }
+    
+    async function showParticipantsModal(eventId, eventTitle) {
+        if (!tg.initData) {
+            alert('Пожалуйста, откройте эту страницу в Telegram, чтобы посмотреть участников.');
+            return;
+        }
+        dom.participantsModalTitle.textContent = `Топ-5 участников: ${eventTitle}`;
+        dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Загрузка...</li>';
+        showModal(dom.participantsModal);
+        try {
+            const response = await fetch('/api/v1/events/participants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId }) });
+            if (!response.ok) throw new Error('Ошибка при загрузке списка.');
+            const result = await response.json();
+            dom.participantsList.innerHTML = '';
+            if (result.participants.length === 0) {
+                dom.participantsList.innerHTML = '<li style="text-align: center; color: var(--text-secondary);">Участников пока нет.</li>';
             } else {
-                if (button?.matches('.event-button')) {
-                    showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
-                } else if (button?.matches('.participants-button')) {
-                    showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
-                } else if (button?.id === 'claim-free-ticket-btn') {
-                    button.disabled = true;
-                    try {
-                         const response = await fetch('/api/v1/user/claim-free-ticket', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData }) });
-                         const result = await response.json();
-                         if (!response.ok) throw new Error(result.detail || "Не удалось получить билет.");
-
-                         tg.showAlert(result.message);
-                         userData.tickets = result.new_ticket_balance;
-                         userData.last_free_ticket_claimed_at = new Date().toISOString();
-                         renderFreeTicketSection();
-                    } catch(e) {
-                        tg.showAlert(e.message);
-                        button.disabled = false;
-                    }
-                }
-            }
-        });
-
-        dom.eventModalForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const index = dom.eventIndexInput.value;
-            const isNew = !(index && index !== 'null');
-            
-            const eventData = {
-                title: dom.eventTitleInput.value, 
-                description: dom.eventDescriptionInput.value,
-                image_url: dom.eventImageInput.value, 
-                tickets_cost: parseInt(dom.eventCostInput.value),
-                top_border_color: dom.eventBorderColorInput.value,
-                bg_color: dom.eventBgColorInput.value,
-                dot_color: dom.eventDotColorInput.value,
-                image_scale: parseFloat(dom.eventImageScaleInput.value)
-            };
-
-            hideModal(dom.eventModal); 
-            tg.MainButton.showProgress();
-
-            try {
-                let finalEventData;
-                
-                if (isNew) {
-                    const createResponse = await fetch('/api/v1/admin/events/create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            initData: tg.initData,
-                            ...eventData,
-                            end_date: null
-                        })
-                    });
-                    const createResult = await createResponse.json();
-                    if (!createResponse.ok) {
-                        throw new Error(createResult.detail || 'Не удалось создать ивент в базе данных.');
-                    }
-                    
-                    const newEventId = createResult.event_id;
-
-                    finalEventData = { ...eventData, id: newEventId };
-                    (pageContent.events || (pageContent.events = [])).push(finalEventData);
-                } else {
-                    finalEventData = {
-                        id: pageContent.events[index].id,
-                        ...eventData
-                    };
-                    pageContent.events[index] = finalEventData;
-                }
-
-                const updateResponse = await fetch('/api/v1/admin/events/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ initData: tg.initData, content: pageContent })
+                result.participants.forEach((p, index) => {
+                    const li = document.createElement('li'); li.className = 'participant-item';
+                    const fullName = p.full_name || (p.username ? `@${p.username}` : 'Без имени');
+                    li.innerHTML = `<div class="participant-rank">${index + 1}.</div><div class="participant-name">${fullName}</div><div class="participant-tickets">${p.tickets_spent} 🎟️</div>`;
+                    dom.participantsList.appendChild(li);
                 });
-                if (!updateResponse.ok) {
-                    const updateResult = await updateResponse.json();
-                    throw new Error(updateResult.detail || 'Ошибка сохранения контента страницы.');
-                }
-                
-                tg.showAlert('Изменения сохранены!');
+            }
+        } catch (error) {
+            dom.participantsList.innerHTML = `<li style="text-align: center; color: var(--danger-color);">Не удалось загрузить данные.</li>`; console.error(error);
+        }
+    }
 
-            } catch (e) {
-                tg.showAlert(e.message);
-                console.error(e);
-            } finally {
-                tg.MainButton.hideProgress();
-                renderPage(); 
-            }
-        });
-        
-        dom.textModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent[dom.textKeyInput.value] = dom.textValueInput.value; hideModal(dom.textModal); renderPage(); });
-        dom.timerModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent.raffleEndTime = dom.timerInput.value; hideModal(dom.timerModal); renderPage(); });
-        dom.ticketModalForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const eventId = parseInt(dom.ticketEventIdInput.value);
-            const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
-            
-            if (!ticketsToSpend || ticketsToSpend <= 0) { 
-                tg.showAlert('Введите корректное количество билетов.'); 
-                return; 
-            }
-            if (ticketsToSpend > userData.tickets) { 
-                tg.showAlert('У вас недостаточно билетов.'); 
-                return; 
-            }
-            
-            hideModal(dom.ticketModal);
-            tg.MainButton.showProgress();
-
+    async function initialize() {
+        tg.ready();
+        try{ tg.expand(); }catch{}
+        // Загружаем данные контента и пользователя
+        if (tg.initData && tg.initData.length > 0) {
             try {
-                const response = await fetch('/api/v1/events/enter', {
+                const [contentRes, userRes] = await Promise.all([
+                    fetch('/api/v1/events/content', {cache: 'no-store'}),
+                    fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
+                ]);
+                if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
+                pageContent = await contentRes.json(); 
+                userData = await userRes.json();
+                
+                renderPage();
+
+                if (userData.is_admin) {
+                    dom.adminControls.style.display = 'block';
+                    dom.editBtn.onclick = () => { 
+                        document.body.classList.add('edit-mode'); 
+                        dom.adminControls.classList.add('edit-mode-active');
+                        renderPage(); 
+                    };
+                    dom.saveBtn.onclick = async () => { 
+                        document.body.classList.remove('edit-mode'); 
+                        dom.adminControls.classList.remove('edit-mode-active');
+                        try {
+                            const response = await fetch('/api/v1/admin/events/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, content: pageContent }) });
+                            if(!response.ok) throw new Error('Ошибка сохранения');
+                            tg.showAlert('Изменения сохранены!');
+                        } catch (e) {
+                            tg.showAlert(e.message);
+                        }
+                        renderPage(); 
+                    };
+                }
+            } catch (error) { 
+                console.error("Ошибка инициализации в Telegram:", error); 
+                try{ tg.showAlert("Не удалось загрузить данные."); }catch{} 
+            }
+        } else {
+            document.body.classList.add('browser-view');
+            try {
+                const contentRes = await fetch('/api/v1/events/content', {cache: 'no-store'});
+                if (!contentRes.ok) throw new Error("Ошибка сети при загрузке контента");
+                pageContent = await contentRes.json();
+                renderPage();
+            } catch (error) {
+                console.error("Ошибка инициализации в браузере:", error);
+                document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Не удалось загрузить информацию о розыгрышах. Попробуйте открыть страницу через Telegram.</p></div>`;
+            }
+        }
+    }
+
+    // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
+    function makeModalDraggable(modalContent) {
+        // --- ИСПРАВЛЕНО: Функция перетаскивания диалоговых окон отключена по просьбе пользователя. ---
+        return;
+    }
+    
+    document.querySelectorAll('.modal-content').forEach(makeModalDraggable);
+
+    document.body.addEventListener('click', async (e) => {
+        const button = e.target.closest('button');
+        const editableText = e.target.closest('[data-editable]');
+        const createCard = e.target.closest('.create-event-card');
+        
+        if (document.body.classList.contains('edit-mode')) {
+            if (button?.matches('.card-edit-btn')) {
+                showEventModal(pageContent.events[button.dataset.index], button.dataset.index);
+            } else if (button?.matches('.card-delete-btn')) {
+                tg.showConfirm('Удалить этот ивент?', (ok) => {
+                    if (ok) { pageContent.events.splice(button.dataset.index, 1); renderPage(); }
+                });
+            } else if (button?.matches('.card-reset-btn')) {
+                tg.showConfirm('Сбросить победителя и очистить участников, чтобы запустить розыгрыш заново?', async (ok) => {
+                    if (ok) {
+                        const eventIndex = button.dataset.index;
+                        const eventToReset = pageContent.events[eventIndex];
+                        if (!eventToReset) return;
+                        const oldEventId = eventToReset.id;
+                        if (typeof tg?.MainButton?.showProgress === 'function') try{ tg.MainButton.showProgress(); }catch{}
+                        try {
+                            const response = await fetch('/api/v1/admin/events/clear_participants', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ initData: tg.initData, event_id: oldEventId })
+                            });
+                            const result = await response.json();
+                            if (!response.ok) throw new Error(result.detail || 'Не удалось сбросить розыгрыш.');
+                            const targetEvent = pageContent.events.find(e => e.id === oldEventId);
+                            if (targetEvent) {
+                                targetEvent.id = result.new_event_id;
+                                delete targetEvent.winner_name;
+                                delete targetEvent.winner_id;
+                            }
+                            renderPage();
+                            tg.showAlert('Розыгрыш сброшен и готов к новому запуску!');
+                        } catch (error) {
+                            tg.showAlert(error.message || 'Произошла ошибка.');
+                        } finally {
+                            if (typeof tg?.MainButton?.hideProgress === 'function') try{ tg.MainButton.hideProgress(); }catch{}
+                        }
+                    }
+                });
+            } else if (createCard) {
+                // откроем основную модалку редактирования (универсально)
+                showEventModal(null, null);
+            } else if (editableText) {
+                const key = editableText.dataset.key;
+                const isIcon = editableText.tagName === 'I';
+                if (key === 'raffleEndTime') {
+                    showTimerModal();
+                } else {
+                    showTextModal(key, isIcon);
+                }
+            }
+        } else {
+            if (button?.matches('.event-button')) {
+                showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
+            } else if (button?.matches('.participants-button')) {
+                showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
+            } else if (button?.id === 'claim-free-ticket-btn') {
+                button.disabled = true;
+                try {
+                     const response = await fetch('/api/v1/user/claim-free-ticket', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData }) });
+                     const result = await response.json();
+                     if (!response.ok) throw new Error(result.detail || "Не удалось получить билет.");
+
+                     tg.showAlert(result.message);
+                     userData.tickets = result.new_ticket_balance;
+                     userData.last_free_ticket_claimed_at = new Date().toISOString();
+                     renderFreeTicketSection();
+                } catch(e) {
+                    tg.showAlert(e.message);
+                    button.disabled = false;
+                }
+            }
+        }
+    });
+
+    dom.eventModalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const index = dom.eventIndexInput.value;
+        const isNew = !(index && index !== 'null');
+        
+        const eventData = {
+            title: dom.eventTitleInput.value, 
+            description: dom.eventDescriptionInput.value,
+            image_url: dom.eventImageInput.value, 
+            tickets_cost: parseInt(dom.eventCostInput.value),
+            top_border_color: dom.eventBorderColorInput.value,
+            bg_color: dom.eventBgColorInput.value,
+            dot_color: dom.eventDotColorInput.value,
+            image_scale: parseFloat(dom.eventImageScaleInput.value)
+        };
+
+        hideModal(dom.eventModal); 
+        if (typeof tg?.MainButton?.showProgress === 'function') try{ tg.MainButton.showProgress(); }catch{}
+        try {
+            let finalEventData;
+            
+            if (isNew) {
+                const createResponse = await fetch('/api/v1/admin/events/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         initData: tg.initData,
-                        event_id: eventId,
-                        tickets_to_spend: ticketsToSpend
+                        ...eventData,
+                        end_date: null
                     })
                 });
-                const result = await response.json();
-                if (!response.ok) {
-                    if (response.status === 409) {
-                        throw new Error('Вы уже участвуете в этом событии!');
-                    } else {
-                        throw new Error(result.detail || 'Ошибка при отправке ставки.');
-                    }
+                const createResult = await createResponse.json();
+                if (!createResponse.ok) {
+                    throw new Error(createResult.detail || 'Не удалось создать ивент в базе данных.');
                 }
+                
+                const newEventId = createResult.event_id;
 
-                tg.showAlert('Ваша ставка принята!');
-                userData.tickets = result.new_ticket_balance;
-                userData.event_participations = userData.event_participations || {};
-                userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
-                renderPage();
-            } catch (error) {
-                tg.showAlert(error.message);
-                console.error(error);
-            } finally {
-                tg.MainButton.hideProgress();
+                finalEventData = { ...eventData, id: newEventId };
+                (pageContent.events || (pageContent.events = [])).push(finalEventData);
+            } else {
+                finalEventData = {
+                    id: pageContent.events[index].id,
+                    ...eventData
+                };
+                pageContent.events[index] = finalEventData;
             }
-        });
 
-        document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
-            const closeButton = modalOverlay.querySelector('.modal-close-btn');
-            if (closeButton) {
-                closeButton.addEventListener('click', () => {
-                    hideModal(modalOverlay);
-                });
+            const updateResponse = await fetch('/api/v1/admin/events/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData, content: pageContent })
+            });
+            if (!updateResponse.ok) {
+                const updateResult = await updateResponse.json();
+                throw new Error(updateResult.detail || 'Ошибка сохранения контента страницы.');
             }
-        });
+            
+            tg.showAlert('Изменения сохранены!');
 
-        initialize();
+        } catch (e) {
+            tg.showAlert(e.message);
+            console.error(e);
+        } finally {
+            if (typeof tg?.MainButton?.hideProgress === 'function') try{ tg.MainButton.hideProgress(); }catch{}
+            renderPage(); 
+        }
     });
+    
+    dom.textModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent[dom.textKeyInput.value] = dom.textValueInput.value; hideModal(dom.textModal); renderPage(); });
+    dom.timerModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent.raffleEndTime = dom.timerInput.value; hideModal(dom.timerModal); renderPage(); });
+    dom.ticketModalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const eventId = parseInt(dom.ticketEventIdInput.value);
+        const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
+        
+        if (!ticketsToSpend || ticketsToSpend <= 0) { 
+            tg.showAlert('Введите корректное количество билетов.'); 
+            return; 
+        }
+        if (ticketsToSpend > userData.tickets) { 
+            tg.showAlert('У вас недостаточно билетов.'); 
+            return; 
+        }
+        
+        hideModal(dom.ticketModal);
+        if (typeof tg?.MainButton?.showProgress === 'function') try{ tg.MainButton.showProgress(); }catch{}
+        try {
+            const response = await fetch('/api/v1/events/enter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    initData: tg.initData,
+                    event_id: eventId,
+                    tickets_to_spend: ticketsToSpend
+                })
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                if (response.status === 409) {
+                    throw new Error('Вы уже участвуете в этом событии!');
+                } else {
+                    throw new Error(result.detail || 'Ошибка при отправке ставки.');
+                }
+            }
+
+            tg.showAlert('Ваша ставка принята!');
+            userData.tickets = result.new_ticket_balance;
+            userData.event_participations = userData.event_participations || {};
+            userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
+            renderPage();
+        } catch (error) {
+            tg.showAlert(error.message);
+            console.error(error);
+        } finally {
+            if (typeof tg?.MainButton?.hideProgress === 'function') try{ tg.MainButton.hideProgress(); }catch{}
+        }
+    });
+
+    document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
+        const closeButton = modalOverlay.querySelector('.modal-close-btn');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                hideModal(modalOverlay);
+            });
+        }
+    });
+
+    initialize();
+});
 </script>
 </body>
 </html>
