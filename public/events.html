@@ -552,7 +552,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // --- Новый код для удаления события ---
     const deleteEventButtons = document.querySelectorAll('.delete-btn');
     deleteEventButtons.forEach(button => {
@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             container.parentElement.style.display = 'flex';
         }
-        
+
         if (freeTicketInterval) clearInterval(freeTicketInterval);
 
         const lastClaimTime = userData.last_free_ticket_claimed_at ? new Date(userData.last_free_ticket_claimed_at) : null;
@@ -607,7 +607,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (lastClaimTime) {
             nextClaimTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
         }
-        
+
         const canClaim = !nextClaimTime || now >= nextClaimTime;
 
         if (canClaim) {
