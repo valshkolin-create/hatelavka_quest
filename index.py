@@ -1261,41 +1261,42 @@ async def create_event(
     request_data: EventCreateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    (Админ) Создает новый ивент в таблице public.events и возвращает его ID.
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    user = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user or user.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Недостаточно прав.")
 
     try:
-        # Вставляем данные в таблицу events
-        response = await supabase.post(
-            "/events",
-            json={
-                "title": request_data.title,
-                "description": request_data.description,
-                "image_url": request_data.image_url,
-                "tickets_cost": request_data.tickets_cost,
-                "end_date": request_data.end_date
-            },
-            headers={"Prefer": "return=representation"} # Возвращаем созданную запись
-        )
-        response.raise_for_status()
-        
-        new_event_id = response.json()[0]['id']
-        
-        return {
-            "message": f"Событие '{request_data.title}' успешно создано!",
-            "event_id": new_event_id
+        # 1. Формируем данные для Supabase
+        event_payload = {
+            "title": request_data.title,
+            "description": request_data.description,
+            "image_url": request_data.image_url,
+            "tickets_cost": request_data.tickets_cost
         }
+        if request_data.end_date:
+            event_payload["end_date"] = datetime.fromisoformat(request_data.end_date).isoformat() + 'Z'
+        
+        # 2. Отправляем запрос в Supabase для создания новой записи
+        # Supabase сам автоматически присвоит новый ID, который будет уникальным
+        resp = await supabase.post(
+            "/events",
+            json=event_payload,
+            headers={"Prefer": "return=representation"}
+        )
+        resp.raise_for_status()
+        new_event = resp.json()
+        
+        # 3. Уведомляем клиентов через WebSocket о новом событии
+        await manager.broadcast(json.dumps({"type": "event_created", "event": new_event}))
+        
+        return {"status": "ok", "message": "Событие успешно создано!", "event": new_event}
+    
     except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Неизвестная ошибка Supabase.")
-        logging.error(f"Ошибка Supabase при создании события: {error_details}")
-        raise HTTPException(status_code=400, detail=f"Ошибка базы данных: {error_details}")
+        logging.error(f"Supabase вернул ошибку при создании события: {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Ошибка базы данных: {e.response.text}")
     except Exception as e:
-        logging.error(f"Неизвестная ошибка при создании события: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+        logging.error(f"Непредвиденная ошибка при создании события: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
