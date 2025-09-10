@@ -552,49 +552,87 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-        function renderFreeTicketSection() {
-            const container = dom.freeTicketButtonWrapper;
-            if (!userData || !userData.id) {
-                container.parentElement.style.display = 'none';
-                return;
-            } else {
-                container.parentElement.style.display = 'flex';
-            }
-            
-            if (freeTicketInterval) clearInterval(freeTicketInterval);
+    
+    // --- Новый код для удаления события ---
+    const deleteEventButtons = document.querySelectorAll('.delete-btn');
+    deleteEventButtons.forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const eventId = e.target.dataset.id;
+            if (!eventId) return;
 
-            const lastClaimTime = userData.last_free_ticket_claimed_at ? new Date(userData.last_free_ticket_claimed_at) : null;
-            const now = new Date();
-            let nextClaimTime = null;
+            if (confirm('Вы уверены, что хотите удалить этот розыгрыш? Это действие необратимо.')) {
+                try {
+                    tg.MainButton.showProgress();
+                    const response = await fetch('/api/v1/admin/events/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            initData: tg.initData,
+                            event_id: parseInt(eventId)
+                        })
+                    });
 
-            if (lastClaimTime) {
-                nextClaimTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
-            }
-            
-            const canClaim = !nextClaimTime || now >= nextClaimTime;
-
-            if (canClaim) {
-                container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button">Получить билет</button>`;
-            } else {
-                container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button" disabled>Билет получен <span class="timer-text" id="free-ticket-timer"></span></button>`;
-                const timerEl = document.getElementById('free-ticket-timer');
-
-                const updateTimer = () => {
-                    const distance = nextClaimTime - new Date().getTime();
-                    if (distance < 0) {
-                        clearInterval(freeTicketInterval);
-                        renderFreeTicketSection();
-                        return;
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.detail || 'Ошибка при удалении события.');
                     }
-                    const h = Math.floor(distance / 3600000);
-                    const m = Math.floor((distance % 3600000) / 60000);
-                    const s = Math.floor((distance % 60000) / 1000);
-                    timerEl.textContent = `(следующий через ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')})`;
-                };
-                updateTimer();
-                freeTicketInterval = setInterval(updateTimer, 1000);
+
+                    tg.showAlert('Розыгрыш успешно удален!');
+                    fetchEventsAndRender(); // Обновляем список событий на странице
+                } catch (error) {
+                    tg.showAlert(error.message);
+                    console.error(error);
+                } finally {
+                    tg.MainButton.hideProgress();
+                }
             }
+        });
+    });
+
+    function renderFreeTicketSection() {
+        const container = dom.freeTicketButtonWrapper;
+        if (!userData || !userData.id) {
+            container.parentElement.style.display = 'none';
+            return;
+        } else {
+            container.parentElement.style.display = 'flex';
         }
+        
+        if (freeTicketInterval) clearInterval(freeTicketInterval);
+
+        const lastClaimTime = userData.last_free_ticket_claimed_at ? new Date(userData.last_free_ticket_claimed_at) : null;
+        const now = new Date();
+        let nextClaimTime = null;
+
+        if (lastClaimTime) {
+            nextClaimTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
+        }
+        
+        const canClaim = !nextClaimTime || now >= nextClaimTime;
+
+        if (canClaim) {
+            container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button">Получить билет</button>`;
+        } else {
+            container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button" disabled>Билет получен <span class="timer-text" id="free-ticket-timer"></span></button>`;
+            const timerEl = document.getElementById('free-ticket-timer');
+
+            const updateTimer = () => {
+                const distance = nextClaimTime - new Date().getTime();
+                if (distance < 0) {
+                    clearInterval(freeTicketInterval);
+                    renderFreeTicketSection();
+                    return;
+                }
+                const h = Math.floor(distance / 3600000);
+                const m = Math.floor((distance % 3600000) / 60000);
+                const s = Math.floor((distance % 60000) / 1000);
+                timerEl.textContent = `(следующий через ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')})`;
+            };
+            updateTimer();
+            freeTicketInterval = setInterval(updateTimer, 1000);
+        }
+    }
+});
 
         function renderPage() {
             editableKeys.forEach(key => {
