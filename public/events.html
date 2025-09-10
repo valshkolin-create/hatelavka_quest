@@ -418,131 +418,221 @@
         <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>Профиль</span></a>
     </footer>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const tg = window.Telegram.WebApp;
-        let pageContent = {};
-        let countdownInterval = null;
-        let freeTicketInterval = null;
-        let userData = {};
-        const dom = {
-            adminControls: document.getElementById('admin-controls'), editBtn: document.getElementById('edit-btn'), saveBtn: document.getElementById('save-btn'),
-            eventsContainer: document.getElementById('events-list'),
-            eventModal: document.getElementById('event-modal'), eventModalTitle: document.getElementById('event-modal-title'), eventModalForm: document.getElementById('event-modal-form'), eventIndexInput: document.getElementById('event-index-input'), eventTitleInput: document.getElementById('event-title-input'), eventDescriptionInput: document.getElementById('event-description-input'), eventImageInput: document.getElementById('event-image-input'), eventCostInput: document.getElementById('event-cost-input'),
-            eventBorderColorInput: document.getElementById('event-border-color-input'),
-            eventBgColorInput: document.getElementById('event-bg-color-input'),
-            eventDotColorInput: document.getElementById('event-dot-color-input'),
-            eventImageScaleInput: document.getElementById('event-image-scale-input'),
-            textModal: document.getElementById('text-modal'), textModalTitle: document.getElementById('text-modal-title'), textModalForm: document.getElementById('text-modal-form'), textKeyInput: document.getElementById('text-key-input'), textValueInput: document.getElementById('text-value-input'),
-            timerModal: document.getElementById('timer-modal'), timerModalForm: document.getElementById('timer-modal-form'), timerInput: document.getElementById('timer-input'),
-            ticketModal: document.getElementById('ticket-modal'),
-            ticketModalTitle: document.getElementById('ticket-modal-title'),
-            ticketModalForm: document.getElementById('ticket-modal-form'),
-            userBalanceDisplay: document.getElementById('user-balance-display'),
-            ticketEventIdInput: document.getElementById('ticket-event-id-input'),
-            ticketAmountInput: document.getElementById('ticket-amount-input'),
-            participantsModal: document.getElementById('participants-modal'),
-            participantsModalTitle: document.getElementById('participants-modal-title'),
-            participantsList: document.getElementById('participants-list'),
-            freeTicketButtonWrapper: document.getElementById('free-ticket-button-wrapper')
-        };
-        const editableKeys = ['raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
+document.addEventListener('DOMContentLoaded', function() {
+    const tg = window.Telegram.WebApp;
+    let pageContent = {};
+    let countdownInterval = null;
+    let freeTicketInterval = null;
+    let userData = {};
+    const dom = {
+        adminControls: document.getElementById('admin-controls'), editBtn: document.getElementById('edit-btn'), saveBtn: document.getElementById('save-btn'),
+        eventsContainer: document.getElementById('events-list'),
+        eventModal: document.getElementById('event-modal'), eventModalTitle: document.getElementById('event-modal-title'), eventModalForm: document.getElementById('event-modal-form'), eventIndexInput: document.getElementById('event-index-input'), eventTitleInput: document.getElementById('event-title-input'), eventDescriptionInput: document.getElementById('event-description-input'), eventImageInput: document.getElementById('event-image-input'), eventCostInput: document.getElementById('event-cost-input'),
+        eventBorderColorInput: document.getElementById('event-border-color-input'),
+        eventBgColorInput: document.getElementById('event-bg-color-input'),
+        eventDotColorInput: document.getElementById('event-dot-color-input'),
+        eventImageScaleInput: document.getElementById('event-image-scale-input'),
+        textModal: document.getElementById('text-modal'), textModalTitle: document.getElementById('text-modal-title'), textModalForm: document.getElementById('text-modal-form'), textKeyInput: document.getElementById('text-key-input'), textValueInput: document.getElementById('text-value-input'),
+        timerModal: document.getElementById('timer-modal'), timerModalForm: document.getElementById('timer-modal-form'), timerInput: document.getElementById('timer-input'),
+        ticketModal: document.getElementById('ticket-modal'),
+        ticketModalTitle: document.getElementById('ticket-modal-title'),
+        ticketModalForm: document.getElementById('ticket-modal-form'),
+        userBalanceDisplay: document.getElementById('user-balance-display'),
+        ticketEventIdInput: document.getElementById('ticket-event-id-input'),
+        ticketAmountInput: document.getElementById('ticket-amount-input'),
+        participantsModal: document.getElementById('participants-modal'),
+        participantsModalTitle: document.getElementById('participants-modal-title'),
+        participantsList: document.getElementById('participants-list'),
+        freeTicketButtonWrapper: document.getElementById('free-ticket-button-wrapper')
+    };
+    const editableKeys = ['raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
 
-        function hexToRgba(hex, alpha) {
-            if (!hex || hex.length < 4) hex = '#ffffff';
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    function hexToRgba(hex, alpha) {
+        if (!hex || hex.length < 4) hex = '#ffffff';
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
+    function startCountdown(endTimeString) {
+        if (countdownInterval) clearInterval(countdownInterval);
+        const timerElement = document.getElementById('countdown-timer');
+        if (!endTimeString || !timerElement) {
+            if(timerElement) timerElement.textContent = 'Время не задано';
+            return;
         }
 
-        // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
-        function startCountdown(endTimeString) {
-            if (countdownInterval) clearInterval(countdownInterval);
-            const timerElement = document.getElementById('countdown-timer');
-            if (!endTimeString || !timerElement) { 
-                if(timerElement) timerElement.textContent = 'Время не задано'; 
-                return; 
-            }
-            
-            // --- ИСПРАВЛЕНО: Адаптация под часовые пояса ---
-            // Принудительно интерпретируем время как московское (UTC+3) для корректного отсчета у всех пользователей.
-            const endTime = new Date(endTimeString + '+03:00').getTime();
-            
-            const update = () => {
-                const distance = endTime - new Date().getTime();
+        // --- ИСПРАВЛЕНО: Адаптация под часовые пояса ---
+        // Принудительно интерпретируем время как московское (UTC+3) для корректного отсчета у всех пользователей.
+        const endTime = new Date(endTimeString + '+03:00').getTime();
 
-                // --- ИСПРАВЛЕНО: Логика отображения после завершения розыгрыша ---
-                if (distance < 0) {
-                    clearInterval(countdownInterval);
-                    // Проверяем, есть ли уже победитель (что означает, что CRON отработал)
-                    const isRaffleFinished = pageContent.events && pageContent.events.some(event => event.winner_name);
-                    if (isRaffleFinished) {
-                        timerElement.textContent = 'Розыгрыш завершен';
-                    } else {
-                        timerElement.innerHTML = '<div class="loader-spinner"></div><span>Подсчет итогов...</span>';
+        const update = () => {
+            const distance = endTime - new Date().getTime();
+
+            // --- ИСПРАВЛЕНО: Логика отображения после завершения розыгрыша ---
+            if (distance < 0) {
+                clearInterval(countdownInterval);
+                // Проверяем, есть ли уже победитель (что означает, что CRON отработал)
+                const isRaffleFinished = pageContent.events && pageContent.events.some(event => event.winner_name);
+                if (isRaffleFinished) {
+                    timerElement.textContent = 'Розыгрыш завершен';
+                } else {
+                    timerElement.innerHTML = '<div class="loader-spinner"></div><span>Подсчет итогов...</span>';
+                }
+                return;
+            }
+
+            const d = Math.floor(distance / 86400000);
+            const h = Math.floor((distance % 86400000) / 3600000);
+            const m = Math.floor((distance % 3600000) / 60000);
+            const s = Math.floor((distance % 60000) / 1000);
+
+            if (document.body.classList.contains('browser-view')) {
+                const totalHours = d * 24 + h;
+                timerElement.textContent = `${totalHours}ч ${m}м ${s}с`;
+            } else {
+                timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
+            }
+        };
+        update();
+        countdownInterval = setInterval(update, 1000);
+    }
+
+    // --- Новый код для создания события ---
+    const newEventModal = document.querySelector('.new-event-modal');
+    const newEventForm = document.getElementById('new-event-form');
+    const createEventButton = document.querySelector('.create-event-button');
+    const newEventTitleInput = document.getElementById('event-title');
+    const newEventDescriptionInput = document.getElementById('event-description');
+    const newEventImageInput = document.getElementById('event-image-url');
+    const newEventTicketsInput = document.getElementById('event-tickets-cost');
+    const newEventEndDateInput = document.getElementById('event-end-date');
+
+    if (createEventButton) {
+        createEventButton.addEventListener('click', () => {
+            showModal(newEventModal);
+        });
+    }
+
+    if (newEventForm) {
+        newEventForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            tg.MainButton.showProgress();
+
+            try {
+                const response = await fetch('/api/v1/admin/events/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        title: newEventTitleInput.value,
+                        description: newEventDescriptionInput.value,
+                        image_url: newEventImageInput.value,
+                        tickets_cost: parseInt(newEventTicketsInput.value),
+                        end_date: newEventEndDateInput.value || null
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.detail || 'Ошибка при создании события.');
+                }
+
+                tg.showAlert('Событие успешно создано!');
+                hideModal(newEventModal);
+                fetchEventsAndRender(); // Обновляем список событий
+
+            } catch (error) {
+                tg.showAlert(error.message);
+                console.error(error);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        });
+    }
+    
+    // --- Новый код для удаления события ---
+    const deleteEventButtons = document.querySelectorAll('.delete-btn');
+    deleteEventButtons.forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const eventId = e.target.dataset.id;
+            if (!eventId) return;
+
+            if (confirm('Вы уверены, что хотите удалить этот розыгрыш? Это действие необратимо.')) {
+                try {
+                    tg.MainButton.showProgress();
+                    const response = await fetch('/api/v1/admin/events/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            initData: tg.initData,
+                            event_id: parseInt(eventId)
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.detail || 'Ошибка при удалении события.');
                     }
+
+                    tg.showAlert('Розыгрыш успешно удален!');
+                    fetchEventsAndRender(); // Обновляем список событий на странице
+                } catch (error) {
+                    tg.showAlert(error.message);
+                    console.error(error);
+                } finally {
+                    tg.MainButton.hideProgress();
+                }
+            }
+        });
+    });
+
+    function renderFreeTicketSection() {
+        const container = dom.freeTicketButtonWrapper;
+        if (!userData || !userData.id) {
+            container.parentElement.style.display = 'none';
+            return;
+        } else {
+            container.parentElement.style.display = 'flex';
+        }
+        
+        if (freeTicketInterval) clearInterval(freeTicketInterval);
+
+        const lastClaimTime = userData.last_free_ticket_claimed_at ? new Date(userData.last_free_ticket_claimed_at) : null;
+        const now = new Date();
+        let nextClaimTime = null;
+
+        if (lastClaimTime) {
+            nextClaimTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
+        }
+        
+        const canClaim = !nextClaimTime || now >= nextClaimTime;
+
+        if (canClaim) {
+            container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button">Получить билет</button>`;
+        } else {
+            container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button" disabled>Билет получен <span class="timer-text" id="free-ticket-timer"></span></button>`;
+            const timerEl = document.getElementById('free-ticket-timer');
+
+            const updateTimer = () => {
+                const distance = nextClaimTime - new Date().getTime();
+                if (distance < 0) {
+                    clearInterval(freeTicketInterval);
+                    renderFreeTicketSection();
                     return;
                 }
-                
-                const d = Math.floor(distance / 86400000); 
-                const h = Math.floor((distance % 86400000) / 3600000); 
-                const m = Math.floor((distance % 3600000) / 60000); 
+                const h = Math.floor(distance / 3600000);
+                const m = Math.floor((distance % 3600000) / 60000);
                 const s = Math.floor((distance % 60000) / 1000);
-
-                if (document.body.classList.contains('browser-view')) {
-                    const totalHours = d * 24 + h;
-                    timerElement.textContent = `${totalHours}ч ${m}м ${s}с`;
-                } else {
-                    timerElement.textContent = `${d}д ${h}ч ${m}м ${s}с`;
-                }
+                timerEl.textContent = `(следующий через ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')})`;
             };
-            update(); 
-            countdownInterval = setInterval(update, 1000);
+            updateTimer();
+            freeTicketInterval = setInterval(updateTimer, 1000);
         }
-
-        function renderFreeTicketSection() {
-            const container = dom.freeTicketButtonWrapper;
-            if (!userData || !userData.id) {
-                container.parentElement.style.display = 'none';
-                return;
-            } else {
-                container.parentElement.style.display = 'flex';
-            }
-            
-            if (freeTicketInterval) clearInterval(freeTicketInterval);
-
-            const lastClaimTime = userData.last_free_ticket_claimed_at ? new Date(userData.last_free_ticket_claimed_at) : null;
-            const now = new Date();
-            let nextClaimTime = null;
-
-            if (lastClaimTime) {
-                nextClaimTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
-            }
-            
-            const canClaim = !nextClaimTime || now >= nextClaimTime;
-
-            if (canClaim) {
-                container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button">Получить билет</button>`;
-            } else {
-                container.innerHTML = `<button id="claim-free-ticket-btn" class="free-ticket-button" disabled>Билет получен <span class="timer-text" id="free-ticket-timer"></span></button>`;
-                const timerEl = document.getElementById('free-ticket-timer');
-
-                const updateTimer = () => {
-                    const distance = nextClaimTime - new Date().getTime();
-                    if (distance < 0) {
-                        clearInterval(freeTicketInterval);
-                        renderFreeTicketSection();
-                        return;
-                    }
-                    const h = Math.floor(distance / 3600000);
-                    const m = Math.floor((distance % 3600000) / 60000);
-                    const s = Math.floor((distance % 60000) / 1000);
-                    timerEl.textContent = `(следующий через ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')})`;
-                };
-                updateTimer();
-                freeTicketInterval = setInterval(updateTimer, 1000);
-            }
-        }
+    }
+});
 
         function renderPage() {
             editableKeys.forEach(key => {
@@ -1006,7 +1096,11 @@
                 });
                 const result = await response.json();
                 if (!response.ok) {
-                    throw new Error(result.detail || 'Ошибка при отправке ставки.');
+                    if (response.status === 409) {
+                        throw new Error('Вы уже участвуете в этом событии!');
+                    } else {
+                        throw new Error(result.detail || 'Ошибка при отправке ставки.');
+                    }
                 }
 
                 tg.showAlert('Ваша ставка принята!');
