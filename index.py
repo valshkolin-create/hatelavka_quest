@@ -3086,20 +3086,8 @@ async def enter_event(
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
     # --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
 
-    # --- НАЧАЛО НОВОГО БЛОКА: ПРОВЕРКА НАЛИЧИЯ ИВЕНТА В ТАБЛИЦЕ EVENTS ---
-    logging.info(f"Проверка существования event_id={event_id_to_enter} в таблице events.")
-    event_check_resp = await supabase.get(
-        "/events",
-        params={"id": f"eq.{event_id_to_enter}", "select": "id"}
-    )
-    event_check_resp.raise_for_status()
-    if not event_check_resp.json():
-        logging.error(f"Event ID {event_id_to_enter} не найден в таблице events. Отмена операции.")
-        raise HTTPException(
-            status_code=404,
-            detail=f"Событие с ID {event_id_to_enter} не найдено в базе данных."
-        )
-    # --- КОНЕЦ НОВОГО БЛОКА ---
+    # ИЗМЕНЕНИЕ: Блок проверки существования event_id удален.
+    # Это позволяет RPC-функции создать новую запись, если ее нет.
 
     # Используем уже полученные данные об ивентах
     event_min_tickets = next((e['tickets_cost'] for e in all_events if e['id'] == request_data.event_id), 1)
