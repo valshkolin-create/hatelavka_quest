@@ -3128,71 +3128,63 @@ async def enter_event(
     telegram_id = user_info["id"]
     event_id_to_enter = request_data.event_id
 
-    # --- НАЧАЛО ИЗМЕНЕНИЯ: Этот блок кода был закомментирован, так как он вызывает ошибку 409 Conflict.
-    # Это временное решение для отладки, чтобы обойти некорректную логику.
-    # После исправления проблемы с данными о событиях в таблице pages_content
-    # этот блок можно будет вернуть.
-    # try:
-    #     content_resp = await supabase.get(
-    #         "/pages_content",
-    #         params={"page_name": "eq.events", "select": "content", "limit": 1}
-    #     )
-    #     content_resp.raise_for_status()
-    #     content_data = content_resp.json()
-    #     if not content_data:
-    #         all_events = []
-    #     else:
-    #         all_events = content_data[0].get("content", {}).get("events", [])
+    # --- НАЧАЛО ИЗМЕНЕНИЯ 1: Проверка на участие в других активных ивентах ---
+    try:
+        # 1. Получаем список всех ивентов, чтобы найти активные
+        content_resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.events", "select": "content", "limit": 1}
+        )
+        content_resp.raise_for_status()
+        content_data = content_resp.json()
+        if not content_data:
+            # Если контента нет, просто пропускаем проверку
+            all_events = []
+        else:
+            all_events = content_data[0].get("content", {}).get("events", [])
         
-    #     active_event_ids = [
-    #         event['id'] for event in all_events 
-    #         if 'winner_id' not in event and event.get('id') != event_id_to_enter
-    #     ]
+        # 2. Собираем ID всех активных (не разыгранных) ивентов, КРОМЕ текущего
+        active_event_ids = [
+            event['id'] for event in all_events 
+            if 'winner_id' not in event and event.get('id') != event_id_to_enter
+        ]
         
-    #     if active_event_ids:
-    #         check_resp = await supabase.get(
-    #             "/event_entries",
-    #             params={
-    #                 "user_id": f"eq.{telegram_id}",
-    #                 "event_id": f"in.({','.join(map(str, active_event_ids))})",
-    #                 "select": "event_id",
-    #                 "limit": "1"
-    #             }
-    #         )
-    #         check_resp.raise_for_status()
+        # 3. Проверяем, есть ли у пользователя ставки в других активных ивентах
+        if active_event_ids:
+            check_resp = await supabase.get(
+                "/event_entries",
+                params={
+                    "user_id": f"eq.{telegram_id}",
+                    "event_id": f"in.({','.join(map(str, active_event_ids))})",
+                    "select": "event_id",
+                    "limit": "1"
+                }
+            )
+            check_resp.raise_for_status()
             
-    #         if check_resp.json():
-    #             raise HTTPException(
-    #                 status_code=409,
-    #                 detail="Вы уже участвуете в другом активном розыгрыше. Можно участвовать только в одном ивенте одновременно."
-    #             )
-    # except HTTPException as e:
-    #     raise e
-    # except Exception as e:
-    #     logging.error(f"Ошибка при проверке участия в ивентах: {e}")
-    #     raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
+            if check_resp.json():
+                raise HTTPException(
+                    status_code=409, # Conflict
+                    detail="Вы уже участвуете в другом активном розыгрыше. Можно участвовать только в одном ивенте одновременно."
+                )
+    except HTTPException as e:
+        raise e # Пробрасываем нашу ошибку 409 дальше
+    except Exception as e:
+        logging.error(f"Ошибка при проверке участия в ивентах: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
     # --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
-    
-    # Мы должны получить список событий, чтобы получить tickets_cost
-    content_resp = await supabase.get(
-        "/pages_content",
-        params={"page_name": "eq.events", "select": "content", "limit": 1}
-    )
-    content_resp.raise_for_status()
-    content_data = content_resp.json()
-    all_events = content_data[0].get("content", {}).get("events", []) if content_data else []
 
-
+    # Используем уже полученные данные об ивентах
     event_min_tickets = next((e['tickets_cost'] for e in all_events if e['id'] == request_data.event_id), 1)
 
-    # Проверяем, что ставка пользователя не меньше минимальной
+    # 2. Проверяем, что ставка пользователя не меньше минимальной
     if request_data.tickets_to_spend < event_min_tickets:
         raise HTTPException(
             status_code=400,
             detail=f"Минимальная ставка для этого ивента - {event_min_tickets} билетов."
         )
 
-    # Вызываем RPC-функцию
+    # 3. Вызываем RPC-функцию, передавая ставку пользователя
     try:
         response = await supabase.post(
             "/rpc/enter_event",
@@ -3211,12 +3203,6 @@ async def enter_event(
         }
 
     except httpx.HTTPStatusError as e:
-        # Улучшенная обработка ошибки 409 Conflict
-        if e.response.status_code == 409:
-            raise HTTPException(
-                status_code=409,
-                detail="Вы уже участвуете в этом розыгрыше."
-            )
         error_details = e.response.json().get("message", "Неизвестная ошибка базы данных.")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
