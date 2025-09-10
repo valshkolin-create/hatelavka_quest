@@ -276,7 +276,12 @@ class TwitchRewardIdRequest(BaseModel):
 
 class EventUpdateRequest(BaseModel):
     initData: str
-    content: dict
+    event_id: int
+    title: str
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
+    tickets_cost: int
+    end_date: Optional[str] = None
 
 # Добавьте эту модель к другим моделям в начале файла
 class EventDeleteRequest(BaseModel):
@@ -1313,7 +1318,7 @@ async def update_events_page_content(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Обновляет контент страницы ивентов (только для админов).
+    Обновляет или добавляет событие в массив events в таблице pages_content (только для админов).
     """
     logger.info(f"Получен запрос: {request_data.dict()}")
 
@@ -1326,13 +1331,8 @@ async def update_events_page_content(
         logger.error(f"Пользователь {user_info.get('id')} не является администратором")
         raise HTTPException(status_code=403, detail="Доступ запрещён.")
 
-    # 2. Валидация структуры content
-    if "events" not in request_data.content:
-        logger.error("Поле content не содержит ключ 'events'")
-        raise HTTPException(status_code=400, detail="Поле content должно содержать ключ 'events'")
-
     try:
-        # 3. Проверка существования записи
+        # 2. Проверка существования записи
         logger.info("Проверка записи pages_content с page_name='events'")
         content_resp = await supabase.get(
             "/pages_content",
@@ -1342,7 +1342,7 @@ async def update_events_page_content(
         page_data = content_resp.json()
         logger.info(f"Ответ Supabase (GET): {page_data}")
 
-        # 4. Если запись отсутствует, создаём новую
+        # 3. Если запись отсутствует, создаём новую
         if not page_data:
             logger.info("Запись не найдена, создаём новую")
             initial_content = {"events": []}
@@ -1352,13 +1352,44 @@ async def update_events_page_content(
             )
             create_resp.raise_for_status()
             logger.info(f"Создана новая запись: {create_resp.json()}")
+            events = []
+        else:
+            events = page_data[0]["content"].get("events", [])
 
-        # 5. Обновление записи
-        logger.info(f"Отправка PATCH с content: {request_data.content}")
+        # 4. Формируем данные нового/обновляемого события
+        new_event = {
+            "id": request_data.event_id,
+            "title": request_data.title,
+            "description": request_data.description,
+            "image_url": request_data.image_url,
+            "tickets_cost": request_data.tickets_cost,
+            "end_date": request_data.end_date,
+            "winner_id": None,
+            "winner_name": None,
+            "prize_sent_confirmed": False
+        }
+
+        # 5. Проверяем, существует ли событие с таким event_id
+        event_index = None
+        for i, event in enumerate(events):
+            if event.get("id") == request_data.event_id:
+                event_index = i
+                break
+
+        # 6. Обновляем или добавляем событие
+        if event_index is not None:
+            events[event_index] = new_event
+            logger.info(f"Обновляем существующее событие с ID {request_data.event_id}")
+        else:
+            events.append(new_event)
+            logger.info(f"Добавляем новое событие с ID {request_data.event_id}")
+
+        # 7. Обновляем запись в Supabase
+        logger.info(f"Отправка PATCH с content: {{'events': {events}}}")
         update_resp = await supabase.patch(
             "/pages_content",
             params={"page_name": "eq.events"},
-            json={"content": request_data.content, "updated_at": "now()"}
+            json={"content": {"events": events}, "updated_at": "now()"}
         )
         update_resp.raise_for_status()
         logger.info(f"Ответ Supabase (PATCH): {update_resp.json()}")
