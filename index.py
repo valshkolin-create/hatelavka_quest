@@ -1346,6 +1346,38 @@ async def update_event(
         logging.error(f"Непредвиденная ошибка при обновлении события: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
+@app.post("/api/v1/admin/events/delete")
+async def delete_event(
+    request: EventDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
+    if not user or user.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Недостаточно прав.")
+
+    try:
+        # Удаляем событие из таблицы 'events' по его id
+        resp = await supabase.delete(f"/events?id=eq.{request.event_id}")
+        resp.raise_for_status()
+
+        # Также удаляем все связанные ставки
+        await supabase.delete(f"/user_event_participations?event_id=eq.{request.event_id}")
+        
+        # Отправляем уведомление всем клиентам через WebSocket
+        await manager.broadcast(json.dumps({
+            "type": "event_deleted",
+            "event_id": request.event_id
+        }))
+        
+        return {"status": "ok", "message": "Событие успешно удалено!"}
+
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Supabase вернул ошибку при удалении события: {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Ошибка базы данных: {e.response.text}")
+    except Exception as e:
+        logging.error(f"Непредвиденная ошибка при удалении события: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
     request_data: StatisticsRequest,
