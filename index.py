@@ -270,6 +270,10 @@ class EventCreateRequest(BaseModel):
     tickets_cost: int
     end_date: Optional[str] = None
 
+class TwitchRewardIdRequest(BaseModel):
+    initData: str
+    reward_id: int
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -4114,6 +4118,25 @@ async def handle_confirm_reward(
     except Exception as e:
         logging.error(f"Ошибка при обработке подтверждения награды: {e}", exc_info=True)
         await callback.answer("Произошла непредвиденная ошибка.", show_alert=True)
+
+@app.post("/api/v1/admin/twitch_rewards/purchases/delete_all")
+async def delete_all_twitch_reward_purchases(
+    request_data: TwitchRewardIdRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Удаляет ВСЕ покупки для указанной Twitch награды."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    reward_id_to_clear = request_data.reward_id
+
+    await supabase.delete(
+        "/twitch_reward_purchases",
+        params={"reward_id": f"eq.{reward_id_to_clear}"}
+    )
+
+    return {"message": f"Все покупки для награды ID {reward_id_to_clear} были удалены."}
 
 @app.post("/api/v1/admin/twitch_rewards/delete")
 async def delete_twitch_reward(
