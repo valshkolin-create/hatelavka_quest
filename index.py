@@ -1320,53 +1320,63 @@ async def update_events_page_content(
     """
     Обновляет контент страницы ивентов (только для админов).
     """
+    logger.info(f"Получен запрос: {request_data.dict()}")
+
+    # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    if not user_info:
+        logger.error("Недействительная initData")
+        raise HTTPException(status_code=403, detail="Недействительная initData")
+    if user_info.get("id") not in ADMIN_IDS:
+        logger.error(f"Пользователь {user_info.get('id')} не является администратором")
+        raise HTTPException(status_code=403, detail="Доступ запрещён.")
+
+    # 2. Валидация структуры content
+    if "events" not in request_data.content:
+        logger.error("Поле content не содержит ключ 'events'")
+        raise HTTPException(status_code=400, detail="Поле content должно содержать ключ 'events'")
 
     try:
-        # ИЗМЕНЕНИЕ: Используем PATCH для обновления конкретной записи
-        await supabase.patch(
+        # 3. Проверка существования записи
+        logger.info("Проверка записи pages_content с page_name='events'")
+        content_resp = await supabase.get(
             "/pages_content",
-            params={"page_name": "eq.events"}, # Находим нужную строку
-            json={"content": request_data.content.dict()} # И обновляем только поле content
+            params={"page_name": "eq.events", "select": "id,content", "limit": 1}
         )
-        return {"message": "Контент страницы успешно обновлен."}
-    except Exception as e:
-        logging.error(f"Ошибка при обновлении контента страницы ивентов: {e}")
-        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
+        content_resp.raise_for_status()
+        page_data = content_resp.json()
+        logger.info(f"Ответ Supabase (GET): {page_data}")
 
-@app.post("/api/v1/admin/events/delete")
-async def delete_event(
-    request: EventDeleteRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
-    if not user or user.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Недостаточно прав.")
+        # 4. Если запись отсутствует, создаём новую
+        if not page_data:
+            logger.info("Запись не найдена, создаём новую")
+            initial_content = {"events": []}
+            create_resp = await supabase.post(
+                "/pages_content",
+                json={"page_name": "events", "content": initial_content, "updated_at": "now()"}
+            )
+            create_resp.raise_for_status()
+            logger.info(f"Создана новая запись: {create_resp.json()}")
 
-    try:
-        # Удаляем событие из таблицы 'events' по его id
-        resp = await supabase.delete(f"/events?id=eq.{request.event_id}")
-        resp.raise_for_status()
+        # 5. Обновление записи
+        logger.info(f"Отправка PATCH с content: {request_data.content}")
+        update_resp = await supabase.patch(
+            "/pages_content",
+            params={"page_name": "eq.events"},
+            json={"content": request_data.content, "updated_at": "now()"}
+        )
+        update_resp.raise_for_status()
+        logger.info(f"Ответ Supabase (PATCH): {update_resp.json()}")
 
-        # Также удаляем все связанные ставки
-        await supabase.delete(f"/user_event_participations?event_id=eq.{request.event_id}")
-        
-        # Отправляем уведомление всем клиентам через WebSocket
-        await manager.broadcast(json.dumps({
-            "type": "event_deleted",
-            "event_id": request.event_id
-        }))
-        
-        return {"status": "ok", "message": "Событие успешно удалено!"}
+        return {"message": "Контент страницы успешно обновлён."}
 
     except httpx.HTTPStatusError as e:
-        logging.error(f"Supabase вернул ошибку при удалении события: {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail=f"Ошибка базы данных: {e.response.text}")
+        error_details = e.response.json().get("message", "Ошибка базы данных")
+        logger.error(f"HTTP-ошибка: {error_details}")
+        raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Непредвиденная ошибка при удалении события: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        logger.error(f"Критическая ошибка: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
 
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
