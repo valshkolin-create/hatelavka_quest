@@ -276,12 +276,7 @@ class TwitchRewardIdRequest(BaseModel):
 
 class EventUpdateRequest(BaseModel):
     initData: str
-    event_id: int
-    title: str
-    description: Optional[str] = ""
-    image_url: Optional[str] = ""
-    tickets_cost: int
-    end_date: Optional[str] = None  # Добавлено для возможности указать дату окончания
+    content: dict
 
 # Добавьте эту модель к другим моделям в начале файла
 class EventDeleteRequest(BaseModel):
@@ -1314,68 +1309,25 @@ async def create_event(
 
 @app.post("/api/v1/admin/events/update")
 async def update_events_page_content(
-    request_data: EventsPageUpdateRequest,
+    request_data: EventUpdateRequest,  # <-- Измените здесь на EventUpdateRequest
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
     Обновляет контент страницы ивентов (только для админов).
     """
-    logger.info(f"Получен запрос: {request_data.dict()}")
-
-    # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info:
-        logger.error("Недействительная initData")
-        raise HTTPException(status_code=403, detail="Недействительная initData")
-    if user_info.get("id") not in ADMIN_IDS:
-        logger.error(f"Пользователь {user_info.get('id')} не является администратором")
-        raise HTTPException(status_code=403, detail="Доступ запрещён.")
-
-    # 2. Валидация структуры content
-    if "events" not in request_data.content:
-        logger.error("Поле content не содержит ключ 'events'")
-        raise HTTPException(status_code=400, detail="Поле content должно содержать ключ 'events'")
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 3. Проверка существования записи
-        logger.info("Проверка записи pages_content с page_name='events'")
-        content_resp = await supabase.get(
-            "/pages_content",
-            params={"page_name": "eq.events", "select": "id,content", "limit": 1}
-        )
-        content_resp.raise_for_status()
-        page_data = content_resp.json()
-        logger.info(f"Ответ Supabase (GET): {page_data}")
-
-        # 4. Если запись отсутствует, создаём новую
-        if not page_data:
-            logger.info("Запись не найдена, создаём новую")
-            initial_content = {"events": []}
-            create_resp = await supabase.post(
-                "/pages_content",
-                json={"page_name": "events", "content": initial_content, "updated_at": "now()"}
-            )
-            create_resp.raise_for_status()
-            logger.info(f"Создана новая запись: {create_resp.json()}")
-
-        # 5. Обновление записи
-        logger.info(f"Отправка PATCH с content: {request_data.content}")
-        update_resp = await supabase.patch(
+        await supabase.patch(
             "/pages_content",
             params={"page_name": "eq.events"},
-            json={"content": request_data.content, "updated_at": "now()"}
+            json={"content": request_data.content.dict()}
         )
-        update_resp.raise_for_status()
-        logger.info(f"Ответ Supabase (PATCH): {update_resp.json()}")
-
-        return {"message": "Контент страницы успешно обновлён."}
-
-    except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Ошибка базы данных")
-        logger.error(f"HTTP-ошибка: {error_details}")
-        raise HTTPException(status_code=400, detail=error_details)
+        return {"message": "Контент страницы успешно обновлен."}
     except Exception as e:
-        logger.error(f"Критическая ошибка: {e}", exc_info=True)
+        logging.error(f"Ошибка при обновлении контента страницы ивентов: {e}")
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
 
 @app.post("/api/v1/admin/stats")
