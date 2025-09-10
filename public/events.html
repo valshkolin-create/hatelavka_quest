@@ -274,7 +274,8 @@
         .modal-header { 
             padding: 15px 20px; 
             margin-top: 0; 
-            cursor: move; 
+            /* --- ИЗМЕНЕНО: убран курсор для перемещения --- */
+            /* cursor: move; */ 
             user-select: none; 
             border-bottom: 1px solid var(--border-color);
             display: flex;
@@ -339,7 +340,6 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="page-title" data-key="mainTitle" data-editable>Гонка за скинами</h1>
         <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
         
         <div id="events-list" class="events-container"></div>
@@ -414,7 +414,7 @@
     
     <footer class="app-footer">
         <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-        <a href="/events" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Ивенты</span></a>
+        <a href="/events" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>Розыгрыши</span></a>
         <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>Профиль</span></a>
     </footer>
 <script>
@@ -445,7 +445,7 @@
             participantsList: document.getElementById('participants-list'),
             freeTicketButtonWrapper: document.getElementById('free-ticket-button-wrapper')
         };
-        const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
+        const editableKeys = ['raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
 
         function hexToRgba(hex, alpha) {
             if (!hex || hex.length < 4) hex = '#ffffff';
@@ -455,15 +455,34 @@
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
+        // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
         function startCountdown(endTimeString) {
             if (countdownInterval) clearInterval(countdownInterval);
             const timerElement = document.getElementById('countdown-timer');
-            if (!endTimeString || !timerElement) { if(timerElement) timerElement.textContent = 'Время не задано'; return; }
-            const endTime = new Date(endTimeString).getTime();
+            if (!endTimeString || !timerElement) { 
+                if(timerElement) timerElement.textContent = 'Время не задано'; 
+                return; 
+            }
+            
+            // --- ИСПРАВЛЕНО: Адаптация под часовые пояса ---
+            // Принудительно интерпретируем время как московское (UTC+3) для корректного отсчета у всех пользователей.
+            const endTime = new Date(endTimeString + '+03:00').getTime();
             
             const update = () => {
                 const distance = endTime - new Date().getTime();
-                if (distance < 0) { timerElement.innerHTML = '<div class="loader-spinner"></div><span>Подсчет итогов...</span>'; clearInterval(countdownInterval); return; }
+
+                // --- ИСПРАВЛЕНО: Логика отображения после завершения розыгрыша ---
+                if (distance < 0) {
+                    clearInterval(countdownInterval);
+                    // Проверяем, есть ли уже победитель (что означает, что CRON отработал)
+                    const isRaffleFinished = pageContent.events && pageContent.events.some(event => event.winner_name);
+                    if (isRaffleFinished) {
+                        timerElement.textContent = 'Розыгрыш завершен';
+                    } else {
+                        timerElement.innerHTML = '<div class="loader-spinner"></div><span>Подсчет итогов...</span>';
+                    }
+                    return;
+                }
                 
                 const d = Math.floor(distance / 86400000); 
                 const h = Math.floor((distance % 86400000) / 3600000); 
@@ -718,7 +737,6 @@
             }
         }
         
-        // --- ИСПРАВЛЕНО: ВОЗВРАЩЕНА НЕДОСТАЮЩАЯ ФУНКЦИЯ ---
         async function showParticipantsModal(eventId, eventTitle) {
             if (!tg.initData) {
                 alert('Пожалуйста, откройте эту страницу в Telegram, чтобы посмотреть участников.');
@@ -801,39 +819,10 @@
             }
         }
 
+        // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
         function makeModalDraggable(modalContent) {
-            // --- ИСПРАВЛЕНО: УДАЛЕНО УСЛОВИЕ, БЛОКИРУЮЩЕЕ ПЕРЕТАСКИВАНИЕ ---
-            const header = modalContent.querySelector('.modal-header');
-            if (!header) return;
-
-            let pos = { top: 0, left: 0, x: 0, y: 0 };
-
-            const mouseDownHandler = (e) => {
-                e.preventDefault();
-                pos = {
-                    left: modalContent.offsetLeft,
-                    top: modalContent.offsetTop,
-                    x: e.clientX,
-                    y: e.clientY,
-                };
-                
-                document.addEventListener('mousemove', mouseMoveHandler);
-                document.addEventListener('mouseup', mouseUpHandler);
-            };
-
-            const mouseMoveHandler = (e) => {
-                const dx = e.clientX - pos.x;
-                const dy = e.clientY - pos.y;
-                modalContent.style.left = `${pos.left + dx}px`;
-                modalContent.style.top = `${pos.top + dy}px`;
-            };
-
-            const mouseUpHandler = () => {
-                document.removeEventListener('mousemove', mouseMoveHandler);
-                document.removeEventListener('mouseup', mouseUpHandler);
-            };
-
-            header.addEventListener('mousedown', mouseDownHandler);
+            // --- ИСПРАВЛЕНО: Функция перетаскивания диалоговых окон отключена по просьбе пользователя. ---
+            return;
         }
         
         document.querySelectorAll('.modal-content').forEach(makeModalDraggable);
@@ -916,13 +905,12 @@
             }
         });
 
-        dom.eventModalForm.addEventListener('submit', (e) => {
+        dom.eventModalForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const index = dom.eventIndexInput.value;
             const isNew = !(index && index !== 'null');
-            const eventId = isNew ? Date.now() : pageContent.events[index].id;
-            const updatedEvent = {
-                id: eventId,
+            
+            const eventData = {
                 title: dom.eventTitleInput.value, 
                 description: dom.eventDescriptionInput.value,
                 image_url: dom.eventImageInput.value, 
@@ -932,15 +920,59 @@
                 dot_color: dom.eventDotColorInput.value,
                 image_scale: parseFloat(dom.eventImageScaleInput.value)
             };
-            if (isNew) {
-                (pageContent.events || (pageContent.events = [])).push(updatedEvent);
-            } else {
-                const oldEvent = pageContent.events[index];
-                if(oldEvent.winner_name) updatedEvent.winner_name = oldEvent.winner_name;
-                if(oldEvent.winner_id) updatedEvent.winner_id = oldEvent.winner_id;
-                pageContent.events[index] = updatedEvent;
+
+            hideModal(dom.eventModal); 
+            tg.MainButton.showProgress();
+
+            try {
+                let finalEventData;
+                
+                if (isNew) {
+                    const createResponse = await fetch('/api/v1/admin/events/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            initData: tg.initData,
+                            ...eventData,
+                            end_date: null
+                        })
+                    });
+                    const createResult = await createResponse.json();
+                    if (!createResponse.ok) {
+                        throw new Error(createResult.detail || 'Не удалось создать ивент в базе данных.');
+                    }
+                    
+                    const newEventId = createResult.event_id;
+
+                    finalEventData = { ...eventData, id: newEventId };
+                    (pageContent.events || (pageContent.events = [])).push(finalEventData);
+                } else {
+                    finalEventData = {
+                        id: pageContent.events[index].id,
+                        ...eventData
+                    };
+                    pageContent.events[index] = finalEventData;
+                }
+
+                const updateResponse = await fetch('/api/v1/admin/events/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, content: pageContent })
+                });
+                if (!updateResponse.ok) {
+                    const updateResult = await updateResponse.json();
+                    throw new Error(updateResult.detail || 'Ошибка сохранения контента страницы.');
+                }
+                
+                tg.showAlert('Изменения сохранены!');
+
+            } catch (e) {
+                tg.showAlert(e.message);
+                console.error(e);
+            } finally {
+                tg.MainButton.hideProgress();
+                renderPage(); 
             }
-            hideModal(dom.eventModal); renderPage();
         });
         
         dom.textModalForm.addEventListener('submit', (e) => { e.preventDefault(); pageContent[dom.textKeyInput.value] = dom.textValueInput.value; hideModal(dom.textModal); renderPage(); });
@@ -949,19 +981,45 @@
             e.preventDefault();
             const eventId = parseInt(dom.ticketEventIdInput.value);
             const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
-            if (!ticketsToSpend || ticketsToSpend <= 0) { tg.showAlert('Введите корректное количество билетов.'); return; }
-            if (ticketsToSpend > userData.tickets) { tg.showAlert('У вас недостаточно билетов.'); return; }
-            hideModal(dom.ticketModal); tg.MainButton.showProgress();
+            
+            if (!ticketsToSpend || ticketsToSpend <= 0) { 
+                tg.showAlert('Введите корректное количество билетов.'); 
+                return; 
+            }
+            if (ticketsToSpend > userData.tickets) { 
+                tg.showAlert('У вас недостаточно билетов.'); 
+                return; 
+            }
+            
+            hideModal(dom.ticketModal);
+            tg.MainButton.showProgress();
+
             try {
-                const response = await fetch('/api/v1/events/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, event_id: eventId, tickets_to_spend: ticketsToSpend }) });
+                const response = await fetch('/api/v1/events/enter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        event_id: eventId,
+                        tickets_to_spend: ticketsToSpend
+                    })
+                });
                 const result = await response.json();
-                if (!response.ok) throw new Error(result.detail || 'Ошибка при отправке ставки.');
+                if (!response.ok) {
+                    throw new Error(result.detail || 'Ошибка при отправке ставки.');
+                }
+
                 tg.showAlert('Ваша ставка принята!');
                 userData.tickets = result.new_ticket_balance;
                 userData.event_participations = userData.event_participations || {};
                 userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
                 renderPage();
-            } catch (error) { tg.showAlert(error.message); } finally { tg.MainButton.hideProgress(); }
+            } catch (error) {
+                tg.showAlert(error.message);
+                console.error(error);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
         });
 
         document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
