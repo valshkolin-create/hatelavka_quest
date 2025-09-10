@@ -2306,12 +2306,12 @@ async def update_submission_status(
 
     elif action == 'approved':
         try:
-            # --- ИЗМЕНЕНИЕ: Используем RPC функцию, которая также удаляет заявку ---
             response = await supabase.post(
-                "/rpc/approve_submission_and_get_promocode",
-                json={ "p_submission_id": submission_id }
+                "/rpc/award_reward_and_get_promocode",
+                json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
             )
             response.raise_for_status()
+            promo_code = response.text.strip('"')
             
             result = response.json()[0]
             promo_code = result.get("promocode")
