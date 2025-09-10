@@ -2275,19 +2275,25 @@ async def send_approval_notification(user_id: int, quest_title: str, promo_code:
     except Exception as e:
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
 
-@app.post("/api/v1/admin/submission/update")
+@router.post("/api/v1/admin/submission/update")
 async def update_submission_status(
     request_data: SubmissionUpdateRequest,
     background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """
+    Эндпоинт для обновления статуса заявки админом.
+    Одобряет или отклоняет заявку и отправляет уведомление пользователю.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    # Проверка прав администратора
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     submission_id = request_data.submission_id
     action = request_data.action
 
+    # Получение данных о заявке
     submission_data_resp = await supabase.get(
         "/quest_submissions",
         params={"id": f"eq.{submission_id}", "select": "user_id, quest:quests(title, is_repeatable)"}
@@ -2300,32 +2306,46 @@ async def update_submission_status(
     quest_title = submission_data[0]['quest']['title']
 
     if action == 'rejected':
+        # Отклонение заявки
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
+        
+        # Отправка уведомления в фоновом режиме
         background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{html_decoration.quote(quest_title)}» была отклонена.")
+        
         return {"message": "Заявка отклонена."}
 
     elif action == 'approved':
+        # Одобрение заявки и получение награды
         try:
             response = await supabase.post(
                 "/rpc/award_reward_and_get_promocode",
-                json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
+                json={
+                    "p_user_id": user_to_notify,
+                    "p_source_type": "manual_submission",
+                    "p_source_id": submission_id
+                }
             )
             response.raise_for_status()
-            promo_code = response.text.strip('"')
-            
+
+            # Обработка ответа от Supabase как JSON
             result = response.json()[0]
             promo_code = result.get("promocode")
+            
             if not promo_code:
-                 raise Exception("RPC функция не вернула промокод.")
+                raise ValueError("RPC функция не вернула промокод.")
 
+            # Отправка уведомления и промокода в фоновом режиме
             background_tasks.add_task(send_approval_notification, user_to_notify, quest_title, promo_code)
+
             return {"message": "Заявка одобрена. Награда отправляется пользователю.", "promocode": promo_code}
 
         except httpx.HTTPStatusError as e:
+            # Обработка ошибок HTTP-статуса от Supabase
             error_details = e.response.json().get("message", "Ошибка базы данных.")
             logging.error(f"Ошибка Supabase при одобрении заявки {submission_id}: {error_details}")
             raise HTTPException(status_code=400, detail=error_details)
         except Exception as e:
+            # Обработка любых других критических ошибок
             logging.error(f"Критическая ошибка при одобрении заявки {submission_id}: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку и отправить награду.")
     else:
