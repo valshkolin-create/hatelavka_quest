@@ -1319,25 +1319,37 @@ async def update_event(
     """
     Обновляет существующий розыгрыш в таблице pages_content (только для админов).
     """
-    logging.info(f"Входящий запрос: {request_data.dict()}")
+    # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен. Требуются права администратора.")
 
     event_id = request_data.event_id
     try:
+        # 2. Проверка существования записи в pages_content
         content_resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.events", "select": "content", "limit": 1}
         )
         content_resp.raise_for_status()
         page_data = content_resp.json()
-        if not page_data:
-            raise HTTPException(status_code=404, detail="Контент страницы розыгрышей не найден.")
 
-        content = page_data[0]['content']
+        # Если запись отсутствует, создаём новую с пустым массивом events
+        if not page_data:
+            logging.info("Запись для pages_content с page_name='events' не найдена, создаём новую.")
+            initial_content = {"events": []}
+            await supabase.post(
+                "/pages_content",
+                json={"page_name": "events", "content": initial_content}
+            )
+            content = initial_content
+        else:
+            content = page_data[0]["content"]
+
+        # 3. Получение массива событий
         events = content.get("events", [])
 
+        # 4. Поиск и обновление розыгрыша
         event_found = False
         for event in events:
             if event.get("id") == event_id:
@@ -1358,16 +1370,19 @@ async def update_event(
         if not event_found:
             raise HTTPException(status_code=404, detail=f"Розыгрыш с ID {event_id} не найден.")
 
-        await supabase.patch(
+        # 5. Обновление записи в таблице pages_content
+        update_resp = await supabase.patch(
             "/pages_content",
             params={"page_name": "eq.events"},
-            json={"content": content}
+            json={"content": content, "updated_at": "now()"}
         )
+        update_resp.raise_for_status()
 
-        return {"message": f"Розыгрыш с ID {event_id} успешно обновлен."}
+        logging.info(f"Розыгрыш с ID {event_id} успешно обновлён в таблице pages_content.")
+        return {"message": f"Розыгрыш с ID {event_id} успешно обновлён."}
 
     except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Произошла ошибка базы данных.")
+        error_details = e.response.json().get("message", "Ошибка базы данных.")
         logging.error(f"HTTP-ошибка при обновлении розыгрыша {event_id}: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
