@@ -340,7 +340,6 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="page-title" data-key="mainTitle" data-editable>Гонка за скинами</h1>
         <div id="countdown-timer" class="timer" data-key="raffleEndTime" data-editable></div>
         
         <div id="events-list" class="events-container"></div>
@@ -446,7 +445,7 @@
             participantsList: document.getElementById('participants-list'),
             freeTicketButtonWrapper: document.getElementById('free-ticket-button-wrapper')
         };
-        const editableKeys = ['mainTitle', 'raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
+        const editableKeys = ['raffleEndTime', 'infoBlock1Title', 'infoBlock1Desc', 'infoBlock2Title', 'infoBlock2Desc', 'infoBlock3Title', 'infoBlock3Desc', 'infoBlock1Icon', 'infoBlock2Icon', 'infoBlock3Icon'];
 
         function hexToRgba(hex, alpha) {
             if (!hex || hex.length < 4) hex = '#ffffff';
