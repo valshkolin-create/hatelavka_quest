@@ -3086,9 +3086,6 @@ async def enter_event(
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
     # --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
 
-    # ИЗМЕНЕНИЕ: Блок проверки существования event_id удален.
-    # Это позволяет RPC-функции создать новую запись, если ее нет.
-
     # Используем уже полученные данные об ивентах
     event_min_tickets = next((e['tickets_cost'] for e in all_events if e['id'] == request_data.event_id), 1)
 
