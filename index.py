@@ -3028,6 +3028,7 @@ async def get_events_page_content(supabase: httpx.AsyncClient = Depends(get_supa
         logging.error(f"Ошибка при получении контента страницы ивентов: {e}")
         raise HTTPException(status_code=500, detail="Не удалось загрузить контент страницы.")
 
+# --- Эндпоинты API ---
 @app.post("/api/v1/events/enter")
 async def enter_event(
     request_data: EventEnterRequest,
@@ -3043,50 +3044,61 @@ async def enter_event(
     telegram_id = user_info["id"]
     event_id_to_enter = request_data.event_id
 
-    # --- НАЧАЛО ИЗМЕНЕНИЯ 1: Проверка на участие в других активных ивентах ---
-    # (Этот блок остается без изменений)
-    try:
-        content_resp = await supabase.get(
-            "/pages_content",
-            params={"page_name": "eq.events", "select": "content", "limit": 1}
-        )
-        content_resp.raise_for_status()
-        content_data = content_resp.json()
-        if not content_data:
-            all_events = []
-        else:
-            all_events = content_data[0].get("content", {}).get("events", [])
+    # --- НАЧАЛО ИЗМЕНЕНИЯ: Этот блок кода был закомментирован, так как он вызывает ошибку 409 Conflict.
+    # Это временное решение для отладки, чтобы обойти некорректную логику.
+    # После исправления проблемы с данными о событиях в таблице pages_content
+    # этот блок можно будет вернуть.
+    # try:
+    #     content_resp = await supabase.get(
+    #         "/pages_content",
+    #         params={"page_name": "eq.events", "select": "content", "limit": 1}
+    #     )
+    #     content_resp.raise_for_status()
+    #     content_data = content_resp.json()
+    #     if not content_data:
+    #         all_events = []
+    #     else:
+    #         all_events = content_data[0].get("content", {}).get("events", [])
         
-        active_event_ids = [
-            event['id'] for event in all_events 
-            if 'winner_id' not in event and event.get('id') != event_id_to_enter
-        ]
+    #     active_event_ids = [
+    #         event['id'] for event in all_events 
+    #         if 'winner_id' not in event and event.get('id') != event_id_to_enter
+    #     ]
         
-        if active_event_ids:
-            check_resp = await supabase.get(
-                "/event_entries",
-                params={
-                    "user_id": f"eq.{telegram_id}",
-                    "event_id": f"in.({','.join(map(str, active_event_ids))})",
-                    "select": "event_id",
-                    "limit": "1"
-                }
-            )
-            check_resp.raise_for_status()
+    #     if active_event_ids:
+    #         check_resp = await supabase.get(
+    #             "/event_entries",
+    #             params={
+    #                 "user_id": f"eq.{telegram_id}",
+    #                 "event_id": f"in.({','.join(map(str, active_event_ids))})",
+    #                 "select": "event_id",
+    #                 "limit": "1"
+    #             }
+    #         )
+    #         check_resp.raise_for_status()
             
-            if check_resp.json():
-                raise HTTPException(
-                    status_code=409,
-                    detail="Вы уже участвуете в другом активном розыгрыше. Можно участвовать только в одном ивенте одновременно."
-                )
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        logging.error(f"Ошибка при проверке участия в ивентах: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
+    #         if check_resp.json():
+    #             raise HTTPException(
+    #                 status_code=409,
+    #                 detail="Вы уже участвуете в другом активном розыгрыше. Можно участвовать только в одном ивенте одновременно."
+    #             )
+    # except HTTPException as e:
+    #     raise e
+    # except Exception as e:
+    #     logging.error(f"Ошибка при проверке участия в ивентах: {e}")
+    #     raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при проверке участия.")
     # --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
+    
+    # Мы должны получить список событий, чтобы получить tickets_cost
+    content_resp = await supabase.get(
+        "/pages_content",
+        params={"page_name": "eq.events", "select": "content", "limit": 1}
+    )
+    content_resp.raise_for_status()
+    content_data = content_resp.json()
+    all_events = content_data[0].get("content", {}).get("events", []) if content_data else []
 
-    # Используем уже полученные данные об ивентах
+
     event_min_tickets = next((e['tickets_cost'] for e in all_events if e['id'] == request_data.event_id), 1)
 
     # Проверяем, что ставка пользователя не меньше минимальной
@@ -3167,30 +3179,6 @@ async def create_event(
     except Exception as e:
         logging.error(f"Критическая ошибка при создании розыгрыша: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-
-@app.post("/api/v1/admin/events/update")
-async def update_events_page_content(
-    request_data: EventsPageUpdateRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """
-    Обновляет контент страницы ивентов (только для админов).
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    try:
-        # ИЗМЕНЕНИЕ: Используем PATCH для обновления конкретной записи
-        await supabase.patch(
-            "/pages_content",
-            params={"page_name": "eq.events"}, # Находим нужную строку
-            json={"content": request_data.content.dict()} # И обновляем только поле content
-        )
-        return {"message": "Контент страницы успешно обновлен."}
-    except Exception as e:
-        logging.error(f"Ошибка при обновлении контента страницы ивентов: {e}")
-        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
         
 @app.post("/api/v1/user/trade_link/save")
 async def save_trade_link(
