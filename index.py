@@ -274,6 +274,14 @@ class TwitchRewardIdRequest(BaseModel):
     initData: str
     reward_id: int
 
+class EventUpdateRequest(BaseModel):
+    initData: str
+    event_id: int
+    title: str
+    description: str
+    image_url: str
+    tickets_cost: int
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -1296,6 +1304,46 @@ async def create_event(
         raise HTTPException(status_code=e.response.status_code, detail=f"Ошибка базы данных: {e.response.text}")
     except Exception as e:
         logging.error(f"Непредвиденная ошибка при создании события: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+@app.post("/api/v1/admin/events/update")
+async def update_event(
+    request: EventUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
+    if not user or user.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Недостаточно прав.")
+
+    try:
+        # Формируем данные для обновления
+        update_data = {
+            "title": request.title,
+            "description": request.description,
+            "image_url": request.image_url,
+            "tickets_cost": request.tickets_cost
+        }
+        
+        # Обновляем запись в Supabase по ID
+        resp = await supabase.patch(
+            f"/events?id=eq.{request.event_id}",
+            json=update_data,
+            headers={"Prefer": "return=representation"}
+        )
+        resp.raise_for_status()
+
+        updated_event = resp.json()
+
+        # Отправляем уведомление всем клиентам через WebSocket
+        await manager.broadcast(json.dumps({"type": "event_updated", "event": updated_event}))
+        
+        return {"status": "ok", "message": "Событие успешно обновлено!", "event": updated_event}
+
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Supabase вернул ошибку при обновлении события: {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Ошибка базы данных: {e.response.text}")
+    except Exception as e:
+        logging.error(f"Непредвиденная ошибка при обновлении события: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 @app.post("/api/v1/admin/stats")
