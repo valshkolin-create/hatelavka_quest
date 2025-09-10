@@ -282,6 +282,11 @@ class EventUpdateRequest(BaseModel):
     image_url: str
     tickets_cost: int
 
+# Добавьте эту модель к другим моделям в начале файла
+class EventDeleteRequest(BaseModel):
+    initData: str
+    event_id: int
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
