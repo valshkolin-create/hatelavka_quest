@@ -278,9 +278,10 @@ class EventUpdateRequest(BaseModel):
     initData: str
     event_id: int
     title: str
-    description: Optional[str] = ""  # По умолчанию пустая строка
-    image_url: Optional[str] = ""    # По умолчанию пустая строка
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
     tickets_cost: int
+    end_date: Optional[str] = None  # Добавлено для возможности указать дату окончания
 
 # Добавьте эту модель к другим моделям в начале файла
 class EventDeleteRequest(BaseModel):
@@ -1317,12 +1318,12 @@ async def update_event(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Обновляет существующий розыгрыш в таблице pages_content (только для админов).
+    Обновляет или создаёт розыгрыш в таблице pages_content (только для админов).
     """
     # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуются права администратора.")
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Требуются права администратора.")
 
     event_id = request_data.event_id
     try:
@@ -1334,7 +1335,7 @@ async def update_event(
         content_resp.raise_for_status()
         page_data = content_resp.json()
 
-        # Если запись отсутствует, создаём новую с пустым массивом events
+        # Если запись отсутствует, создаём новую
         if not page_data:
             logging.info("Запись для pages_content с page_name='events' не найдена, создаём новую.")
             initial_content = {"events": []}
@@ -1349,7 +1350,7 @@ async def update_event(
         # 3. Получение массива событий
         events = content.get("events", [])
 
-        # 4. Поиск и обновление розыгрыша
+        # 4. Поиск и обновление/создание розыгрыша
         event_found = False
         for event in events:
             if event.get("id") == event_id:
@@ -1359,18 +1360,32 @@ async def update_event(
                     "description": request_data.description.strip() if request_data.description else "",
                     "image_url": request_data.image_url.strip() if request_data.image_url else "",
                     "tickets_cost": request_data.tickets_cost,
+                    "end_date": request_data.end_date or event.get("end_date"),
                     "winner_id": event.get("winner_id"),
                     "winner_name": event.get("winner_name"),
-                    "end_date": event.get("end_date"),
                     "prize_sent_confirmed": event.get("prize_sent_confirmed", False)
                 })
                 event_found = True
                 break
 
+        # Если событие не найдено, создаём новое
         if not event_found:
-            raise HTTPException(status_code=404, detail=f"Розыгрыш с ID {event_id} не найден.")
+            logging.info(f"Розыгрыш с ID {event_id} не найден, создаём новый.")
+            new_event = {
+                "id": event_id,
+                "title": request_data.title.strip(),
+                "description": request_data.description.strip() if request_data.description else "",
+                "image_url": request_data.image_url.strip() if request_data.image_url else "",
+                "tickets_cost": request_data.tickets_cost,
+                "end_date": request_data.end_date or datetime.now().isoformat(),
+                "winner_id": None,
+                "winner_name": None,
+                "prize_sent_confirmed": False
+            }
+            events.append(new_event)
 
         # 5. Обновление записи в таблице pages_content
+        content["events"] = events
         update_resp = await supabase.patch(
             "/pages_content",
             params={"page_name": "eq.events"},
@@ -1378,15 +1393,15 @@ async def update_event(
         )
         update_resp.raise_for_status()
 
-        logging.info(f"Розыгрыш с ID {event_id} успешно обновлён в таблице pages_content.")
-        return {"message": f"Розыгрыш с ID {event_id} успешно обновлён."}
+        logging.info(f"Розыгрыш с ID {event_id} успешно обновлён/создан в таблице pages_content.")
+        return {"message": f"Розыгрыш с ID {event_id} успешно обновлён/создан."}
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка базы данных.")
-        logging.error(f"HTTP-ошибка при обновлении розыгрыша {event_id}: {error_details}")
+        logging.error(f"HTTP-ошибка при обновлении/создании розыгрыша {event_id}: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Критическая ошибка при обновлении розыгрыша {event_id}: {e}", exc_info=True)
+        logging.error(f"Критическая ошибка при обновлении/создании розыгрыша {event_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.post("/api/v1/admin/events/delete")
