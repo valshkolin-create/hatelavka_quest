@@ -2328,3 +2328,578 @@
     </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Админ-панель</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+      --bg-color: #000000;
+      --text-color: #ffffff;
+      --text-color-muted: #b0b0b0;
+      --primary-color: #34c759;
+      --action-color: #007aff;
+      --surface-glass-bg: rgba(28, 28, 30, 0.75);
+      --divider-glass-color: rgba(58, 58, 60, 0.6);
+      --danger-color: #ff3b30;
+      --warning-color: #ff9500;
+      --status-active-color: #32d74b;
+      --status-inactive-color: #98989b;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      touch-action: pan-x pan-y;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    body {
+      background: var(--bg-gradient);
+      min-height: 100vh;
+    }
+    .main-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .app-container {
+      padding: 1rem;
+      flex-grow: 1;
+    }
+    header {
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: var(--surface-glass-bg);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      border-bottom: 1px solid var(--divider-glass-color);
+    }
+    .tab-bar {
+      display: flex;
+      justify-content: space-around;
+      position: sticky;
+      bottom: 0;
+      background: var(--surface-glass-bg);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      border-top: 1px solid var(--divider-glass-color);
+      padding: 0.5rem 0;
+      flex-shrink: 0;
+    }
+    .tab-bar button {
+      background: none;
+      border: none;
+      color: var(--text-color-muted);
+      cursor: pointer;
+      font-size: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.5rem;
+      flex-grow: 1;
+      transition: color 0.2s ease;
+    }
+    .tab-bar button.active {
+      color: var(--primary-color);
+    }
+    .tab-bar button:active {
+      transform: scale(0.95);
+    }
+    .tab-bar i {
+      font-size: 1.25rem;
+    }
+    .view {
+      display: none;
+      animation: fadeIn 0.3s ease-in-out;
+      flex-grow: 1;
+      flex-direction: column;
+    }
+    .view.active {
+      display: flex;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .card {
+      background: var(--surface-glass-bg);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      border: 1px solid var(--divider-glass-color);
+      backdrop-filter: blur(5px);
+    }
+    .card-list .card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .card h3, .card h4, .card p, .card div {
+      margin: 0;
+    }
+    .item-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .btn {
+      background: var(--action-color);
+      color: var(--text-color);
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s ease, transform 0.1s ease;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+    }
+    .btn:hover {
+      background: var(--action-color);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .btn-danger {
+      background: var(--danger-color);
+    }
+    .btn-warning {
+      background: var(--warning-color);
+    }
+    .btn-primary {
+        background: var(--primary-color);
+    }
+    .loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      display: none;
+    }
+    .loader {
+      border: 4px solid var(--text-color-muted);
+      border-top: 4px solid var(--primary-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .hidden {
+      display: none !important;
+    }
+    .full-width {
+      width: 100%;
+    }
+    .small-text {
+      font-size: 0.8rem;
+      color: var(--text-color-muted);
+    }
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .list-header h2 {
+      margin: 0;
+    }
+    .list-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .prize-title {
+        color: var(--primary-color);
+        font-weight: bold;
+        margin-bottom: 0.2rem;
+    }
+    .view-status {
+        font-size: 0.7rem;
+        font-weight: bold;
+        margin-top: 0.2rem;
+        text-transform: uppercase;
+    }
+    .view-status.unviewed {
+        color: var(--status-inactive-color);
+    }
+    .view-status.viewed {
+        color: var(--status-active-color);
+    }
+    .card-content {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <div id="loader-overlay" class="loader-overlay"><div class="loader"></div></div>
+    
+    <header>
+      <h2 id="header-title">Панель</h2>
+      <button id="sleep-mode-toggle" class="btn btn-warning hidden">
+          Режим сна
+      </button>
+    </header>
+
+    <div class="app-container">
+      <div id="view-admin-main" class="view active">
+        <div class="card">
+          <h3>Добро пожаловать, администратор!</h3>
+          <p class="small-text">Здесь вы можете управлять всеми основными функциями.</p>
+        </div>
+      </div>
+      
+      <div id="view-twitch-rewards" class="view">
+        <div class="list-container">
+          <div class="list-header">
+            <h2>Награды Twitch</h2>
+            <button id="add-twitch-reward-btn" class="btn btn-primary">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+          <div id="twitch-rewards-list" class="card-list"></div>
+        </div>
+      </div>
+
+      <div id="view-twitch-purchases" class="view">
+        <div class="list-container">
+          <div class="list-header">
+            <h2>Заявки Twitch</h2>
+            <button id="mass-delete-purchases-btn" class="btn btn-danger">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+          <div id="twitch-purchases-list" class="card-list"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="tab-bar" class="tab-bar">
+      <button data-view="view-admin-main">
+        <i class="fa-solid fa-house"></i>
+        <span>Главная</span>
+      </button>
+      <button data-view="view-twitch-rewards">
+        <i class="fa-solid fa-trophy"></i>
+        <span>Награды</span>
+      </button>
+      <button data-view="view-twitch-purchases">
+        <i class="fa-solid fa-list-check"></i>
+        <span>Заявки</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    const dom = {
+      loader: document.getElementById('loader-overlay'),
+      appContainer: document.querySelector('.app-container'),
+      headerTitle: document.getElementById('header-title'),
+      sleepModeToggle: document.getElementById('sleep-mode-toggle'),
+      tabBar: document.getElementById('tab-bar'),
+      twitchRewardsList: document.getElementById('twitch-rewards-list'),
+      twitchPurchasesList: document.getElementById('twitch-purchases-list'),
+      addTwitchRewardBtn: document.getElementById('add-twitch-reward-btn'),
+      massDeletePurchasesBtn: document.getElementById('mass-delete-purchases-btn')
+    };
+    const API_URL = window.location.origin;
+
+    const views = {
+      'view-admin-main': { title: 'Админка', loadFunc: () => {} },
+      'view-twitch-rewards': { title: 'Награды Twitch', loadFunc: fetchTwitchRewards },
+      'view-twitch-purchases': { title: 'Заявки Twitch', loadFunc: fetchTwitchPurchases }
+    };
+
+    async function makeApiRequest(url, data, method = 'POST', showLoader = true) {
+      if (showLoader) dom.loader.style.display = 'flex';
+      try {
+        const response = await fetch(API_URL + url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ...data, initData: tg.initData }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `Ошибка: ${response.status}`);
+        }
+        return await response.json();
+      } finally {
+        if (showLoader) dom.loader.style.display = 'none';
+      }
+    }
+
+    function showLoader() { dom.loader.style.display = 'flex'; }
+    function hideLoader() { dom.loader.style.display = 'none'; }
+
+    function updateSleepButton(status) {
+      dom.sleepModeToggle.classList.remove('hidden');
+      if (status.is_sleeping) {
+        dom.sleepModeToggle.classList.remove('btn-warning');
+        dom.sleepModeToggle.classList.add('btn-primary');
+        dom.sleepModeToggle.textContent = `Разбудить (До ${new Date(status.wake_up_at).toLocaleString()})`;
+      } else {
+        dom.sleepModeToggle.classList.remove('btn-primary');
+        dom.sleepModeToggle.classList.add('btn-warning');
+        dom.sleepModeToggle.textContent = 'Режим сна';
+      }
+    }
+
+    async function switchView(viewId) {
+      Object.values(dom.appContainer.children).forEach(el => el.classList.remove('active'));
+      const activeView = document.getElementById(viewId);
+      if (activeView) activeView.classList.add('active');
+      
+      Object.values(dom.tabBar.children).forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`[data-view="${viewId}"]`).classList.add('active');
+
+      dom.headerTitle.textContent = views[viewId].title;
+      
+      const loadFunc = views[viewId].loadFunc;
+      if (loadFunc) {
+        try {
+          showLoader();
+          await loadFunc();
+        } catch (e) {
+          console.error(`Ошибка загрузки данных для ${viewId}:`, e);
+          alert(`Ошибка: ${e.message}`);
+        } finally {
+          hideLoader();
+        }
+      }
+    }
+
+    async function fetchTwitchRewards() {
+        const data = await makeApiRequest('/api/v1/admin/twitch/rewards', {});
+        dom.twitchRewardsList.innerHTML = '';
+        if (data.length === 0) {
+            dom.twitchRewardsList.innerHTML = '<p class="small-text" style="text-align: center;">Награды не найдены.</p>';
+            return;
+        }
+        data.forEach(reward => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-content">
+                    <h4>${reward.title}</h4>
+                    <p class="small-text">ID: ${reward.id}</p>
+                </div>
+                <div class="item-controls">
+                    <button class="btn btn-danger btn-delete" data-id="${reward.id}">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            `;
+            dom.twitchRewardsList.appendChild(card);
+        });
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.onclick = (e) => deleteTwitchReward(e.currentTarget.dataset.id);
+        });
+    }
+
+    async function fetchTwitchPurchases() {
+        const data = await makeApiRequest('/api/v1/admin/twitch/purchases', {});
+        dom.twitchPurchasesList.innerHTML = '';
+        if (data.length === 0) {
+            dom.twitchPurchasesList.innerHTML = '<p class="small-text" style="text-align: center;">Заявок нет.</p>';
+            return;
+        }
+
+        data.forEach(purchase => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            const messageParts = purchase.message.split(' ');
+            let messageHtml = '';
+            const isRouletteWin = purchase.reward_title && purchase.reward_title.startsWith('Рулетка');
+            
+            if (isRouletteWin) {
+                messageHtml += `<p class="prize-title">Выигрыш: ${purchase.message.split('Сообщение:')[0].replace('Выигрыш:', '').trim()}</p>`;
+                const messageUrl = (purchase.message.split('Сообщение:')[1] || '').trim();
+                messageHtml += `<p style="margin: 0;">Сообщение: <a href="${messageUrl}" target="_blank" class="purchase-link">${messageUrl}</a></p>`;
+            } else {
+                messageParts.forEach(part => {
+                    if (part.startsWith('http://') || part.startsWith('https://')) {
+                        messageHtml += `<a href="${part}" target="_blank" class="purchase-link">${part}</a> `;
+                    } else {
+                        messageHtml += `${part} `;
+                    }
+                });
+            }
+
+            const tradeLink = purchase.trade_link ? 
+                `<p>Трейд ссылка: <a href="${purchase.trade_link}" target="_blank" class="purchase-link">${purchase.trade_link}</a></p>` : 
+                '';
+            
+            const statusClass = purchase.is_viewed ? 'viewed' : 'unviewed';
+            const statusText = purchase.is_viewed ? 'ПРОСМОТРЕНО' : 'НЕ ПРОСМОТРЕНО';
+
+            card.innerHTML = `
+                <div class="card-content">
+                    <h4>${purchase.reward_title}</h4>
+                    <p class="small-text">Пользователь: ${purchase.user_login}</p>
+                    <p class="small-text">Дата: ${new Date(purchase.created_at).toLocaleString()}</p>
+                    <div style="margin-top: 0.5rem; white-space: pre-wrap; word-break: break-all;">
+                        ${isRouletteWin ? messageHtml : `<p style="margin: 0;">Сообщение: ${messageHtml}</p>`}
+                        ${tradeLink}
+                    </div>
+                    <span class="view-status ${statusClass}" data-purchase-id="${purchase.id}">${statusText}</span>
+                </div>
+                <div class="item-controls">
+                    <button class="btn btn-primary btn-issue" data-id="${purchase.id}">
+                        Выдать
+                    </button>
+                    <button class="btn btn-danger btn-delete" data-id="${purchase.id}">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            `;
+            dom.twitchPurchasesList.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.onclick = (e) => deleteTwitchPurchase(e.currentTarget.dataset.id);
+        });
+
+        document.querySelectorAll('.btn-issue').forEach(btn => {
+            btn.onclick = (e) => issueTwitchPurchase(e.currentTarget.dataset.id);
+        });
+
+        document.querySelectorAll('.purchase-link').forEach(link => {
+            link.onclick = async (e) => {
+                const purchaseCard = e.currentTarget.closest('.card');
+                const statusSpan = purchaseCard.querySelector('.view-status');
+                const purchaseId = statusSpan.dataset.purchaseId;
+                
+                try {
+                    await markPurchaseAsViewed(purchaseId);
+                    statusSpan.classList.remove('unviewed');
+                    statusSpan.classList.add('viewed');
+                    statusSpan.textContent = 'ПРОСМОТРЕНО';
+                } catch (error) {
+                    console.error('Ошибка при пометке заявки как просмотренной:', error);
+                    alert('Не удалось обновить статус. Пожалуйста, попробуйте еще раз.');
+                }
+            };
+        });
+    }
+    
+    async function markPurchaseAsViewed(purchaseId) {
+        await makeApiRequest('/api/v1/admin/twitch/purchases/mark_viewed', { purchase_id: parseInt(purchaseId) });
+    }
+
+    async function deleteTwitchReward(rewardId) {
+        if (!confirm('Вы уверены, что хотите удалить эту награду?')) return;
+        await makeApiRequest('/api/v1/admin/twitch/rewards/delete', { reward_id: parseInt(rewardId) });
+        await fetchTwitchRewards();
+    }
+
+    async function issueTwitchPurchase(purchaseId) {
+        if (!confirm('Вы уверены, что хотите отметить эту заявку как выданную?')) return;
+        await makeApiRequest('/api/v1/admin/twitch/purchases/issue', { purchase_id: parseInt(purchaseId) });
+        await fetchTwitchPurchases();
+    }
+
+    async function deleteTwitchPurchase(purchaseId) {
+        if (!confirm('Вы уверены, что хотите удалить эту заявку?')) return;
+        await makeApiRequest('/api/v1/admin/twitch/purchases/delete', { purchase_id: parseInt(purchaseId) });
+        await fetchTwitchPurchases();
+    }
+
+    async function massDeletePurchases() {
+        if (!confirm('Вы уверены, что хотите удалить ВСЕ заявки? Это действие необратимо.')) return;
+        await makeApiRequest('/api/v1/admin/twitch/purchases/mass_delete', {});
+        alert('Все заявки были удалены.');
+        await fetchTwitchPurchases();
+    }
+
+    function setupEventListeners() {
+      dom.tabBar.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (btn && btn.dataset.view) {
+          switchView(btn.dataset.view);
+        }
+      });
+      dom.sleepModeToggle.onclick = async () => {
+        const minutes = prompt("Введите количество минут для сна (оставьте пустым для пробуждения):");
+        if (minutes === null) return;
+        try {
+          const status = await makeApiRequest('/api/v1/admin/toggle_sleep_mode', { minutes: minutes ? parseInt(minutes) : null });
+          updateSleepButton(status);
+        } catch (e) {
+          alert(e.message);
+        }
+      };
+      dom.massDeletePurchasesBtn.onclick = massDeletePurchases;
+    }
+
+    async function main() {
+        try {
+            tg.expand();
+            if (!tg.initData) throw new Error("Требуется авторизация в Telegram.");
+            
+            showLoader();
+            const [userData, sleepStatus] = await Promise.all([
+                makeApiRequest("/api/v1/user/me", {}, 'POST', true),
+                makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true)
+            ]);
+            
+            if (!userData.is_admin) throw new Error("Доступ запрещен.");
+            
+            document.body.dataset.isAdmin = 'true';
+            updateSleepButton(sleepStatus);
+
+            await switchView('view-admin-main');
+        } catch (e) {
+            document.body.dataset.isAdmin = 'false';
+            dom.sleepModeToggle.classList.add('hidden');
+            dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
+        } finally {
+            hideLoader();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        tg.ready();
+        setupEventListeners();
+        main();
+    });
+  </script>
+</body>
+</html>
