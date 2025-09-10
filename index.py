@@ -278,8 +278,8 @@ class EventUpdateRequest(BaseModel):
     initData: str
     event_id: int
     title: str
-    description: str
-    image_url: str
+    description: Optional[str] = ""  # По умолчанию пустая строка
+    image_url: Optional[str] = ""    # По умолчанию пустая строка
     tickets_cost: int
 
 # Добавьте эту модель к другим моделям в начале файла
@@ -1319,14 +1319,13 @@ async def update_event(
     """
     Обновляет существующий розыгрыш в таблице pages_content (только для админов).
     """
-    # 1. Проверка прав администратора
+    logging.info(f"Входящий запрос: {request_data.dict()}")
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен. Требуются права администратора.")
 
     event_id = request_data.event_id
     try:
-        # 2. Получение текущего контента страницы розыгрышей
         content_resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.events", "select": "content", "limit": 1}
@@ -1339,7 +1338,6 @@ async def update_event(
         content = page_data[0]['content']
         events = content.get("events", [])
 
-        # 3. Поиск и обновление розыгрыша
         event_found = False
         for event in events:
             if event.get("id") == event_id:
@@ -1347,9 +1345,8 @@ async def update_event(
                     "id": event_id,
                     "title": request_data.title.strip(),
                     "description": request_data.description.strip() if request_data.description else "",
-                    "image_url": request_data.image_url.strip(),
+                    "image_url": request_data.image_url.strip() if request_data.image_url else "",
                     "tickets_cost": request_data.tickets_cost,
-                    # Сохранение существующих полей, которые не обновляются
                     "winner_id": event.get("winner_id"),
                     "winner_name": event.get("winner_name"),
                     "end_date": event.get("end_date"),
@@ -1361,7 +1358,6 @@ async def update_event(
         if not event_found:
             raise HTTPException(status_code=404, detail=f"Розыгрыш с ID {event_id} не найден.")
 
-        # 4. Сохранение обновленного контента в базе данных
         await supabase.patch(
             "/pages_content",
             params={"page_name": "eq.events"},
