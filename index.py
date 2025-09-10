@@ -2275,7 +2275,7 @@ async def send_approval_notification(user_id: int, quest_title: str, promo_code:
     except Exception as e:
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
 
-@router.post("/api/v1/admin/submission/update")
+@app.post("/api/v1/admin/submission/update")
 async def update_submission_status(
     request_data: SubmissionUpdateRequest,
     background_tasks: BackgroundTasks,
