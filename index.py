@@ -1309,7 +1309,7 @@ async def create_event(
 
 @app.post("/api/v1/admin/events/update")
 async def update_events_page_content(
-    request_data: EventsPageUpdateRequest,
+    request_data: EventUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
