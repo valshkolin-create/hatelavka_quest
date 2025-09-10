@@ -3115,10 +3115,57 @@ async def enter_event(
         }
 
     except httpx.HTTPStatusError as e:
+        # Улучшенная обработка ошибки 409 Conflict
+        if e.response.status_code == 409:
+            raise HTTPException(
+                status_code=409,
+                detail="Вы уже участвуете в этом розыгрыше."
+            )
         error_details = e.response.json().get("message", "Неизвестная ошибка базы данных.")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
         logging.error(f"Критическая ошибка при входе в ивент: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+
+# --- Дополнительные эндпоинты ---
+@app.post("/api/v1/events/create")
+async def create_event(
+    request_data: EventCreateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Создает новый розыгрыш в таблице events.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+    
+    try:
+        data_to_insert = {
+            "title": request_data.title,
+            "description": request_data.description,
+            "image_url": request_data.image_url,
+            "tickets_cost": request_data.tickets_cost,
+            "end_date": request_data.end_date.isoformat() if request_data.end_date else None
+        }
+        
+        response = await supabase.post(
+            "/events",
+            json=data_to_insert
+        )
+        response.raise_for_status()
+        
+        new_event = response.json()[0]
+        return {
+            "message": "Новый розыгрыш успешно создан.",
+            "event_id": new_event["id"]
+        }
+        
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Неизвестная ошибка базы данных.")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Критическая ошибка при создании розыгрыша: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.post("/api/v1/admin/events/update")
