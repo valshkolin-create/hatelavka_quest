@@ -1399,14 +1399,11 @@
                     target.disabled = true;
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                     try {
-                        // ИСПРАВЛЕНО: Вызываем главный эндпоинт челленджей. Он обнаружит, 
-                        // что текущий челлендж истёк, обновит его статус и вернёт состояние кулдауна.
-                        await makeApiRequest("/api/v1/user/challenge");
-                        await main(); // Обновляем весь интерфейс
+                        // ИСПРАВЛЕНО: Вызываем новую функцию, которая не даёт кулдаун.
+                        await makeApiRequest("/api/v1/user/challenge/close_expired");
+                        await main(); // Обновляем интерфейс, который покажет приветственную страницу.
                     } catch (e) {
                         console.error("Ошибка при завершении челленджа:", e);
-                        // В случае любой ошибки (например, если кулдаун уже активен),
-                        // просто обновляем интерфейс, чтобы показать актуальное состояние с сервера.
                         await main();
                     }
                     
@@ -1415,7 +1412,6 @@
                     target.disabled = true;
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                     try {
-                        // Используем эндпоинт отмены, чтобы правильно закрыть истёкший квест на сервере.
                         await makeApiRequest('/api/v1/quests/cancel');
                         await main();
                     } catch (e) {
