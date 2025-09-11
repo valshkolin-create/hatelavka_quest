@@ -931,7 +931,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (countdownInterval) clearInterval(countdownInterval);
         const timerElement = document.getElementById('countdown-timer');
         if (!endTimeString || !timerElement) {
-            if (timerElement) timerElement.textContent = 'Время не задано';
+            if (timerElement) timerElement.textContent = 'Розыгрыш подготавливается';
             return;
         }
         const endTime = new Date(endTimeString).getTime();
@@ -1036,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
-
+        const isTimerSet = !!pageContent.raffleEndTime;
         (pageContent.events || []).forEach((event, index) => {
             const card = document.createElement('div');
             card.className = 'event-card';
@@ -1075,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 const userTickets = (userData.event_participations || {})[event.id] || 0;
                 const userTicketsHtml = userTickets > 0 ? `<div class="user-tickets">Ваши билеты: ${userTickets} 🎟️</div>` : '<div class="user-tickets" style="visibility: hidden;"></div>';
-                const participateButtonDisabled = isLocked ? 'disabled' : '';
+                const participateButtonDisabled = isLocked || !isTimerSet ? 'disabled' : '';
                 const participateButton = isBrowserView ? '' : `<button class="event-button" data-event-id="${event.id}" data-event-title="${event.title}" ${participateButtonDisabled}>Участвовать</button>`;
                 
                 cardInnerHtml += `
@@ -1414,9 +1414,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         } else if (createCard) {
-            } else if (createCard) {
-                showEventModal(null, null);
-            } else if (editableText) {
+            showEventModal(null, null);
+        } else if (editableText) {
                 const key = editableText.dataset.key;
                 const isIcon = editableText.tagName === 'I';
                 if (key === 'raffleEndTime') {
@@ -1427,7 +1426,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             if (button?.matches('.event-button')) {
+                 if (!pageContent.raffleEndTime) {
+                    tg.showAlert('Таймер на розыгрыш еще не выставлен ожидайте');
+                } else {
                 showTicketModal(button.dataset.eventId, button.dataset.eventTitle);
+                }
             } else if (button?.matches('.participants-button')) {
                 showParticipantsModal(button.dataset.eventId, button.dataset.eventTitle);
             }
