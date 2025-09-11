@@ -335,14 +335,14 @@
     }
     /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ОБУЧЕНИЯ --- */
 
-    /* --- НОВЫЕ СТИЛИ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ --- */
+    /* --- СТИЛИ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ --- */
     .quest-card.expired .quest-content-wrapper {
         filter: blur(3px);
         pointer-events: none;
         opacity: 0.5;
     }
     .quest-card.expired {
-        overflow: hidden; /* Чтобы оверлей не выходил за пределы */
+        overflow: hidden; 
     }
     .expired-overlay {
         position: absolute;
@@ -596,19 +596,46 @@
         ];
         let currentTutorialStep = 0;
 
+        /**
+         * ИСПРАВЛЕНИЕ 2: Полностью переписанная функция позиционирования модального окна обучения.
+         * Она теперь точно измеряет размеры и доступное пространство, чтобы гарантированно
+         * поместить окно в видимую область экрана.
+         */
         function positionTutorialModal(element) {
             const rect = element.getBoundingClientRect();
             const modal = dom.tutorialModal;
-            
+            const margin = 15;
+
+            // Сначала делаем окно невидимым, но блочным, чтобы измерить его реальную высоту
+            modal.style.visibility = 'hidden';
+            modal.style.display = 'block';
+            const modalHeight = modal.offsetHeight;
+            // Возвращаем как было
+            modal.style.display = '';
+            modal.style.visibility = '';
+
+            // Устанавливаем горизонтальное положение
             modal.style.left = '5%';
             modal.style.right = '5%';
             modal.style.width = '90%';
+            modal.style.bottom = 'auto'; // Сбрасываем 'bottom', чтобы не мешало 'top'
 
-            if (rect.top > window.innerHeight / 2) {
-                 modal.style.top = `${rect.top - modal.offsetHeight - 15}px`;
-            } else {
-                modal.style.top = `${rect.bottom + 15}px`;
+            // Проверяем, достаточно ли места снизу
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow >= (modalHeight + margin)) {
+                modal.style.top = `${rect.bottom + margin}px`;
+                return;
             }
+
+            // Если места снизу нет, проверяем, достаточно ли места сверху
+            const spaceAbove = rect.top;
+            if (spaceAbove >= (modalHeight + margin)) {
+                modal.style.top = `${rect.top - modalHeight - margin}px`;
+                return;
+            }
+            
+            // Если места нигде не хватает (очень редкий случай), прижимаем к верху экрана
+            modal.style.top = `${margin}px`;
         }
 
         function showTutorialStep(stepIndex) {
@@ -654,7 +681,8 @@
                 
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                setTimeout(() => positionTutorialModal(element), 300);
+                // Ждём завершения прокрутки перед позиционированием
+                setTimeout(() => positionTutorialModal(element), 400);
 
                 const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
                 dom.tutorialNextBtn.textContent = originalButtonText;
@@ -821,7 +849,6 @@
                     if (onEndCallback) {
                         onEndCallback();
                     } 
-                    // --- ИЗМЕНЕНИЕ 2: Логика для истекшего челленджа ---
                     else if (intervalKey === 'challenge') {
                         const cardElement = currentTimerElement.closest('.quest-card');
                         if (cardElement) {
@@ -840,16 +867,13 @@
                            `;
                         }
                     } 
-                    // --- ИЗМЕНЕНИЕ 4: Логика для истекшего квеста ---
                     else if (intervalKey.startsWith('quest_')) {
                          const cardElement = currentTimerElement.closest('.quest-card');
                          if (cardElement) {
                             cardElement.classList.add('expired');
-                            // Находим внутренний wrapper, чтобы не затронуть оверлей
                             const contentWrapper = cardElement.querySelector('.quest-content-wrapper');
-                            // Кнопку "Отменить" заменяем на "Завершить" внутри оверлея
                             cardElement.innerHTML = `
-                                ${contentWrapper.outerHTML}
+                                ${contentWrapper ? contentWrapper.outerHTML : ''}
                                 <div class="expired-overlay">
                                     <div class="expired-overlay-text">Время истекло</div>
                                     <button id="complete-expired-quest-btn" class="claim-reward-button" style="margin-top:0;">
@@ -1314,7 +1338,9 @@
             
             dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
 
-
+            /**
+             * ИСПРАВЛЕНИЕ 1: Добавлена отладка и исправлена логика для кнопок "Завершить".
+             */
             document.body.addEventListener('click', async (event) => {
                 const target = event.target.closest('button');
                 if (!target) return;
@@ -1371,29 +1397,32 @@
                     
                     showCustomPrompt(questTitle, questId);
 
-                // --- ИЗМЕНЕНИЕ 3: Кнопка "Завершить" для истёкшего челленджа ---
                 } else if (target.id === 'check-challenge-progress-btn') {
+                    console.log("Нажата кнопка 'Завершить' для ЧЕЛЛЕНДЖА.");
                     target.disabled = true;
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-
                     try {
-                        // Эта функция на бэкенде просто закроет челлендж и обновит статус
                         await makeApiRequest("/api/v1/user/challenge/check");
-                        await main(); // Перерисовываем интерфейс
+                        await main();
                     } catch (e) {
-                        // Возвращаем кнопку в исходное состояние при ошибке
+                        console.error("Ошибка при завершении челленджа:", e);
                         target.disabled = false;
                         target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
                     }
-                
-                // --- ИЗМЕНЕНИЕ 4: Кнопка "Завершить" для истёкшего квеста ---
+                    
                 } else if (target.id === 'complete-expired-quest-btn') {
+                    console.log("Нажата кнопка 'Завершить' для КВЕСТА.");
                     target.disabled = true;
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                    // Просто перезапускаем main(), бэкенд сам увидит, что квест истёк,
-                    // и при следующем запросе данных вернёт пустой активный квест.
-                    // Это закроет квест без награды и без штрафа за отмену.
-                    await main();
+                    try {
+                        // Используем эндпоинт отмены, чтобы правильно закрыть истёкший квест на сервере.
+                        await makeApiRequest('/api/v1/quests/cancel');
+                        await main();
+                    } catch (e) {
+                         console.error("Ошибка при завершении квеста:", e);
+                        target.disabled = false;
+                        target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
+                    }
 
                 } else if (target.id === 'cancel-quest-btn') {
                     Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Вы сможете выбрать новое, но отменять задания можно лишь раз в сутки.", async (ok) => {
