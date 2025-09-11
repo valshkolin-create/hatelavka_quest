@@ -859,6 +859,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let countdownInterval = null;
     let freeTicketInterval = null;
     let userData = {};
+    let activeSubmitHandler = null; // --- НОВАЯ ПЕРЕМЕННАЯ ДЛЯ ДИНАМИЧЕСКОГО ОБРАБОТЧИКА
 
     const dom = {
         adminControls: document.getElementById('admin-controls'),
@@ -1160,49 +1161,77 @@ document.addEventListener('DOMContentLoaded', function() {
         showModal(dom.timerModal);
     }
 
+    // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: УЧАСТИЕ В РОЗЫГРЫШЕ ---
     function showTicketModal(eventId, eventTitle) {
         if (!eventId) {
-            handleApiError(new Error("Не удалось определить ID ивента. Попробуйте обновить страницу."));
+            handleApiError(new Error("Критическая ошибка: ID ивента не найден. Обновите страницу."));
             return;
         }
-        if (!userData.id) {
-            alert('Пожалуйста, откройте эту страницу в Telegram для участия.');
-            return;
-        }
-        if (!userData.trade_link) {
-            tg.showConfirm('Для участия в розыгрыше необходимо добавить Steam Trade ссылку в вашем профиле. Перейти в профиль?', (ok) => {
-                if (ok) window.location.href = '/profile';
-            });
-            return;
-        }
-        const showTheModal = () => {
-            const eventData = pageContent.events.find(e => e.id == eventId);
-            dom.userBalanceDisplay.textContent = userData.tickets || 0;
-            dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
-            dom.ticketEventIdInput.value = eventId;
-            dom.ticketAmountInput.value = '';
-            dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
-            dom.ticketAmountInput.max = userData.tickets || 0;
-            showModal(dom.ticketModal);
-            dom.ticketAmountInput.focus();
-        };
-        if (userData.is_previous_winner) {
-            tg.showConfirm(
-                'Вы уже побеждали в наших розыгрышах! Чтобы дать шанс и другим участникам, в этот раз ваша удача может быть немного скромнее. Желаете продолжить?',
-                (ok) => {
-                    if (ok) {
-                        showTheModal();
-                    }
-                }
-            );
-        } else {
-            showTheModal();
-        }
-    }
 
+        const submitHandler = async (e) => {
+            e.preventDefault();
+            dom.ticketModalForm.removeEventListener('submit', submitHandler);
+
+            const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
+            if (!ticketsToSpend || ticketsToSpend <= 0) {
+                tg.showAlert('Введите корректное количество билетов.');
+                return;
+            }
+            if (ticketsToSpend > userData.tickets) {
+                tg.showAlert('У вас недостаточно билетов.');
+                return;
+            }
+            hideModal(dom.ticketModal);
+            if (typeof tg?.MainButton?.showProgress === 'function') try { tg.MainButton.showProgress(); } catch {}
+            
+            try {
+                const payload = {
+                    initData: tg.initData,
+                    event_id: parseInt(eventId),
+                    tickets_to_spend: ticketsToSpend
+                };
+                const response = await fetch('/api/v1/events/enter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw response;
+
+                const result = await response.json();
+                tg.showAlert('Ваша ставка принята!');
+                userData.tickets = result.new_ticket_balance;
+                userData.event_participations = userData.event_participations || {};
+                userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
+                renderPage();
+            } catch (error) {
+                handleApiError(error);
+            } finally {
+                if (typeof tg?.MainButton?.hideProgress === 'function') try { tg.MainButton.hideProgress(); } catch {}
+            }
+        };
+
+        if (activeSubmitHandler) {
+            dom.ticketModalForm.removeEventListener('submit', activeSubmitHandler);
+        }
+        activeSubmitHandler = submitHandler;
+        dom.ticketModalForm.addEventListener('submit', activeSubmitHandler);
+
+        // --- Логика отображения модального окна ---
+        const eventData = pageContent.events.find(e => e.id == eventId);
+        dom.userBalanceDisplay.textContent = userData.tickets || 0;
+        dom.ticketModalTitle.textContent = `Розыгрыш: ${eventTitle}`;
+        dom.ticketAmountInput.value = '';
+        dom.ticketAmountInput.min = eventData ? eventData.tickets_cost : 1;
+        dom.ticketAmountInput.max = userData.tickets || 0;
+        showModal(dom.ticketModal);
+        dom.ticketAmountInput.focus();
+    }
+    
+    // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: ПРОСМОТР УЧАСТНИКОВ ---
     async function showParticipantsModal(eventId, eventTitle) {
         if (!eventId) {
-            handleApiError(new Error("Не удалось определить ID ивента для просмотра участников. Попробуйте обновить страницу."));
+            handleApiError(new Error("Критическая ошибка: ID ивента не найден. Обновите страницу."));
             return;
         }
         const initData = tg.initData || '';
@@ -1222,9 +1251,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) {
-                throw response;
-            }
+            if (!response.ok) throw response;
 
             const result = await response.json();
             dom.participantsList.innerHTML = '';
@@ -1325,6 +1352,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (button?.id === 'claim-free-ticket-btn') {
             button.disabled = true;
             try {
+                if(!tg.initData) throw new Error("Необходима авторизация в Telegram");
                 const response = await fetch('/api/v1/user/claim-free-ticket', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1379,7 +1407,7 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const index = dom.eventIndexInput.value;
         const eventData = {
-            id: (index && pageContent.events[index]) ? pageContent.events[index].id : Date.now(),
+            id: (index && index !== 'null' && pageContent.events[index]) ? pageContent.events[index].id : Date.now(),
             title: dom.eventTitleInput.value,
             description: dom.eventDescriptionInput.value,
             image_url: dom.eventImageInput.value,
@@ -1413,50 +1441,6 @@ document.addEventListener('DOMContentLoaded', function() {
         pageContent.raffleEndTime = dom.timerInput.value;
         hideModal(dom.timerModal);
         renderPage();
-    });
-
-    dom.ticketModalForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const eventId = parseInt(dom.ticketEventIdInput.value);
-        const ticketsToSpend = parseInt(dom.ticketAmountInput.value);
-        if (!ticketsToSpend || ticketsToSpend <= 0) {
-            tg.showAlert('Введите корректное количество билетов.');
-            return;
-        }
-        if (ticketsToSpend > userData.tickets) {
-            tg.showAlert('У вас недостаточно билетов.');
-            return;
-        }
-        hideModal(dom.ticketModal);
-        if (typeof tg?.MainButton?.showProgress === 'function') try { tg.MainButton.showProgress(); } catch {}
-        
-        try {
-            const payload = {
-                initData: tg.initData,
-                event_id: eventId,
-                tickets_to_spend: ticketsToSpend
-            };
-            const response = await fetch('/api/v1/events/enter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                throw response;
-            }
-
-            const result = await response.json();
-            tg.showAlert('Ваша ставка принята!');
-            userData.tickets = result.new_ticket_balance;
-            userData.event_participations = userData.event_participations || {};
-            userData.event_participations[eventId] = (userData.event_participations[eventId] || 0) + ticketsToSpend;
-            renderPage();
-        } catch (error) {
-            handleApiError(error);
-        } finally {
-            if (typeof tg?.MainButton?.hideProgress === 'function') try { tg.MainButton.hideProgress(); } catch {}
-        }
     });
 
     document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
