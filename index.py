@@ -303,6 +303,10 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_text(message)
 
+class EventsPageContentUpdate(BaseModel):
+    initData: str
+    content: dict
+
 manager = ConnectionManager()
 
 # соответствие condition_type ↔ колонка из users
@@ -1314,94 +1318,38 @@ async def create_event(
 
 @app.post("/api/v1/admin/events/update")
 async def update_events_page_content(
-    request_data: EventUpdateRequest,
+    request_data: EventsPageContentUpdate, # ИЗМЕНЕНИЕ 1: Используем правильную модель
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Обновляет или добавляет событие в массив events в таблице pages_content (только для админов).
+    Обновляет ВЕСЬ контент страницы ивентов в таблице pages_content.
     """
-    logger.info(f"Получен запрос: {request_data.dict()}")
-
     # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info:
-        logger.error("Недействительная initData")
-        raise HTTPException(status_code=403, detail="Недействительная initData")
-    if user_info.get("id") not in ADMIN_IDS:
-        logger.error(f"Пользователь {user_info.get('id')} не является администратором")
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещён.")
 
     try:
-        # 2. Проверка существования записи
-        logger.info("Проверка записи pages_content с page_name='events'")
-        content_resp = await supabase.get(
+        # 2. Получаем контент из запроса
+        content_to_save = request_data.content
+
+        # 3. Обновляем запись в Supabase, где page_name = 'events'
+        # Используем метод POST с Prefer: resolution=merge-duplicates (upsert)
+        # Это надежнее: если записи 'events' нет, она создастся. Если есть - обновится.
+        await supabase.post(
             "/pages_content",
-            params={"page_name": "eq.events", "select": "id,content", "limit": 1}
+            json={"page_name": "events", "content": content_to_save},
+            headers={"Prefer": "resolution=merge-duplicates"}
         )
-        content_resp.raise_for_status()
-        page_data = content_resp.json()
-        logger.info(f"Ответ Supabase (GET): {page_data}")
-
-        # 3. Если запись отсутствует, создаём новую
-        if not page_data:
-            logger.info("Запись не найдена, создаём новую")
-            initial_content = {"events": []}
-            create_resp = await supabase.post(
-                "/pages_content",
-                json={"page_name": "events", "content": initial_content, "updated_at": "now()"}
-            )
-            create_resp.raise_for_status()
-            logger.info(f"Создана новая запись: {create_resp.json()}")
-            events = []
-        else:
-            events = page_data[0]["content"].get("events", [])
-
-        # 4. Формируем данные нового/обновляемого события
-        new_event = {
-            "id": request_data.event_id,
-            "title": request_data.title,
-            "description": request_data.description,
-            "image_url": request_data.image_url,
-            "tickets_cost": request_data.tickets_cost,
-            "end_date": request_data.end_date,
-            "winner_id": None,
-            "winner_name": None,
-            "prize_sent_confirmed": False
-        }
-
-        # 5. Проверяем, существует ли событие с таким event_id
-        event_index = None
-        for i, event in enumerate(events):
-            if event.get("id") == request_data.event_id:
-                event_index = i
-                break
-
-        # 6. Обновляем или добавляем событие
-        if event_index is not None:
-            events[event_index] = new_event
-            logger.info(f"Обновляем существующее событие с ID {request_data.event_id}")
-        else:
-            events.append(new_event)
-            logger.info(f"Добавляем новое событие с ID {request_data.event_id}")
-
-        # 7. Обновляем запись в Supabase
-        logger.info(f"Отправка PATCH с content: {{'events': {events}}}")
-        update_resp = await supabase.patch(
-            "/pages_content",
-            params={"page_name": "eq.events"},
-            json={"content": {"events": events}, "updated_at": "now()"}
-        )
-        update_resp.raise_for_status()
-        logger.info(f"Ответ Supabase (PATCH): {update_resp.json()}")
 
         return {"message": "Контент страницы успешно обновлён."}
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка базы данных")
-        logger.error(f"HTTP-ошибка: {error_details}")
+        logging.error(f"HTTP-ошибка при обновлении контента: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logger.error(f"Критическая ошибка: {e}", exc_info=True)
+        logging.error(f"Критическая ошибка при обновлении контента: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
         
 @app.post("/api/v1/admin/quest/submissions")
