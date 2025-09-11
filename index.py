@@ -2469,6 +2469,36 @@ async def get_available_challenges(request_data: InitDataRequest, supabase: http
         final_available = all_available
 
     return final_available
+
+@app.post("/api/v1/user/challenge/close_expired")
+async def close_expired_challenge(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Находит и закрывает истёкший челлендж пользователя, НЕ устанавливая кулдаун.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Доступ запрещен")
+    
+    telegram_id = user_info["id"]
+
+    try:
+        # Находим и обновляем статус только для истёкших челленджей
+        await supabase.patch(
+            "/user_challenges",
+            params={
+                "user_id": f"eq.{telegram_id}",
+                "status": "eq.pending",
+                "expires_at": f"lt.{datetime.now(timezone.utc).isoformat()}" # lt = less than
+            },
+            json={"status": "expired"}
+        )
+        return {"message": "Истёкший челлендж закрыт."}
+    except Exception as e:
+        logging.error(f"Ошибка при закрытии истёкшего челленджa для {telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось закрыть челлендж.")
     
 @app.post("/api/v1/user/challenge")
 async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
