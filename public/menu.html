@@ -1338,9 +1338,6 @@
             
             dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
 
-            /**
-             * ИСПРАВЛЕНИЕ 1: Добавлена отладка и исправлена логика для кнопок "Завершить".
-             */
             document.body.addEventListener('click', async (event) => {
                 const target = event.target.closest('button');
                 if (!target) return;
@@ -1402,12 +1399,15 @@
                     target.disabled = true;
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                     try {
-                        await makeApiRequest("/api/v1/user/challenge/check");
-                        await main();
+                        // ИСПРАВЛЕНО: Вызываем главный эндпоинт челленджей. Он обнаружит, 
+                        // что текущий челлендж истёк, обновит его статус и вернёт состояние кулдауна.
+                        await makeApiRequest("/api/v1/user/challenge");
+                        await main(); // Обновляем весь интерфейс
                     } catch (e) {
                         console.error("Ошибка при завершении челленджа:", e);
-                        target.disabled = false;
-                        target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
+                        // В случае любой ошибки (например, если кулдаун уже активен),
+                        // просто обновляем интерфейс, чтобы показать актуальное состояние с сервера.
+                        await main();
                     }
                     
                 } else if (target.id === 'complete-expired-quest-btn') {
