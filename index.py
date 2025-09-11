@@ -261,6 +261,9 @@ class RoulettePrizeDeleteRequest(BaseModel):
     initData: str
     prize_id: int
 
+class StatisticsRequest(BaseModel):
+    initData: str
+
 # --- НОВАЯ Pydantic модель для создания ивента ---
 class EventCreateRequest(BaseModel):
     initData: str
@@ -1315,6 +1318,47 @@ async def create_event(
     except Exception as e:
         logging.error(f"Непредвиденная ошибка при создании события: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+@app.post("/api/v1/admin/stats")
+async def get_admin_stats(
+    request_data: StatisticsRequest, # Убедитесь, что модель StatisticsRequest добавлена
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) Собирает и возвращает ключевую статистику по активности пользователей и ивентам.
+    """
+    # 1. Проверка прав администратора
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # 2. Вызываем RPC-функцию в Supabase, которая соберет всю статистику за один раз
+        response = await supabase.post("/rpc/get_project_pulse_stats")
+        response.raise_for_status()
+        
+        # Функция вернет все данные в нужном формате
+        stats_data = response.json()
+
+        # 3. Дополнительно получаем статистику по активным розыгрышам
+        events_stats_resp = await supabase.post("/rpc/get_active_events_stats")
+        events_stats_resp.raise_for_status()
+        
+        # 4. Собираем финальный ответ
+        final_response = {
+            "pulse": stats_data,
+            "events": events_stats_resp.json()
+        }
+        
+        return final_response
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка базы данных")
+        logging.error(f"HTTP-ошибка при получении статистики: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Не удалось загрузить статистику: {error_details}")
+    except Exception as e:
+        logging.error(f"Критическая ошибка при получении статистики: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сборе статистики.")
 
 @app.post("/api/v1/admin/events/update")
 async def update_events_page_content(
