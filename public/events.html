@@ -1163,10 +1163,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: УЧАСТИЕ В РОЗЫГРЫШЕ ---
     function showTicketModal(eventId, eventTitle) {
-        if (!eventId) {
-            handleApiError(new Error("Критическая ошибка: ID ивента не найден. Обновите страницу."));
-            return;
-        }
+        const parsedEventId = parseInt(eventId);
+        if (isNaN(parsedEventId)) {
+                handleApiError(new Error("Критическая ошибка: ID ивента некорректен. Обновите страницу."));
+                return;
+    }
 
         const submitHandler = async (e) => {
             e.preventDefault();
