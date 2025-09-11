@@ -23,7 +23,6 @@
       --telegram-color: #0088CC;
     }
     body { margin: 0; min-height: 100vh; background-color: var(--bg-color); background-image: var(--bg-gradient); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
-    /* ИСПРАВЛЕНО: Уменьшен верхний отступ */
     .main-content { flex-grow: 1; padding: 10px 15px 120px; overflow-y: auto; opacity: 0; transition: opacity 0.4s ease-in-out; }
     .main-content.visible { opacity: 1; }
     .user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -253,10 +252,8 @@
         position: relative;
         z-index: 1000;
         border-radius: 12px;
-        /* ИСПРАВЛЕНО: Уменьшена тень для обводки */
         box-shadow: 0 0 0 3px var(--primary-color), 0 0 15px var(--primary-color);
         transition: box-shadow 0.3s ease-in-out;
-        /* ИСПРАВЛЕНО: Добавлен фон, чтобы избежать просвечивания оверлея */
         background-color: var(--bg-color);
     }
     .app-footer.tutorial-footer-active {
@@ -317,9 +314,8 @@
         background-color: var(--primary-color);
         color: white;
         font-size: 14px;
-        min-width: 100px; /* Добавлено для стабильности размера кнопки */
+        min-width: 100px;
     }
-    /* ИСПРАВЛЕНО: Уменьшен отступ */
     .start-tutorial-btn-wrapper {
         text-align: center;
         margin-bottom: 12px;
@@ -338,6 +334,36 @@
         gap: 6px;
     }
     /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ОБУЧЕНИЯ --- */
+
+    /* --- НОВЫЕ СТИЛИ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ --- */
+    .quest-card.expired .quest-content-wrapper {
+        filter: blur(3px);
+        pointer-events: none;
+        opacity: 0.5;
+    }
+    .quest-card.expired {
+        overflow: hidden; /* Чтобы оверлей не выходил за пределы */
+    }
+    .expired-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
+        z-index: 2;
+    }
+    .expired-overlay-text {
+        font-size: 16px;
+        font-weight: bold;
+        color: var(--danger-color);
+        text-shadow: 0 0 8px black;
+        margin-bottom: 10px;
+    }
 </style>
 </head>
 <body>
@@ -524,13 +550,12 @@
         let allQuests = [];
         let userData = {};
         let questsForRoulette = [];
-        let tutorialCountdownInterval = null; // Для хранения интервала таймера кнопки
+        let tutorialCountdownInterval = null;
         
         const tutorialSteps = [
             {
                 element: '.user-profile',
                 title: 'Ваш Профиль и Билеты',
-                // Обновлен текст обучения по вашему запросу
                 text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch, указать трейд-ссылку и посмотреть все полученные промокоды. <br><br>Справа — <b>Ваши билеты</b>, которые вы зарабатываете за задания и используете в "Гонке за скинами".',
                 view: 'view-dashboard'
             },
@@ -559,13 +584,11 @@
                 view: 'view-dashboard'
             },
             {
-                // ИСПРАВЛЕНО: Цель - внутренняя иконка
                 element: '#nav-leaderboard .icon-wrapper',
                 title: 'Лидерборд',
                 text: 'Следите за статистикой самых активных пользователей в Twitch и Telegram чатах. Нужная кнопка находится в панели снизу.'
             },
             {
-                // ИСПРАВЛЕНО: Цель - внутренняя иконка
                 element: '#nav-quests .icon-wrapper',
                 title: 'Задания',
                 text: 'В этом разделе находятся задания с ручной проверкой. Найдите иконку в панели снизу, чтобы посмотреть их.'
@@ -581,7 +604,6 @@
             modal.style.right = '5%';
             modal.style.width = '90%';
 
-            // ИСПРАВЛЕНО: Модальное окно всегда появляется НАД элементом, если он в нижней половине экрана
             if (rect.top > window.innerHeight / 2) {
                  modal.style.top = `${rect.top - modal.offsetHeight - 15}px`;
             } else {
@@ -590,7 +612,6 @@
         }
 
         function showTutorialStep(stepIndex) {
-            // Очистка предыдущего таймера, если он был
             if (tutorialCountdownInterval) {
                 clearInterval(tutorialCountdownInterval);
                 tutorialCountdownInterval = null;
@@ -607,7 +628,6 @@
 
             let step = { ...tutorialSteps[stepIndex] };
 
-            // Динамическая замена шага, если у пользователя есть активное испытание
             if (step.element === '#quest-choose-wrapper') {
                 const activeQuestContainer = document.getElementById('active-automatic-quest-container');
                 if (activeQuestContainer && activeQuestContainer.innerHTML.trim() !== '') {
@@ -638,8 +658,7 @@
 
                 const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
                 dom.tutorialNextBtn.textContent = originalButtonText;
-
-                // Добавлен 5-секундный таймер для кнопки "Далее"
+                
                 const nextBtn = dom.tutorialNextBtn;
                 nextBtn.disabled = true;
                 let countdown = 5;
@@ -659,7 +678,6 @@
 
             } else {
                 console.warn(`Tutorial element not found: ${step.element}. Trying next step.`);
-                // Предотвращение бесконечной рекурсии
                 setTimeout(() => {
                     currentTutorialStep++;
                     showTutorialStep(currentTutorialStep);
@@ -686,10 +704,9 @@
                 dom.tutorialStepCounter.textContent = '';
                 dom.tutorialSkipBtn.classList.add('hidden');
                 dom.tutorialNextBtn.textContent = 'Отлично!';
-                dom.tutorialNextBtn.disabled = false; // Убедимся, что кнопка активна
+                dom.tutorialNextBtn.disabled = false;
                 dom.tutorialNextBtn.onclick = () => {
                     dom.tutorialOverlay.classList.add('hidden');
-                    // Восстанавливаем основной обработчик
                     dom.tutorialNextBtn.onclick = tutorialNextHandler;
                     dom.tutorialSkipBtn.classList.remove('hidden');
                 };
@@ -804,19 +821,43 @@
                     if (onEndCallback) {
                         onEndCallback();
                     } 
+                    // --- ИЗМЕНЕНИЕ 2: Логика для истекшего челленджа ---
                     else if (intervalKey === 'challenge') {
                         const cardElement = currentTimerElement.closest('.quest-card');
                         if (cardElement) {
-                           currentTimerElement.remove();
-                           const completeButton = document.createElement('button');
-                           completeButton.id = 'check-challenge-progress-btn';
-                           completeButton.className = 'claim-reward-button';
-                           completeButton.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
-                           cardElement.appendChild(completeButton);
+                           cardElement.classList.add('expired');
+                           cardElement.innerHTML = `
+                               <div class="quest-content-wrapper">
+                                   <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
+                                   <h2 class="quest-title">${cardElement.querySelector('.quest-title')?.textContent || 'Челлендж'}</h2>
+                               </div>
+                               <div class="expired-overlay">
+                                   <div class="expired-overlay-text">Время истекло</div>
+                                   <button id="check-challenge-progress-btn" class="claim-reward-button" style="margin-top:0;">
+                                       <i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>
+                                   </button>
+                               </div>
+                           `;
                         }
                     } 
+                    // --- ИЗМЕНЕНИЕ 4: Логика для истекшего квеста ---
                     else if (intervalKey.startsWith('quest_')) {
-                        currentTimerElement.style.display = 'none';
+                         const cardElement = currentTimerElement.closest('.quest-card');
+                         if (cardElement) {
+                            cardElement.classList.add('expired');
+                            // Находим внутренний wrapper, чтобы не затронуть оверлей
+                            const contentWrapper = cardElement.querySelector('.quest-content-wrapper');
+                            // Кнопку "Отменить" заменяем на "Завершить" внутри оверлея
+                            cardElement.innerHTML = `
+                                ${contentWrapper.outerHTML}
+                                <div class="expired-overlay">
+                                    <div class="expired-overlay-text">Время истекло</div>
+                                    <button id="complete-expired-quest-btn" class="claim-reward-button" style="margin-top:0;">
+                                       <i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>
+                                    </button>
+                                </div>
+                            `;
+                         }
                     }
 
                     if (intervalKey === 'challenge_cooldown') {
@@ -1015,7 +1056,7 @@
                         ${timerHtml}
                         ${twitchNotice}
                     </div>
-                    ${buttonHtml}
+                    <div class="button-container">${buttonHtml}</div>
                 </div>`;
             
             if (activeQuest.end_date) {
@@ -1269,7 +1310,6 @@
             
             dom.startTutorialBtn.addEventListener('click', startTutorial);
             
-            // ИСПРАВЛЕНО: Заменен addEventListener на .onclick, чтобы избежать дублирования обработчиков
             dom.tutorialNextBtn.onclick = tutorialNextHandler;
             
             dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
@@ -1331,18 +1371,30 @@
                     
                     showCustomPrompt(questTitle, questId);
 
+                // --- ИЗМЕНЕНИЕ 3: Кнопка "Завершить" для истёкшего челленджа ---
                 } else if (target.id === 'check-challenge-progress-btn') {
                     target.disabled = true;
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
                     try {
+                        // Эта функция на бэкенде просто закроет челлендж и обновит статус
                         await makeApiRequest("/api/v1/user/challenge/check");
-                        await main();
+                        await main(); // Перерисовываем интерфейс
                     } catch (e) {
+                        // Возвращаем кнопку в исходное состояние при ошибке
                         target.disabled = false;
                         target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
                     }
-                    
+                
+                // --- ИЗМЕНЕНИЕ 4: Кнопка "Завершить" для истёкшего квеста ---
+                } else if (target.id === 'complete-expired-quest-btn') {
+                    target.disabled = true;
+                    target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                    // Просто перезапускаем main(), бэкенд сам увидит, что квест истёк,
+                    // и при следующем запросе данных вернёт пустой активный квест.
+                    // Это закроет квест без награды и без штрафа за отмену.
+                    await main();
+
                 } else if (target.id === 'cancel-quest-btn') {
                     Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Вы сможете выбрать новое, но отменять задания можно лишь раз в сутки.", async (ok) => {
                         if (ok) {
@@ -1360,7 +1412,6 @@
 
         async function main() {
             try {
-                // ИСПРАВЛЕНО: Гарантированная прокрутка в самый верх
                 setTimeout(() => window.scrollTo(0, 0), 0);
 
                 if (!Telegram.WebApp.initData) {
@@ -1442,7 +1493,6 @@
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
 
-                // ИСПРАВЛЕНО: Запуск обучения перенесен в самый конец
                 if (!localStorage.getItem('tutorialCompleted')) {
                     startTutorial();
                 }
