@@ -1318,11 +1318,12 @@ async def create_event(
 
 @app.post("/api/v1/admin/events/update")
 async def update_events_page_content(
-    request_data: EventsPageContentUpdate, # ИЗМЕНЕНИЕ 1: Используем правильную модель
+    request_data: EventsPageContentUpdate,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
     Обновляет ВЕСЬ контент страницы ивентов в таблице pages_content.
+    Версия 2: Использует PATCH для надежного обновления существующей записи.
     """
     # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -1330,16 +1331,14 @@ async def update_events_page_content(
         raise HTTPException(status_code=403, detail="Доступ запрещён.")
 
     try:
-        # 2. Получаем контент из запроса
         content_to_save = request_data.content
 
-        # 3. Обновляем запись в Supabase, где page_name = 'events'
-        # Используем метод POST с Prefer: resolution=merge-duplicates (upsert)
-        # Это надежнее: если записи 'events' нет, она создастся. Если есть - обновится.
-        await supabase.post(
+        # ИЗМЕНЕНИЕ: Используем метод PATCH для явного обновления
+        # Он находит строку, где page_name равно 'events', и обновляет ее поле 'content'
+        await supabase.patch(
             "/pages_content",
-            json={"page_name": "events", "content": content_to_save},
-            headers={"Prefer": "resolution=merge-duplicates"}
+            params={"page_name": "eq.events"}, # Фильтр: какую именно строку обновлять
+            json={"content": content_to_save}     # Данные: что именно обновлять
         )
 
         return {"message": "Контент страницы успешно обновлён."}
