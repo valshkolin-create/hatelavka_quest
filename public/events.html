@@ -1383,8 +1383,37 @@ document.addEventListener('DOMContentLoaded', function() {
                         renderPage();
                     }
                 });
-            } else if (button?.matches('.card-reset-btn')) {
-                // ...
+       } else if (button?.matches('.card-reset-btn')) {
+            const index = button.dataset.index;
+            const eventToReset = pageContent.events[index];
+            if (!eventToReset) return;
+
+            tg.showConfirm(`Вы уверены, что хотите сбросить этот розыгрыш и начать его заново? Все участники будут удалены.`, async (ok) => {
+                if (ok) {
+                    try {
+                        const response = await fetch('/api/v1/admin/events/clear_participants', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                initData: tg.initData,
+                                event_id: eventToReset.id
+                            })
+                        });
+
+                        if (!response.ok) throw response;
+
+                        const result = await response.json();
+                        tg.showAlert(result.message);
+                        
+                        // Перезагружаем все данные, чтобы увидеть обновленный ивент
+                        await initialize();
+
+                    } catch (error) {
+                        handleApiError(error);
+                    }
+                }
+            });
+        } else if (createCard) {
             } else if (createCard) {
                 showEventModal(null, null);
             } else if (editableText) {
