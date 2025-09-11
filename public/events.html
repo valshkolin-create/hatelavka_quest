@@ -1231,10 +1231,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: ПРОСМОТР УЧАСТНИКОВ ---
     async function showParticipantsModal(eventId, eventTitle) {
-        if (!eventId) {
-            handleApiError(new Error("Критическая ошибка: ID ивента не найден. Обновите страницу."));
-            return;
-        }
+        const parsedEventId = parseInt(eventId);
+        if (isNaN(parsedEventId)) {
+                handleApiError(new Error("Критическая ошибка: ID ивента некорректен. Обновите страницу."));
+                return;
+    }
         const initData = tg.initData || '';
         if (document.body.classList.contains('browser-view') && !initData) {
             alert('Список участников доступен только в Telegram.');
