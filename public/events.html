@@ -49,16 +49,6 @@
       margin: 0 auto;
     }
 
-    .page-title {
-      text-align: center;
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
     .timer {
       text-align: center;
       font-size: 1.4em;
@@ -1026,7 +1016,6 @@ document.addEventListener('DOMContentLoaded', function() {
         dom.eventsContainer.innerHTML = '';
         const isEditMode = document.body.classList.contains('edit-mode');
         
-        // --- ЛОГИКА ЦЕНТРИРОВАНИЯ ---
         if (pageContent.events && pageContent.events.length === 1) {
             dom.eventsContainer.style.gridTemplateColumns = 'minmax(0, 392.5px)';
             dom.eventsContainer.style.justifyContent = 'center';
@@ -1172,6 +1161,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showTicketModal(eventId, eventTitle) {
+        if (!eventId) {
+            handleApiError(new Error("Не удалось определить ID ивента. Попробуйте обновить страницу."));
+            return;
+        }
         if (!userData.id) {
             alert('Пожалуйста, откройте эту страницу в Telegram для участия.');
             return;
@@ -1208,6 +1201,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function showParticipantsModal(eventId, eventTitle) {
+        if (!eventId) {
+            handleApiError(new Error("Не удалось определить ID ивента для просмотра участников. Попробуйте обновить страницу."));
+            return;
+        }
         const initData = tg.initData || '';
         if (document.body.classList.contains('browser-view') && !initData) {
             alert('Список участников доступен только в Telegram.');
@@ -1226,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (!response.ok) {
-                throw response; // Пробрасываем полный ответ в catch
+                throw response;
             }
 
             const result = await response.json();
@@ -1268,7 +1265,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         body: JSON.stringify({ initData: tg.initData })
                     })
                 ]);
-                if (!contentRes.ok || !userRes.ok) throw new Error("Ошибка сети");
+                if (!contentRes.ok) throw contentRes;
+                if (!userRes.ok) throw userRes;
+                
                 pageContent = await contentRes.json();
                 userData = await userRes.json();
                 renderPage();
@@ -1277,7 +1276,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error("Ошибка инициализации в Telegram:", error);
-                try { tg.showAlert("Не удалось загрузить данные."); } catch {}
+                handleApiError(new Error("Критическая ошибка: не удалось загрузить данные. Попробуйте перезапустить приложение."));
             }
         } else {
             document.body.classList.add('browser-view');
@@ -1355,7 +1354,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             } else if (button?.matches('.card-reset-btn')) {
-                // ... логика сброса
+                // ...
             } else if (createCard) {
                 showEventModal(null, null);
             } else if (editableText) {
