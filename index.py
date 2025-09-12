@@ -1585,14 +1585,10 @@ async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.As
     quests = response.json()
     if not quests: raise HTTPException(status_code=404, detail="Задание не найдено")
     quest = quests[0]
-    if quest.get('end_date') and quest.get('start_date'):
-        try:
-            end = datetime.fromisoformat(quest['end_date'].replace('Z', '+00:00'))
-            start = datetime.fromisoformat(quest['start_date'].replace('Z', '+00:00'))
-            # --- ИЗМЕНЕНИЕ: Считаем разницу в часах ---
-            quest['duration_days'] = round((end - start).total_seconds() / 3600)
-        except (ValueError, TypeError): 
-            quest['duration_days'] = 0
+    
+    # Просто возвращаем данные как есть. 
+    # Поле duration_hours уже должно быть в объекте quest.
+    # Старая логика с вычислением больше не нужна.
     return quest
 
 @app.get("/api/v1/admin/twitch_rewards/list")
