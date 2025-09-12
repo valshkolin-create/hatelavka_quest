@@ -2252,10 +2252,24 @@
             dom.editQuestForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
-                const questData = getQuestFormData(form);
-                const finalData = { ...questData, quest_id: parseInt(form.elements['quest_id'].value, 10), is_active: form.elements['is_active'].value === 'true' };
-                await makeApiRequest('/api/v1/admin/quest/update', finalData);
-                await switchView('view-admin-quests');
+                
+                try {
+                    const questData = getQuestFormData(form);
+                    const finalData = { 
+                        ...questData, 
+                        quest_id: parseInt(form.elements['quest_id'].value, 10), 
+                        is_active: form.elements['is_active'].value === 'true' 
+                    };
+
+                    await makeApiRequest('/api/v1/admin/quest/update', finalData);
+                    tg.showAlert('Задание успешно обновлено!'); // Уведомление об успехе
+                    await switchView('view-admin-quests');
+
+                } catch (error) {
+                    // Если произойдет ошибка, вы увидите уведомление
+                    console.error('Ошибка при обновлении задания:', error);
+                    tg.showAlert(`Не удалось обновить задание: ${error.message}`);
+                }
             });
             
             dom.createCategoryForm.addEventListener('submit', async (e) => {
