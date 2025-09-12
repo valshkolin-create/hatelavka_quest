@@ -2698,6 +2698,27 @@ async def check_challenge_progress(
     except Exception as e:
         logging.error(f"Ошибка при вызове recalculate_single_challenge: {e}")
         return {"message": "Не удалось обновить прогресс."}
+
+@app.post("/api/v1/admin/challenges/update")
+async def update_challenge(request_data: ChallengeAdminUpdateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
+    challenge_id = request_data.challenge_id
+    update_data = request_data.dict(exclude={'initData', 'challenge_id'})
+    
+    try:
+        await supabase.patch(
+            "/challenges",
+            params={"id": f"eq.{challenge_id}"},
+            json=update_data
+        )
+        return {"message": "Челлендж успешно обновлен."}
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", str(e))
+        logging.error(f"Ошибка обновления челленджа в Supabase: {error_details}")
+        raise HTTPException(status_code=400, detail=f"Ошибка базы данных: {error_details}")
         
 @app.post("/api/v1/admin/challenges/reset-cooldown")
 async def reset_challenge_cooldown(
