@@ -1183,12 +1183,12 @@ async def submit_for_quest(
 
     return {"message": "Ваша заявка принята и отправлена на проверку!"}
     
-# --- НОВЫЙ ЭНДПОИНТ ДЛЯ ЗАПУСКА КВЕСТА ---
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ ЗАПУСКА КВЕSTA ---
 @app.post("/api/v1/quests/start")
 async def start_quest(request_data: QuestStartRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # 🟢 INFO: Запрос принят
-    logging.info("Принят запрос на старт квеста.")
-
+    logging.info(f"--- ЗАПУСК start_quest ---")
+    
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     
     # 🟢 INFO: Проверка initData
@@ -1203,24 +1203,34 @@ async def start_quest(request_data: QuestStartRequest, supabase: httpx.AsyncClie
     quest_id = request_data.quest_id
 
     # 🟢 INFO: Данные пользователя и квеста получены
-    logging.info(f"Пользователь: {telegram_id}, ID квеста: {quest_id}")
+    logging.info(f"Пользователь: {telegram_id}, пытается взять квест ID: {quest_id}")
 
     try:
         # 🟢 INFO: Отправка запроса в Supabase
-        logging.info(f"Отправка запроса в Supabase RPC start_quest_atomic с параметрами: p_user_id={telegram_id}, p_quest_id={quest_id}")
-
-        await supabase.post(
+        logging.info(f"Вызов RPC функции 'start_quest_atomic' в Supabase...")
+        
+        # Используем httpx.post для вызова RPC
+        response = await supabase.post(
             "/rpc/start_quest_atomic",
             json={"p_user_id": telegram_id, "p_quest_id": quest_id}
         )
+        
+        # Проверяем, что Supabase не вернул ошибку
+        response.raise_for_status()
 
         # 🟢 INFO: Запрос в Supabase успешен
-        logging.info("Квест успешно активирован в Supabase.")
+        logging.info(f"✅ Успех! Квест {quest_id} активирован для пользователя {telegram_id}.")
         return {"message": "Квест успешно активирован."}
+        
+    except httpx.HTTPStatusError as e:
+        # ❌ ERROR: Supabase вернул ошибку
+        error_details = e.response.text
+        logging.error(f"❌ ОШИБКА от Supabase при активации квеста: {error_details}")
+        raise HTTPException(status_code=400, detail=f"Ошибка базы данных: {error_details}")
     except Exception as e:
-        # ❌ ERROR: Ошибка при активации
-        logging.error(f"Ошибка при активации квеста {quest_id} для пользователя {telegram_id}: {e}")
-        raise HTTPException(status_code=500, detail="Не удалось активировать квест.")
+        # ❌ ERROR: Другая ошибка
+        logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА при активации квеста {quest_id} для {telegram_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
         
 @app.post("/api/v1/user/promocodes/delete")
 async def delete_promocode(request_data: PromocodeDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
