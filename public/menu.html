@@ -1273,11 +1273,13 @@
                             // Эта часть выполнится, если сервер вернет ошибку
                             console.error(`[КЛИЕНТ] Произошла ОШИБКА при запросе на сервер:`, e);
                             Telegram.WebApp.showAlert(`Не удалось взять задание. Ошибка: ${e.message}. Попробуйте позже.`);
-                        } finally {
-                            // Этот блок больше не нужен, т.к. main() все перерисует
                         }
                     }, 600);
                 });
+                // This is the closing parenthesis that was missing
+                container.appendChild(card);
+            });
+        }
         
         function hideQuestRoulette() {
             const container = dom.questChooseContainer;
