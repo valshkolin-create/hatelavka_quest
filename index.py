@@ -273,6 +273,10 @@ class EventCreateRequest(BaseModel):
     tickets_cost: int
     end_date: Optional[str] = None
 
+class TwitchPurchaseViewedRequest(BaseModel):
+    initData: str
+    purchase_id: int
+
 class QuestCloseRequest(BaseModel):
     initData: str
 
