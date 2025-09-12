@@ -1034,30 +1034,30 @@ class QuestSubmissionRequest(BaseModel): initData: str; submittedData: str
 class QuestCreateRequest(BaseModel): 
     initData: str
     title: str
-    description: Optional[str] = ""
+    description: str = ""
     reward_amount: int
     quest_type: str
     target_value: Optional[int] = None
     icon_url: Optional[str] = None
-    duration_days: Optional[int] = None
+    duration_hours: Optional[int] = 0 # <-- НОВЫЙ КОД
     action_url: Optional[str] = None
-    category_id: Optional[int] = None # <-- ВОТ ЭТА СТРОКА БЫЛА ПРОПУЩЕНА
+    category_id: Optional[int] = None
     is_repeatable: bool = False
 
 class QuestUpdateRequest(BaseModel):
     initData: str
     quest_id: int
     title: str
-    description: Optional[str] = ""
-    reward_amount: Optional[int] = 0
+    description: str = ""
+    reward_amount: int = 0
     quest_type: str
     target_value: Optional[int] = 0
     icon_url: Optional[str] = None
-    is_active: bool = True  # <-- ИЗМЕНЕНО
-    duration_days: Optional[int] = None
+    is_active: bool = True
+    duration_hours: Optional[int] = 0 # <-- НОВЫЙ КОД
     action_url: Optional[str] = None
     category_id: Optional[int] = None
-    is_repeatable: bool = False # <-- ИЗМЕНЕНО
+    is_repeatable: bool = False
 
 class SubmissionUpdateRequest(BaseModel): initData: str; submission_id: int; action: str
 class QuestDeleteRequest(BaseModel): initData: str; quest_id: int
@@ -1447,20 +1447,16 @@ async def create_quest(request_data: QuestCreateRequest, supabase: httpx.AsyncCl
         "category_id": request_data.category_id,
         "is_active": True,
         "start_date": datetime.now(timezone.utc).isoformat(),
-        "is_repeatable": request_data.is_repeatable
+        "is_repeatable": request_data.is_repeatable,
+        "duration_hours": request_data.duration_hours # <-- НОВЫЙ КОД
     }
     
-    # ✅✅✅ ВОТ ЭТО И ЕСТЬ ЗАМЕНА / ДОПОЛНЕНИЕ ✅✅✅
-    # Это правило гарантирует, что автоматические квесты (Twitch/Telegram)
-    # никогда не будут сохранены с категорией, даже если она была выбрана по ошибке.
+    # Убираем end_date и start_date, они больше не нужны для таймера
+    quest_to_create.pop('end_date', None)
+    quest_to_create.pop('start_date', None)
+
     if quest_to_create.get('quest_type') != 'manual_check':
         quest_to_create['category_id'] = None
-
-    duration_hours = request_data.duration_days
-    if duration_hours and duration_hours > 0:
-        quest_to_create['end_date'] = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
-    else:
-        quest_to_create['end_date'] = None
     
     await supabase.post("/quests", json=quest_to_create)
     return {"message": f"Квест '{request_data.title}' успешно создан!"}
@@ -1472,31 +1468,19 @@ async def update_quest(request_data: QuestUpdateRequest, supabase: httpx.AsyncCl
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     quest_id = request_data.quest_id
-    quest_data_to_update = request_data.dict(exclude={'initData', 'quest_id'})
+    # Используем exclude_unset=True, чтобы не отправлять пустые поля
+    quest_data_to_update = request_data.dict(exclude={'initData', 'quest_id'}, exclude_unset=True)
 
-    # Проверяем оба числовых поля на случай, если они придут пустыми
-    if quest_data_to_update.get('reward_amount') is None:
-        quest_data_to_update['reward_amount'] = 0
-        
-    if quest_data_to_update.get('target_value') is None:
-        quest_data_to_update['target_value'] = 0
-
-    # Правило для согласованности с функцией создания квеста
     if quest_data_to_update.get('quest_type') != 'manual_check':
         quest_data_to_update['category_id'] = None
 
-    # --- ИЗМЕНЕНИЕ: Используем часы вместо дней ---
-    duration_hours = quest_data_to_update.pop('duration_days', None)
-    if duration_hours is not None:
-        if duration_hours > 0:
-            quest_data_to_update['end_date'] = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
-            quest_data_to_update['start_date'] = datetime.now(timezone.utc).isoformat()
-        else:
-            quest_data_to_update['end_date'] = None
+    # Убираем логику расчета end_date, так как теперь мы храним только длительность
+    quest_data_to_update.pop('end_date', None)
+    quest_data_to_update.pop('start_date', None)
 
     await supabase.patch("/quests", params={"id": f"eq.{quest_id}"}, json=quest_data_to_update)
 
-    return {"message": f"Квест '{request_data.title}' успешно обновлен!"}
+    return {"message": f"Квест ID {quest_id} успешно обновлен!"}
 
 @app.post("/api/v1/admin/checkpoint/grant-access")
 async def grant_checkpoint_access(
