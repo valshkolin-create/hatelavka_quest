@@ -1412,7 +1412,7 @@
                     target.disabled = true;
                     target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                     try {
-                        await makeApiRequest('/api/v1/quests/cancel');
+                        await makeApiRequest('/api/v1/quests/close_expired');
                         await main();
                     } catch (e) {
                          console.error("Ошибка при завершении квеста:", e);
