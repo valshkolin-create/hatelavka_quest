@@ -273,6 +273,9 @@ class EventCreateRequest(BaseModel):
     tickets_cost: int
     end_date: Optional[str] = None
 
+class QuestCloseRequest(BaseModel):
+    initData: str
+
 class TwitchRewardIdRequest(BaseModel):
     initData: str
     reward_id: int
@@ -843,6 +846,30 @@ async def get_manual_quests(
     ))
 
     return available_quests
+
+@app.post("/api/v1/quests/close_expired")
+async def close_expired_quest(
+    request_data: QuestCloseRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Просто закрывает активный квест пользователя без применения кулдаунов."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+
+    telegram_id = user_info["id"]
+
+    try:
+        # Просто сбрасываем активный квест в профиле пользователя
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json={"active_quest_id": None, "quest_progress": 0} # quest_progress - возможное имя колонки, проверьте в вашей БД
+        )
+        return {"message": "Истекшее задание успешно закрыто."}
+    except Exception as e:
+        logging.error(f"Ошибка при закрытии истекшего квеста для {telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось закрыть задание.")
     
 @app.post("/api/v1/quests/categories")
 async def get_quests_categories(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
