@@ -2829,6 +2829,26 @@ async def create_challenge(request_data: ChallengeAdminCreateRequest, supabase: 
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ УПРАВЛЕНИЯ КАТЕГОРИЯМИ ---
 
+@app.post("/api/v1/admin/twitch_rewards/purchase/mark_viewed")
+async def mark_twitch_purchase_viewed(
+    request_data: TwitchPurchaseViewedRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Помечает покупку Twitch как просмотренную."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    purchase_id = request_data.purchase_id
+    
+    await supabase.patch(
+        "/twitch_reward_purchases",
+        params={"id": f"eq.{purchase_id}"},
+        json={"viewed_by_admin": True}
+    )
+    
+    return {"status": "ok"}
+
 @app.post("/api/v1/admin/categories")
 async def get_categories(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """Получает список всех категорий квестов."""
