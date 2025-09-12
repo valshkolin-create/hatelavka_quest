@@ -1064,7 +1064,9 @@
                 progressTextContent = `✉️ ${currentProgress} / ${target}`;
             }
 
-            const timerHtml = activeQuest.end_date ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer"></div>` : '';
+            // --- ИЗМЕНЕНИЕ: Используем ПЕРСОНАЛЬНУЮ дату окончания из данных пользователя ---
+            const questEndDate = userData.active_quest_end_date;
+            const timerHtml = questEndDate ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer"></div>` : '';
 
             dom.activeAutomaticQuestContainer.innerHTML = `
                 <div class="quest-card">
@@ -1083,8 +1085,9 @@
                     <div class="button-container">${buttonHtml}</div>
                 </div>`;
             
-            if (activeQuest.end_date) {
-                startCountdown(document.getElementById(`quest-timer-${activeQuest.id}`), activeQuest.end_date, `quest_${activeQuest.id}`);
+            // --- ИЗМЕНЕНИЕ: Запускаем таймер с ПЕРСОНАЛЬНОЙ датой ---
+            if (questEndDate) {
+                startCountdown(document.getElementById(`quest-timer-${activeQuest.id}`), questEndDate, `quest_${activeQuest.id}`);
             }
             
             dom.questChooseBtn.classList.add('hidden');
