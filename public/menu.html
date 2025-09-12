@@ -1254,6 +1254,7 @@
                 setTimeout(() => card.classList.add("show"), index * 200);
 
                 card.addEventListener("click", async () => {
+                    console.log(`[КЛИЕНТ] Пользователь нажал на карточку квеста ID: ${quest.id}, Название: "${quest.title}"`);
                     card.classList.add("chosen");
                     Array.from(container.children).forEach(otherCard => {
                         if (otherCard !== card) {
@@ -1263,19 +1264,20 @@
                     
                     setTimeout(async () => {
                         try {
+                            console.log(`[КЛИЕНТ] Отправляем запрос на сервер для активации квеста ${quest.id}...`);
                             await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
+                            console.log(`[КЛИЕНТ] Запрос на сервер УСПЕШЕН. Перезагружаем основной экран...`);
                             Telegram.WebApp.showAlert(`✅ Вы выбрали задание: ${quest.title}`);
                             await main();
                         } catch(e) {
+                            // Эта часть выполнится, если сервер вернет ошибку
+                            console.error(`[КЛИЕНТ] Произошла ОШИБКА при запросе на сервер:`, e);
+                            Telegram.WebApp.showAlert(`Не удалось взять задание. Ошибка: ${e.message}. Попробуйте позже.`);
                         } finally {
-                            container.innerHTML = "";
-                            dom.questChooseBtn.disabled = false;
+                            // Этот блок больше не нужен, т.к. main() все перерисует
                         }
                     }, 600);
                 });
-                container.appendChild(card);
-            });
-        }
         
         function hideQuestRoulette() {
             const container = dom.questChooseContainer;
