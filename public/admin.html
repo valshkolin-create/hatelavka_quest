@@ -1773,7 +1773,7 @@
                 title: data.title, icon_url: data.icon_url, description: data.description,
                 reward_amount: parseInt(data.reward_amount, 10), quest_type: questType,
                 target_value: data.target_value ? parseInt(data.target_value, 10) : null,
-                duration_days: data.duration_days ? parseInt(data.duration_days, 10) : 0,
+                duration_hours: data.duration_hours ? parseInt(data.duration_hours, 10) : 0,
             };
             if (data.quest_type === 'manual_check') {
                 finalData.category_id = data.category_id ? parseInt(data.category_id, 10) : null;
