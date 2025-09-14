@@ -1603,25 +1603,10 @@
                     }
 
                     let progressHtml = '';
-                    if (p.status === 'Привязан' && targetValue > 0 && conditionType) {
-                        const period = conditionType.replace("twitch_messages_", ""); // session | week | month
-
-                        // запрос к Wizebot
-                        const stats = await makeApiRequest(
-                            '/api/v1/admin/wizebot/check_user',
-                            { twitch_username: p.twitch_login, period },
-                            'POST',
-                            true
-                        );
-
-                        const isComplete = stats && stats.messages >= targetValue;
+                    if (p.status === 'Привязан' && targetValue > 0 && typeof p.progress_value !== 'undefined') {
+                        const isComplete = p.progress_value >= targetValue;
                         const progressClass = isComplete ? 'progress-good' : 'progress-bad';
-
-                        progressHtml = `
-                            <p class="purchase-progress ${progressClass}" id="purchase-progress-${p.id}">
-                                ${stats ? `${stats.messages} / ${targetValue} сообщений` : 'Не удалось загрузить данные'}
-                            </p>
-                        `;
+                        progressHtml = `<p class="purchase-progress" id="purchase-progress-${p.id}">Загрузка прогресса...</p>`;
                     }
                     
                     let wizebotHtml = '';
