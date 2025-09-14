@@ -255,7 +255,7 @@ class RoulettePrizeCreateRequest(BaseModel):
     reward_title: str
     skin_name: str
     image_url: str
-    chance_weight: int
+    chance_weight: float
 
 class RoulettePrizeDeleteRequest(BaseModel):
     initData: str
