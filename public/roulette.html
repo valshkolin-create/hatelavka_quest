@@ -8,7 +8,7 @@
         /* Общие стили и сброс */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background-color: transparent; /* Прозрачный фон для OBS */
+            background-color: transparent;
             font-family: 'Roboto', sans-serif;
             overflow: hidden;
             height: 100vh;
@@ -22,9 +22,9 @@
         .roulette-wrapper {
             position: relative;
             width: 80%;
-            max-width: 1000px;
-            height: 200px;
-            margin-top: -100px;
+            max-width: 900px;
+            height: 160px; /* уменьшена высота */
+            margin-top: -80px;
             opacity: 0;
             transform: translateY(-50px);
             transition: opacity 0.7s ease, transform 0.7s ease;
@@ -59,7 +59,7 @@
             z-index: 1;
         }
 
-        /* Указатель (стрелка) */
+        /* Указатель */
         .pointer-line {
             position: absolute;
             top: 0;
@@ -101,11 +101,11 @@
 
         /* Карточка приза */
         .item {
-            min-width: 180px;
-            height: 180px;
-            margin: 0 7px;
+            min-width: 140px;
+            height: 140px;
+            margin: 0 6px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
+            border-radius: 10px;
             border: 2px solid rgba(255, 255, 255, 0.25);
             display: flex;
             justify-content: center;
@@ -113,7 +113,7 @@
             transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, filter 0.3s ease;
             filter: brightness(1.05);
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.5);
         }
         .item img {
             width: 100%;
@@ -124,9 +124,9 @@
             image-rendering: crisp-edges;
         }
         .item.winner {
-            transform: scale(1.08);
+            transform: scale(1.1);
             border-color: #ffeb3b;
-            box-shadow: 0 0 40px #ffeb3b, 0 0 20px rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 35px #ffeb3b, 0 0 15px rgba(255, 255, 255, 0.9);
             filter: brightness(1.2) contrast(1.1);
         }
 
@@ -136,42 +136,57 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 550px;
+            width: 480px;
             background: rgba(0, 0, 0, 0.45);
             backdrop-filter: blur(18px);
             -webkit-backdrop-filter: blur(18px);
             border: 3px solid rgba(255, 215, 0, 0.6);
             border-radius: 18px;
-            padding: 30px;
+            padding: 25px;
             text-align: center;
             color: #fff;
-            font-size: 28px;
+            font-size: 26px;
             font-weight: bold;
             box-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
             opacity: 0;
             transition: opacity 0.6s ease;
             z-index: 20;
         }
+        .winner-display::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #222 0%, #555 100%);
+            filter: blur(20px);
+            border-radius: 18px;
+            z-index: 0;
+        }
         .winner-display.visible { opacity: 1; }
         .winner-display .winner-prize-image {
-            width: 150px;
-            height: 150px;
+            position: relative;
+            z-index: 1;
+            width: 130px;
+            height: 130px;
             object-fit: contain;
             border-radius: 12px;
-            margin-top: 20px;
+            margin-top: 15px;
             border: 3px solid #FFD700;
-            box-shadow: 0 0 25px rgba(255, 215, 0, 0.5);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
         }
         .winner-display .winner-prize-name {
-            font-size: 34px;
+            position: relative;
+            z-index: 1;
+            font-size: 32px;
             color: #FFD700;
-            margin-top: 15px;
+            margin-top: 12px;
             text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
         }
         .winner-display .winner-user-name {
-            font-size: 40px;
+            position: relative;
+            z-index: 1;
+            font-size: 38px;
             color: #FFD700;
-            margin-top: 15px;
+            margin-top: 12px;
             text-transform: uppercase;
             letter-spacing: 2px;
             text-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
