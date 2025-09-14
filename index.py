@@ -4170,21 +4170,24 @@ async def issue_twitch_reward_promocode(
             # Определяем период из condition_type (например, twitch_messages_week → week)
             period = condition_type.replace("twitch_messages_", "")
 
-            # Запрашиваем статистику у Wizebot
-            async with httpx.AsyncClient() as client:
-                try:
-                    wizebot_resp = await client.post(
-                        "https://api.wizebot.tv/api/custom/endpoint",  # <-- замени на твой URL
-                        headers={"Authorization": f"Bearer {WIZEBOT_API_KEY}"},
-                        json={"twitch_username": twitch_login, "period": period}
+            try:
+                # Делаем запрос напрямую в Wizebot API
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_TOKEN}/top/message/{period}/100"
                     )
-                    wizebot_resp.raise_for_status()
-                    stats = wizebot_resp.json()
-                except Exception as e:
-                    logging.error(f"Ошибка обращения к Wizebot: {e}")
-                    raise HTTPException(status_code=500, detail="Не удалось проверить условие через Wizebot")
+                    resp.raise_for_status()
+                    data = resp.json()
+            except Exception as e:
+                logging.error(f"Ошибка обращения к Wizebot: {e}")
+                raise HTTPException(status_code=500, detail="Не удалось проверить условие через Wizebot")
 
-            current_progress = stats.get("messages", 0)
+            # Ищем пользователя по логину в выдаче Wizebot
+            current_progress = 0
+            for entry in data.get("list", []):
+                if entry.get("login", "").lower() == twitch_login.lower():
+                    current_progress = entry.get("count", 0)
+                    break
 
             if current_progress < target_value:
                 logging.warning(
