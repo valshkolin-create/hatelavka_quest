@@ -235,12 +235,15 @@
     const soundWin = document.getElementById('sound-win');
 
     let isAnimating = false;
+    const animationQueue = [];
 
     function playSound(audioElem) {
-        if (audioElem && audioElem.readyState >= 2) {
-            audioElem.play().catch(e => console.warn(`Ошибка воспроизведения звука ${audioElem.id}:`, e.message));
-        } else if (audioElem) {
-            console.warn(`Звук ${audioElem.id} не готов к воспроизведению. readyState: ${audioElem.readyState}`);
+        if (audioElem) {
+            audioElem.pause();
+            audioElem.currentTime = 0;
+            audioElem.play().catch(e =>
+                console.warn(`Ошибка воспроизведения звука ${audioElem.id}:`, e.message)
+            );
         }
     }
 
@@ -251,89 +254,100 @@
         }
     }
 
+    // --- Очередь анимаций ---
     function startRouletteAnimation(payload) {
-        if (isAnimating) {
-            console.log("Рулетка уже анимируется, игнорируем новый сигнал.");
-            return;
+        animationQueue.push(payload);
+        if (!isAnimating) {
+            processNextAnimation();
         }
+    }
+
+    function processNextAnimation() {
+        if (animationQueue.length === 0) return;
+        const payload = animationQueue.shift();
         isAnimating = true;
+        runAnimation(payload)
+            .catch(err => console.error("Ошибка runAnimation:", err))
+            .finally(() => {
+                isAnimating = false;
+                setTimeout(processNextAnimation, 300); // пауза перед следующей
+            });
+    }
 
-        const { prizes, winner_index, user_name } = payload.new.payload;
-        const winnerPrize = prizes[winner_index];
+    // --- Вынесенная логика анимации ---
+    function runAnimation(payload) {
+        return new Promise((resolve) => {
+            const { prizes, winner_index, user_name } = payload.new.payload;
+            const winnerPrize = prizes[winner_index];
 
-        reel.innerHTML = '';
-        reel.style.transition = 'none';
-        reel.style.transform = 'translateX(0px)';
-        winnerDisplay.classList.remove('visible');
+            reel.innerHTML = '';
+            reel.style.transition = 'none';
+            reel.style.transform = 'translateX(0px)';
+            winnerDisplay.classList.remove('visible');
 
-        const existingWinner = document.querySelector('.item.winner');
-        if (existingWinner) {
-            existingWinner.classList.remove('winner');
-        }
-
-        let fullPrizeList = [];
-        for (let i = 0; i < REEL_REPEAT_COUNT; i++) {
-            fullPrizeList.push(...prizes);
-        }
-
-        fullPrizeList.forEach(prize => {
-            const itemElement = document.createElement('div');
-            itemElement.className = 'item';
-            // --- ИЗМЕНЕНИЕ: Убрали div с названием скина ---
-            itemElement.innerHTML = `<img src="${prize.image_url}" alt="${prize.skin_name}">`;
-            reel.appendChild(itemElement);
-        });
-
-        // --- ИЗМЕНЕНИЕ: Полностью переработанный и точный расчет остановки ---
-        const itemFullWidth = ITEM_WIDTH + ITEM_MARGIN;
-        // Выбираем победителя из предпоследнего набора для плавной остановки
-        const winnerPositionInFullList = (REEL_REPEAT_COUNT - 2) * prizes.length + winner_index;
-        // Случайное смещение, чтобы остановка была "живой" (в пределах центральной части скина)
-        const randomShift = Math.random() * (ITEM_WIDTH * 0.5) - (ITEM_WIDTH * 0.25); // от -25% до +25% ширины
-        // Рассчитываем точное расстояние до центра победившего элемента от начала ленты
-        const distanceToWinnerCenter = (winnerPositionInFullList * itemFullWidth) + (ITEM_WIDTH / 2);
-        // Финальная позиция для transform: сдвигаем ленту влево на рассчитанное расстояние + случайное смещение
-        const stopPosition = -distanceToWinnerCenter + randomShift;
-
-
-        rouletteWrapper.classList.add('visible');
-        playSound(soundStart);
-
-        setTimeout(() => {
-            reel.style.transition = `transform ${SCROLL_DURATION_SECONDS}s cubic-bezier(.25, 1, .5, 1)`;
-            reel.style.transform = `translateX(${stopPosition}px)`;
-            playSound(soundTick);
-        }, 800);
-
-        reel.addEventListener('transitionend', function handler() {
-            stopSound(soundTick);
-            playSound(soundWin);
-
-            const allItems = document.querySelectorAll('.item');
-            const actualWinnerElement = allItems[winnerPositionInFullList];
-            if (actualWinnerElement) {
-                actualWinnerElement.classList.add('winner');
+            const existingWinner = document.querySelector('.item.winner');
+            if (existingWinner) {
+                existingWinner.classList.remove('winner');
             }
 
-            setTimeout(() => {
-                rouletteWrapper.classList.remove('visible');
-                winnerDisplay.classList.add('visible');
+            let fullPrizeList = [];
+            for (let i = 0; i < REEL_REPEAT_COUNT; i++) {
+                fullPrizeList.push(...prizes);
+            }
 
-                winnerUserText.textContent = `${user_name}`;
-                winnerPrizeImage.src = winnerPrize.image_url;
-                winnerPrizeName.textContent = winnerPrize.skin_name;
+            fullPrizeList.forEach(prize => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'item';
+                itemElement.innerHTML = `<img src="${prize.image_url}" alt="${prize.skin_name}">`;
+                reel.appendChild(itemElement);
+            });
+
+            const itemFullWidth = ITEM_WIDTH + ITEM_MARGIN;
+            const winnerPositionInFullList = (REEL_REPEAT_COUNT - 2) * prizes.length + winner_index;
+            const randomShift = Math.random() * (ITEM_WIDTH * 0.5) - (ITEM_WIDTH * 0.25);
+            const distanceToWinnerCenter = (winnerPositionInFullList * itemFullWidth) + (ITEM_WIDTH / 2);
+            const stopPosition = -distanceToWinnerCenter + randomShift;
+
+            rouletteWrapper.classList.add('visible');
+            playSound(soundStart);
+
+            setTimeout(() => {
+                reel.style.transition = `transform ${SCROLL_DURATION_SECONDS}s cubic-bezier(.25, 1, .5, 1)`;
+                reel.style.transform = `translateX(${stopPosition}px)`;
+                playSound(soundTick);
+            }, 800);
+
+            reel.addEventListener('transitionend', function handler() {
+                stopSound(soundTick);
+                playSound(soundWin);
+
+                const allItems = document.querySelectorAll('.item');
+                const actualWinnerElement = allItems[winnerPositionInFullList];
+                if (actualWinnerElement) {
+                    actualWinnerElement.classList.add('winner');
+                }
 
                 setTimeout(() => {
-                    winnerDisplay.classList.remove('visible');
-                    isAnimating = false;
-                }, WINNER_DISPLAY_DURATION_MS);
+                    rouletteWrapper.classList.remove('visible');
+                    winnerDisplay.classList.add('visible');
 
-            }, 1000);
+                    winnerUserText.textContent = `${user_name}`;
+                    winnerPrizeImage.src = winnerPrize.image_url;
+                    winnerPrizeName.textContent = winnerPrize.skin_name;
 
-            reel.removeEventListener('transitionend', handler);
+                    setTimeout(() => {
+                        winnerDisplay.classList.remove('visible');
+                        resolve(); // ✅ говорим, что анимация завершена
+                    }, WINNER_DISPLAY_DURATION_MS);
+
+                }, 1000);
+
+                reel.removeEventListener('transitionend', handler);
+            });
         });
     }
 
+    // --- Подключение к Supabase ---
     try {
         console.log('Инициализация клиента Supabase...');
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -358,7 +372,6 @@
     } catch (error) {
         console.error("Критическая ошибка при подключении к Supabase:", error);
     }
-
 </script>
 </body>
 </html>
