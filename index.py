@@ -4171,18 +4171,25 @@ async def issue_twitch_reward_promocode(
             period = condition_type.replace("twitch_messages_", "")
 
             # Запрашиваем статистику у Wizebot
-            wizebot_resp = await make_api_request(
-                "/api/v1/admin/wizebot/check_user",
-                {"twitch_username": twitch_login, "period": period},
-                method="POST",
-                with_auth=True
-            )
+            async with httpx.AsyncClient() as client:
+                try:
+                    wizebot_resp = await client.post(
+                        "https://api.wizebot.tv/api/custom/endpoint",  # <-- замени на твой URL
+                        headers={"Authorization": f"Bearer {WIZEBOT_API_KEY}"},
+                        json={"twitch_username": twitch_login, "period": period}
+                    )
+                    wizebot_resp.raise_for_status()
+                    stats = wizebot_resp.json()
+                except Exception as e:
+                    logging.error(f"Ошибка обращения к Wizebot: {e}")
+                    raise HTTPException(status_code=500, detail="Не удалось проверить условие через Wizebot")
 
-            current_progress = 0
-            if wizebot_resp and "messages" in wizebot_resp:
-                current_progress = wizebot_resp["messages"]
+            current_progress = stats.get("messages", 0)
 
             if current_progress < target_value:
+                logging.warning(
+                    f"Twitch награда не выдана: пользователь {twitch_login}, прогресс {current_progress}/{target_value}"
+                )
                 raise HTTPException(
                     status_code=400,
                     detail=f"Условие не выполнено! Прогресс пользователя: {current_progress} / {target_value}"
