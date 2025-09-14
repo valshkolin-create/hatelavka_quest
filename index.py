@@ -4153,27 +4153,38 @@ async def issue_twitch_reward_promocode(
         condition_type = reward_data[0].get("condition_type")
         target_value = reward_data[0].get("target_value")
 
-        # 3. ЕСЛИ есть условие, проверяем его выполнение
+        # 3. ЕСЛИ есть условие, проверяем его выполнение через Wizebot
         if condition_type and target_value is not None and target_value > 0:
-            column_to_check = CONDITION_TO_COLUMN.get(condition_type)
-            if not column_to_check:
-                # Если условие задано, но мы не знаем, как его проверить - это ошибка конфигурации
-                raise HTTPException(status_code=500, detail=f"Ошибка конфигурации: неизвестный тип условия '{condition_type}'")
-
-            user_stats_resp = await supabase.get(
+            # Достаём Twitch-логин пользователя из Supabase
+            twitch_resp = await supabase.get(
                 "/users",
-                params={"telegram_id": f"eq.{user_id}", "select": column_to_check}
+                params={"id": f"eq.{user_id}", "select": "twitch_login"}
             )
-            user_stats_resp.raise_for_status()
-            user_stats = user_stats_resp.json()
-            
+            twitch_resp.raise_for_status()
+            twitch_data = twitch_resp.json()
+            if not twitch_data or not twitch_data[0].get("twitch_login"):
+                raise HTTPException(status_code=400, detail="У пользователя нет привязанного Twitch аккаунта.")
+
+            twitch_login = twitch_data[0]["twitch_login"]
+
+            # Определяем период из condition_type (например, twitch_messages_week → week)
+            period = condition_type.replace("twitch_messages_", "")
+
+            # Запрашиваем статистику у Wizebot
+            wizebot_resp = await make_api_request(
+                "/api/v1/admin/wizebot/check_user",
+                {"twitch_username": twitch_login, "period": period},
+                method="POST",
+                with_auth=True
+            )
+
             current_progress = 0
-            if user_stats:
-                current_progress = user_stats[0].get(column_to_check, 0)
+            if wizebot_resp and "messages" in wizebot_resp:
+                current_progress = wizebot_resp["messages"]
 
             if current_progress < target_value:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail=f"Условие не выполнено! Прогресс пользователя: {current_progress} / {target_value}"
                 )
 
