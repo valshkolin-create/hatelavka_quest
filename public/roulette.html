@@ -18,12 +18,26 @@
             user-select: none;
         }
 
+        /* Надпись награды */
+        .current-prize {
+            position: absolute;
+            top: 10%;
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+            color: #FFD700;
+            text-shadow: 0 0 8px rgba(0,0,0,0.8);
+            z-index: 15;
+            pointer-events: none;
+        }
+
         /* Контейнер рулетки */
         .roulette-wrapper {
             position: relative;
             width: 80%;
             max-width: 1000px;
-            height: 200px; /* оставляем исходную высоту для JS */
+            height: 200px;
             margin-top: -100px;
             opacity: 0;
             transform: translateY(-50px);
@@ -98,7 +112,7 @@
             left: 50%;
         }
 
-        /* Карточка приза — визуально меньше, но JS считает исходные размеры */
+        /* Карточка приза — сдвиг вверх */
         .item {
             min-width: 180px;
             height: 180px;
@@ -113,7 +127,9 @@
             filter: brightness(1.05);
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            transform: scale(0.78); /* визуально уменьшено */
+            transform: scale(0.78);
+            position: relative;
+            top: -10px; /* сдвиг вверх */
         }
         .item img {
             width: 100%;
@@ -124,7 +140,7 @@
             image-rendering: crisp-edges;
         }
         .item.winner {
-            transform: scale(0.85); /* чуть больше при победе */
+            transform: scale(0.85);
             border-color: #ffeb3b;
             box-shadow: 0 0 35px #ffeb3b, 0 0 15px rgba(255, 255, 255, 0.9);
             filter: brightness(1.2) contrast(1.1);
@@ -195,6 +211,8 @@
 </head>
 <body>
 
+    <div id="current-prize" class="current-prize"></div>
+
     <audio id="sound-start" src="/public/sounds/start.mp3"></audio>
     <audio id="sound-tick" src="/public/sounds/tick.mp3" loop></audio>
     <audio id="sound-win" src="/public/sounds/win.mp3"></audio>
@@ -213,14 +231,12 @@
     </div>
 
 <script>
-    // ### НАСТРОЙКИ АНИМАЦИИ ###
     const ITEM_WIDTH = 180;
     const ITEM_MARGIN = 14;
     const REEL_REPEAT_COUNT = 20;
     const SCROLL_DURATION_SECONDS = 9;
-    const WINNER_DISPLAY_DURATION_MS = 6000;
+    const WINNER_DISPLAY_DURATION_MS = 8000;
 
-    // ### ПОДКЛЮЧЕНИЕ К SUPABASE ###
     const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
@@ -230,6 +246,7 @@
     const winnerUserText = document.getElementById('winner-user-text');
     const winnerPrizeImage = document.getElementById('winner-prize-image');
     const winnerPrizeName = document.getElementById('winner-prize-name');
+    const currentPrizeText = document.getElementById('current-prize');
 
     const soundStart = document.getElementById('sound-start');
     const soundTick = document.getElementById('sound-tick');
@@ -239,43 +256,27 @@
     const animationQueue = [];
 
     function playSound(audioElem) {
-        if (audioElem) {
-            audioElem.pause();
-            audioElem.currentTime = 0;
-            audioElem.play().catch(e =>
-                console.warn(`Ошибка воспроизведения звука ${audioElem.id}:`, e.message)
-            );
-        }
+        if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; audioElem.play().catch(e => console.warn(e)); }
     }
-
     function stopSound(audioElem) {
-        if (audioElem) {
-            audioElem.pause();
-            audioElem.currentTime = 0;
-        }
+        if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; }
     }
 
-    // --- Очередь анимаций ---
     function startRouletteAnimation(payload) {
         animationQueue.push(payload);
-        if (!isAnimating) {
-            processNextAnimation();
-        }
+        if (!isAnimating) processNextAnimation();
     }
 
     function processNextAnimation() {
-        if (animationQueue.length === 0) return;
+        if (!animationQueue.length) return;
         const payload = animationQueue.shift();
         isAnimating = true;
-        runAnimation(payload)
-            .catch(err => console.error("Ошибка runAnimation:", err))
-            .finally(() => {
-                isAnimating = false;
-                setTimeout(processNextAnimation, 300); // пауза перед следующей
-            });
+        runAnimation(payload).finally(() => {
+            isAnimating = false;
+            setTimeout(processNextAnimation, 300);
+        });
     }
 
-    // --- Вынесенная логика анимации ---
     function runAnimation(payload) {
         return new Promise((resolve) => {
             const { prizes, winner_index, user_name } = payload.new.payload;
@@ -285,16 +286,13 @@
             reel.style.transition = 'none';
             reel.style.transform = 'translateX(0px)';
             winnerDisplay.classList.remove('visible');
+            currentPrizeText.textContent = winnerPrize.skin_name;
 
             const existingWinner = document.querySelector('.item.winner');
-            if (existingWinner) {
-                existingWinner.classList.remove('winner');
-            }
+            if (existingWinner) existingWinner.classList.remove('winner');
 
             let fullPrizeList = [];
-            for (let i = 0; i < REEL_REPEAT_COUNT; i++) {
-                fullPrizeList.push(...prizes);
-            }
+            for (let i = 0; i < REEL_REPEAT_COUNT; i++) fullPrizeList.push(...prizes);
 
             fullPrizeList.forEach(prize => {
                 const itemElement = document.createElement('div');
@@ -324,21 +322,18 @@
 
                 const allItems = document.querySelectorAll('.item');
                 const actualWinnerElement = allItems[winnerPositionInFullList];
-                if (actualWinnerElement) {
-                    actualWinnerElement.classList.add('winner');
-                }
+                if (actualWinnerElement) actualWinnerElement.classList.add('winner');
 
                 setTimeout(() => {
                     rouletteWrapper.classList.remove('visible');
                     winnerDisplay.classList.add('visible');
-
-                    winnerUserText.textContent = `${user_name}`;
+                    winnerUserText.textContent = user_name;
                     winnerPrizeImage.src = winnerPrize.image_url;
                     winnerPrizeName.textContent = winnerPrize.skin_name;
 
                     setTimeout(() => {
                         winnerDisplay.classList.remove('visible');
-                        resolve(); // ✅ говорим, что анимация завершена
+                        resolve();
                     }, WINNER_DISPLAY_DURATION_MS);
 
                 }, 1000);
@@ -348,31 +343,13 @@
         });
     }
 
-    // --- Подключение к Supabase ---
     try {
-        console.log('Инициализация клиента Supabase...');
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        const channel = supabaseClient.channel('roulette-triggers-channel')
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'roulette_triggers' },
-                (payload) => {
-                    console.log('✅ ПОЛУЧЕН СИГНАЛ!', payload);
-                    startRouletteAnimation(payload);
-                }
-            )
-            .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log('✅ Успешная подписка на Supabase!');
-                } else {
-                    console.error(`❌ Ошибка подписки: ${status}`, err);
-                }
-            });
-        console.log('Попытка подписки на канал Supabase...');
-    } catch (error) {
-        console.error("Критическая ошибка при подключении к Supabase:", error);
-    }
+        supabaseClient.channel('roulette-triggers-channel')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'roulette_triggers' },
+                payload => startRouletteAnimation(payload)
+            ).subscribe();
+    } catch (error) { console.error(error); }
 </script>
 </body>
 </html>
