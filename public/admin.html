@@ -1606,7 +1606,7 @@
                     if (p.status === 'Привязан' && targetValue > 0 && typeof p.progress_value !== 'undefined') {
                         const isComplete = p.progress_value >= targetValue;
                         const progressClass = isComplete ? 'progress-good' : 'progress-bad';
-                        progressHtml = `<p class="purchase-progress">Прогресс: <span class="${progressClass}">${p.progress_value} / ${targetValue}</span></p>`;
+                        progressHtml = `<p class="purchase-progress" id="purchase-progress-${p.id}">Загрузка прогресса...</p>`;
                     }
                     
                     let wizebotHtml = '';
@@ -1642,6 +1642,52 @@
                     </div>
                     `;
                 }).join('');
+
+    // === Живое обновление прогресса через Wizebot (как кнопка «Проверить на Wizebot») ===
+    (async () => {
+        for (const p of purchases) {
+            // пропускаем, если нет логина или цели, или статус не «Привязан»
+            if (!p.twitch_login || !targetValue || p.status !== 'Привязан') continue;
+
+            const progressEl = document.getElementById(`purchase-progress-${p.id}`);
+            const resultEl   = document.getElementById(`wizebot-result-${p.id}`); // если есть блок результата
+
+            try {
+                // тот же эндпоинт, что и кнопка
+                const stats = await makeApiRequest(
+                    '/api/v1/admin/wizebot/check_user',
+                    { twitch_username: p.twitch_login, period: (typeof period !== 'undefined' ? period : 'session') },
+                    'POST',
+                    true
+                );
+
+                const messages = (stats && typeof stats.messages !== 'undefined') ? stats.messages : 0;
+                const cls = messages >= targetValue ? 'progress-good' : 'progress-bad';
+
+                if (progressEl) {
+                    progressEl.innerHTML = `Прогресс: <span class="${cls}">${messages} / ${targetValue}</span>`;
+                }
+
+                // необязательное обновление блока результата проверки
+                if (resultEl) {
+                    if (stats && stats.found) {
+                        resultEl.innerHTML =
+                            `<p style="color: var(--primary-color);">✅ ${stats.messages} сообщений (ранг ${stats.rank || '-'})</p>`;
+                    } else {
+                        resultEl.innerHTML =
+                            `<p style="color: var(--warning-color);">⚠️ Не найден в топ-100</p>`;
+                    }
+                }
+            } catch (err) {
+                if (progressEl) progressEl.textContent = 'Ошибка проверки';
+                if (resultEl)   resultEl.innerHTML   = `<p style="color: var(--danger-color);">Ошибка проверки</p>`;
+                console.error('Wizebot check failed for', p.twitch_login, err);
+            }
+
+            // небольшая пауза, чтобы не слать все запросы разом (можно изменить или убрать)
+            await new Promise(res => setTimeout(res, 120));
+        }
+    })();
 
             } catch(e) {
                 body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
