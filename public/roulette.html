@@ -5,7 +5,7 @@
     <title>Яркая Рулетка для Стрима</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Общие стили и сброс */
+        /* Общие стили */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background-color: transparent;
@@ -18,13 +18,13 @@
             user-select: none;
         }
 
-        /* Контейнер всей рулетки */
+        /* Контейнер рулетки */
         .roulette-wrapper {
             position: relative;
             width: 80%;
-            max-width: 900px;
-            height: 160px; /* уменьшена высота */
-            margin-top: -80px;
+            max-width: 1000px;
+            height: 200px; /* оставляем исходную высоту для JS */
+            margin-top: -100px;
             opacity: 0;
             transform: translateY(-50px);
             transition: opacity 0.7s ease, transform 0.7s ease;
@@ -36,7 +36,6 @@
             transform: translateY(0);
         }
 
-        /* Основной контейнер рулетки */
         .roulette-container {
             width: 100%;
             height: 100%;
@@ -99,13 +98,13 @@
             left: 50%;
         }
 
-        /* Карточка приза */
+        /* Карточка приза — визуально меньше, но JS считает исходные размеры */
         .item {
-            min-width: 140px;
-            height: 140px;
-            margin: 0 6px;
+            min-width: 180px;
+            height: 180px;
+            margin: 0 7px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
+            border-radius: 12px;
             border: 2px solid rgba(255, 255, 255, 0.25);
             display: flex;
             justify-content: center;
@@ -113,7 +112,8 @@
             transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, filter 0.3s ease;
             filter: brightness(1.05);
             text-align: center;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transform: scale(0.78); /* визуально уменьшено */
         }
         .item img {
             width: 100%;
@@ -124,7 +124,7 @@
             image-rendering: crisp-edges;
         }
         .item.winner {
-            transform: scale(1.1);
+            transform: scale(0.85); /* чуть больше при победе */
             border-color: #ffeb3b;
             box-shadow: 0 0 35px #ffeb3b, 0 0 15px rgba(255, 255, 255, 0.9);
             filter: brightness(1.2) contrast(1.1);
@@ -136,7 +136,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 480px;
+            width: 500px;
             background: rgba(0, 0, 0, 0.45);
             backdrop-filter: blur(18px);
             -webkit-backdrop-filter: blur(18px);
