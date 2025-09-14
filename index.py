@@ -731,25 +731,43 @@ async def handle_twitch_webhook(
             if user_record:
                 telegram_id = user_record.get("telegram_id")
                 payload_for_purchase = {
-                    "user_id": telegram_id, "username": user_record.get("full_name", twitch_login),
-                    "trade_link": user_record.get("trade_link"), "status": "Привязан"
+                    "user_id": telegram_id,
+                    "username": user_record.get("full_name", twitch_login),
+                    "trade_link": user_record.get("trade_link"),
+                    "status": "Привязан"
                 }
-                if telegram_id:
-                    try:
-                        await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": 1})
-                        logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) начислен 1 билет за награду Twitch.")
-                    except Exception as e:
-                        logging.error(f"❌ Не удалось начислить билет за Twitch награду пользователю {telegram_id}: {e}")
             else:
-                payload_for_purchase = { "user_id": None, "username": twitch_login, "trade_link": None, "status": "Не привязан" }
+                payload_for_purchase = {
+                    "user_id": None,
+                    "username": twitch_login,
+                    "trade_link": None,
+                    "status": "Не привязан"
+                }
             
-            reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"})
+            reward_settings_resp = await supabase.get(
+                "/twitch_rewards",
+                params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
+            )
             reward_settings = reward_settings_resp.json()
             if not reward_settings:
-                reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title, "is_active": True, "notify_admin": True}, headers={"Prefer": "return=representation"})).json()
+                reward_settings = (await supabase.post(
+                    "/twitch_rewards",
+                    json={"title": reward_title, "is_active": True, "notify_admin": True},
+                    headers={"Prefer": "return=representation"}
+                )).json()
 
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
+
+            if user_record and telegram_id:
+                try:
+                    await supabase.post(
+                        "/rpc/increment_tickets",
+                        json={"p_user_id": telegram_id, "p_amount": 1}
+                    )
+                    logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) начислен 1 билет за награду Twitch.")
+                except Exception as e:
+                    logging.error(f"❌ Не удалось начислить билет за Twitch награду пользователю {telegram_id}: {e}")
 
             await supabase.post("/twitch_reward_purchases", json={
                 "reward_id": reward_settings[0]["id"], "user_id": payload_for_purchase["user_id"],
