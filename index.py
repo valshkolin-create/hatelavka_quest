@@ -4158,7 +4158,7 @@ async def issue_twitch_reward_promocode(
             # Достаём Twitch-логин пользователя из Supabase
             twitch_resp = await supabase.get(
                 "/users",
-                params={"id": f"eq.{user_id}", "select": "twitch_login"}
+                params={"telegram_id": f"eq.{user_id}", "select": "twitch_login"}
             )
             twitch_resp.raise_for_status()
             twitch_data = twitch_resp.json()
