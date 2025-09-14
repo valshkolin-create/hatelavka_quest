@@ -4174,7 +4174,7 @@ async def issue_twitch_reward_promocode(
                 # Делаем запрос напрямую в Wizebot API
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(
-                        f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_TOKEN}/top/message/{period}/100"
+                        f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/message/{period}/100"
                     )
                     resp.raise_for_status()
                     data = resp.json()
