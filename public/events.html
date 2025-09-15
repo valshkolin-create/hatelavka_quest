@@ -1473,12 +1473,14 @@ document.addEventListener('DOMContentLoaded', function() {
     dom.timerModalForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
-        // значение инпута – локальное время админа (например, московское)
-        const local = new Date(dom.timerInput.value);
+        // значение инпута – дата/время по Москве (без часового пояса)
+        const [datePart, timePart] = dom.timerInput.value.split('T');
+        const [y, m, d] = datePart.split('-').map(Number);
+        const [hh, mm] = timePart.split(':').map(Number);
 
-        // получаем абсолютное время (UTC) из локального
+        // сохраняем как абсолютное время UTC (Москва = UTC+3)
         pageContent.raffleEndTime = new Date(
-        local.getTime() - local.getTimezoneOffset() * 60000
+            Date.UTC(y, m - 1, d, hh - 3, mm)
         ).toISOString();
 
         hideModal(dom.timerModal);
