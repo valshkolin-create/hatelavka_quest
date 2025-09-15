@@ -1472,7 +1472,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     dom.timerModalForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        pageContent.raffleEndTime = dom.timerInput.value;
+
+        // значение инпута – локальное время админа (например, московское)
+        const local = new Date(dom.timerInput.value);
+
+        // получаем абсолютное время (UTC) из локального
+        pageContent.raffleEndTime = new Date(
+        local.getTime() - local.getTimezoneOffset() * 60000
+        ).toISOString();
+
         hideModal(dom.timerModal);
         renderPage();
     });
