@@ -183,7 +183,7 @@
                 <h1 class="page-title">ЧЕКПОИНТ</h1>
             </div>
             <button id="how-to-earn-btn" class="how-to-earn-button">КАК ЗАРАБОТАТЬ?</button>
-            <div class="user-stars-balance"> <i class="fa-solid fa-battery-three-quarters"></i> <span id="user-stars-count">0</span> </div>
+            <div class="user-stars-balance">  <span id="user-stars-count">0</span> % <i class="fa-solid fa-battery-three-quarters"></i> </div>
         </div>
         <div id="reward-track" class="reward-track"></div>
     </div>
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // --- ИЗМЕНЕНИЕ: Добавляем data-reward-type в кнопку ---
                     buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}" data-reward-type="${reward.type}">Забрать за ${reward.level} % <i class="fa-solid fa-battery-three-quarters"></i></button>`;
                 } else {
-                    buttonHtml = `<button class="action-button locked-btn" disabled>${reward.level} <i class="fa-solid fa-battery-three-quarters"></i></button>`;
+                    buttonHtml = `<button class="action-button locked-btn" disabled>${reward.level} % <i class="fa-solid fa-battery-three-quarters"></i></button>`;
                 }
             }
 
