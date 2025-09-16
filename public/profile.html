@@ -221,6 +221,7 @@
             padding: 5px;
         }
         .reward-card {
+            position: relative; /* теперь внутри можно абсолютно позиционировать кнопки */
             background-color: var(--surface-color-2);
             border-radius: 12px;
             padding: 12px 15px;
@@ -252,11 +253,23 @@
             outline: none;
         }
         .reward-card-copy-btn {
-            flex-shrink: 0; background-color: var(--action-color); color: white;
-            border: none; border-radius: 6px;
-            width: 32px; height: 32px; font-size: 14px;
+            display: flex;                 /* делаем flex-контейнер */
+            align-items: center;           /* вертикальное выравнивание */
+            justify-content: center;       /* горизонтальное выравнивание */
+            flex-shrink: 0;
+            background-color: var(--action-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
             cursor: pointer;
             transition: background-color 0.2s ease;
+        }
+
+        .reward-card-copy-btn i {
+            line-height: 1;               /* убираем лишний вертикальный отступ */
         }
         .reward-card-meta {
             font-size: 11px;
@@ -264,12 +277,20 @@
             margin: 8px 0 0 0;
         }
         .reward-card-delete-btn {
-            background: none; border: none;
+            position: absolute;   /* абсолютное позиционирование */
+            top: 10px;             /* отступ сверху */
+            right: 10px;           /* отступ справа */
+            background: none;
+            border: none;
             color: var(--text-color-muted);
-            font-size: 17px; cursor: pointer;
+            font-size: 17px;
+            cursor: pointer;
             transition: color 0.2s ease;
         }
-        .reward-card-delete-btn:hover { color: var(--danger-color); }
+
+        .reward-card-delete-btn:hover {
+            color: var(--danger-color);
+        }
         
         /* --- Загрузчик --- */
         .loader-overlay { 
