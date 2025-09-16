@@ -624,10 +624,6 @@ try {
                             <input type="text" class="reward-card-code-input" value="${reward.code}" readonly>
                             <button class="reward-card-copy-btn" title="Копировать"><i class="fa-regular fa-copy"></i></button>
                         </div>
-                        <div class="reward-card-code-wrapper">
-                            <input type="text" class="reward-card-code-input" value="${reward.code}" readonly>
-                            <button class="reward-card-copy-btn" title="Копировать"><i class="fa-regular fa-copy"></i></button>
-                        </div>
                         <a href="#" class="reward-how-to-use" data-gif="${reward.gif_url || '/static/how_to_use.gif'}">Где использовать?</a>
                         <p class="reward-card-meta">Получено: ${formattedDateTime}</p>
                     </div>
@@ -805,7 +801,16 @@ try {
         tg.ready();
         tg.expand();
         main();
-    });
+
+    // --- Обработчик для кнопки "Понятно" в инструкции ---
+    const howToCloseBtn = document.getElementById('how-to-use-close');
+    if (howToCloseBtn) {
+        howToCloseBtn.addEventListener('click', () => {
+            document.getElementById('how-to-use-popup').classList.remove('visible');
+        });
+    }
+});
+    
 
 } catch (e) {
     document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Критическая ошибка</h1><p>${e.message}</p></div>`;
