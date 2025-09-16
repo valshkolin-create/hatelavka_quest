@@ -387,6 +387,54 @@
             background-color: #3a3a3c;
             color: white;
         }
+        .reward-how-to-use-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--action-color);
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.15s ease;
+            text-decoration: none;
+        }
+        .reward-how-to-use-btn i {
+            font-size: 13px;
+        }
+        .reward-how-to-use-btn:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        .reward-how-to-use-btn:active {
+            transform: scale(0.96);
+        }
+        .reward-how-to-use-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--action-color);
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.15s ease;
+            text-decoration: none;
+        }
+        .reward-how-to-use-btn i {
+            font-size: 13px;
+        }
+        .reward-how-to-use-btn:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        .reward-how-to-use-btn:active {
+            transform: scale(0.96);
+        }     
     </style>
 </head>
 <body>
@@ -624,7 +672,9 @@ try {
                             <input type="text" class="reward-card-code-input" value="${reward.code}" readonly>
                             <button class="reward-card-copy-btn" title="Копировать"><i class="fa-regular fa-copy"></i></button>
                         </div>
-                        <a href="#" class="reward-how-to-use" data-gif="${reward.gif_url || '/static/how_to_use.gif'}">Где использовать?</a>
+                    <button class="reward-how-to-use-btn" data-gif="${reward.gif_url || '/static/how_to_use.gif'}">
+                        <i class="fa-solid fa-circle-question"></i> Где использовать?
+                    </button>
                         <p class="reward-card-meta">Получено: ${formattedDateTime}</p>
                     </div>
                     <button class="reward-card-delete-btn" title="Удалить промокод"><i class="fa-solid fa-trash-can"></i></button>
