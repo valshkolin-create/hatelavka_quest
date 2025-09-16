@@ -754,10 +754,10 @@ try {
         }
 
     // --- Новый обработчик для "Где использовать?" ---
-        const howToUseLink = target.closest('.reward-how-to-use');
-        if (howToUseLink) {
+        const howToUseBtn = target.closest('.reward-how-to-use-btn');
+        if (howToUseBtn) {
             event.preventDefault();
-            const gifUrl = howToUseLink.dataset.gif;
+            const gifUrl = howToUseBtn.dataset.gif;
             document.getElementById('how-to-use-gif').src = gifUrl;
             document.getElementById('how-to-use-popup').classList.add('visible');
             return;
