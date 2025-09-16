@@ -1,4 +1,3 @@
-<script>
     try {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
@@ -1052,4 +1051,3 @@
         document.getElementById('loader-overlay')?.classList.add('hidden');
         document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Критическая ошибка</h1><p>${e.message}</p></div>`;
     }
-</script>
