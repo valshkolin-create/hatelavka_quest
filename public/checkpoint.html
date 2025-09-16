@@ -183,7 +183,7 @@
                 <h1 class="page-title">ЧЕКПОИНТ</h1>
             </div>
             <button id="how-to-earn-btn" class="how-to-earn-button">КАК ЗАРАБОТАТЬ?</button>
-            <div class="user-stars-balance"> <i class="fa-solid fa-star"></i> <span id="user-stars-count">0</span> </div>
+            <div class="user-stars-balance"> <i class="fa-solid fa-battery-three-quarters"></i> <span id="user-stars-count">0</span> </div>
         </div>
         <div id="reward-track" class="reward-track"></div>
     </div>
@@ -261,7 +261,7 @@
     <footer class="app-footer">
       <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>ГЛАВНАЯ</span></a>
       <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gift"></i></div><span>ИВЕНТЫ</span></a>
-      <a href="/checkpoint" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-star"></i></div><span>ЧЕКПОИНТ</span></a>
+      <a href="/checkpoint" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-battery-three-quarters"></i></div><span>ЧЕКПОИНТ</span></a>
       <a href="/profile" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-user"></i></div><span>ПРОФИЛЬ</span></a>
     </footer>
 
@@ -356,9 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     buttonHtml = `<button class="action-button claimed-btn" disabled><i class="fa-solid fa-check"></i> Получено</button>`;
                 } else if (isClaimable) {
                     // --- ИЗМЕНЕНИЕ: Добавляем data-reward-type в кнопку ---
-                    buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}" data-reward-type="${reward.type}">Забрать за ${reward.level} <i class="fa-solid fa-star"></i></button>`;
+                    buttonHtml = `<button class="action-button claim-btn" data-level="${reward.level}" data-reward-type="${reward.type}">Забрать за ${reward.level} % <i class="fa-solid fa-battery-three-quarters"></i></button>`;
                 } else {
-                    buttonHtml = `<button class="action-button locked-btn" disabled>${reward.level} <i class="fa-solid fa-star"></i></button>`;
+                    buttonHtml = `<button class="action-button locked-btn" disabled>${reward.level} <i class="fa-solid fa-battery-three-quarters"></i></button>`;
                 }
             }
 
@@ -427,8 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function getDefaultInfoText() {
         return `
             <h4>Как это работает?</h4>
-            <p>Чекпоинт — это марафон наград. Выполняй челленджи во время стримов, чтобы заработать звёзды <i class="fa-solid fa-star" style="color: var(--accent-gold);"></i>.</p>
-            <p>Накопленные звёзды можно обменять на ценные призы. Чем выше уровень награды — тем больше звёзд она требует.</p>
+            <p>Чекпоинт — это марафон наград. Выполняй челленджи во время стримов, чтобы заработать проценты батареи <i class="fa-solid fa-battery-three-quarters" style="color: var(--accent-gold);"></i>.</p>
+            <p>Накопленные проценты можно обменять на ценные призы. Чем выше уровень награды — тем больше заряда батереи она требует.</p>
             <h4>🔥 Важное правило!</h4>
             <p>Прогресс марафона сбрасывается до нуля, если ты пропускаешь челленджи на <b>двух стримах подряд</b>. Один пропуск — не страшно, но два обнуляют твой путь. Не пропускай стримы, чтобы дойти до конца!</p>
         `;
@@ -692,7 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tg.showAlert(error.message);
                 // Возвращаем кнопку в исходное состояние в случае ошибки
                 claimBtn.disabled = false;
-                claimBtn.innerHTML = `Забрать за ${levelToClaim} <i class="fa-solid fa-star"></i>`;
+                claimBtn.innerHTML = `Забрать за ${levelToClaim} % <i class="fa-solid fa-battery-three-quarters"></i>`;
             }
         }
         // --- КОНЕЦ ИЗМЕНЕНИЯ ---
