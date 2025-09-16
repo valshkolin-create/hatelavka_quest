@@ -457,6 +457,16 @@
         </div>
     </div>
 
+    <div id="how-to-use-popup" class="custom-popup-overlay">
+        <div class="custom-popup">
+            <h3>Как использовать код?</h3>
+            <p style="margin-bottom:10px;">Смотрите инструкцию ниже:</p>
+            <img id="how-to-use-gif" src="" alt="Инструкция" style="width:100%; border-radius:10px;">
+            <div class="popup-actions" style="margin-top:15px;">
+                <button id="how-to-use-close" class="popup-btn primary">Понятно</button>
+            </div>
+        </div>
+    </div>
 
 <script>
 try {
@@ -614,6 +624,11 @@ try {
                             <input type="text" class="reward-card-code-input" value="${reward.code}" readonly>
                             <button class="reward-card-copy-btn" title="Копировать"><i class="fa-regular fa-copy"></i></button>
                         </div>
+                        <div class="reward-card-code-wrapper">
+                            <input type="text" class="reward-card-code-input" value="${reward.code}" readonly>
+                            <button class="reward-card-copy-btn" title="Копировать"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                        <a href="#" class="reward-how-to-use" data-gif="${reward.gif_url || '/static/how_to_use.gif'}">Где использовать?</a>
                         <p class="reward-card-meta">Получено: ${formattedDateTime}</p>
                     </div>
                     <button class="reward-card-delete-btn" title="Удалить промокод"><i class="fa-solid fa-trash-can"></i></button>
@@ -671,6 +686,7 @@ try {
 
     document.body.addEventListener('click', async (event) => {
         const target = event.target;
+        
         // Обработчик для кнопки "Скрыть" в уведомлении
         if (target.closest('#dismiss-notification-btn')) {
             showDismissPopup();
@@ -688,6 +704,16 @@ try {
                     copyBtn.style.backgroundColor = 'var(--action-color)';
                 }, 2000);
             });
+            return;
+        }
+
+    // --- Новый обработчик для "Где использовать?" ---
+        const howToUseLink = target.closest('.reward-how-to-use');
+        if (howToUseLink) {
+            event.preventDefault();
+            const gifUrl = howToUseLink.dataset.gif;
+            document.getElementById('how-to-use-gif').src = gifUrl;
+            document.getElementById('how-to-use-popup').classList.add('visible');
             return;
         }
         
