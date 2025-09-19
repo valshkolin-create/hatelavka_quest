@@ -4178,14 +4178,20 @@ async def issue_twitch_reward_promocode(
                     )
                     resp.raise_for_status()
                     data = resp.json()
+                    logging.info(f"WizeBot data: {data}")  # <-- добавлено для дебага
             except Exception as e:
                 logging.error(f"Ошибка обращения к Wizebot: {e}")
                 raise HTTPException(status_code=500, detail="Не удалось проверить условие через Wizebot")
 
             # Ищем пользователя по логину в выдаче Wizebot
             current_progress = 0
-            for entry in data.get("list", []):
-                if entry.get("login", "").lower() == twitch_login.lower():
+            entries = data.get("list") or []  # <-- безопасный fallback
+            if not entries:
+                logging.warning("Список топ пользователей пуст. Возможно, стрим не активен или статистика ещё не собрана.")
+
+            for entry in entries:
+                user_login = entry.get("login") or entry.get("user")  # <-- учитываем разные ключи
+                if user_login and user_login.lower() == twitch_login.lower():
                     current_progress = entry.get("count", 0)
                     break
 
@@ -4197,7 +4203,7 @@ async def issue_twitch_reward_promocode(
                     status_code=400,
                     detail=f"Условие не выполнено! Прогресс пользователя: {current_progress} / {target_value}"
                 )
-
+                
         # 4. Если все проверки пройдены, вызываем RPC для выдачи промокода
         rpc_response = await supabase.post(
             "/rpc/issue_promocode_for_twitch_purchase",
