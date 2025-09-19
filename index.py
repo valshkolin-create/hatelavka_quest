@@ -4178,21 +4178,21 @@ async def issue_twitch_reward_promocode(
                     )
                     resp.raise_for_status()
                     data = resp.json()
-                    logging.info(f"WizeBot data: {data}")  # <-- добавлено для дебага
+                    logging.info(f"WizeBot data: {data}")
             except Exception as e:
                 logging.error(f"Ошибка обращения к Wizebot: {e}")
                 raise HTTPException(status_code=500, detail="Не удалось проверить условие через Wizebot")
 
             # Ищем пользователя по логину в выдаче Wizebot
             current_progress = 0
-            entries = data.get("list") or []  # <-- безопасный fallback
+            entries = data.get("list") or []
             if not entries:
                 logging.warning("Список топ пользователей пуст. Возможно, стрим не активен или статистика ещё не собрана.")
 
             for entry in entries:
-                user_login = entry.get("login") or entry.get("user")  # <-- учитываем разные ключи
-                if user_login and user_login.lower() == twitch_login.lower():
-                    current_progress = entry.get("count", 0)
+                user_name = entry.get("user_name")
+                if user_name and user_name.lower() == twitch_login.lower():
+                    current_progress = int(entry.get("value", 0))
                     break
 
             if current_progress < target_value:
