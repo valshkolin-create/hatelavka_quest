@@ -1682,56 +1682,28 @@ async def get_twitch_reward_purchases(
     reward_id: int,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Получаем полную информацию о награде, включая ее условия
-    reward_resp = await supabase.get(
-        "twitch_rewards",
-        params={"id": f"eq.{reward_id}", "select": "show_user_input,condition_type,target_value"}
-    )
-    reward_info = reward_resp.json()[0] if reward_resp.json() else {}
-    
-    # 2. Получаем список всех покупок этой награды
-    purchases_resp = await supabase.get(
-        "/twitch_reward_purchases",
-        params={
-            "reward_id": f"eq.{reward_id}",
-            "select": "id,user_id,username,twitch_login,trade_link,created_at,status,user_input,rewarded_at",
-            "order": "created_at.desc"
-        }
-    )
-    purchases = purchases_resp.json()
-
-    # 3. Если у награды есть условие, собираем прогресс для всех пользователей
-    condition_type = reward_info.get("condition_type")
-    if purchases and condition_type and CONDITION_TO_COLUMN.get(condition_type):
-        column_to_check = CONDITION_TO_COLUMN[condition_type]
+    """
+    (ОПТИМИЗИРОВАНО) Получает всю информацию о покупках и прогрессе одним запросом к базе данных.
+    """
+    try:
+        # Делаем всего один вызов к нашей новой "умной" функции в Supabase
+        response = await supabase.post(
+            "/rpc/get_twitch_reward_purchases_for_admin",
+            json={"p_reward_id": reward_id}
+        )
+        response.raise_for_status()
         
-        # Собираем ID всех привязанных пользователей, чтобы сделать один запрос
-        user_ids_to_check = {p['user_id'] for p in purchases if p.get('user_id')}
-        
-        if user_ids_to_check:
-            # Получаем статистику всех нужных пользователей одним запросом
-            stats_resp = await supabase.get(
-                "/users",
-                params={
-                    "telegram_id": f"in.({','.join(map(str, user_ids_to_check))})",
-                    "select": f"telegram_id,{column_to_check}"
-                }
-            )
-            # Превращаем ответ в удобный словарь: {user_id: progress}
-            progress_map = {
-                user['telegram_id']: user.get(column_to_check, 0)
-                for user in stats_resp.json()
-            }
-            
-            # Добавляем информацию о прогрессе в каждую покупку
-            for purchase in purchases:
-                if purchase.get('user_id') in progress_map:
-                    purchase['progress_value'] = progress_map[purchase['user_id']]
+        # Функция в базе данных уже подготовила для нас идеальный JSON,
+        # который мы просто возвращаем на фронтенд.
+        return response.json()
 
-    return {
-        "reward_settings": reward_info,
-        "purchases": purchases
-    }
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка базы данных")
+        logging.error(f"HTTP-ошибка при получении покупок (RPC): {error_details}")
+        raise HTTPException(status_code=500, detail=f"Не удалось загрузить покупки: {error_details}")
+    except Exception as e:
+        logging.error(f"Критическая ошибка при получении покупок (RPC): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
 
 @app.post("/api/v1/promocode")
 async def get_promocode(
