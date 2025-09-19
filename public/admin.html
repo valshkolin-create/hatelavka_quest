@@ -1368,57 +1368,77 @@
             currentEditingCategoryId = null;
         }
 
-        function renderSubmissions(submissions) {
-            dom.tabContentSubmissions.innerHTML = '';
-            if (!submissions || submissions.length === 0) {
-                dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
-                return;
-            }
+        function renderSubmissions(submissions) {
+            dom.tabContentSubmissions.innerHTML = '';
+            if (!submissions || submissions.length === 0) {
+                dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
+                return;
+            }
 
-            submissions.forEach(action => {
-                let submissionContent = '';
-                const data = action.submitted_data || '';
-                const isUrl = data.startsWith('http://') || data.startsWith('https');
-                if (isUrl) {
-                    submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${data}</a>`;
-                } else {
-                    submissionContent = `<span>${data}</span>`;
-                }
-                const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
-                    ? `<a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
-                    : '';
-                
-                const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
+            submissions.forEach(action => {
+                let submissionContent = '';
+                const data = action.submitted_data || '';
+                const isUrl = data.startsWith('http://') || data.startsWith('https');
 
-                const cardHtml = `
-                <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
-                    <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
-                    <p style="font-size: 14px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 12px;">${action.quest_description || 'Описание отсутствует.'}</p>
-                    <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${action.reward_amount || '?'} ⭐</p>
-                    <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
-                    <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
-                    <div class="submission-wrapper">
-                        <div class="submission-data">${submissionContent}</div>
-                        ${actionLinkHtml}
-                    </div>
+                if (action.type === 'twitch_message') {
+                    const cardHtml = `
+                    <div class="pending-action-card admin-submission-card" data-action-id="${action.id}" data-action-type="twitch_message">
+                        <div class="pending-action-header">
+                            <div class="pending-action-type-badge type-twitch">Twitch</div>
+                            <div class="submission-user">
+                                <i class="fa-brands fa-twitch"></i>
+                                <strong>${action.user_full_name}</strong>
+                            </div>
+                        </div>
+                        <p>${action.submitted_data}</p>
+                        <div class="submission-actions">
+                            <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
+                        </div>
+                    </div>
+                    `;
+                    dom.tabContentSubmissions.innerHTML += cardHtml;
+                } else {
+                    if (isUrl) {
+                        submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${data}</a>`;
+                    } else {
+                        submissionContent = `<span>${data}</span>`;
+                    }
+                    const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
+                        ? `<a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
+                        : '';
+                      
+                    const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
 
-                    ${isWizebotQuest ? `
-                    <div class="submission-actions" style="margin-top: 10px;">
-                        <button class="admin-action-btn check-wizebot-btn" data-nickname="${data}" style="background-color: #6441a5;">
-                            <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
-                        </button>
-                    </div>
-                    <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
-                    ` : ''}
+                    const cardHtml = `
+                    <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
+                        <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
+                        <p style="font-size: 14px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 12px;">${action.quest_description || 'Описание отсутствует.'}</p>
+                        <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${action.reward_amount || '?'} ⭐</p>
+                        <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
+                        <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
+                        <div class="submission-wrapper">
+                            <div class="submission-data">${submissionContent}</div>
+                            ${actionLinkHtml}
+                        </div>
 
-                    <div class="submission-actions">
-                        <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
-                        <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
-                    </div>
-                </div>`;
-                dom.tabContentSubmissions.innerHTML += cardHtml;
-            });
-        }
+                        ${isWizebotQuest ? `
+                        <div class="submission-actions" style="margin-top: 10px;">
+                            <button class="admin-action-btn check-wizebot-btn" data-nickname="${data}" style="background-color: #6441a5;">
+                                <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
+                            </button>
+                        </div>
+                        <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
+                        ` : ''}
+
+                        <div class="submission-actions">
+                            <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
+                            <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
+                        </div>
+                    </div>`;
+                    dom.tabContentSubmissions.innerHTML += cardHtml;
+                }
+            });
+        }
 
         function renderCheckpointPrizes(prizes) {
             dom.tabContentCheckpointPrizes.innerHTML = '';
