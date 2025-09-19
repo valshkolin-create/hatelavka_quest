@@ -288,6 +288,46 @@
         flex-shrink: 0;
         margin-left: auto;
     }
+        /* --- НОВЫЕ СТИЛИ ДЛЯ БЛОКИРОВКИ НАГРАД --- */
+    .purchase-item {
+        position: relative; /* Обязательно для позиционирования оверлея */
+    }
+    .purchase-item.is-locked .purchase-user-input,
+    .purchase-item.is-locked .issue-promo-btn {
+        filter: blur(4px);
+        pointer-events: none;
+        opacity: 0.5;
+    }
+    .locked-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        border-radius: 12px; /* Если у родителя есть рамка */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 10px;
+        z-index: 2;
+        backdrop-filter: blur(2px);
+    }
+    .locked-overlay-text {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--warning-color);
+    }
+    #refresh-purchases-btn {
+        background: none;
+        border: none;
+        color: var(--action-color);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 5px;
+        line-height: 1;
+    }
     /* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
   </style>
 </head>
@@ -938,6 +978,9 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="twitch-purchases-title" class="modal-title">Покупки награды</h2>
+                <button id="refresh-purchases-btn" title="Обновить список">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
                 <button class="modal-close-btn" data-close-modal="twitch-purchases-modal">&times;</button>
             </div>
             <div id="twitch-purchases-body" class="modal-body">
@@ -1492,20 +1535,25 @@
             modal.classList.remove('hidden');
         }
 
-        async function openTwitchPurchases(rewardId, rewardTitle) {
+async function openTwitchPurchases(rewardId, rewardTitle) {
             const modal = document.getElementById('twitch-purchases-modal');
             const body = document.getElementById('twitch-purchases-body');
             const titleEl = document.getElementById('twitch-purchases-title');
             const headerEl = titleEl.parentElement;
+            const refreshBtn = document.getElementById('refresh-purchases-btn'); // НАША НОВАЯ КНОПКА
 
-            // --- НОВОЕ: Динамическое добавление/скрытие кнопки массового удаления ---
+            // НОВОЕ: Сохраняем данные для кнопки "Обновить"
+            refreshBtn.dataset.rewardId = rewardId;
+            refreshBtn.dataset.rewardTitle = rewardTitle;
+
             let deleteAllBtn = headerEl.querySelector('#delete-all-purchases-btn');
             if (!deleteAllBtn) {
                 deleteAllBtn = document.createElement('button');
                 deleteAllBtn.id = 'delete-all-purchases-btn';
                 deleteAllBtn.className = 'admin-action-btn reject';
                 deleteAllBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Удалить все';
-                headerEl.insertBefore(deleteAllBtn, titleEl.nextSibling);
+                // Вставляем кнопку удаления перед кнопкой обновления
+                headerEl.insertBefore(deleteAllBtn, refreshBtn);
             }
             deleteAllBtn.dataset.rewardId = rewardId;
             
@@ -1513,23 +1561,13 @@
             body.innerHTML = '<i>Загрузка...</i>';
             modal.classList.remove('hidden');
 
-            // --- НОВЫЕ ХЕЛПЕРЫ ---
             const makeLinksClickable = (text) => {
                 if (!text || typeof text !== 'string') return '';
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
             };
 
-            const getViewedStatus = () => {
-                try {
-                    const viewed = JSON.parse(localStorage.getItem('viewed_purchases') || '[]');
-                    return new Set(viewed);
-                } catch {
-                    return new Set();
-                }
-            };
-            const viewedPurchases = getViewedStatus();
-            // --- КОНЕЦ ХЕЛПЕРОВ ---
+            const viewedPurchases = new Set(JSON.parse(localStorage.getItem('viewed_purchases') || '[]'));
 
             try {
                 const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
@@ -1537,27 +1575,25 @@
 
                 if (!purchases || purchases.length === 0) {
                     body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
-                    deleteAllBtn.classList.add('hidden'); // Скрываем кнопку, если удалять нечего
+                    deleteAllBtn.classList.add('hidden');
                     return;
                 }
-                deleteAllBtn.classList.remove('hidden'); // Показываем кнопку, если есть покупки
+                deleteAllBtn.classList.remove('hidden');
                 
-                const conditionType = reward_settings.condition_type || '';
                 const targetValue = reward_settings.target_value;
-                let period = 'session';
-                if (conditionType.endsWith('_week')) period = 'week';
-                if (conditionType.endsWith('_month')) period = 'month';
 
                 body.innerHTML = purchases.map(p => {
                     const date = new Date(p.created_at).toLocaleString('ru-RU');
                     
-                    // --- ОБНОВЛЕНО: Логика отображения статуса "Просмотрено" ---
+                    // --- ГЛАВНАЯ ЛОГИКА БЛОКИРОВКИ ---
+                    const progress = p.progress_value === null || typeof p.progress_value === 'undefined' ? 0 : p.progress_value;
+                    const isLocked = targetValue > 0 && progress < targetValue;
+                    
                     const isViewed = viewedPurchases.has(p.id);
                     const viewedStatusClass = isViewed ? 'status-viewed' : 'status-not-viewed';
                     const viewedStatusText = isViewed ? 'Просмотрено' : 'Не просмотрено';
                     const viewStatusHtml = `<p class="purchase-view-status ${viewedStatusClass}">${viewedStatusText}</p>`;
                     
-                    // --- ОБНОВЛЕНО: Парсинг выигрыша в рулетке и кликабельные ссылки ---
                     let userInputHtml = '';
                     let rouletteWinHtml = '';
                     if (reward_settings.show_user_input && p.user_input) {
@@ -1577,76 +1613,36 @@
                     let actionButtonsHtml;
                     if (p.rewarded_at) {
                         actionButtonsHtml = `
-                            <div class="rewarded-info" style="flex-grow: 1;">
-                                <i class="fa-solid fa-check-circle"></i> Награда выдана
-                            </div>
-                            <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        `;
+                            <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
+                            <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                     } else if (p.status === 'Привязан') {
+                        // НОВОЕ: Кнопка "Выдать" становится неактивной, если условия не выполнены
                         actionButtonsHtml = `
-                            <button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}">Выдать промокод</button>
-                            <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        `;
-                    } else { // Статус "Не привязан"
+                            <button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}" ${isLocked ? 'disabled' : ''}>Выдать промокод</button>
+                            <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
+                    } else {
                         actionButtonsHtml = `
-                            <div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
-                                Ожидает привязки
-                            </div>
-                            <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        `;
+                            <div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Ожидает привязки</div>
+                            <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                     }
 
-                    let progressHtml = '';
-                    if (p.status === 'Привязан' && targetValue > 0 && conditionType) {
-                        const period = conditionType.replace("twitch_messages_", ""); // session | week | month
+                    // НОВОЕ: Создаем оверлей, если условия не выполнены
+                    const lockedOverlayHtml = isLocked ? `
+                        <div class="locked-overlay">
+                            <span class="locked-overlay-text">
+                                Условие не выполнено<br>
+                                Прогресс: ${progress} / ${targetValue}
+                            </span>
+                        </div>
+                    ` : '';
 
-                        // запрос к Wizebot
-                        makeApiRequest(
-                            '/api/v1/admin/wizebot/check_user',
-                            { twitch_username: p.twitch_login, period },
-                            'POST',
-                            true
-                        ).then(stats => {
-                            const isComplete = stats && stats.messages >= targetValue;
-                            const progressClass = isComplete ? 'progress-good' : 'progress-bad';
-
-                            progressHtml = `
-                                <p class="purchase-progress ${progressClass}" id="purchase-progress-${p.id}">
-                                    ${stats ? `${stats.messages} / ${targetValue} сообщений` : 'Не удалось загрузить данные'}
-                                </p>
-                            `;
-
-                            const el = document.getElementById(`purchase-progress-${p.id}`);
-                            if (el) {
-                                el.outerHTML = progressHtml;
-                            }
-                        });
-                    }
-                  
-                    let wizebotHtml = '';
-                    if (p.twitch_login) {
-                       wizebotHtml = `
-                       <div class="wizebot-check-wrapper">
-                           <button class="admin-action-btn wizebot-check-btn" data-nickname="${p.twitch_login}" data-period="${period}">
-                               <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
-                           </button>
-                           <div class="wizebot-result" id="wizebot-result-${p.id}"></div>
-                       </div>
-                       `;
-                    }
-                    
                     const telegramNameDisplay = p.status === 'Привязан' 
                         ? `<span style="color: var(--text-color-muted); font-weight: normal; margin-left: 5px;">(${p.username || '...'})</span>`
                         : `<span style="color: var(--warning-color); font-weight: normal; margin-left: 5px;">(Не привязан)</span>`;
 
                     return `
-                    <div class="purchase-item" id="purchase-item-${p.id}" data-purchase-id="${p.id}">
+                    <div class="purchase-item ${isLocked ? 'is-locked' : ''}" id="purchase-item-${p.id}" data-purchase-id="${p.id}">
+                        ${lockedOverlayHtml} 
                         <div class="purchase-item-header">
                             <strong>${p.twitch_login || '???'}${telegramNameDisplay}</strong>
                             <span class="purchase-status-badge purchase-status-${p.status.replace(' ', '.')}">${p.status}</span>
@@ -1656,12 +1652,15 @@
                         ${tradeLinkHtml}
                         ${rouletteWinHtml}
                         ${userInputHtml}
-                        ${progressHtml}
                         <div class="purchase-actions">${actionButtonsHtml}</div>
-                        ${wizebotHtml}
                     </div>
                     `;
                 }).join('');
+
+            } catch(e) {
+                body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
+            }
+        }
 
     // === Живое обновление прогресса через Wizebot (как кнопка «Проверить на Wizebot») ===
     (async () => {
@@ -1860,6 +1859,15 @@
         }
 
         function setupEventListeners() {
+            // --- НОВЫЙ СЛУШАТЕЛЬ ДЛЯ КНОПКИ ОБНОВЛЕНИЯ ---
+            document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
+                const btn = e.currentTarget;
+                const { rewardId, rewardTitle } = btn.dataset;
+                if (rewardId && rewardTitle) {
+                    // Просто вызываем функцию загрузки заново с теми же данными
+                    openTwitchPurchases(rewardId, rewardTitle);
+                }
+            });
             document.body.addEventListener('click', (e) => {
                 const closeBtn = e.target.closest('[data-close-modal]');
                 if (closeBtn) {
