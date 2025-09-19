@@ -1540,9 +1540,8 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
             const body = document.getElementById('twitch-purchases-body');
             const titleEl = document.getElementById('twitch-purchases-title');
             const headerEl = titleEl.parentElement;
-            const refreshBtn = document.getElementById('refresh-purchases-btn'); // НАША НОВАЯ КНОПКА
+            const refreshBtn = document.getElementById('refresh-purchases-btn');
 
-            // НОВОЕ: Сохраняем данные для кнопки "Обновить"
             refreshBtn.dataset.rewardId = rewardId;
             refreshBtn.dataset.rewardTitle = rewardTitle;
 
@@ -1552,13 +1551,12 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                 deleteAllBtn.id = 'delete-all-purchases-btn';
                 deleteAllBtn.className = 'admin-action-btn reject';
                 deleteAllBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Удалить все';
-                // Вставляем кнопку удаления перед кнопкой обновления
                 headerEl.insertBefore(deleteAllBtn, refreshBtn);
             }
             deleteAllBtn.dataset.rewardId = rewardId;
             
             titleEl.textContent = `Покупки: ${rewardTitle}`;
-            body.innerHTML = '<i>Загрузка...</i>';
+            body.innerHTML = '<i>Загрузка покупок и проверка прогресса...</i>';
             modal.classList.remove('hidden');
 
             const makeLinksClickable = (text) => {
@@ -1571,7 +1569,7 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
 
             try {
                 const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
-                const { purchases, reward_settings } = data;
+                let { purchases, reward_settings } = data;
 
                 if (!purchases || purchases.length === 0) {
                     body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
@@ -1581,11 +1579,37 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                 deleteAllBtn.classList.remove('hidden');
                 
                 const targetValue = reward_settings.target_value;
+                const conditionType = reward_settings.condition_type || '';
+                const period = conditionType.split('_').pop(); // 'session', 'week', или 'month'
+
+                // --- ИСПРАВЛЕНИЕ: Активно запрашиваем прогресс у Wizebot ---
+                if (targetValue > 0) {
+                    const progressPromises = purchases.map(p => {
+                        if (p.status === 'Привязан' && p.twitch_login) {
+                            return makeApiRequest(
+                                '/api/v1/admin/wizebot/check_user',
+                                { twitch_username: p.twitch_login, period },
+                                'POST',
+                                true
+                            ).then(stats => {
+                                // Добавляем реальный прогресс к объекту покупки
+                                p.progress_value = (stats && stats.found) ? stats.messages : 0;
+                            }).catch(err => {
+                                console.error(`Ошибка Wizebot для ${p.twitch_login}:`, err);
+                                p.progress_value = 0; // В случае ошибки считаем прогресс нулевым
+                            });
+                        }
+                        return Promise.resolve();
+                    });
+                    await Promise.all(progressPromises); // Ждем завершения всех проверок
+                }
+                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
 
                 body.innerHTML = purchases.map(p => {
                     const date = new Date(p.created_at).toLocaleString('ru-RU');
                     
-                    // --- ГЛАВНАЯ ЛОГИКА БЛОКИРОВКИ ---
+                    // Теперь эта логика будет работать, т.к. p.progress_value мы получили выше
                     const progress = p.progress_value === null || typeof p.progress_value === 'undefined' ? 0 : p.progress_value;
                     const isLocked = targetValue > 0 && progress < targetValue;
                     
@@ -1616,7 +1640,6 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                             <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
                             <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                     } else if (p.status === 'Привязан') {
-                        // НОВОЕ: Кнопка "Выдать" становится неактивной, если условия не выполнены
                         actionButtonsHtml = `
                             <button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}" ${isLocked ? 'disabled' : ''}>Выдать промокод</button>
                             <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
@@ -1626,7 +1649,6 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                             <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                     }
 
-                    // НОВОЕ: Создаем оверлей, если условия не выполнены
                     const lockedOverlayHtml = isLocked ? `
                         <div class="locked-overlay">
                             <span class="locked-overlay-text">
