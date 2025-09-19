@@ -1580,35 +1580,36 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                 
                 const targetValue = reward_settings.target_value;
                 const conditionType = reward_settings.condition_type || '';
-                const period = conditionType.split('_').pop();
+                const period = conditionType.split('_').pop(); // 'session', 'week', или 'month'
 
-                // --- ОПТИМИЗАЦИЯ: Запрашиваем прогресс последовательно ---
+                // --- ИСПРАВЛЕНИЕ: Активно запрашиваем прогресс у Wizebot ---
                 if (targetValue > 0) {
-                    // Используем цикл for...of, чтобы выполнять запросы один за другим
-                    for (const p of purchases) {
-                        // ОПТИМИЗАЦИЯ 1: Проверяем только тех, кто привязан и кому еще не выдана награда
-                        if (p.status === 'Привязан' && p.twitch_login && !p.rewarded_at) {
-                            try {
-                                const stats = await makeApiRequest(
-                                    '/api/v1/admin/wizebot/check_user',
-                                    { twitch_username: p.twitch_login, period },
-                                    'POST',
-                                    true
-                                );
+                    const progressPromises = purchases.map(p => {
+                        if (p.status === 'Привязан' && p.twitch_login) {
+                            return makeApiRequest(
+                                '/api/v1/admin/wizebot/check_user',
+                                { twitch_username: p.twitch_login, period },
+                                'POST',
+                                true
+                            ).then(stats => {
+                                // Добавляем реальный прогресс к объекту покупки
                                 p.progress_value = (stats && stats.found) ? stats.messages : 0;
-                            } catch (err) {
+                            }).catch(err => {
                                 console.error(`Ошибка Wizebot для ${p.twitch_login}:`, err);
-                                p.progress_value = 0; // В случае ошибки прогресс 0
-                            }
+                                p.progress_value = 0; // В случае ошибки считаем прогресс нулевым
+                            });
                         }
-                    }
+                        return Promise.resolve();
+                    });
+                    await Promise.all(progressPromises); // Ждем завершения всех проверок
                 }
-                // --- КОНЕЦ ОПТИМИЗАЦИИ ---
+                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-                // Дальнейший код для отрисовки остается без изменений
+
                 body.innerHTML = purchases.map(p => {
                     const date = new Date(p.created_at).toLocaleString('ru-RU');
                     
+                    // Теперь эта логика будет работать, т.к. p.progress_value мы получили выше
                     const progress = p.progress_value === null || typeof p.progress_value === 'undefined' ? 0 : p.progress_value;
                     const isLocked = targetValue > 0 && progress < targetValue;
                     
