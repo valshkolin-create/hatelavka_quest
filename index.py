@@ -1555,7 +1555,7 @@ async def grant_checkpoint_access(
 
 @app.post("/api/v1/admin/events/grant-access")
 async def grant_events_access(
-    request_data: GrantAccessRequest,
+   request_data: GrantAccessRequest,
     supabase: Client = Depends(get_supabase_client) # Убедитесь, что эта зависимость возвращает объект Client
 ):
     """Выдает пользователю доступ к странице ивентов."""
@@ -1576,6 +1576,7 @@ async def grant_events_access(
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
 
     return {"message": f"Доступ к ивентам для пользователя {user_id_to_grant} успешно предоставлен!"}
+
 @app.post("/api/v1/admin/user_challenges")
 async def get_user_challenges_by_admin(
     request_data: UserChallengesRequest, 
@@ -1614,7 +1615,6 @@ async def get_user_challenges_by_admin(
             c["progress_value"] = c.get("progress_value", 0)
 
     return challenges
-
 
 @app.post("/api/v1/admin/quest/delete")
 async def delete_quest(request_data: QuestDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
