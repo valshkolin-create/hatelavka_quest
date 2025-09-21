@@ -33,7 +33,6 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
 from aiogram.utils.markdown import html_decoration
-from supabase import create_client, Client
 
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
@@ -125,7 +124,7 @@ class FreeTicketClaimRequest(BaseModel):
 
 class GrantAccessRequest(BaseModel):
     initData: str
-    user_id_to_grant: str # Измените тип с int на str
+    user_id_to_grant: int
     
 class CheckpointReward(BaseModel):
     level: int
@@ -1555,27 +1554,23 @@ async def grant_checkpoint_access(
 
 @app.post("/api/v1/admin/events/grant-access")
 async def grant_events_access(
-   request_data: GrantAccessRequest,
-    supabase: Client = Depends(get_supabase_client) # Убедитесь, что эта зависимость возвращает объект Client
+    request_data: GrantAccessRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Выдает пользователю доступ к странице ивентов."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    """Выдает пользователю доступ к странице ивентов."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    user_id_to_grant = int(request_data.user_id_to_grant) # Преобразуйте строку в число
+    user_id_to_grant = request_data.user_id_to_grant
 
-    # Используйте метод update из клиента Supabase
-    data, count = await supabase.table('users') \
-        .update({'has_events_access': True}) \
-        .eq('telegram_id', user_id_to_grant) \
-        .execute()
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{user_id_to_grant}"},
+        json={"has_events_access": True}
+    )
 
-    # Проверка, что операция прошла успешно
-    if count == 0:
-        raise HTTPException(status_code=404, detail="Пользователь не найден.")
-
-    return {"message": f"Доступ к ивентам для пользователя {user_id_to_grant} успешно предоставлен!"}
+    return {"message": f"Доступ к ивентам для пользователя {user_id_to_grant} успешно предоставлен!"}
 
 @app.post("/api/v1/admin/user_challenges")
 async def get_user_challenges_by_admin(
@@ -1615,6 +1610,7 @@ async def get_user_challenges_by_admin(
             c["progress_value"] = c.get("progress_value", 0)
 
     return challenges
+
 
 @app.post("/api/v1/admin/quest/delete")
 async def delete_quest(request_data: QuestDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
