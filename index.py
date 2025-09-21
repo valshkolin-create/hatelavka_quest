@@ -33,6 +33,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
 from aiogram.utils.markdown import html_decoration
+from supabase import create_client, Client
 
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
