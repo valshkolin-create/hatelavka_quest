@@ -1343,7 +1343,20 @@ async def create_event(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user or user.get("id") not in ADMIN_IDS:
+
+    # 🔍 Отладка
+    logging.info(f"ADMIN_IDS = {ADMIN_IDS}")
+    logging.info(f"user из initData = {user}")
+    current_id = None
+    try:
+        current_id = int(user.get("id")) if user and "id" in user else None
+    except Exception:
+        logging.warning(f"Не удалось привести ID к int: {user.get('id') if user else None}")
+
+    logging.info(f"current_id (int) = {current_id}")
+
+    # 🚫 Проверка доступа
+    if not current_id or current_id not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Недостаточно прав.")
 
     try:
@@ -1358,7 +1371,6 @@ async def create_event(
             event_payload["end_date"] = datetime.fromisoformat(request_data.end_date).isoformat() + 'Z'
         
         # 2. Отправляем запрос в Supabase для создания новой записи
-        # Supabase сам автоматически присвоит новый ID, который будет уникальным
         resp = await supabase.post(
             "/events",
             json=event_payload,
