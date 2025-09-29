@@ -29,7 +29,12 @@
     .dashboard-container { display: grid; grid-template-columns: 1fr; gap: 10px; }
     .quests-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .page-title { font-size: 18px; font-weight: 600; margin: 0 0 15px 0; text-align: center; }
+    
+    /* ОПТИМИЗАЦИЯ: backdrop-filter - очень ресурсоёмкое свойство. 
+       Если производительность останется проблемой, можно его заменить на обычный полупрозрачный фон.
+       Например: background-color: rgba(28, 28, 30, 0.85); */
     .quest-card { background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; position: relative; }
+    
     .quest-icon { font-size: 20px; color: var(--quest-icon-color); margin-bottom: 8px; text-shadow: 0 0 12px var(--quest-icon-color); }
     .quest-image-icon { width: 32px; height: 32px; border-radius: 6px; margin: 0 auto 8px; object-fit: cover; }
     .quest-title { font-size: 13px; font-weight: 600; line-height: 1.3; margin: 0 0 5px 0; flex-grow: 1; text-align: center; }
@@ -67,28 +72,9 @@
     .info-notice i { font-size: 18px; color: var(--action-color); flex-shrink: 0; }
     .info-notice strong { color: var(--text-color); font-weight: 600; }
     .active-quest-indicator { position: absolute; top: 8px; right: 10px; font-size: 10px; font-weight: 600; color: var(--primary-color); background-color: rgba(52, 199, 89, 0.15); padding: 3px 7px; border-radius: 7px; }
-    .manual-quest-actions {
-    margin-top: auto;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    }
-    .manual-quest-actions .action-link-btn {
-    background-color: #5856d6;
-    padding: 5px 8px;
-    font-size: 11px;
-    border-radius: 5px;
-    color: white;
-    text-decoration: none;
-    font-weight: 500;
-    flex-shrink: 0;
-    }
-    .manual-quest-actions .perform-quest-button {
-    flex-grow: 1;
-    margin-top: 0;
-    padding: 6px;
-    font-size: 12px;
-    }
+    .manual-quest-actions { margin-top: auto; display: flex; gap: 6px; align-items: center; }
+    .manual-quest-actions .action-link-btn { background-color: #5856d6; padding: 5px 8px; font-size: 11px; border-radius: 5px; color: white; text-decoration: none; font-weight: 500; flex-shrink: 0; }
+    .manual-quest-actions .perform-quest-button { flex-grow: 1; margin-top: 0; padding: 6px; font-size: 12px; }
     .quest-category-accordion { width: 100%; grid-column: 1 / -1; }
     .quest-category-header { cursor: pointer; font-size: 16px; font-weight: 600; padding: 12px; background-color: rgba(44, 44, 46, 0.85); border-radius: 8px; list-style: none; margin-bottom: 10px; }
     .quest-category-header::-webkit-details-marker { display: none; }
@@ -96,134 +82,67 @@
     .quest-category-accordion[open] > .quest-category-header::before { transform: rotate(90deg); }
     .quest-category-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 5px; }
     .stats-link { text-decoration: none; color: inherit; }
-    .social-stats-wrapper {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 8px;
-    }
-    .social-links {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-    }
+    .social-stats-wrapper { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .social-links { display: flex; gap: 12px; align-items: center; }
     .social-icon-wrapper { width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; transition: transform 0.2s ease-in-out; }
     .social-icon-wrapper i { font-size: 16px; color: white; }
     #twitch-icon { background-color: var(--twitch-color); }
     #telegram-icon { background-color: #0088CC; }
-    .tickets-item { background: rgba(52, 199, 89, 0.15); border-radius: 12px; padding: 6px 10px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; position: relative; animation: pulse 2s infinite ease-in-out; }
-    .tickets-item:hover { animation-play-state: paused; }
+
+    /* --- ОПТИМИЗАЦИЯ АНИМАЦИИ БИЛЕТОВ --- */
+    .tickets-item { 
+        background: rgba(52, 199, 89, 0.15); 
+        border-radius: 12px; 
+        padding: 6px 10px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: flex-end; 
+        gap: 6px; 
+        position: relative; /* Необходимо для псевдо-элемента */
+        z-index: 1; /* Чтобы псевдо-элемент был под контентом */
+    }
+    .tickets-item::after {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        top: 0; left: 0; right: 0; bottom: 0;
+        border-radius: 12px;
+        box-shadow: 0 0 8px rgba(52, 199, 89, 0);
+        opacity: 0.7;
+        animation: pulse-optimized 2s infinite ease-out;
+    }
     .tickets-item .stats-text { color: var(--primary-color); font-weight: 700; font-size: 14px; }
     .stats-icon-star { background: var(--primary-color); margin-right: 0; }
     .stats-icon-star i { color: #fff; }
     .info-question-icon { font-size: 16px; color: #ffc700; cursor: pointer; margin-left: 4px; }
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.7); }
-      70% { box-shadow: 0 0 0 8px rgba(52, 199, 89, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); }
+    
+    /* Новая, быстрая анимация, использующая scale и opacity */
+    @keyframes pulse-optimized {
+        0% {
+            transform: scale(1);
+            opacity: 0.7;
+        }
+        100% {
+            transform: scale(1.4);
+            opacity: 0;
+        }
     }
-    .quest-choose-btn-roulette {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      margin: 15px 0;
-      font-size: 16px;
-      font-weight: 700;
-      border: none;
-      border-radius: 10px;
-      color: #1c1c1e;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s, background 0.4s ease;
-      box-shadow: 0 0 12px rgba(255, 204, 0, 0.5);
-    }
-    .quest-choose-btn-roulette.twitch-theme {
-      background: linear-gradient(90deg, #a97cff, var(--twitch-color));
-      color: white;
-      box-shadow: 0 0 12px rgba(145, 70, 255, 0.6);
-    }
-    .quest-choose-btn-roulette.telegram-theme {
-      background: linear-gradient(90deg, #24a1de, var(--telegram-color));
-      color: white;
-      box-shadow: 0 0 12px rgba(0, 136, 204, 0.6);
-    }
-    .quest-choose-container {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-top: 20px;
-      perspective: 1000px;
-    }
-    .quest-option-card {
-      width: 120px;
-      height: 160px;
-      background: var(--surface-glass-bg);
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      transform: rotateY(90deg);
-      opacity: 0;
-      transition: transform 0.6s ease, opacity 0.6s ease;
-      text-align: center;
-    }
-    .quest-option-card.show {
-      transform: rotateY(0);
-      opacity: 1;
-    }
-    .quest-option-card.chosen {
-      animation: questChosen 0.6s forwards;
-    }
-    .quest-option-card.fade-out {
-      animation: fadeOut 0.5s forwards;
-    }
-    @keyframes questChosen {
-      to {
-        transform: scale(0.1) translateY(-100px);
-        opacity: 0;
-      }
-    }
-    @keyframes fadeOut {
-      to {
-        opacity: 0;
-        transform: scale(0.9);
-      }
-    }
+    /* --- КОНЕЦ ОПТИМИЗАЦИИ --- */
 
-    .twitch-update-notice {
-        font-size: 10px;
-        color: var(--text-color-muted);
-        margin-top: 8px;
-        padding: 4px;
-        background-color: rgba(0,0,0,0.2);
-        border-radius: 4px;
-    }
-    .promo-notification {
-        background-color: var(--primary-color);
-        color: white;
-        padding: 10px 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 14px;
-        font-weight: 600;
-        animation: fadeInDown 0.5s ease-out;
-    }
-    @keyframes fadeInDown {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .promo-notification-close {
-        background: none;
-        border: none;
-        color: white;
-        font-size: 18px;
-        cursor: pointer;
-        opacity: 0.7;
-    }
+    .quest-choose-btn-roulette { display: block; width: 100%; padding: 12px; margin: 15px 0; font-size: 16px; font-weight: 700; border: none; border-radius: 10px; color: #1c1c1e; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, background 0.4s ease; box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); }
+    .quest-choose-btn-roulette.twitch-theme { background: linear-gradient(90deg, #a97cff, var(--twitch-color)); color: white; box-shadow: 0 0 12px rgba(145, 70, 255, 0.6); }
+    .quest-choose-btn-roulette.telegram-theme { background: linear-gradient(90deg, #24a1de, var(--telegram-color)); color: white; box-shadow: 0 0 12px rgba(0, 136, 204, 0.6); }
+    .quest-choose-container { display: flex; justify-content: center; gap: 15px; margin-top: 20px; perspective: 1000px; }
+    .quest-option-card { width: 120px; height: 160px; background: var(--surface-glass-bg); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transform: rotateY(90deg); opacity: 0; transition: transform 0.6s ease, opacity 0.6s ease; text-align: center; }
+    .quest-option-card.show { transform: rotateY(0); opacity: 1; }
+    .quest-option-card.chosen { animation: questChosen 0.6s forwards; }
+    .quest-option-card.fade-out { animation: fadeOut 0.5s forwards; }
+    @keyframes questChosen { to { transform: scale(0.1) translateY(-100px); opacity: 0; } }
+    @keyframes fadeOut { to { opacity: 0; transform: scale(0.9); } }
+    .twitch-update-notice { font-size: 10px; color: var(--text-color-muted); margin-top: 8px; padding: 4px; background-color: rgba(0,0,0,0.2); border-radius: 4px; }
+    .promo-notification { background-color: var(--primary-color); color: white; padding: 10px 15px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; animation: fadeInDown 0.5s ease-out; }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    .promo-notification-close { background: none; border: none; color: white; font-size: 18px; cursor: pointer; opacity: 0.7; }
     
     /* --- СТИЛИ ДЛЯ ОБУЧЕНИЯ --- */
     .tutorial-overlay {
@@ -326,13 +245,8 @@
     }
     /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ОБУЧЕНИЯ --- */
 
-    /* --- СТИЛИ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ --- */
-    .quest-card.expired .quest-content-wrapper {
-        filter: blur(3px);
-        pointer-events: none;
-        opacity: 0.5;
-    }
-    .quest-card.expired {
+    /* --- СТИЛИ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ (ОПТИМИЗАЦИЯ) --- */
+    .quest-card { 
         overflow: hidden; 
     }
     .expired-overlay {
@@ -341,12 +255,21 @@
         left: 0;
         right: 0;
         bottom: 0;
-        display: flex;
+        display: none; /* Изначально скрыт */
         flex-direction: column;
         justify-content: center;
         align-items: center;
         padding: 10px;
         z-index: 2;
+        background-color: rgba(0,0,0,0.5); /* Фон для лучшей читаемости */
+    }
+    .quest-card.expired .expired-overlay {
+        display: flex; /* Показываем оверлей при истечении */
+    }
+    .quest-card.expired .quest-content-wrapper {
+        filter: blur(3px); /* Размываем контент, но не трогаем сам оверлей */
+        opacity: 0.5;
+        pointer-events: none;
     }
     .expired-overlay-text {
         font-size: 16px;
@@ -355,3 +278,68 @@
         text-shadow: 0 0 8px black;
         margin-bottom: 10px;
     }
+    /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ --- */
+
+    /* --- СТИЛИ ДЛЯ СЛАЙДЕРА НА ГЛАВНОЙ --- */
+    .slider-container {
+        position: relative;
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+    .slider-wrapper {
+        display: flex;
+        transition: transform 0.5s ease-in-out;
+    }
+    .slide {
+        min-width: 100%;
+        box-sizing: border-box;
+    }
+    .slide img {
+        width: 100%;
+        display: block;
+    }
+    .slider-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        background-color: rgba(0, 0, 0, 0.4);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .slider-arrow.prev {
+        left: 10px;
+    }
+    .slider-arrow.next {
+        right: 10px;
+    }
+    .slider-dots {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 8px;
+    }
+    .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    .dot.active {
+        background-color: white;
+    }
+    /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
