@@ -4,6 +4,7 @@ import base64
 import uuid
 import json
 import pathlib
+import time
 import random
 from datetime import datetime, timedelta, timezone
 import hmac
@@ -33,6 +34,13 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
 from aiogram.utils.markdown import html_decoration
+
+sleep_cache = {
+    "is_sleeping": False,
+    "wake_up_at": None,
+    "last_checked": 0 # Unix timestamp
+}
+CACHE_DURATION_SECONDS = 15 # Проверять базу данных только раз в 15 секунд
 
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
@@ -384,39 +392,44 @@ app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
 # --- Middlewares ---
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
-    # Этот middleware будет проверять режим сна ПЕРЕД каждым запросом
     path = request.url.path
-    is_admin_path = path.startswith("/api/v1/admin") or path == "/admin"
-    is_sleep_toggle_path = path == "/api/v1/admin/toggle_sleep_mode"
-    
-    # Пропускаем админские страницы и сам переключатель
-    if not (is_admin_path or is_sleep_toggle_path):
+    # Пропускаем проверку для админки и самого переключателя
+    if path.startswith("/api/v1/admin") or path == "/admin" or path == "/api/v1/admin/toggle_sleep_mode":
+        return await call_next(request)
+
+    # Проверяем, не истек ли срок действия кеша
+    if time.time() - sleep_cache["last_checked"] > CACHE_DURATION_SECONDS:
+        logging.info("--- 😴 Кеш режима сна истек, проверяем базу данных... ---")
         try:
             async with httpx.AsyncClient(base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1", headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}) as client:
                 resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
                 settings = resp.json()
                 if settings:
                     sleep_data = settings[0].get('value', {})
-                    is_sleeping = sleep_data.get('is_sleeping', False)
-                    wake_up_at_str = sleep_data.get('wake_up_at')
-
-                    should_wake_up = False
-                    if is_sleeping and wake_up_at_str:
-                        wake_up_time = datetime.fromisoformat(wake_up_at_str)
-                        if datetime.now(timezone.utc) > wake_up_time:
-                            should_wake_up = True
-                            await client.patch("/settings", params={"key": "eq.sleep_mode"}, json={"value": {"is_sleeping": False, "wake_up_at": None}})
-                    
-                    if is_sleeping and not should_wake_up:
-                        # Если бот спит, отдаём ошибку 503 Service Unavailable
-                        return JSONResponse(
-                            status_code=503,
-                            content={"detail": "Ботик спит, набирается сил"}
-                        )
+                    sleep_cache["is_sleeping"] = sleep_data.get('is_sleeping', False)
+                    sleep_cache["wake_up_at"] = sleep_data.get('wake_up_at')
+                else:
+                    sleep_cache["is_sleeping"] = False # Если настройки нет, считаем, что не спим
+                sleep_cache["last_checked"] = time.time() # Обновляем время последней проверки
         except Exception as e:
             logging.error(f"Ошибка проверки режима сна: {e}")
-            # В случае ошибки, позволяем запросу пройти, чтобы не блокировать всё приложение
+            # В случае ошибки просто пропускаем запрос, чтобы не блокировать приложение
             pass
+
+    # Теперь используем значения из кеша
+    is_sleeping = sleep_cache["is_sleeping"]
+    wake_up_at_str = sleep_cache["wake_up_at"]
+
+    if is_sleeping and wake_up_at_str:
+        wake_up_time = datetime.fromisoformat(wake_up_at_str)
+        if datetime.now(timezone.utc) > wake_up_time:
+            is_sleeping = False # Пора просыпаться, пропускаем запрос
+
+    if is_sleeping:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Ботик спит, набирается сил"}
+        )
 
     response = await call_next(request)
     return response
