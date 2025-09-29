@@ -280,52 +280,60 @@
     }
     /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ --- */
 
-    /* --- СТИЛИ ДЛЯ СЛАЙДЕРА НА ГЛАВНОЙ --- */
-    .slider-container {
-        position: relative;
-        width: 100%;
-        border-radius: 12px;
-        overflow: hidden;
-        margin-bottom: 15px;
-    }
-    .slider-wrapper {
-        display: flex;
-        transition: transform 0.5s ease-in-out;
-    }
-    .slide {
-        min-width: 100%;
-        box-sizing: border-box;
-    }
-    .slide img {
-        width: 100%;
-        display: block;
-    }
-    .slider-arrow {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 10;
-        background-color: rgba(0, 0, 0, 0.4);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 32px;
-        height: 32px;
-        font-size: 14px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .slider-arrow.prev {
-        left: 10px;
-    }
-    .slider-arrow.next {
-        right: 10px;
-    }
+    /* --- СТИЛИ ДЛЯ СЛАЙДЕРА НА ГЛАВНОЙ (ФИНАЛЬНАЯ ВЕРСИЯ) --- */
+    .slider-container {
+        position: relative;
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+    .slider-wrapper {
+        display: flex;
+        transition: transform 0.5s ease-in-out;
+    }
+    .slide {
+        min-width: 100%;
+        box-sizing: border-box;
+    }
+    .slide img {
+        width: 100%;
+        display: block;
+    }
+
+    /* Убираем фиолетовую рамку при клике на слайд */
+    .slide:focus {
+        outline: none;
+    }
+
+    .slider-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        background-color: rgba(0, 0, 0, 0.4);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .slider-arrow.prev {
+        left: 10px;
+    }
+    .slider-arrow.next {
+        right: 10px;
+    }
+
+    /* Стили для точек-индикаторов */
     .slider-dots {
         position: absolute;
-        bottom: 12px;
+        bottom: 5px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
@@ -335,13 +343,13 @@
         width: 12px;
         height: 4px;
         border-radius: 2px;
-        background-color: rgba(255, 255, 255, 0.4);
+        background-color: rgba(255, 255, 255, 0.2);
         cursor: pointer;
         transition: all 0.4s ease;
     }
     .dot.active {
-        background-color: var(--primary-color);
+        background-color: var(--quest-icon-color);
         width: 24px;
-        box-shadow: 0 0 8px var(--primary-color);
+        box-shadow: 0 0 8px var(--quest-icon-color);
     }
-    /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
+    /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
