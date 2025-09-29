@@ -1343,6 +1343,11 @@ async def get_current_user_data(
         final_response['event_participations'] = data.get('event_participations', {})
         admin_settings = await get_admin_settings_async(supabase)
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
+
+        if telegram_id in ADMIN_IDS:
+            final_response['is_admin'] = True
+        else:
+            final_response['is_admin'] = False
         
         return JSONResponse(content=final_response)
 
