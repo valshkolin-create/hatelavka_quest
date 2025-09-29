@@ -323,23 +323,25 @@
     .slider-arrow.next {
         right: 10px;
     }
-    .slider-dots {
-        position: absolute;
-        bottom: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 8px;
-    }
-    .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background-color: rgba(255, 255, 255, 0.5);
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-    .dot.active {
-        background-color: white;
-    }
+    .slider-dots {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 6px;
+    }
+    .dot {
+        width: 12px;
+        height: 4px;
+        border-radius: 2px;
+        background-color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        transition: all 0.4s ease;
+    }
+    .dot.active {
+        background-color: var(--primary-color);
+        width: 24px;
+        box-shadow: 0 0 8px var(--primary-color);
+    }
     /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
