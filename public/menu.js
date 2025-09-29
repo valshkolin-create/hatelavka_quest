@@ -925,7 +925,7 @@ try {
             const menuContentPromise = fetch("/api/v1/content/menu").then(res => res.json());
             const day = new Date().getDay();
             const questButton = dom.questChooseBtn;
-            if (day === 0 || day === 6) { 
+            if (day === 0 || day === 1) { 
                 questButton.classList.remove('twitch-theme');
                 questButton.classList.add('telegram-theme');
                 questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> ВЫХОДНЫЕ ИСПЫТАНИЯ';
