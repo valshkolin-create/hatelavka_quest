@@ -78,7 +78,6 @@ try {
             return;
         }
 
-        // Динамически создаем точки
         dotsContainer.innerHTML = '';
         slides.forEach((_, i) => {
             const dot = document.createElement('button');
@@ -93,6 +92,10 @@ try {
 
         function showSlide(index) {
             if (!wrapper || !dots[index]) return;
+            // Убеждаемся, что индекс не выходит за пределы
+            if (index >= slides.length) index = 0;
+            if (index < 0) index = slides.length - 1;
+            
             wrapper.style.transform = `translateX(-${index * 100}%)`;
             dots.forEach(dot => dot.classList.remove('active'));
             dots[index].classList.add('active');
@@ -100,19 +103,11 @@ try {
         }
 
         function nextSlide() {
-            let newIndex = currentSlideIndex + 1;
-            if (newIndex >= slides.length) {
-                newIndex = 0;
-            }
-            showSlide(newIndex);
+            showSlide(currentSlideIndex + 1);
         }
 
         function prevSlide() {
-            let newIndex = currentSlideIndex - 1;
-            if (newIndex < 0) {
-                newIndex = slides.length - 1;
-            }
-            showSlide(newIndex);
+            showSlide(currentSlideIndex - 1);
         }
 
         function resetSlideInterval() {
@@ -130,10 +125,50 @@ try {
             resetSlideInterval();
         });
 
+        // --- НОВЫЙ КОД ДЛЯ ПОДДЕРЖКИ СВАЙПА ---
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let isSwiping = false;
+
+        container.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            isSwiping = false; // Сбрасываем флаг в начале касания
+        }, { passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+            touchEndX = e.touches[0].clientX;
+            // Если сдвиг по горизонтали больше 10px, считаем это свайпом
+            if (Math.abs(touchStartX - touchEndX) > 10) {
+                isSwiping = true;
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchend', () => {
+            const swipeThreshold = 50; // Минимальная дистанция для свайпа
+            if (touchStartX - touchEndX > swipeThreshold) {
+                // Свайп влево
+                nextSlide();
+                resetSlideInterval();
+            } else if (touchEndX - touchStartX > swipeThreshold) {
+                // Свайп вправо
+                prevSlide();
+                resetSlideInterval();
+            }
+        });
+        
+        // Предотвращаем случайный клик по ссылке при свайпе
+        slides.forEach(slide => {
+            slide.addEventListener('click', (e) => {
+                if (isSwiping) {
+                    e.preventDefault();
+                }
+            });
+        });
+        // --- КОНЕЦ НОВОГО КОДА ---
+
         showSlide(0);
         resetSlideInterval();
     }
-    // --- КОНЕЦ ЛОГИКИ СЛАЙДЕРА V2 ---
     
     const tutorialSteps = [
         {
