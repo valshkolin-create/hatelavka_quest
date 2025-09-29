@@ -59,7 +59,7 @@ try {
     // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЛАЙДЕРА V2 ---
     let currentSlideIndex = 0;
     let slideInterval;
-    const slideDuration = 30000; // 30 секунд
+    const slideDuration = 15000; // 30 секунд
 
     function setupSlider() {
         const container = document.getElementById('main-slider-container');
@@ -134,7 +134,8 @@ try {
 
         container.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY; // <-- Запоминаем начальную позицию Y
+            touchEndX = e.touches[0].clientX;   // <-- ДОБАВЛЕНО: Сразу присваиваем и конечную точку
+            touchStartY = e.touches[0].clientY;
             isSwiping = false;
         }, { passive: true });
 
