@@ -16,7 +16,7 @@
     body { margin: 0; min-height: 100vh; background-color: var(--bg-color); background-image: var(--bg-gradient); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
     .main-content { flex-grow: 1; padding: 10px 15px 120px; overflow-y: auto; opacity: 0; transition: opacity 0.4s ease-in-out; }
     .main-content.visible { opacity: 1; }
-    .user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; /* ИЗМЕНЕНИЕ: Уменьшен отступ снизу */ }
     .user-info { display: flex; flex-direction: column; }
     .user-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
     .profile-link { font-size: 13px; color: var(--action-color); text-decoration: none; font-weight: 500; }
@@ -207,7 +207,8 @@
         height: 3px;
         background-color: var(--primary-color);
         border-radius: 2px;
-        box-shadow: 0 0 8px var(--primary-color);
+        /* ИЗМЕНЕНИЕ: Убрана тень (обводка) у активного элемента */
+        /* box-shadow: 0 0 8px var(--primary-color); */
     }
     /* --- КОНЕЦ СТИЛЕЙ ДЛЯ НИЖНИХ КНОПОК --- */
 
@@ -231,6 +232,7 @@
         width: 100%;
         display: block;
     }
+    /* ИЗМЕНЕНИЕ: Убираем стандартную рамку фокуса при клике на слайд */
     .slide:focus {
         outline: none;
     }
