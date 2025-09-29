@@ -91,10 +91,11 @@ try {
         const dots = dotsContainer.querySelectorAll('.dot');
 
         function showSlide(index) {
-            if (!wrapper || !dots[index]) return;
             // Убеждаемся, что индекс не выходит за пределы
             if (index >= slides.length) index = 0;
             if (index < 0) index = slides.length - 1;
+
+            if (!wrapper || !dots[index]) return;
             
             wrapper.style.transform = `translateX(-${index * 100}%)`;
             dots.forEach(dot => dot.classList.remove('active'));
@@ -125,38 +126,56 @@ try {
             resetSlideInterval();
         });
 
-        // --- НОВЫЙ КОД ДЛЯ ПОДДЕРЖКИ СВАЙПА ---
+        // --- УЛУЧШЕННЫЙ КОД ДЛЯ ПОДДЕРЖКИ СВАЙПА (V2) ---
         let touchStartX = 0;
+        let touchStartY = 0; // <-- Добавляем Y координату
         let touchEndX = 0;
         let isSwiping = false;
 
         container.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
-            isSwiping = false; // Сбрасываем флаг в начале касания
+            touchStartY = e.touches[0].clientY; // <-- Запоминаем начальную позицию Y
+            isSwiping = false;
         }, { passive: true });
 
         container.addEventListener('touchmove', (e) => {
-            touchEndX = e.touches[0].clientX;
-            // Если сдвиг по горизонтали больше 10px, считаем это свайпом
-            if (Math.abs(touchStartX - touchEndX) > 10) {
+            if (!touchStartX || !touchStartY) {
+                return;
+            }
+
+            const touchCurrentX = e.touches[0].clientX;
+            const touchCurrentY = e.touches[0].clientY;
+
+            // Вычисляем, насколько палец сдвинулся по горизонтали и вертикали
+            const deltaX = Math.abs(touchStartX - touchCurrentX);
+            const deltaY = Math.abs(touchStartY - touchCurrentY);
+
+            // Если горизонтальное движение БОЛЬШЕ вертикального,
+            // то мы блокируем стандартное поведение браузера (скролл страницы)
+            if (deltaX > deltaY) {
+                e.preventDefault();
+            }
+
+            touchEndX = touchCurrentX;
+            if (deltaX > 10) { // Считаем свайпом, если сдвиг больше 10px
                 isSwiping = true;
             }
-        }, { passive: true });
+        }, { passive: false }); // <-- ВАЖНО: меняем passive на false, чтобы preventDefault() сработал
 
         container.addEventListener('touchend', () => {
-            const swipeThreshold = 50; // Минимальная дистанция для свайпа
+            const swipeThreshold = 50; 
             if (touchStartX - touchEndX > swipeThreshold) {
-                // Свайп влево
                 nextSlide();
                 resetSlideInterval();
             } else if (touchEndX - touchStartX > swipeThreshold) {
-                // Свайп вправо
                 prevSlide();
                 resetSlideInterval();
             }
+            // Сбрасываем координаты
+            touchStartX = 0;
+            touchStartY = 0;
         });
         
-        // Предотвращаем случайный клик по ссылке при свайпе
         slides.forEach(slide => {
             slide.addEventListener('click', (e) => {
                 if (isSwiping) {
@@ -164,7 +183,7 @@ try {
                 }
             });
         });
-        // --- КОНЕЦ НОВОГО КОДА ---
+        // --- КОНЕЦ УЛУЧШЕННОГО КОДА ---
 
         showSlide(0);
         resetSlideInterval();
