@@ -63,23 +63,48 @@ try {
 
     function setupSlider() {
         const container = document.getElementById('main-slider-container');
-        if (!container) return; // Если слайдера нет на странице, ничего не делаем
+        if (!container) return; // Если слайдера нет, ничего не делаем
+
+        // --- ИЗМЕНЕНИЕ №1: Находим только ВИДИМЫЕ слайды ---
+        const allSlides = container.querySelectorAll('.slide');
+        const visibleSlides = Array.from(allSlides).filter(
+            slide => window.getComputedStyle(slide).display !== 'none'
+        );
 
         const wrapper = container.querySelector('.slider-wrapper');
-        const slides = container.querySelectorAll('.slide');
         const dotsContainer = container.querySelector('.slider-dots');
         const prevBtn = document.getElementById('slide-prev-btn');
         const nextBtn = document.getElementById('slide-next-btn');
 
-        if (slides.length <= 1) {
-            if(prevBtn) prevBtn.style.display = 'none';
-            if(nextBtn) nextBtn.style.display = 'none';
-            if(dotsContainer) dotsContainer.style.display = 'none';
+        // --- ИЗМЕНЕНИЕ №2: Добавляем логику для 0 или 1 слайда ---
+        
+        // Если видимых слайдов нет, прячем весь контейнер
+        if (visibleSlides.length === 0) {
+            container.style.display = 'none';
             return;
         }
 
+        // Если виден только один слайд, показываем его как картинку, но без управления
+        if (visibleSlides.length <= 1) {
+            container.style.display = ''; // Убедимся, что контейнер виден
+            if (prevBtn) prevBtn.style.display = 'none';
+            if (nextBtn) nextBtn.style.display = 'none';
+            if (dotsContainer) dotsContainer.style.display = 'none';
+            // Перематываем на первый видимый слайд на случай, если он не первый в DOM
+            const firstVisibleIndex = Array.from(allSlides).indexOf(visibleSlides[0]);
+            if (wrapper) wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
+            return;
+        }
+        
+        // Если мы дошли сюда, значит слайдов > 1 и нужно запустить карусель
+        container.style.display = '';
+        if (prevBtn) prevBtn.style.display = 'flex';
+        if (nextBtn) nextBtn.style.display = 'flex';
+        if (dotsContainer) dotsContainer.style.display = 'flex';
+        
+        // --- ИЗМЕНЕНИЕ №3: Работаем дальше только с видимыми слайдами ---
         dotsContainer.innerHTML = '';
-        slides.forEach((_, i) => {
+        visibleSlides.forEach((_, i) => {
             const dot = document.createElement('button');
             dot.classList.add('dot');
             dot.addEventListener('click', () => {
@@ -91,13 +116,16 @@ try {
         const dots = dotsContainer.querySelectorAll('.dot');
 
         function showSlide(index) {
-            // Убеждаемся, что индекс не выходит за пределы
-            if (index >= slides.length) index = 0;
-            if (index < 0) index = slides.length - 1;
+            if (index >= visibleSlides.length) index = 0;
+            if (index < 0) index = visibleSlides.length - 1;
+
+            // Находим реальный индекс слайда в DOM, чтобы правильно рассчитать смещение
+            const targetSlide = visibleSlides[index];
+            const realIndex = Array.from(allSlides).indexOf(targetSlide);
 
             if (!wrapper || !dots[index]) return;
             
-            wrapper.style.transform = `translateX(-${index * 100}%)`;
+            wrapper.style.transform = `translateX(-${realIndex * 100}%)`;
             dots.forEach(dot => dot.classList.remove('active'));
             dots[index].classList.add('active');
             currentSlideIndex = index;
@@ -125,43 +153,30 @@ try {
             nextSlide();
             resetSlideInterval();
         });
-
-        // --- УЛУЧШЕННЫЙ КОД ДЛЯ ПОДДЕРЖКИ СВАЙПА (V2) ---
+        
+        // Код для свайпа остается без изменений, он будет работать корректно
         let touchStartX = 0;
-        let touchStartY = 0; // <-- Добавляем Y координату
+        let touchStartY = 0;
         let touchEndX = 0;
         let isSwiping = false;
 
         container.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
-            touchEndX = e.touches[0].clientX;   // <-- ДОБАВЛЕНО: Сразу присваиваем и конечную точку
+            touchEndX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = false;
         }, { passive: true });
 
         container.addEventListener('touchmove', (e) => {
-            if (!touchStartX || !touchStartY) {
-                return;
-            }
-
+            if (!touchStartX || !touchStartY) return;
             const touchCurrentX = e.touches[0].clientX;
             const touchCurrentY = e.touches[0].clientY;
-
-            // Вычисляем, насколько палец сдвинулся по горизонтали и вертикали
             const deltaX = Math.abs(touchStartX - touchCurrentX);
             const deltaY = Math.abs(touchStartY - touchCurrentY);
-
-            // Если горизонтальное движение БОЛЬШЕ вертикального,
-            // то мы блокируем стандартное поведение браузера (скролл страницы)
-            if (deltaX > deltaY) {
-                e.preventDefault();
-            }
-
+            if (deltaX > deltaY) e.preventDefault();
             touchEndX = touchCurrentX;
-            if (deltaX > 10) { // Считаем свайпом, если сдвиг больше 10px
-                isSwiping = true;
-            }
-        }, { passive: false }); // <-- ВАЖНО: меняем passive на false, чтобы preventDefault() сработал
+            if (deltaX > 10) isSwiping = true;
+        }, { passive: false });
 
         container.addEventListener('touchend', () => {
             const swipeThreshold = 50; 
@@ -172,19 +187,15 @@ try {
                 prevSlide();
                 resetSlideInterval();
             }
-            // Сбрасываем координаты
             touchStartX = 0;
             touchStartY = 0;
         });
         
-        slides.forEach(slide => {
+        allSlides.forEach(slide => {
             slide.addEventListener('click', (e) => {
-                if (isSwiping) {
-                    e.preventDefault();
-                }
+                if (isSwiping) e.preventDefault();
             });
         });
-        // --- КОНЕЦ УЛУЧШЕННОГО КОДА ---
 
         showSlide(0);
         resetSlideInterval();
