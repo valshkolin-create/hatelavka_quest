@@ -1029,32 +1029,44 @@ try {
                     }
                 }
             }
-// --- Логика для баннера ивента "Котел" ---
+            // --- Логика для баннера ивента "Котел" (ИСПРАВЛЕНО ДЛЯ АДМИНА) ---
             try {
                 const eventData = await fetch('/api/v1/events/cauldron/status', {
                     headers: { 'X-Init-Data': Telegram.WebApp.initData } // Отправляем initData для проверки админа
                 }).then(res => res.json());
 
-                const eventSlide = document.querySelector('.slide[data-event="cauldron"]'); // Используем data-атрибут для поиска
+                const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
 
                 if (eventSlide) {
-                    if (eventData && eventData.is_visible_to_users) {
-                        // Если ивент активен, настраиваем и показываем слайд
+                    // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
+                    // Показываем слайд, если (ивент видим для всех) ИЛИ (текущий пользователь - админ)
+                    if ((eventData && eventData.is_visible_to_users) || (userData && userData.is_admin)) {
+                        
+                        // Если ивент активен (или мы админ), настраиваем и показываем слайд
                         eventSlide.href = eventData.event_page_url || '/halloween';
                         const img = eventSlide.querySelector('img');
                         if (img && eventData.banner_image_url) {
                             img.src = eventData.banner_image_url;
                         }
                         eventSlide.style.display = ''; // Показываем слайд
+                        
                     } else {
-                        // Если ивент неактивен, скрываем слайд
+                        // Если ивент неактивен и мы НЕ админ, скрываем слайд
                         eventSlide.style.display = 'none';
                     }
                 }
             } catch (e) {
                 console.error("Не удалось загрузить статус ивента 'Котел'", e);
                 const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
-                if (eventSlide) eventSlide.style.display = 'none';
+                
+                // --- ИЗМЕНЕНИЕ ПРИ ОШИБКЕ ---
+                // Прячем слайд при ошибке только если пользователь НЕ админ
+                if (eventSlide && !(userData && userData.is_admin)) {
+                    eventSlide.style.display = 'none';
+                } else if (eventSlide) {
+                    // Если админ, но произошла ошибка, все равно оставляем слайд видимым
+                    eventSlide.style.display = '';
+                }
             }
             // --- Конец логики для баннера ---
             
