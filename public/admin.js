@@ -31,7 +31,7 @@ try {
         sleepMinutesInput: document.getElementById('sleep-minutes-input'),
         sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
         sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
-        tabsContainer: document.querySelector('.tabs-container.main-tabs'),
+        // Убираем старую некорректную привязку к одному элементу
         tabContentSubmissions: document.getElementById('tab-content-submissions'),
         tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
         tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
@@ -60,7 +60,6 @@ try {
         createRoulettePrizeForm: document.getElementById('create-roulette-prize-form'),
         roulettePrizesList: document.getElementById('roulette-prizes-list'),
 
-        // Элементы для окна с паролем
         passwordPromptOverlay: document.getElementById('password-prompt-overlay'),
         passwordPromptInput: document.getElementById('password-prompt-input'),
         passwordPromptCancel: document.getElementById('password-prompt-cancel'),
@@ -69,7 +68,7 @@ try {
 
     let categoriesCache = [];
     let currentEditingCategoryId = null;
-    let hasAdminAccess = false; // Флаг доступа к админ-вкладке
+    let hasAdminAccess = false; 
 
     async function loadStatistics() {
         showLoader();
@@ -164,7 +163,6 @@ try {
                     await loadTwitchRewards();
                     break;
                 }
-                // -- ДОБАВЛЕНО ДЛЯ РУЛЕТКИ --
                 case 'view-admin-roulette': {
                     const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
                     renderRoulettePrizes(prizes);
@@ -555,7 +553,7 @@ try {
             
             const targetValue = reward_settings.target_value;
             const conditionType = reward_settings.condition_type || '';
-            const period = conditionType.split('_').pop(); // 'session', 'week', или 'month'
+            const period = conditionType.split('_').pop();
 
             if (targetValue > 0) {
                 const progressPromises = purchases.map(p => {
@@ -914,30 +912,39 @@ try {
             });
         }
         
-        if (dom.tabsContainer) {
-            dom.tabsContainer.addEventListener('click', (e) => {
+        // --- ИСПРАВЛЕНИЕ ДЛЯ ВСЕХ ПЕРЕКЛЮЧАТЕЛЕЙ ---
+        document.querySelectorAll('.tabs-container').forEach(container => {
+            container.addEventListener('click', (e) => {
                 const button = e.target.closest('.tab-button');
                 if (!button || button.classList.contains('active')) return;
 
                 const tabId = button.dataset.tab;
-
-                if (tabId === 'admin' && !hasAdminAccess) {
-                    dom.passwordPromptOverlay.classList.remove('hidden');
-                    dom.passwordPromptInput.focus();
-                    return;
+                
+                // Особая логика для главных табов с паролем
+                if (container.classList.contains('main-tabs')) {
+                    if (tabId === 'admin' && !hasAdminAccess) {
+                        dom.passwordPromptOverlay.classList.remove('hidden');
+                        dom.passwordPromptInput.focus();
+                        return; // Не переключаем таб, пока нет доступа
+                    }
                 }
 
-                dom.tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                container.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
                 
-                document.querySelectorAll('.tab-content').forEach(content => {
-                     const mainContent = document.getElementById('tab-content-main');
-                     const adminContent = document.getElementById('tab-content-admin');
-                     if(mainContent) mainContent.classList.toggle('hidden', tabId !== 'main');
-                     if(adminContent) adminContent.classList.toggle('hidden', tabId !== 'admin');
-                });
+                const parentElement = container.closest('.view');
+
+                // Переключаем контент
+                if (container.classList.contains('main-tabs')) {
+                    document.getElementById('tab-content-main').classList.toggle('hidden', tabId !== 'main');
+                    document.getElementById('tab-content-admin').classList.toggle('hidden', tabId !== 'admin');
+                } else if (parentElement) {
+                    parentElement.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.toggle('hidden', content.id !== `tab-content-${tabId}`);
+                    });
+                }
             });
-        }
+        });
         
         if(dom.passwordPromptCancel) {
             dom.passwordPromptCancel.addEventListener('click', () => {
@@ -957,7 +964,10 @@ try {
                         dom.passwordPromptOverlay.classList.add('hidden');
                         dom.passwordPromptInput.value = '';
                         
-                        dom.tabsContainer.querySelector('[data-tab="admin"]').click();
+                        // Имитируем клик, чтобы переключить таб
+                        const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
+                        if(adminTabButton) adminTabButton.click();
+
                     } else {
                         tg.showAlert('Неверный пароль!');
                     }
