@@ -31,22 +31,18 @@ try {
         sleepMinutesInput: document.getElementById('sleep-minutes-input'),
         sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
         sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
-        // Убираем старую некорректную привязку к одному элементу
         tabContentSubmissions: document.getElementById('tab-content-submissions'),
         tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
         tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
-        
         grantCheckpointStarsForm: document.getElementById('grant-checkpoint-stars-form'),
         freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
         grantTicketsForm: document.getElementById('grant-tickets-form'),
         freezeTicketsForm: document.getElementById('freeze-tickets-form'),
         resetCheckpointProgressForm: document.getElementById('reset-checkpoint-progress-form'),
         clearCheckpointStarsForm: document.getElementById('clear-checkpoint-stars-form'),
-
         settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
         settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
         saveSettingsBtn: document.getElementById('save-settings-btn'),
-        
         settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
         settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
         settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
@@ -56,10 +52,8 @@ try {
         clearAllCheckpointStarsBtn: document.getElementById('clear-all-checkpoint-stars-btn'),
         settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
         statisticsContent: document.getElementById('statistics-content'),
-        
         createRoulettePrizeForm: document.getElementById('create-roulette-prize-form'),
         roulettePrizesList: document.getElementById('roulette-prizes-list'),
-
         passwordPromptOverlay: document.getElementById('password-prompt-overlay'),
         passwordPromptInput: document.getElementById('password-prompt-input'),
         passwordPromptCancel: document.getElementById('password-prompt-cancel'),
@@ -70,7 +64,7 @@ try {
 
     let categoriesCache = [];
     let currentEditingCategoryId = null;
-    let hasAdminAccess = false; 
+    let hasAdminAccess = false;
 
     async function loadStatistics() {
         showLoader();
@@ -178,7 +172,6 @@ try {
                     break;
                 }
                 case 'view-admin-cauldron': {
-                    // Загружаем текущие настройки и заполняем форму
                     const eventData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = document.getElementById('cauldron-settings-form');
                     form.elements['is_visible_to_users'].checked = eventData.is_visible_to_users || false;
@@ -820,14 +813,7 @@ try {
                 }
             });
         }
-        document.body.addEventListener('click', (e) => {
-            const closeBtn = e.target.closest('[data-close-modal]');
-            if (closeBtn) {
-                const modalId = closeBtn.dataset.closeModal;
-                const modal = document.getElementById(modalId);
-                if (modal) modal.classList.add('hidden');
-            }
-        });
+        
     if (dom.cauldronSettingsForm) {
         dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -862,26 +848,6 @@ try {
             });
         });
     }
-        document.body.addEventListener('click', (e) => {
-            const deleteAllBtn = e.target.closest('#delete-all-purchases-btn');
-            if (deleteAllBtn) {
-                const rewardId = parseInt(deleteAllBtn.dataset.rewardId);
-                if (!rewardId) return;
-
-                tg.showConfirm(`Вы уверены, что хотите удалить ВСЕ покупки для этой награды? Это действие необратимо.`, async (ok) => {
-                    if (ok) {
-                        try {
-                            await makeApiRequest('/api/v1/admin/twitch_rewards/purchases/delete_all', { reward_id: rewardId });
-                            tg.showAlert('Все покупки были успешно удалены.');
-                            document.getElementById('twitch-purchases-body').innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
-                            deleteAllBtn.classList.add('hidden');
-                        } catch (err) {
-                            tg.showAlert(`Ошибка при удалении: ${err.message}`);
-                        }
-                    }
-                });
-            }
-        });
 
         if(document.getElementById('twitch-purchases-body')) {
             document.getElementById('twitch-purchases-body').addEventListener('click', (e) => {
