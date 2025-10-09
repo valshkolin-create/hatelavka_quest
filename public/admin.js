@@ -813,41 +813,43 @@ try {
                 }
             });
         }
-        
-    if (dom.cauldronSettingsForm) {
-        dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const form = e.target;
-            
-            // Получаем текущие данные, чтобы не сбросить прогресс случайно
-            const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
-            
-            const content = {
-                is_visible_to_users: form.elements['is_visible_to_users'].checked,
-                title: form.elements['title'].value,
-                goal: parseInt(form.elements['goal'].value),
-                event_page_url: form.elements['event_page_url'].value,
-                banner_image_url: form.elements['banner_image_url'].value,
-                cauldron_image_url: form.elements['cauldron_image_url'].value,
-                current_progress: currentSettings.current_progress || 0 // Сохраняем текущий прогресс
-            };
-            await makeApiRequest('/api/v1/admin/events/cauldron/update', { content });
-            tg.showAlert('Настройки ивента сохранены!');
-        });
-    }
-
-    if (dom.resetCauldronBtn) {
-        dom.resetCauldronBtn.addEventListener('click', () => {
-            tg.showConfirm('Вы уверены, что хотите сбросить ВЕСЬ прогресс ивента? Это действие необратимо.', async (ok) => {
-                if (ok) {
-                    const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET');
-                    currentSettings.current_progress = 0; // Обнуляем только прогресс
-                    await makeApiRequest('/api/v1/admin/events/cauldron/update', { content: currentSettings });
-                    tg.showAlert('Прогресс ивента сброшен.');
-                }
+    
+        // --- НАЧАЛО ИСПРАВЛЕНИЙ: ДОБАВЛЕНЫ ОБРАБОТЧИКИ ДЛЯ "КОТЛА" ---
+        if (dom.cauldronSettingsForm) {
+            dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                
+                // Получаем текущие данные, чтобы не сбросить прогресс случайно
+                const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
+                
+                const content = {
+                    is_visible_to_users: form.elements['is_visible_to_users'].checked,
+                    title: form.elements['title'].value,
+                    goal: parseInt(form.elements['goal'].value),
+                    event_page_url: form.elements['event_page_url'].value,
+                    banner_image_url: form.elements['banner_image_url'].value,
+                    cauldron_image_url: form.elements['cauldron_image_url'].value,
+                    current_progress: currentSettings.current_progress || 0 // Сохраняем текущий прогресс
+                };
+                await makeApiRequest('/api/v1/admin/events/cauldron/update', { content });
+                tg.showAlert('Настройки ивента сохранены!');
             });
-        });
-    }
+        }
+    
+        if (dom.resetCauldronBtn) {
+            dom.resetCauldronBtn.addEventListener('click', () => {
+                tg.showConfirm('Вы уверены, что хотите сбросить ВЕСЬ прогресс и историю вкладов? Это действие необратимо.', async (ok) => {
+                    if (ok) {
+                        // Вызываем новый, специальный эндпоинт для сброса
+                        const result = await makeApiRequest('/api/v1/admin/events/cauldron/reset');
+                        tg.showAlert(result.message);
+                        // Обновляем вид, чтобы увидеть сброшенный прогресс
+                        await switchView('view-admin-cauldron'); 
+                    }
+                });
+            });
+        }
 
         if(document.getElementById('twitch-purchases-body')) {
             document.getElementById('twitch-purchases-body').addEventListener('click', (e) => {
