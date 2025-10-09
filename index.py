@@ -1387,7 +1387,7 @@ async def update_cauldron_event(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """(Админ) Обновляет или создает настройки для ивента 'Котел'."""
-    logging.info("--- Endpoint: /api/v1/admin/events/cauldron/update ---")
+    logging.info("--- Endpoint: /api/v1/admin/events/cauldron/update (v2 - PATCH fix) ---") # Добавил v2 для ясности
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
@@ -1395,19 +1395,34 @@ async def update_cauldron_event(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        logging.info(f"Получены данные для обновления котла: {request_data.content}")
+        content_to_update = request_data.content
+        logging.info(f"Получены данные для обновления котла: {content_to_update}")
         
-        await supabase.post(
+        # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+        # Было: supabase.post(...)
+        # Стало: supabase.patch(...) с указанием, какую строку обновлять
+        
+        response = await supabase.patch(
             "/pages_content",
-            json={"page_name": "cauldron_event", "content": request_data.content},
-            headers={"Prefer": "resolution=merge-duplicates"}
+            params={"page_name": "eq.cauldron_event"}, # Указываем, какую строку найти
+            json={"content": content_to_update}       # Указываем, что в ней обновить
         )
+
+        # Эта строка теперь ПРАВИЛЬНО обработает ошибку, если она будет
+        response.raise_for_status()
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
         
-        logging.info("Данные котла успешно сохранены в Supabase.")
+        logging.info("Данные котла успешно ОБНОВЛЕНЫ в Supabase.")
         
-        await manager.broadcast(json.dumps({"type": "cauldron_config_updated", "content": request_data.content}))
+        await manager.broadcast(json.dumps({"type": "cauldron_config_updated", "content": content_to_update}))
         
         return {"message": "Настройки ивента успешно обновлены."}
+        
+    except httpx.HTTPStatusError as e:
+        # Теперь эта ошибка будет правильно поймана
+        error_details = e.response.json().get("message", "Ошибка базы данных")
+        logging.error(f"ОШИБКА HTTP от Supabase при обновлении котла: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Не удалось сохранить настройки: {error_details}")
     except Exception as e:
         logging.error(f"КРИТИЧЕСКАЯ ОШИБКА при обновлении настроек котла: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сохранить настройки.")
