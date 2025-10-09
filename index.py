@@ -397,7 +397,7 @@ async def lifespan(app: FastAPI):
     # await bot.session.close() # <-- Просто удалите или закомментируйте эту строку
 
 app = FastAPI(title="Quest Bot API")
-app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
+# app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
 
 # --- Middlewares ---
 @app.middleware("http")
