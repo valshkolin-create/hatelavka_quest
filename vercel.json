@@ -11,14 +11,17 @@
     }
   ],
   "routes": [
-    {
-      "src": "/public/(.*)",
-      "dest": "/public/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.py"
-    }
+    { "src": "/public/(.*)", "dest": "/public/$1" },
+    { "src": "/menu", "dest": "/public/menu.html" },
+    { "src": "/leaderboard", "dest": "/public/leaderboard.html" },
+    { "src": "/profile", "dest": "/public/profile.html" },
+    { "src": "/admin", "dest": "/public/admin.html" },
+    { "src": "/events", "dest": "/public/events.html" },
+    { "src": "/checkpoint", "dest": "/public/checkpoint.html" },
+    { "src": "/roulette.html", "dest": "/public/roulette.html" },
+    { "src": "/halloween", "dest": "/public/halloween.html" },
+    { "src": "/", "dest": "/public/index.html" },
+    { "src": "/api/(.*)", "dest": "/index.py" }
   ],
   "crons": [
     {
