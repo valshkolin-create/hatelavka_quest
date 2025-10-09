@@ -1,1 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Ведьминский Котел</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        :root {
+            --bg-color: #0d0a1a;
+            --text-color: #f0e8ff;
+            --primary-color: #7b3dff;
+            --secondary-color: #ff3b81;
+            --progress-bar-bg: rgba(255, 255, 255, 0.1);
+            --progress-fill: linear-gradient(90deg, #7b3dff, #ff3b81);
+            --surface-glass-bg: rgba(28, 28, 30, 0.6);
+        }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(ellipse at 50% 100%, #1e104b, #0d0a1a);
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .hidden { display: none !important; }
+        .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
+        .header { margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .header .back-button { position: absolute; top: 20px; left: 20px; color: var(--text-color); font-size: 16px; text-decoration: none; }
+
+        .cauldron-wrapper { margin-bottom: 25px; }
+        .cauldron-wrapper img { max-width: 60%; height: auto; }
+
+        .progress-section h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: 500; }
+        .progress-bar { width: 100%; height: 25px; background: var(--progress-bar-bg); border-radius: 12px; overflow: hidden; position: relative; }
+        .progress-fill { height: 100%; background: var(--progress-fill); width: 0%; transition: width 0.5s ease-out; }
+        .progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 600; font-size: 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+
+        .contribution-section { background: var(--surface-glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 14px; padding: 20px; margin-top: 25px; }
+        .contribution-section h3 { margin: 0 0 15px 0; font-size: 16px; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .input-group input { flex-grow: 1; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; font-size: 16px; text-align: center; }
+        .input-group button { background: var(--primary-color); border: none; padding: 12px 20px; border-radius: 8px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .contribution-section p { font-size: 12px; color: #aaa; margin: 0; }
+    </style>
+</head>
+<body>
+    <div id="loader-overlay" class="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <main id="event-content" class="hidden">
+        <header class="header">
+            <a href="/menu" class="back-button"><i class="fa-solid fa-arrow-left"></i> Меню</a>
+            <h1 id="event-title">Ведьминский Котел</h1>
+        </header>
+
+        <div class="cauldron-wrapper">
+            <img id="event-image" src="https://i.postimg.cc/mD41m0zW/cauldron.png" alt="Котел">
+        </div>
+
+        <section class="progress-section">
+            <h2>Прогресс</h2>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+                <span id="progress-text" class="progress-text">0 / 10000</span>
+            </div>
+        </section>
+
+        <section class="contribution-section">
+            <h3>Внести свой вклад</h3>
+            <p style="margin-bottom: 15px;">У вас <strong id="user-tickets">0</strong> билетов</p>
+            <div class="input-group">
+                <input type="number" id="contribution-amount" placeholder="Кол-во" min="1">
+                <button id="contribute-btn">Вбросить!</button>
+            </div>
+            <p>Другие способы: активируйте награду за баллы на Twitch или поддержите стрим донатом!</p>
+        </section>
+
+        <section id="leaderboard-section" style="margin-top: 25px;"></section>
+    </main>
+
+    <script>
+    (async () => {
+        try {
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+
+            const dom = {
+                loader: document.getElementById('loader-overlay'),
+                content: document.getElementById('event-content'),
+                title: document.getElementById('event-title'),
+                image: document.getElementById('event-image'),
+                progressFill: document.getElementById('progress-fill'),
+                progressText: document.getElementById('progress-text'),
+                userTickets: document.getElementById('user-tickets'),
+                contributionAmount: document.getElementById('contribution-amount'),
+                contributeBtn: document.getElementById('contribute-btn'),
+            };
+
+            async function makeApiRequest(url, body = {}, method = 'POST') {
+                const options = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                };
+                if (method !== 'GET') {
+                    options.body = JSON.stringify({ ...body, initData: tg.initData });
+                }
+                const response = await fetch(url, options);
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
+                return result;
+            }
+            
+            function updateUI(eventData) {
+                const progress = eventData.current_progress || 0;
+                const goal = eventData.goal || 1;
+                const percent = Math.min(100, (progress / goal) * 100);
+
+                dom.title.textContent = eventData.title || "Тематический Ивент";
+                if(eventData.cauldron_image_url) dom.image.src = eventData.cauldron_image_url;
+                dom.progressFill.style.width = `${percent}%`;
+                dom.progressText.textContent = `${progress} / ${goal}`;
+            }
+
+            // Загрузка данных при входе на страницу
+            const eventData = await fetch('/api/v1/events/cauldron/status').then(res => res.json());
+            const userData = await makeApiRequest('/api/v1/user/me');
+
+            updateUI(eventData);
+            dom.userTickets.textContent = userData.tickets || 0;
+            dom.contributionAmount.max = userData.tickets || 0;
+
+            dom.content.classList.remove('hidden');
+            dom.loader.classList.add('hidden');
+
+            // Подключение к WebSocket
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'cauldron_update') {
+                    eventData.current_progress = data.new_progress;
+                    updateUI(eventData);
+                    // Можно добавить анимацию последнего донатера
+                } else if (data.type === 'cauldron_config_updated') {
+                    updateUI(data.content);
+                }
+            };
+            
+            // Кнопка вклада
+            dom.contributeBtn.addEventListener('click', async () => {
+                const amount = parseInt(dom.contributionAmount.value);
+                if (!amount || amount <= 0) {
+                    tg.showAlert("Введите корректное количество билетов.");
+                    return;
+                }
+                dom.contributeBtn.disabled = true;
+                dom.contributeBtn.textContent = '...';
+                try {
+                    const result = await makeApiRequest('/api/v1/events/cauldron/contribute', { amount });
+                    dom.userTickets.textContent = result.new_ticket_balance;
+                    dom.contributionAmount.value = '';
+                    tg.HapticFeedback.notificationOccurred('success');
+                } catch(e) {
+                    tg.showAlert(e.message);
+                } finally {
+                    dom.contributeBtn.disabled = false;
+                    dom.contributeBtn.textContent = 'Вбросить!';
+                }
+            });
+
+        } catch (e) {
+            document.getElementById('loader-overlay').classList.add('hidden');
+            document.body.innerHTML = `<div style="text-align:center; padding: 20px;"><h2>${e.message}</h2><p>Попробуйте зайти позже или обратитесь к администратору.</p><a href="/menu" style="color: #fff;">Вернуться в меню</a></div>`;
+        }
+    })();
+    </script>
+</body>
+</html>
