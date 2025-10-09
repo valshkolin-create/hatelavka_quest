@@ -583,6 +583,20 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
     # Возвращаем дефолтные настройки, если в базе ничего нет или произошла ошибка
     return AdminSettings()
 
+# Где-нибудь рядом с другими эндпоинтами
+@app.post("/api/v1/admin/verify_password")
+async def verify_admin_password(request: Request, data: dict = Body(...)):
+    # ВАЖНО: Храните пароль в переменных окружения, а не в коде!
+    # На Vercel это настраивается в Settings -> Environment Variables
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "your_default_fallback_password")
+    
+    submitted_password = data.get("password")
+    
+    if submitted_password == ADMIN_PASSWORD:
+        return {"success": True}
+    else:
+        return JSONResponse(content={"success": False, "detail": "Incorrect password"}, status_code=401)
+
 @app.post("/api/v1/webhook")
 async def telegram_webhook(update: dict, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # --- НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ ---
