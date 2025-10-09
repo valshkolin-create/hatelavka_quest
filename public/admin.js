@@ -177,6 +177,8 @@ try {
                     form.elements['is_visible_to_users'].checked = eventData.is_visible_to_users || false;
                     form.elements['title'].value = eventData.title || '';
                     form.elements['goal'].value = eventData.goal || '';
+                    // ИЗМЕНЕНИЕ ЗДЕСЬ:
+                    form.elements['twitch_reward_trigger_titles'].value = (eventData.twitch_reward_trigger_titles || []).join('\n');
                     form.elements['event_page_url'].value = eventData.event_page_url || '/halloween';
                     form.elements['banner_image_url'].value = eventData.banner_image_url || '';
                     form.elements['cauldron_image_url'].value = eventData.cauldron_image_url || '';
@@ -831,8 +833,7 @@ try {
             });
         }
     
-        // --- НАЧАЛО ИСПРАВЛЕНИЙ: ДОБАВЛЕНЫ ОБРАБОТЧИКИ ДЛЯ "КОТЛА" ---
-        if (dom.cauldronSettingsForm) {
+if (dom.cauldronSettingsForm) {
             // --- ЛОГИРОВАНИЕ ---
             console.log("[Setup] Найден элемент cauldronSettingsForm, добавляем обработчик 'submit'.");
             // --------------------
@@ -846,10 +847,18 @@ try {
 
                 const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                 
+                // --- НОВАЯ ЛОГИКА ДЛЯ СБОРА НЕСКОЛЬКИХ ТРИГГЕРОВ ---
+                const triggerTitles = form.elements['twitch_reward_trigger_titles'].value
+                    .split('\n')
+                    .map(title => title.trim())
+                    .filter(title => title); // Убираем пустые строки
+                // ----------------------------------------------------
+
                 const content = {
                     is_visible_to_users: form.elements['is_visible_to_users'].checked,
                     title: form.elements['title'].value,
                     goal: parseInt(form.elements['goal'].value),
+                    twitch_reward_trigger_titles: triggerTitles, // <-- ИЗМЕНЕНИЕ
                     event_page_url: form.elements['event_page_url'].value,
                     banner_image_url: form.elements['banner_image_url'].value,
                     cauldron_image_url: form.elements['cauldron_image_url'].value,
@@ -866,31 +875,6 @@ try {
         } else {
             // --- ЛОГИРОВАНИЕ ---
             console.warn("[Setup] Элемент cauldronSettingsForm не найден!");
-            // --------------------
-        }
-    
-        if (dom.resetCauldronBtn) {
-            // --- ЛОГИРОВАНИЕ ---
-            console.log("[Setup] Найден элемент resetCauldronBtn, добавляем обработчик 'click'.");
-            // --------------------
-            dom.resetCauldronBtn.addEventListener('click', () => {
-                // --- ЛОГИРОВАНИЕ ---
-                console.log("[Cauldron] Нажата кнопка сброса.");
-                // --------------------
-                tg.showConfirm('Вы уверены, что хотите сбросить ВЕСЬ прогресс и историю вкладов? Это действие необратимо.', async (ok) => {
-                    if (ok) {
-                        console.log("[Cauldron] Сброс подтвержден, отправляем запрос.");
-                        const result = await makeApiRequest('/api/v1/admin/events/cauldron/reset');
-                        tg.showAlert(result.message);
-                        await switchView('view-admin-cauldron'); 
-                    } else {
-                        console.log("[Cauldron] Сброс отменен.");
-                    }
-                });
-            });
-        } else {
-            // --- ЛОГИРОВАНИЕ ---
-            console.warn("[Setup] Элемент resetCauldronBtn не найден!");
             // --------------------
         }
 
