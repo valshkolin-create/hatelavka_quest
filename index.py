@@ -691,37 +691,22 @@ async def handle_twitch_webhook(
             user_id = user_record.get("telegram_id") if user_record else None
             user_display_name = user_record.get("full_name") if user_record else twitch_login
 
-            # --- НАЧАЛО НОВОЙ ЛОГИКИ ---
-
+            # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
             # Получаем настройки ивента "Котел"
             cauldron_resp = await supabase.get(
                 "/pages_content",
                 params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
             )
             cauldron_settings = cauldron_resp.json()[0]['content'] if cauldron_resp.json() and cauldron_resp.json()[0].get('content') else {}
-            # Важное изменение: теперь это поле называется twitch_reward_trigger_titles в админке,
-            # но для совместимости будем проверять и старое название.
-            cauldron_triggers_text = cauldron_settings.get("twitch_reward_trigger_titles", "")
-            
-            # Парсим строку с триггерами, чтобы получить пары {название: количество}
-            cauldron_triggers = {}
-            for line in cauldron_triggers_text.splitlines():
-                parts = line.strip().split(":")
-                if len(parts) == 2:
-                    title = parts[0].strip()
-                    try:
-                        value = int(parts[1].strip())
-                        cauldron_triggers[title] = value
-                    except ValueError:
-                        logging.warning(f"Неверное значение для триггера котла: {line}")
-                elif len(parts) == 1 and parts[0].strip():
-                     # Для обратной совместимости, если указано только название
-                    cauldron_triggers[parts[0].strip()] = 1
-
+            # Теперь получаем готовый список объектов [{title, value}]
+            cauldron_triggers = cauldron_settings.get("twitch_reward_triggers", []) 
 
             # 1. ПРОВЕРКА НА ВКЛАД В КОТЕЛ
-            if cauldron_settings.get("is_visible_to_users", False) and reward_title in cauldron_triggers:
-                contribution_value = cauldron_triggers.get(reward_title, 0)
+            # Ищем нужную награду в списке объектов
+            found_trigger = next((trigger for trigger in cauldron_triggers if trigger.get("title") == reward_title), None)
+            
+            if cauldron_settings.get("is_visible_to_users", False) and found_trigger:
+                contribution_value = found_trigger.get("value", 0)
                 logging.info(f"🔥 Получен вклад в котел от {twitch_login} ценностью {contribution_value}.")
 
                 response = await supabase.post(
@@ -741,14 +726,12 @@ async def handle_twitch_webhook(
                     "new_progress": result.get('new_progress'),
                     "last_contributor": { "name": user_display_name, "type": "twitch_points", "amount": contribution_value }
                 }))
-
+                
                 return {"status": "cauldron_contribution_accepted"}
-
-            # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
             # 2. ПРОВЕРКА НА РУЛЕТКУ (старая логика)
             prizes_resp = await supabase.get(
-                "/roulette_prizes",
+                "/roulette_prizes", 
                 params={"reward_title": f"eq.{reward_title}", "select": "skin_name,image_url,chance_weight"}
             )
             prizes_resp.raise_for_status()
@@ -756,34 +739,34 @@ async def handle_twitch_webhook(
 
             if roulette_prizes:
                 logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
-
+                
                 weights = [p['chance_weight'] for p in roulette_prizes]
                 winner_prize = random.choices(roulette_prizes, weights=weights, k=1)[0]
                 winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
-
+                
                 reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
                 reward_settings = reward_settings_resp.json()
                 if not reward_settings:
                     reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
-
+                
                 final_user_input = f"Выигрыш: {winner_skin_name}"
                 if user_input:
                     final_user_input += f" | Сообщение: {user_input}"
-
+                
                 purchase_payload = {
                     "reward_id": reward_settings[0]["id"],
                     "username": user_record.get("full_name", twitch_login) if user_record else twitch_login,
                     "twitch_login": twitch_login,
                     "trade_link": user_record.get("trade_link") if user_record else user_input,
                     "status": "Привязан" if user_record else "Не привязан",
-                    "user_input": final_user_input
+                    "user_input": final_user_input 
                 }
-
+                
                 if user_record:
                     purchase_payload["user_id"] = user_record.get("telegram_id")
                 else:
                     purchase_payload["user_id"] = None
-
+                    
                 await supabase.post("/twitch_reward_purchases", json=purchase_payload)
 
                 if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
@@ -793,10 +776,10 @@ async def handle_twitch_webhook(
                         f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
                         f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
                     )
-
+                    
                     if purchase_payload["trade_link"]:
                         notification_text += f"<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>\n\n"
-
+                    
                     notification_text += "Информация добавлена в раздел 'Покупки' для этой награды."
 
                     background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
@@ -808,13 +791,13 @@ async def handle_twitch_webhook(
                     "user_name": twitch_login
                 }
                 await supabase.post("/roulette_triggers", json={"payload": animation_payload})
-
+                
                 logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен через Supabase.")
                 return {"status": "roulette_triggered"}
 
             # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (старая логика)
             logging.info(f"Обычная награда '{reward_title}' от {twitch_login}.")
-
+            
             payload_for_purchase = {}
             if user_record:
                 telegram_id = user_record.get("telegram_id")
@@ -831,7 +814,7 @@ async def handle_twitch_webhook(
                     "trade_link": None,
                     "status": "Не привязан"
                 }
-
+            
             reward_settings_resp = await supabase.get(
                 "/twitch_rewards",
                 params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
@@ -877,7 +860,7 @@ async def handle_twitch_webhook(
                     notification_text += "\n\n✅ Пользователю начислен 1 билет."
                 notification_text += "\nИнформация добавлена в раздел 'Покупки'."
                 background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
-
+            
             return {"status": "ok"}
 
         except Exception as e:
