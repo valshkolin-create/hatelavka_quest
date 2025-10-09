@@ -1018,6 +1018,37 @@ try {
                     }
                 }
             }
+            // --- Логика для баннера ивента "Котел" ---
+            try {
+                const eventData = await fetch('/api/v1/events/cauldron/status', {
+                    headers: { 'X-Init-Data': Telegram.WebApp.initData } // Отправляем initData для проверки админа
+                }).then(res => res.json());
+
+                const eventSlide = document.querySelector('.slide[data-event="cauldron"]'); // Используем data-атрибут для поиска
+
+                if (eventSlide) {
+                    if (eventData && eventData.is_visible_to_users) {
+                        // Если ивент активен, настраиваем и показываем слайд
+                        eventSlide.href = eventData.event_page_url || '/halloween';
+                        const img = eventSlide.querySelector('img');
+                        if (img && eventData.banner_image_url) {
+                            img.src = eventData.banner_image_url;
+                        }
+                        eventSlide.style.display = ''; // Показываем слайд
+                    } else {
+                        // Если ивент неактивен, скрываем слайд
+                        eventSlide.style.display = 'none';
+                    }
+                }
+                // Переинициализируем слайдер, чтобы он учел изменения
+                setupSlider();
+            } catch (e) {
+                console.error("Не удалось загрузить статус ивента 'Котел'", e);
+                const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
+                if (eventSlide) eventSlide.style.display = 'none';
+                setupSlider();
+            }
+            // --- Конец логики для баннера ---
             const questsDataResp = await makeApiRequest("/api/v1/quests/list");
             allQuests = questsDataResp || [];
             questsForRoulette = allQuests.filter(q => q.quest_type && q.quest_type.startsWith('automatic') && !q.is_completed);
@@ -1036,9 +1067,6 @@ try {
             } else {
                 renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
             }
-
-            // ВЫЗОВ ФУНКЦИИ СЛАЙДЕРА
-            setupSlider();
 
             if (!localStorage.getItem('tutorialCompleted')) {
                 startTutorial();
