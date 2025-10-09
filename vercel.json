@@ -1,14 +1,23 @@
 {
   "version": 2,
   "builds": [
-    { "src": "index.py", "use": "@vercel/python" }
+    {
+      "src": "index.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": "public/**"
+      }
+    }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "/index.py" }
+    {
+      "src": "/(.*)",
+      "dest": "index.py"
+    }
   ],
   "crons": [
     {
-      "path": "/api/v1/cron/draw_winner?event_id=1&secret=a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890",
+      "path": "/api/v1/cron/trigger_draws",
       "schedule": "0 21 30 8 *"
     }
   ]
