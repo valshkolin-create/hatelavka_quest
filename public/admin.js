@@ -803,7 +803,7 @@ try {
         }
     }
 
-    function setupEventListeners() {
+function setupEventListeners() {
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
