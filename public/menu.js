@@ -1040,13 +1040,10 @@ try {
                         eventSlide.style.display = 'none';
                     }
                 }
-                // Переинициализируем слайдер, чтобы он учел изменения
-                setupSlider();
             } catch (e) {
                 console.error("Не удалось загрузить статус ивента 'Котел'", e);
                 const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
                 if (eventSlide) eventSlide.style.display = 'none';
-                setupSlider();
             }
             // --- Конец логики для баннера ---
             const questsDataResp = await makeApiRequest("/api/v1/quests/list");
