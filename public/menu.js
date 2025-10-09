@@ -1018,7 +1018,7 @@ try {
                     }
                 }
             }
-            // --- Логика для баннера ивента "Котел" ---
+// --- Логика для баннера ивента "Котел" ---
             try {
                 const eventData = await fetch('/api/v1/events/cauldron/status', {
                     headers: { 'X-Init-Data': Telegram.WebApp.initData } // Отправляем initData для проверки админа
@@ -1046,6 +1046,10 @@ try {
                 if (eventSlide) eventSlide.style.display = 'none';
             }
             // --- Конец логики для баннера ---
+            
+            // ВЫЗОВ ФУНКЦИИ СЛАЙДЕРА (ПРАВИЛЬНОЕ МЕСТО)
+            setupSlider();
+
             const questsDataResp = await makeApiRequest("/api/v1/quests/list");
             allQuests = questsDataResp || [];
             questsForRoulette = allQuests.filter(q => q.quest_type && q.quest_type.startsWith('automatic') && !q.is_completed);
