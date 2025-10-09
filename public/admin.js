@@ -193,6 +193,11 @@ try {
 
     async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) showLoader();
+        
+        // --- ЛОГИРОВАНИЕ ---
+        console.log(`[API Request] -> ${method} ${url}`, body);
+        // --------------------
+
         try {
             const options = {
                 method: method,
@@ -205,13 +210,21 @@ try {
 
             const response = await fetch(url, options);
             if (response.status === 204) return null;
+            
             const result = await response.json();
+
+            // --- ЛОГИРОВАНИЕ ---
+            console.log(`[API Response] <- ${url}`, { status: response.status, ok: response.ok, body: result });
+            // --------------------
+
             if (!response.ok) {
                 throw new Error(result.detail || 'Ошибка сервера');
             }
             return result;
         } catch (e) {
-            console.error(`Ошибка API [${method} ${url}]:`, e);
+            // --- ЛОГИРОВАНИЕ ---
+            console.error(`[API Error] Ошибка в запросе ${method} ${url}:`, e);
+            // --------------------
             if (!isSilent) tg.showAlert(`Ошибка: ${e.message}`);
             throw e;
         } finally {
@@ -803,7 +816,11 @@ try {
         }
     }
 
-function setupEventListeners() {
+     function setupEventListeners() {
+        // --- ЛОГИРОВАНИЕ ---
+        console.log("[Setup] Начинаем установку обработчиков событий...");
+        // --------------------
+
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
@@ -816,11 +833,17 @@ function setupEventListeners() {
     
         // --- НАЧАЛО ИСПРАВЛЕНИЙ: ДОБАВЛЕНЫ ОБРАБОТЧИКИ ДЛЯ "КОТЛА" ---
         if (dom.cauldronSettingsForm) {
+            // --- ЛОГИРОВАНИЕ ---
+            console.log("[Setup] Найден элемент cauldronSettingsForm, добавляем обработчик 'submit'.");
+            // --------------------
             dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
                 
-                // Получаем текущие данные, чтобы не сбросить прогресс случайно
+                // --- ЛОГИРОВАНИЕ ---
+                console.log("[Cauldron] Форма настроек отправлена.");
+                // --------------------
+
                 const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                 
                 const content = {
@@ -830,25 +853,45 @@ function setupEventListeners() {
                     event_page_url: form.elements['event_page_url'].value,
                     banner_image_url: form.elements['banner_image_url'].value,
                     cauldron_image_url: form.elements['cauldron_image_url'].value,
-                    current_progress: currentSettings.current_progress || 0 // Сохраняем текущий прогресс
+                    current_progress: currentSettings.current_progress || 0
                 };
+                
+                // --- ЛОГИРОВАНИЕ ---
+                console.log("[Cauldron] Отправляем данные для обновления:", content);
+                // --------------------
+
                 await makeApiRequest('/api/v1/admin/events/cauldron/update', { content });
                 tg.showAlert('Настройки ивента сохранены!');
             });
+        } else {
+            // --- ЛОГИРОВАНИЕ ---
+            console.warn("[Setup] Элемент cauldronSettingsForm не найден!");
+            // --------------------
         }
     
         if (dom.resetCauldronBtn) {
+            // --- ЛОГИРОВАНИЕ ---
+            console.log("[Setup] Найден элемент resetCauldronBtn, добавляем обработчик 'click'.");
+            // --------------------
             dom.resetCauldronBtn.addEventListener('click', () => {
+                // --- ЛОГИРОВАНИЕ ---
+                console.log("[Cauldron] Нажата кнопка сброса.");
+                // --------------------
                 tg.showConfirm('Вы уверены, что хотите сбросить ВЕСЬ прогресс и историю вкладов? Это действие необратимо.', async (ok) => {
                     if (ok) {
-                        // Вызываем новый, специальный эндпоинт для сброса
+                        console.log("[Cauldron] Сброс подтвержден, отправляем запрос.");
                         const result = await makeApiRequest('/api/v1/admin/events/cauldron/reset');
                         tg.showAlert(result.message);
-                        // Обновляем вид, чтобы увидеть сброшенный прогресс
                         await switchView('view-admin-cauldron'); 
+                    } else {
+                        console.log("[Cauldron] Сброс отменен.");
                     }
                 });
             });
+        } else {
+            // --- ЛОГИРОВАНИЕ ---
+            console.warn("[Setup] Элемент resetCauldronBtn не найден!");
+            // --------------------
         }
 
         if(document.getElementById('twitch-purchases-body')) {
