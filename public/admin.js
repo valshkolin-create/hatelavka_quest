@@ -1157,6 +1157,17 @@ try {
 document.body.addEventListener('click', async (event) => {
                 const target = event.target;
 
+                // --- ДОБАВЛЕНА ЛОГИКА ЗАКРЫТИЯ ОКНА (КРЕСТИК) ---
+                const closeButton = target.closest('[data-close-modal]');
+                if (closeButton) {
+                    const modalId = closeButton.dataset.closeModal;
+                    const modal = document.getElementById(modalId);
+                    if (modal) {
+                        modal.classList.add('hidden');
+                    }
+                    return; // Важно, чтобы остальной код не выполнялся
+                }
+            
                 // --- Навигация по приложению ---
                 const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
                 if (navButton && navButton.tagName.toLowerCase() !== 'a') {
@@ -1218,7 +1229,7 @@ document.body.addEventListener('click', async (event) => {
                     return;
                 }
                 
-                // --- ИСПРАВЛЕННАЯ ЛОГИКА ЕДИНИЧНОГО УДАЛЕНИЯ ---
+                // --- Логика единичного удаления ---
                 const deletePurchaseBtn = target.closest('.delete-purchase-btn');
                 if (deletePurchaseBtn) {
                     const purchaseId = deletePurchaseBtn.dataset.purchaseId;
@@ -1238,7 +1249,7 @@ document.body.addEventListener('click', async (event) => {
                     return;
                 }
 
-                // --- ИСПРАВЛЕННАЯ ЛОГИКА МАССОВОГО УДАЛЕНИЯ ---
+                // --- Логика массового удаления ---
                 const deleteAllBtn = target.closest('#delete-all-purchases-btn');
                 if (deleteAllBtn) {
                     const rewardId = parseInt(deleteAllBtn.dataset.rewardId);
