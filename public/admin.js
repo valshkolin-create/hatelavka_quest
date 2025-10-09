@@ -64,6 +64,8 @@ try {
         passwordPromptInput: document.getElementById('password-prompt-input'),
         passwordPromptCancel: document.getElementById('password-prompt-cancel'),
         passwordPromptConfirm: document.getElementById('password-prompt-confirm'),
+        cauldronSettingsForm: document.getElementById('cauldron-settings-form'),
+        resetCauldronBtn: document.getElementById('reset-cauldron-btn'),
     };
 
     let categoriesCache = [];
@@ -173,6 +175,18 @@ try {
                     populateCategorySelects();
                     dom.createQuestForm.reset();
                     updateQuestFormUI(dom.createQuestForm);
+                    break;
+                }
+                case 'view-admin-cauldron': {
+                    // Загружаем текущие настройки и заполняем форму
+                    const eventData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
+                    const form = document.getElementById('cauldron-settings-form');
+                    form.elements['is_visible_to_users'].checked = eventData.is_visible_to_users || false;
+                    form.elements['title'].value = eventData.title || '';
+                    form.elements['goal'].value = eventData.goal || '';
+                    form.elements['event_page_url'].value = eventData.event_page_url || '/halloween';
+                    form.elements['banner_image_url'].value = eventData.banner_image_url || '';
+                    form.elements['cauldron_image_url'].value = eventData.cauldron_image_url || '';
                     break;
                 }
             }
@@ -814,7 +828,40 @@ try {
                 if (modal) modal.classList.add('hidden');
             }
         });
+    if (dom.cauldronSettingsForm) {
+        dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            
+            // Получаем текущие данные, чтобы не сбросить прогресс случайно
+            const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
+            
+            const content = {
+                is_visible_to_users: form.elements['is_visible_to_users'].checked,
+                title: form.elements['title'].value,
+                goal: parseInt(form.elements['goal'].value),
+                event_page_url: form.elements['event_page_url'].value,
+                banner_image_url: form.elements['banner_image_url'].value,
+                cauldron_image_url: form.elements['cauldron_image_url'].value,
+                current_progress: currentSettings.current_progress || 0 // Сохраняем текущий прогресс
+            };
+            await makeApiRequest('/api/v1/admin/events/cauldron/update', { content });
+            tg.showAlert('Настройки ивента сохранены!');
+        });
+    }
 
+    if (dom.resetCauldronBtn) {
+        dom.resetCauldronBtn.addEventListener('click', () => {
+            tg.showConfirm('Вы уверены, что хотите сбросить ВЕСЬ прогресс ивента? Это действие необратимо.', async (ok) => {
+                if (ok) {
+                    const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET');
+                    currentSettings.current_progress = 0; // Обнуляем только прогресс
+                    await makeApiRequest('/api/v1/admin/events/cauldron/update', { content: currentSettings });
+                    tg.showAlert('Прогресс ивента сброшен.');
+                }
+            });
+        });
+    }
         document.body.addEventListener('click', (e) => {
             const deleteAllBtn = e.target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
