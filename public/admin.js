@@ -1569,6 +1569,3 @@ try {
     console.error(`Критическая ошибка на старте: ${e.message}`);
     alert(`Критическая ошибка: ${e.message}`);
 }
-</script>
-</body>
-</html>
