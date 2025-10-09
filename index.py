@@ -1387,37 +1387,46 @@ async def update_cauldron_event(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """(Админ) Обновляет или создает настройки для ивента 'Котел'."""
+    logging.info("--- Endpoint: /api/v1/admin/events/cauldron/update ---")
+    
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
+        logging.warning(f"Запрос на обновление котла отклонен: нет прав. User: {user_info}")
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Используем upsert: если записи нет, она создастся; если есть - обновится
+        logging.info(f"Получены данные для обновления котла: {request_data.content}")
+        
         await supabase.post(
             "/pages_content",
             json={"page_name": "cauldron_event", "content": request_data.content},
             headers={"Prefer": "resolution=merge-duplicates"}
         )
-        # Уведомляем всех клиентов об изменении настроек
+        
+        logging.info("Данные котла успешно сохранены в Supabase.")
+        
         await manager.broadcast(json.dumps({"type": "cauldron_config_updated", "content": request_data.content}))
         
         return {"message": "Настройки ивента успешно обновлены."}
     except Exception as e:
-        logging.error(f"Ошибка при обновлении настроек котла: {e}")
+        logging.error(f"КРИТИЧЕСКАЯ ОШИБКА при обновлении настроек котла: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сохранить настройки.")
 
 @app.post("/api/v1/admin/events/cauldron/reset")
 async def reset_cauldron_progress(
-    request_data: InitDataRequest, # Используем простую модель, нужен только initData
+    request_data: InitDataRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """(Админ) Полностью сбрасывает прогресс ивента 'Котел'."""
+    logging.info("--- Endpoint: /api/v1/admin/events/cauldron/reset ---")
+    
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
+        logging.warning(f"Запрос на сброс котла отклонен: нет прав. User: {user_info}")
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Шаг 1: Получаем текущие настройки
+        logging.info("Шаг 1: Получение текущих настроек котла...")
         resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
@@ -1427,20 +1436,20 @@ async def reset_cauldron_progress(
         
         if data and data[0].get('content'):
             content = data[0]['content']
-            # Шаг 2: Обнуляем счетчик и сохраняем
+            logging.info(f"Шаг 2: Обнуление прогресса. Текущий прогресс: {content.get('current_progress', 'N/A')}")
             content['current_progress'] = 0
             await supabase.post(
                 "/pages_content",
                 json={"page_name": "cauldron_event", "content": content},
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
+        else:
+            logging.warning("Настройки для котла не найдены в базе, сброс прогресса пропущен.")
 
-        # Шаг 3: Полностью очищаем таблицу с историей вкладов
-        # Метод delete без условий удаляет все строки, но RLS (Row Level Security) может помешать.
-        # Лучше создать RPC функцию для TRUNCATE, но для простоты начнем с delete.
+        logging.info("Шаг 3: Очистка таблицы event_contributions...")
         await supabase.delete("/event_contributions", params={"id": "gt.0"})
+        logging.info("Таблица вкладов успешно очищена.")
 
-        # Оповещаем клиентов, что прогресс сброшен
         await manager.broadcast(json.dumps({
             "type": "cauldron_update",
             "new_progress": 0
@@ -1449,7 +1458,7 @@ async def reset_cauldron_progress(
         return {"message": "Прогресс ивента и история вкладов полностью сброшены."}
 
     except Exception as e:
-        logging.error(f"Ошибка при сбросе прогресса котла: {e}")
+        logging.error(f"КРИТИЧЕСКАЯ ОШИБКА при сбросе прогресса котла: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сбросить прогресс.")
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
