@@ -1709,8 +1709,6 @@ async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.As
 
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
-# --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
-
 @app.get("/api/v1/events/cauldron/status")
 async def get_cauldron_status(
     request: Request,
@@ -1725,13 +1723,12 @@ async def get_cauldron_status(
         resp.raise_for_status()
         data = resp.json()
 
-        # Если ивент в базе вообще не настроен, возвращаем, что он неактивен
         if not data or not data[0].get('content'):
+            # Если ивента нет в базе, он не виден никому.
             return {"is_visible_to_users": False}
 
-        content = data[0]['content']
+        content = data[0].get('content', {})
 
-        # Проверяем, админ ли это
         is_admin = False
         try:
             init_data_header = request.headers.get("X-Init-Data")
@@ -1742,17 +1739,18 @@ async def get_cauldron_status(
         except Exception:
             pass
 
-        # Если ивент невидимый и пользователь не админ, возвращаем только флаг видимости
-        if not content.get('is_visible_to_users', False) and not is_admin:
-            return {"is_visible_to_users": False}
+        # КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Если пользователь админ, для него ивент ВСЕГДА видим.
+        is_visible = content.get('is_visible_to_users', False) or is_admin
         
-        # В противном случае (если ивент видим или юзер - админ) отдаем все данные
+        if not is_visible:
+            return {"is_visible_to_users": False}
+
+        # Если мы дошли до сюда, значит ивент видим. Отдаем все данные.
         return content
 
     except Exception as e:
         logging.error(f"Ошибка при получении статуса котла: {e}")
         return {"is_visible_to_users": False}
-
 
 @app.post("/api/v1/events/cauldron/contribute")
 async def contribute_to_cauldron(
