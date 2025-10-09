@@ -65,6 +65,35 @@ try {
     let categoriesCache = [];
     let currentEditingCategoryId = null;
     let hasAdminAccess = false;
+    
+    // Helper function to prevent HTML injection.
+    function escapeHTML(str) {
+        if (typeof str !== 'string') return str;
+        return str.replace(/[&<>"']/g, function(match) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[match];
+        });
+    }
+
+    // Функция для создания строки с полями для одной награды
+    function createCauldronTriggerRow(trigger = { title: '', value: '' }) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'cauldron-trigger-row';
+        wrapper.style.display = 'flex';
+        wrapper.style.gap = '10px';
+        wrapper.style.marginBottom = '10px';
+        wrapper.innerHTML = `
+            <input type="text" class="cauldron-trigger-title admin-form-input" placeholder="Точное название награды Twitch" value="${escapeHTML(trigger.title || '')}" style="flex: 3;">
+            <input type="number" class="cauldron-trigger-value admin-form-input" placeholder="Билеты" value="${escapeHTML(trigger.value || '')}" style="flex: 1;">
+            <button type="button" class="remove-trigger-btn admin-action-btn reject" style="padding: 8px 12px;" title="Удалить"><i class="fa-solid fa-trash-can"></i></button>
+        `;
+        return wrapper;
+    }
 
     async function loadStatistics() {
         showLoader();
@@ -174,14 +203,21 @@ try {
                 case 'view-admin-cauldron': {
                     const eventData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = document.getElementById('cauldron-settings-form');
-                    form.elements['is_visible_to_users'].checked = eventData.is_visible_to_users || false;
+                    
+                    form.elements['is_visible_to_users'].checked = !!eventData.is_visible_to_users;
                     form.elements['title'].value = eventData.title || '';
                     form.elements['goal'].value = eventData.goal || '';
-                    // ИЗМЕНЕНИЕ ЗДЕСЬ:
-                    form.elements['twitch_reward_trigger_titles'].value = (eventData.twitch_reward_trigger_titles || []).join('\n');
                     form.elements['event_page_url'].value = eventData.event_page_url || '/halloween';
                     form.elements['banner_image_url'].value = eventData.banner_image_url || '';
                     form.elements['cauldron_image_url'].value = eventData.cauldron_image_url || '';
+                    
+                    const triggersContainer = document.getElementById('cauldron-triggers-container');
+                    triggersContainer.innerHTML = ''; 
+                    if (eventData.twitch_reward_triggers && Array.isArray(eventData.twitch_reward_triggers)) {
+                        eventData.twitch_reward_triggers.forEach(trigger => {
+                            triggersContainer.appendChild(createCauldronTriggerRow(trigger));
+                        });
+                    }
                     break;
                 }
             }
@@ -833,50 +869,70 @@ try {
             });
         }
     
-if (dom.cauldronSettingsForm) {
-            // --- ЛОГИРОВАНИЕ ---
-            console.log("[Setup] Найден элемент cauldronSettingsForm, добавляем обработчик 'submit'.");
-            // --------------------
+        if (dom.cauldronSettingsForm) {
             dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const form = e.target;
-                
-                // --- ЛОГИРОВАНИЕ ---
-                console.log("[Cauldron] Форма настроек отправлена.");
-                // --------------------
+                showLoader();
+                try {
+                    const form = e.target;
+                    
+                    const triggers = [];
+                    document.querySelectorAll('.cauldron-trigger-row').forEach(row => {
+                        const titleInput = row.querySelector('.cauldron-trigger-title');
+                        const valueInput = row.querySelector('.cauldron-trigger-value');
+                        if (titleInput && valueInput && titleInput.value.trim()) {
+                            triggers.push({
+                                title: titleInput.value.trim(),
+                                value: parseInt(valueInput.value, 10) || 0
+                            });
+                        }
+                    });
+    
+                    const content = {
+                        title: form.querySelector('[name="title"]').value,
+                        goal: parseInt(form.querySelector('[name="goal"]').value, 10),
+                        event_page_url: form.querySelector('[name="event_page_url"]').value,
+                        banner_image_url: form.querySelector('[name="banner_image_url"]').value,
+                        cauldron_image_url: form.querySelector('[name="cauldron_image_url"]').value,
+                        is_visible_to_users: form.querySelector('[name="is_visible_to_users"]').checked,
+                        twitch_reward_triggers: triggers
+                    };
+    
+                    // Fetch current progress to not overwrite it
+                    const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
+                    content.current_progress = currentSettings.current_progress || 0;
 
-                const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
-                
-                // --- НОВАЯ ЛОГИКА ДЛЯ СБОРА НЕСКОЛЬКИХ ТРИГГЕРОВ ---
-                const triggerTitles = form.elements['twitch_reward_trigger_titles'].value
-                    .split('\n')
-                    .map(title => title.trim())
-                    .filter(title => title); // Убираем пустые строки
-                // ----------------------------------------------------
-
-                const content = {
-                    is_visible_to_users: form.elements['is_visible_to_users'].checked,
-                    title: form.elements['title'].value,
-                    goal: parseInt(form.elements['goal'].value),
-                    twitch_reward_trigger_titles: triggerTitles, // <-- ИЗМЕНЕНИЕ
-                    event_page_url: form.elements['event_page_url'].value,
-                    banner_image_url: form.elements['banner_image_url'].value,
-                    cauldron_image_url: form.elements['cauldron_image_url'].value,
-                    current_progress: currentSettings.current_progress || 0
-                };
-                
-                // --- ЛОГИРОВАНИЕ ---
-                console.log("[Cauldron] Отправляем данные для обновления:", content);
-                // --------------------
-
-                await makeApiRequest('/api/v1/admin/events/cauldron/update', { content });
-                tg.showAlert('Настройки ивента сохранены!');
+                    await makeApiRequest('/api/v1/admin/events/cauldron/update', { content });
+                    tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
+                } catch (error) {
+                    tg.showAlert(`Ошибка сохранения: ${error.message}`);
+                    console.error("Cauldron save error:", error);
+                } finally {
+                    hideLoader();
+                }
             });
-        } else {
-            // --- ЛОГИРОВАНИЕ ---
-            console.warn("[Setup] Элемент cauldronSettingsForm не найден!");
-            // --------------------
         }
+
+        const addCauldronTriggerBtn = document.getElementById('add-cauldron-trigger-btn');
+        if (addCauldronTriggerBtn) {
+            addCauldronTriggerBtn.addEventListener('click', () => {
+                const container = document.getElementById('cauldron-triggers-container');
+                if (container) {
+                    container.appendChild(createCauldronTriggerRow());
+                }
+            });
+        }
+
+        const cauldronTriggersContainer = document.getElementById('cauldron-triggers-container');
+        if(cauldronTriggersContainer) {
+            cauldronTriggersContainer.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.remove-trigger-btn');
+                if (removeBtn) {
+                    removeBtn.closest('.cauldron-trigger-row').remove();
+                }
+            });
+        }
+
 
         if(document.getElementById('twitch-purchases-body')) {
             document.getElementById('twitch-purchases-body').addEventListener('click', (e) => {
@@ -1100,6 +1156,38 @@ if (dom.cauldronSettingsForm) {
         
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
+
+            const closeButton = target.closest('[data-close-modal]');
+            if (closeButton) {
+                const modalId = closeButton.dataset.closeModal;
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+                return; 
+            }
+        
+            const deleteAllPurchasesBtn = target.closest('#delete-all-purchases-btn');
+            if (deleteAllPurchasesBtn) {
+                const rewardId = deleteAllPurchasesBtn.dataset.rewardId;
+                if (!rewardId) return;
+        
+                tg.showConfirm('Вы уверены, что хотите удалить ВСЕ покупки для этой награды?', async (ok) => {
+                    if(ok) {
+                        try {
+                            await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases/delete_all`, {}, 'DELETE');
+                            const modal = document.getElementById('twitch-purchases-modal');
+                            if(modal) modal.classList.add('hidden');
+                            await loadTwitchRewards();
+                            tg.showAlert('Все покупки были удалены.');
+                        } catch (error) {
+                            tg.showAlert(`Ошибка: ${error.message}`);
+                        }
+                    }
+                });
+                return;
+            }
+
             const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
             if (navButton && navButton.tagName.toLowerCase() !== 'a') {
                 event.preventDefault();
