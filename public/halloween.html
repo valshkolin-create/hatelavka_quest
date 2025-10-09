@@ -133,7 +133,12 @@
             }
 
             // Загрузка данных при входе на страницу
-            const eventData = await fetch('/api/v1/events/cauldron/status').then(res => res.json());
+            const eventData = await fetch('/api/v1/events/cauldron/status', {
+                headers: {
+                    // Добавляем этот заголовок, чтобы сервер знал, кто мы
+                    'X-Init-Data': tg.initData 
+                }
+            }).then(res => res.json());
             const userData = await makeApiRequest('/api/v1/user/me');
 
             updateUI(eventData);
