@@ -21,6 +21,7 @@
     { "src": "/roulette.html", "dest": "/public/roulette.html" },
     { "src": "/halloween", "dest": "/public/halloween.html" },
     { "src": "/", "dest": "/public/index.html" },
+    { "src": "/(.*)", "dest": "/public/$1" },
     { "src": "/api/(.*)", "dest": "/index.py" }
   ],
   "crons": [
