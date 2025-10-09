@@ -1405,6 +1405,52 @@ async def update_cauldron_event(
     except Exception as e:
         logging.error(f"Ошибка при обновлении настроек котла: {e}")
         raise HTTPException(status_code=500, detail="Не удалось сохранить настройки.")
+
+@app.post("/api/v1/admin/events/cauldron/reset")
+async def reset_cauldron_progress(
+    request_data: InitDataRequest, # Используем простую модель, нужен только initData
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Полностью сбрасывает прогресс ивента 'Котел'."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Шаг 1: Получаем текущие настройки
+        resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        if data and data[0].get('content'):
+            content = data[0]['content']
+            # Шаг 2: Обнуляем счетчик и сохраняем
+            content['current_progress'] = 0
+            await supabase.post(
+                "/pages_content",
+                json={"page_name": "cauldron_event", "content": content},
+                headers={"Prefer": "resolution=merge-duplicates"}
+            )
+
+        # Шаг 3: Полностью очищаем таблицу с историей вкладов
+        # Метод delete без условий удаляет все строки, но RLS (Row Level Security) может помешать.
+        # Лучше создать RPC функцию для TRUNCATE, но для простоты начнем с delete.
+        await supabase.delete("/event_contributions", params={"id": "gt.0"})
+
+        # Оповещаем клиентов, что прогресс сброшен
+        await manager.broadcast(json.dumps({
+            "type": "cauldron_update",
+            "new_progress": 0
+        }))
+
+        return {"message": "Прогресс ивента и история вкладов полностью сброшены."}
+
+    except Exception as e:
+        logging.error(f"Ошибка при сбросе прогресса котла: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось сбросить прогресс.")
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
