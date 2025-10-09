@@ -1709,12 +1709,14 @@ async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.As
 
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
+# --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
+
 @app.get("/api/v1/events/cauldron/status")
 async def get_cauldron_status(
-    request: Request, # Добавляем Request, чтобы проверить, админ ли это
+    request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Отдает текущее состояние ивента 'Котел'."""
+    """Отдает текущее состояние ивента 'Котел', управляя видимостью."""
     try:
         resp = await supabase.get(
             "/pages_content",
@@ -1723,38 +1725,33 @@ async def get_cauldron_status(
         resp.raise_for_status()
         data = resp.json()
 
+        # Если ивент в базе вообще не настроен, возвращаем, что он неактивен
         if not data or not data[0].get('content'):
-            raise HTTPException(status_code=404, detail="Ивент не найден или не настроен.")
+            return {"is_visible_to_users": False}
 
         content = data[0]['content']
 
-        # Проверяем, является ли пользователь админом
-        # Это нужно, чтобы админ видел ивент, даже если он скрыт
+        # Проверяем, админ ли это
         is_admin = False
         try:
-            # Пытаемся незаметно проверить initData из заголовка, если он там есть
             init_data_header = request.headers.get("X-Init-Data")
             if init_data_header:
                 user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
                 if user_info and user_info.get("id") in ADMIN_IDS:
                     is_admin = True
         except Exception:
-            pass # Если не получилось - не страшно, просто считаем не админом
+            pass
 
-        # Если ивент скрыт и пользователь не админ, не отдаем данные
+        # Если ивент невидимый и пользователь не админ, возвращаем только флаг видимости
         if not content.get('is_visible_to_users', False) and not is_admin:
-            raise HTTPException(status_code=403, detail="Ивент в данный момент неактивен.")
-
-        # TODO: В будущем добавим сюда логику для получения топ-донатеров
+            return {"is_visible_to_users": False}
         
+        # В противном случае (если ивент видим или юзер - админ) отдаем все данные
         return content
 
     except Exception as e:
         logging.error(f"Ошибка при получении статуса котла: {e}")
-        # Возвращаем 404, если ивент просто не настроен
-        if isinstance(e, HTTPException) and e.status_code in [403, 404]:
-            raise e
-        raise HTTPException(status_code=500, detail="Не удалось загрузить данные ивента.")
+        return {"is_visible_to_users": False}
 
 
 @app.post("/api/v1/events/cauldron/contribute")
