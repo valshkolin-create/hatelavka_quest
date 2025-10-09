@@ -123,6 +123,16 @@ class AdminResetCooldownRequest(BaseModel):
     initData: str
     user_id_to_reset: int
 
+# --- МОДЕЛИ ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
+
+class CauldronUpdateRequest(BaseModel):
+    initData: str
+    content: dict # Ожидаем JSON со всеми настройками ивента
+
+class CauldronContributeRequest(BaseModel):
+    initData: str
+    amount: int # Сколько билетов пользователь хочет вложить
+
 # --- НОВЫЕ МОДЕЛИ ---
 class QuestCancelRequest(BaseModel):
     initData: str
@@ -1355,6 +1365,35 @@ async def get_current_user_data(
         logging.error(f"Критическая ошибка в /api/v1/user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
 
+# --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
+
+@app.post("/api/v1/admin/events/cauldron/update")
+async def update_cauldron_event(
+    request_data: CauldronUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Обновляет или создает настройки для ивента 'Котел'."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Используем upsert: если записи нет, она создастся; если есть - обновится
+        await supabase.post(
+            "/pages_content",
+            json={"page_name": "cauldron_event", "content": request_data.content},
+            headers={"Prefer": "resolution=merge-duplicates"}
+        )
+        # Уведомляем всех клиентов об изменении настроек
+        await manager.broadcast(json.dumps({"type": "cauldron_config_updated", "content": request_data.content}))
+        
+        return {"message": "Настройки ивента успешно обновлены."}
+    except Exception as e:
+        logging.error(f"Ошибка при обновлении настроек котла: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось сохранить настройки.")
+        
+# --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
+
 @app.post("/api/v1/admin/events/create")
 async def create_event(
     request_data: EventCreateRequest,
@@ -1653,6 +1692,114 @@ async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.As
     # Поле duration_hours уже должно быть в объекте quest.
     # Старая логика с вычислением больше не нужна.
     return quest
+
+# --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
+
+@app.get("/api/v1/events/cauldron/status")
+async def get_cauldron_status(
+    request: Request, # Добавляем Request, чтобы проверить, админ ли это
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Отдает текущее состояние ивента 'Котел'."""
+    try:
+        resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        if not data or not data[0].get('content'):
+            raise HTTPException(status_code=404, detail="Ивент не найден или не настроен.")
+
+        content = data[0]['content']
+
+        # Проверяем, является ли пользователь админом
+        # Это нужно, чтобы админ видел ивент, даже если он скрыт
+        is_admin = False
+        try:
+            # Пытаемся незаметно проверить initData из заголовка, если он там есть
+            init_data_header = request.headers.get("X-Init-Data")
+            if init_data_header:
+                user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
+                if user_info and user_info.get("id") in ADMIN_IDS:
+                    is_admin = True
+        except Exception:
+            pass # Если не получилось - не страшно, просто считаем не админом
+
+        # Если ивент скрыт и пользователь не админ, не отдаем данные
+        if not content.get('is_visible_to_users', False) and not is_admin:
+            raise HTTPException(status_code=403, detail="Ивент в данный момент неактивен.")
+
+        # TODO: В будущем добавим сюда логику для получения топ-донатеров
+        
+        return content
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении статуса котла: {e}")
+        # Возвращаем 404, если ивент просто не настроен
+        if isinstance(e, HTTPException) and e.status_code in [403, 404]:
+            raise e
+        raise HTTPException(status_code=500, detail="Не удалось загрузить данные ивента.")
+
+
+@app.post("/api/v1/events/cauldron/contribute")
+async def contribute_to_cauldron(
+    request_data: CauldronContributeRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Пользователь вносит билеты в котел."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+
+    telegram_id = user_info["id"]
+    amount = request_data.amount
+    user_display_name = user_info.get("first_name", "User")
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Количество билетов должно быть больше нуля.")
+
+    try:
+        # Вызываем RPC функцию в Supabase, которая атомарно выполнит все действия
+        response = await supabase.post(
+            "/rpc/contribute_to_cauldron",
+            json={
+                "p_user_id": telegram_id,
+                "p_amount": amount,
+                "p_user_display_name": user_display_name,
+                "p_contribution_type": "ticket"
+            }
+        )
+        response.raise_for_status()
+        
+        # Данные, которые вернула RPC функция (новый прогресс)
+        result = response.json()
+        new_progress = result.get('new_progress')
+        new_ticket_balance = result.get('new_ticket_balance')
+
+        # Оповещаем всех через WebSocket о новом вкладе
+        await manager.broadcast(json.dumps({
+            "type": "cauldron_update",
+            "new_progress": new_progress,
+            "last_contributor": {
+                "name": user_display_name,
+                "type": "ticket",
+                "amount": amount
+            }
+        }))
+
+        return {
+            "message": "Ваш вклад принят!",
+            "new_progress": new_progress,
+            "new_ticket_balance": new_ticket_balance
+        }
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка на стороне базы данных.")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Критическая ошибка при вкладе в котел: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.get("/api/v1/admin/twitch_rewards/list")
 async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -4438,6 +4585,8 @@ async def read_root(): return FileResponse(f"{TEMPLATES_DIR}/index.html")
 async def checkpoint_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/checkpoint.html")
 @app.get("/roulette.html")
 async def roulette_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/roulette.html")
+@app.get("/halloween")
+async def halloween_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/halloween.html")
 
 def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
