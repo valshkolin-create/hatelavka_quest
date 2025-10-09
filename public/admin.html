@@ -78,6 +78,10 @@
                         <div class="icon-wrapper"><i class="fa-solid fa-user-gear"></i></div>
                         <span>Пользователи</span>
                     </div>
+                    <div class="admin-icon-button" data-view="view-admin-cauldron">
+                        <div class="icon-wrapper" style="color: #ff9500;"><i class="fa-solid fa-hat-wizard"></i></div>
+                        <span>Ивент "Котел"</span>
+                    </div>
                 </div>
             </div>
              <div class="quest-card" style="margin-top: 20px; text-align: center;">
@@ -494,6 +498,45 @@
                 </form>
             </div>
             <div id="roulette-prizes-list" class="quests-container" style="margin-top: 20px;"></div>
+        </div>
+        <div id="view-admin-cauldron" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Ивент "Котел"</h1>
+                <div style="width: 60px;"></div>
+            </div>
+            <div class="quest-card">
+                <form id="cauldron-settings-form" class="admin-form">
+                    <div class="setting-item">
+                        <span class="setting-label">Ивент активен (виден пользователям)</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="is_visible_to_users">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <label>Название ивента</label>
+                    <input type="text" name="title" required placeholder="Ведьминский котел">
+
+                    <label>Цель сбора</label>
+                    <input type="number" name="goal" required placeholder="10000">
+
+                    <label>URL страницы ивента</label>
+                    <input type="text" name="event_page_url" required value="/halloween" placeholder="/halloween">
+
+                    <label>URL баннера для главной</label>
+                    <input type="text" name="banner_image_url" placeholder="https://....png">
+
+                    <label>URL картинки котла (на стр. ивента)</label>
+                    <input type="text" name="cauldron_image_url" placeholder="https://....png">
+                    
+                    <button type="submit" class="admin-action-btn approve" style="width: 100%; margin-top: 10px;">Сохранить настройки</button>
+                </form>
+            </div>
+            <div class="quest-card" style="margin-top: 20px;">
+                <h3 style="margin-top: 0;">Опасная зона</h3>
+                <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить прогресс</button>
+            </div>
         </div>
     </main>
 
