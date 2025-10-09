@@ -524,8 +524,10 @@
                     <label>URL страницы ивента</label>
                     <input type="text" name="event_page_url" required value="/halloween" placeholder="/halloween">
 
-                    <label>Награды Twitch для котла (формат: Название:Кол-во)</label>
-                    <textarea name="twitch_reward_trigger_titles" rows="4" placeholder="Ингредиент в котел:10&#10;Маленький вклад:50&#10;Щедрый вклад:250"></textarea>
+                   <label>Награды Twitch для котла</label>
+                    <div id="cauldron-triggers-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 5px;">
+                        </div>
+                    <button type="button" id="add-cauldron-trigger-btn" class="admin-action-btn" style="width: 100%; margin-top: 10px; background-color: var(--primary-color-dim);"><i class="fa-solid fa-plus"></i> Добавить награду</button>
 
                     <label>URL картинки котла (на стр. ивента)</label>
                     <input type="text" name="cauldron_image_url" placeholder="https://....png">
