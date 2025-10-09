@@ -25,706 +25,101 @@
                 <h1 class="page-header-title">Админка</h1>
                 <div style="width: 80px;"></div>
             </div>
-            <div class="admin-icon-menu">
-                <div class="admin-icon-button" data-view="view-admin-quests">
-                    <div class="icon-wrapper"><i class="fa-solid fa-list-check"></i></div>
-                    <span>Задания</span>
+
+            <div class="tabs-container main-tabs">
+                <button class="tab-button active" data-tab="main">Основное</button>
+                <button class="tab-button" data-tab="admin">Администрирование</button>
+            </div>
+
+            <div id="tab-content-main" class="tab-content active">
+                <div class="admin-icon-menu">
+                    <div class="admin-icon-button" data-view="view-admin-pending-actions">
+                        <div class="icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
+                        <span>Выдача и проверки</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
+                        <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
+                        <span>Twitch награды</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-promocodes">
+                        <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
+                        <span>Промокоды</span>
+                    </div>
                 </div>
-                <div class="admin-icon-button" data-view="view-admin-categories">
-                    <div class="icon-wrapper"><i class="fa-solid fa-folder-tree"></i></div>
-                    <span>Категории</span>
+            </div>
+
+            <div id="tab-content-admin" class="tab-content hidden">
+                <div class="admin-icon-menu">
+                    <div class="admin-icon-button" data-view="view-admin-quests">
+                        <div class="icon-wrapper"><i class="fa-solid fa-list-check"></i></div>
+                        <span>Задания</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-challenges">
+                        <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+                        <span>Челленджи</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-categories">
+                        <div class="icon-wrapper"><i class="fa-solid fa-folder-tree"></i></div>
+                        <span>Категории</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-settings">
+                        <div class="icon-wrapper"><i class="fa-solid fa-sliders"></i></div>
+                        <span>Настройки</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-roulette">
+                        <div class="icon-wrapper" style="color: var(--warning-color);"><i class="fa-solid fa-dice"></i></div>
+                        <span>Рулетки</span>
+                    </div>
+                    <a href="/roulette.html" target="_blank" class="admin-icon-button">
+                        <div class="icon-wrapper"><i class="fa-solid fa-eye"></i></div>
+                        <span>Просмотр рулетки</span>
+                    </a>
+                    <div class="admin-icon-button" data-view="view-admin-user-management">
+                        <div class="icon-wrapper"><i class="fa-solid fa-user-gear"></i></div>
+                        <span>Пользователи</span>
+                    </div>
                 </div>
-                <div class="admin-icon-button" data-view="view-admin-challenges">
-                    <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
-                    <span>Челленджи</span>
-                </div>
-                <div class="admin-icon-button" data-view="view-admin-promocodes">
-                    <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
-                    <span>Промокоды</span>
-                </div>
-                <div class="admin-icon-button" data-view="view-admin-pending-actions">
-                    <div class="icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
-                    <span>Выдача и проверки</span>
-                </div>
-                <div class="admin-icon-button" data-view="view-admin-user-management">
-                    <div class="icon-wrapper"><i class="fa-solid fa-user-gear"></i></div>
-                    <span>Пользователи</span>
-                </div>
-                <div class="admin-icon-button" data-view="view-admin-settings">
-                    <div class="icon-wrapper"><i class="fa-solid fa-sliders"></i></div>
-                    <span>Настройки</span>
-                </div>
-                <div class="admin-icon-button" data-view="view-admin-statistics">
-                    <div class="icon-wrapper"><i class="fa fa-chart-line"></i></div>
-                    <span>Статистика</span>
-                </div>
-                <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
-                    <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
-                    <span>Twitch награды</span>
-                </div>
-                <div class="admin-icon-button" data-view="view-admin-roulette">
-                    <div class="icon-wrapper" style="color: var(--warning-color);"><i class="fa-solid fa-dice"></i></div>
-                    <span>Рулетки</span>
-                </div>
-                 <a href="/roulette.html" target="_blank" class="admin-icon-button">
-                    <div class="icon-wrapper"><i class="fa-solid fa-eye"></i></div>
-                    <span>Просмотр рулетки</span>
-                </a>
             </div>
              <div class="quest-card" style="margin-top: 20px; text-align: center;">
                 <p style="font-size: 14px; color: var(--text-color-muted); margin:0;">
-                    Панель для администратирования канала HATElove.ttv. Основные кнопки: Выдача и проверки, Twitch награды. 
+                    Панель для администратирования канала HATElove.ttv.
                 </p>
             </div>
         </div>
         
-        <div id="view-admin-user-management" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Управление</h1>
-                <div style="width: 60px;"></div>
-            </div>
-
-            <div class="quest-card">
-                <div class="user-management-section">
-                    <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Управление Звездами (Чекпоинт)</h3>
-                    <form id="grant-checkpoint-stars-form" class="admin-form">
-                        <label>Выдать звезды Чекпоинта
-                             <div class="tooltip">?
-                                <span class="tooltip-text">Добавляет указанное количество звёзд Чекпоинта пользователю. Не отнимает существующие.</span>
-                            </div>
-                        </label>
-                        <input type="number" name="user_id_to_grant_cp" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="amount_cp" required placeholder="Количество звезд">
-                        <button type="submit">Выдать</button>
-                    </form>
-                    <form id="freeze-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
-                        <label>Заморозка/разморозка звезд
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Временно запрещает пользователю тратить звёзды Чекпоинта. Введите 0 дней для немедленной разморозки.</span>
-                            </div>
-                        </label>
-                        <input type="number" name="user_id_to_freeze_cp" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="days_cp" required placeholder="Кол-во дней (0 для разморозки)">
-                        <button type="submit">Применить</button>
-                    </form>
-                </div>
-            </div>
-            
-            <div class="quest-card" style="margin-top: 20px;">
-                 <div class="user-management-section">
-                    <h3><i class="fa-solid fa-ticket" style="color: var(--primary-color);"></i> Управление Билетами (Ивенты)</h3>
-                    <form id="grant-tickets-form" class="admin-form">
-                        <label>Выдать билеты
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Добавляет указанное количество билетов для участия в розыгрышах.</span>
-                            </div>
-                        </label>
-                        <input type="number" name="user_id_to_grant_tickets" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="amount_tickets" required placeholder="Количество билетов">
-                        <button type="submit">Выдать</button>
-                    </form>
-                    <form id="freeze-tickets-form" class="admin-form" style="margin-top: 20px;">
-                        <label>Заморозка/разморозка билетов
-                             <div class="tooltip">?
-                                <span class="tooltip-text">Временно запрещает пользователю участвовать в розыгрышах. Введите 0 дней для немедленной разморозки.</span>
-                            </div>
-                        </label>
-                        <input type="number" name="user_id_to_freeze_tickets" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="days_tickets" required placeholder="Кол-во дней (0 для разморозки)">
-                        <button type="submit">Применить</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="quest-card" style="margin-top: 20px;">
-                 <div class="user-management-section">
-                    <h3 style="color: var(--danger-color);"><i class="fa-solid fa-broom"></i> Очистка прогресса (Чекпоинт)</h3>
-                    <form id="reset-checkpoint-progress-form" class="admin-form">
-                        <label>Сбросить награды Чекпоинта
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Удаляет все полученные награды Чекпоинта, но НЕ ТРОГАЕТ баланс звёзд пользователя. Действие необратимо.</span>
-                            </div>
-                        </label>
-                        <input type="number" name="user_id_to_reset" required placeholder="Telegram ID пользователя">
-                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Сбросить награды</button>
-                    </form>
-                    <form id="clear-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
-                        <label>Обнулить звёзды Чекпоинта
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Устанавливает баланс звёзд Чекпоинта на 0, но НЕ ТРОГАЕТ список полученных наград. Действие необратимо.</span>
-                            </div>
-                        </label>
-                        <input type="number" name="user_id_to_clear" required placeholder="Telegram ID пользователя">
-                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Обнулить звёзды</button>
-                    </form>
-                </div>
-            </div>
-
-        </div>
-
-        <div id="view-admin-pending-actions" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Ожидают действия</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="tabs-container">
-                <button class="tab-button active" data-tab="submissions">
-                    <i class="fa-solid fa-user-check"></i> Проверки
-                </button>
-                <button class="tab-button" data-tab="event-prizes">
-                    <i class="fa-solid fa-trophy"></i> Розыгрыши
-                </button>
-                <button class="tab-button" data-tab="checkpoint-prizes">
-                    <i class="fa-solid fa-flag-checkered"></i> Чекпоинт
-                </button>
-            </div>
-            <div id="tab-content-submissions" class="tab-content active quests-container"></div>
-            <div id="tab-content-event-prizes" class="tab-content hidden quests-container"></div>
-            <div id="tab-content-checkpoint-prizes" class="tab-content hidden quests-container"></div>
-        </div>
-
-        <div id="view-admin-settings" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Настройки</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            
-            <div class="quest-card">
-                <div class="settings-group">
-                    <h3>Внешний вид</h3>
-                    <div class="admin-form" style="gap: 20px;">
-                        <div>
-                            <label for="setting-menu-banner-url">URL баннера "Гонка за скинами"</label>
-                            <input type="text" id="setting-menu-banner-url" placeholder="https://example.com/banner.png">
-                        </div>
-                        <div>
-                            <label for="setting-checkpoint-banner-url">URL баннера "Марафон Чекпоинт"</label>
-                            <input type="text" id="setting-checkpoint-banner-url" placeholder="https://example.com/banner2.png">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="quest-card" style="margin-top: 20px;">
-                <div class="settings-group">
-                    <h3>Системы</h3>
-                    <div class="setting-item">
-                        <span class="setting-label">Система Заданий</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-quests-enabled">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-label">Система Челленджей</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-challenges-enabled">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-label">Система Чекпоинта</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-checkpoint-enabled">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="quest-card" style="margin-top: 20px;">
-                <div class="settings-group">
-                    <h3>Награды</h3>
-                    <div class="setting-item">
-                        <span class="setting-label">Награды за Задания</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-quest-rewards-enabled">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-label">Награды за Челленджи</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-challenge-rewards-enabled">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-            
-             <div class="quest-card" style="margin-top: 20px;">
-                <div class="settings-group">
-                    <button id="save-settings-btn" class="admin-action-btn approve" style="width: 100%;">Сохранить все настройки</button>
-                </div>
-            </div>
-
-             <div class="quest-card" style="margin-top: 20px;">
-                <div class="settings-group">
-                    <h3>Опасно</h3>
-                    <div class="admin-form" style="gap: 10px;">
-                        <button id="reset-all-quests-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить квесты у всех</button>
-                        <button id="reset-all-checkpoint-progress-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить награды Чекпоинта у всех</button>
-                        <button id="clear-all-checkpoint-stars-btn" class="admin-action-btn reject" style="width: 100%;">Обнулить звёзды Чекпоинта у всех</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div id="view-admin-categories" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Категории</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="quest-card">
-                <form id="create-category-form" class="admin-form">
-                    <label>Название новой категории</label>
-                    <input type="text" name="name" required placeholder="Например, 'Сложные задания'">
-                    <button type="submit">Создать категорию</button>
-                </form>
-            </div>
-             <div id="categories-list" class="quests-container" style="margin-top: 20px;"></div>
-        </div>
-
-        <div id="view-admin-challenges" class="view hidden">
-             <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Челленджи</h1>
-                <button id="go-create-challenge" class="admin-menu-button" style="width: auto; padding: 8px 12px; font-size: 14px;">Создать</button>
-            </div>
-            <div id="challenges-list" class="quests-container"></div>
-        </div>
-        
-        <div id="view-admin-challenge-form" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-challenges"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 id="challenge-form-title" class="page-header-title">Новый челлендж</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="quest-card">
-                <form id="challenge-form" class="admin-form">
-                    <input type="hidden" name="challenge_id">
-                    <label>Описание</label>
-                    <textarea name="description" rows="3" required></textarea>
-                    <label>Тип условия</label>
-                    <select name="condition_type" required>
-                        <option value="telegram_messages">Сообщения в Telegram</option>
-                        <option value="twitch_points">Ранг/PTS в Twitch</option>
-                        <option value="twitch_messages">Сообщения Twitch</option>
-                        <option value="twitch_uptime">Twitch (время просмотра)</option>
-                    </select>
-                    <div class="challenge-period-wrapper hidden">
-                        <label>Период</label>
-                        <select name="challenge_period">
-                           <option value="session">Сессия</option>
-                           <option value="week">Неделя</option>
-                           <option value="month">Месяц</option>
-                        </select>
-                    </div>
-                    <label>Целевое значение</label>
-                    <input type="number" name="target_value" required>
-                    <label>Награда (количество звёзд)</label>
-                    <input type="number" name="reward_amount" required>
-                    <label>Срок выполнения (в часах)</label>
-                    <input type="number" name="duration_days" value="16" required>
-                    <label>Статус</label>
-                    <select name="is_active">
-                        <option value="true">Активен</option>
-                        <option value="false">Неактивен</option>
-                    </select>
-                    <button type="submit">Сохранить</button>
-                </form>
-            </div>
-        </div>
-
-        <div id="view-admin-quests" class="view hidden">
-             <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Задания</h1>
-                <button id="go-create-quest" class="admin-menu-button" style="width: auto; padding: 8px 12px; font-size: 14px;">Создать</button>
-            </div>
-            <div id="quests-list" class="quests-container"></div>
-        </div>
-
-        <div id="view-admin-promocodes" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Промокоды</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="quest-card">
-                <form id="add-promocodes-form" class="admin-form">
-                    <label>Список кодов (каждый с новой строки)</label>
-                    <textarea name="codes" rows="6" required></textarea>
-                    <label>Количество звёзд</label>
-                    <input type="number" name="reward_value" required>
-                    <label>Описание награды</label>
-                    <input type="text" name="description" required>
-                    <button type="submit">Добавить</button>
-                </form>
-            </div>
-        </div>
-
-        <div id="view-admin-create" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-quests"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Новое задание</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="quest-card">
-                <form id="create-quest-form" class="admin-form">
-                    <label>Название</label>
-                    <input type="text" name="title" required>
-                    <label>URL иконки (по желанию)</label>
-                    <input type="text" name="icon_url">
-                    <label>Описание</label>
-                    <textarea name="description" rows="3"></textarea>
-                    <label>Награда (количество звёзд)</label>
-                    <input type="number" name="reward_amount" required>
-                    <label>Тип квеста</label>
-                    <select name="quest_type">
-                        <option value="manual_check">Ручная проверка</option>
-                        <option value="automatic_telegram_messages">Telegram (сообщения)</option>
-                        <option value="automatic_twitch_points">Twitch (ранг/PTS)</option>
-                        <option value="automatic_twitch_messages">Twitch (сообщения)</option>
-                        <option value="automatic_twitch_uptime">Twitch (время просмотра)</option>
-                    </select>
-                    <div class="manual-options-wrapper">
-                        <label>Категория (для ручных заданий)</label>
-                        <select name="category_id">
-                            <option value="">Без категории</option>
-                        </select>
-                        <label>Режим выполнения (для ручных заданий)</label>
-                        <select name="is_repeatable">
-                            <option value="false">Одноразовое</option>
-                            <option value="true">Многоразовое</option>
-                        </select>
-                        <label>URL для перехода (для ручных заданий)</label>
-                        <input type="text" name="action_url" placeholder="https://tiktok.com/...">
-                    </div>
-                    <div class="automatic-options-wrapper hidden">
-                        <div class="twitch-period-wrapper hidden">
-                            <label>Период</label>
-                            <select name="twitch_period">
-                               <option value="session">Сессия</option>
-                               <option value="week">Неделя</option>
-                               <option value="month">Месяц</option>
-                            </select>
-                        </div>
-                        <label>Цель (для авто-квестов)</label>
-                        <input type="number" name="target_value">
-                    </div>
-                    <label>Срок выполнения (в часах, 0 - бессрочно)</label>
-                    <input type="number" name="duration_hours" value="0">
-                    <label>Статус</label>
-                    <select name="is_active">
-                        <option value="true">Активен</option>
-                        <option value="false">Неактивен</option>
-                    </select>
-                    <button type="submit">Создать</button>
-                </form>
-            </div>
-        </div>
-
-        <div id="view-admin-edit" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-quests"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Редактирование</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="quest-card">
-                <form id="edit-quest-form" class="admin-form">
-                    <input type="hidden" name="quest_id">
-                    <label>Название</label>
-                    <input type="text" name="title" required>
-                    <label>URL иконки (по желанию)</label>
-                    <input type="text" name="icon_url">
-                    <label>Описание</label>
-                    <textarea name="description" rows="3"></textarea>
-                    <label>Награда (количество звёзд)</label>
-                    <input type="number" name="reward_amount" required>
-                    <label>Тип квеста</label>
-                    <select name="quest_type">
-                        <option value="manual_check">Ручная проверка</option>
-                        <option value="automatic_telegram_messages">Telegram (сообщения)</option>
-                        <option value="automatic_twitch_points">Twitch (ранг/PTS)</option>
-                        <option value="automatic_twitch_messages">Twitch (сообщения)</option>
-                        <option value="automatic_twitch_uptime">Twitch (время просмотра)</option>
-                    </select>
-                    <div class="manual-options-wrapper">
-                        <label>Категория (для ручных заданий)</label>
-                        <select name="category_id">
-                            <option value="">Без категории</option>
-                        </select>
-                        <label>Режим выполнения (для ручных заданий)</label>
-                        <select name="is_repeatable">
-                            <option value="false">Одноразовое</option>
-                            <option value="true">Многоразовое</option>
-                        </select>
-                        <label>URL для перехода (для ручных заданий)</label>
-                        <input type="text" name="action_url" placeholder="https://tiktok.com/...">
-                    </div>
-                     <div class="automatic-options-wrapper hidden">
-                        <div class="twitch-period-wrapper hidden">
-                            <label>Период</label>
-                            <select name="twitch_period">
-                               <option value="session">Сессия</option>
-                               <option value="week">Неделя</option>
-                               <option value="month">Месяц</option>
-                            </select>
-                        </div>
-                        <label>Цель (для авто-квестов)</label>
-                        <input type="number" name="target_value">
-                    </div>
-                    <label>Срок выполнения (в часах, 0 - бессрочно)</label>
-                    <input type="number" name="duration_hours" value="0">
-                    <label>Статус</label>
-                    <select name="is_active">
-                        <option value="true">Активен</option>
-                        <option value="false">Неактивен</option>
-                    </select>
-                    <button type="submit">Сохранить</button>
-                </form>
-            </div>
-        </div>
-
-        <div id="view-admin-statistics" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Статистика</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div id="statistics-content">
-                <h2 style="font-size: 20px; margin-bottom: 15px;">Пульс проекта 🩺</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-card-header">
-                            <h4>Активных сегодня (DAU)</h4>
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Daily Active Users. Уникальные пользователи, которые заходили в приложение сегодня (с 00:00).</span>
-                            </div>
-                        </div>
-                        <p id="stat-dau">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-header">
-                            <h4>Активных за неделю (WAU)</h4>
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Weekly Active Users. Уникальные пользователи, которые заходили в приложение за последние 7 дней.</span>
-                            </div>
-                        </div>
-                        <p id="stat-wau">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-header">
-                            <h4>Активных за месяц (MAU)</h4>
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Monthly Active Users. Уникальные пользователи, которые заходили в приложение за последние 30 дней.</span>
-                            </div>
-                        </div>
-                        <p id="stat-mau">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-header">
-                             <h4>"Липкость" (DAU/MAU)</h4>
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Ключевой показатель вовлечённости. Показывает, какой % месячной аудитории заходит каждый день. Хорошим считается значение >20%.</span>
-                            </div>
-                        </div>
-                        <p id="stat-stickiness">0%</p>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-header">
-                            <h4>Новых сегодня</h4>
-                             <div class="tooltip">?
-                                <span class="tooltip-text">Количество пользователей, которые зарегистрировались сегодня (с 00:00).</span>
-                            </div>
-                        </div>
-                        <p id="stat-new-today">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-header">
-                            <h4>Новых за неделю</h4>
-                            <div class="tooltip">?
-                                <span class="tooltip-text">Количество пользователей, которые зарегистрировались за последние 7 дней.</span>
-                            </div>
-                        </div>
-                        <p id="stat-new-week">0</p>
-                    </div>
-                </div>
-                <div id="events-stats-container" style="margin-top: 25px;">
-                    <h2 style="font-size: 20px; margin-bottom: 15px;">Активные розыгрыши 🔥</h2>
-                    <div id="events-stats-list"></div>
-                </div>
-            </div>
-        </div>
-      
-        <div id="view-admin-twitch-rewards" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main">
-                    <i class="fa-solid fa-arrow-left"></i> Назад
-                </button>
-                <h1 class="page-header-title">Twitch награды</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div id="twitch-rewards-container" class="quests-container">
-            </div>
-        </div>
-
-        <div id="view-admin-roulette" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Призы для рулеток</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="quest-card">
-                <form id="create-roulette-prize-form" class="admin-form">
-                    <label>Название Twitch награды (триггер)</label>
-                    <input type="text" name="reward_title" required placeholder="Например: Крутить рулетку">
-                    
-                    <label>Название скина</label>
-                    <input type="text" name="skin_name" required placeholder="Например: AWP | Asiimov">
-                    
-                    <label>URL картинки скина</label>
-                    <input type="text" name="image_url" required placeholder="https:// ... .png">
-
-                    <label>Вес шанса
-                        <div class="tooltip">?
-                           <span class="tooltip-text">Чем выше число, тем выше шанс. Если у одного скина вес 90, а у другого 10, то их шансы будут 90% и 10%.</span>
-                       </div>
-                    </label>
-                    <input type="number" name="chance_weight" required value="10">
-
-                    <button type="submit">Добавить приз</button>
-                </form>
-            </div>
-            <div id="roulette-prizes-list" class="quests-container" style="margin-top: 20px;">
-                </div>
-        </div>
-
+        <div id="view-admin-user-management" class="view hidden">...</div>
+        <div id="view-admin-pending-actions" class="view hidden">...</div>
+        <div id="view-admin-settings" class="view hidden">...</div>
+        <div id="view-admin-categories" class="view hidden">...</div>
+        <div id="view-admin-challenges" class="view hidden">...</div>
+        <div id="view-admin-challenge-form" class="view hidden">...</div>
+        <div id="view-admin-quests" class="view hidden">...</div>
+        <div id="view-admin-promocodes" class="view hidden">...</div>
+        <div id="view-admin-create" class="view hidden">...</div>
+        <div id="view-admin-edit" class="view hidden">...</div>
+        <div id="view-admin-statistics" class="view hidden">...</div>
+        <div id="view-admin-twitch-rewards" class="view hidden">...</div>
+        <div id="view-admin-roulette" class="view hidden">...</div>
     </main>
 
-    <div id="submissions-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-title" class="modal-title">Заявки</h2>
-                <button id="modal-close-btn" class="modal-close-btn">&times;</button>
-            </div>
-            <div id="modal-body" class="modal-body"></div>
-        </div>
-    </div>
-    
-    <div id="generic-prompt-overlay" class="modal-overlay hidden">
+    <div id="password-prompt-overlay" class="modal-overlay hidden">
         <div class="prompt-modal">
-            <h3 id="generic-prompt-title">Редактировать</h3>
-            <input type="text" id="generic-prompt-input" class="admin-form" style="margin-top: 15px;">
+            <h3>Введите пароль</h3>
+            <input type="password" id="password-prompt-input" class="admin-form" style="margin-top: 15px;">
             <div class="prompt-actions">
-                <button id="generic-prompt-cancel" class="cancel-btn">Отмена</button>
-                <button id="generic-prompt-confirm" class="confirm-btn">Сохранить</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="winners-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Победители розыгрышей</h2>
-                <button id="winners-modal-close-btn" class="modal-close-btn">&times;</button>
-            </div>
-            <div id="winners-modal-body" class="modal-body">
-            </div>
-        </div>
-    </div>
-
-    <div id="sleep-prompt-overlay" class="modal-overlay hidden">
-        <div class="prompt-modal">
-            <h3>Уложить бота спать?</h3>
-            <p style="font-size: 14px; color: var(--text-color-muted);">0 = спать вечно (до ручного включения)</p>
-            <input type="number" id="sleep-minutes-input" class="admin-form" style="margin-top: 15px;" placeholder="Количество минут..." value="60">
-            <div class="prompt-actions">
-                <button id="sleep-prompt-cancel" class="cancel-btn">Отмена</button>
-                <button id="sleep-prompt-confirm" class="confirm-btn">Уложить</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="twitch-purchases-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="twitch-purchases-title" class="modal-title">Покупки награды</h2>
-                <button id="refresh-purchases-btn" title="Обновить список">
-                    <i class="fa-solid fa-rotate-right"></i>
-                </button>
-                <button class="modal-close-btn" data-close-modal="twitch-purchases-modal">&times;</button>
-            </div>
-            <div id="twitch-purchases-body" class="modal-body">
+                <button id="password-prompt-cancel" class="cancel-btn">Отмена</button>
+                <button id="password-prompt-confirm" class="confirm-btn">Войти</button>
             </div>
         </div>
     </div>
     
-    <div id="twitch-reward-settings-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="twitch-settings-title" class="modal-title">Настройки награды</h2>
-                <button class="modal-close-btn" data-close-modal="twitch-reward-settings-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="twitch-reward-settings-form" class="admin-form">
-                    <input type="hidden" name="reward_id">
-                    <div class="setting-item">
-                        <span class="setting-label">Активна в логах</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" name="is_active">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-label">Уведомлять админа</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" name="notify_admin">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-label">Показывать сообщение от пользователя</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" name="show_user_input">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
+    <div id="submissions-modal" class="modal-overlay hidden">...</div>
+    <div id="generic-prompt-overlay" class="modal-overlay hidden">...</div>
+    <div id="winners-modal" class="modal-overlay hidden">...</div>
+    <div id="sleep-prompt-overlay" class="modal-overlay hidden">...</div>
+    <div id="twitch-purchases-modal" class="modal-overlay hidden">...</div>
+    <div id="twitch-reward-settings-modal" class="modal-overlay hidden">...</div>
 
-                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
-                        <label>Условие для выдачи (необязательно)</label>
-                        <select name="condition_type">
-                            <option value="">Нет условия</option>
-                            <option value="twitch_messages_session">Сообщения Twitch (за стрим)</option>
-                            <option value="twitch_messages_week">Сообщения Twitch (за неделю)</option>
-                            <option value="twitch_messages_month">Сообщения Twitch (за месяц)</option>
-                        </select>
-                        <input type="number" name="target_value" placeholder="Например, 500 (сообщений)" style="margin-top: 10px;">
-                    </div>
-
-                    <div style="margin-top: 15px;">
-                      <label for="promocode-amount-input">Сумма промокода (звёзды)</label>
-                      <input type="number" id="promocode-amount-input" name="promocode_amount" placeholder="Например, 10" required>
-                    </div>
-
-                    <div class="prompt-actions" style="margin-top: 20px;">
-                        <button type="button" class="cancel-btn" data-close-modal="twitch-reward-settings-modal">Отмена</button>
-                        <button type="submit" class="confirm-btn">Сохранить</button>
-                    </div>
-                    
-                    <div style="margin-top: 25px; border-top: 1px solid var(--divider-glass-color); padding-top: 15px;">
-                        <button type="button" id="delete-twitch-reward-btn" class="admin-action-btn reject" style="width: 100%;">Удалить награду</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-<script src="/admin.js" defer></script>
+    <script src="/admin.js" defer></script>
 </body>
 </html>
