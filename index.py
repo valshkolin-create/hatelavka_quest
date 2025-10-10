@@ -1512,6 +1512,28 @@ async def reset_cauldron_progress(
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
+@app.post("/api/v1/admin/events/cauldron/participants")
+async def get_cauldron_participants_for_admin(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает список всех участников ивента 'Котел' с их суммарным вкладом и трейд-ссылками."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Вызываем RPC функцию, которая сделает всю сложную работу
+        response = await supabase.post("/rpc/get_cauldron_leaderboard_admin")
+        response.raise_for_status()
+        
+        # Просто возвращаем результат как есть
+        return response.json()
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении участников котла для админа: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось получить список участников.")
+
 @app.post("/api/v1/admin/events/create")
 async def create_event(
     request_data: EventCreateRequest,
@@ -1861,7 +1883,7 @@ async def contribute_to_cauldron(
     request_data: CauldronContributeRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Пользователь вносит билеты в котел."""
+    """Пользователь вносит билеты в котел. Добавлена проверка трейд-ссылки."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
@@ -1874,6 +1896,17 @@ async def contribute_to_cauldron(
         raise HTTPException(status_code=400, detail="Количество билетов должно быть больше нуля.")
 
     try:
+        # --- НОВАЯ ПРОВЕРКА ---
+        # 1. Получаем данные пользователя, чтобы проверить трейд-ссылку
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "trade_link"})
+        user_resp.raise_for_status()
+        user_data = user_resp.json()
+
+        # 2. Проверяем, есть ли ссылка
+        if not user_data or not user_data[0].get("trade_link"):
+             raise HTTPException(status_code=400, detail="Пожалуйста, укажите вашу трейд-ссылку в профиле для участия.")
+        # --- КОНЕЦ ПРОВЕРКИ ---
+
         # Вызываем RPC функцию в Supabase, которая атомарно выполнит все действия
         response = await supabase.post(
             "/rpc/contribute_to_cauldron",
@@ -1886,12 +1919,10 @@ async def contribute_to_cauldron(
         )
         response.raise_for_status()
         
-        # Данные, которые вернула RPC функция (новый прогресс)
         result = response.json()
         new_progress = result.get('new_progress')
         new_ticket_balance = result.get('new_ticket_balance')
 
-        # Оповещаем всех через WebSocket о новом вкладе
         await manager.broadcast(json.dumps({
             "type": "cauldron_update",
             "new_progress": new_progress,
