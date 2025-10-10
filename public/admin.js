@@ -951,8 +951,7 @@ try {
                     openTwitchPurchases(rewardId, rewardTitle);
                 }
             });
-        }
-    
+        }    
         if (dom.cauldronSettingsForm) {
             dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
