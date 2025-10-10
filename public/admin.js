@@ -952,50 +952,6 @@ try {
                 }
             });
         }    
-        if (dom.cauldronSettingsForm) {
-            dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                showLoader();
-                try {
-                    const form = e.target;
-                    
-                    const triggers = [];
-                    document.querySelectorAll('.cauldron-trigger-row').forEach(row => {
-                        const titleInput = row.querySelector('.cauldron-trigger-title');
-                        const valueInput = row.querySelector('.cauldron-trigger-value');
-                        if (titleInput && valueInput && titleInput.value.trim()) {
-                            triggers.push({
-                                title: titleInput.value.trim(),
-                                value: parseInt(valueInput.value, 10) || 0
-                            });
-                        }
-                    });
-    
-                    const content = {
-                        title: form.querySelector('[name="title"]').value,
-                        goal: parseInt(form.querySelector('[name="goal"]').value, 10),
-                        event_page_url: form.querySelector('[name="event_page_url"]').value,
-                        banner_image_url: form.querySelector('[name="banner_image_url"]').value,
-                        cauldron_image_url: form.querySelector('[name="cauldron_image_url"]').value,
-                        is_visible_to_users: form.querySelector('[name="is_visible_to_users"]').checked,
-                        twitch_reward_triggers: triggers
-                    };
-    
-                    // Fetch current progress to not overwrite it
-                    const currentSettings = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
-                    content.current_progress = currentSettings.current_progress || 0;
-
-                    await makeApiRequest('/api/v1/admin/events/cauldron/update', { content });
-                    tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
-                } catch (error) {
-                    tg.showAlert(`Ошибка сохранения: ${error.message}`);
-                    console.error("Cauldron save error:", error);
-                } finally {
-                    hideLoader();
-                }
-            });
-        }
-
         const addCauldronTriggerBtn = document.getElementById('add-cauldron-trigger-btn');
         if (addCauldronTriggerBtn) {
             addCauldronTriggerBtn.addEventListener('click', () => {
