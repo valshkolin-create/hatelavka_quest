@@ -86,9 +86,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Главная функция для отрисовки всей страницы
     function renderPage(eventData, leaderboardData = {}) {
-        if (!eventData || !eventData.is_visible_to_users) {
+        // Проверяем, есть ли у пользователя права админа
+        const isAdmin = currentUserData.profile && currentUserData.profile.is_admin;
+        
+        // Определяем, должен ли пользователь видеть ивент
+        const canViewEvent = eventData.is_visible_to_users || isAdmin;
+
+        if (!eventData || !canViewEvent) {
             document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>';
             return;
+        }
+
+        // Показываем админ-уведомление, если нужно
+        const adminNotice = document.getElementById('admin-notice');
+        if (adminNotice) {
+            const isHiddenFromUsers = !eventData.is_visible_to_users;
+            adminNotice.classList.toggle('hidden', !(isAdmin && isHiddenFromUsers));
         }
 
         const { goals, levels, current_progress = 0 } = eventData;
