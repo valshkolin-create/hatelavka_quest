@@ -361,3 +361,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     font-style: italic;
     opacity: 0.8;
 }
+/* --- ИСПРАВЛЕНИЕ ДЛЯ ПРОКРУТКИ В ИВЕНТЕ "КОТЕЛ" --- */
+#cauldron-distribution-list {
+  overflow-x: auto;
+}
