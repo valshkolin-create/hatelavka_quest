@@ -320,3 +320,44 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     line-height: 1;
 }
 /* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
+/* --- Стили для вкладки "Выдача" в ивенте "Котел" --- */
+.distribution-header, .distribution-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 10px;
+    padding: 10px 5px;
+    border-bottom: 1px solid var(--divider-glass-color);
+    align-items: center;
+    font-size: 14px;
+}
+
+.distribution-header {
+    font-weight: 600;
+    color: var(--text-color-muted);
+}
+
+.distribution-row .dist-name {
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.distribution-row .dist-amount {
+    text-align: center;
+    font-weight: 600;
+}
+
+.distribution-row .dist-link {
+    text-align: right;
+}
+
+.distribution-row .dist-link a {
+    color: var(--action-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.distribution-row .dist-link .no-link {
+    color: var(--danger-color);
+    font-style: italic;
+    opacity: 0.8;
+}
