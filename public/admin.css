@@ -107,7 +107,14 @@ body { margin: 0; min-height: 100vh; background-color: var(--bg-color); backgrou
 .toggle-slider:before { position: absolute; content: ""; height: 23px; width: 23px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
 input:checked + .toggle-slider { background-color: var(--primary-color); }
 input:checked + .toggle-slider:before { transform: translateX(20px); }
-.tabs-container { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--divider-glass-color); padding-bottom: 10px; }
+.tabs-container {
+    display: grid; /* Используем grid вместо flex */
+    grid-template-columns: repeat(5, 1fr); /* Делим на 5 равных колонок */
+    gap: 5px; /* Уменьшаем отступ между кнопками */
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--divider-glass-color);
+    padding-bottom: 10px;
+}
 .tab-button { flex: 1; padding: 10px; font-size: 14px; font-weight: 600; color: var(--text-color-muted); background-color: transparent; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s, color 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .tab-button.active { color: var(--text-color); background-color: var(--surface-glass-bg); }
 .tab-content { display: flex; flex-direction: column; gap: 15px; }
@@ -323,12 +330,13 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 /* --- Стили для вкладки "Выдача" в ивенте "Котел" --- */
 .distribution-header, .distribution-row {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1.2fr; /* Изменяем пропорции колонок */
     gap: 10px;
     padding: 10px 5px;
     border-bottom: 1px solid var(--divider-glass-color);
     align-items: center;
-    font-size: 14px;
+    font-size: 13px; /* Уменьшаем шрифт для компактности */
+    min-width: 380px; /* Задаем минимальную ширину, чтобы контент не сжимался */
 }
 
 .distribution-header {
