@@ -499,21 +499,130 @@
             </div>
             <div id="roulette-prizes-list" class="quests-container" style="margin-top: 20px;"></div>
         </div>
-        <div id="view-admin-cauldron" class="view hidden">
+<div id="view-admin-cauldron" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Ивент "Котел"</h1>
                 <div style="width: 60px;"></div>
             </div>
-            <div class="quest-card">
-                <form id="cauldron-settings-form" class="admin-form">
-                    <div class="setting-item">
-                        <span class="setting-label">Ивент активен (виден пользователям)</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" name="is_visible_to_users">
-                            <span class="toggle-slider"></span>
-                        </label>
+
+            <div class="tabs-container" id="cauldron-tabs">
+                <button class="tab-button active" data-tab="cauldron-settings">Настройки</button>
+                <button class="tab-button" data-tab="cauldron-level-1" disabled>Уровень 1</button>
+                <button class="tab-button" data-tab="cauldron-level-2" disabled>Уровень 2</button>
+                <button class="tab-button" data-tab="cauldron-level-3" disabled>Уровень 3</button>
+                <button class="tab-button" data-tab="cauldron-distribution">Выдача</button>
+            </div>
+
+            <div id="tab-content-cauldron-settings" class="tab-content active">
+                <div class="quest-card">
+                    <form id="cauldron-settings-form" class="admin-form">
+                        <div class="setting-item">
+                            <span class="setting-label">Ивент активен (виден пользователям)</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="is_visible_to_users">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <label>Название ивента</label>
+                        <input type="text" name="title" required placeholder="Ведьминский котел">
+
+                        <label>Цель для Уровня 1</label>
+                        <input type="number" name="goal_level_1" required placeholder="Например: 200">
+                        
+                        <label>Цель для Уровня 2</label>
+                        <input type="number" name="goal_level_2" required placeholder="Например: 500">
+                        
+                        <label>Цель для Уровня 3</label>
+                        <input type="number" name="goal_level_3" required placeholder="Например: 1000">
+
+                        <input type="hidden" name="level_1_data">
+                        <input type="hidden" name="level_2_data">
+                        <input type="hidden" name="level_3_data">
+
+                        <button type="submit" class="admin-action-btn approve" style="width: 100%; margin-top: 10px;">Сохранить все настройки</button>
+                    </form>
+                </div>
+                 <div class="quest-card" style="margin-top: 20px;">
+                    <h3 style="margin-top: 0;">Опасная зона</h3>
+                    <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс и участников</button>
+                </div>
+            </div>
+
+            <div id="tab-content-cauldron-level-1" class="tab-content hidden">
+                <form class="admin-form cauldron-level-form" data-level="1">
+                    <div class="quest-card">
+                        <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Уникальный дроп</h3>
+                        <label>Название предмета</label>
+                        <input type="text" name="unique_drop_name" placeholder="AWP | Dragon Lore">
+                        <label>URL изображения предмета</label>
+                        <input type="text" name="unique_drop_image_url" placeholder="https:// ... .png">
+                        <label>Лимит участников для уник. дропа</label>
+                        <input type="number" name="unique_drop_participant_limit" placeholder="20">
                     </div>
+                    <div class="quest-card" style="margin-top: 15px;">
+                        <h3><i class="fa-solid fa-box-open"></i> Обычный дроп</h3>
+                        <label>Название предмета</label>
+                        <input type="text" name="regular_drop_name" placeholder="Glock-18 | Fade">
+                        <label>URL изображения предмета</label>
+                        <input type="text" name="regular_drop_image_url" placeholder="https:// ... .png">
+                    </div>
+                </form>
+            </div>
+            
+            <div id="tab-content-cauldron-level-2" class="tab-content hidden">
+                 <form class="admin-form cauldron-level-form" data-level="2">
+                    <div class="quest-card">
+                        <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Уникальный дроп</h3>
+                        <label>Название предмета</label>
+                        <input type="text" name="unique_drop_name" placeholder="AWP | Dragon Lore">
+                        <label>URL изображения предмета</label>
+                        <input type="text" name="unique_drop_image_url" placeholder="https:// ... .png">
+                        <label>Лимит участников для уник. дропа</label>
+                        <input type="number" name="unique_drop_participant_limit" placeholder="20">
+                    </div>
+                    <div class="quest-card" style="margin-top: 15px;">
+                        <h3><i class="fa-solid fa-box-open"></i> Обычный дроп</h3>
+                        <label>Название предмета</label>
+                        <input type="text" name="regular_drop_name" placeholder="Glock-18 | Fade">
+                        <label>URL изображения предмета</label>
+                        <input type="text" name="regular_drop_image_url" placeholder="https:// ... .png">
+                    </div>
+                </form>
+            </div>
+            
+            <div id="tab-content-cauldron-level-3" class="tab-content hidden">
+                 <form class="admin-form cauldron-level-form" data-level="3">
+                    <div class="quest-card">
+                        <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Уникальный дроп</h3>
+                        <label>Название предмета</label>
+                        <input type="text" name="unique_drop_name" placeholder="AWP | Dragon Lore">
+                        <label>URL изображения предмета</label>
+                        <input type="text" name="unique_drop_image_url" placeholder="https:// ... .png">
+                        <label>Лимит участников для уник. дропа</label>
+                        <input type="number" name="unique_drop_participant_limit" placeholder="20">
+                    </div>
+                    <div class="quest-card" style="margin-top: 15px;">
+                        <h3><i class="fa-solid fa-box-open"></i> Обычный дроп (заменяет уник.)</h3>
+                        <label>Название предмета</label>
+                        <input type="text" name="regular_drop_name" placeholder="Glock-18 | Fade">
+                        <label>URL изображения предмета</label>
+                        <input type="text" name="regular_drop_image_url" placeholder="https:// ... .png">
+                    </div>
+                </form>
+            </div>
+            
+            <div id="tab-content-cauldron-distribution" class="tab-content hidden">
+                <div class="quest-card">
+                    <h3 style="margin: 0 0 15px;">Топ-20 участников по вкладу</h3>
+                    <div id="cauldron-distribution-list">
+                        <p style="text-align: center; color: var(--text-color-muted);">Здесь будет список участников...</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
                     
                     <label>Название ивента</label>
                     <input type="text" name="title" required placeholder="Ведьминский котел">
