@@ -1840,7 +1840,9 @@ async def get_cauldron_status(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Отдает текущее состояние ивента 'Котел', управляя видимостью."""
+    """Отдает текущее состояние ивента 'Котел'. 
+    Всегда возвращает полные данные; фронтенд решает, что показывать.
+    """
     try:
         resp = await supabase.get(
             "/pages_content",
@@ -1849,33 +1851,16 @@ async def get_cauldron_status(
         resp.raise_for_status()
         data = resp.json()
 
+        # Если в базе данных еще нет записи об ивенте, возвращаем пустой объект
         if not data or not data[0].get('content'):
-            # Если ивента нет в базе, он не виден никому.
             return {"is_visible_to_users": False}
 
-        content = data[0].get('content', {})
-
-        is_admin = False
-        try:
-            init_data_header = request.headers.get("X-Init-Data")
-            if init_data_header:
-                user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
-                if user_info and user_info.get("id") in ADMIN_IDS:
-                    is_admin = True
-        except Exception:
-            pass
-
-        # КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Если пользователь админ, для него ивент ВСЕГДА видим.
-        is_visible = content.get('is_visible_to_users', False) or is_admin
-        
-        if not is_visible:
-            return {"is_visible_to_users": False}
-
-        # Если мы дошли до сюда, значит ивент видим. Отдаем все данные.
-        return content
+        # Просто возвращаем все содержимое как есть
+        return data[0]['content']
 
     except Exception as e:
         logging.error(f"Ошибка при получении статуса котла: {e}")
+        # В случае ошибки также возвращаем "невидимый" статус
         return {"is_visible_to_users": False}
 
 @app.get("/api/v1/events/cauldron/leaderboard")
