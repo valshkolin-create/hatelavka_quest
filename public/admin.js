@@ -1060,7 +1060,59 @@ try {
                 }
             });
         }
+        // --- Логика для ивента "Котел" ---
+        if (dom.cauldronSettingsForm) {
+            dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                tg.showConfirm('Сохранить все настройки для ивента "Котел"? Это действие обновит все уровни.', async (ok) => {
+                    if (ok) {
+                        try {
+                            const eventData = collectCauldronData();
+                            // Получаем текущий прогресс, чтобы не перезаписать его
+                            const currentStatus = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
+                            eventData.current_progress = currentStatus.current_progress || 0;
+                            
+                            await makeApiRequest('/api/v1/admin/events/cauldron/update', { content: eventData });
+                            tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
+                           
+                            // Активируем вкладки уровней после сохранения целей
+                            const hasGoals = eventData.goals && eventData.goals.level_1 && eventData.goals.level_2 && eventData.goals.level_3;
+                            document.querySelectorAll('#cauldron-tabs .tab-button').forEach(btn => {
+                                if (btn.dataset.tab.startsWith('cauldron-level-')) {
+                                    btn.disabled = !hasGoals;
+                                }
+                            });
+                        } catch (error) {
+                            tg.showAlert(`Ошибка сохранения: ${error.message}`);
+                        }
+                    }
+                });
+            });
+        }
 
+        if (dom.resetCauldronBtn) {
+            dom.resetCauldronBtn.addEventListener('click', () => {
+                tg.showConfirm('Вы уверены, что хотите полностью сбросить весь прогресс и удалить всех участников ивента "Котел"? Это действие необратимо.', async (ok) => {
+                    if (ok) {
+                        await makeApiRequest('/api/v1/admin/events/cauldron/reset');
+                        tg.showAlert('Прогресс ивента "Котел" был полностью сброшен.');
+                        // Перезагружаем данные, чтобы отобразить сброс
+                        await switchView('view-admin-cauldron');
+                    }
+                });
+            });
+        }
+
+        // Обработчик для клика по вкладке "Выдача", чтобы загрузить участников
+        const cauldronTabs = document.getElementById('cauldron-tabs');
+        if (cauldronTabs) {
+            cauldronTabs.addEventListener('click', (e) => {
+                const button = e.target.closest('.tab-button');
+                if (button && button.dataset.tab === 'cauldron-distribution') {
+                    loadCauldronParticipants(); 
+                }
+            });
+        }
 
         if(dom.sleepModeToggle) {
             dom.sleepModeToggle.addEventListener('click', async () => {
