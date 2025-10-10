@@ -1878,6 +1878,24 @@ async def get_cauldron_status(
         logging.error(f"Ошибка при получении статуса котла: {e}")
         return {"is_visible_to_users": False}
 
+@app.get("/api/v1/events/cauldron/leaderboard")
+async def get_cauldron_leaderboard(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Отдает публичные данные для лидерборда ивента 'Котел'."""
+    try:
+        response = await supabase.post("/rpc/get_cauldron_leaderboard_public")
+        response.raise_for_status()
+        
+        # Функция возвращает готовый JSON, если участников нет, он может быть null
+        data = response.json()
+        if not data:
+            # Возвращаем пустую структуру, если в базе еще нет данных
+            return {"all": [], "top20": []}
+            
+        return data
+    except Exception as e:
+        logging.error(f"Ошибка при получении лидерборда котла: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось получить данные лидерборда.")
+
 @app.post("/api/v1/events/cauldron/contribute")
 async def contribute_to_cauldron(
     request_data: CauldronContributeRequest,
