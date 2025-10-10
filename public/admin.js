@@ -79,6 +79,7 @@ try {
             }[match];
         });
     }
+    // --- Начало блока для "Котла" ---
     async function loadCauldronParticipants() {
         const container = document.getElementById('cauldron-distribution-list');
         container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Загрузка участников...</p>';
@@ -115,7 +116,6 @@ try {
         }
     }
 
-    // Функция для сбора данных со всех форм и подготовки к отправке
     function collectCauldronData() {
         const settingsForm = dom.cauldronSettingsForm;
         const content = {
@@ -147,7 +147,6 @@ try {
         return content;
     }
 
-    // Функция для заполнения всех форм данными с сервера
     function populateCauldronForms(data = {}) {
         const settingsForm = dom.cauldronSettingsForm;
         const goals = data.goals || {};
@@ -159,10 +158,9 @@ try {
         settingsForm.elements['goal_level_2'].value = goals.level_2 || '';
         settingsForm.elements['goal_level_3'].value = goals.level_3 || '';
 
-        // Активируем вкладки, если цели заданы
         const hasGoals = goals.level_1 && goals.level_2 && goals.level_3;
         document.querySelectorAll('#cauldron-tabs .tab-button').forEach(btn => {
-            if (btn.dataset.tab !== 'cauldron-settings' && btn.dataset.tab !== 'cauldron-distribution') {
+            if (btn.dataset.tab.startsWith('cauldron-level-')) {
                 btn.disabled = !hasGoals;
             }
         });
@@ -181,11 +179,6 @@ try {
         });
     }
 
-    // --- КОНЕЦ блока ---
-
-    // Функция для создания строки с полями для одной награды
-    function createCauldronTriggerRow(trigger = { title: '', value: '' }) {
-    // Функция для создания строки с полями для одной награды
     function createCauldronTriggerRow(trigger = { title: '', value: '' }) {
         const wrapper = document.createElement('div');
         wrapper.className = 'cauldron-trigger-row';
@@ -199,6 +192,7 @@ try {
         `;
         return wrapper;
     }
+    // --- Конец блока для "Котла" ---
 
     async function loadStatistics() {
         showLoader();
