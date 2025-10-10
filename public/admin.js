@@ -79,7 +79,112 @@ try {
             }[match];
         });
     }
+    async function loadCauldronParticipants() {
+        const container = document.getElementById('cauldron-distribution-list');
+        container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Загрузка участников...</p>';
+        try {
+            const participants = await makeApiRequest('/api/v1/admin/events/cauldron/participants', {}, 'POST', true);
+            
+            if (!participants || participants.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Участников пока нет.</p>';
+                return;
+            }
 
+            container.innerHTML = `
+                <div class="distribution-header">
+                    <span>Участник</span>
+                    <span>Вклад (билеты)</span>
+                    <span>Трейд-ссылка</span>
+                </div>
+                ${participants.map(p => `
+                    <div class="distribution-row">
+                        <span class="dist-name">${escapeHTML(p.full_name || 'Без имени')}</span>
+                        <span class="dist-amount">${p.total_contribution}</span>
+                        <span class="dist-link">
+                            ${p.trade_link 
+                                ? `<a href="${escapeHTML(p.trade_link)}" target="_blank">Открыть</a>`
+                                : '<span class="no-link">Нет</span>'
+                            }
+                        </span>
+                    </div>
+                `).join('')}
+            `;
+
+        } catch (e) {
+            container.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить список: ${e.message}</p>`;
+        }
+    }
+
+    // Функция для сбора данных со всех форм и подготовки к отправке
+    function collectCauldronData() {
+        const settingsForm = dom.cauldronSettingsForm;
+        const content = {
+            title: settingsForm.elements['title'].value,
+            is_visible_to_users: settingsForm.elements['is_visible_to_users'].checked,
+            goals: {
+                level_1: parseInt(settingsForm.elements['goal_level_1'].value, 10) || 0,
+                level_2: parseInt(settingsForm.elements['goal_level_2'].value, 10) || 0,
+                level_3: parseInt(settingsForm.elements['goal_level_3'].value, 10) || 0,
+            },
+            levels: {}
+        };
+
+        document.querySelectorAll('.cauldron-level-form').forEach(form => {
+            const level = `level_${form.dataset.level}`;
+            content.levels[level] = {
+                unique_drop: {
+                    name: form.elements['unique_drop_name'].value,
+                    image_url: form.elements['unique_drop_image_url'].value,
+                    participant_limit: parseInt(form.elements['unique_drop_participant_limit'].value, 10) || 20,
+                },
+                regular_drop: {
+                    name: form.elements['regular_drop_name'].value,
+                    image_url: form.elements['regular_drop_image_url'].value,
+                }
+            };
+        });
+
+        return content;
+    }
+
+    // Функция для заполнения всех форм данными с сервера
+    function populateCauldronForms(data = {}) {
+        const settingsForm = dom.cauldronSettingsForm;
+        const goals = data.goals || {};
+        const levels = data.levels || {};
+
+        settingsForm.elements['is_visible_to_users'].checked = !!data.is_visible_to_users;
+        settingsForm.elements['title'].value = data.title || '';
+        settingsForm.elements['goal_level_1'].value = goals.level_1 || '';
+        settingsForm.elements['goal_level_2'].value = goals.level_2 || '';
+        settingsForm.elements['goal_level_3'].value = goals.level_3 || '';
+
+        // Активируем вкладки, если цели заданы
+        const hasGoals = goals.level_1 && goals.level_2 && goals.level_3;
+        document.querySelectorAll('#cauldron-tabs .tab-button').forEach(btn => {
+            if (btn.dataset.tab !== 'cauldron-settings' && btn.dataset.tab !== 'cauldron-distribution') {
+                btn.disabled = !hasGoals;
+            }
+        });
+
+        document.querySelectorAll('.cauldron-level-form').forEach(form => {
+            const levelKey = `level_${form.dataset.level}`;
+            const levelData = levels[levelKey] || {};
+            const uniqueDrop = levelData.unique_drop || {};
+            const regularDrop = levelData.regular_drop || {};
+
+            form.elements['unique_drop_name'].value = uniqueDrop.name || '';
+            form.elements['unique_drop_image_url'].value = uniqueDrop.image_url || '';
+            form.elements['unique_drop_participant_limit'].value = uniqueDrop.participant_limit || '';
+            form.elements['regular_drop_name'].value = regularDrop.name || '';
+            form.elements['regular_drop_image_url'].value = regularDrop.image_url || '';
+        });
+    }
+
+    // --- КОНЕЦ блока ---
+
+    // Функция для создания строки с полями для одной награды
+    function createCauldronTriggerRow(trigger = { title: '', value: '' }) {
     // Функция для создания строки с полями для одной награды
     function createCauldronTriggerRow(trigger = { title: '', value: '' }) {
         const wrapper = document.createElement('div');
@@ -1753,109 +1858,4 @@ document.body.addEventListener('click', async (event) => {
     console.error(`Критическая ошибка на старте: ${e.message}`);
     alert(`Критическая ошибка: ${e.message}`);
 }
-    async function loadCauldronParticipants() {
-        const container = document.getElementById('cauldron-distribution-list');
-        container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Загрузка участников...</p>';
-        try {
-            const participants = await makeApiRequest('/api/v1/admin/events/cauldron/participants', {}, 'POST', true);
-            
-            if (!participants || participants.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Участников пока нет.</p>';
-                return;
-            }
 
-            container.innerHTML = `
-                <div class="distribution-header">
-                    <span>Участник</span>
-                    <span>Вклад (билеты)</span>
-                    <span>Трейд-ссылка</span>
-                </div>
-                ${participants.map(p => `
-                    <div class="distribution-row">
-                        <span class="dist-name">${escapeHTML(p.full_name || 'Без имени')}</span>
-                        <span class="dist-amount">${p.total_contribution}</span>
-                        <span class="dist-link">
-                            ${p.trade_link 
-                                ? `<a href="${escapeHTML(p.trade_link)}" target="_blank">Открыть</a>`
-                                : '<span class="no-link">Нет</span>'
-                            }
-                        </span>
-                    </div>
-                `).join('')}
-            `;
-
-        } catch (e) {
-            container.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить список: ${e.message}</p>`;
-        }
-    }
-
-    // Функция для сбора данных со всех форм и подготовки к отправке
-    function collectCauldronData() {
-        const settingsForm = dom.cauldronSettingsForm;
-        const content = {
-            title: settingsForm.elements['title'].value,
-            is_visible_to_users: settingsForm.elements['is_visible_to_users'].checked,
-            goals: {
-                level_1: parseInt(settingsForm.elements['goal_level_1'].value, 10) || 0,
-                level_2: parseInt(settingsForm.elements['goal_level_2'].value, 10) || 0,
-                level_3: parseInt(settingsForm.elements['goal_level_3'].value, 10) || 0,
-            },
-            levels: {}
-        };
-
-        document.querySelectorAll('.cauldron-level-form').forEach(form => {
-            const level = `level_${form.dataset.level}`;
-            content.levels[level] = {
-                unique_drop: {
-                    name: form.elements['unique_drop_name'].value,
-                    image_url: form.elements['unique_drop_image_url'].value,
-                    participant_limit: parseInt(form.elements['unique_drop_participant_limit'].value, 10) || 20,
-                },
-                regular_drop: {
-                    name: form.elements['regular_drop_name'].value,
-                    image_url: form.elements['regular_drop_image_url'].value,
-                }
-            };
-        });
-
-        return content;
-    }
-
-    // Функция для заполнения всех форм данными с сервера
-    function populateCauldronForms(data = {}) {
-        const settingsForm = dom.cauldronSettingsForm;
-        const goals = data.goals || {};
-        const levels = data.levels || {};
-
-        settingsForm.elements['is_visible_to_users'].checked = !!data.is_visible_to_users;
-        settingsForm.elements['title'].value = data.title || '';
-        settingsForm.elements['goal_level_1'].value = goals.level_1 || '';
-        settingsForm.elements['goal_level_2'].value = goals.level_2 || '';
-        settingsForm.elements['goal_level_3'].value = goals.level_3 || '';
-
-        // Активируем вкладки, если цели заданы
-        const hasGoals = goals.level_1 && goals.level_2 && goals.level_3;
-        document.querySelectorAll('#cauldron-tabs .tab-button').forEach(btn => {
-            if (btn.dataset.tab !== 'cauldron-settings' && btn.dataset.tab !== 'cauldron-distribution') {
-                btn.disabled = !hasGoals;
-            }
-        });
-
-        document.querySelectorAll('.cauldron-level-form').forEach(form => {
-            const levelKey = `level_${form.dataset.level}`;
-            const levelData = levels[levelKey] || {};
-            const uniqueDrop = levelData.unique_drop || {};
-            const regularDrop = levelData.regular_drop || {};
-
-            form.elements['unique_drop_name'].value = uniqueDrop.name || '';
-            form.elements['unique_drop_image_url'].value = uniqueDrop.image_url || '';
-            form.elements['unique_drop_participant_limit'].value = uniqueDrop.participant_limit || '';
-            form.elements['regular_drop_name'].value = regularDrop.name || '';
-            form.elements['regular_drop_image_url'].value = regularDrop.image_url || '';
-        });
-    }
-
-    // --- КОНЕЦ блока ---
-
-    // Функция для создания строки с полями для одной награды
-    function createCauldronTriggerRow(trigger = { title: '', value: '' }) {
