@@ -60,8 +60,6 @@ try {
         passwordPromptConfirm: document.getElementById('password-prompt-confirm'),
         cauldronSettingsForm: document.getElementById('cauldron-settings-form'),
         resetCauldronBtn: document.getElementById('reset-cauldron-btn'),
-        cauldronSettingsForm: document.getElementById('cauldron-settings-form'),
-        resetCauldronBtn: document.getElementById('reset-cauldron-btn'),
     };
 
     let categoriesCache = [];
