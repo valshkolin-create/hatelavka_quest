@@ -2,27 +2,33 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8" />
-    <title>Ведьминский Котел</title>
+    <title>Ивент-Котел</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="halloween.css">
 </head>
 <body data-theme="halloween">
+    <div class="particles">
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
+    </div>
+
     <div id="loader-overlay" class="loader-overlay">
         <div class="spinner"></div>
     </div>
 
     <main id="app-container" class="main-content hidden">
-        <div id="admin-notice" class.hidden">
+        <div id="admin-notice" class="admin-notice hidden">
             <i class="fa-solid fa-eye-slash"></i>
             <span>Режим администратора: ивент скрыт для обычных пользователей.</span>
         </div>
 
         <div id="theme-switcher" class="theme-switcher">
-            <button class="theme-btn" data-theme-set="halloween">🎃</button>
-            <button class="theme-btn" data-theme-set="new_year">🎄</button>
-            <button class="theme-btn" data-theme-set="classic">🔮</button>
+            <button class="theme-btn" data-theme-set="halloween" title="Хэллоуин">🎃</button>
+            <button class="theme-btn" data-theme-set="new_year" title="Новый Год">🎄</button>
+            <button class="theme-btn" data-theme-set="classic" title="Классика">🔮</button>
         </div>
 
         <header class="page-header">
@@ -34,7 +40,7 @@
         <div class="page-layout">
             <section class="top-section">
                 <div class="cauldron-image-wrapper">
-                    <img id="cauldron-image" src="https://i.postimg.cc/pX9n7fBw/cauldron.png" alt="Cauldron">
+                    <img id="cauldron-image" src="" alt="Cauldron">
                 </div>
                 <div class="progress-bar-container">
                     <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
@@ -51,23 +57,24 @@
                 <div id="error-message" class="error-message hidden"></div>
             </section>
 
-            <h2 id="reward-section-title" class="section-title">Уровень 1</h2>
+            <h2 id="reward-section-title" class="section-title">Награды Уровня 1</h2>
             
             <section class="leaderboard-section">
                 <h3 class="subsection-title"><i class="fa-solid fa-trophy"></i> Топ в котле</h3>
                 <div class="leaderboard-header">
                     <span>Место</span>
                     <span>Игрок</span>
-                    <span style="text-align: right;">Вклад</span>
+                    <span>Приз</span>
+                    <span class="align-right">Вклад</span>
                 </div>
                 <div id="leaderboard-rewards-list" class="leaderboard-list">
                     </div>
             </section>
 
             <section class="default-reward-section">
-                <h3 class="subsection-title"><i class="fa-solid fa-box"></i> Награда для остальных</h3>
+                <h3 class="subsection-title"><i class="fa-solid fa-box-open"></i> Награда для всех участников</h3>
                 <div id="reward-card" class="reward-card">
-                    <img id="reward-image" src="" alt="Reward">
+                    <img id="reward-image" src="" alt="Default Reward">
                     <p id="reward-name">Название предмета</p>
                 </div>
             </section>
