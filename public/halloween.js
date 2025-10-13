@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ]);
             
             currentUserData = userData;
-            dom.userTicketBalance.textContent = currentUserData.profile?.tickets || 0;
+            dom.userTicketBalance.textContent = currentUserData.tickets || 0;
             renderPage(eventData, leaderboardData);
 
         } catch (e) {
