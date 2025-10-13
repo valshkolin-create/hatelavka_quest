@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage: document.getElementById('error-message'),
     };
 
-    // --- Конфигурация тем: найдите и вставьте свои URL картинок ---
+    // --- НОВЫЕ РАБОЧИЕ URL КАРТИНОК ---
     const THEME_ASSETS = {
         halloween: {
             cauldron_image_url: 'https://i.postimg.cc/VL04k1kH/halloween-pot.png',
@@ -67,22 +67,31 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('active', btn.dataset.themeSet === themeName);
         });
 
-        // Сохраняем выбор темы для всех (если админ) или только для себя
         if (currentUserData.is_admin) {
-            // ВАЖНО: Вам нужно будет реализовать на бэкенде сохранение этой настройки
-            // и передачу ее в /api/v1/events/cauldron/status, чтобы все видели одну тему.
-            // Пока что сохраняем локально для админа.
             localStorage.setItem('adminSelectedTheme', themeName);
         }
         
         const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.halloween;
         dom.cauldronImage.src = currentEventData.cauldron_image_url || currentThemeAssets.cauldron_image_url;
-        const defaultReward = (currentEventData.levels?.level_1?.default_reward) || {};
+        
+        // Обновляем картинку награды для всех, когда меняется тема
+        const { levels = {} } = currentEventData;
+        const currentLevel = getCurrentLevel(currentEventData);
+        const levelConfig = levels[`level_${currentLevel}`] || {};
+        const defaultReward = levelConfig.default_reward || {};
         dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
+    }
+    
+    // Вспомогательная функция для определения текущего уровня
+    function getCurrentLevel(eventData) {
+        const { goals = {}, current_progress = 0 } = eventData;
+        if (goals.level_2 && current_progress >= goals.level_2) return 3;
+        if (goals.level_1 && current_progress >= goals.level_1) return 2;
+        return 1;
     }
 
     function renderPage(eventData, leaderboardData = {}) {
-        currentEventData = eventData; // Сохраняем актуальные данные ивента
+        currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
         const canViewEvent = eventData.is_visible_to_users || isAdmin;
 
@@ -96,16 +105,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const { goals = {}, levels = {}, current_progress = 0 } = eventData;
         const top20 = leaderboardData.top20 || [];
 
-        // 1. Определяем текущий уровень
-        let currentLevel = 1, currentGoal = goals.level_1 || 1, prevGoal = 0;
-        if (goals.level_1 && current_progress >= goals.level_1) {
-            currentLevel = 2; currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1;
-        }
-        if (goals.level_2 && current_progress >= goals.level_2) {
-            currentLevel = 3; currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2;
-        }
+        // 1. Определяем текущий уровень и цели
+        const currentLevel = getCurrentLevel(eventData);
+        let currentGoal = 1, prevGoal = 0;
+        if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
+        else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
+        else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
         
-        // 2. Получаем награды для текущего уровня
+        // 2. ИСПРАВЛЕНО: Получаем награды для АКТУАЛЬНОГО уровня
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const topPlaceRewards = levelConfig.top_places || [];
         const defaultReward = levelConfig.default_reward || {};
@@ -117,8 +124,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
+        
+        // ИСПРАВЛЕНО: Отображаем актуальную информацию о наградах
         dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
         dom.rewardName.textContent = defaultReward.name || 'Награда не настроена';
+        const activeTheme = document.body.dataset.theme || 'halloween';
+        dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
+
 
         // 4. Рендерим новый лидерборд
         if (top20.length === 0) {
@@ -143,10 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             }).join('');
         }
-        
-        // Устанавливаем тему после рендеринга
-        const activeTheme = document.body.dataset.theme || 'halloween';
-        setTheme(activeTheme);
     }
 
     async function fetchDataAndRender() {
@@ -164,8 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const savedTheme = localStorage.getItem('adminSelectedTheme') || 'halloween';
                 setTheme(savedTheme);
             } else {
-                // ВАЖНО: Здесь нужно получать тему от сервера. 
-                // Пока что для игроков тема будет 'halloween'.
                 const globalTheme = eventData.current_theme || 'halloween'; 
                 setTheme(globalTheme);
             }
@@ -182,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Обработчики событий ---
-
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         dom.errorMessage.classList.add('hidden');
@@ -202,9 +207,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const result = await makeApiRequest('/api/v1/events/cauldron/contribute', { amount });
             tg.showAlert(result.message);
+            // Обновляем баланс локально для мгновенного отклика
+            currentUserData.tickets = result.new_ticket_balance;
             dom.userTicketBalance.textContent = result.new_ticket_balance;
             dom.ticketsInput.value = '';
-            // Перезагружаем все данные, чтобы обновить лидерборд
+            // Перезагружаем все данные, чтобы обновить лидерборд и прогресс
             fetchDataAndRender();
         } catch(error) {
             dom.errorMessage.textContent = error.message;
