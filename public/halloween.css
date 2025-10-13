@@ -114,9 +114,34 @@ body::before {
 /* --- Секция вклада --- */
 .contribution-section p { margin: 0 0 15px 0; font-size: 14px; text-align: center; color: var(--text-color-muted); }
 .contribution-section p strong { color: var(--text-color); font-weight: 600; }
-#contribution-form { display: flex; gap: 10px; }
-#tickets-input { flex-grow: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: white; font-size: 16px; }
-#contribution-form button { background: linear-gradient(45deg, var(--action-color), var(--primary-color)); border: none; padding: 12px 18px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+#contribution-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap; /* ДОБАВЬТЕ ЭТУ СТРОКУ */
+}
+#tickets-input {
+    /* flex-grow: 1; <-- ЗАМЕНИТЕ ЭТУ СТРОКУ... */
+    flex: 1 1 180px; /* ...НА ЭТУ */
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-secondary);
+    color: white;
+    font-size: 16px;
+}
+#contribution-form button {
+    /* ...все ваши существующие стили для кнопки... */
+    flex: 1 1 120px; /* ДОБАВЬТЕ ЭТУ СТРОКУ */
+    background: linear-gradient(45deg, var(--action-color), var(--primary-color));
+    border: none;
+    padding: 12px 18px;
+    border-radius: 10px;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
 #contribution-form button:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--glow-color); }
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
 
