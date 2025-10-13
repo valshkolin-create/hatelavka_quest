@@ -3,31 +3,27 @@
   --text-color: #f0f0f5;
   --text-color-muted: #a09cb8;
   --danger-color: #ff4d4d;
-  --surface-primary: rgba(18, 16, 33, 0.7); /* Сделали чуть прозрачнее */
+  --surface-primary: rgba(18, 16, 33, 0.7);
   --surface-secondary: #2a2738;
   --border-color: rgba(60, 56, 82, 0.5);
   --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Тема "Хэллоуин" (по умолчанию) */
+/* --- ИСПРАВЛЕНО: Ваши новые фоны --- */
 body[data-theme="halloween"] {
-  --bg-image: url('https://i.postimg.cc/kX2G1s2s/halloween-bg.jpg');
+  --bg-image: url('https://i.postimg.cc/9fbNYP3M/738e137ac94b6294a9f6ad979a59dc34.jpg');
   --primary-color: #ff9500;
   --action-color: #bf5af2;
   --glow-color: rgba(255, 149, 0, 0.4);
 }
-
-/* Тема "Новый Год" */
 body[data-theme="new_year"] {
-  --bg-image: url('https://i.postimg.cc/1z7pW8pC/new-year-bg.jpg');
+  --bg-image: url('https://i.postimg.cc/fT4nLKDK/f93acc97afccb488268433623ce95ef3.jpg');
   --primary-color: #4edcf0;
   --action-color: #fdbb2d;
   --glow-color: rgba(78, 220, 240, 0.5);
 }
-
-/* Тема "Классика" */
 body[data-theme="classic"] {
-  --bg-image: url('https://i.postimg.cc/tJ0g1Y1z/classic-bg.jpg');
+  --bg-image: url('https://i.postimg.cc/PqQ0Fsw6/b4118ce3d4125c4588267c1c75de9a1a.jpg');
   --primary-color: #00f2ea;
   --action-color: #d433ff;
   --glow-color: rgba(0, 242, 234, 0.4);
@@ -38,19 +34,31 @@ body {
     min-height: 100vh;
     background-color: #0d0b1f;
     background-image: var(--bg-image);
-    background-size: cover; /* Фоны теперь покрывают весь экран */
+    background-size: cover;
     background-position: center;
     background-attachment: fixed;
     color: var(--text-color);
     font-family: var(--font-main);
     transition: background-image 0.5s ease;
     overflow-x: hidden;
+    position: relative; /* Нужно для затемнения */
+    z-index: 1;
 }
-.main-content { padding: 20px 15px; }
-.hidden { display: none !important; }
 
-/* --- ИСПРАВЛЕНО: Анимация падения частиц + "Вау-эффект" --- */
-.particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; pointer-events: none; }
+/* --- НОВЫЙ БЛОК: Затемнение фона --- */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Черный цвет с 50% прозрачности */
+    z-index: -1; /* Помещаем под контент, но над фоном */
+}
+
+/* --- Эффекты частиц --- */
+.particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; overflow: hidden; pointer-events: none; }
 .particle { position: absolute; background: var(--primary-color); border-radius: 50%; animation: fall 15s infinite linear; opacity: 0; box-shadow: 0 0 10px var(--glow-color), 0 0 15px var(--glow-color); }
 @keyframes fall {
     0% { transform: translateY(-10vh) translateX(0) scale(1); opacity: 0; }
@@ -58,7 +66,6 @@ body {
     90% { opacity: 0.8; }
     100% { transform: translateY(100vh) translateX(var(--drift, 0px)) scale(0.5); opacity: 0; }
 }
-/* Генерация 25 случайных частиц для "вау-эффекта" */
 .particle:nth-child(1) { width: 4px; height: 4px; left: 10%; animation-duration: 12s; animation-delay: 1s; --drift: 50px; }
 .particle:nth-child(2) { width: 2px; height: 2px; left: 20%; animation-duration: 18s; animation-delay: 3s; --drift: -30px; }
 .particle:nth-child(3) { width: 5px; height: 5px; left: 30%; animation-duration: 10s; animation-delay: 5s; --drift: 40px; }
@@ -74,12 +81,6 @@ body {
 .particle:nth-child(13) { width: 4px; height: 4px; left: 45%; animation-duration: 15s; animation-delay: 10s; --drift: 40px; }
 .particle:nth-child(14) { width: 3px; height: 3px; left: 55%; animation-duration: 23s; animation-delay: 12s; --drift: -60px; }
 .particle:nth-child(15) { width: 5px; height: 5px; left: 65%; animation-duration: 12s; animation-delay: 14s; --drift: 20px; }
-.particle:nth-child(16) { width: 3px; height: 3px; left: 5%; animation-duration: 25s; animation-delay: 15s; --drift: -50px; }
-.particle:nth-child(17) { width: 5px; height: 5px; left: 85%; animation-duration: 15s; animation-delay: 16s; --drift: 30px; }
-.particle:nth-child(18) { width: 2px; height: 2px; left: 95%; animation-duration: 28s; animation-delay: 18s; --drift: -40px; }
-.particle:nth-child(19) { width: 4px; height: 4px; left: 75%; animation-duration: 18s; animation-delay: 17s; --drift: 60px; }
-.particle:nth-child(20) { width: 3px; height: 3px; left: 58%; animation-duration: 24s; animation-delay: 20s; --drift: -20px; }
-
 
 /* --- Загрузчик --- */
 .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: flex; align-items: center; justify-content: center; }
@@ -87,6 +88,10 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* --- Общая структура --- */
+.page-header, .page-layout, .contribution-section, .leaderboard-section, .default-reward-section, .theme-switcher, .admin-notice {
+    position: relative;
+    z-index: 2; /* Убеждаемся, что контент выше затемнения */
+}
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .page-header-title { margin: 0; font-size: 20px; font-weight: 700; text-align: center; flex-grow: 1; }
 .back-button { background: none; border: none; color: var(--action-color); font-size: 16px; cursor: pointer; padding: 5px; font-weight: 500; text-decoration: none; }
