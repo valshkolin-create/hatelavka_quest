@@ -140,7 +140,7 @@ body::before {
 
 /* НОВЫЙ КЛАСС: Сдвигает заголовок Приз вправо */
 .prize-header {
-    padding-left: 15px; /* <--- ЗНАЧЕНИЕ РУЧНОГО СДВИГА: Измените это, чтобы двигать "Приз" */
+    padding-left: 10px; /* <--- ЗНАЧЕНИЕ РУЧНОГО СДВИГА: Измените это, чтобы двигать "Приз" */
 }
 
 .leaderboard-row { 
@@ -164,9 +164,23 @@ body::before {
     display: flex; 
     justify-content: center; /* Центрируем, чтобы padding-left работал как сдвиг */
     align-items: center; 
-    padding-left: 15px; /* <--- ЭТОТ ПАДДИНГ РУЧНОЙ СДВИГ для изображения приза */
+    padding-left: 10px; /* <--- ЭТОТ ПАДДИНГ РУЧНОЙ СДВИГ для изображения приза */
 }
+/* Конец изменений для приза */
 
+/* Уменьшаем размер приза */
+.leaderboard-row .prize-image { 
+    width: 50px; /* Было 50px */
+    height: 50px; /* Было 50px */
+    object-fit: contain; 
+}
+.leaderboard-row .contribution { 
+    font-weight: 600; 
+    color: var(--text-color); 
+    text-align: right; 
+    font-size: 0.85em; /* Уменьшенный размер шрифта для вклада */
+    padding-right: 0; 
+}
 /* --- Другие секции без изменений --- */
 .reward-card { display: flex; align-items: center; gap: 15px; }
 .reward-card img { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; }
