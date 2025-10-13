@@ -513,7 +513,9 @@
 
             <div class="tabs-container" id="cauldron-tabs">
                 <button class="tab-button active" data-tab="cauldron-settings">Настройки</button>
-                <button class="tab-button" data-tab="cauldron-rewards">Награды</button>
+                <button class="tab-button" data-tab="cauldron-rewards-1">Награды Ур. 1</button>
+                <button class="tab-button" data-tab="cauldron-rewards-2">Награды Ур. 2</button>
+                <button class="tab-button" data-tab="cauldron-rewards-3">Награды Ур. 3</button>
                 <button class="tab-button" data-tab="cauldron-distribution">Участники</button>
             </div>
             
@@ -533,13 +535,13 @@
                             <input type="text" name="title" required placeholder="Ведьминский котел">
     
                             <label>Цель Уровня 1</label>
-                            <input type="number" name="goal_level_1" required placeholder="Например: 300">
+                            <input type="number" name="goal_level_1" required placeholder="Например: 1000">
     
                             <label>Цель Уровня 2</label>
-                            <input type="number" name="goal_level_2" required placeholder="Например: 500">
+                            <input type="number" name="goal_level_2" required placeholder="Например: 3000">
                             
                             <label>Цель Уровня 3 (финал)</label>
-                            <input type="number" name="goal_level_3" required placeholder="Например: 1000">
+                            <input type="number" name="goal_level_3" required placeholder="Например: 5000">
     
                             <label>URL баннера для главной</label>
                             <input type="text" name="banner_image_url" placeholder="https://....png">
@@ -553,49 +555,64 @@
                         <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс</button>
                     </div>
                 </div>
-    
-                <div id="tab-content-cauldron-rewards" class="tab-content hidden">
-                    <details class="quest-category-accordion" open>
-                        <summary class="quest-category-header">Уровень 1</summary>
-                        <div class="quest-category-body admin-form">
-                            <h4><i class="fa-solid fa-star"></i> Уникальный дроп</h4>
-                            <input type="text" name="level_1_unique_name" placeholder="Название предмета">
-                            <input type="text" name="level_1_unique_image" placeholder="URL изображения">
-                            <input type="number" name="level_1_unique_limit" placeholder="Лимит участников (напр. 20)">
-                            
-                            <h4 style="margin-top: 15px;"><i class="fa-solid fa-box"></i> Обычный дроп</h4>
-                            <input type="text" name="level_1_regular_name" placeholder="Название предмета">
-                            <input type="text" name="level_1_regular_image" placeholder="URL изображения">
+
+                <div id="tab-content-cauldron-rewards-1" class="tab-content hidden">
+                    <div class="quest-card">
+                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 1)</h3>
+                        <div id="top-rewards-container-1"></div>
+                        <button type="button" id="add-top-reward-btn-1" data-level="1" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                            <i class="fa-solid fa-plus"></i> Добавить награду за место
+                        </button>
+                    </div>
+                    <div class="quest-card" style="margin-top: 15px;">
+                        <h3 style="margin-top:0;">Награда для остальных (Уровень 1)</h3>
+                        <div class="admin-form">
+                            <label>Название предмета</label>
+                            <input type="text" name="default_reward_name_1" placeholder="Glock-18 | Fade">
+                            <label>URL изображения</label>
+                            <input type="text" name="default_reward_image_url_1" placeholder="https://....png">
                         </div>
-                    </details>
-                     <details class="quest-category-accordion">
-                        <summary class="quest-category-header">Уровень 2</summary>
-                         <div class="quest-category-body admin-form">
-                            <h4><i class="fa-solid fa-star"></i> Уникальный дроп</h4>
-                            <input type="text" name="level_2_unique_name" placeholder="Название предмета">
-                            <input type="text" name="level_2_unique_image" placeholder="URL изображения">
-                            <input type="number" name="level_2_unique_limit" placeholder="Лимит участников (напр. 20)">
-                            
-                            <h4 style="margin-top: 15px;"><i class="fa-solid fa-box"></i> Обычный дроп</h4>
-                            <input type="text" name="level_2_regular_name" placeholder="Название предмета">
-                            <input type="text" name="level_2_regular_image" placeholder="URL изображения">
-                        </div>
-                    </details>
-                     <details class="quest-category-accordion">
-                        <summary class="quest-category-header">Уровень 3</summary>
-                        <div class="quest-category-body admin-form">
-                            <h4><i class="fa-solid fa-star"></i> Уникальный дроп</h4>
-                            <input type="text" name="level_3_unique_name" placeholder="Название предмета">
-                            <input type="text" name="level_3_unique_image" placeholder="URL изображения">
-                            <input type="number" name="level_3_unique_limit" placeholder="Лимит участников (напр. 20)">
-                            
-                            <h4 style="margin-top: 15px;"><i class="fa-solid fa-box"></i> Обычный дроп</h4>
-                            <input type="text" name="level_3_regular_name" placeholder="Название предмета">
-                            <input type="text" name="level_3_regular_image" placeholder="URL изображения">
-                        </div>
-                    </details>
+                    </div>
                 </div>
 
+                <div id="tab-content-cauldron-rewards-2" class="tab-content hidden">
+                    <div class="quest-card">
+                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 2)</h3>
+                        <div id="top-rewards-container-2"></div>
+                        <button type="button" id="add-top-reward-btn-2" data-level="2" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                            <i class="fa-solid fa-plus"></i> Добавить награду за место
+                        </button>
+                    </div>
+                    <div class="quest-card" style="margin-top: 15px;">
+                        <h3 style="margin-top:0;">Награда для остальных (Уровень 2)</h3>
+                        <div class="admin-form">
+                            <label>Название предмета</label>
+                            <input type="text" name="default_reward_name_2" placeholder="AK-47 | Redline">
+                            <label>URL изображения</label>
+                            <input type="text" name="default_reward_image_url_2" placeholder="https://....png">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-content-cauldron-rewards-3" class="tab-content hidden">
+                    <div class="quest-card">
+                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 3)</h3>
+                        <div id="top-rewards-container-3"></div>
+                        <button type="button" id="add-top-reward-btn-3" data-level="3" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                            <i class="fa-solid fa-plus"></i> Добавить награду за место
+                        </button>
+                    </div>
+                    <div class="quest-card" style="margin-top: 15px;">
+                        <h3 style="margin-top:0;">Награда для остальных (Уровень 3)</h3>
+                        <div class="admin-form">
+                            <label>Название предмета</label>
+                            <input type="text" name="default_reward_name_3" placeholder="AWP | Dragon Lore">
+                            <label>URL изображения</label>
+                            <input type="text" name="default_reward_image_url_3" placeholder="https://....png">
+                        </div>
+                    </div>
+                </div>
+    
                 <div id="tab-content-cauldron-distribution" class="tab-content hidden">
                     <div class="quest-card">
                         <h3 style="margin: 0 0 15px;">Все участники по вкладу</h3>
