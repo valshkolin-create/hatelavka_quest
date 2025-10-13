@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
 
-    // --- DOM Элементы ---
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
         appContainer: document.getElementById('app-container'),
@@ -21,25 +20,25 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage: document.getElementById('error-message'),
     };
 
-    // --- НОВЫЕ РАБОЧИЕ URL КАРТИНОК ---
+    // --- ИЗМЕНЕНО: Вставьте сюда ваши ссылки на награды ---
     const THEME_ASSETS = {
         halloween: {
-            cauldron_image_url: 'https://i.postimg.cc/VL04k1kH/halloween-pot.png',
-            default_reward_image: 'https://i.postimg.cc/B620Kx2s/halloween-prize.png'
+            default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png'
         },
         new_year: {
-            cauldron_image_url: 'https://i.postimg.cc/mDk5C5gs/ice-pot.png',
-            default_reward_image: 'https://i.postimg.cc/J02j1kKq/new-year-prize.png'
+            default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png'
         },
         classic: {
-            cauldron_image_url: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png',
-            default_reward_image: 'https://i.postimg.cc/1XfQ4n08/classic-prize.png'
+            default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png'
         }
     };
     
+    // URL-заглушка на случай, если с бэкенда не придет ссылка на котел
+    const FALLBACK_CAULDRON_URL = 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
+
     let currentUserData = {};
     let currentEventData = {};
-
+    
     async function makeApiRequest(url, body = {}, method = 'POST') {
         try {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
@@ -47,9 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 options.body = JSON.stringify({ ...body, initData: tg.initData });
             }
             const response = await fetch(url, options);
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
-            return result;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Ошибка сервера');
+            }
+            return await response.json();
         } catch (e) {
             console.error(`Ошибка API (${url}):`, e.message, e);
             throw e;
@@ -71,10 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('adminSelectedTheme', themeName);
         }
         
-        const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.halloween;
-        dom.cauldronImage.src = currentEventData.cauldron_image_url || currentThemeAssets.cauldron_image_url;
+        const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
         
-        // Обновляем картинку награды для всех, когда меняется тема
         const { levels = {} } = currentEventData;
         const currentLevel = getCurrentLevel(currentEventData);
         const levelConfig = levels[`level_${currentLevel}`] || {};
@@ -82,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
     }
     
-    // Вспомогательная функция для определения текущего уровня
     function getCurrentLevel(eventData) {
         const { goals = {}, current_progress = 0 } = eventData;
         if (goals.level_2 && current_progress >= goals.level_2) return 3;
@@ -102,22 +100,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.adminNotice.classList.toggle('hidden', !(isAdmin && !eventData.is_visible_to_users));
 
+        // --- ИЗМЕНЕНО: Установка котла из данных с сервера ---
+        dom.cauldronImage.src = eventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
+
         const { goals = {}, levels = {}, current_progress = 0 } = eventData;
         const top20 = leaderboardData.top20 || [];
 
-        // 1. Определяем текущий уровень и цели
         const currentLevel = getCurrentLevel(eventData);
         let currentGoal = 1, prevGoal = 0;
         if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
         else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
         else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
         
-        // 2. ИСПРАВЛЕНО: Получаем награды для АКТУАЛЬНОГО уровня
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const topPlaceRewards = levelConfig.top_places || [];
         const defaultReward = levelConfig.default_reward || {};
 
-        // 3. Обновляем DOM
         dom.eventTitle.textContent = eventData.title || "Ивент-Котел";
         const progressInLevel = current_progress - prevGoal;
         const goalForLevel = currentGoal - prevGoal;
@@ -125,14 +123,11 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         
-        // ИСПРАВЛЕНО: Отображаем актуальную информацию о наградах
         dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
         dom.rewardName.textContent = defaultReward.name || 'Награда не настроена';
         const activeTheme = document.body.dataset.theme || 'halloween';
         dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
 
-
-        // 4. Рендерим новый лидерборд
         if (top20.length === 0) {
             dom.leaderboardRewardsList.innerHTML = '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>';
         } else {
@@ -187,7 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Обработчики событий ---
+    // --- ОБРАБОТЧИКИ СОБЫТИЙ --- (без изменений)
+
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         dom.errorMessage.classList.add('hidden');
@@ -207,11 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const result = await makeApiRequest('/api/v1/events/cauldron/contribute', { amount });
             tg.showAlert(result.message);
-            // Обновляем баланс локально для мгновенного отклика
             currentUserData.tickets = result.new_ticket_balance;
             dom.userTicketBalance.textContent = result.new_ticket_balance;
             dom.ticketsInput.value = '';
-            // Перезагружаем все данные, чтобы обновить лидерборд и прогресс
             fetchDataAndRender();
         } catch(error) {
             dom.errorMessage.textContent = error.message;
@@ -226,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // --- Инициализация ---
+    // --- ИНИЦИАЛИЗАЦИЯ ---
     tg.ready();
     tg.expand();
     fetchDataAndRender();
