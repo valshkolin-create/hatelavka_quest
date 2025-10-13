@@ -110,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                || eventData.cauldron_image_url // Для совместимости со старыми настройками
                                || FALLBACK_CAULDRON_URL;
         dom.cauldronImage.src = cauldronImageUrl;
-        const top20 = leaderboardData.top20 || [];
 
         const currentLevel = getCurrentLevel(eventData);
         let currentGoal = 1, prevGoal = 0;
