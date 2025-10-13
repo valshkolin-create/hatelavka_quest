@@ -2,11 +2,21 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8" />
-    <title>Гонка за скинами</title>
+    <title>Ведьминский Котел</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="halloween.css">
+    <style>
+        .page-layout { display: flex; flex-direction: column; gap: 20px; }
+        .top-section { text-align: center; }
+        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: flex-start; }
+        .leaderboard-rewards-list .leaderboard-row { grid-template-columns: 25px 1fr; gap: 8px; }
+        .leaderboard-rewards-list .reward-info { font-size: 13px; color: var(--text-color-muted); display: flex; align-items: center; gap: 5px; }
+        .leaderboard-rewards-list .reward-info img { width: 20px; height: 20px; border-radius: 4px;}
+        .leaderboard-rewards-list .player-info { display: flex; flex-direction: column; }
+        @media (max-width: 400px) { .content-grid { grid-template-columns: 1fr; } }
+    </style>
 </head>
 <body>
     <div id="loader-overlay" class="loader-overlay">
@@ -16,44 +26,52 @@
     <main id="app-container" class="main-content hidden">
         <div id="admin-notice" class="admin-notice hidden">
             <i class="fa-solid fa-eye-slash"></i>
-            <span>Режим админа: ивент скрыт для пользователей.</span>
+            <span>Режим администратора: ивент скрыт для обычных пользователей.</span>
         </div>
 
         <header class="page-header">
             <a href="/menu" class="back-button"><i class="fa-solid fa-arrow-left"></i> Меню</a>
-            <h1 id="event-title" class="page-header-title">Гонка за скинами</h1>
+            <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
             <div style="width: 80px;"></div>
         </header>
-
-        <section id="cauldron-section" class="cauldron-section">
-            <div class="cauldron-image-wrapper">
-                <img id="cauldron-image" src="https://i.postimg.cc/pX9n7fBw/cauldron.png" alt="Cauldron">
-            </div>
-            <div class="progress-bar-container">
-                <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
-            </div>
-            <div id="progress-text" class="progress-text">0 / 0</div>
-        </section>
         
-        <section class="contribution-section">
-            <p>Ваш баланс: <strong id="user-ticket-balance">...</strong> <i class="fa-solid fa-ticket"></i></p>
-            <form id="contribution-form">
-                <input type="number" id="tickets-input" placeholder="Кол-во билетов" min="1" required>
-                <button type="submit">Вложить в котел</button>
-            </form>
-            <div id="error-message" class="error-message hidden"></div>
-        </section>
-
-        <section class="leaderboard-section">
-            <div class="leaderboard-header">
-                <span>#</span>
-                <span>Игрок</span>
-                <span>Вклад</span>
-                <span>Награда</span>
-            </div>
-            <div id="leaderboard-list" class="leaderboard-list">
+        <div class="page-layout">
+            <section class="top-section">
+                <div class="cauldron-image-wrapper">
+                    <img id="cauldron-image" src="https://i.postimg.cc/pX9n7fBw/cauldron.png" alt="Cauldron">
                 </div>
-        </section>
+                <div class="progress-bar-container">
+                    <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                </div>
+                <div id="progress-text" class="progress-text">0 / 0</div>
+                <h2 id="reward-section-title" style="font-size: 18px; margin: 15px 0 5px 0;">Уровень 1</h2>
+            </section>
+            
+            <div class="content-grid">
+                <section class="leaderboard-section">
+                    <h3><i class="fa-solid fa-trophy"></i> Награды для Топ-20</h3>
+                    <div id="leaderboard-rewards-list" class="leaderboard-list">
+                        </div>
+                </section>
+    
+                <section class="default-reward-section">
+                    <h3><i class="fa-solid fa-box"></i> Награда для остальных</h3>
+                    <div id="reward-card" class="reward-card">
+                        <img id="reward-image" src="https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f" alt="Reward">
+                        <p id="reward-name">Название предмета</p>
+                    </div>
+                </section>
+            </div>
+    
+            <section class="contribution-section">
+                <p>Ваш баланс: <strong id="user-ticket-balance">...</strong> <i class="fa-solid fa-ticket"></i></p>
+                <form id="contribution-form">
+                    <input type="number" id="tickets-input" placeholder="Кол-во билетов" min="1" required>
+                    <button type="submit">Вложить в котел</button>
+                </form>
+                <div id="error-message" class="error-message hidden"></div>
+            </section>
+        </div>
     </main>
 
     <script src="halloween.js"></script>
