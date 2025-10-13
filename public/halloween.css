@@ -127,7 +127,7 @@ body::before {
     display: grid; 
     grid-template-columns: 40px 1fr 70px 80px; /* Приз 70px, Вклад 80px */
     gap: 10px; 
-    padding: 0 5px 10px; /* ИЗМЕНЕНО: Уменьшил горизонтальный padding до 5px для сдвига контента вправо */
+    padding: 0 5px 10px; /* Уменьшен горизонтальный padding до 5px */
     border-bottom: 1px solid var(--border-color); 
     font-size: 11px; 
     font-weight: 500; 
@@ -137,11 +137,17 @@ body::before {
 }
 .align-right { text-align: right; }
 .centered-header { text-align: center; }
+
+/* НОВЫЙ КЛАСС: Сдвигает заголовок Приз вправо */
+.prize-header {
+    padding-left: 15px; /* <--- ЗНАЧЕНИЕ РУЧНОГО СДВИГА: Измените это, чтобы двигать "Приз" */
+}
+
 .leaderboard-row { 
     display: grid; 
     grid-template-columns: 40px 1fr 70px 80px; /* Приз 70px, Вклад 80px */
     gap: 10px; 
-    padding: 12px 5px; /* ИЗМЕНЕНО: Уменьшил горизонтальный padding до 5px для сдвига контента вправо */
+    padding: 12px 5px; /* Уменьшен горизонтальный padding до 5px */
     align-items: center; 
     border-bottom: 1px solid var(--border-color); 
     transition: background-color 0.2s ease; 
@@ -152,19 +158,13 @@ body::before {
 .leaderboard-row .rank { font-weight: 700; color: var(--text-color-muted); font-size: 14px; text-align: center; }
 .leaderboard-row.is-top-3 .rank { color: var(--primary-color); }
 .leaderboard-row .player { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
-.leaderboard-row .prize-image-container { display: flex; justify-content: center; align-items: center; }
-/* Уменьшаем размер приза */
-.leaderboard-row .prize-image { 
-    width: 50px; /* Было 50px */
-    height: 50px; /* Было 50px */
-    object-fit: contain; 
-}
-.leaderboard-row .contribution { 
-    font-weight: 600; 
-    color: var(--text-color); 
-    text-align: right; 
-    font-size: 0.65em; /* ИЗМЕНЕНО: Уменьшил размер шрифта до 0.85em */
-    padding-right: 0; 
+
+/* --- ИЗМЕНЕНИЕ ДЛЯ ПРИЗА: Добавляем padding-left для ручного сдвига вправо */
+.leaderboard-row .prize-image-container { 
+    display: flex; 
+    justify-content: center; /* Центрируем, чтобы padding-left работал как сдвиг */
+    align-items: center; 
+    padding-left: 15px; /* <--- ЭТОТ ПАДДИНГ РУЧНОЙ СДВИГ для изображения приза */
 }
 
 /* --- Другие секции без изменений --- */
