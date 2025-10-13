@@ -88,6 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return 1;
     }
 
+JavaScript
+
     function renderPage(eventData, leaderboardData = {}) {
         currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
@@ -102,7 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { goals = {}, levels = {}, current_progress = 0 } = eventData || {};
         const top20 = leaderboardData.top20 || [];
-
         const currentLevel = getCurrentLevel(eventData);
 
         // --- НОВАЯ ЛОГИКА: Установка картинки котла в зависимости от уровня ---
@@ -110,8 +111,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                || eventData.cauldron_image_url // Для совместимости со старыми настройками
                                || FALLBACK_CAULDRON_URL;
         dom.cauldronImage.src = cauldronImageUrl;
-
-        const currentLevel = getCurrentLevel(eventData);
+        
+        // --- Продолжение логики рендеринга ---
         let currentGoal = 1, prevGoal = 0;
         if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
         else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
