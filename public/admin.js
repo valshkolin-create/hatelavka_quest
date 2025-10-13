@@ -1,5 +1,3 @@
-// admin.js
-
 try {
     const tg = window.Telegram.WebApp;
     
@@ -78,44 +76,28 @@ try {
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
 
-    // --- Функции для "Котла" ---
+    // --- Новые функции для "Котла" ---
+    
+    // Создает HTML-строку для награды из топ-20
     function createTopRewardRow(reward = { place: '', name: '', image_url: '' }) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'top-reward-row admin-form'; // Добавил admin-form для стилей
-        wrapper.style.flexDirection = 'row';
-        wrapper.style.alignItems = 'center';
+        wrapper.className = 'top-reward-row admin-form';
+        wrapper.style.cssText = 'display: flex; flex-direction: row; align-items: center; gap: 10px;';
         wrapper.innerHTML = `
             <input type="number" class="reward-place" placeholder="Место" value="${escapeHTML(reward.place)}" min="1" max="20" style="flex: 0 0 70px;">
             <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(reward.name)}" style="flex: 1 1 auto;">
             <input type="text" class="reward-image" placeholder="URL изображения" value="${escapeHTML(reward.image_url)}" style="flex: 1 1 auto;">
-            <button type="button" class="admin-action-btn reject remove-reward-btn" style="flex: 0 0 40px;"><i class="fa-solid fa-trash-can"></i></button>
+            <button type="button" class="admin-action-btn reject remove-reward-btn" style="flex: 0 0 40px; padding: 8px;"><i class="fa-solid fa-trash-can"></i></button>
         `;
         return wrapper;
     }
 
-    function renderCauldronRewards(rewardsData = {}) {
-        const container = dom.topRewardsContainer;
-        if (!container) return;
-        container.innerHTML = '';
-        const topPlaces = rewardsData.top_places || [];
-        // Сортируем по номеру места
-        topPlaces.sort((a, b) => a.place - b.place).forEach(reward => {
-            container.appendChild(createTopRewardRow(reward));
-        });
-
-        const defaultReward = rewardsData.default_reward || {};
-        if (dom.defaultRewardForm) {
-            dom.defaultRewardForm.elements['default_reward_name'].value = defaultReward.name || '';
-            dom.defaultRewardForm.elements['default_reward_image_url'].value = defaultReward.image_url || '';
-        }
-    }
-
+    // Собирает все данные из формы "Котла" в один объект
     function collectCauldronData() {
         const form = dom.cauldronSettingsForm;
         const content = {
             title: form.elements['title'].value,
             is_visible_to_users: form.elements['is_visible_to_users'].checked,
-            // Собираем цели в отдельный объект
             goals: {
                 level_1: parseInt(form.elements['goal_level_1'].value, 10) || 0,
                 level_2: parseInt(form.elements['goal_level_2'].value, 10) || 0,
@@ -123,25 +105,33 @@ try {
             },
             banner_image_url: form.elements['banner_image_url'].value,
             cauldron_image_url: form.elements['cauldron_image_url'].value,
-            // Собираем награды по уровням
-            levels: {
-                level_1: {
-                    unique_drop: { name: form.elements['level_1_unique_name'].value, image_url: form.elements['level_1_unique_image'].value, participant_limit: parseInt(form.elements['level_1_unique_limit'].value, 10) || 20 },
-                    regular_drop: { name: form.elements['level_1_regular_name'].value, image_url: form.elements['level_1_regular_image'].value }
-                },
-                level_2: {
-                    unique_drop: { name: form.elements['level_2_unique_name'].value, image_url: form.elements['level_2_unique_image'].value, participant_limit: parseInt(form.elements['level_2_unique_limit'].value, 10) || 20 },
-                    regular_drop: { name: form.elements['level_2_regular_name'].value, image_url: form.elements['level_2_regular_image'].value }
-                },
-                level_3: {
-                    unique_drop: { name: form.elements['level_3_unique_name'].value, image_url: form.elements['level_3_unique_image'].value, participant_limit: parseInt(form.elements['level_3_unique_limit'].value, 10) || 20 },
-                    regular_drop: { name: form.elements['level_3_regular_name'].value, image_url: form.elements['level_3_regular_image'].value }
-                }
-            }
+            levels: {}
         };
+
+        [1, 2, 3].forEach(level => {
+            const levelKey = `level_${level}`;
+            content.levels[levelKey] = {
+                top_places: [],
+                default_reward: {
+                    name: form.elements[`default_reward_name_${level}`].value,
+                    image_url: form.elements[`default_reward_image_url_${level}`].value
+                }
+            };
+            const container = document.getElementById(`top-rewards-container-${level}`);
+            container.querySelectorAll('.top-reward-row').forEach(row => {
+                const place = parseInt(row.querySelector('.reward-place').value, 10);
+                const name = row.querySelector('.reward-name').value.trim();
+                const image_url = row.querySelector('.reward-image').value.trim();
+                if (place >= 1 && place <= 20 && name) {
+                    content.levels[levelKey].top_places.push({ place, name, image_url });
+                }
+            });
+        });
+        
         return content;
     }
-
+    
+    // Загружает и отображает список участников
     async function renderCauldronParticipants() {
         const container = document.getElementById('cauldron-distribution-list');
         if (!container) return;
@@ -153,19 +143,20 @@ try {
                 return;
             }
             container.innerHTML = `
-                <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Трейд-ссылка</span></div>
-                <div style="overflow-x: auto;"> ${participants.map((p, index) => `
-                        <div class="distribution-row">
-                            <span>${index + 1}</span>
-                            <span class="dist-name">${escapeHTML(p.full_name || 'Без имени')}</span>
-                            <span class="dist-amount">${p.total_contribution}</span>
-                            <span class="dist-link">${p.trade_link ? `<a href="${escapeHTML(p.trade_link)}" target="_blank">Открыть</a>` : '<span class="no-link">Нет</span>'}</span>
-                        </div>`).join('')}
-                </div>`;
+                <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Трейд</span></div>
+                ${participants.map((p, index) => `
+                    <div class="distribution-row">
+                        <span>${index + 1}</span>
+                        <span class="dist-name">${escapeHTML(p.full_name || 'Без имени')}</span>
+                        <span class="dist-amount">${p.total_contribution}</span>
+                        <span class="dist-link">${p.trade_link ? `<a href="${escapeHTML(p.trade_link)}" target="_blank">Открыть</a>` : '<span class="no-link">Нет</span>'}</span>
+                    </div>`).join('')}`;
         } catch (e) {
             container.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
         }
     }
+
+    // --- Конец новых функций для "Котла" ---
 
     async function loadStatistics() {
         showLoader();
@@ -275,6 +266,8 @@ try {
                 case 'view-admin-cauldron': {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
+
+                    // Заполняем основные настройки
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
                     form.elements['title'].value = currentCauldronData.title || '';
                     form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
@@ -285,16 +278,21 @@ try {
                     form.elements['goal_level_2'].value = goals.level_2 || '';
                     form.elements['goal_level_3'].value = goals.level_3 || '';
 
+                    // Заполняем награды для каждого уровня
                     const levels = currentCauldronData.levels || {};
-                    ['1', '2', '3'].forEach(lvl => {
-                        const levelData = levels[`level_${lvl}`] || {};
-                        const unique = levelData.unique_drop || {};
-                        const regular = levelData.regular_drop || {};
-                        form.elements[`level_${lvl}_unique_name`].value = unique.name || '';
-                        form.elements[`level_${lvl}_unique_image`].value = unique.image_url || '';
-                        form.elements[`level_${lvl}_unique_limit`].value = unique.participant_limit || 20;
-                        form.elements[`level_${lvl}_regular_name`].value = regular.name || '';
-                        form.elements[`level_${lvl}_regular_image`].value = regular.image_url || '';
+                    [1, 2, 3].forEach(level => {
+                        const levelData = levels[`level_${level}`] || {};
+                        const topPlaces = levelData.top_places || [];
+                        const defaultReward = levelData.default_reward || {};
+                        
+                        const container = document.getElementById(`top-rewards-container-${level}`);
+                        container.innerHTML = ''; // Очищаем перед заполнением
+                        topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+                            container.appendChild(createTopRewardRow(reward));
+                        });
+
+                        form.elements[`default_reward_name_${level}`].value = defaultReward.name || '';
+                        form.elements[`default_reward_image_url_${level}`].value = defaultReward.image_url || '';
                     });
                     break;
                 }
@@ -922,25 +920,6 @@ try {
     }
 
     function setupEventListeners() {
-        // --- ✅ ИСПРАВЛЕНИЕ: Добавлены обработчики для кнопок наград "Котла" ---
-        if (dom.addTopRewardBtn) {
-            dom.addTopRewardBtn.addEventListener('click', () => {
-                if (dom.topRewardsContainer) {
-                    dom.topRewardsContainer.appendChild(createTopRewardRow());
-                }
-            });
-        }
-        
-        if (dom.topRewardsContainer) {
-            dom.topRewardsContainer.addEventListener('click', (e) => {
-                const removeBtn = e.target.closest('.remove-reward-btn');
-                if (removeBtn) {
-                    removeBtn.closest('.top-reward-row').remove();
-                }
-            });
-        }
-        // --- Конец исправления ---
-
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
@@ -1106,13 +1085,11 @@ try {
                     if (ok) {
                         try {
                             const eventData = collectCauldronData();
-                            
                             const currentStatus = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
-                            eventData.current_progress = currentStatus.current_progress || 0;
+                            eventData.current_progress = currentStatus.current_progress || 0; // Сохраняем текущий прогресс
                             
                             await makeApiRequest('/api/v1/admin/events/cauldron/update', { content: eventData });
                             tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
-                           
                         } catch (error) {
                             tg.showAlert(`Ошибка сохранения: ${error.message}`);
                         }
@@ -1137,7 +1114,18 @@ try {
         if (cauldronTabs) {
             cauldronTabs.addEventListener('click', (e) => {
                 const button = e.target.closest('.tab-button');
-                if (button && button.dataset.tab === 'cauldron-distribution') {
+                if (!button) return;
+
+                // Переключение вкладок
+                cauldronTabs.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                document.querySelectorAll('#view-admin-cauldron .tab-content').forEach(content => {
+                    content.classList.toggle('hidden', content.id !== `tab-content-${button.dataset.tab}`);
+                });
+
+                // Загрузка участников при клике на их вкладку
+                if (button.dataset.tab === 'cauldron-distribution') {
                     renderCauldronParticipants(); 
                 }
             });
@@ -1222,6 +1210,24 @@ try {
         
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
+
+            // --- Новые обработчики для Котла ---
+            const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
+            if (addRewardBtn) {
+                const level = addRewardBtn.dataset.level;
+                const container = document.getElementById(`top-rewards-container-${level}`);
+                if (container) {
+                    container.appendChild(createTopRewardRow());
+                }
+                return;
+            }
+
+            const removeRewardBtn = target.closest('.remove-reward-btn');
+            if (removeRewardBtn) {
+                removeRewardBtn.closest('.top-reward-row').remove();
+                return;
+            }
+            // --- Конец новых обработчиков ---
 
             const closeButton = target.closest('[data-close-modal]');
             if (closeButton) {
