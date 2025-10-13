@@ -8,15 +8,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="halloween.css">
 </head>
-<body>
+<body data-theme="halloween">
     <div id="loader-overlay" class="loader-overlay">
         <div class="spinner"></div>
     </div>
 
     <main id="app-container" class="main-content hidden">
-        <div id="admin-notice" class="admin-notice hidden">
+        <div id="admin-notice" class.hidden">
             <i class="fa-solid fa-eye-slash"></i>
             <span>Режим администратора: ивент скрыт для обычных пользователей.</span>
+        </div>
+
+        <div id="theme-switcher" class="theme-switcher">
+            <button class="theme-btn" data-theme-set="halloween">🎃</button>
+            <button class="theme-btn" data-theme-set="new_year">🎄</button>
+            <button class="theme-btn" data-theme-set="classic">🔮</button>
         </div>
 
         <header class="page-header">
@@ -48,7 +54,12 @@
             <h2 id="reward-section-title" class="section-title">Уровень 1</h2>
             
             <section class="leaderboard-section">
-                <h3 class="subsection-title"><i class="fa-solid fa-trophy"></i> Награды для Топ-20</h3>
+                <h3 class="subsection-title"><i class="fa-solid fa-trophy"></i> Топ в котле</h3>
+                <div class="leaderboard-header">
+                    <span>Место</span>
+                    <span>Игрок</span>
+                    <span style="text-align: right;">Вклад</span>
+                </div>
                 <div id="leaderboard-rewards-list" class="leaderboard-list">
                     </div>
             </section>
@@ -56,7 +67,7 @@
             <section class="default-reward-section">
                 <h3 class="subsection-title"><i class="fa-solid fa-box"></i> Награда для остальных</h3>
                 <div id="reward-card" class="reward-card">
-                    <img id="reward-image" src="https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f" alt="Reward">
+                    <img id="reward-image" src="" alt="Reward">
                     <p id="reward-name">Название предмета</p>
                 </div>
             </section>
