@@ -120,38 +120,12 @@ body::before {
 #contribution-form button:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--glow-color); }
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
 
-/* --- Премиальный лидерборд (ИЗМЕНЕНО) --- */
-/* Настройка отступов (колонок) в таблице лидеров */
-/* 40px (Место) | 1fr (Игрок) | 70px (Приз) | 80px (Вклад) */
-.leaderboard-header { 
-    display: grid; 
-    grid-template-columns: 40px 1fr 70px 80px; /* Приз 70px, Вклад 80px */
-    gap: 10px; 
-    padding: 0 5px 10px; /* Уменьшен горизонтальный padding до 5px */
-    border-bottom: 1px solid var(--border-color); 
-    font-size: 11px; 
-    font-weight: 500; 
-    color: var(--text-color-muted); 
-    text-transform: uppercase; 
-    letter-spacing: 0.5px; 
-}
+/* --- Премиальный лидерборд --- */
+.leaderboard-header { display: grid; grid-template-columns: 40px 1fr 70px 80px; gap: 10px; padding: 0 5px 10px; border-bottom: 1px solid var(--border-color); font-size: 11px; font-weight: 500; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .align-right { text-align: right; }
 .centered-header { text-align: center; }
-
-/* НОВЫЙ КЛАСС: Сдвигает заголовок Приз вправо */
-.prize-header {
-    padding-left: 10px; /* <--- ЗНАЧЕНИЕ РУЧНОГО СДВИГА: Измените это, чтобы двигать "Приз" */
-}
-
-.leaderboard-row { 
-    display: grid; 
-    grid-template-columns: 40px 1fr 70px 80px; /* Приз 70px, Вклад 80px */
-    gap: 10px; 
-    padding: 12px 5px; /* Уменьшен горизонтальный padding до 5px */
-    align-items: center; 
-    border-bottom: 1px solid var(--border-color); 
-    transition: background-color 0.2s ease; 
-}
+.prize-header { padding-left: 10px; }
+.leaderboard-row { display: grid; grid-template-columns: 40px 1fr 70px 80px; gap: 10px; padding: 12px 5px; align-items: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
 .leaderboard-row:last-child { border-bottom: none; }
 .leaderboard-row.is-top-3 { font-weight: 700; }
 .leaderboard-row:hover { background-color: rgba(255, 255, 255, 0.05); }
@@ -159,29 +133,44 @@ body::before {
 .leaderboard-row.is-top-3 .rank { color: var(--primary-color); }
 .leaderboard-row .player { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
 
-/* --- ИЗМЕНЕНИЕ ДЛЯ ПРИЗА: Добавляем padding-left для ручного сдвига вправо */
-.leaderboard-row .prize-image-container { 
-    display: flex; 
-    justify-content: center; /* Центрируем, чтобы padding-left работал как сдвиг */
-    align-items: center; 
-    padding-left: 10px; /* <--- ЭТОТ ПАДДИНГ РУЧНОЙ СДВИГ для изображения приза */
-}
-/* Конец изменений для приза */
+/* --- Изменения для приза и добавление контейнера для зума --- */
+.leaderboard-row .prize-image-container { display: flex; justify-content: center; align-items: center; padding-left: 10px; }
+.leaderboard-row .prize-image { width: 50px; height: 50px; object-fit: contain; }
+.leaderboard-row .contribution { font-weight: 600; color: var(--text-color); text-align: right; font-size: 0.85em; padding-right: 0; }
 
-/* Уменьшаем размер приза */
-.leaderboard-row .prize-image { 
-    width: 50px; /* Было 50px */
-    height: 50px; /* Было 50px */
-    object-fit: contain; 
+/* --- НОВЫЕ СТИЛИ: Контейнер для увеличения и иконка лупы --- */
+.image-zoom-container {
+    position: relative;
+    cursor: pointer;
+    display: inline-block; /* Или block, в зависимости от контекста */
+    flex-shrink: 0; /* Важно для flex-контейнеров */
 }
-.leaderboard-row .contribution { 
-    font-weight: 600; 
-    color: var(--text-color); 
-    text-align: right; 
-    font-size: 0.85em; /* Уменьшенный размер шрифта для вклада */
-    padding-right: 0; 
+.image-zoom-container .zoom-icon {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+    opacity: 0; /* Скрыта по умолчанию */
 }
-/* --- Другие секции без изменений --- */
+.image-zoom-container:hover .zoom-icon {
+    opacity: 1; /* Появляется при наведении */
+    transform: scale(1.1);
+}
+.leaderboard-row .image-zoom-container .prize-image {
+    display: block; /* Убирает лишний отступ под картинкой */
+}
+
+/* --- Другие секции --- */
 .reward-card { display: flex; align-items: center; gap: 15px; }
 .reward-card img { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; }
 .reward-card p { margin: 0; font-weight: 600; font-size: 16px; }
@@ -209,14 +198,42 @@ body.is-admin .theme-switcher { display: flex; }
 .modal-body p { margin-top: 0; margin-bottom: 1em; }
 .modal-body p:last-child { margin-bottom: 0; }
 
-/* --- НОВЫЙ СТИЛЬ: Оверлей для обучения --- */
-.tutorial-overlay {
+/* --- Оверлей для обучения --- */
+.tutorial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 200; transition: opacity 0.3s ease; }
+
+/* --- НОВЫЕ СТИЛИ: Просмотрщик изображений --- */
+.image-viewer-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.9);
-    z-index: 200;
-    transition: opacity 0.3s ease;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 350; /* Выше чем все остальное */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+.viewer-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    font-size: 28px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    line-height: 38px;
+    text-align: center;
+}
+.viewer-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
 }
