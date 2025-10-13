@@ -104,11 +104,13 @@ try {
                 level_1: parseInt(form.elements['goal_level_1'].value, 10) || 0,
                 level_2: parseInt(form.elements['goal_level_2'].value, 10) || 0,
                 level_3: parseInt(form.elements['goal_level_3'].value, 10) || 0,
-            },
-            banner_image_url: form.elements['banner_image_url'].value,
-            cauldron_image_url: form.elements['cauldron_image_url'].value,
-            levels: {}
-        };
+        },
+        banner_image_url: form.elements['banner_image_url'].value,
+        cauldron_image_url_1: form.elements['cauldron_image_url_1'].value,
+        cauldron_image_url_2: form.elements['cauldron_image_url_2'].value,
+        cauldron_image_url_3: form.elements['cauldron_image_url_3'].value,
+        levels: {}
+    };
 
         [1, 2, 3].forEach(level => {
             const levelKey = `level_${level}`;
@@ -270,12 +272,14 @@ try {
                     const form = dom.cauldronSettingsForm;
 
                     // Заполняем основные настройки
-                    form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
-                    form.elements['title'].value = currentCauldronData.title || '';
-                    form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
-                    form.elements['cauldron_image_url'].value = currentCauldronData.cauldron_image_url || '';
-                    
-                    const goals = currentCauldronData.goals || {};
+                form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
+                form.elements['title'].value = currentCauldronData.title || '';
+                form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
+                form.elements['cauldron_image_url_1'].value = currentCauldronData.cauldron_image_url_1 || '';
+                form.elements['cauldron_image_url_2'].value = currentCauldronData.cauldron_image_url_2 || '';
+                form.elements['cauldron_image_url_3'].value = currentCauldronData.cauldron_image_url_3 || '';
+
+                const goals = currentCauldronData.goals || {};
                     form.elements['goal_level_1'].value = goals.level_1 || '';
                     form.elements['goal_level_2'].value = goals.level_2 || '';
                     form.elements['goal_level_3'].value = goals.level_3 || '';
