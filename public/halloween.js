@@ -1,5 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[INIT] DOMContentLoaded сработало. Начинаем инициализацию скрипта.');
+
     const tg = window.Telegram.WebApp;
+    if (!tg) {
+        console.error('[INIT] Объект window.Telegram.WebApp не найден! Скрипт не сможет работать.');
+        document.body.innerHTML = '<h2>Ошибка: Не удалось инициализировать Telegram Web App.</h2>';
+        return;
+    }
+    console.log('[INIT] Объект Telegram Web App успешно получен.');
 
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
@@ -19,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ticketsInput: document.getElementById('tickets-input'),
         errorMessage: document.getElementById('error-message'),
     };
+    console.log('[INIT] DOM-элементы найдены и сохранены.');
 
     // --- ИЗМЕНЕНО: Вставьте сюда ваши ссылки на награды ---
     const THEME_ASSETS = {
@@ -40,20 +49,27 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEventData = {};
     
     async function makeApiRequest(url, body = {}, method = 'POST') {
+        console.log(`[API] Начинаем запрос на ${url} методом ${method}`);
         try {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
                 options.body = JSON.stringify({ ...body, initData: tg.initData });
             }
             const response = await fetch(url, options);
+            console.log(`[API] Получен ответ от ${url}. Статус: ${response.status}`);
+            
             if (!response.ok) {
                 const errorData = await response.json();
+                console.error(`[API ERROR] Ошибка от сервера (${url}):`, errorData);
                 throw new Error(errorData.detail || 'Ошибка сервера');
             }
-            return await response.json();
+            
+            const data = await response.json();
+            console.log(`[API SUCCESS] Успешно получили и распарсили JSON от ${url}`, data);
+            return data;
         } catch (e) {
-            console.error(`Ошибка API (${url}):`, e.message, e);
-            throw e;
+            console.error(`[API FATAL] Критическая ошибка при запросе на ${url}:`, e);
+            throw e; // Пробрасываем ошибку дальше
         }
     }
 
@@ -63,12 +79,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setTheme(themeName) {
+        console.log(`[THEME] Устанавливаем тему: ${themeName}`);
         document.body.dataset.theme = themeName;
         dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.themeSet === themeName);
         });
 
         if (currentUserData.is_admin) {
+            console.log('[THEME] Пользователь - админ. Сохраняем тему в localStorage.');
             localStorage.setItem('adminSelectedTheme', themeName);
         }
         
@@ -79,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const defaultReward = levelConfig.default_reward || {};
         dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
+        console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
     }
     
     function getCurrentLevel(eventData) {
@@ -89,11 +108,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderPage(eventData, leaderboardData = {}) {
+        console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
         currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
         const canViewEvent = eventData && (eventData.is_visible_to_users || isAdmin);
+        console.log(`[RENDER] isAdmin: ${isAdmin}, is_visible_to_users: ${eventData?.is_visible_to_users}, canViewEvent: ${canViewEvent}`);
 
         if (!canViewEvent) {
+            console.warn('[RENDER] Ивент неактивен для пользователя. Показываем сообщение.');
             document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>';
             return;
         }
@@ -103,14 +125,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const { goals = {}, levels = {}, current_progress = 0 } = eventData || {};
         const top20 = leaderboardData.top20 || [];
         const currentLevel = getCurrentLevel(eventData);
+        console.log(`[RENDER] Текущий прогресс: ${current_progress}, текущий уровень: ${currentLevel}`);
 
-        // --- НОВАЯ ЛОГИКА: Установка картинки котла в зависимости от уровня ---
         const cauldronImageUrl = eventData[`cauldron_image_url_${currentLevel}`] 
-                               || eventData.cauldron_image_url // Для совместимости со старыми настройками
+                               || eventData.cauldron_image_url
                                || FALLBACK_CAULDRON_URL;
         dom.cauldronImage.src = cauldronImageUrl;
+        console.log(`[RENDER] URL котла: ${cauldronImageUrl}`);
         
-        // --- Продолжение логики рендеринга ---
         let currentGoal = 1, prevGoal = 0;
         if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
         else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
@@ -126,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
+        console.log(`[RENDER] Прогресс-бар обновлен: ${progressPercentage.toFixed(2)}%`);
         
         dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
         dom.rewardName.textContent = defaultReward.name || 'Награда не настроена';
@@ -154,17 +177,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             }).join('');
         }
+        console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
 
     async function fetchDataAndRender() {
+        console.log('1. [MAIN] Вызвана функция fetchDataAndRender.');
         try {
+            console.log('1.1. [MAIN] Начинаем Promise.all для загрузки всех данных.');
             const [eventData, leaderboardData, userData] = await Promise.all([
                 makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET'),
                 makeApiRequest('/api/v1/events/cauldron/leaderboard', {}, 'GET'),
                 makeApiRequest("/api/v1/user/me", {}, 'POST')
             ]);
+            console.log('2. [MAIN] Все данные из Promise.all успешно получены.');
             
             currentUserData = userData;
+            console.log('3. [MAIN] Данные пользователя сохранены.', currentUserData);
 
             if (currentUserData.is_admin) {
                 document.body.classList.add('is-admin');
@@ -176,11 +204,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             dom.userTicketBalance.textContent = currentUserData.tickets || 0;
+            console.log('4. [MAIN] Баланс пользователя установлен. Вызываем renderPage.');
             renderPage(eventData, leaderboardData);
+            console.log('5. [MAIN] renderPage успешно завершен.');
 
         } catch (e) {
+            console.error('X. [MAIN CATCH] Перехвачена ошибка в fetchDataAndRender:', e);
             document.body.innerHTML = `<h2 style="text-align:center; padding-top: 50px;">Ошибка загрузки ивента: ${e.message}</h2>`;
         } finally {
+            console.log('6. [MAIN FINALLY] Блок finally. Скрываем загрузчик.');
             dom.loaderOverlay.classList.add('hidden');
             dom.appContainer.classList.remove('hidden');
         }
@@ -190,17 +222,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('[EVENT] Форма вклада отправлена.');
         dom.errorMessage.classList.add('hidden');
         const amount = parseInt(dom.ticketsInput.value, 10);
         
         if (!amount || amount <= 0) {
             dom.errorMessage.textContent = 'Введите корректное количество билетов.';
             dom.errorMessage.classList.remove('hidden');
+            console.warn('[EVENT] Некорректное количество билетов:', amount);
             return;
         }
         if (amount > (currentUserData.tickets || 0)) {
             dom.errorMessage.textContent = 'У вас недостаточно билетов.';
             dom.errorMessage.classList.remove('hidden');
+            console.warn('[EVENT] Недостаточно билетов. Требуется:', amount, 'Имеется:', currentUserData.tickets);
             return;
         }
         
@@ -210,22 +245,28 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUserData.tickets = result.new_ticket_balance;
             dom.userTicketBalance.textContent = result.new_ticket_balance;
             dom.ticketsInput.value = '';
+            console.log('[EVENT] Вклад успешен. Обновляем данные страницы.');
             fetchDataAndRender();
         } catch(error) {
             dom.errorMessage.textContent = error.message;
             dom.errorMessage.classList.remove('hidden');
+            console.error('[EVENT] Ошибка при отправке вклада:', error);
         }
     });
 
     dom.themeSwitcher.addEventListener('click', (e) => {
         const button = e.target.closest('.theme-btn');
         if (button && button.dataset.themeSet) {
+            console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${button.dataset.themeSet}`);
             setTheme(button.dataset.themeSet);
         }
     });
     
     // --- ИНИЦИАЛИЗАЦИЯ ---
+    console.log('[INIT] Добавляем обработчики событий.');
     tg.ready();
+    console.log('[INIT] Telegram.WebApp.ready() вызван.');
     tg.expand();
+    console.log('[INIT] Telegram.WebApp.expand() вызван.');
     fetchDataAndRender();
 });
