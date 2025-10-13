@@ -1373,16 +1373,15 @@ async def get_current_user_data(
     telegram_id = user_info["id"]
 
     try:
-        # Вот она, магия! Один-единственный вызов к нашей новой функции.
+        # Основной вызов RPC-функции
         response = await supabase.post(
-            "/rpc/get_user_dashboard_data", # Вызываем "помощника" по имени
-            json={"p_telegram_id": telegram_id} # Передаём ему ID пользователя
+            "/rpc/get_user_dashboard_data",
+            json={"p_telegram_id": telegram_id}
         )
-        response.raise_for_status() # Проверяем, что всё прошло без ошибок
-        
+        response.raise_for_status()
         data = response.json()
 
-        # Если профиль пустой, значит пользователь новый. Создаём его.
+        # Если профиль пустой, создаем его
         if not data.get('profile'):
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
             await supabase.post(
@@ -1390,29 +1389,40 @@ async def get_current_user_data(
                 json={"telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg},
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
-            # И снова запрашиваем данные, теперь уже для созданного пользователя
+            # Повторно запрашиваем данные после создания
             response = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
             data = response.json()
 
-        # Наша функция возвращает JSON вида: {"profile": {...}, "challenge": {...}}
-        # Нам нужно "собрать" из этого финальный ответ для фронтенда.
+        # Собираем основной ответ
         final_response = data.get('profile', {})
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
+        
+        # Проверяем, является ли пользователь админом
+        is_admin = telegram_id in ADMIN_IDS
+        final_response['is_admin'] = is_admin
+
+        # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+        # Если это админ, и по какой-то причине RPC не вернула его баланс билетов,
+        # делаем дополнительный надежный запрос.
+        if is_admin and 'tickets' not in final_response:
+            logging.warning(f"RPC не вернула баланс билетов для админа {telegram_id}. Делаю дополнительный запрос...")
+            user_details_resp = await supabase.get("users", params={"telegram_id": f"eq.{telegram_id}", "select": "tickets"})
+            user_details_resp.raise_for_status()
+            user_details = user_details_resp.json()
+            if user_details:
+                final_response['tickets'] = user_details[0].get('tickets', 0)
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
         admin_settings = await get_admin_settings_async(supabase)
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
-
-        if telegram_id in ADMIN_IDS:
-            final_response['is_admin'] = True
-        else:
-            final_response['is_admin'] = False
         
         return JSONResponse(content=final_response)
 
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
-
+        
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
 @app.post("/api/v1/admin/events/cauldron/update")
