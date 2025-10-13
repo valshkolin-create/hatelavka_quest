@@ -155,15 +155,15 @@ body::before {
 .leaderboard-row .prize-image-container { display: flex; justify-content: center; align-items: center; }
 /* Уменьшаем размер приза */
 .leaderboard-row .prize-image { 
-    width: 40px; /* Было 50px */
-    height: 40px; /* Было 50px */
+    width: 50px; /* Было 50px */
+    height: 50px; /* Было 50px */
     object-fit: contain; 
 }
 .leaderboard-row .contribution { 
     font-weight: 600; 
     color: var(--text-color); 
     text-align: right; 
-    font-size: 0.85em; /* ИЗМЕНЕНО: Уменьшил размер шрифта до 0.85em */
+    font-size: 0.65em; /* ИЗМЕНЕНО: Уменьшил размер шрифта до 0.85em */
     padding-right: 0; 
 }
 
