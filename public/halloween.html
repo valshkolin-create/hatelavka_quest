@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8" />
-    <title>Ведьминский Котел</title>
+    <title>Гонка за скинами</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -16,12 +16,12 @@
     <main id="app-container" class="main-content hidden">
         <div id="admin-notice" class="admin-notice hidden">
             <i class="fa-solid fa-eye-slash"></i>
-            <span>Режим администратора: ивент скрыт для обычных пользователей.</span>
+            <span>Режим админа: ивент скрыт для пользователей.</span>
         </div>
 
         <header class="page-header">
             <a href="/menu" class="back-button"><i class="fa-solid fa-arrow-left"></i> Меню</a>
-            <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
+            <h1 id="event-title" class="page-header-title">Гонка за скинами</h1>
             <div style="width: 80px;"></div>
         </header>
 
@@ -34,19 +34,7 @@
             </div>
             <div id="progress-text" class="progress-text">0 / 0</div>
         </section>
-
-        <section class="reward-section">
-            <h2 id="reward-section-title">Текущая награда (Уровень 1)</h2>
-            <div id="reward-card" class="reward-card">
-                <img id="reward-image" src="https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f" alt="Reward">
-                <p id="reward-name">Название предмета</p>
-            </div>
-            <div id="unique-drop-info" class="unique-drop-info">
-                <i class="fa-solid fa-star"></i>
-                <span id="unique-drop-text">Уникальный дроп для первых 20 участников!</span>
-            </div>
-        </section>
-
+        
         <section class="contribution-section">
             <p>Ваш баланс: <strong id="user-ticket-balance">...</strong> <i class="fa-solid fa-ticket"></i></p>
             <form id="contribution-form">
@@ -55,31 +43,17 @@
             </form>
             <div id="error-message" class="error-message hidden"></div>
         </section>
-        
-        <section class="participants-section">
-            <div class="tabs-container">
-                <button class="tab-button active" data-tab="top20">Топ-20</button>
-                <button class="tab-button" data-tab="all">Все участники</button>
-            </div>
 
-            <div id="tab-content-top20" class="tab-content active">
-                <div class="leaderboard-header">
-                    <span>#</span>
-                    <span>Игрок</span>
-                    <span>Вклад</span>
-                </div>
-                <div id="top-20-list" class="leaderboard-list"></div>
+        <section class="leaderboard-section">
+            <div class="leaderboard-header">
+                <span>#</span>
+                <span>Игрок</span>
+                <span>Вклад</span>
+                <span>Награда</span>
             </div>
-
-            <div id="tab-content-all" class="tab-content hidden">
-                <div class="leaderboard-header">
-                    <span>Игрок</span>
-                    <span>Дроп</span>
+            <div id="leaderboard-list" class="leaderboard-list">
                 </div>
-                 <div id="all-participants-list" class="leaderboard-list"></div>
-            </div>
         </section>
-        
     </main>
 
     <script src="halloween.js"></script>
