@@ -153,3 +153,8 @@ body.is-admin .theme-switcher { display: flex; }
 .theme-btn { background-color: transparent; border: 2px solid transparent; color: var(--text-color-muted); font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
 .theme-btn:hover { color: var(--text-color); background-color: rgba(255, 255, 255, 0.1); }
 .theme-btn.active { border-color: var(--primary-color); color: var(--primary-color); }
+
+/* --- Утилитарный класс для скрытия элементов --- */
+.hidden {
+    display: none !important;
+}
