@@ -7,16 +7,6 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="halloween.css">
-    <style>
-        .page-layout { display: flex; flex-direction: column; gap: 20px; }
-        .top-section { text-align: center; }
-        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: flex-start; }
-        .leaderboard-rewards-list .leaderboard-row { grid-template-columns: 25px 1fr; gap: 8px; }
-        .leaderboard-rewards-list .reward-info { font-size: 13px; color: var(--text-color-muted); display: flex; align-items: center; gap: 5px; }
-        .leaderboard-rewards-list .reward-info img { width: 20px; height: 20px; border-radius: 4px;}
-        .leaderboard-rewards-list .player-info { display: flex; flex-direction: column; }
-        @media (max-width: 400px) { .content-grid { grid-template-columns: 1fr; } }
-    </style>
 </head>
 <body>
     <div id="loader-overlay" class="loader-overlay">
@@ -44,25 +34,8 @@
                     <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
                 </div>
                 <div id="progress-text" class="progress-text">0 / 0</div>
-                <h2 id="reward-section-title" style="font-size: 18px; margin: 15px 0 5px 0;">Уровень 1</h2>
             </section>
             
-            <div class="content-grid">
-                <section class="leaderboard-section">
-                    <h3><i class="fa-solid fa-trophy"></i> Награды для Топ-20</h3>
-                    <div id="leaderboard-rewards-list" class="leaderboard-list">
-                        </div>
-                </section>
-    
-                <section class="default-reward-section">
-                    <h3><i class="fa-solid fa-box"></i> Награда для остальных</h3>
-                    <div id="reward-card" class="reward-card">
-                        <img id="reward-image" src="https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f" alt="Reward">
-                        <p id="reward-name">Название предмета</p>
-                    </div>
-                </section>
-            </div>
-    
             <section class="contribution-section">
                 <p>Ваш баланс: <strong id="user-ticket-balance">...</strong> <i class="fa-solid fa-ticket"></i></p>
                 <form id="contribution-form">
@@ -71,6 +44,23 @@
                 </form>
                 <div id="error-message" class="error-message hidden"></div>
             </section>
+
+            <h2 id="reward-section-title" class="section-title">Уровень 1</h2>
+            
+            <section class="leaderboard-section">
+                <h3 class="subsection-title"><i class="fa-solid fa-trophy"></i> Награды для Топ-20</h3>
+                <div id="leaderboard-rewards-list" class="leaderboard-list">
+                    </div>
+            </section>
+
+            <section class="default-reward-section">
+                <h3 class="subsection-title"><i class="fa-solid fa-box"></i> Награда для остальных</h3>
+                <div id="reward-card" class="reward-card">
+                    <img id="reward-image" src="https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f" alt="Reward">
+                    <p id="reward-name">Название предмета</p>
+                </div>
+            </section>
+    
         </div>
     </main>
 
