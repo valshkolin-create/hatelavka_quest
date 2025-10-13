@@ -1,3 +1,5 @@
+// admin.js
+
 try {
     const tg = window.Telegram.WebApp;
     
@@ -82,7 +84,7 @@ try {
     function createTopRewardRow(reward = { place: '', name: '', image_url: '' }) {
         const wrapper = document.createElement('div');
         wrapper.className = 'top-reward-row admin-form';
-        wrapper.style.cssText = 'display: flex; flex-direction: row; align-items: center; gap: 10px;';
+        wrapper.style.cssText = 'display: flex; flex-direction: row; align-items: center; gap: 10px; margin-bottom: 10px;';
         wrapper.innerHTML = `
             <input type="number" class="reward-place" placeholder="Место" value="${escapeHTML(reward.place)}" min="1" max="20" style="flex: 0 0 70px;">
             <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(reward.name)}" style="flex: 1 1 auto;">
@@ -1040,9 +1042,18 @@ try {
                     document.getElementById('tab-content-main').classList.toggle('hidden', tabId !== 'main');
                     document.getElementById('tab-content-admin').classList.toggle('hidden', tabId !== 'admin');
                 } else if (parentElement) {
-                    parentElement.querySelectorAll('.tab-content').forEach(content => {
-                        content.classList.toggle('hidden', content.id !== `tab-content-${tabId}`);
-                    });
+                     // Специальная логика для вкладок котла
+                    if (container.id === 'cauldron-tabs') {
+                         parentElement.querySelectorAll('.tab-content').forEach(content => {
+                            if(content.id.startsWith('tab-content-cauldron-')) {
+                                content.classList.toggle('hidden', content.id !== `tab-content-${tabId}`);
+                            }
+                        });
+                    } else {
+                        parentElement.querySelectorAll('.tab-content').forEach(content => {
+                            content.classList.toggle('hidden', content.id !== `tab-content-${tabId}`);
+                        });
+                    }
                 }
             });
         });
@@ -1114,18 +1125,7 @@ try {
         if (cauldronTabs) {
             cauldronTabs.addEventListener('click', (e) => {
                 const button = e.target.closest('.tab-button');
-                if (!button) return;
-
-                // Переключение вкладок
-                cauldronTabs.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                
-                document.querySelectorAll('#view-admin-cauldron .tab-content').forEach(content => {
-                    content.classList.toggle('hidden', content.id !== `tab-content-${button.dataset.tab}`);
-                });
-
-                // Загрузка участников при клике на их вкладку
-                if (button.dataset.tab === 'cauldron-distribution') {
+                if (button && button.dataset.tab === 'cauldron-distribution') {
                     renderCauldronParticipants(); 
                 }
             });
