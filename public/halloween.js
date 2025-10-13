@@ -21,38 +21,34 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage: document.getElementById('error-message'),
     };
 
-    // --- Конфигурация тем ---
+    // --- Конфигурация тем: найдите и вставьте свои URL картинок ---
     const THEME_ASSETS = {
         halloween: {
-            cauldron_image_url: 'https://i.postimg.cc/pX9n7fBw/cauldron.png',
-            default_reward_image: 'https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f'
+            cauldron_image_url: 'https://i.postimg.cc/VL04k1kH/halloween-pot.png',
+            default_reward_image: 'https://i.postimg.cc/B620Kx2s/halloween-prize.png'
         },
         new_year: {
-            cauldron_image_url: 'https://i.postimg.cc/mDk5C5gs/ice-pot.png', // Пример
-            default_reward_image: 'https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f' // Заменить на свою
+            cauldron_image_url: 'https://i.postimg.cc/mDk5C5gs/ice-pot.png',
+            default_reward_image: 'https://i.postimg.cc/J02j1kKq/new-year-prize.png'
         },
         classic: {
-            cauldron_image_url: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png', // Пример
-            default_reward_image: 'https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf2PLacDBA5ciJlY20hPb6NqjUmldu5MR0j-Db8Y6i2gey-UBsMGDzI4SWJAU8Yw2E-le8xLzrh4e07ZzLzHRmvz5iuyhX/360fx360f' // Заменить на свою
+            cauldron_image_url: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png',
+            default_reward_image: 'https://i.postimg.cc/1XfQ4n08/classic-prize.png'
         }
     };
     
     let currentUserData = {};
-    
+    let currentEventData = {};
+
     async function makeApiRequest(url, body = {}, method = 'POST') {
         try {
-            const options = {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-            };
+            const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
                 options.body = JSON.stringify({ ...body, initData: tg.initData });
             }
             const response = await fetch(url, options);
             const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.detail || 'Ошибка сервера');
-            }
+            if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
             return result;
         } catch (e) {
             console.error(`Ошибка API (${url}):`, e.message, e);
@@ -65,27 +61,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
 
-    // --- НОВАЯ ФУНКЦИЯ: УСТАНОВКА ТЕМЫ ---
     function setTheme(themeName) {
         document.body.dataset.theme = themeName;
-
-        // Обновляем активную кнопку
         dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.themeSet === themeName);
         });
 
-        // Сохраняем выбор админа
+        // Сохраняем выбор темы для всех (если админ) или только для себя
         if (currentUserData.is_admin) {
+            // ВАЖНО: Вам нужно будет реализовать на бэкенде сохранение этой настройки
+            // и передачу ее в /api/v1/events/cauldron/status, чтобы все видели одну тему.
+            // Пока что сохраняем локально для админа.
             localStorage.setItem('adminSelectedTheme', themeName);
         }
         
-        // Перерисовываем элементы, зависящие от темы (например, картинки)
         const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.halloween;
-        dom.cauldronImage.src = currentThemeAssets.cauldron_image_url;
-        dom.rewardImage.src = currentThemeAssets.default_reward_image;
+        dom.cauldronImage.src = currentEventData.cauldron_image_url || currentThemeAssets.cauldron_image_url;
+        const defaultReward = (currentEventData.levels?.level_1?.default_reward) || {};
+        dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
     }
 
     function renderPage(eventData, leaderboardData = {}) {
+        currentEventData = eventData; // Сохраняем актуальные данные ивента
         const isAdmin = currentUserData.is_admin;
         const canViewEvent = eventData.is_visible_to_users || isAdmin;
 
@@ -94,9 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (dom.adminNotice) {
-            dom.adminNotice.classList.toggle('hidden', !(isAdmin && !eventData.is_visible_to_users));
-        }
+        dom.adminNotice.classList.toggle('hidden', !(isAdmin && !eventData.is_visible_to_users));
 
         const { goals = {}, levels = {}, current_progress = 0 } = eventData;
         const top20 = leaderboardData.top20 || [];
@@ -112,35 +107,46 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 2. Получаем награды для текущего уровня
         const levelConfig = levels[`level_${currentLevel}`] || {};
+        const topPlaceRewards = levelConfig.top_places || [];
         const defaultReward = levelConfig.default_reward || {};
 
         // 3. Обновляем DOM
-        dom.eventTitle.textContent = eventData.title || "Ведьминский Котел";
+        dom.eventTitle.textContent = eventData.title || "Ивент-Котел";
         const progressInLevel = current_progress - prevGoal;
         const goalForLevel = currentGoal - prevGoal;
         const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
-        dom.rewardSectionTitle.textContent = `Уровень ${currentLevel}`;
+        dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
         dom.rewardName.textContent = defaultReward.name || 'Награда не настроена';
 
-        // 4. Рендерим список Топ-20 с их вкладами (НОВЫЙ КОД)
+        // 4. Рендерим новый лидерборд
         if (top20.length === 0) {
             dom.leaderboardRewardsList.innerHTML = '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>';
         } else {
             dom.leaderboardRewardsList.innerHTML = top20.map((p, index) => {
                 const rank = index + 1;
-                // ВАЖНО: Предполагаем, что API возвращает поле total_contribution
                 const contributionAmount = p.total_contribution || 0;
+                const assignedReward = topPlaceRewards.find(r => r.place === rank);
+                const prizeImageHtml = assignedReward?.image_url 
+                    ? `<img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image">`
+                    : `<span>-</span>`;
+                
+                const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
 
                 return `
-                <div class="leaderboard-row">
+                <div class="${rowClass}">
                     <span class="rank">#${rank}</span>
                     <span class="player">${escapeHTML(p.full_name || 'Без имени')}</span>
-                    <span class="contribution">${contributionAmount} 🎟️</span>
+                    <div class="prize-image-container">${prizeImageHtml}</div>
+                    <span class="contribution align-right">${contributionAmount} 🎟️</span>
                 </div>`;
             }).join('');
         }
+        
+        // Устанавливаем тему после рендеринга
+        const activeTheme = document.body.dataset.theme || 'halloween';
+        setTheme(activeTheme);
     }
 
     async function fetchDataAndRender() {
@@ -153,14 +159,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             currentUserData = userData;
 
-            // --- ЛОГИКА АДМИНА И ТЕМ ---
             if (currentUserData.is_admin) {
                 document.body.classList.add('is-admin');
-                // Загружаем сохраненную тему или ставим по умолчанию
                 const savedTheme = localStorage.getItem('adminSelectedTheme') || 'halloween';
                 setTheme(savedTheme);
             } else {
-                setTheme('halloween'); // Тема по умолчанию для обычных пользователей
+                // ВАЖНО: Здесь нужно получать тему от сервера. 
+                // Пока что для игроков тема будет 'halloween'.
+                const globalTheme = eventData.current_theme || 'halloween'; 
+                setTheme(globalTheme);
             }
             
             dom.userTicketBalance.textContent = currentUserData.tickets || 0;
@@ -174,9 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
+    // --- Обработчики событий ---
 
-    // Вклад в котел
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         dom.errorMessage.classList.add('hidden');
@@ -187,8 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.errorMessage.classList.remove('hidden');
             return;
         }
-
-        // ИСПРАВЛЕННАЯ ПРОВЕРКА БАЛАНСА
         if (amount > (currentUserData.tickets || 0)) {
             dom.errorMessage.textContent = 'У вас недостаточно билетов.';
             dom.errorMessage.classList.remove('hidden');
@@ -200,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert(result.message);
             dom.userTicketBalance.textContent = result.new_ticket_balance;
             dom.ticketsInput.value = '';
+            // Перезагружаем все данные, чтобы обновить лидерборд
             fetchDataAndRender();
         } catch(error) {
             dom.errorMessage.textContent = error.message;
@@ -207,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Переключение тем
     dom.themeSwitcher.addEventListener('click', (e) => {
         const button = e.target.closest('.theme-btn');
         if (button && button.dataset.themeSet) {
@@ -215,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // --- ИНИЦИАЛИЗАЦИЯ ---
+    // --- Инициализация ---
     tg.ready();
     tg.expand();
     fetchDataAndRender();
