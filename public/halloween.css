@@ -121,10 +121,31 @@ body::before {
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
 
 /* --- Премиальный лидерборд (ИЗМЕНЕНО) --- */
-.leaderboard-header { display: grid; grid-template-columns: 40px 1fr 60px auto; gap: 10px; padding: 0 10px 10px; border-bottom: 1px solid var(--border-color); font-size: 11px; font-weight: 500; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+/* Настройка отступов (колонок) в таблице лидеров */
+/* 40px (Место) | 1fr (Игрок) | 70px (Приз) | 80px (Вклад) */
+.leaderboard-header { 
+    display: grid; 
+    grid-template-columns: 40px 1fr 70px 80px; /* Приз 70px, Вклад 80px */
+    gap: 10px; 
+    padding: 0 5px 10px; /* ИЗМЕНЕНО: Уменьшил горизонтальный padding до 5px для сдвига контента вправо */
+    border-bottom: 1px solid var(--border-color); 
+    font-size: 11px; 
+    font-weight: 500; 
+    color: var(--text-color-muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
 .align-right { text-align: right; }
 .centered-header { text-align: center; }
-.leaderboard-row { display: grid; grid-template-columns: 40px 1fr 40px auto; gap: 10px; padding: 12px 10px; align-items: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
+.leaderboard-row { 
+    display: grid; 
+    grid-template-columns: 40px 1fr 70px 80px; /* Приз 70px, Вклад 80px */
+    gap: 10px; 
+    padding: 12px 5px; /* ИЗМЕНЕНО: Уменьшил горизонтальный padding до 5px для сдвига контента вправо */
+    align-items: center; 
+    border-bottom: 1px solid var(--border-color); 
+    transition: background-color 0.2s ease; 
+}
 .leaderboard-row:last-child { border-bottom: none; }
 .leaderboard-row.is-top-3 { font-weight: 700; }
 .leaderboard-row:hover { background-color: rgba(255, 255, 255, 0.05); }
@@ -132,8 +153,19 @@ body::before {
 .leaderboard-row.is-top-3 .rank { color: var(--primary-color); }
 .leaderboard-row .player { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
 .leaderboard-row .prize-image-container { display: flex; justify-content: center; align-items: center; }
-.leaderboard-row .prize-image { width: 50px; height: 50px; object-fit: contain; }
-.leaderboard-row .contribution { font-weight: 600; color: var(--text-color); text-align: right; }
+/* Уменьшаем размер приза */
+.leaderboard-row .prize-image { 
+    width: 40px; /* Было 50px */
+    height: 40px; /* Было 50px */
+    object-fit: contain; 
+}
+.leaderboard-row .contribution { 
+    font-weight: 600; 
+    color: var(--text-color); 
+    text-align: right; 
+    font-size: 0.85em; /* ИЗМЕНЕНО: Уменьшил размер шрифта до 0.85em */
+    padding-right: 0; 
+}
 
 /* --- Другие секции без изменений --- */
 .reward-card { display: flex; align-items: center; gap: 15px; }
