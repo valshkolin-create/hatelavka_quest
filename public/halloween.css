@@ -11,7 +11,7 @@
   --backdrop-blur: 12px; /* Добавлено для совместимости с футером */
 }
 
-/* --- ИСПРАВЛЕНО: Ваши новые фоны --- */
+/* --- ТЕМЫ --- */
 body[data-theme="halloween"] {
   --bg-image: url('https://i.postimg.cc/9fbNYP3M/738e137ac94b6294a9f6ad979a59dc34.jpg');
   --primary-color: #ff9500;
@@ -34,7 +34,7 @@ body[data-theme="classic"] {
 body {
     margin: 0;
     min-height: 100vh;
-    padding-bottom: 120px; /* Добавлено место для футера */
+    padding: 0 15px 120px; /* Добавлен боковой padding */
     background-color: #0d0b1f;
     background-image: var(--bg-image);
     background-size: cover;
@@ -44,11 +44,10 @@ body {
     font-family: var(--font-main);
     transition: background-image 0.5s ease;
     overflow-x: hidden;
-    position: relative; /* Нужно для затемнения */
+    position: relative;
     z-index: 1;
 }
 
-/* --- ИЗМЕНЕНИЕ: Затемнение фона стало сильнее --- */
 body::before {
     content: '';
     position: fixed;
@@ -56,8 +55,8 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8); /* Черный цвет с 80% прозрачности */
-    z-index: -1; /* Помещаем под контент, но над фоном */
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: -1;
 }
 
 /* --- Эффекты частиц --- */
@@ -69,6 +68,7 @@ body::before {
     90% { opacity: 0.8; }
     100% { transform: translateY(100vh) translateX(var(--drift, 0px)) scale(0.5); opacity: 0; }
 }
+/* ... стили для .particle:nth-child остаются без изменений ... */
 .particle:nth-child(1) { width: 4px; height: 4px; left: 10%; animation-duration: 12s; animation-delay: 1s; --drift: 50px; }
 .particle:nth-child(2) { width: 2px; height: 2px; left: 20%; animation-duration: 18s; animation-delay: 3s; --drift: -30px; }
 .particle:nth-child(3) { width: 5px; height: 5px; left: 30%; animation-duration: 10s; animation-delay: 5s; --drift: 40px; }
@@ -85,6 +85,7 @@ body::before {
 .particle:nth-child(14) { width: 3px; height: 3px; left: 55%; animation-duration: 23s; animation-delay: 12s; --drift: -60px; }
 .particle:nth-child(15) { width: 5px; height: 5px; left: 65%; animation-duration: 12s; animation-delay: 14s; --drift: 20px; }
 
+
 /* --- Загрузчик --- */
 .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: flex; align-items: center; justify-content: center; }
 .spinner { width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
@@ -93,16 +94,37 @@ body::before {
 /* --- Общая структура --- */
 .page-header, .page-layout, .contribution-section, .leaderboard-section, .default-reward-section, .theme-switcher, .admin-notice {
     position: relative;
-    z-index: 2; /* Убеждаемся, что контент выше затемнения */
+    z-index: 2;
 }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.page-header-title { margin: 0; font-size: 20px; font-weight: 700; text-align: center; flex-grow: 1; }
-/* NEW: Rules Button Style */
-.rules-button { background: none; border: none; color: var(--action-color); font-size: 22px; cursor: pointer; padding: 5px; width: 40px; text-align: right;}
+.page-header { display: flex; justify-content: center; align-items: center; margin-bottom: 5px; padding-top: 15px; } /* Убрал space-between */
+.page-header-title { margin: 0; font-size: 24px; font-weight: 700; text-align: center; }
+
+/* --- НОВЫЕ СТИЛИ: Кнопка "КАК ИГРАТЬ?" --- */
+.rules-button-container { text-align: center; margin-bottom: 20px; position: relative; z-index: 2; }
+.rules-button {
+    background: linear-gradient(45deg, var(--action-color), var(--primary-color));
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+.rules-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--glow-color); }
+.rules-button.highlight {
+    animation: pulse-glow 1.5s infinite;
+}
+@keyframes pulse-glow {
+    0% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); }
+    50% { box-shadow: 0 0 20px var(--glow-color), 0 0 30px var(--glow-color); }
+    100% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); }
+}
+
 .page-layout { display: flex; flex-direction: column; gap: 15px; }
-.section-title, .subsection-title { text-align: center; font-weight: 600; }
-.section-title { font-size: 18px; margin: 15px 0 5px; color: var(--primary-color); }
-.subsection-title { font-size: 14px; margin: 0 0 10px 0; color: var(--text-color-muted); }
+.subsection-title { text-align: center; font-weight: 600; font-size: 14px; margin: 0 0 10px 0; color: var(--text-color-muted); }
 
 /* --- Секция с котлом --- */
 .top-section { text-align: center; }
@@ -123,7 +145,7 @@ body::before {
 }
 
 /* --- Секция вклада --- */
-.contribution-section p { margin: 0 0 15px 0; font-size: 14px; color: var(--text-color-muted); }
+.contribution-section p { margin: 0 0 15px 0; font-size: 14px; text-align: center; color: var(--text-color-muted); }
 .contribution-section p strong { color: var(--text-color); font-weight: 600; }
 #contribution-form { display: flex; gap: 10px; }
 #tickets-input { flex-grow: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: white; font-size: 16px; }
@@ -132,17 +154,17 @@ body::before {
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
 
 /* --- Премиальный лидерборд --- */
-.leaderboard-header { display: grid; grid-template-columns: 50px 1fr 60px auto; gap: 15px; padding: 0 10px 10px; border-bottom: 1px solid var(--border-color); font-size: 11px; font-weight: 500; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.leaderboard-header { display: grid; grid-template-columns: 50px 1fr 60px auto; gap: 10px; padding: 0 10px 10px; border-bottom: 1px solid var(--border-color); font-size: 11px; font-weight: 500; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .align-right { text-align: right; }
-/* NEW: Centered Header */
 .centered-header { text-align: center; }
-.leaderboard-row { display: grid; grid-template-columns: 50px 1fr 60px auto; gap: 15px; padding: 12px 10px; align-items: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
+.prize-header { padding-left: 10px; } /* ИЗМЕНЕНИЕ: Сдвиг надписи "Приз" */
+.leaderboard-row { display: grid; grid-template-columns: 50px 1fr 60px auto; gap: 10px; padding: 12px 10px; align-items: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
 .leaderboard-row:last-child { border-bottom: none; }
 .leaderboard-row.is-top-3 { font-weight: 700; }
 .leaderboard-row:hover { background-color: rgba(255, 255, 255, 0.05); }
-.leaderboard-row .rank { font-weight: 700; color: var(--text-color-muted); font-size: 14px; text-align: center; } /* ADDED: text-align */
+.leaderboard-row .rank { font-weight: 700; color: var(--text-color-muted); font-size: 14px; text-align: center; }
 .leaderboard-row.is-top-3 .rank { color: var(--primary-color); }
-.leaderboard-row .player { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; } /* CHANGED: font-size reduced */
+.leaderboard-row .player { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
 .leaderboard-row .prize-image-container { display: flex; justify-content: center; align-items: center; }
 .leaderboard-row .prize-image { width: 50px; height: 50px; object-fit: contain; }
 .leaderboard-row .contribution { font-weight: 600; color: var(--text-color); text-align: right; }
@@ -161,50 +183,15 @@ body.is-admin .theme-switcher { display: flex; }
 .theme-btn.active { border-color: var(--primary-color); color: var(--primary-color); }
 
 /* --- Утилитарный класс для скрытия элементов --- */
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }
 
 /* --- СТИЛИ ДЛЯ НИЖНЕГО БАРА --- */
-.app-footer { 
-    display: flex; 
-    justify-content: space-around; 
-    background-color: rgba(20, 18, 35, 0.8); 
-    backdrop-filter: blur(var(--backdrop-blur)); 
-    border-top: 1px solid var(--border-color); 
-    width: 100%; 
-    padding-top: 8px; 
-    padding-bottom: calc(8px + env(safe-area-inset-bottom)); 
-    position: fixed; 
-    bottom: 0; 
-    left: 0; 
-    z-index: 100; 
-}
-.footer-item { 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    gap: 4px; 
-    color: var(--text-color-muted); 
-    font-size: 11px; 
-    text-decoration: none; 
-    flex: 1; 
-}
-.footer-item .icon-wrapper { 
-    font-size: 24px; 
-    width: 30px; 
-    height: 30px; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-}
-.footer-item.active span, .footer-item.active .icon-wrapper { 
-    color: var(--accent-glow); 
-    font-weight: 600; 
-    text-shadow: 0 0 5px var(--accent-glow); 
-}
+.app-footer { display: flex; justify-content: space-around; background-color: rgba(20, 18, 35, 0.8); backdrop-filter: blur(var(--backdrop-blur)); border-top: 1px solid var(--border-color); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; }
+.footer-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-color-muted); font-size: 11px; text-decoration: none; flex: 1; }
+.footer-item .icon-wrapper { font-size: 24px; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; }
+.footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-glow); font-weight: 600; text-shadow: 0 0 5px var(--accent-glow); }
 
-/* --- NEW: MODAL WINDOW STYLES --- */
+/* --- ИЗМЕНЕНИЕ: СТИЛИ МОДАЛЬНОГО ОКНА --- */
 .modal-overlay { 
     position: fixed; 
     top: 0; 
@@ -214,7 +201,7 @@ body.is-admin .theme-switcher { display: flex; }
     background: rgba(10, 10, 20, 0.8); 
     z-index: 1200; 
     display: flex; 
-    align-items: center; 
+    align-items: center; /* Центрирование по вертикали */
     justify-content: center; 
     padding: 15px; 
     backdrop-filter: blur(var(--backdrop-blur)); 
@@ -229,31 +216,11 @@ body.is-admin .theme-switcher { display: flex; }
     box-shadow: 0 10px 40px rgba(0,0,0,0.7); 
     display: flex; 
     flex-direction: column; 
-    max-height: 85vh; 
+    max-height: 90vh; /* Ограничение по высоте, чтобы не выходить за экран */
 }
-.modal-header { 
-    padding: 15px 20px; 
-    border-bottom: 1px solid var(--border-color); 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-}
-.modal-header h3 { 
-    margin: 0; 
-    color: var(--primary-color); 
-}
-.modal-close-btn { 
-    background: none; 
-    border: none; 
-    color: var(--text-color-muted); 
-    font-size: 24px; 
-    cursor: pointer; 
-}
-.modal-body { 
-    overflow-y: auto; 
-    padding: 20px; 
-    line-height: 1.6;
-}
-.modal-body p {
-    margin-top: 0;
-}
+.modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { margin: 0; color: var(--primary-color); }
+.modal-close-btn { background: none; border: none; color: var(--text-color-muted); font-size: 24px; cursor: pointer; }
+.modal-body { overflow-y: auto; padding: 20px; line-height: 1.6;}
+.modal-body p { margin-top: 0; margin-bottom: 1em; }
+.modal-body p:last-child { margin-bottom: 0; }
