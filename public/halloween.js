@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
         contributionForm: document.getElementById('contribution-form'),
         ticketsInput: document.getElementById('tickets-input'),
         errorMessage: document.getElementById('error-message'),
+        // NEW: Elements for the rules pop-up
+        rulesButton: document.getElementById('rules-button'),
+        rulesModal: document.getElementById('rules-modal'),
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
@@ -150,7 +153,11 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         console.log(`[RENDER] Прогресс-бар обновлен: ${progressPercentage.toFixed(2)}%`);
         
-        dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
+        // This element is removed, so we check if it exists
+        if (dom.rewardSectionTitle) {
+            dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
+        }
+        
         dom.rewardName.textContent = defaultReward.name || 'Награда не настроена';
         const activeTheme = document.body.dataset.theme || 'halloween';
         dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
@@ -218,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- ОБРАБОТЧИКИ СОБЫТИЙ --- (без изменений)
+    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -259,6 +266,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (button && button.dataset.themeSet) {
             console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${button.dataset.themeSet}`);
             setTheme(button.dataset.themeSet);
+        }
+    });
+
+    // NEW: Event listeners for the rules pop-up
+    dom.rulesButton.addEventListener('click', () => {
+        dom.rulesModal.classList.remove('hidden');
+    });
+
+    dom.rulesModal.addEventListener('click', (e) => {
+        // Close if the close button is clicked or the dark overlay is clicked
+        if (e.target.classList.contains('modal-close-btn') || e.target.classList.contains('modal-overlay')) {
+            dom.rulesModal.classList.add('hidden');
         }
     });
     
