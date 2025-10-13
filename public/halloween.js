@@ -91,19 +91,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPage(eventData, leaderboardData = {}) {
         currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
-        const canViewEvent = eventData.is_visible_to_users || isAdmin;
+        const canViewEvent = eventData && (eventData.is_visible_to_users || isAdmin);
 
-        if (!eventData || !canViewEvent) {
+        if (!canViewEvent) {
             document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>';
             return;
         }
 
         dom.adminNotice.classList.toggle('hidden', !(isAdmin && !eventData.is_visible_to_users));
 
-        // --- ИЗМЕНЕНО: Установка котла из данных с сервера ---
-        dom.cauldronImage.src = eventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
+        const { goals = {}, levels = {}, current_progress = 0 } = eventData || {};
+        const top20 = leaderboardData.top20 || [];
 
-        const { goals = {}, levels = {}, current_progress = 0 } = eventData;
+        const currentLevel = getCurrentLevel(eventData);
+
+        // --- НОВАЯ ЛОГИКА: Установка картинки котла в зависимости от уровня ---
+        const cauldronImageUrl = eventData[`cauldron_image_url_${currentLevel}`] 
+                               || eventData.cauldron_image_url // Для совместимости со старыми настройками
+                               || FALLBACK_CAULDRON_URL;
+        dom.cauldronImage.src = cauldronImageUrl;
         const top20 = leaderboardData.top20 || [];
 
         const currentLevel = getCurrentLevel(eventData);
