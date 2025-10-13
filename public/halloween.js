@@ -22,18 +22,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentUserData = {};
     
+    // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ
     async function makeApiRequest(url, body = {}, method = 'POST') {
         try {
-            const options = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+            // Устанавливаем метод и заголовки сразу
+            const options = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+            };
+
+            // Добавляем тело запроса только для методов, которые его поддерживают
             if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
                 options.body = JSON.stringify({ ...body, initData: tg.initData });
             }
-            const response = await fetch(url, { method: method, ...options });
+            
+            // Отправляем запрос с правильными опциями
+            const response = await fetch(url, options);
             const result = await response.json();
-            if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
+
+            if (!response.ok) {
+                throw new Error(result.detail || 'Ошибка сервера');
+            }
             return result;
         } catch (e) {
-            console.error(`Ошибка API (${url}):`, e);
+            console.error(`Ошибка API (${url}):`, e.message, e);
             throw e;
         }
     }
@@ -156,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert(result.message);
             dom.userTicketBalance.textContent = result.new_ticket_balance;
             dom.ticketsInput.value = '';
-            // Просто перезагружаем данные для обновления всего интерфейса
             fetchDataAndRender();
         } catch(error) {
             dom.errorMessage.textContent = error.message;
