@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (amount > (currentUserData.profile?.tickets || 0)) {
+        if (amount > (currentUserData.tickets || 0)) {
             dom.errorMessage.textContent = 'У вас недостаточно билетов.';
             dom.errorMessage.classList.remove('hidden');
             return;
