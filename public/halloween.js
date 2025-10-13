@@ -26,32 +26,24 @@ document.addEventListener('DOMContentLoaded', () => {
         contributionForm: document.getElementById('contribution-form'),
         ticketsInput: document.getElementById('tickets-input'),
         errorMessage: document.getElementById('error-message'),
-        // NEW: Elements for the rules pop-up
         rulesButton: document.getElementById('rules-button'),
         rulesModal: document.getElementById('rules-modal'),
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
-    // --- ИЗМЕНЕНО: Вставьте сюда ваши ссылки на награды ---
     const THEME_ASSETS = {
-        halloween: {
-            default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png'
-        },
-        new_year: {
-            default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png'
-        },
-        classic: {
-            default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png'
-        }
+        halloween: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png' },
+        new_year: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png' },
+        classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }
     };
     
-    // URL-заглушка на случай, если с бэкенда не придет ссылка на котел
     const FALLBACK_CAULDRON_URL = 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
 
     let currentUserData = {};
     let currentEventData = {};
     
     async function makeApiRequest(url, body = {}, method = 'POST') {
+        // ... (код функции без изменений)
         console.log(`[API] Начинаем запрос на ${url} методом ${method}`);
         try {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
@@ -72,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return data;
         } catch (e) {
             console.error(`[API FATAL] Критическая ошибка при запросе на ${url}:`, e);
-            throw e; // Пробрасываем ошибку дальше
+            throw e;
         }
     }
 
@@ -82,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setTheme(themeName) {
+        // ... (код функции без изменений)
         console.log(`[THEME] Устанавливаем тему: ${themeName}`);
         document.body.dataset.theme = themeName;
         dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
@@ -104,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function getCurrentLevel(eventData) {
+        // ... (код функции без изменений)
         const { goals = {}, current_progress = 0 } = eventData;
         if (goals.level_2 && current_progress >= goals.level_2) return 3;
         if (goals.level_1 && current_progress >= goals.level_1) return 2;
@@ -111,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderPage(eventData, leaderboardData = {}) {
+        // ... (код функции без изменений, кроме удаления dom.rewardSectionTitle)
         console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
         currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
@@ -153,11 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         console.log(`[RENDER] Прогресс-бар обновлен: ${progressPercentage.toFixed(2)}%`);
         
-        // This element is removed, so we check if it exists
-        if (dom.rewardSectionTitle) {
-            dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
-        }
-        
         dom.rewardName.textContent = defaultReward.name || 'Награда не настроена';
         const activeTheme = document.body.dataset.theme || 'halloween';
         dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
@@ -188,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchDataAndRender() {
+        // ... (код функции без изменений)
         console.log('1. [MAIN] Вызвана функция fetchDataAndRender.');
         try {
             console.log('1.1. [MAIN] Начинаем Promise.all для загрузки всех данных.');
@@ -228,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
     dom.contributionForm.addEventListener('submit', async (e) => {
+        // ... (код обработчика без изменений)
         e.preventDefault();
         console.log('[EVENT] Форма вклада отправлена.');
         dom.errorMessage.classList.add('hidden');
@@ -262,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     dom.themeSwitcher.addEventListener('click', (e) => {
+        // ... (код обработчика без изменений)
         const button = e.target.closest('.theme-btn');
         if (button && button.dataset.themeSet) {
             console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${button.dataset.themeSet}`);
@@ -269,13 +262,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // NEW: Event listeners for the rules pop-up
     dom.rulesButton.addEventListener('click', () => {
         dom.rulesModal.classList.remove('hidden');
+        // Убираем подсветку после клика
+        dom.rulesButton.classList.remove('highlight');
+        // Запоминаем, что пользователь видел правила
+        localStorage.setItem('cauldronRulesViewed', 'true');
     });
 
     dom.rulesModal.addEventListener('click', (e) => {
-        // Close if the close button is clicked or the dark overlay is clicked
         if (e.target.classList.contains('modal-close-btn') || e.target.classList.contains('modal-overlay')) {
             dom.rulesModal.classList.add('hidden');
         }
@@ -288,4 +283,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tg.expand();
     console.log('[INIT] Telegram.WebApp.expand() вызван.');
     fetchDataAndRender();
+
+    // --- НОВАЯ ЛОГИКА: Подсветка кнопки для новых пользователей ---
+    const rulesViewed = localStorage.getItem('cauldronRulesViewed');
+    if (!rulesViewed) {
+        dom.rulesButton.classList.add('highlight');
+    }
 });
