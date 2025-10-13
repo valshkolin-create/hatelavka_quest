@@ -87,9 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (goals.level_1 && current_progress >= goals.level_1) return 2;
         return 1;
     }
-
-JavaScript
-
+    
     function renderPage(eventData, leaderboardData = {}) {
         currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
