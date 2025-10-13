@@ -7,6 +7,8 @@
   --surface-secondary: #2a2738;
   --border-color: rgba(60, 56, 82, 0.5);
   --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --accent-glow: #00e5ff; /* Добавлено для совместимости с футером */
+  --backdrop-blur: 12px; /* Добавлено для совместимости с футером */
 }
 
 /* --- ИСПРАВЛЕНО: Ваши новые фоны --- */
@@ -32,6 +34,7 @@ body[data-theme="classic"] {
 body {
     margin: 0;
     min-height: 100vh;
+    padding-bottom: 120px; /* Добавлено место для футера */
     background-color: #0d0b1f;
     background-image: var(--bg-image);
     background-size: cover;
@@ -45,7 +48,7 @@ body {
     z-index: 1;
 }
 
-/* --- НОВЫЙ БЛОК: Затемнение фона --- */
+/* --- ИЗМЕНЕНИЕ: Затемнение фона стало сильнее --- */
 body::before {
     content: '';
     position: fixed;
@@ -53,7 +56,7 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* Черный цвет с 50% прозрачности */
+    background-color: rgba(0, 0, 0, 0.8); /* Черный цвет с 80% прозрачности */
     z-index: -1; /* Помещаем под контент, но над фоном */
 }
 
@@ -157,4 +160,43 @@ body.is-admin .theme-switcher { display: flex; }
 /* --- Утилитарный класс для скрытия элементов --- */
 .hidden {
     display: none !important;
+}
+
+/* --- НОВЫЕ СТИЛИ ДЛЯ НИЖНЕГО БАРА --- */
+.app-footer { 
+    display: flex; 
+    justify-content: space-around; 
+    background-color: rgba(20, 18, 35, 0.8); 
+    backdrop-filter: blur(var(--backdrop-blur)); 
+    border-top: 1px solid var(--border-color); 
+    width: 100%; 
+    padding-top: 8px; 
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)); 
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    z-index: 100; 
+}
+.footer-item { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 4px; 
+    color: var(--text-color-muted); 
+    font-size: 11px; 
+    text-decoration: none; 
+    flex: 1; 
+}
+.footer-item .icon-wrapper { 
+    font-size: 24px; 
+    width: 30px; 
+    height: 30px; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+}
+.footer-item.active span, .footer-item.active .icon-wrapper { 
+    color: var(--accent-glow); 
+    font-weight: 600; 
+    text-shadow: 0 0 5px var(--accent-glow); 
 }
