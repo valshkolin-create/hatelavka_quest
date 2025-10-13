@@ -29,6 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
         rulesButton: document.getElementById('rules-button'),
         rulesModal: document.getElementById('rules-modal'),
         tutorialOverlay: document.getElementById('tutorial-overlay'),
+        // --- НОВЫЕ DOM ЭЛЕМЕНТЫ ---
+        imageViewerModal: document.getElementById('image-viewer-modal'),
+        viewerImage: document.querySelector('.viewer-image'),
+        viewerCloseBtn: document.querySelector('.viewer-close-btn')
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
@@ -145,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         console.log(`[RENDER] Прогресс-бар обновлен: ${progressPercentage.toFixed(2)}%`);
         
-        // This element is removed, so we check if it exists
         if (dom.rewardSectionTitle) {
             dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
         }
@@ -161,8 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rank = index + 1;
                 const contributionAmount = p.total_contribution || 0;
                 const assignedReward = topPlaceRewards.find(r => r.place === rank);
+                
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ: Оборачиваем приз в контейнер для зума ---
                 const prizeImageHtml = assignedReward?.image_url 
-                    ? `<img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image">`
+                    ? `<div class="image-zoom-container">
+                           <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image">
+                           <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                       </div>`
                     : `<span>-</span>`;
                 
                 const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
@@ -276,6 +284,34 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.rulesModal.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal-close-btn') || e.target.classList.contains('modal-overlay')) {
             dom.rulesModal.classList.add('hidden');
+        }
+    });
+
+    // --- НОВЫЕ ОБРАБОТЧИКИ: ДЛЯ ПРОСМОТРА ИЗОБРАЖЕНИЙ ---
+    
+    // Открытие просмотрщика по клику на контейнер с изображением
+    dom.appContainer.addEventListener('click', (e) => {
+        const zoomContainer = e.target.closest('.image-zoom-container');
+        if (!zoomContainer) return;
+
+        const imageToZoom = zoomContainer.querySelector('img');
+        if (imageToZoom && imageToZoom.src) {
+            dom.viewerImage.src = imageToZoom.src;
+            dom.imageViewerModal.classList.remove('hidden');
+        }
+    });
+
+    // Закрытие просмотрщика по клику на крестик
+    dom.viewerCloseBtn.addEventListener('click', () => {
+        dom.imageViewerModal.classList.add('hidden');
+        dom.viewerImage.src = ''; // Очищаем src для экономии памяти
+    });
+
+    // Закрытие просмотрщика по клику на оверлей (фон)
+    dom.imageViewerModal.addEventListener('click', (e) => {
+        if (e.target === dom.imageViewerModal) {
+            dom.imageViewerModal.classList.add('hidden');
+            dom.viewerImage.src = '';
         }
     });
     
