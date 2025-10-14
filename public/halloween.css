@@ -313,3 +313,49 @@ body.is-admin .theme-switcher { display: flex; }
         background-attachment: scroll; /* Отключаем "заморозку" фона */
     }
 }
+
+
+/* ===== START: СТИЛИ ДЛЯ АНИМАЦИИ ВЕДЬМЫ ===== */
+
+.flying-witch {
+    display: none; /* Скрыта по умолчанию, видна только в теме Хэллоуина */
+    position: fixed;
+    /* Располагаем чуть выше футера. Высота футера ~55px, добавим отступ. */
+    bottom: 65px; 
+    left: 0; /* Анимация будет управлять смещением от левого края */
+    width: 50px; /* Крошечный размер */
+    height: auto;
+    z-index: 101; /* Выше футера (z-index: 100) */
+    pointer-events: none; /* GIF не будет перехватывать клики мыши */
+    transform: translateX(-55px); /* Изначально находится за левым краем экрана */
+}
+
+/* Показываем и анимируем ведьму ТОЛЬКО когда активна тема Хэллоуина */
+body[data-theme="halloween"] .flying-witch {
+    display: block;
+    animation: fly-across 20s linear 3s infinite; /* 20с на полет, 3с задержка, бесконечно */
+}
+
+@keyframes fly-across {
+    /* Летит направо */
+    0% {
+        transform: translateX(-55px) scaleX(1); /* Старт за левым краем, смотрит направо */
+    }
+    48% {
+        transform: translateX(100vw) scaleX(1); /* Долетает до правого края (vw = viewport width) */
+    }
+
+    /* Разворот за правым краем экрана */
+    50% {
+        transform: translateX(100vw) scaleX(-1); /* Мгновенно отражается по горизонтали, теперь смотрит налево */
+    }
+
+    /* Летит налево */
+    98% {
+        transform: translateX(-55px) scaleX(-1); /* Возвращается в исходную точку (за левым краем) */
+    }
+    100% {
+        transform: translateX(-55px) scaleX(-1); /* Конечная точка для плавного цикла */
+    }
+}
+/* ===== END: СТИЛИ ДЛЯ АНИМАЦИИ ВЕДЬМЫ ===== */
