@@ -1016,12 +1016,23 @@ try {
             document.getElementById('ticketStats').textContent = userData.tickets || 0;
             const menuContent = await menuContentPromise;
             if (menuContent) {
-                if (menuContent.menu_banner_url) {
-                    const bannerImg = document.getElementById('menu-banner-img');
-                    if (bannerImg) {
-                        bannerImg.src = menuContent.menu_banner_url;
+                // --- НОВЫЙ КОД: Логика для баннера "Гонка за скинами" ---
+                const skinRaceBannerImg = document.getElementById('menu-banner-img');
+                const skinRaceSlide = skinRaceBannerImg ? skinRaceBannerImg.closest('.slide') : null;
+
+                if (skinRaceSlide) {
+                    // Показываем слайд, если гонка включена ИЛИ если пользователь - админ
+                    if (menuContent.skin_race_enabled || (userData && userData.is_admin)) {
+                        skinRaceSlide.style.display = ''; // Показываем слайд
+                        if (menuContent.menu_banner_url) {
+                            skinRaceBannerImg.src = menuContent.menu_banner_url;
+                        }
+                    } else {
+                        skinRaceSlide.style.display = 'none'; // Скрываем слайд
                     }
                 }
+                // --- КОНЕЦ НОВОГО КОДА ---
+
                 if (menuContent.checkpoint_banner_url) {
                     const checkpointBannerImg = document.getElementById('checkpoint-banner-img');
                     if (checkpointBannerImg) {
