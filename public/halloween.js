@@ -273,9 +273,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const btnRect = submitButton.getBoundingClientRect();
             const cauldronRect = cauldron.getBoundingClientRect();
 
+            // Начало: центр кнопки
             const startX = btnRect.left + (btnRect.width / 2) - (flask.width / 2);
             const startY = btnRect.top + (btnRect.height / 2) - (flask.height / 2);
 
+            // Конец: центр котла
             const endX = cauldronRect.left + (cauldronRect.width / 2) - (flask.width / 2);
             const endY = cauldronRect.top + (cauldronRect.height / 2) - (flask.height / 2);
             
@@ -289,8 +291,100 @@ document.addEventListener('DOMContentLoaded', () => {
             flask.classList.add('animate');
             cauldron.classList.add('pulse');
 
-            // Шаг 3: Ждем завершения анимации
+            // Шаг 3: Ждем завершения анимации (1200ms = 1.2s)
             setTimeout(() => {
                 // После анимации показываем результат и обновляем данные
                 tg.showAlert(result.message);
-                currentUserData.tickets
+                currentUserData.tickets = result.new_ticket_balance;
+                dom.userTicketBalance.textContent = result.new_ticket_balance;
+                dom.ticketsInput.value = '';
+                
+                // Убираем классы анимации, чтобы они могли быть запущены снова
+                flask.classList.remove('animate');
+                cauldron.classList.remove('pulse');
+                
+                console.log('[EVENT] Вклад успешен. Обновляем данные страницы после анимации.');
+                fetchDataAndRender(); // Обновляем прогресс и лидерборд
+            }, 1200);
+
+        } catch(error) {
+            dom.errorMessage.textContent = error.message;
+            dom.errorMessage.classList.remove('hidden');
+            console.error('[EVENT] Ошибка при отправке вклада:', error);
+            submitButton.disabled = false; // Разблокируем кнопку при ошибке
+        } finally {
+            // Шаг 4: Разблокируем кнопку после завершения анимации (через 1.5с)
+            setTimeout(() => {
+                 submitButton.disabled = false;
+            }, 1500);
+        }
+    });
+
+    dom.themeSwitcher.addEventListener('click', (e) => {
+        const button = e.target.closest('.theme-btn');
+        if (button && button.dataset.themeSet) {
+            console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${button.dataset.themeSet}`);
+            setTheme(button.dataset.themeSet);
+        }
+    });
+
+    dom.rulesButton.addEventListener('click', () => {
+        dom.rulesModal.classList.remove('hidden');
+        dom.rulesButton.classList.remove('highlight');
+        dom.tutorialOverlay.classList.add('hidden'); 
+        localStorage.setItem('cauldronRulesViewed', 'true');
+    });
+
+    dom.rulesModal.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-close-btn') || e.target.classList.contains('modal-overlay')) {
+            dom.rulesModal.classList.add('hidden');
+        }
+    });
+
+    // --- ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ: ДЛЯ ПРОСМОТРА ИЗОБРАЖЕНИЙ ---
+    
+    // Открытие просмотрщика по клику на контейнер с изображением
+    dom.appContainer.addEventListener('click', (e) => {
+        const zoomContainer = e.target.closest('.image-zoom-container');
+        if (!zoomContainer) return;
+
+        const imageToZoom = zoomContainer.querySelector('img');
+        const itemName = zoomContainer.dataset.itemName; 
+
+        if (imageToZoom && imageToZoom.src) {
+            dom.viewerImage.src = imageToZoom.src;
+            dom.viewerCaption.textContent = itemName || ''; 
+            dom.imageViewerModal.classList.remove('hidden');
+        }
+    });
+
+    // Закрытие просмотрщика по клику на крестик
+    dom.viewerCloseBtn.addEventListener('click', () => {
+        dom.imageViewerModal.classList.add('hidden');
+        dom.viewerImage.src = ''; 
+        dom.viewerCaption.textContent = ''; 
+    });
+
+    // Закрытие просмотрщика по клику на оверлей (фон)
+    dom.imageViewerModal.addEventListener('click', (e) => {
+        if (e.target === dom.imageViewerModal) {
+            dom.imageViewerModal.classList.add('hidden');
+            dom.viewerImage.src = '';
+            dom.viewerCaption.textContent = ''; 
+        }
+    });
+    
+    // --- ИНИЦИАЛИЗАЦИЯ ---
+    console.log('[INIT] Добавляем обработчики событий.');
+    tg.ready();
+    console.log('[INIT] Telegram.WebApp.ready() вызван.');
+    tg.expand();
+    console.log('[INIT] Telegram.WebApp.expand() вызван.');
+    fetchDataAndRender();
+
+    const rulesViewed = localStorage.getItem('cauldronRulesViewed');
+    if (!rulesViewed) {
+        dom.rulesButton.classList.add('highlight');
+        dom.tutorialOverlay.classList.remove('hidden');
+    }
+});
