@@ -57,6 +57,7 @@ try {
         settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
         // --- КОНЕЦ НОВОГО КОДА ---
         statisticsContent: document.getElementById('statistics-content'),
+        sliderOrderManager: document.getElementById('slider-order-manager'),
         createRoulettePrizeForm: document.getElementById('create-roulette-prize-form'),
         roulettePrizesList: document.getElementById('roulette-prizes-list'),
         passwordPromptOverlay: document.getElementById('password-prompt-overlay'),
@@ -579,9 +580,7 @@ try {
     async function loadAndRenderSettings() {
         try {
              const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
-             // --- НОВЫЙ КОД ---
              dom.settingSkinRaceEnabled.checked = settings.skin_race_enabled;
-             // --- КОНЕЦ НОВОГО КОДА ---
              dom.settingQuestsEnabled.checked = settings.quests_enabled;
              dom.settingChallengesEnabled.checked = settings.challenges_enabled;
              dom.settingQuestRewardsEnabled.checked = settings.quest_promocodes_enabled;
@@ -589,6 +588,65 @@ try {
              dom.settingCheckpointEnabled.checked = settings.checkpoint_enabled;
              dom.settingMenuBannerUrl.value = settings.menu_banner_url || '';
              dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
+
+             // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ ---
+            const sliderOrder = settings.slider_order || ['skin_race', 'cauldron'];
+            const slideNames = {
+                skin_race: 'Гонка за скинами',
+                cauldron: 'Ивент "Котел"'
+            };
+
+            dom.sliderOrderManager.innerHTML = '';
+            sliderOrder.forEach(slideId => {
+                if (slideNames[slideId]) {
+                    const item = document.createElement('div');
+                    item.className = 'slider-order-item';
+                    item.draggable = true;
+                    item.dataset.slideId = slideId;
+                    item.innerHTML = `<i class="fa-solid fa-grip-vertical drag-handle"></i> ${slideNames[slideId]}`;
+                    dom.sliderOrderManager.appendChild(item);
+                }
+            });
+
+            // Drag and Drop логика
+            let draggedItem = null;
+            dom.sliderOrderManager.addEventListener('dragstart', (e) => {
+                draggedItem = e.target;
+                setTimeout(() => e.target.classList.add('dragging'), 0);
+            });
+
+            dom.sliderOrderManager.addEventListener('dragend', (e) => {
+                setTimeout(() => {
+                    draggedItem.classList.remove('dragging');
+                    draggedItem = null;
+                }, 0);
+            });
+
+            dom.sliderOrderManager.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(dom.sliderOrderManager, e.clientY);
+                const currentElement = document.querySelector('.dragging');
+                if (afterElement == null) {
+                    dom.sliderOrderManager.appendChild(currentElement);
+                } else {
+                    dom.sliderOrderManager.insertBefore(currentElement, afterElement);
+                }
+            });
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.slider-order-item:not(.dragging)')];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+             // --- КОНЕЦ НОВОГО КОДА ---
+
         } catch (e) {
              console.error("Не удалось загрузить настройки:", e);
              tg.showAlert("Не удалось загрузить настройки.");
@@ -1171,10 +1229,14 @@ try {
 
         if(dom.saveSettingsBtn) {
             dom.saveSettingsBtn.addEventListener('click', async () => {
+                // --- НОВЫЙ КОД ДЛЯ СБОРА ПОРЯДКА СЛАЙДОВ ---
+                const newSliderOrder = Array.from(dom.sliderOrderManager.querySelectorAll('.slider-order-item'))
+                                             .map(item => item.dataset.slideId);
+                // --- КОНЕЦ НОВОГО КОДА ---
+
                 const payload = {
-                    // --- НОВЫЙ КОД ---
                     skin_race_enabled: dom.settingSkinRaceEnabled.checked,
-                    // --- КОНЕЦ НОВОГО КОДА ---
+                    slider_order: newSliderOrder, // <-- Добавили порядок в сохранение
                     quests_enabled: dom.settingQuestsEnabled.checked,
                     challenges_enabled: dom.settingChallengesEnabled.checked,
                     quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
