@@ -103,7 +103,7 @@ body::before {
 /* --- Секция с котлом --- */
 .top-section { text-align: center; }
 .cauldron-image-wrapper img {
-    max-height: 25vh; /* Ограничиваем высоту (25% от высоты экрана) */
+    max-height: 55vh; /* Ограничиваем высоту (25% от высоты экрана) */
     max-width: 70%;   /* Ограничиваем ширину (70% от родителя) */
     width: auto;      /* Позволяем ширине подстраиваться под высоту */
     height: auto;     /* Сохраняем пропорции изображения */
@@ -112,7 +112,7 @@ body::before {
     animation: float 4s ease-in-out infinite;
     margin-bottom: 10px;
     transition: transform 0.5s ease;
-    filter: drop-shadow(0 0 20px var(--glow-color));
+   /* filter: drop-shadow(0 0 20px var(--glow-color));  */
 }
 @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-12px); } 100% { transform: translateY(0px); } }
 .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.3); border-radius: 8px; height: 10px; border: 1px solid var(--border-color); overflow: hidden; }
