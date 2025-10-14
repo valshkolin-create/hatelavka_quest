@@ -88,7 +88,7 @@ body::before {
 /* --- Общая структура --- */
 .page-header, .page-layout, .contribution-section, .leaderboard-section, .default-reward-section, .theme-switcher, .admin-notice { position: relative; z-index: 2; }
 .page-header { display: flex; justify-content: center; align-items: center; margin-bottom: 5px; padding-top: 15px; }
-.page-header-title { margin: 0; font-size: 24px; font-weight: 700; text-align: center; }
+.page-header-title { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
 
 /* --- Кнопка "КАК ИГРАТЬ?" --- */
 .rules-button-container { text-align: center; margin-bottom: 20px; position: relative; z-index: 201; }
