@@ -196,7 +196,8 @@ class AdminFreezeStarsRequest(BaseModel):
     days: int
 
 class AdminSettings(BaseModel):
-    skin_race_enabled: bool = True # <-- НОВЫЙ КОД
+    skin_race_enabled: bool = True
+    slider_order: List[str] = Field(default_factory=lambda: ["skin_race", "cauldron"]) # <-- НОВОЕ ПОЛЕ
     challenge_promocodes_enabled: bool = True
     quest_promocodes_enabled: bool = True
     challenges_enabled: bool = True
@@ -4165,7 +4166,8 @@ async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_cl
         defaults = {
             "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
             "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
-            "skin_race_enabled": True # <-- НОВЫЙ КОД
+            "skin_race_enabled": True,
+            "slider_order": ["skin_race", "cauldron"] # <-- НОВОЕ ПОЛЕ
         }
 
         if not data or not data[0].get('value'):
@@ -4176,7 +4178,8 @@ async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_cl
         return {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
-            "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]) # <-- НОВЫЙ КОД
+            "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
+            "slider_order": settings.get("slider_order", defaults["slider_order"]) # <-- НОВОЕ ПОЛЕ
         }
     except Exception as e:
         logging.error(f"Ошибка при получении контента для меню: {e}")
