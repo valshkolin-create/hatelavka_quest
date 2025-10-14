@@ -150,15 +150,54 @@ try {
                 container.innerHTML = '<p style="text-align: center;">Участников пока нет.</p>';
                 return;
             }
+
+            // Определяем, какой уровень наград сейчас активен
+            let activeRewardLevel = null;
+            if (currentCauldronData && currentCauldronData.goals && currentCauldronData.levels) {
+                const progress = currentCauldronData.current_progress || 0;
+                const goals = currentCauldronData.goals;
+                const levels = currentCauldronData.levels;
+
+                if (progress >= goals.level_3 && goals.level_3 > 0) {
+                    activeRewardLevel = levels.level_3;
+                } else if (progress >= goals.level_2 && goals.level_2 > 0) {
+                    activeRewardLevel = levels.level_2;
+                } else if (progress >= goals.level_1 && goals.level_1 > 0) {
+                    activeRewardLevel = levels.level_1;
+                }
+            }
+            
             container.innerHTML = `
-                <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Трейд</span></div>
-                ${participants.map((p, index) => `
-                    <div class="distribution-row">
-                        <span>${index + 1}</span>
-                        <span class="dist-name">${escapeHTML(p.full_name || 'Без имени')}</span>
-                        <span class="dist-amount">${p.total_contribution}</span>
-                        <span class="dist-link">${p.trade_link ? `<a href="${escapeHTML(p.trade_link)}" target="_blank">Открыть</a>` : '<span class="no-link">Нет</span>'}</span>
-                    </div>`).join('')}`;
+                <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Приз</span><span>Трейд</span></div>
+                ${participants.map((p, index) => {
+                    const place = index + 1;
+                    let prize = null;
+
+                    if (activeRewardLevel) {
+                        // Сначала ищем награду в топе
+                        prize = activeRewardLevel.top_places?.find(r => r.place === place);
+                        // Если не нашли, назначаем награду по умолчанию
+                        if (!prize) {
+                            prize = activeRewardLevel.default_reward;
+                        }
+                    }
+
+                    const prizeHtml = prize && prize.name
+                        ? `<div class="dist-prize">
+                               <img src="${escapeHTML(prize.image_url || '')}" alt="Prize">
+                               <span>${escapeHTML(prize.name)}</span>
+                           </div>`
+                        : '<span class="no-prize">Нет</span>';
+
+                    return `
+                        <div class="distribution-row">
+                            <span class="dist-place">${place}</span>
+                            <span class="dist-name">${escapeHTML(p.full_name || 'Без имени')}</span>
+                            <span class="dist-amount">${p.total_contribution}</span>
+                            ${prizeHtml}
+                            <span class="dist-link">${p.trade_link ? `<a href="${escapeHTML(p.trade_link)}" target="_blank">Открыть</a>` : '<span class="no-link">Нет</span>'}</span>
+                        </div>`;
+                }).join('')}`;
         } catch (e) {
             container.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
         }
