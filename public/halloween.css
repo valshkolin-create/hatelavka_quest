@@ -433,3 +433,9 @@ body[data-theme="halloween"] .flying-witch {
 }
 /* ===== END: СТИЛИ ДЛЯ АНИМАЦИИ ФЛАСКИ ===== */
 }
+/* Адаптация заголовка для мобильных устройств */
+@media (max-width: 768px) {
+    .page-header-title {
+        font-size: 20px; /* Уменьшаем шрифт на экранах до 768px */
+    }
+}
