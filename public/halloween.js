@@ -29,12 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
         rulesButton: document.getElementById('rules-button'),
         rulesModal: document.getElementById('rules-modal'),
         tutorialOverlay: document.getElementById('tutorial-overlay'),
-        // --- ОБНОВЛЕННЫЕ И НОВЫЕ DOM ЭЛЕМЕНТЫ ---
         imageViewerModal: document.getElementById('image-viewer-modal'),
         viewerImage: document.querySelector('.viewer-image'),
         viewerCloseBtn: document.querySelector('.viewer-close-btn'),
-        viewerCaption: document.getElementById('viewer-caption'), // <-- ДОБАВЛЕНО
-        defaultRewardZoomContainer: document.getElementById('default-reward-zoom-container') // <-- ДОБАВЛЕНО
+        viewerCaption: document.getElementById('viewer-caption'),
+        defaultRewardZoomContainer: document.getElementById('default-reward-zoom-container'),
+        // --- ДОБАВЛЕН ЭЛЕМЕНТ ФЛАСКИ ---
+        flaskAnimation: document.getElementById('flask-animation')
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
@@ -236,8 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
+    // --- ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ АНИМАЦИИ ---
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const submitButton = dom.contributionForm.querySelector('button[type="submit"]');
+        
         console.log('[EVENT] Форма вклада отправлена.');
         dom.errorMessage.classList.add('hidden');
         const amount = parseInt(dom.ticketsInput.value, 10);
@@ -255,86 +259,38 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        submitButton.disabled = true;
+
         try {
+            // Шаг 1: Отправляем запрос на сервер
             const result = await makeApiRequest('/api/v1/events/cauldron/contribute', { amount });
-            tg.showAlert(result.message);
-            currentUserData.tickets = result.new_ticket_balance;
-            dom.userTicketBalance.textContent = result.new_ticket_balance;
-            dom.ticketsInput.value = '';
-            console.log('[EVENT] Вклад успешен. Обновляем данные страницы.');
-            fetchDataAndRender();
-        } catch(error) {
-            dom.errorMessage.textContent = error.message;
-            dom.errorMessage.classList.remove('hidden');
-            console.error('[EVENT] Ошибка при отправке вклада:', error);
-        }
-    });
+            
+            // Шаг 2: Запускаем анимацию
+            const flask = dom.flaskAnimation;
+            const cauldron = dom.cauldronImage;
 
-    dom.themeSwitcher.addEventListener('click', (e) => {
-        const button = e.target.closest('.theme-btn');
-        if (button && button.dataset.themeSet) {
-            console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${button.dataset.themeSet}`);
-            setTheme(button.dataset.themeSet);
-        }
-    });
+            // Вычисляем начальные и конечные координаты
+            const btnRect = submitButton.getBoundingClientRect();
+            const cauldronRect = cauldron.getBoundingClientRect();
 
-    dom.rulesButton.addEventListener('click', () => {
-        dom.rulesModal.classList.remove('hidden');
-        dom.rulesButton.classList.remove('highlight');
-        dom.tutorialOverlay.classList.add('hidden'); 
-        localStorage.setItem('cauldronRulesViewed', 'true');
-    });
+            const startX = btnRect.left + (btnRect.width / 2) - (flask.width / 2);
+            const startY = btnRect.top + (btnRect.height / 2) - (flask.height / 2);
 
-    dom.rulesModal.addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal-close-btn') || e.target.classList.contains('modal-overlay')) {
-            dom.rulesModal.classList.add('hidden');
-        }
-    });
+            const endX = cauldronRect.left + (cauldronRect.width / 2) - (flask.width / 2);
+            const endY = cauldronRect.top + (cauldronRect.height / 2) - (flask.height / 2);
+            
+            // Устанавливаем CSS переменные для анимации
+            flask.style.setProperty('--start-x', `${startX}px`);
+            flask.style.setProperty('--start-y', `${startY}px`);
+            flask.style.setProperty('--end-x', `${endX}px`);
+            flask.style.setProperty('--end-y', `${endY}px`);
 
-    // --- ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ: ДЛЯ ПРОСМОТРА ИЗОБРАЖЕНИЙ ---
-    
-    // Открытие просмотрщика по клику на контейнер с изображением
-    dom.appContainer.addEventListener('click', (e) => {
-        const zoomContainer = e.target.closest('.image-zoom-container');
-        if (!zoomContainer) return;
+            // Добавляем классы для запуска анимации
+            flask.classList.add('animate');
+            cauldron.classList.add('pulse');
 
-        const imageToZoom = zoomContainer.querySelector('img');
-        const itemName = zoomContainer.dataset.itemName; // <-- Считываем название из data-атрибута
-
-        if (imageToZoom && imageToZoom.src) {
-            dom.viewerImage.src = imageToZoom.src;
-            dom.viewerCaption.textContent = itemName || ''; // <-- Устанавливаем текст подписи
-            dom.imageViewerModal.classList.remove('hidden');
-        }
-    });
-
-    // Закрытие просмотрщика по клику на крестик
-    dom.viewerCloseBtn.addEventListener('click', () => {
-        dom.imageViewerModal.classList.add('hidden');
-        dom.viewerImage.src = ''; // Очищаем src для экономии памяти
-        dom.viewerCaption.textContent = ''; // <-- Очищаем подпись
-    });
-
-    // Закрытие просмотрщика по клику на оверлей (фон)
-    dom.imageViewerModal.addEventListener('click', (e) => {
-        if (e.target === dom.imageViewerModal) {
-            dom.imageViewerModal.classList.add('hidden');
-            dom.viewerImage.src = '';
-            dom.viewerCaption.textContent = ''; // <-- Очищаем подпись
-        }
-    });
-    
-    // --- ИНИЦИАЛИЗАЦИЯ ---
-    console.log('[INIT] Добавляем обработчики событий.');
-    tg.ready();
-    console.log('[INIT] Telegram.WebApp.ready() вызван.');
-    tg.expand();
-    console.log('[INIT] Telegram.WebApp.expand() вызван.');
-    fetchDataAndRender();
-
-    const rulesViewed = localStorage.getItem('cauldronRulesViewed');
-    if (!rulesViewed) {
-        dom.rulesButton.classList.add('highlight');
-        dom.tutorialOverlay.classList.remove('hidden');
-    }
-});
+            // Шаг 3: Ждем завершения анимации
+            setTimeout(() => {
+                // После анимации показываем результат и обновляем данные
+                tg.showAlert(result.message);
+                currentUserData.tickets
