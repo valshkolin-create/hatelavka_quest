@@ -103,17 +103,20 @@ body::before {
 /* --- Секция с котлом --- */
 .top-section { text-align: center; }
 .cauldron-image-wrapper img {
-    max-height: 39vh; /* Ограничиваем высоту (25% от высоты экрана) */
-    max-width: 70%;   /* Ограничиваем ширину (70% от родителя) */
-    width: auto;      /* Позволяем ширине подстраиваться под высоту */
-    height: auto;     /* Сохраняем пропорции изображения */
-
-    /* Ваши старые стили анимации и теней остаются */
+    max-height: 35vh;
+    max-width: 70%;
+    width: auto;
+    height: auto;
     animation: float 4s ease-in-out infinite;
     margin-bottom: 10px;
     transition: transform 0.5s ease;
-   /* filter: drop-shadow(0 0 20px var(--glow-color));  */
 }
+
+/* ДОБАВЛЕНА АНИМАЦИЯ ПУЛЬСАЦИИ КОТЛА */
+.cauldron-image-wrapper img.pulse {
+    animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out;
+}
+
 @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-12px); } 100% { transform: translateY(0px); } }
 .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.3); border-radius: 8px; height: 10px; border: 1px solid var(--border-color); overflow: hidden; }
 .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--action-color), var(--primary-color)); border-radius: 8px; transition: width 0.5s ease-out, background 0.5s ease; box-shadow: 0 0 10px var(--glow-color); }
@@ -129,6 +132,7 @@ body::before {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    position: relative; /* Для позиционирования фласки */
 }
 #tickets-input {
     flex: 1 1 180px;
@@ -152,6 +156,12 @@ body::before {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 #contribution-form button:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--glow-color); }
+#contribution-form button:disabled {
+    background: #555;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
 
 /* --- Премиальный лидерборд --- */
@@ -327,6 +337,8 @@ body.is-admin .theme-switcher { display: flex; }
     z-index: 101;
     pointer-events: none;
     transform: translateX(-55px);
+    /* ИСПРАВЛЕНИЕ ДЛЯ БЕЛОЙ ОБВОДКИ */
+    clip-path: circle(48%);
 }
 
 body[data-theme="halloween"] .flying-witch {
@@ -367,3 +379,57 @@ body[data-theme="halloween"] .flying-witch {
     }
 }
 /* ===== END: СТИЛИ ДЛЯ АНИМАЦИИ ВЕДЬМЫ ===== */
+
+
+/* ===== START: СТИЛИ ДЛЯ АНИМАЦИИ ФЛАСКИ ===== */
+.flask-animation {
+    position: fixed;
+    width: 60px;
+    height: auto;
+    z-index: 200;
+    pointer-events: none;
+    /* Начальное состояние: невидима и уменьшена */
+    opacity: 0;
+    transform: scale(0);
+    /* Плавное появление */
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+.flask-animation.animate {
+    /* Динамические переменные, которые будут установлены через JS */
+    --start-x: 0px;
+    --start-y: 0px;
+    --end-x: 0px;
+    --end-y: 0px;
+    animation: fly-into-cauldron 1.2s cubic-bezier(0.5, -0.5, 1, 1);
+}
+
+@keyframes fly-into-cauldron {
+    0% {
+        opacity: 1;
+        transform: translate(var(--start-x), var(--start-y)) scale(1) rotate(0deg);
+    }
+    30% {
+        transform: translate(var(--start-x), var(--start-y)) scale(1.2) rotate(10deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--end-x), var(--end-y)) scale(0.2) rotate(720deg);
+    }
+}
+
+@keyframes cauldron-pulse {
+    0% {
+        transform: scale(1);
+        filter: brightness(1);
+    }
+    50% {
+        transform: scale(1.05);
+        filter: brightness(1.7) drop-shadow(0 0 25px var(--primary-color));
+    }
+    100% {
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+/* ===== END: СТИЛИ ДЛЯ АНИМАЦИИ ФЛАСКИ ===== */
+}
