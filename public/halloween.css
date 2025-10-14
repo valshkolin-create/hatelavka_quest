@@ -128,11 +128,10 @@ body::before {
 #contribution-form {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap; /* ДОБАВЬТЕ ЭТУ СТРОКУ */
+    flex-wrap: wrap;
 }
 #tickets-input {
-    /* flex-grow: 1; <-- ЗАМЕНИТЕ ЭТУ СТРОКУ... */
-    flex: 1 1 180px; /* ...НА ЭТУ */
+    flex: 1 1 180px;
     padding: 12px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
@@ -141,8 +140,7 @@ body::before {
     font-size: 16px;
 }
 #contribution-form button {
-    /* ...все ваши существующие стили для кнопки... */
-    flex: 1 1 120px; /* ДОБАВЬТЕ ЭТУ СТРОКУ */
+    flex: 1 1 120px;
     background: linear-gradient(45deg, var(--action-color), var(--primary-color));
     border: none;
     padding: 12px 18px;
@@ -250,23 +248,33 @@ body.is-admin .theme-switcher { display: flex; }
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
     box-sizing: border-box;
+    padding: 20px 20px 80px 20px; /* Увеличим нижний отступ, чтобы подпись точно поместилась */
 }
 
-/* --- ИЗМЕНЕНИЕ ЗДЕСЬ: Стили для крестика изменены --- */
 .viewer-close-btn {
     position: absolute;
     top: 15px;
     right: 20px;
-    background: none; /* Убрали фон */
-    border: none; /* Убрали рамку */
-    color: white; /* Цвет крестика */
-    font-size: 40px; /* Увеличили размер для удобства нажатия */
+    background: none;
+    border: none;
+    color: white;
+    font-size: 40px;
     cursor: pointer;
-    line-height: 1; /* Для точного позиционирования */
-    padding: 5px; /* Небольшой отступ вокруг */
-    text-shadow: 0 0 5px black; /* Тень для лучшей читаемости на светлом фоне */
+    line-height: 1;
+    padding: 5px;
+    text-shadow: 0 0 5px black;
+}
+
+/* Новый контейнер для картинки и подписи */
+.viewer-content-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 .viewer-image {
@@ -274,6 +282,31 @@ body.is-admin .theme-switcher { display: flex; }
     max-height: 100%;
     object-fit: contain;
 }
+
+/* Стили для самой подписи */
+.viewer-caption {
+    position: absolute;
+    bottom: -50px; /* Располагаем под картинкой, с небольшим отступом */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(18, 16, 33, 0.8); /* Полупрозрачный фон */
+    color: #f0f0f5; /* Светлый текст */
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap; /* Чтобы текст не переносился */
+    border: 1px solid rgba(60, 56, 82, 0.5);
+    backdrop-filter: blur(5px);
+    transition: opacity 0.3s ease;
+    opacity: 0; /* По умолчанию скрыта */
+}
+
+/* Показываем подпись, когда модальное окно активно */
+.image-viewer-overlay:not(.hidden) .viewer-caption {
+    opacity: 1;
+}
+
 /* --- Адаптация фона для мобильных устройств --- */
 @media (max-width: 768px) {
     body {
