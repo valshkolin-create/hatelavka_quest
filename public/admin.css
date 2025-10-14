@@ -330,18 +330,26 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 /* --- Стили для вкладки "Выдача" в ивенте "Котел" --- */
 .distribution-header, .distribution-row {
     display: grid;
-    grid-template-columns: 2fr 1fr 1.2fr; /* Изменяем пропорции колонок */
+    /* Устанавливаем 5 колонок: Место, Участник, Вклад, Приз, Трейд */
+    grid-template-columns: 30px 1.5fr 1fr 2fr 1fr;
     gap: 10px;
-    padding: 10px 5px;
+    padding: 12px 8px;
     border-bottom: 1px solid var(--divider-glass-color);
     align-items: center;
-    font-size: 13px; /* Уменьшаем шрифт для компактности */
-    min-width: 380px; /* Задаем минимальную ширину, чтобы контент не сжимался */
+    font-size: 13px;
+    min-width: 500px; /* Минимальная ширина для предотвращения сжатия */
 }
 
 .distribution-header {
     font-weight: 600;
     color: var(--text-color-muted);
+    padding-bottom: 8px;
+}
+
+.distribution-row .dist-place {
+    font-weight: 500;
+    color: var(--text-color-muted);
+    text-align: center;
 }
 
 .distribution-row .dist-name {
@@ -352,6 +360,32 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 .distribution-row .dist-amount {
     text-align: center;
     font-weight: 600;
+}
+
+.dist-prize {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.dist-prize img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    border-radius: 4px;
+    background-color: rgba(0,0,0,0.2);
+    flex-shrink: 0;
+}
+
+.dist-prize span {
+    font-weight: 500;
+}
+
+.no-prize {
+    color: var(--text-color-muted);
+    font-style: italic;
+    text-align: center;
 }
 
 .distribution-row .dist-link {
@@ -371,7 +405,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 }
 /* --- ИСПРАВЛЕНИЕ ДЛЯ ПРОКРУТКИ В ИВЕНТЕ "КОТЕЛ" --- */
 #cauldron-distribution-list {
-  overflow-x: auto;
+  overflow-x: auto; /* Добавляем горизонтальную прокрутку */
 }
 /* --- СТИЛИ ДЛЯ УПРАВЛЕНИЯ СЛАЙДЕРАМИ --- */
 #slider-order-manager {
