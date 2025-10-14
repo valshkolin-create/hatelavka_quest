@@ -1016,6 +1016,18 @@ try {
             document.getElementById('ticketStats').textContent = userData.tickets || 0;
             const menuContent = await menuContentPromise;
             if (menuContent) {
+                // --- НОВЫЙ КОД ДЛЯ СОРТИРОВКИ СЛАЙДОВ ---
+                const sliderWrapper = document.querySelector('.slider-wrapper');
+                if (sliderWrapper && menuContent.slider_order) {
+                    menuContent.slider_order.forEach(slideId => {
+                        const slideElement = document.querySelector(`.slide[data-event="${slideId}"]`);
+                        if (slideElement) {
+                            sliderWrapper.appendChild(slideElement);
+                        }
+                    });
+                }
+                // --- КОНЕЦ НОВОГО КОДА ---
+
                 // --- НОВЫЙ КОД: Логика для баннера "Гонка за скинами" ---
                 const skinRaceBannerImg = document.getElementById('menu-banner-img');
                 const skinRaceSlide = skinRaceBannerImg ? skinRaceBannerImg.closest('.slide') : null;
