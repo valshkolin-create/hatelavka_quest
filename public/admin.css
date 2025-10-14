@@ -373,3 +373,30 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 #cauldron-distribution-list {
   overflow-x: auto;
 }
+/* --- СТИЛИ ДЛЯ УПРАВЛЕНИЯ СЛАЙДЕРАМИ --- */
+#slider-order-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.slider-order-item {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: grab;
+    border: 1px solid var(--divider-glass-color);
+    font-weight: 500;
+}
+.slider-order-item:active {
+    cursor: grabbing;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+.slider-order-item .drag-handle {
+    color: var(--text-color-muted);
+}
+.slider-order-item.dragging {
+    opacity: 0.5;
+}
