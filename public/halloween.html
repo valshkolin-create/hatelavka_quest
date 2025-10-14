@@ -76,7 +76,7 @@
             <section class="default-reward-section">
                 <h3 class="subsection-title"><i class="fa-solid fa-box-open"></i> Награда для участников которые не вошли в топ 20</h3>
                 <div id="reward-card" class="reward-card">
-                    <div class="image-zoom-container">
+                    <div id="default-reward-zoom-container" class="image-zoom-container">
                         <img id="reward-image" src="" alt="Default Reward">
                         <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
                     </div>
@@ -102,7 +102,10 @@
 
     <div id="image-viewer-modal" class="image-viewer-overlay hidden">
         <button type="button" class="viewer-close-btn">&times;</button>
-        <img src="" alt="Просмотр приза" class="viewer-image">
+        <div class="viewer-content-wrapper">
+            <img src="" alt="Просмотр приза" class="viewer-image">
+            <div id="viewer-caption" class="viewer-caption"></div>
+        </div>
     </div>
 
 
