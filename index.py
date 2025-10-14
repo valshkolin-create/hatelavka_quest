@@ -1475,12 +1475,12 @@ async def update_cauldron_event(
 
 @app.post("/api/v1/admin/events/cauldron/reset")
 async def reset_cauldron_progress(
-    request_data: InitDataRequest, 
+    request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """(Админ) Полностью сбрасывает прогресс ивента 'Котел'."""
     logging.info("--- Endpoint: /api/v1/admin/events/cauldron/reset ---")
-    
+
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         logging.warning(f"Запрос на сброс котла отклонен: нет прав. User: {user_info}")
@@ -1494,16 +1494,22 @@ async def reset_cauldron_progress(
         )
         resp.raise_for_status()
         data = resp.json()
-        
+
         if data and data[0].get('content'):
             content = data[0]['content']
             logging.info(f"Шаг 2: Обнуление прогресса. Текущий прогресс: {content.get('current_progress', 'N/A')}")
             content['current_progress'] = 0
-            await supabase.post(
+
+            # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+            # Меняем .post на .patch для надежного обновления существующей записи.
+            # Это гарантирует, что счетчик билетов будет сохранен как 0.
+            await supabase.patch(
                 "/pages_content",
-                json={"page_name": "cauldron_event", "content": content},
-                headers={"Prefer": "resolution=merge-duplicates"}
+                params={"page_name": "eq.cauldron_event"}, # Указываем, какую строку обновлять
+                json={"content": content}                   # Указываем, что в ней обновить
             )
+            # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
         else:
             logging.warning("Настройки для котла не найдены в базе, сброс прогресса пропущен.")
 
