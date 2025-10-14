@@ -1082,7 +1082,9 @@ try {
             // --- Конец логики для баннера ---
             
             // ВЫЗОВ ФУНКЦИИ СЛАЙДЕРА (ПРАВИЛЬНОЕ МЕСТО)
-            setupSlider();
+            setTimeout(() => {
+                setupSlider();
+            }, 0);
 
             const questsDataResp = await makeApiRequest("/api/v1/quests/list");
             allQuests = questsDataResp || [];
