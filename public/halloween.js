@@ -29,10 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
         rulesButton: document.getElementById('rules-button'),
         rulesModal: document.getElementById('rules-modal'),
         tutorialOverlay: document.getElementById('tutorial-overlay'),
-        // --- НОВЫЕ DOM ЭЛЕМЕНТЫ ---
+        // --- ОБНОВЛЕННЫЕ И НОВЫЕ DOM ЭЛЕМЕНТЫ ---
         imageViewerModal: document.getElementById('image-viewer-modal'),
         viewerImage: document.querySelector('.viewer-image'),
-        viewerCloseBtn: document.querySelector('.viewer-close-btn')
+        viewerCloseBtn: document.querySelector('.viewer-close-btn'),
+        viewerCaption: document.getElementById('viewer-caption'), // <-- ДОБАВЛЕНО
+        defaultRewardZoomContainer: document.getElementById('default-reward-zoom-container') // <-- ДОБАВЛЕНО
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
@@ -153,9 +155,11 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
         }
         
-        dom.rewardName.textContent = defaultReward.name || 'Награда не настроена';
+        const defaultRewardName = defaultReward.name || 'Награда не настроена';
+        dom.rewardName.textContent = defaultRewardName;
         const activeTheme = document.body.dataset.theme || 'halloween';
         dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
+        dom.defaultRewardZoomContainer.dataset.itemName = defaultRewardName;
 
         if (top20.length === 0) {
             dom.leaderboardRewardsList.innerHTML = '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>';
@@ -164,10 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rank = index + 1;
                 const contributionAmount = p.total_contribution || 0;
                 const assignedReward = topPlaceRewards.find(r => r.place === rank);
+                const prizeName = escapeHTML(assignedReward?.name || '');
                 
-                // --- ИЗМЕНЕНИЕ ЗДЕСЬ: Оборачиваем приз в контейнер для зума ---
                 const prizeImageHtml = assignedReward?.image_url 
-                    ? `<div class="image-zoom-container">
+                    ? `<div class="image-zoom-container" data-item-name="${prizeName}">
                            <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image">
                            <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
                        </div>`
@@ -287,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- НОВЫЕ ОБРАБОТЧИКИ: ДЛЯ ПРОСМОТРА ИЗОБРАЖЕНИЙ ---
+    // --- ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ: ДЛЯ ПРОСМОТРА ИЗОБРАЖЕНИЙ ---
     
     // Открытие просмотрщика по клику на контейнер с изображением
     dom.appContainer.addEventListener('click', (e) => {
@@ -295,8 +299,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!zoomContainer) return;
 
         const imageToZoom = zoomContainer.querySelector('img');
+        const itemName = zoomContainer.dataset.itemName; // <-- Считываем название из data-атрибута
+
         if (imageToZoom && imageToZoom.src) {
             dom.viewerImage.src = imageToZoom.src;
+            dom.viewerCaption.textContent = itemName || ''; // <-- Устанавливаем текст подписи
             dom.imageViewerModal.classList.remove('hidden');
         }
     });
@@ -305,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.viewerCloseBtn.addEventListener('click', () => {
         dom.imageViewerModal.classList.add('hidden');
         dom.viewerImage.src = ''; // Очищаем src для экономии памяти
+        dom.viewerCaption.textContent = ''; // <-- Очищаем подпись
     });
 
     // Закрытие просмотрщика по клику на оверлей (фон)
@@ -312,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === dom.imageViewerModal) {
             dom.imageViewerModal.classList.add('hidden');
             dom.viewerImage.src = '';
+            dom.viewerCaption.textContent = ''; // <-- Очищаем подпись
         }
     });
     
