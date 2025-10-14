@@ -53,6 +53,9 @@ try {
         resetAllCheckpointProgressBtn: document.getElementById('reset-all-checkpoint-progress-btn'),
         clearAllCheckpointStarsBtn: document.getElementById('clear-all-checkpoint-stars-btn'),
         settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
+        // --- НОВЫЙ КОД ---
+        settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
+        // --- КОНЕЦ НОВОГО КОДА ---
         statisticsContent: document.getElementById('statistics-content'),
         createRoulettePrizeForm: document.getElementById('create-roulette-prize-form'),
         roulettePrizesList: document.getElementById('roulette-prizes-list'),
@@ -576,6 +579,9 @@ try {
     async function loadAndRenderSettings() {
         try {
              const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+             // --- НОВЫЙ КОД ---
+             dom.settingSkinRaceEnabled.checked = settings.skin_race_enabled;
+             // --- КОНЕЦ НОВОГО КОДА ---
              dom.settingQuestsEnabled.checked = settings.quests_enabled;
              dom.settingChallengesEnabled.checked = settings.challenges_enabled;
              dom.settingQuestRewardsEnabled.checked = settings.quest_promocodes_enabled;
@@ -1166,6 +1172,9 @@ try {
         if(dom.saveSettingsBtn) {
             dom.saveSettingsBtn.addEventListener('click', async () => {
                 const payload = {
+                    // --- НОВЫЙ КОД ---
+                    skin_race_enabled: dom.settingSkinRaceEnabled.checked,
+                    // --- КОНЕЦ НОВОГО КОДА ---
                     quests_enabled: dom.settingQuestsEnabled.checked,
                     challenges_enabled: dom.settingChallengesEnabled.checked,
                     quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
