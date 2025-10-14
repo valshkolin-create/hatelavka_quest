@@ -315,7 +315,7 @@ body.is-admin .theme-switcher { display: flex; }
 }
 
 
-/* ===== START: СТИЛИ ДЛЯ АНИМАЦИИ ВЕДЬМЫ ===== */
+/* ===== START: СТИЛИ ДЛЯ АНИМАЦИИ ВЕДЬМЫ (С 5-МИНУТНОЙ ЗАДЕРЖКОЙ) ===== */
 
 .flying-witch {
     display: none; /* Скрыта по умолчанию, видна только в теме Хэллоуина */
@@ -333,29 +333,34 @@ body.is-admin .theme-switcher { display: flex; }
 /* Показываем и анимируем ведьму ТОЛЬКО когда активна тема Хэллоуина */
 body[data-theme="halloween"] .flying-witch {
     display: block;
-    animation: fly-across 20s linear 3s infinite; /* 20с на полет, 3с задержка, бесконечно */
+    /* Общая длительность: ~320 секунд
+       - 10 секунд полет направо
+       - 300 секунд (5 минут) ожидание
+       - 10 секунд полет налево
+    */
+    animation: fly-across 320s linear 3s infinite; 
 }
 
 @keyframes fly-across {
-    /* Летит направо */
+    /* Этап 1: Полет направо (длится ~10 секунд или 3% от 320с) */
     0% {
         transform: translateX(-55px) scaleX(1); /* Старт за левым краем, смотрит направо */
     }
-    48% {
-        transform: translateX(100vw) scaleX(1); /* Долетает до правого края (vw = viewport width) */
+    3% {
+        transform: translateX(100vw) scaleX(1); /* Долетает до правого края */
     }
 
-    /* Разворот за правым краем экрана */
-    50% {
-        transform: translateX(100vw) scaleX(-1); /* Мгновенно отражается по горизонтали, теперь смотрит налево */
+    /* Этап 2: Ожидание 5 минут за правым краем экрана */
+    3.1% {
+        transform: translateX(100vw) scaleX(-1); /* Мгновенно разворачивается */
+    }
+    97% {
+        transform: translateX(100vw) scaleX(-1); /* Остается на месте 94% времени (~300 секунд) */
     }
 
-    /* Летит налево */
-    98% {
-        transform: translateX(-55px) scaleX(-1); /* Возвращается в исходную точку (за левым краем) */
-    }
+    /* Этап 3: Полет налево (длится ~10 секунд или 3% от 320с) */
     100% {
-        transform: translateX(-55px) scaleX(-1); /* Конечная точка для плавного цикла */
+        transform: translateX(-55px) scaleX(-1); /* Возвращается за левый край */
     }
 }
 /* ===== END: СТИЛИ ДЛЯ АНИМАЦИИ ВЕДЬМЫ ===== */
