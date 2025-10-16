@@ -2,22 +2,25 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Cauldron Overlay</title>
+    <title>OBS Cauldron Overlay v2</title>
     <link rel="stylesheet" href="obs-overlay.css">
 </head>
 <body>
     <div id="overlay-container">
-        <div id="last-contributor-toast" class="hidden">
-            <div class="contributor-name"></div>
-            <div class="contribution-amount"></div>
+        <div id="promo-text" class="promo">
+            <span>Участвуй в ивенте > пиши в чат </span>
+            <span class="highlight">!lavka</span>
         </div>
 
-        <div id="cauldron-widget">
-            <h1 id="event-title">Ведьминский Котел</h1>
-            <div class="progress-bar-container">
-                <div id="progress-bar-fill" style="width: 0%;"></div>
+        <div id="widget-content">
+            <img id="cauldron-image" src="" alt="Event Cauldron">
+            <div id="cauldron-widget">
+                <h1 id="event-title">...</h1>
+                <div class="progress-bar-container">
+                    <div id="progress-bar-fill" style="width: 0%;"></div>
+                </div>
+                <div id="progress-text">0 / 0</div>
             </div>
-            <div id="progress-text">0 / 0</div>
         </div>
     </div>
 
