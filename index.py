@@ -1899,6 +1899,41 @@ async def get_cauldron_leaderboard(supabase: httpx.AsyncClient = Depends(get_sup
         logging.error(f"Ошибка при получении лидерборда котла: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные лидерборда.")
 
+# --- НОВАЯ ОТДЕЛЬНАЯ ФУНКЦИЯ ДЛЯ OBS ---
+async def send_cauldron_trigger_to_obs(
+    supabase: httpx.AsyncClient, 
+    user_display_name: str, 
+    amount: int
+):
+    """
+    Получает актуальное состояние ивента и отправляет триггер 
+    в Supabase для OBS-оверлея.
+    """
+    try:
+        # Получаем актуальные данные ивента "Котел"
+        event_status_resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
+        )
+        # Проверяем, что ответ успешный и содержит данные
+        event_data = event_status_resp.json()[0]['content'] if event_status_resp.json() else {}
+        
+        # Формируем payload для триггера
+        trigger_payload = {
+            "event_data": event_data,
+            "last_contributor": {
+                "name": user_display_name,
+                "amount": amount
+            }
+        }
+        # Отправляем payload в таблицу cauldron_triggers
+        await supabase.post("/cauldron_triggers", json={"payload": trigger_payload})
+        logging.info("✅ Триггер для оверлея котла успешно отправлен.")
+    
+    except Exception as e:
+        logging.error(f"❌ Не удалось отправить триггер для оверлея котла: {e}")
+
+
 @app.post("/api/v1/events/cauldron/contribute")
 async def contribute_to_cauldron(
     request_data: CauldronContributeRequest,
@@ -1943,6 +1978,9 @@ async def contribute_to_cauldron(
         result = response.json()
         new_progress = result.get('new_progress')
         new_ticket_balance = result.get('new_ticket_balance')
+        
+        # --- ДОБАВЛЕН ВЫЗОВ НОВОЙ ФУНКЦИИ ---
+        await send_cauldron_trigger_to_obs(supabase, user_display_name, amount)
 
         await manager.broadcast(json.dumps({
             "type": "cauldron_update",
