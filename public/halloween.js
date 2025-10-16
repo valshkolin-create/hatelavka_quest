@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
-    // --- ПОЛНОСТЬЮ ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ АНИМАЦИИ ---
+    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА 👇👇👇 ---
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const submitButton = dom.contributionForm.querySelector('button[type="submit"]');
@@ -249,76 +249,69 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!amount || amount <= 0) {
             dom.errorMessage.textContent = 'Введите корректное количество билетов.';
             dom.errorMessage.classList.remove('hidden');
-            console.warn('[EVENT] Некорректное количество билетов:', amount);
             return;
         }
         if (amount > (currentUserData.tickets || 0)) {
             dom.errorMessage.textContent = 'У вас недостаточно билетов.';
             dom.errorMessage.classList.remove('hidden');
-            console.warn('[EVENT] Недостаточно билетов. Требуется:', amount, 'Имеется:', currentUserData.tickets);
             return;
         }
         
         submitButton.disabled = true;
 
         try {
-            // Шаг 1: Отправляем запрос на сервер
+            // Шаг 1: Отправляем запрос на сервер. В этот момент запускается и триггер для OBS.
             const result = await makeApiRequest('/api/v1/events/cauldron/contribute', { amount });
             
-            // Шаг 2: Запускаем анимацию
+            // --- УЛУЧШЕНИЕ: Мгновенное обновление баланса ---
+            // Сразу после успешного ответа от сервера, обновляем баланс на странице.
+            tg.showAlert("Ваш вклад принят!"); // Показываем стандартное уведомление
+            currentUserData.tickets = result.new_ticket_balance;
+            dom.userTicketBalance.textContent = result.new_ticket_balance;
+            dom.ticketsInput.value = '';
+            console.log('[EVENT] Баланс пользователя мгновенно обновлен на странице.');
+            // --- КОНЕЦ УЛУЧШЕНИЯ ---
+
+            // Шаг 2: Запускаем ЛОКАЛЬНУЮ анимацию фласки на странице
             const flask = dom.flaskAnimation;
             const cauldron = dom.cauldronImage;
 
-            // Вычисляем начальные и конечные координаты
             const btnRect = submitButton.getBoundingClientRect();
             const cauldronRect = cauldron.getBoundingClientRect();
 
-            // Начало: центр кнопки
             const startX = btnRect.left + (btnRect.width / 2) - (flask.width / 2);
             const startY = btnRect.top + (btnRect.height / 2) - (flask.height / 2);
 
-            // Конец: центр котла
             const endX = cauldronRect.left + (cauldronRect.width / 2) - (flask.width / 2);
             const endY = cauldronRect.top + (cauldronRect.height / 2) - (flask.height / 2);
             
-            // Устанавливаем CSS переменные для анимации
             flask.style.setProperty('--start-x', `${startX}px`);
             flask.style.setProperty('--start-y', `${startY}px`);
             flask.style.setProperty('--end-x', `${endX}px`);
             flask.style.setProperty('--end-y', `${endY}px`);
 
-            // Добавляем классы для запуска анимации
             flask.classList.add('animate');
             cauldron.classList.add('pulse');
 
-            // Шаг 3: Ждем завершения анимации (1200ms = 1.2s)
+            // Шаг 3: После завершения локальной анимации, обновляем остальную часть страницы
             setTimeout(() => {
-                // После анимации показываем результат и обновляем данные
-                tg.showAlert(result.message);
-                currentUserData.tickets = result.new_ticket_balance;
-                dom.userTicketBalance.textContent = result.new_ticket_balance;
-                dom.ticketsInput.value = '';
-                
-                // Убираем классы анимации, чтобы они могли быть запущены снова
                 flask.classList.remove('animate');
                 cauldron.classList.remove('pulse');
                 
-                console.log('[EVENT] Вклад успешен. Обновляем данные страницы после анимации.');
-                fetchDataAndRender(); // Обновляем прогресс и лидерборд
+                // Обновляем прогресс-бар и лидерборд, чтобы увидеть изменения
+                fetchDataAndRender();
             }, 1200);
 
         } catch(error) {
             dom.errorMessage.textContent = error.message;
             dom.errorMessage.classList.remove('hidden');
-            console.error('[EVENT] Ошибка при отправке вклада:', error);
-            submitButton.disabled = false; // Разблокируем кнопку при ошибке
         } finally {
-            // Шаг 4: Разблокируем кнопку после завершения анимации (через 1.5с)
             setTimeout(() => {
                  submitButton.disabled = false;
             }, 1500);
         }
     });
+    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА 👆👆👆 ---
 
     dom.themeSwitcher.addEventListener('click', (e) => {
         const button = e.target.closest('.theme-btn');
