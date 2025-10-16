@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS Cauldron Overlay</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Базовые стили */
+        body {
+            background-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            margin: 0;
+        }
+        #overlay-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 450px;
+        }
+
+        /* Контейнер виджета */
+        #widget-container {
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            gap: 15px;
+        }
+
+        /* Котел */
+        #cauldron-image {
+            width: 150px;
+            height: auto;
+            animation: float 4s ease-in-out infinite;
+            transition: filter 0.3s ease;
+        }
+        #cauldron-image.pulse {
+            animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out;
+        }
+
+        /* Информационный блок */
+        #info-widget {
+            flex-grow: 1;
+            background-color: rgba(18, 16, 33, 0.85);
+            border: 1px solid #bf5af2;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 0 25px rgba(191, 90, 242, 0.5);
+            backdrop-filter: blur(10px);
+            color: white;
+            text-shadow: 1px 1px 3px #000;
+        }
+        #event-title {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            text-align: center;
+            font-weight: 700;
+            color: #ff9500;
+            text-shadow: 0 0 8px rgba(255, 149, 0, 0.7);
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            height: 12px;
+            overflow: hidden;
+        }
+        #progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #bf5af2, #ff9500);
+            border-radius: 8px;
+            transition: width 0.5s ease-out;
+        }
+        #progress-text {
+            margin-top: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        /* Анимация летящего билета */
+        #flying-ticket {
+            position: fixed;
+            top: 50%;
+            left: -100px;
+            width: 80px;
+            height: auto;
+            background-image: url('https://i.postimg.cc/8PjMhN3y/ticket.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 10;
+            opacity: 0;
+        }
+        #flying-ticket.animate {
+            animation: fly-in 1.5s cubic-bezier(0.5, -0.5, 1, 1);
+        }
+
+        /* Анимации */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes cauldron-pulse {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.05); filter: brightness(1.5) drop-shadow(0 0 15px #ff9500); }
+        }
+        @keyframes fly-in {
+            0% { transform: translate(0, 0) scale(1.2) rotate(-20deg); opacity: 1; }
+            100% { transform: translate(130px, 200px) scale(0.1) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay-container">
+        <div id="flying-ticket"></div>
+        <div id="widget-container">
+            <img id="cauldron-image" src="" alt="Cauldron">
+            <div id="info-widget">
+                <h1 id="event-title">...</h1>
+                <div class="progress-bar-container">
+                    <div id="progress-bar-fill"></div>
+                </div>
+                <div id="progress-text">0 / 0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- НАСТРОЙКИ SUPABASE (как в рулетке) ---
+        const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
+
+        // --- Элементы DOM ---
+        const dom = {
+            title: document.getElementById('event-title'),
+            progressBar: document.getElementById('progress-bar-fill'),
+            progressText: document.getElementById('progress-text'),
+            cauldronImage: document.getElementById('cauldron-image'),
+            flyingTicket: document.getElementById('flying-ticket'),
+        };
+
+        let isAnimating = false;
+
+        // --- Функция определения текущего уровня (важно для логики) ---
+        function getCurrentLevel(eventData) {
+            const { goals = {}, current_progress = 0 } = eventData;
+            if (goals.level_2 && current_progress >= goals.level_2) return 3;
+            if (goals.level_1 && current_progress >= goals.level_1) return 2;
+            return 1;
+        }
+        
+        // --- Главная функция обновления всего UI ---
+        function updateDisplay(eventData) {
+            if (!eventData) return;
+
+            const currentLevel = getCurrentLevel(eventData);
+            dom.title.textContent = eventData.title || "Ведьминский Котел";
+
+            const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] 
+                               || eventData.cauldron_image_url 
+                               || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
+            if (dom.cauldronImage.src !== cauldronUrl) {
+                dom.cauldronImage.src = cauldronUrl;
+            }
+
+            const { goals = {}, current_progress = 0 } = eventData;
+            let currentGoal = 1, prevGoal = 0;
+            if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
+            else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
+            else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
+
+            const progressInLevel = current_progress - prevGoal;
+            const goalForLevel = currentGoal - prevGoal;
+            const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
+            
+            dom.progressBar.style.width = `${percentage}%`;
+            dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
+        }
+        
+        // --- Функция запуска анимации ---
+        function triggerAnimation(payload) {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            const { event_data } = payload.new.payload;
+            
+            // Сначала обновляем данные
+            updateDisplay(event_data);
+            
+            // Затем запускаем анимацию
+            dom.flyingTicket.classList.add('animate');
+            dom.cauldronImage.classList.add('pulse');
+
+            setTimeout(() => {
+                dom.flyingTicket.classList.remove('animate');
+                dom.cauldronImage.classList.remove('pulse');
+                isAnimating = false;
+            }, 1500); // Длительность анимации
+        }
+
+        // --- Подключение к Supabase ---
+        try {
+            const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('Successfully connected to Supabase.');
+
+            supabaseClient.channel('cauldron-triggers-channel')
+                .on('postgres_changes', 
+                    { event: 'INSERT', schema: 'public', table: 'cauldron_triggers' },
+                    payload => {
+                        console.log('New cauldron trigger received:', payload);
+                        triggerAnimation(payload);
+                    }
+                ).subscribe();
+                
+            console.log('Subscribed to cauldron_triggers table.');
+        } catch (error) { 
+            console.error("Failed to connect or subscribe to Supabase:", error); 
+        }
+
+    </script>
+</body>
+</html>
