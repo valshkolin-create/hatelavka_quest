@@ -1900,14 +1900,16 @@ async def get_cauldron_leaderboard(supabase: httpx.AsyncClient = Depends(get_sup
         raise HTTPException(status_code=500, detail="Не удалось получить данные лидерборда.")
 
 # --- НОВАЯ ОТДЕЛЬНАЯ ФУНКЦИЯ ДЛЯ OBS ---
+# --- 1. ОБНОВЛЁННАЯ ВЕРСИЯ ФУНКЦИИ ДЛЯ ТРИГГЕРА ---
 async def send_cauldron_trigger_to_obs(
     supabase: httpx.AsyncClient, 
     user_display_name: str, 
-    amount: int
+    amount: int,
+    new_progress: int  # Добавляем новый аргумент
 ):
     """
-    Получает актуальное состояние ивента и отправляет триггер 
-    в Supabase для OBS-оверлея.
+    Получает актуальное состояние ивента, ОБНОВЛЯЕТ его свежим прогрессом 
+    и отправляет триггер в Supabase для OBS-оверлея.
     """
     try:
         # Получаем актуальные данные ивента "Котел"
@@ -1915,8 +1917,11 @@ async def send_cauldron_trigger_to_obs(
             "/pages_content",
             params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
         )
-        # Проверяем, что ответ успешный и содержит данные
         event_data = event_status_resp.json()[0]['content'] if event_status_resp.json() else {}
+        
+        # ИСПРАВЛЕНИЕ: Принудительно обновляем прогресс в данных, которые мы отправляем
+        if event_data:
+            event_data['current_progress'] = new_progress
         
         # Формируем payload для триггера
         trigger_payload = {
@@ -1928,12 +1933,13 @@ async def send_cauldron_trigger_to_obs(
         }
         # Отправляем payload в таблицу cauldron_triggers
         await supabase.post("/cauldron_triggers", json={"payload": trigger_payload})
-        logging.info("✅ Триггер для оверлея котла успешно отправлен.")
+        logging.info("✅ Триггер для оверлея котла с корректным прогрессом успешно отправлен.")
     
     except Exception as e:
         logging.error(f"❌ Не удалось отправить триггер для оверлея котла: {e}")
 
 
+# --- 2. ОБНОВЛЁННАЯ ВЕРСИЯ ОСНОВНОЙ ФУНКЦИИ ---
 @app.post("/api/v1/events/cauldron/contribute")
 async def contribute_to_cauldron(
     request_data: CauldronContributeRequest,
@@ -1979,8 +1985,8 @@ async def contribute_to_cauldron(
         new_progress = result.get('new_progress')
         new_ticket_balance = result.get('new_ticket_balance')
         
-        # --- ДОБАВЛЕН ВЫЗОВ НОВОЙ ФУНКЦИИ ---
-        await send_cauldron_trigger_to_obs(supabase, user_display_name, amount)
+        # ИСПРАВЛЕНИЕ: Передаем `new_progress` в функцию триггера
+        await send_cauldron_trigger_to_obs(supabase, user_display_name, amount, new_progress)
 
         await manager.broadcast(json.dumps({
             "type": "cauldron_update",
