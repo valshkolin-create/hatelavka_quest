@@ -1,0 +1,92 @@
+/* Базовые стили для полной прозрачности */
+body {
+    background-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #ffffff;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Убираем любые скроллбары */
+}
+
+/* Контейнер виджета */
+#overlay-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 400px;
+}
+
+/* Стили основного виджета с прогрессом */
+#cauldron-widget {
+    background-color: rgba(18, 16, 33, 0.85);
+    border: 1px solid #bf5af2;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 0 25px rgba(191, 90, 242, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+#event-title {
+    margin: 0 0 10px 0;
+    font-size: 20px;
+    text-align: center;
+    font-weight: 700;
+    color: #ff9500;
+    text-shadow: 0 0 8px rgba(255, 149, 0, 0.7);
+}
+
+.progress-bar-container {
+    width: 100%;
+    background-color: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    height: 12px;
+    border: 1px solid rgba(60, 56, 82, 0.5);
+    overflow: hidden;
+}
+
+#progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #bf5af2, #ff9500);
+    border-radius: 8px;
+    transition: width 0.5s ease-out;
+}
+
+#progress-text {
+    margin-top: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-shadow: 1px 1px 3px #000;
+}
+
+/* Стили для всплывающего уведомления */
+#last-contributor-toast {
+    background: linear-gradient(45deg, #bf5af2, #ff9500);
+    padding: 12px 20px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+    transform: translateX(-150%); /* Начальное положение за экраном */
+    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+#last-contributor-toast.show {
+    transform: translateX(0); /* Появление на экране */
+}
+
+.contributor-name {
+    font-size: 18px;
+    font-weight: 700;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+
+.contribution-amount {
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.9;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+
+.hidden {
+    display: none;
+}
