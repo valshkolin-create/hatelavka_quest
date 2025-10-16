@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBar: document.getElementById('progress-bar-fill'),
         progressText: document.getElementById('progress-text'),
         cauldronImage: document.getElementById('cauldron-image'),
-        promoText: document.getElementById('promo-text')
     };
     
     // --- Логика для определения текущего уровня (как в halloween.js) ---
@@ -17,10 +16,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Главная функция обновления всего UI ---
     function updateDisplay(eventData) {
+        // Проверяем, видим ли ивент. Если нет, ничего не показываем.
         if (!eventData || !eventData.is_visible_to_users) {
-            document.body.innerHTML = ''; // Скрываем все, если ивент неактивен
+            document.body.style.display = 'none'; // Просто скрываем все
             return;
         }
+        document.body.style.display = 'block'; // Показываем, если было скрыто
 
         const { title, goals = {}, current_progress = 0 } = eventData;
         const currentLevel = getCurrentLevel(eventData);
@@ -32,9 +33,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const cauldronImageUrl = eventData[`cauldron_image_url_${currentLevel}`] 
                                || eventData.cauldron_image_url 
                                || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'; // Резервный URL
-        dom.cauldronImage.src = cauldronImageUrl;
+        
+        // Обновляем картинку только если она изменилась, чтобы избежать моргания
+        if (dom.cauldronImage.src !== cauldronImageUrl) {
+            dom.cauldronImage.src = cauldronImageUrl;
+        }
 
-        // 3. ИСПРАВЛЕНИЕ: Правильно рассчитываем прогресс-бар и текст
+        // 3. Правильно рассчитываем прогресс-бар и текст
         let currentGoal = 1, prevGoal = 0;
         if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
         else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
@@ -48,42 +53,23 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
     }
 
-    // --- Получение первоначальных данных ---
-    async function fetchInitialState() {
+    // --- Функция, которая будет регулярно запрашивать данные ---
+    async function checkForUpdates() {
+        console.log("Checking for updates...");
         try {
             const response = await fetch('/api/v1/events/cauldron/status');
-            if (!response.ok) throw new Error('Failed to load event data');
+            if (!response.ok) throw new Error(`Server responded with ${response.status}`);
             const data = await response.json();
             updateDisplay(data);
         } catch (error) {
-            console.error("Error fetching initial state:", error);
+            console.error("Error checking for updates:", error);
         }
     }
 
-    // --- Подключение к WebSocket ---
-    function connectWebSocket() {
-        // !!! ЗАМЕНИТЕ НА ВАШ ДОМЕН VERСEL !!!
-        const vercelDomain = 'hatelavka-quest.vercel.app'; // <--- ВАШ ДОМЕН ЗДЕСЬ
-        const wsUrl = `wss://${vercelDomain}/ws`;
-        
-        const ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => console.log('WebSocket connected.');
-        ws.onmessage = (event) => {
-            try {
-                const message = JSON.parse(event.data);
-                if (message.type === 'cauldron_update' || message.type === 'cauldron_config_updated') {
-                    // При любом обновлении, перезапрашиваем полное состояние
-                    // Это самый надежный способ, чтобы все данные (цели, картинки) были актуальны
-                    fetchInitialState();
-                }
-            } catch (e) { console.error('WS Error:', e); }
-        };
-        ws.onclose = () => setTimeout(connectWebSocket, 5000);
-        ws.onerror = (e) => { console.error('WS Error:', e); ws.close(); };
-    }
-
     // --- Запуск ---
-    fetchInitialState();
-    connectWebSocket();
+    // 1. Получаем данные сразу при загрузке
+    checkForUpdates();
+    
+    // 2. Устанавливаем интервал для проверки обновлений каждые 5 секунд
+    setInterval(checkForUpdates, 5000); 
 });
