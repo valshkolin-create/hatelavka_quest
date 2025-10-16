@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Premium Cauldron Overlay v2</title>
+    <title>Premium Cauldron Overlay v3</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,10 +33,40 @@
             align-items: center;
         }
 
-        /* --- НОВОЕ: Маленькое привидение --- */
+        /* --- НОВОЕ: Картинка награды сверху --- */
+        #prize-image-container {
+            position: absolute;
+            top: -120px; /* Выше всех остальных элементов */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px; /* Размер картинки */
+            height: 100px;
+            overflow: hidden;
+            background-color: rgba(18, 16, 33, 0.7); /* Фон для рамки */
+            border: 2px solid var(--accent-color-1);
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(191, 90, 242, 0.5);
+            opacity: 0; /* Скрыто по умолчанию */
+            transition: opacity 0.5s ease-in-out;
+            z-index: 4; /* Выше всего */
+            display: flex; /* Для центрирования изображения */
+            justify-content: center;
+            align-items: center;
+        }
+        #prize-image-container.visible {
+            opacity: 1;
+        }
+        #prize-image {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain; /* Сохраняем пропорции, вписываем */
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); /* Небольшая тень для скина */
+        }
+        
+        /* --- Обновленное привидение --- */
         #ghost-animation {
             position: absolute;
-            bottom: 45px; /* На уровне прогресс-бара */
+            bottom: 45px;
             left: 0;
             width: 50px;
             height: auto;
@@ -70,7 +100,6 @@
             font-weight: 700; color: var(--accent-color-2); text-shadow: 0 0 10px var(--glow-color);
         }
         
-        /* ИЗМЕНЕНО: Текст над прогресс-баром */
         #progress-text {
             font-size: 12px; font-weight: 700; text-align: center;
             color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
@@ -78,7 +107,7 @@
         }
         .progress-bar-container {
             width: 100%; background-color: rgba(0,0,0,0.4);
-            border-radius: 8px; height: 8px; /* Сделали тоньше */
+            border-radius: 8px; height: 8px;
             overflow: hidden; position: relative;
         }
         #progress-bar-fill {
@@ -90,7 +119,7 @@
         
         #promo-text {
             position: absolute;
-            top: -75px; /* Подняли выше */
+            top: -75px;
             left: 50%;
             padding: 10px 20px;
             background: linear-gradient(45deg, #1a0229, #3d1902);
@@ -104,15 +133,14 @@
             z-index: 3; pointer-events: none;
         }
         #promo-text.animate { animation: premium-fade-in-out 10s forwards; }
-        /* Стили для второй строки с призом */
-        #promo-text .subtitle {
+        .subtitle {
             display: block;
             font-size: 13px;
             font-weight: 600;
             color: #ddd;
             margin-top: 4px;
         }
-        #promo-text .prize-name { color: var(--accent-color-2); }
+        .prize-name { color: var(--accent-color-2); }
         
         #flying-flask {
             position: fixed; width: 60px; height: auto; z-index: 10;
@@ -131,7 +159,6 @@
             85%  { opacity: 1; transform: translate(-50%, 0); }
             100% { opacity: 0; transform: translate(-50%, -20px); }
         }
-        /* Анимация для привидения */
         @keyframes ghost-walk {
             0% { transform: translateX(0px) scaleX(1); }
             45% { transform: translateX(350px) scaleX(1); }
@@ -147,8 +174,12 @@
         <img id="flying-flask" src="https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif" alt="Animating flask">
         
         <div id="widget-container">
+            <div id="prize-image-container">
+                <img id="prize-image" src="" alt="Prize Image">
+            </div>
+
             <div id="promo-text"></div>
-            <img id="ghost-animation" src="https://i.postimg.cc/d11D1D80/ghost-1.gif" alt="Ghost">
+            <img id="ghost-animation" src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDd2azc1aXVvcmE3eG81a3FxZDlya2M4c3NmNDZweHFnOW8za3d2eiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/GqegZvkq9kgxuk1kTC/giphy.gif" alt="Ghost">
             
             <img id="cauldron-image" src="" alt="Cauldron">
             <div id="info-widget">
@@ -171,11 +202,13 @@
             progressText: document.getElementById('progress-text'),
             cauldronImage: document.getElementById('cauldron-image'),
             flyingFlask: document.getElementById('flying-flask'),
-            promoText: document.getElementById('promo-text')
+            promoText: document.getElementById('promo-text'),
+            prizeImageContainer: document.getElementById('prize-image-container'), // Новый элемент
+            prizeImage: document.getElementById('prize-image') // Новый элемент
         };
 
         let isAnimating = false;
-        let currentEventData = {}; // Храним актуальные данные ивента
+        let currentEventData = {};
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         function getCurrentLevel(eventData) {
@@ -187,7 +220,7 @@
         
         function updateDisplay(eventData) {
             if (!eventData) return;
-            currentEventData = eventData; // Обновляем глобальные данные
+            currentEventData = eventData;
             
             const currentLevel = getCurrentLevel(eventData);
             dom.title.textContent = eventData.title || "Ведьминский Котел";
@@ -196,12 +229,11 @@
             if (dom.cauldronImage.src !== cauldronUrl) dom.cauldronImage.src = cauldronUrl;
 
             const { goals = {}, current_progress = 0 } = eventData;
-            let currentGoal = 1, prevGoal = 0;
+            let currentGoal = 1;
             if (currentLevel === 1) { currentGoal = goals.level_1 || 1; }
             else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; }
             else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; }
             
-            // Расчет прогресса без `prevGoal` для простоты отображения
             const percentage = (currentGoal > 0) ? Math.min((current_progress / currentGoal) * 100, 100) : 0;
             
             dom.progressBar.style.width = `${percentage}%`;
@@ -230,31 +262,42 @@
             if (data && data.content) updateDisplay(data.content);
         }
         
-        // ОБНОВЛЕННАЯ ЛОГИКА ДЛЯ ДИНАМИЧЕСКОЙ НАДПИСИ
+        // ОБНОВЛЕННАЯ ЛОГИКА ДЛЯ ДИНАМИЧЕСКОЙ НАДПИСИ И КАРТИНКИ
         function showPromoAnimation() {
-            if (!currentEventData.levels) return; // Не запускаем, если данных еще нет
+            if (!currentEventData.levels) return;
 
             const currentLevel = getCurrentLevel(currentEventData);
             const levelConfig = currentEventData.levels[`level_${currentLevel}`] || {};
             const prizes = levelConfig.top_places || [];
 
             let prizeName = '';
+            let prizeImageUrl = '';
+
             if (prizes.length > 0) {
-                // Выбираем случайный приз из списка
                 const randomPrize = prizes[Math.floor(Math.random() * prizes.length)];
                 prizeName = randomPrize.name;
+                prizeImageUrl = randomPrize.image_url; // Получаем URL картинки приза
             }
 
-            // Формируем HTML для надписи
             dom.promoText.innerHTML = `
                 Участвуй в ивенте: <span>!lavka</span>
                 <div class="subtitle">Попробуй выиграть: <span class="prize-name">${prizeName || 'Главный приз!'}</span></div>
             `;
             
+            // Показываем картинку приза, если она есть
+            if (prizeImageUrl) {
+                dom.prizeImage.src = prizeImageUrl;
+                dom.prizeImageContainer.classList.add('visible');
+            } else {
+                dom.prizeImageContainer.classList.remove('visible');
+            }
+
             const promo = dom.promoText;
             promo.classList.add('animate');
+
             setTimeout(() => {
                 promo.classList.remove('animate');
+                dom.prizeImageContainer.classList.remove('visible'); // Скрываем картинку приза
             }, 10000); 
         }
 
