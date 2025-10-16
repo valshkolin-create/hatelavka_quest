@@ -32,8 +32,9 @@
             width: 150px;
             height: auto;
             animation: float 4s ease-in-out infinite;
-            transition: filter 0.3s ease;
+            transition: filter 0.3s ease, transform 0.3s ease;
         }
+        /* Анимация пульсации котла при вкладе */
         #cauldron-image.pulse {
             animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out;
         }
@@ -78,42 +79,51 @@
             text-align: center;
         }
 
-        /* Анимация летящего билета */
-        #flying-ticket {
+        /* Анимация летящей фласки (как на halloween.html) */
+        #flying-flask {
             position: fixed;
-            top: 50%;
-            left: -100px;
-            width: 80px;
+            width: 60px;
             height: auto;
-            background-image: url('https://i.postimg.cc/8PjMhN3y/ticket.png');
-            background-size: contain;
-            background-repeat: no-repeat;
             z-index: 10;
+            pointer-events: none;
             opacity: 0;
+            /* Начальная позиция за экраном */
+            top: 20%;
+            left: -100px; 
         }
-        #flying-ticket.animate {
-            animation: fly-in 1.5s cubic-bezier(0.5, -0.5, 1, 1);
+        #flying-flask.animate {
+            /* Анимация полета к котлу */
+            animation: fly-in 1.2s cubic-bezier(0.5, -0.5, 1, 1);
         }
 
-        /* Анимации */
+        /* Ключевые кадры анимаций */
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
         }
         @keyframes cauldron-pulse {
             0%, 100% { transform: scale(1); filter: brightness(1); }
-            50% { transform: scale(1.05); filter: brightness(1.5) drop-shadow(0 0 15px #ff9500); }
+            50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px #ff9500); }
         }
+        /* Исправленная анимация полета */
         @keyframes fly-in {
-            0% { transform: translate(0, 0) scale(1.2) rotate(-20deg); opacity: 1; }
-            100% { transform: translate(130px, 200px) scale(0.1) rotate(360deg); opacity: 0; }
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1.2) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                /* Конечная точка полета - примерные координаты котла */
+                transform: translate(180px, 150px) scale(0.2) rotate(720deg);
+            }
         }
     </style>
 </head>
 <body>
 
     <div id="overlay-container">
-        <div id="flying-ticket"></div>
+        <img id="flying-flask" src="https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif" alt="Animating flask">
+
         <div id="widget-container">
             <img id="cauldron-image" src="" alt="Cauldron">
             <div id="info-widget">
@@ -127,22 +137,22 @@
     </div>
 
     <script>
-        // --- НАСТРОЙКИ SUPABASE (как в рулетке) ---
+        // --- НАСТРОЙКИ SUPABASE (как в вашей рулетке) ---
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
-        // --- Элементы DOM ---
         const dom = {
             title: document.getElementById('event-title'),
             progressBar: document.getElementById('progress-bar-fill'),
             progressText: document.getElementById('progress-text'),
             cauldronImage: document.getElementById('cauldron-image'),
-            flyingTicket: document.getElementById('flying-ticket'),
+            flyingFlask: document.getElementById('flying-flask'),
         };
 
         let isAnimating = false;
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Функция определения текущего уровня (важно для логики) ---
+        // --- Логика для определения текущего уровня (взята из вашего halloween.js) ---
         function getCurrentLevel(eventData) {
             const { goals = {}, current_progress = 0 } = eventData;
             if (goals.level_2 && current_progress >= goals.level_2) return 3;
@@ -152,14 +162,21 @@
         
         // --- Главная функция обновления всего UI ---
         function updateDisplay(eventData) {
-            if (!eventData) return;
+            if (!eventData || !eventData.is_visible_to_users) {
+                // Если ивент неактивен, просто скрываем виджет, но не удаляем его
+                document.getElementById('widget-container').style.opacity = '0';
+                return;
+            }
+            document.getElementById('widget-container').style.opacity = '1';
 
             const currentLevel = getCurrentLevel(eventData);
             dom.title.textContent = eventData.title || "Ведьминский Котел";
 
+            // ИСПРАВЛЕНО: Правильно выбираем URL котла из данных
             const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] 
                                || eventData.cauldron_image_url 
-                               || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
+                               || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'; // Резервный URL
+            
             if (dom.cauldronImage.src !== cauldronUrl) {
                 dom.cauldronImage.src = cauldronUrl;
             }
@@ -185,35 +202,58 @@
 
             const { event_data } = payload.new.payload;
             
-            // Сначала обновляем данные
+            // Сначала обновляем все данные на экране
             updateDisplay(event_data);
             
-            // Затем запускаем анимацию
-            dom.flyingTicket.classList.add('animate');
+            // Затем запускаем анимацию фласки и пульсацию котла
+            dom.flyingFlask.classList.add('animate');
             dom.cauldronImage.classList.add('pulse');
 
+            // Убираем классы анимации после ее завершения
             setTimeout(() => {
-                dom.flyingTicket.classList.remove('animate');
+                dom.flyingFlask.classList.remove('animate');
                 dom.cauldronImage.classList.remove('pulse');
                 isAnimating = false;
             }, 1500); // Длительность анимации
         }
 
-        // --- Подключение к Supabase ---
-        try {
-            const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log('Successfully connected to Supabase.');
+        // --- Функция для загрузки начального состояния ивента ---
+        async function loadInitialState() {
+            console.log('Loading initial state...');
+            const { data, error } = await supabaseClient
+                .from('pages_content')
+                .select('content')
+                .eq('page_name', 'cauldron_event')
+                .single();
 
+            if (error) {
+                console.error('Error loading initial state:', error);
+                return;
+            }
+
+            if (data && data.content) {
+                console.log('Initial state loaded:', data.content);
+                updateDisplay(data.content);
+            }
+        }
+
+        // --- Подключение к Supabase (как в рулетке) ---
+        try {
+            console.log('Connecting to Supabase...');
             supabaseClient.channel('cauldron-triggers-channel')
                 .on('postgres_changes', 
                     { event: 'INSERT', schema: 'public', table: 'cauldron_triggers' },
                     payload => {
-                        console.log('New cauldron trigger received:', payload);
+                        console.log('New cauldron trigger received!', payload);
                         triggerAnimation(payload);
                     }
-                ).subscribe();
-                
-            console.log('Subscribed to cauldron_triggers table.');
+                ).subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('Successfully subscribed to cauldron_triggers!');
+                        // Загружаем начальное состояние ПОСЛЕ успешной подписки
+                        loadInitialState();
+                    }
+                });
         } catch (error) { 
             console.error("Failed to connect or subscribe to Supabase:", error); 
         }
