@@ -33,21 +33,39 @@
             align-items: center;
         }
 
-        /* --- ПРИВИДЕНИЕ --- */
+        /* --- ИЗМЕНЕНО: Позиция привидения --- */
         #ghost-animation {
             position: absolute;
-            bottom: 350px; /* Подняли очень высоко */
+            bottom: 75px; /* Точная позиция над заголовком */
             left: 0;
             width: 40px; /* Уменьшили */
             height: auto;
-            z-index: 5;
+            z-index: 3; /* Под промо-текстом, но над котлом */
             animation: ghost-walk 20s linear infinite;
         }
 
-        /* --- ПРОМО-ТЕКСТ (ВЫШЕ ВСЕГО) --- */
+        /* --- КАРТИНКА ПРИЗА (НАД ТЕКСТОМ) --- */
+        #prize-image-container {
+            position: absolute;
+            bottom: 330px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px; height: 110px;
+            background-color: rgba(18, 16, 33, 0.7);
+            border: 2px solid var(--accent-color-2); /* ИЗМЕНЕНО: Оранжевая рамка */
+            border-radius: 12px;
+            box-shadow: 0 0 20px var(--glow-color); /* Усилили свечение */
+            opacity: 0;
+            z-index: 4;
+            display: flex; justify-content: center; align-items: center;
+        }
+        #prize-image-container.animate { animation: prize-image-animation 9s forwards; }
+        #prize-image { max-width: 90%; max-height: 90%; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); }
+
+        /* --- ПРОМО-ТЕКСТ (ПОД КАРТИНКОЙ) --- */
         #promo-text {
             position: absolute;
-            bottom: 300px; /* Позиция над картинкой приза */
+            bottom: 280px;
             left: 50%;
             padding: 10px 20px;
             background: linear-gradient(45deg, #1a0229, #3d1902);
@@ -63,24 +81,6 @@
         #promo-text.animate { animation: promo-text-animation 10s forwards; }
         .subtitle { display: block; font-size: 13px; font-weight: 600; color: #ddd; margin-top: 4px; }
         .prize-name { color: var(--accent-color-2); }
-
-        /* --- КАРТИНКА ПРИЗА (ПОД ТЕКСТОМ) --- */
-        #prize-image-container {
-            position: absolute;
-            bottom: 180px; /* Позиция между текстом и котлом */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 160px; height: 110px;
-            background-color: rgba(18, 16, 33, 0.7);
-            border: 2px solid var(--accent-color-1);
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(191, 90, 242, 0.5);
-            opacity: 0;
-            z-index: 4;
-            display: flex; justify-content: center; align-items: center;
-        }
-        #prize-image-container.animate { animation: prize-image-animation 9s forwards; }
-        #prize-image { max-width: 90%; max-height: 90%; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); }
 
         /* --- УВЕЛИЧЕННЫЙ КОТЕЛ --- */
         #cauldron-image {
@@ -116,7 +116,6 @@
         @keyframes cauldron-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--accent-color-2)); } }
         @keyframes fly-in { 0% { opacity: 1; transform: translate(0, 0) scale(1.2) rotate(0deg); } 100% { opacity: 0; transform: translate(250px, 350px) scale(0.2) rotate(720deg); } } /* Скорректировали конечную точку */
         
-        /* Анимация текста (появляется сразу) */
         @keyframes promo-text-animation {
             0%   { opacity: 0; transform: translate(-50%, 20px); }
             10%  { opacity: 1; transform: translate(-50%, 0); }
@@ -126,10 +125,9 @@
         /* Анимация картинки (появляется с задержкой) */
         @keyframes prize-image-animation {
             0%   { opacity: 0; transform: translate(-50%, 10px) scale(0.95); }
-            10%  { opacity: 0; transform: translate(-50%, 10px) scale(0.95); } /* Задержка в 1с */
-            20%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            20%  { opacity: 1; transform: translate(-50%, 0) scale(1); } /* Появляется после текста */
             80%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
-            90%  { opacity: 0; transform: translate(-50%, -10px) scale(0.95); }
+            95%  { opacity: 0; transform: translate(-50%, -10px) scale(0.95); }
             100% { opacity: 0; }
         }
         @keyframes ghost-walk {
@@ -234,7 +232,6 @@
             if (data && data.content) updateDisplay(data.content);
         }
         
-        // ОБНОВЛЕННАЯ ЛОГИКА ДЛЯ ПОСЛЕДОВАТЕЛЬНОЙ АНИМАЦИИ
         function showPromoAnimation() {
             if (!currentEventData.levels) return;
 
@@ -258,18 +255,17 @@
                 dom.prizeImage.src = prizeImageUrl;
             }
             
-            // Запускаем анимации последовательно
+            // Запускаем обе анимации
             dom.promoText.classList.add('animate');
             dom.prizeImageContainer.classList.add('animate');
 
-            // Убираем классы после завершения, чтобы анимация могла повториться
+            // Убираем классы после завершения
             setTimeout(() => {
                 dom.promoText.classList.remove('animate');
                 dom.prizeImageContainer.classList.remove('animate');
-            }, 10000); // Общая длительность
+            }, 10000); 
         }
 
-        // --- ПОДКЛЮЧЕНИЕ К SUPABASE ---
         try {
             supabaseClient.channel('cauldron-triggers-channel')
                 .on('postgres_changes', 
