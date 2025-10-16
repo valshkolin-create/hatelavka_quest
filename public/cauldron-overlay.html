@@ -5,7 +5,7 @@
     <title>OBS Cauldron Overlay</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Базовые стили */
+        /* CSS стили остаются без изменений */
         body {
             background-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -18,28 +18,23 @@
             left: 20px;
             width: 450px;
         }
-
-        /* Контейнер виджета */
         #widget-container {
             position: relative;
             display: flex;
             align-items: flex-end;
             gap: 15px;
+            opacity: 1; /* Видимость по умолчанию */
+            transition: opacity 0.3s ease;
         }
-
-        /* Котел */
         #cauldron-image {
             width: 150px;
             height: auto;
             animation: float 4s ease-in-out infinite;
             transition: filter 0.3s ease, transform 0.3s ease;
         }
-        /* Анимация пульсации котла при вкладе */
         #cauldron-image.pulse {
             animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out;
         }
-
-        /* Информационный блок */
         #info-widget {
             flex-grow: 1;
             background-color: rgba(18, 16, 33, 0.85);
@@ -78,8 +73,6 @@
             font-weight: 600;
             text-align: center;
         }
-
-        /* Анимация летящей фласки (как на halloween.html) */
         #flying-flask {
             position: fixed;
             width: 60px;
@@ -87,16 +80,12 @@
             z-index: 10;
             pointer-events: none;
             opacity: 0;
-            /* Начальная позиция за экраном */
             top: 20%;
             left: -100px; 
         }
         #flying-flask.animate {
-            /* Анимация полета к котлу */
             animation: fly-in 1.2s cubic-bezier(0.5, -0.5, 1, 1);
         }
-
-        /* Ключевые кадры анимаций */
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
@@ -105,7 +94,6 @@
             0%, 100% { transform: scale(1); filter: brightness(1); }
             50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px #ff9500); }
         }
-        /* Исправленная анимация полета */
         @keyframes fly-in {
             0% {
                 opacity: 1;
@@ -113,7 +101,6 @@
             }
             100% {
                 opacity: 0;
-                /* Конечная точка полета - примерные координаты котла */
                 transform: translate(180px, 150px) scale(0.2) rotate(720deg);
             }
         }
@@ -123,7 +110,6 @@
 
     <div id="overlay-container">
         <img id="flying-flask" src="https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif" alt="Animating flask">
-
         <div id="widget-container">
             <img id="cauldron-image" src="" alt="Cauldron">
             <div id="info-widget">
@@ -137,7 +123,6 @@
     </div>
 
     <script>
-        // --- НАСТРОЙКИ SUPABASE (как в вашей рулетке) ---
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
@@ -152,7 +137,6 @@
         let isAnimating = false;
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Логика для определения текущего уровня (взята из вашего halloween.js) ---
         function getCurrentLevel(eventData) {
             const { goals = {}, current_progress = 0 } = eventData;
             if (goals.level_2 && current_progress >= goals.level_2) return 3;
@@ -160,22 +144,23 @@
             return 1;
         }
         
-        // --- Главная функция обновления всего UI ---
         function updateDisplay(eventData) {
-            if (!eventData || !eventData.is_visible_to_users) {
-                // Если ивент неактивен, просто скрываем виджет, но не удаляем его
+            // --- 👇👇👇 ИЗМЕНЕНИЕ ЗДЕСЬ 👇👇👇 ---
+            // Убрана проверка is_visible_to_users. Оверлей будет виден всегда, если есть данные.
+            if (!eventData) {
+                console.warn("updateDisplay received no data. Hiding widget.");
                 document.getElementById('widget-container').style.opacity = '0';
                 return;
             }
             document.getElementById('widget-container').style.opacity = '1';
+            // --- 👆👆👆 КОНЕЦ ИЗМЕНЕНИЙ 👆👆👆 ---
 
             const currentLevel = getCurrentLevel(eventData);
             dom.title.textContent = eventData.title || "Ведьминский Котел";
 
-            // ИСПРАВЛЕНО: Правильно выбираем URL котла из данных
             const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] 
                                || eventData.cauldron_image_url 
-                               || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'; // Резервный URL
+                               || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
             
             if (dom.cauldronImage.src !== cauldronUrl) {
                 dom.cauldronImage.src = cauldronUrl;
@@ -195,29 +180,23 @@
             dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         }
         
-        // --- Функция запуска анимации ---
         function triggerAnimation(payload) {
             if (isAnimating) return;
             isAnimating = true;
 
             const { event_data } = payload.new.payload;
-            
-            // Сначала обновляем все данные на экране
             updateDisplay(event_data);
             
-            // Затем запускаем анимацию фласки и пульсацию котла
             dom.flyingFlask.classList.add('animate');
             dom.cauldronImage.classList.add('pulse');
 
-            // Убираем классы анимации после ее завершения
             setTimeout(() => {
                 dom.flyingFlask.classList.remove('animate');
                 dom.cauldronImage.classList.remove('pulse');
                 isAnimating = false;
-            }, 1500); // Длительность анимации
+            }, 1500);
         }
 
-        // --- Функция для загрузки начального состояния ивента ---
         async function loadInitialState() {
             console.log('Loading initial state...');
             const { data, error } = await supabaseClient
@@ -237,7 +216,6 @@
             }
         }
 
-        // --- Подключение к Supabase (как в рулетке) ---
         try {
             console.log('Connecting to Supabase...');
             supabaseClient.channel('cauldron-triggers-channel')
@@ -250,7 +228,6 @@
                 ).subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
                         console.log('Successfully subscribed to cauldron_triggers!');
-                        // Загружаем начальное состояние ПОСЛЕ успешной подписки
                         loadInitialState();
                     }
                 });
