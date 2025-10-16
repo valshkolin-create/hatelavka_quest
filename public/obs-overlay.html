@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS Cauldron Overlay</title>
+    <link rel="stylesheet" href="obs-overlay.css">
+</head>
+<body>
+    <div id="overlay-container">
+        <div id="last-contributor-toast" class="hidden">
+            <div class="contributor-name"></div>
+            <div class="contribution-amount"></div>
+        </div>
+
+        <div id="cauldron-widget">
+            <h1 id="event-title">Ведьминский Котел</h1>
+            <div class="progress-bar-container">
+                <div id="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <div id="progress-text">0 / 0</div>
+        </div>
+    </div>
+
+    <script src="obs-overlay.js"></script>
+</body>
+</html>
