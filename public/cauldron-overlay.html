@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Premium Cauldron Overlay v3</title>
+    <title>Ultimate Cauldron Overlay</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +23,7 @@
             position: absolute;
             bottom: 20px;
             left: 20px;
-            width: 400px;
+            width: 450px; /* Увеличили ширину под большой котел */
             animation: fadeIn 1s ease-out;
         }
         #widget-container {
@@ -33,136 +33,109 @@
             align-items: center;
         }
 
-        /* --- НОВОЕ: Картинка награды сверху --- */
-        #prize-image-container {
-            position: absolute;
-            top: -120px; /* Выше всех остальных элементов */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 150px; /* Размер картинки */
-            height: 100px;
-            overflow: hidden;
-            background-color: rgba(18, 16, 33, 0.7); /* Фон для рамки */
-            border: 2px solid var(--accent-color-1);
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(191, 90, 242, 0.5);
-            opacity: 0; /* Скрыто по умолчанию */
-            transition: opacity 0.5s ease-in-out;
-            z-index: 4; /* Выше всего */
-            display: flex; /* Для центрирования изображения */
-            justify-content: center;
-            align-items: center;
-        }
-        #prize-image-container.visible {
-            opacity: 1;
-        }
-        #prize-image {
-            max-width: 90%;
-            max-height: 90%;
-            object-fit: contain; /* Сохраняем пропорции, вписываем */
-            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); /* Небольшая тень для скина */
-        }
-        
-        /* --- Обновленное привидение --- */
+        /* --- ПРИВИДЕНИЕ --- */
         #ghost-animation {
             position: absolute;
-            bottom: 45px;
+            bottom: 350px; /* Подняли очень высоко */
             left: 0;
-            width: 50px;
+            width: 40px; /* Уменьшили */
             height: auto;
-            z-index: 3;
+            z-index: 5;
             animation: ghost-walk 20s linear infinite;
         }
 
-        #cauldron-image {
-            width: 140px;
-            height: auto;
-            animation: float 4s ease-in-out infinite;
-            margin-bottom: -20px;
-            z-index: 2;
-        }
-        #cauldron-image.pulse {
-            animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out;
-        }
-        #info-widget {
-            width: 100%;
-            background-color: rgba(18, 16, 33, 0.9);
-            border: 1px solid var(--accent-color-1);
-            border-radius: 16px;
-            padding: 30px 20px 15px 20px;
-            box-shadow: 0 0 35px rgba(191, 90, 242, 0.3);
-            backdrop-filter: blur(12px);
-            color: white;
-            text-shadow: 1px 1px 3px #000;
-        }
-        #event-title {
-            margin: 0 0 10px 0; font-size: 18px; text-align: center;
-            font-weight: 700; color: var(--accent-color-2); text-shadow: 0 0 10px var(--glow-color);
-        }
-        
-        #progress-text {
-            font-size: 12px; font-weight: 700; text-align: center;
-            color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
-            margin-bottom: 5px;
-        }
-        .progress-bar-container {
-            width: 100%; background-color: rgba(0,0,0,0.4);
-            border-radius: 8px; height: 8px;
-            overflow: hidden; position: relative;
-        }
-        #progress-bar-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--accent-color-1), var(--accent-color-2));
-            border-radius: 8px;
-            transition: width 0.5s ease-out;
-        }
-        
+        /* --- ПРОМО-ТЕКСТ (ВЫШЕ ВСЕГО) --- */
         #promo-text {
             position: absolute;
-            top: -75px;
+            bottom: 300px; /* Позиция над картинкой приза */
             left: 50%;
             padding: 10px 20px;
             background: linear-gradient(45deg, #1a0229, #3d1902);
             border: 2px solid var(--accent-color-2);
             color: white; border-radius: 12px;
-            font-size: 16px; font-weight: 800;
+            font-size: 18px; font-weight: 800;
             text-align: center; white-space: nowrap;
             box-shadow: 0 5px 30px rgba(0,0,0,0.7);
             opacity: 0;
             transform: translate(-50%, 20px);
-            z-index: 3; pointer-events: none;
+            z-index: 4; pointer-events: none;
         }
-        #promo-text.animate { animation: premium-fade-in-out 10s forwards; }
-        .subtitle {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: #ddd;
-            margin-top: 4px;
-        }
+        #promo-text.animate { animation: promo-text-animation 10s forwards; }
+        .subtitle { display: block; font-size: 13px; font-weight: 600; color: #ddd; margin-top: 4px; }
         .prize-name { color: var(--accent-color-2); }
-        
-        #flying-flask {
-            position: fixed; width: 60px; height: auto; z-index: 10;
-            pointer-events: none; opacity: 0; top: 20%; left: -100px; 
+
+        /* --- КАРТИНКА ПРИЗА (ПОД ТЕКСТОМ) --- */
+        #prize-image-container {
+            position: absolute;
+            bottom: 180px; /* Позиция между текстом и котлом */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px; height: 110px;
+            background-color: rgba(18, 16, 33, 0.7);
+            border: 2px solid var(--accent-color-1);
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(191, 90, 242, 0.5);
+            opacity: 0;
+            z-index: 4;
+            display: flex; justify-content: center; align-items: center;
         }
+        #prize-image-container.animate { animation: prize-image-animation 9s forwards; }
+        #prize-image { max-width: 90%; max-height: 90%; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); }
+
+        /* --- УВЕЛИЧЕННЫЙ КОТЕЛ --- */
+        #cauldron-image {
+            width: 210px; /* Увеличили в 1.5 раза */
+            height: auto;
+            animation: float 4s ease-in-out infinite;
+            margin-bottom: -30px; /* Увеличили наложение */
+            z-index: 2;
+        }
+        #cauldron-image.pulse { animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out; }
+        
+        #info-widget {
+            width: 100%;
+            background-color: rgba(18, 16, 33, 0.9);
+            border: 1px solid var(--accent-color-1);
+            border-radius: 16px;
+            padding: 40px 20px 15px 20px; /* Больше отступ для котла */
+            box-shadow: 0 0 35px rgba(191, 90, 242, 0.3);
+            backdrop-filter: blur(12px);
+            color: white; text-shadow: 1px 1px 3px #000;
+        }
+        #event-title { margin: 0 0 10px 0; font-size: 18px; text-align: center; font-weight: 700; color: var(--accent-color-2); text-shadow: 0 0 10px var(--glow-color); }
+        #progress-text { font-size: 12px; font-weight: 700; text-align: center; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin-bottom: 5px; }
+        .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.4); border-radius: 8px; height: 8px; overflow: hidden; position: relative; }
+        #progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-color-1), var(--accent-color-2)); border-radius: 8px; transition: width 0.5s ease-out; }
+        
+        #flying-flask { position: fixed; width: 60px; height: auto; z-index: 10; pointer-events: none; opacity: 0; top: 20%; left: -100px; }
         #flying-flask.animate { animation: fly-in 1.2s cubic-bezier(0.5, -0.5, 1, 1); }
 
         /* --- КЛЮЧЕВЫЕ КАДРЫ АНИМАЦИЙ --- */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
         @keyframes cauldron-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--accent-color-2)); } }
-        @keyframes fly-in { 0% { opacity: 1; transform: translate(0, 0) scale(1.2) rotate(0deg); } 100% { opacity: 0; transform: translate(220px, 280px) scale(0.2) rotate(720deg); } }
-        @keyframes premium-fade-in-out {
+        @keyframes fly-in { 0% { opacity: 1; transform: translate(0, 0) scale(1.2) rotate(0deg); } 100% { opacity: 0; transform: translate(250px, 350px) scale(0.2) rotate(720deg); } } /* Скорректировали конечную точку */
+        
+        /* Анимация текста (появляется сразу) */
+        @keyframes promo-text-animation {
             0%   { opacity: 0; transform: translate(-50%, 20px); }
-            15%  { opacity: 1; transform: translate(-50%, 0); }
-            85%  { opacity: 1; transform: translate(-50%, 0); }
+            10%  { opacity: 1; transform: translate(-50%, 0); }
+            90%  { opacity: 1; transform: translate(-50%, 0); }
             100% { opacity: 0; transform: translate(-50%, -20px); }
+        }
+        /* Анимация картинки (появляется с задержкой) */
+        @keyframes prize-image-animation {
+            0%   { opacity: 0; transform: translate(-50%, 10px) scale(0.95); }
+            10%  { opacity: 0; transform: translate(-50%, 10px) scale(0.95); } /* Задержка в 1с */
+            20%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            80%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            90%  { opacity: 0; transform: translate(-50%, -10px) scale(0.95); }
+            100% { opacity: 0; }
         }
         @keyframes ghost-walk {
             0% { transform: translateX(0px) scaleX(1); }
-            45% { transform: translateX(350px) scaleX(1); }
-            50% { transform: translateX(350px) scaleX(-1); }
+            45% { transform: translateX(410px) scaleX(1); } /* Увеличили дистанцию */
+            50% { transform: translateX(410px) scaleX(-1); }
             95% { transform: translateX(0px) scaleX(-1); }
             100% { transform: translateX(0px) scaleX(1); }
         }
@@ -174,11 +147,10 @@
         <img id="flying-flask" src="https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif" alt="Animating flask">
         
         <div id="widget-container">
+            <div id="promo-text"></div>
             <div id="prize-image-container">
                 <img id="prize-image" src="" alt="Prize Image">
             </div>
-
-            <div id="promo-text"></div>
             <img id="ghost-animation" src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDd2azc1aXVvcmE3eG81a3FxZDlya2M4c3NmNDZweHFnOW8za3d2eiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/GqegZvkq9kgxuk1kTC/giphy.gif" alt="Ghost">
             
             <img id="cauldron-image" src="" alt="Cauldron">
@@ -203,8 +175,8 @@
             cauldronImage: document.getElementById('cauldron-image'),
             flyingFlask: document.getElementById('flying-flask'),
             promoText: document.getElementById('promo-text'),
-            prizeImageContainer: document.getElementById('prize-image-container'), // Новый элемент
-            prizeImage: document.getElementById('prize-image') // Новый элемент
+            prizeImageContainer: document.getElementById('prize-image-container'),
+            prizeImage: document.getElementById('prize-image')
         };
 
         let isAnimating = false;
@@ -262,7 +234,7 @@
             if (data && data.content) updateDisplay(data.content);
         }
         
-        // ОБНОВЛЕННАЯ ЛОГИКА ДЛЯ ДИНАМИЧЕСКОЙ НАДПИСИ И КАРТИНКИ
+        // ОБНОВЛЕННАЯ ЛОГИКА ДЛЯ ПОСЛЕДОВАТЕЛЬНОЙ АНИМАЦИИ
         function showPromoAnimation() {
             if (!currentEventData.levels) return;
 
@@ -270,13 +242,11 @@
             const levelConfig = currentEventData.levels[`level_${currentLevel}`] || {};
             const prizes = levelConfig.top_places || [];
 
-            let prizeName = '';
-            let prizeImageUrl = '';
-
+            let prizeName = '', prizeImageUrl = '';
             if (prizes.length > 0) {
                 const randomPrize = prizes[Math.floor(Math.random() * prizes.length)];
                 prizeName = randomPrize.name;
-                prizeImageUrl = randomPrize.image_url; // Получаем URL картинки приза
+                prizeImageUrl = randomPrize.image_url;
             }
 
             dom.promoText.innerHTML = `
@@ -284,21 +254,19 @@
                 <div class="subtitle">Попробуй выиграть: <span class="prize-name">${prizeName || 'Главный приз!'}</span></div>
             `;
             
-            // Показываем картинку приза, если она есть
             if (prizeImageUrl) {
                 dom.prizeImage.src = prizeImageUrl;
-                dom.prizeImageContainer.classList.add('visible');
-            } else {
-                dom.prizeImageContainer.classList.remove('visible');
             }
+            
+            // Запускаем анимации последовательно
+            dom.promoText.classList.add('animate');
+            dom.prizeImageContainer.classList.add('animate');
 
-            const promo = dom.promoText;
-            promo.classList.add('animate');
-
+            // Убираем классы после завершения, чтобы анимация могла повториться
             setTimeout(() => {
-                promo.classList.remove('animate');
-                dom.prizeImageContainer.classList.remove('visible'); // Скрываем картинку приза
-            }, 10000); 
+                dom.promoText.classList.remove('animate');
+                dom.prizeImageContainer.classList.remove('animate');
+            }, 10000); // Общая длительность
         }
 
         // --- ПОДКЛЮЧЕНИЕ К SUPABASE ---
