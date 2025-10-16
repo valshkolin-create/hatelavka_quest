@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Premium Cauldron Overlay</title>
+    <title>Premium Cauldron Overlay v2</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,12 +27,23 @@
             animation: fadeIn 1s ease-out;
         }
         #widget-container {
-            position: relative; /* Added for correct promo text positioning */
+            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
         }
+
+        /* --- НОВОЕ: Маленькое привидение --- */
+        #ghost-animation {
+            position: absolute;
+            bottom: 45px; /* На уровне прогресс-бара */
+            left: 0;
+            width: 50px;
+            height: auto;
+            z-index: 3;
+            animation: ghost-walk 20s linear infinite;
+        }
+
         #cauldron-image {
             width: 140px;
             height: auto;
@@ -55,20 +66,20 @@
             text-shadow: 1px 1px 3px #000;
         }
         #event-title {
-            margin: 0 0 10px 0;
-            font-size: 18px;
-            text-align: center;
-            font-weight: 700;
-            color: var(--accent-color-2);
-            text-shadow: 0 0 10px var(--glow-color);
+            margin: 0 0 10px 0; font-size: 18px; text-align: center;
+            font-weight: 700; color: var(--accent-color-2); text-shadow: 0 0 10px var(--glow-color);
+        }
+        
+        /* ИЗМЕНЕНО: Текст над прогресс-баром */
+        #progress-text {
+            font-size: 12px; font-weight: 700; text-align: center;
+            color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            margin-bottom: 5px;
         }
         .progress-bar-container {
-            width: 100%;
-            background-color: rgba(0,0,0,0.4);
-            border-radius: 8px;
-            height: 14px;
-            overflow: hidden;
-            position: relative;
+            width: 100%; background-color: rgba(0,0,0,0.4);
+            border-radius: 8px; height: 8px; /* Сделали тоньше */
+            overflow: hidden; position: relative;
         }
         #progress-bar-fill {
             height: 100%;
@@ -76,47 +87,32 @@
             border-radius: 8px;
             transition: width 0.5s ease-out;
         }
-        #progress-text {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            font-size: 10px;
-            font-weight: 700;
-            text-align: center;
-            line-height: 14px;
-            color: white;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
-        }
-
-        /* --- CORRECTED PROMOTIONAL TEXT ANIMATION --- */
+        
         #promo-text {
             position: absolute;
-            top: -30px; /* Positioned above the cauldron */
+            top: -75px; /* Подняли выше */
             left: 50%;
-            padding: 12px 25px;
+            padding: 10px 20px;
             background: linear-gradient(45deg, #1a0229, #3d1902);
             border: 2px solid var(--accent-color-2);
-            color: white;
-            border-radius: 12px;
-            font-size: 20px;
-            font-weight: 800;
-            text-align: center;
-            white-space: nowrap;
+            color: white; border-radius: 12px;
+            font-size: 16px; font-weight: 800;
+            text-align: center; white-space: nowrap;
             box-shadow: 0 5px 30px rgba(0,0,0,0.7);
-            opacity: 0; /* Hidden by default */
-            transform: translate(-50%, 20px); /* Initial state for animation */
-            z-index: 3; /* Ensures it's on top */
-            pointer-events: none; /* Prevents mouse interaction */
+            opacity: 0;
+            transform: translate(-50%, 20px);
+            z-index: 3; pointer-events: none;
         }
-        #promo-text.animate {
-            animation: premium-fade-in-out 10s forwards;
+        #promo-text.animate { animation: premium-fade-in-out 10s forwards; }
+        /* Стили для второй строки с призом */
+        #promo-text .subtitle {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #ddd;
+            margin-top: 4px;
         }
-        #promo-text span {
-            color: var(--accent-color-2);
-            margin-left: 8px;
-        }
+        #promo-text .prize-name { color: var(--accent-color-2); }
         
         #flying-flask {
             position: fixed; width: 60px; height: auto; z-index: 10;
@@ -124,16 +120,24 @@
         }
         #flying-flask.animate { animation: fly-in 1.2s cubic-bezier(0.5, -0.5, 1, 1); }
 
-        /* --- KEYFRAME ANIMATIONS --- */
+        /* --- КЛЮЧЕВЫЕ КАДРЫ АНИМАЦИЙ --- */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-        @keyframes cauldron-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--accent-color-2)); } }
+        @keyframes cauldron-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--accent-color-2)); } }
         @keyframes fly-in { 0% { opacity: 1; transform: translate(0, 0) scale(1.2) rotate(0deg); } 100% { opacity: 0; transform: translate(220px, 280px) scale(0.2) rotate(720deg); } }
         @keyframes premium-fade-in-out {
             0%   { opacity: 0; transform: translate(-50%, 20px); }
             15%  { opacity: 1; transform: translate(-50%, 0); }
             85%  { opacity: 1; transform: translate(-50%, 0); }
             100% { opacity: 0; transform: translate(-50%, -20px); }
+        }
+        /* Анимация для привидения */
+        @keyframes ghost-walk {
+            0% { transform: translateX(0px) scaleX(1); }
+            45% { transform: translateX(350px) scaleX(1); }
+            50% { transform: translateX(350px) scaleX(-1); }
+            95% { transform: translateX(0px) scaleX(-1); }
+            100% { transform: translateX(0px) scaleX(1); }
         }
     </style>
 </head>
@@ -143,16 +147,15 @@
         <img id="flying-flask" src="https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif" alt="Animating flask">
         
         <div id="widget-container">
-            <div id="promo-text">
-                Участвуй в ивенте! <span>!lavka</span>
-            </div>
+            <div id="promo-text"></div>
+            <img id="ghost-animation" src="https://i.postimg.cc/d11D1D80/ghost-1.gif" alt="Ghost">
             
             <img id="cauldron-image" src="" alt="Cauldron">
             <div id="info-widget">
                 <h1 id="event-title">...</h1>
+                <div id="progress-text">0 / 0</div>
                 <div class="progress-bar-container">
                     <div id="progress-bar-fill"></div>
-                    <div id="progress-text">0 / 0</div>
                 </div>
             </div>
         </div>
@@ -172,6 +175,7 @@
         };
 
         let isAnimating = false;
+        let currentEventData = {}; // Храним актуальные данные ивента
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         function getCurrentLevel(eventData) {
@@ -183,20 +187,23 @@
         
         function updateDisplay(eventData) {
             if (!eventData) return;
+            currentEventData = eventData; // Обновляем глобальные данные
+            
             const currentLevel = getCurrentLevel(eventData);
             dom.title.textContent = eventData.title || "Ведьминский Котел";
-            const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] 
-                               || eventData.cauldron_image_url 
-                               || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
+
+            const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] || eventData.cauldron_image_url || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
             if (dom.cauldronImage.src !== cauldronUrl) dom.cauldronImage.src = cauldronUrl;
+
             const { goals = {}, current_progress = 0 } = eventData;
             let currentGoal = 1, prevGoal = 0;
-            if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
-            else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
-            else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
-            const progressInLevel = current_progress - prevGoal;
-            const goalForLevel = currentGoal - prevGoal;
-            const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
+            if (currentLevel === 1) { currentGoal = goals.level_1 || 1; }
+            else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; }
+            else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; }
+            
+            // Расчет прогресса без `prevGoal` для простоты отображения
+            const percentage = (currentGoal > 0) ? Math.min((current_progress / currentGoal) * 100, 100) : 0;
+            
             dom.progressBar.style.width = `${percentage}%`;
             dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         }
@@ -206,8 +213,10 @@
             isAnimating = true;
             const { event_data } = payload.new.payload;
             updateDisplay(event_data);
+            
             dom.flyingFlask.classList.add('animate');
             dom.cauldronImage.classList.add('pulse');
+
             setTimeout(() => {
                 dom.flyingFlask.classList.remove('animate');
                 dom.cauldronImage.classList.remove('pulse');
@@ -216,13 +225,32 @@
         }
 
         async function loadInitialState() {
-            const { data, error } = await supabaseClient
-                .from('pages_content').select('content').eq('page_name', 'cauldron_event').single();
+            const { data, error } = await supabaseClient.from('pages_content').select('content').eq('page_name', 'cauldron_event').single();
             if (error) { console.error('Error loading initial state:', error); return; }
             if (data && data.content) updateDisplay(data.content);
         }
         
+        // ОБНОВЛЕННАЯ ЛОГИКА ДЛЯ ДИНАМИЧЕСКОЙ НАДПИСИ
         function showPromoAnimation() {
+            if (!currentEventData.levels) return; // Не запускаем, если данных еще нет
+
+            const currentLevel = getCurrentLevel(currentEventData);
+            const levelConfig = currentEventData.levels[`level_${currentLevel}`] || {};
+            const prizes = levelConfig.top_places || [];
+
+            let prizeName = '';
+            if (prizes.length > 0) {
+                // Выбираем случайный приз из списка
+                const randomPrize = prizes[Math.floor(Math.random() * prizes.length)];
+                prizeName = randomPrize.name;
+            }
+
+            // Формируем HTML для надписи
+            dom.promoText.innerHTML = `
+                Участвуй в ивенте: <span>!lavka</span>
+                <div class="subtitle">Попробуй выиграть: <span class="prize-name">${prizeName || 'Главный приз!'}</span></div>
+            `;
+            
             const promo = dom.promoText;
             promo.classList.add('animate');
             setTimeout(() => {
@@ -230,6 +258,7 @@
             }, 10000); 
         }
 
+        // --- ПОДКЛЮЧЕНИЕ К SUPABASE ---
         try {
             supabaseClient.channel('cauldron-triggers-channel')
                 .on('postgres_changes', 
@@ -240,15 +269,10 @@
                         loadInitialState();
                     }
                 });
-        } catch (error) { 
-            console.error("Failed to connect to Supabase:", error); 
-        }
+        } catch (error) { console.error("Failed to connect to Supabase:", error); }
 
-        // Test the animation every 12 seconds
-        setInterval(showPromoAnimation, 12000);
-        
-        // Uncomment the line below for the final 5-minute interval
-        // setInterval(showPromoAnimation, 5 * 60 * 1000);
+        setInterval(showPromoAnimation, 12000); // Для теста
+        // setInterval(showPromoAnimation, 5 * 60 * 1000); // Финальная версия
         
     </script>
 </body>
