@@ -26,10 +26,8 @@
             width: 400px;
             animation: fadeIn 1s ease-out;
         }
-
-        /* --- МАКЕТ: Котел над инфо-блоком --- */
         #widget-container {
-            position: relative;
+            position: relative; /* Added for correct promo text positioning */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -56,8 +54,6 @@
             color: white;
             text-shadow: 1px 1px 3px #000;
         }
-
-        /* --- Стили инфо-блока --- */
         #event-title {
             margin: 0 0 10px 0;
             font-size: 18px;
@@ -94,27 +90,26 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
         }
 
-        /* --- ИСПРАВЛЕННАЯ АНИМАЦИЯ ПРИЗЫВА К ДЕЙСТВИЮ --- */
+        /* --- CORRECTED PROMOTIONAL TEXT ANIMATION --- */
         #promo-text {
             position: absolute;
-            bottom: 220px; /* Позиция над котлом */
+            top: -30px; /* Positioned above the cauldron */
             left: 50%;
-            transform: translateX(-50%);
             padding: 12px 25px;
             background: linear-gradient(45deg, #1a0229, #3d1902);
             border: 2px solid var(--accent-color-2);
             color: white;
             border-radius: 12px;
-            font-size: 20px; /* Увеличен шрифт */
-            font-weight: 800; /* Жирнее */
+            font-size: 20px;
+            font-weight: 800;
             text-align: center;
             white-space: nowrap;
             box-shadow: 0 5px 30px rgba(0,0,0,0.7);
-            /* Начальное состояние: невидим */
-            opacity: 0;
-            transform: translate(-50%, 20px);
+            opacity: 0; /* Hidden by default */
+            transform: translate(-50%, 20px); /* Initial state for animation */
+            z-index: 3; /* Ensures it's on top */
+            pointer-events: none; /* Prevents mouse interaction */
         }
-        /* Класс для запуска анимации */
         #promo-text.animate {
             animation: premium-fade-in-out 10s forwards;
         }
@@ -123,20 +118,17 @@
             margin-left: 8px;
         }
         
-        /* --- Анимация фласки (без изменений) --- */
         #flying-flask {
             position: fixed; width: 60px; height: auto; z-index: 10;
             pointer-events: none; opacity: 0; top: 20%; left: -100px; 
         }
         #flying-flask.animate { animation: fly-in 1.2s cubic-bezier(0.5, -0.5, 1, 1); }
 
-        /* --- КЛЮЧЕВЫЕ КАДРЫ АНИМАЦИЙ --- */
+        /* --- KEYFRAME ANIMATIONS --- */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
         @keyframes cauldron-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--accent-color-2)); } }
         @keyframes fly-in { 0% { opacity: 1; transform: translate(0, 0) scale(1.2) rotate(0deg); } 100% { opacity: 0; transform: translate(220px, 280px) scale(0.2) rotate(720deg); } }
-        
-        /* Новая "дорогая" анимация для текста */
         @keyframes premium-fade-in-out {
             0%   { opacity: 0; transform: translate(-50%, 20px); }
             15%  { opacity: 1; transform: translate(-50%, 0); }
@@ -148,13 +140,13 @@
 <body>
 
     <div id="overlay-container">
-        <div id="promo-text">
-            Участвуй в ивенте! <span>!lavka</span>
-        </div>
-
         <img id="flying-flask" src="https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif" alt="Animating flask">
         
         <div id="widget-container">
+            <div id="promo-text">
+                Участвуй в ивенте! <span>!lavka</span>
+            </div>
+            
             <img id="cauldron-image" src="" alt="Cauldron">
             <div id="info-widget">
                 <h1 id="event-title">...</h1>
@@ -176,13 +168,12 @@
             progressText: document.getElementById('progress-text'),
             cauldronImage: document.getElementById('cauldron-image'),
             flyingFlask: document.getElementById('flying-flask'),
-            promoText: document.getElementById('promo-text') // Изменено
+            promoText: document.getElementById('promo-text')
         };
 
         let isAnimating = false;
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ... (функции getCurrentLevel, updateDisplay, triggerAnimation, loadInitialState остаются без изменений) ...
         function getCurrentLevel(eventData) {
             const { goals = {}, current_progress = 0 } = eventData;
             if (goals.level_2 && current_progress >= goals.level_2) return 3;
@@ -192,26 +183,20 @@
         
         function updateDisplay(eventData) {
             if (!eventData) return;
-            
             const currentLevel = getCurrentLevel(eventData);
             dom.title.textContent = eventData.title || "Ведьминский Котел";
-
             const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] 
                                || eventData.cauldron_image_url 
                                || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
-            
             if (dom.cauldronImage.src !== cauldronUrl) dom.cauldronImage.src = cauldronUrl;
-
             const { goals = {}, current_progress = 0 } = eventData;
             let currentGoal = 1, prevGoal = 0;
             if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
             else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
             else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
-
             const progressInLevel = current_progress - prevGoal;
             const goalForLevel = currentGoal - prevGoal;
             const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
-            
             dom.progressBar.style.width = `${percentage}%`;
             dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         }
@@ -221,10 +206,8 @@
             isAnimating = true;
             const { event_data } = payload.new.payload;
             updateDisplay(event_data);
-            
             dom.flyingFlask.classList.add('animate');
             dom.cauldronImage.classList.add('pulse');
-
             setTimeout(() => {
                 dom.flyingFlask.classList.remove('animate');
                 dom.cauldronImage.classList.remove('pulse');
@@ -239,18 +222,14 @@
             if (data && data.content) updateDisplay(data.content);
         }
         
-        // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ ПЕРИОДИЧЕСКОЙ АНИМАЦИИ ---
         function showPromoAnimation() {
             const promo = dom.promoText;
-            // Добавляем класс, чтобы запустить анимацию
             promo.classList.add('animate');
-            // Убираем класс после завершения анимации, чтобы ее можно было запустить снова
             setTimeout(() => {
                 promo.classList.remove('animate');
-            }, 10000); // Длительность анимации
+            }, 10000); 
         }
 
-        // --- ПОДКЛЮЧЕНИЕ К SUPABASE ---
         try {
             supabaseClient.channel('cauldron-triggers-channel')
                 .on('postgres_changes', 
@@ -265,11 +244,11 @@
             console.error("Failed to connect to Supabase:", error); 
         }
 
-        // Запускаем постоянную анимацию для проверки
-        // setInterval(showPromoAnimation, 12000); // Каждые 12 секунд для теста
+        // Test the animation every 12 seconds
+        setInterval(showPromoAnimation, 12000);
         
-        // Когда закончите тесты, замените строку выше на эту:
-        setInterval(showPromoAnimation, 5 * 60 * 1000); // Раз в 5 минут
+        // Uncomment the line below for the final 5-minute interval
+        // setInterval(showPromoAnimation, 5 * 60 * 1000);
         
     </script>
 </body>
