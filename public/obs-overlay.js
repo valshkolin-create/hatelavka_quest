@@ -1,53 +1,60 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Элементы DOM ---
     const dom = {
         title: document.getElementById('event-title'),
         progressBar: document.getElementById('progress-bar-fill'),
         progressText: document.getElementById('progress-text'),
-        toast: document.getElementById('last-contributor-toast'),
-        toastName: document.querySelector('#last-contributor-toast .contributor-name'),
-        toastAmount: document.querySelector('#last-contributor-toast .contribution-amount')
+        cauldronImage: document.getElementById('cauldron-image'),
+        promoText: document.getElementById('promo-text')
     };
-
-    // --- Функция обновления UI ---
-    function updateDisplay(eventData) {
-        const { title, goals = {}, current_progress = 0 } = eventData;
-        
-        dom.title.textContent = title || "Ведьминский Котел";
-
-        const goal = goals.level_3 || goals.level_2 || goals.level_1 || 1;
-        const percentage = (current_progress / goal) * 100;
-
-        dom.progressBar.style.width = `${Math.min(percentage, 100)}%`;
-        dom.progressText.textContent = `${current_progress} / ${goal}`;
+    
+    // --- Логика для определения текущего уровня (как в halloween.js) ---
+    function getCurrentLevel(eventData) {
+        const { goals = {}, current_progress = 0 } = eventData;
+        if (goals.level_2 && current_progress >= goals.level_2) return 3;
+        if (goals.level_1 && current_progress >= goals.level_1) return 2;
+        return 1;
     }
 
-    // --- Функция для показа уведомления ---
-    function showContributionToast(contributor) {
-        if (!contributor || !contributor.name) return;
+    // --- Главная функция обновления всего UI ---
+    function updateDisplay(eventData) {
+        if (!eventData || !eventData.is_visible_to_users) {
+            document.body.innerHTML = ''; // Скрываем все, если ивент неактивен
+            return;
+        }
 
-        dom.toastName.textContent = contributor.name;
-        const contributionType = contributor.type === 'ticket' ? 'билетов' : 'очков Twitch';
-        dom.toastAmount.textContent = `Вложил(а) ${contributor.amount} ${contributionType}!`;
+        const { title, goals = {}, current_progress = 0 } = eventData;
+        const currentLevel = getCurrentLevel(eventData);
+
+        // 1. Устанавливаем заголовок из админки
+        dom.title.textContent = title || "Ведьминский Котел";
+
+        // 2. Устанавливаем правильную картинку котла
+        const cauldronImageUrl = eventData[`cauldron_image_url_${currentLevel}`] 
+                               || eventData.cauldron_image_url 
+                               || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'; // Резервный URL
+        dom.cauldronImage.src = cauldronImageUrl;
+
+        // 3. ИСПРАВЛЕНИЕ: Правильно рассчитываем прогресс-бар и текст
+        let currentGoal = 1, prevGoal = 0;
+        if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
+        else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
+        else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
+
+        const progressInLevel = current_progress - prevGoal;
+        const goalForLevel = currentGoal - prevGoal;
+        const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
         
-        dom.toast.classList.remove('hidden');
-        dom.toast.classList.add('show');
-
-        // Скрываем уведомление через 7 секунд
-        setTimeout(() => {
-            dom.toast.classList.remove('show');
-        }, 7000);
+        dom.progressBar.style.width = `${percentage}%`;
+        dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
     }
 
     // --- Получение первоначальных данных ---
     async function fetchInitialState() {
         try {
-            const response = await fetch('/api/v1/events/cauldron/status', { method: 'GET' });
+            const response = await fetch('/api/v1/events/cauldron/status');
             if (!response.ok) throw new Error('Failed to load event data');
             const data = await response.json();
-            if (data && data.is_visible_to_users) {
-                updateDisplay(data);
-            }
+            updateDisplay(data);
         } catch (error) {
             console.error("Error fetching initial state:", error);
         }
@@ -55,48 +62,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Подключение к WebSocket ---
     function connectWebSocket() {
-        // Укажите URL вашего WebSocket. Если запускаете локально, он будет таким.
-        // При развертывании на Vercel замените на wss://ВАШ_ДОМЕН/ws
-        const wsUrl = `wss://${window.location.host}/ws`;
+        // !!! ЗАМЕНИТЕ НА ВАШ ДОМЕН VERСEL !!!
+        const vercelDomain = 'hatelavka-quest.vercel.app'; // <--- ВАШ ДОМЕН ЗДЕСЬ
+        const wsUrl = `wss://${vercelDomain}/ws`;
         
         const ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => {
-            console.log('WebSocket connected for OBS overlay.');
-        };
-
+        ws.onopen = () => console.log('WebSocket connected.');
         ws.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data);
-                
-                // Обрабатываем обновление прогресса
-                if (message.type === 'cauldron_update') {
-                    dom.progressBar.style.width = `${(message.new_progress / (dom.progressText.textContent.split(' / ')[1] || 1)) * 100}%`;
-                    dom.progressText.textContent = `${message.new_progress} / ${dom.progressText.textContent.split(' / ')[1]}`;
-                    
-                    // Показываем уведомление о последнем вкладе
-                    showContributionToast(message.last_contributor);
+                if (message.type === 'cauldron_update' || message.type === 'cauldron_config_updated') {
+                    // При любом обновлении, перезапрашиваем полное состояние
+                    // Это самый надежный способ, чтобы все данные (цели, картинки) были актуальны
+                    fetchInitialState();
                 }
-
-                // Обрабатываем полное обновление конфига (если админ что-то поменял)
-                if (message.type === 'cauldron_config_updated') {
-                    updateDisplay(message.content);
-                }
-
-            } catch (error) {
-                console.error('Error processing WebSocket message:', error);
-            }
+            } catch (e) { console.error('WS Error:', e); }
         };
-
-        ws.onclose = () => {
-            console.log('WebSocket disconnected. Reconnecting in 5 seconds...');
-            setTimeout(connectWebSocket, 5000); // Попытка переподключения
-        };
-
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            ws.close();
-        };
+        ws.onclose = () => setTimeout(connectWebSocket, 5000);
+        ws.onerror = (e) => { console.error('WS Error:', e); ws.close(); };
     }
 
     // --- Запуск ---
