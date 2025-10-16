@@ -5,19 +5,71 @@ body {
     color: #ffffff;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Убираем любые скроллбары */
+    overflow: hidden;
 }
 
-/* Контейнер виджета */
+/* Главный контейнер оверлея */
 #overlay-container {
     position: absolute;
     bottom: 20px;
     left: 20px;
-    width: 400px;
+    width: 450px;
 }
 
-/* Стили основного виджета с прогрессом */
+/* --- АНИМИРОВАННЫЙ ТЕКСТ --- */
+.promo {
+    padding: 8px 15px;
+    background: rgba(10, 5, 20, 0.8);
+    border-radius: 8px;
+    border: 1px solid #ff9500;
+    margin-bottom: 10px;
+    font-size: 18px;
+    text-align: center;
+    text-shadow: 1px 1px 3px #000;
+    /* Начальное состояние для анимации */
+    opacity: 0;
+    transform: translateY(20px);
+    /* Анимация */
+    animation: fadeInOut 15s infinite ease-in-out;
+}
+
+.promo .highlight {
+    font-weight: 700;
+    color: #ff9500;
+}
+
+/* Анимация появления и исчезновения текста */
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(20px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(20px); }
+}
+
+/* --- ВИДЖЕТ КОТЛА --- */
+#widget-content {
+    display: flex;
+    align-items: flex-end; /* Выравниваем по низу */
+    gap: 15px;
+}
+
+/* Изображение котла */
+#cauldron-image {
+    width: 150px; /* Размер котла */
+    height: auto;
+    /* Анимация "парения" */
+    animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+
+/* Основной блок с информацией */
 #cauldron-widget {
+    flex-grow: 1; /* Занимает оставшееся место */
     background-color: rgba(18, 16, 33, 0.85);
     border: 1px solid #bf5af2;
     border-radius: 12px;
@@ -33,6 +85,9 @@ body {
     font-weight: 700;
     color: #ff9500;
     text-shadow: 0 0 8px rgba(255, 149, 0, 0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .progress-bar-container {
@@ -57,36 +112,4 @@ body {
     font-weight: 600;
     text-align: center;
     text-shadow: 1px 1px 3px #000;
-}
-
-/* Стили для всплывающего уведомления */
-#last-contributor-toast {
-    background: linear-gradient(45deg, #bf5af2, #ff9500);
-    padding: 12px 20px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.4);
-    transform: translateX(-150%); /* Начальное положение за экраном */
-    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-#last-contributor-toast.show {
-    transform: translateX(0); /* Появление на экране */
-}
-
-.contributor-name {
-    font-size: 18px;
-    font-weight: 700;
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-}
-
-.contribution-amount {
-    font-size: 14px;
-    font-weight: 500;
-    opacity: 0.9;
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-}
-
-.hidden {
-    display: none;
 }
