@@ -2002,7 +2002,13 @@ async def contribute_to_cauldron(
             "message": "Ваш вклад принят!",
             "new_progress": new_progress,
             "new_ticket_balance": new_ticket_balance
-        }
+}
+    # --- 👇 ВОТ СЮДА ВСТАВЬТЕ НОВЫЙ БЛОК ---
+    except HTTPException as e:
+        # Этот блок перехватит нашу ошибку о трейд-ссылке и отправит её клиенту как есть,
+        # не давая ей "провалиться" в общий обработчик Exception ниже.
+        raise e
+    # --- 👆 КОНЕЦ НОВОГО БЛОКА ---
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка на стороне базы данных.")
         raise HTTPException(status_code=400, detail=error_details)
