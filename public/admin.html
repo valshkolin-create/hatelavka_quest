@@ -516,7 +516,7 @@
             <div id="roulette-prizes-list" class="quests-container" style="margin-top: 20px;"></div>
         </div>
 
-       <div id="view-admin-cauldron" class="view hidden">
+<div id="view-admin-cauldron" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Ивент "Котел"</h1>
@@ -528,6 +528,7 @@
                 <button class="tab-button" data-tab="cauldron-rewards-1">Награды Ур. 1</button>
                 <button class="tab-button" data-tab="cauldron-rewards-2">Награды Ур. 2</button>
                 <button class="tab-button" data-tab="cauldron-rewards-3">Награды Ур. 3</button>
+                <button class="tab-button" data-tab="cauldron-rewards-4">Награды Ур. 4</button>
                 <button class="tab-button" data-tab="cauldron-distribution">Участники</button>
             </div>
             
@@ -552,8 +553,11 @@
                             <label>Цель Уровня 2</label>
                             <input type="number" name="goal_level_2" required placeholder="Например: 3000">
                             
-                            <label>Цель Уровня 3 (финал)</label>
+                            <label>Цель Уровня 3</label>
                             <input type="number" name="goal_level_3" required placeholder="Например: 5000">
+
+                            <label>Цель Уровня 4 (финал)</label>
+                            <input type="number" name="goal_level_4" required placeholder="Например: 10000">
     
                             <label>URL баннера для главной</label>
                             <input type="text" name="banner_image_url" placeholder="https://....png">
@@ -566,6 +570,9 @@
     
                             <label>URL картинки Котла (Уровень 3)</label>
                             <input type="text" name="cauldron_image_url_3" placeholder="https://....png">
+
+                            <label>URL картинки Котла (Уровень 4)</label>
+                            <input type="text" name="cauldron_image_url_4" placeholder="https://....png">
                         </div>
                     </div>
                      <div class="quest-card" style="margin-top: 20px;">
@@ -627,6 +634,25 @@
                             <input type="text" name="default_reward_name_3" placeholder="AWP | Dragon Lore">
                             <label>URL изображения</label>
                             <input type="text" name="default_reward_image_url_3" placeholder="https://....png">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-content-cauldron-rewards-4" class="tab-content hidden">
+                    <div class="quest-card">
+                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 4)</h3>
+                        <div id="top-rewards-container-4"></div>
+                        <button type="button" id="add-top-reward-btn-4" data-level="4" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                            <i class="fa-solid fa-plus"></i> Добавить награду за место
+                        </button>
+                    </div>
+                    <div class="quest-card" style="margin-top: 15px;">
+                        <h3 style="margin-top:0;">Награда для остальных (Уровень 4)</h3>
+                        <div class="admin-form">
+                            <label>Название предмета</label>
+                            <input type="text" name="default_reward_name_4" placeholder="Butterfly Knife | Fade">
+                            <label>URL изображения</label>
+                            <input type="text" name="default_reward_image_url_4" placeholder="https://....png">
                         </div>
                     </div>
                 </div>
