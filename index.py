@@ -2452,9 +2452,8 @@ async def claim_challenge(
             }
             rpc_response = await supabase.post("/rpc/claim_challenge_and_get_reward", json=rpc_payload)
             
-            if rpc_response.status_code != 200:
-                error_details = rpc_response.json().get("message", "Не удалось получить награду.")
-                raise HTTPException(status_code=400, detail=error_details)
+            # Эта строка вызовет исключение HTTPStatusError для ответов 4xx/5xx (например, 400 Bad Request от RPC)
+            rpc_response.raise_for_status()
 
             promocode_text = rpc_response.text.strip('"')
             message = "Награда получена!"
@@ -2492,10 +2491,15 @@ async def claim_challenge(
             "promocode": promocode_text 
         }
 
+    # --- ИСПРАВЛЕННЫЙ БЛОК ОБРАБОТКИ ОШИБОК ---
     except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Ошибка при взаимодействии с базой данных.")
-        logging.error(f"❌ Ошибка HTTP при выдаче награды за челлендж: {error_details}", exc_info=True)
-        raise HTTPException(status_code=400, detail=error_details)
+        # Ловим ошибку от Supabase (например, 400 Bad Request, если RPC вызвала RAISE EXCEPTION)
+        error_details = e.response.json().get("message", "Не удалось выполнить действие.")
+        logging.warning(f"Предотвращена повторная выдача награды или условие не выполнено для user {current_user_id}: {error_details}")
+        
+        # Возвращаем 409 Conflict - это более корректный код для такой ситуации (попытка дублирующего действия)
+        raise HTTPException(status_code=409, detail=error_details)
+    
     except Exception as e:
         logging.error(f"❌ Неизвестная ошибка при выдаче награды: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
