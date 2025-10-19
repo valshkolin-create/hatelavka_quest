@@ -83,6 +83,16 @@ try {
     }
 
     // --- Новые функции для "Котла" ---
+
+// 👇 НАЧАЛО НОВОГО КОДА ДЛЯ ШАГА 1
+    // Функция для определения текущего уровня наград (скопирована из halloween.js для консистентности)
+    function getCurrentLevel(eventData) {
+        const { goals = {}, current_progress = 0 } = eventData;
+        if (goals.level_2 > 0 && current_progress >= goals.level_2) return 3;
+        if (goals.level_1 > 0 && current_progress >= goals.level_1) return 2;
+        return 1;
+    }
+    // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 1
     
     // Создает HTML-строку для награды из топ-20
     function createTopRewardRow(reward = { place: '', name: '', image_url: '' }) {
@@ -153,19 +163,11 @@ try {
 
             // Определяем, какой уровень наград сейчас активен
             let activeRewardLevel = null;
-            if (currentCauldronData && currentCauldronData.goals && currentCauldronData.levels) {
-                const progress = currentCauldronData.current_progress || 0;
-                const goals = currentCauldronData.goals;
-                const levels = currentCauldronData.levels;
-
-                if (progress >= goals.level_3 && goals.level_3 > 0) {
-                    activeRewardLevel = levels.level_3;
-                } else if (progress >= goals.level_2 && goals.level_2 > 0) {
-                    activeRewardLevel = levels.level_2;
-                } else if (progress >= goals.level_1 && goals.level_1 > 0) {
-                    activeRewardLevel = levels.level_1;
-                }
+            if (currentCauldronData && currentCauldronData.levels) {
+                const currentLevel = getCurrentLevel(currentCauldronData);
+                activeRewardLevel = currentCauldronData.levels[`level_${currentLevel}`];
             }
+            // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 2
             
             container.innerHTML = `
                 <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Приз</span><span>Трейд</span></div>
