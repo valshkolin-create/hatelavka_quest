@@ -150,6 +150,7 @@ try {
     }
     
     // Загружает и отображает список участников
+// Загружает и отображает список участников
     async function renderCauldronParticipants() {
         const container = document.getElementById('cauldron-distribution-list');
         if (!container) return;
@@ -161,13 +162,14 @@ try {
                 return;
             }
 
+            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
             // Определяем, какой уровень наград сейчас активен
             let activeRewardLevel = null;
             if (currentCauldronData && currentCauldronData.levels) {
-                const currentLevel = getCurrentLevel(currentCauldronData);
+                const currentLevel = getCurrentLevel(currentCauldronData); // Используем функцию для определения текущего уровня
                 activeRewardLevel = currentCauldronData.levels[`level_${currentLevel}`];
             }
-            // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 2
+            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
             
             container.innerHTML = `
                 <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Приз</span><span>Трейд</span></div>
@@ -175,14 +177,17 @@ try {
                     const place = index + 1;
                     let prize = null;
 
+                    // --- НАЧАЛО ИЗМЕНЕНИЙ ---
                     if (activeRewardLevel) {
-                        // Сначала ищем награду в топе
+                        // Сначала ищем награду в топе (для мест с 1 по 20)
                         prize = activeRewardLevel.top_places?.find(r => r.place === place);
-                        // Если не нашли, назначаем награду по умолчанию
+                        
+                        // Если для этого места нет награды в топе, назначаем награду по умолчанию
                         if (!prize) {
                             prize = activeRewardLevel.default_reward;
                         }
                     }
+                    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
                     const prizeHtml = prize && prize.name
                         ? `<div class="dist-prize">
@@ -204,7 +209,6 @@ try {
             container.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
         }
     }
-
     // --- Конец новых функций для "Котла" ---
 
     async function loadStatistics() {
