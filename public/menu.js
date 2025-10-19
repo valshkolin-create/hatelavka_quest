@@ -855,131 +855,148 @@ try {
         }, 500);
     }
 
-    function setupEventListeners() {
-        document.getElementById('nav-dashboard').addEventListener('click', async (e) => { 
-            e.preventDefault(); 
-            switchView('view-dashboard');
-            await main();
-        });
-        document.getElementById('nav-quests').addEventListener('click', async (e) => { 
-            e.preventDefault(); 
-            switchView('view-quests');
-            const manualQuests = await makeApiRequest("/api/v1/quests/manual");
-            const categories = await makeApiRequest("/api/v1/quests/categories");
-            renderManualQuests(manualQuests, categories);
-        });
-        dom.promptCancel.addEventListener('click', hideCustomPrompt);
-        dom.promptConfirm.addEventListener('click', async () => {
-            const text = dom.promptInput.value.trim();
-            if (!text) return;
-            const questIdForSubmission = currentQuestId;
-            hideCustomPrompt();
-            await makeApiRequest(`/api/v1/quests/${questIdForSubmission}/submit`, { submittedData: text });
-            Telegram.WebApp.showAlert('Ваша заявка принята и отправлена на проверку!');
-        });
-        dom.rewardCloseBtn.addEventListener('click', () => {
-            hideRewardClaimedModal();
-            main();
-        });
-        dom.infoQuestionIcon.addEventListener('click', showInfoModal);
-        dom.infoModalCloseBtn.addEventListener('click', hideInfoModal);
-        dom.questChooseBtn.addEventListener("click", () => {
-            if(dom.questChooseContainer.classList.contains('hidden')) {
-                startQuestRoulette();
-            } else {
-                hideQuestRoulette();
-            }
-        });
-        dom.closePromoNotification.addEventListener('click', () => {
-            dom.newPromoNotification.classList.add('hidden');
-            sessionStorage.removeItem('newPromoReceived');
-        });
-        dom.startTutorialBtn.addEventListener('click', startTutorial);
-        dom.tutorialNextBtn.onclick = tutorialNextHandler;
-        dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
-        document.body.addEventListener('click', async (event) => {
-            const target = event.target.closest('button');
-            if (!target) return;
-            if (target.id === 'get-challenge-btn') {
-                await startChallengeRoulette();
-            } else if (target.id === 'claim-challenge-btn') {
-                target.disabled = true;
-                target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                try {
-                    const challengeId = target.dataset.challengeId; 
-                    if (!challengeId) throw new Error("ID челленджа не найден");
-                    const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
-                    if (result.success) {
-                        if (result.promocode) {
-                            showRewardClaimedModal(); 
-                            dom.rewardCloseBtn.onclick = async () => {
-                                hideRewardClaimedModal();
-                                await main();
-                            };
-                        } else {
-                            await main();
-                        }
+function setupEventListeners() {
+    document.getElementById('nav-dashboard').addEventListener('click', async (e) => { 
+        e.preventDefault(); 
+        switchView('view-dashboard');
+        await main();
+    });
+    document.getElementById('nav-quests').addEventListener('click', async (e) => { 
+        e.preventDefault(); 
+        switchView('view-quests');
+        const manualQuests = await makeApiRequest("/api/v1/quests/manual");
+        const categories = await makeApiRequest("/api/v1/quests/categories");
+        renderManualQuests(manualQuests, categories);
+    });
+    dom.promptCancel.addEventListener('click', hideCustomPrompt);
+    dom.promptConfirm.addEventListener('click', async () => {
+        const text = dom.promptInput.value.trim();
+        if (!text) return;
+        const questIdForSubmission = currentQuestId;
+        hideCustomPrompt();
+        await makeApiRequest(`/api/v1/quests/${questIdForSubmission}/submit`, { submittedData: text });
+        Telegram.WebApp.showAlert('Ваша заявка принята и отправлена на проверку!');
+    });
+    dom.rewardCloseBtn.addEventListener('click', () => {
+        hideRewardClaimedModal();
+        main();
+    });
+    dom.infoQuestionIcon.addEventListener('click', showInfoModal);
+    dom.infoModalCloseBtn.addEventListener('click', hideInfoModal);
+    dom.questChooseBtn.addEventListener("click", () => {
+        if(dom.questChooseContainer.classList.contains('hidden')) {
+            startQuestRoulette();
+        } else {
+            hideQuestRoulette();
+        }
+    });
+    dom.closePromoNotification.addEventListener('click', () => {
+        dom.newPromoNotification.classList.add('hidden');
+        sessionStorage.removeItem('newPromoReceived');
+    });
+    dom.startTutorialBtn.addEventListener('click', startTutorial);
+    dom.tutorialNextBtn.onclick = tutorialNextHandler;
+    dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
+    
+    // --- НАЧАЛО ИЗМЕНЕНИЙ В ОБРАБОТЧИКЕ КЛИКОВ ---
+    document.body.addEventListener('click', async (event) => {
+        const target = event.target.closest('button');
+        if (!target) return;
+
+        if (target.id === 'get-challenge-btn') {
+            await startChallengeRoulette();
+        } 
+        else if (target.id === 'claim-challenge-btn') {
+            target.disabled = true;
+            target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const challengeId = target.dataset.challengeId; 
+                if (!challengeId) throw new Error("ID челленджа не найден");
+
+                const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
+                
+                if (result.success) {
+                    if (result.promocode) {
+                        showRewardClaimedModal(); 
+                        dom.rewardCloseBtn.onclick = async () => {
+                            hideRewardClaimedModal();
+                            await main(); // Перерисовываем интерфейс после успеха
+                        };
                     } else {
-                        Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
+                        await main(); // Перерисовываем интерфейс после успеха
                     }
-                } catch (e) {
-                    console.error("Ошибка claim:", e);
+                } else {
+                    // --- ДОРАБОТКА ЗДЕСЬ ---
+                    // Если success: false, показываем ошибку и ВОЗВРАЩАЕМ КНОПКУ
+                    Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
                     target.disabled = false;
                     target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
                 }
-            } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
-                const questId = target.dataset.questId;
-                if (!questId) return;
-                target.disabled = true;
-                try {
-                    const result = await makeApiRequest('/api/v1/promocode', { quest_id: parseInt(questId) });
-                    if (result && result.promocode) {
-                        showRewardClaimedModal();
-                    }
-                } catch (e) {
-                    target.disabled = false;
-                }
-            } else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
-                const questId = target.dataset.id;
-                const questTitle = target.dataset.title;
-                if (!questId) return;
-                showCustomPrompt(questTitle, questId);
-            } else if (target.id === 'check-challenge-progress-btn') {
-                console.log("Нажата кнопка 'Завершить' для ЧЕЛЛЕНДЖА.");
-                target.disabled = true;
-                target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                try {
-                    await makeApiRequest("/api/v1/user/challenge/close_expired");
-                    await main();
-                } catch (e) {
-                    console.error("Ошибка при завершении челленджа:", e);
-                    await main();
-                }
-            } else if (target.id === 'complete-expired-quest-btn') {
-                console.log("Нажата кнопка 'Завершить' для КВЕСТА.");
-                target.disabled = true;
-                target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                try {
-                    await makeApiRequest('/api/v1/quests/close_expired');
-                    await main();
-                } catch (e) {
-                     console.error("Ошибка при завершении квеста:", e);
-                    target.disabled = false;
-                    target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
-                }
-            } else if (target.id === 'cancel-quest-btn') {
-                Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Вы сможете выбрать новое, но отменять задания можно лишь раз в сутки.", async (ok) => {
-                    if (ok) {
-                        try {
-                            await makeApiRequest('/api/v1/quests/cancel');
-                            Telegram.WebApp.showAlert('Задание отменено. Теперь вы можете выбрать новое.');
-                            await main();
-                        } catch (e) {}
-                    }
-                });
+            } catch (e) {
+                // Блок catch уже работает правильно, он обрабатывает ошибки сети и статусы 4xx/5xx
+                console.error("Ошибка claim:", e);
+                target.disabled = false;
+                target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
             }
-        });
-    }
+        } 
+        else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
+            const questId = target.dataset.questId;
+            if (!questId) return;
+            target.disabled = true;
+            try {
+                const result = await makeApiRequest('/api/v1/promocode', { quest_id: parseInt(questId) });
+                if (result && result.promocode) {
+                    showRewardClaimedModal();
+                }
+            } catch (e) {
+                target.disabled = false;
+            }
+        } 
+        else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
+            const questId = target.dataset.id;
+            const questTitle = target.dataset.title;
+            if (!questId) return;
+            showCustomPrompt(questTitle, questId);
+        } 
+        else if (target.id === 'check-challenge-progress-btn') {
+            console.log("Нажата кнопка 'Завершить' для ЧЕЛЛЕНДЖА.");
+            target.disabled = true;
+            target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                await makeApiRequest("/api/v1/user/challenge/close_expired");
+                await main();
+            } catch (e) {
+                console.error("Ошибка при завершении челленджа:", e);
+                await main();
+            }
+        } 
+        else if (target.id === 'complete-expired-quest-btn') {
+            console.log("Нажата кнопка 'Завершить' для КВЕСТА.");
+            target.disabled = true;
+            target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                await makeApiRequest('/api/v1/quests/close_expired');
+                await main();
+            } catch (e) {
+                 console.error("Ошибка при завершении квеста:", e);
+                target.disabled = false;
+                target.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> <span>Завершить</span>';
+            }
+        } 
+        else if (target.id === 'cancel-quest-btn') {
+            Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Вы сможете выбрать новое, но отменять задания можно лишь раз в сутки.", async (ok) => {
+                if (ok) {
+                    try {
+                        await makeApiRequest('/api/v1/quests/cancel');
+                        Telegram.WebApp.showAlert('Задание отменено. Теперь вы можете выбрать новое.');
+                        await main();
+                    } catch (e) {}
+                }
+            });
+        }
+    });
+    // --- КОНЕЦ ИЗМЕНЕНИЙ В ОБРАБОТЧИКЕ КЛИКОВ ---
+}
 
     async function main() {
         try {
