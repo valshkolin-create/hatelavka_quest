@@ -102,8 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
     }
     
-    function getCurrentLevel(eventData) {
+function getCurrentLevel(eventData) {
         const { goals = {}, current_progress = 0 } = eventData;
+        if (goals.level_3 && current_progress >= goals.level_3) return 4;
         if (goals.level_2 && current_progress >= goals.level_2) return 3;
         if (goals.level_1 && current_progress >= goals.level_1) return 2;
         return 1;
@@ -154,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
         else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
         else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
+        else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
         
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const topPlaceRewards = levelConfig.top_places || [];
