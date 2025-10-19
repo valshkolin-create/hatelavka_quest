@@ -855,10 +855,6 @@ try {
         }, 500);
     }
 
-Конечно. Вот полная функция setupEventListeners с отступами и пробелами, отформатированными в точности как в вашем коде.
-
-JavaScript
-
     function setupEventListeners() {
         document.getElementById('nav-dashboard').addEventListener('click', async (e) => { 
             e.preventDefault(); 
