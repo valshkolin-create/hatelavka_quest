@@ -319,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Для всех остальных ошибок показываем стандартное сообщение
                 dom.errorMessage.textContent = error.message;
                 dom.errorMessage.classList.remove('hidden');
-            }
         }
         } finally {
             setTimeout(() => {
