@@ -303,8 +303,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1200);
 
         } catch(error) {
-            dom.errorMessage.textContent = error.message;
-            dom.errorMessage.classList.remove('hidden');
+            // Проверяем, содержит ли сообщение об ошибке ключевую фразу
+            if (error.message && error.message.includes("трейд-ссылку")) {
+                // Если да, показываем диалоговое окно Telegram
+                tg.showConfirm(
+                    "Пожалуйста, укажите вашу трейд-ссылку в профиле для участия. Перейти в профиль сейчас?",
+                    (ok) => {
+                        if (ok) {
+                            // Если пользователь нажал "ОК", перенаправляем его в профиль
+                            window.location.href = '/profile';
+                        }
+                    }
+                );
+            } else {
+                // Для всех остальных ошибок показываем стандартное сообщение
+                dom.errorMessage.textContent = error.message;
+                dom.errorMessage.classList.remove('hidden');
+            }
+        }
         } finally {
             setTimeout(() => {
                  submitButton.disabled = false;
