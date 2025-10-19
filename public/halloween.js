@@ -111,6 +111,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function renderPage(eventData, leaderboardData = {}) {
         console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
+        // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        // Стабильная сортировка: сначала по вкладу (убывание), потом по имени (возрастание)
+        if (leaderboardData.top20 && Array.isArray(leaderboardData.top20)) {
+            leaderboardData.top20.sort((a, b) => {
+                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
+                if (contributionDiff !== 0) {
+                    return contributionDiff;
+                }
+                // Если вклады одинаковые, сортируем по имени для стабильности
+                const nameA = a.full_name || '';
+                const nameB = b.full_name || '';
+                return nameA.localeCompare(nameB);
+            });
+        }
+        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
         currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
         const canViewEvent = eventData && (eventData.is_visible_to_users || isAdmin);
