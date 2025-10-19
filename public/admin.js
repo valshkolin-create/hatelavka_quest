@@ -86,8 +86,9 @@ try {
 
 // 👇 НАЧАЛО НОВОГО КОДА ДЛЯ ШАГА 1
     // Функция для определения текущего уровня наград (скопирована из halloween.js для консистентности)
-    function getCurrentLevel(eventData) {
+function getCurrentLevel(eventData) {
         const { goals = {}, current_progress = 0 } = eventData;
+        if (goals.level_3 > 0 && current_progress >= goals.level_3) return 4;
         if (goals.level_2 > 0 && current_progress >= goals.level_2) return 3;
         if (goals.level_1 > 0 && current_progress >= goals.level_1) return 2;
         return 1;
@@ -109,7 +110,7 @@ try {
     }
 
     // Собирает все данные из формы "Котла" в один объект
-    function collectCauldronData() {
+function collectCauldronData() {
         const form = dom.cauldronSettingsForm;
         const content = {
             title: form.elements['title'].value,
@@ -118,15 +119,17 @@ try {
                 level_1: parseInt(form.elements['goal_level_1'].value, 10) || 0,
                 level_2: parseInt(form.elements['goal_level_2'].value, 10) || 0,
                 level_3: parseInt(form.elements['goal_level_3'].value, 10) || 0,
-        },
-        banner_image_url: form.elements['banner_image_url'].value,
-        cauldron_image_url_1: form.elements['cauldron_image_url_1'].value,
-        cauldron_image_url_2: form.elements['cauldron_image_url_2'].value,
-        cauldron_image_url_3: form.elements['cauldron_image_url_3'].value,
-        levels: {}
-    };
+                level_4: parseInt(form.elements['goal_level_4'].value, 10) || 0,
+            },
+            banner_image_url: form.elements['banner_image_url'].value,
+            cauldron_image_url_1: form.elements['cauldron_image_url_1'].value,
+            cauldron_image_url_2: form.elements['cauldron_image_url_2'].value,
+            cauldron_image_url_3: form.elements['cauldron_image_url_3'].value,
+            cauldron_image_url_4: form.elements['cauldron_image_url_4'].value,
+            levels: {}
+        };
 
-        [1, 2, 3].forEach(level => {
+        [1, 2, 3, 4].forEach(level => {
             const levelKey = `level_${level}`;
             content.levels[levelKey] = {
                 top_places: [],
@@ -332,21 +335,23 @@ async function renderCauldronParticipants() {
                     const form = dom.cauldronSettingsForm;
 
                     // Заполняем основные настройки
-                form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
-                form.elements['title'].value = currentCauldronData.title || '';
-                form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
-                form.elements['cauldron_image_url_1'].value = currentCauldronData.cauldron_image_url_1 || '';
-                form.elements['cauldron_image_url_2'].value = currentCauldronData.cauldron_image_url_2 || '';
-                form.elements['cauldron_image_url_3'].value = currentCauldronData.cauldron_image_url_3 || '';
+                    form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
+                    form.elements['title'].value = currentCauldronData.title || '';
+                    form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
+                    form.elements['cauldron_image_url_1'].value = currentCauldronData.cauldron_image_url_1 || '';
+                    form.elements['cauldron_image_url_2'].value = currentCauldronData.cauldron_image_url_2 || '';
+                    form.elements['cauldron_image_url_3'].value = currentCauldronData.cauldron_image_url_3 || '';
+                    form.elements['cauldron_image_url_4'].value = currentCauldronData.cauldron_image_url_4 || '';
 
-                const goals = currentCauldronData.goals || {};
+                    const goals = currentCauldronData.goals || {};
                     form.elements['goal_level_1'].value = goals.level_1 || '';
                     form.elements['goal_level_2'].value = goals.level_2 || '';
                     form.elements['goal_level_3'].value = goals.level_3 || '';
+                    form.elements['goal_level_4'].value = goals.level_4 || '';
 
                     // Заполняем награды для каждого уровня
                     const levels = currentCauldronData.levels || {};
-                    [1, 2, 3].forEach(level => {
+                    [1, 2, 3, 4].forEach(level => {
                         const levelData = levels[`level_${level}`] || {};
                         const topPlaces = levelData.top_places || [];
                         const defaultReward = levelData.default_reward || {};
