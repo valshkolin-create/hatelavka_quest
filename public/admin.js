@@ -151,7 +151,7 @@ try {
     
     // Загружает и отображает список участников
 // Загружает и отображает список участников
-    async function renderCauldronParticipants() {
+async function renderCauldronParticipants() {
         const container = document.getElementById('cauldron-distribution-list');
         if (!container) return;
         container.innerHTML = '<p style="text-align: center;">Загрузка участников...</p>';
@@ -163,6 +163,17 @@ try {
             }
 
             // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+            // Стабильная сортировка, чтобы избежать расхождений с клиентской частью
+            participants.sort((a, b) => {
+                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
+                if (contributionDiff !== 0) {
+                    return contributionDiff;
+                }
+                // Если вклады одинаковые, сортируем по имени для стабильности
+                const nameA = a.full_name || '';
+                const nameB = b.full_name || '';
+                return nameA.localeCompare(nameB);
+            });
             // Определяем, какой уровень наград сейчас активен
             let activeRewardLevel = null;
             if (currentCauldronData && currentCauldronData.levels) {
