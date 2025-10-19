@@ -434,3 +434,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 .slider-order-item.dragging {
     opacity: 0.5;
 }
+/* --- ИСПРАВЛЕНИЕ ДЛЯ ПЕРЕНОСА ВКЛАДОК В АДМИНКЕ КОТЛА --- */
+#cauldron-tabs {
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
