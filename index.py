@@ -599,39 +599,41 @@ async def verify_admin_password(request: Request, data: dict = Body(...)):
     else:
         return JSONResponse(content={"success": False, "detail": "Incorrect password"}, status_code=401)
 
-@app.post("/api/v1/webhook")
-async def telegram_webhook(update: dict, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # --- НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ ---
-    logging.info("--- ЗАПУЩЕНА ФИНАЛЬНАЯ ВЕРСЯ ОБРАБОТЧИКА webhook ---")
+# ЭТО НОВАЯ ФУНКЦИЯ, КОТОРУЮ НУЖНО ДОБАВИТЬ
+async def process_webhook_in_background(update: dict, supabase_client: httpx.AsyncClient):
+    """
+    Эта функция содержит ВАШУ логику и безопасно выполняется в фоне.
+    """
+    # --- НАЧАЛО ВАШЕЙ ЛОГИКИ (скопировано 1 в 1) ---
+    logging.info("--- ЗАПУЩЕНА ФОНОВАЯ ОБРАБОТКА webhook ---")
     
-    # Список ID служебных аккаунтов Telegram, которые нужно игнорировать
     SERVICE_ACCOUNT_IDS = {
-        777000,     # 'Telegram' (сообщения от имени канала)
-        1087968824, # 'Anonymous Admin' / 'Group'
-        136817688,  # 'Group' (более старый ID)
+        777000,      # 'Telegram' (сообщения от имени канала)
+        1087968824,  # 'Anonymous Admin' / 'Group'
+        136817688,   # 'Group' (более старый ID)
     }
 
     try:
         message = update.get("message")
         if not message:
-            return JSONResponse(content={"status": "ignored", "reason": "no_message_field"})
+            logging.info("Фоновая задача: пропущено, нет поля 'message'")
+            return  # Просто выходим из фоновой задачи
 
         from_user = message.get("from", {})
         telegram_id = from_user.get("id")
         
-        # Проверяем, не является ли отправитель служебным аккаунтом
         if not telegram_id or telegram_id in SERVICE_ACCOUNT_IDS:
-            logging.info(f"Пропущено сообщение от служебного аккаунта: ID {telegram_id}")
-            return JSONResponse(content={"status": "ignored", "reason": "service_account"})
+            logging.info(f"Фоновая задача: пропущено сообщение от служебного аккаунта ID {telegram_id}")
+            return
 
         first_name = from_user.get("first_name", "")
         last_name = from_user.get("last_name", "")
         full_name = f"{first_name} {last_name}".strip() or "Без имени"
 
-        logging.info(f"Получено сообщение от ID: {telegram_id}, Имя: '{full_name}'")
+        logging.info(f"Фоновая задача: получено сообщение от ID: {telegram_id}, Имя: '{full_name}'")
 
-        # Вызываем основную рабочую функцию в Supabase
-        await supabase.post(
+        # Вызываем основную рабочую функцию в Supabase (ВАШ КОД)
+        await supabase_client.post(
             "/rpc/handle_user_message",
             json={
                 "p_telegram_id": int(telegram_id),
@@ -639,13 +641,28 @@ async def telegram_webhook(update: dict, supabase: httpx.AsyncClient = Depends(g
             }
         )
         
-        return JSONResponse(content={"status": "ok"})
+        logging.info(f"Фоновая задача для ID {telegram_id} успешно завершена.")
 
     except Exception as e:
-        logging.error(f"Ошибка в /api/v1/webhook: {e}", exc_info=True)
-        # Возвращаем 200, чтобы не заставлять Telegram повторять запрос
-        return JSONResponse(content={"status": "error", "message": str(e)})
-    # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
+        # Важно логировать ошибки, чтобы видеть проблемы в фоновых задачах
+        logging.error(f"Ошибка в фоновой задаче process_webhook_in_background: {e}", exc_info=True)
+    # --- КОНЕЦ ВАШЕЙ ЛОГИКИ ---
+
+@app.post("/api/v1/webhook")
+async def telegram_webhook(
+    update: dict,
+    background_tasks: BackgroundTasks, # FastAPI предоставит этот объект
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) # Ваш способ получения клиента сохранен
+):
+    """
+    Этот вебхук принимает запрос, запускает вашу логику в фоне и отвечает мгновенно.
+    """
+    # Добавляем вашу логику в фоновую очередь.
+    # Обратите внимание: мы передаем `supabase` клиент, который получили через Depends.
+    background_tasks.add_task(process_webhook_in_background, update=update, supabase_client=supabase)
+    
+    # Сразу же возвращаем ответ, не дожидаясь выполнения задачи
+    return JSONResponse(content={"status": "ok", "processed_in_background": True})
 
 @app.post("/api/v1/webhooks/twitch")
 async def handle_twitch_webhook(
