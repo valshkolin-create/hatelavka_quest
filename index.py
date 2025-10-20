@@ -563,14 +563,16 @@ async def track_message(message: types.Message, supabase: httpx.AsyncClient = De
     full_name = f"{user.first_name} {user.last_name or ''}".strip()
 
     try:
-await supabase.rpc(
-    "handle_user_message",
-    {
-        "p_telegram_id": int(telegram_id),
-        "p_full_name": full_name,
-    }
-).execute()
+        # Этот блок должен быть с отступом
+        await supabase.rpc(
+            "handle_user_message",
+            {
+                "p_telegram_id": user.id, # <-- Исправлено
+                "p_full_name": full_name,
+            }
+        ).execute()
     except Exception as e:
+        # Этот блок должен быть на том же уровне, что и 'try'
         logging.error(f"Ошибка в handle_user_message для user_id={user.id}: {e}", exc_info=True)
 
 async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings:
