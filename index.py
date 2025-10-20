@@ -638,14 +638,16 @@ async def process_webhook_in_background(update: dict):
 
         logging.info(f"Фоновая задача: получено сообщение от ID: {telegram_id}, Имя: '{full_name}'")
 
-        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ `supabase`
-        await supabase.post(
-            "/rpc/handle_user_message",
-            json={
+        # --- ИСПРАВЛЕННЫЙ БЛОК ---
+        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ `supabase` С ПРАВИЛЬНЫМ СИНТАКСИСОМ
+        await supabase.rpc(
+            "handle_user_message",
+            {
                 "p_telegram_id": int(telegram_id),
-                "p_full_name": full_name
+                "p_full_name": full_name,
             }
-        )
+        ).execute()
+        # --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
         
         logging.info(f"Фоновая задача для ID {telegram_id} успешно завершена.")
 
