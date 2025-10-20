@@ -563,10 +563,13 @@ async def track_message(message: types.Message, supabase: httpx.AsyncClient = De
     full_name = f"{user.first_name} {user.last_name or ''}".strip()
 
     try:
-        await supabase.post(
-            "/rpc/handle_user_message",
-            json={"p_telegram_id": user.id, "p_full_name": full_name}
-        )
+await supabase.rpc(
+    "handle_user_message",
+    {
+        "p_telegram_id": int(telegram_id),
+        "p_full_name": full_name,
+    }
+).execute()
     except Exception as e:
         logging.error(f"Ошибка в handle_user_message для user_id={user.id}: {e}", exc_info=True)
 
