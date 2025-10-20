@@ -583,15 +583,35 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
         data = resp.json()
         if data and data[0].get('value'):
             settings_data = data[0]['value']
+            
+            # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+            # Явная проверка значения, так как оно может быть строкой "false"
+            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', True)
+            quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
+
+            challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
+            challenge_rewards_bool = challenge_rewards_raw if isinstance(challenge_rewards_raw, bool) else str(challenge_rewards_raw).lower() == 'true'
+            
+            challenges_raw = settings_data.get('challenges_enabled', True)
+            challenges_bool = challenges_raw if isinstance(challenges_raw, bool) else str(challenges_raw).lower() == 'true'
+
+            quests_raw = settings_data.get('quests_enabled', True)
+            quests_bool = quests_raw if isinstance(quests_raw, bool) else str(quests_raw).lower() == 'true'
+            
+            checkpoint_raw = settings_data.get('checkpoint_enabled', False)
+            checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
+            # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
             return AdminSettings(
-                challenge_promocodes_enabled=settings_data.get('challenge_promocodes_enabled', True),
-                quest_promocodes_enabled=settings_data.get('quest_promocodes_enabled', True),
-                challenges_enabled=settings_data.get('challenges_enabled', True),
-                quests_enabled=settings_data.get('quests_enabled', True),
-                checkpoint_enabled=settings_data.get('checkpoint_enabled', False) # ✅ ДОБАВЬ ЭТУ СТРОКУ
+                challenge_promocodes_enabled=challenge_rewards_bool, # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
+                quest_promocodes_enabled=quest_rewards_bool,         # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
+                challenges_enabled=challenges_bool,                  # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
+                quests_enabled=quests_bool,                          # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
+                checkpoint_enabled=checkpoint_bool                   # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
             )
     except Exception as e:
         logging.error(f"Не удалось получить admin_settings, используются значения по умолчанию: {e}")
+    
     # Возвращаем дефолтные настройки, если в базе ничего нет или произошла ошибка
     return AdminSettings()
 
