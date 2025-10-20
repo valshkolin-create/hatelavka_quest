@@ -12,7 +12,7 @@ import hashlib
 from urllib.parse import parse_qsl, unquote
 from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
-from supabase import create_client, AsyncClient # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
+from supabase_py.client_async import create_async_client, AsyncClient # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
 
 import requests
 from fastapi.concurrency import run_in_threadpool
@@ -393,7 +393,7 @@ TEMPLATES_DIR = BASE_DIR / "public"
 
 # --- ГЛОБАЛЬНЫЙ КЛИЕНТ SUPABASE ---
 # Создаем один асинхронный клиент, который будет жить все время работы приложения
-supabase: AsyncClient = create_client(SUPABASE_URL, SUPABASE_KEY) # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
+supabase: AsyncClient = create_async_client(SUPABASE_URL, SUPABASE_KEY)# <-- ИЗМЕНЕНИЕ ЗДЕСЬ
 
 # --- FastAPI app ---
 @asynccontextmanager
