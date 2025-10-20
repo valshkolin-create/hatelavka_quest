@@ -12,6 +12,7 @@ import hashlib
 from urllib.parse import parse_qsl, unquote
 from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
+from supabase_py.client_async import create_async_client, AsyncClient
 
 import requests
 from fastapi.concurrency import run_in_threadpool
@@ -390,6 +391,10 @@ WIZEBOT_API_KEY = os.getenv("WIZEBOT_API_KEY")
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "public"
 
+# --- ГЛОБАЛЬНЫЙ КЛИЕНТ SUPABASE ---
+# Создаем один асинхронный клиент, который будет жить все время работы приложения
+supabase: AsyncClient = create_async_client(SUPABASE_URL, SUPABASE_KEY)
+
 # --- FastAPI app ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -600,24 +605,20 @@ async def verify_admin_password(request: Request, data: dict = Body(...)):
         return JSONResponse(content={"success": False, "detail": "Incorrect password"}, status_code=401)
 
 # ЭТО НОВАЯ ФУНКЦИЯ, КОТОРУЮ НУЖНО ДОБАВИТЬ
-async def process_webhook_in_background(update: dict, supabase_client: httpx.AsyncClient):
+async def process_webhook_in_background(update: dict):
     """
     Эта функция содержит ВАШУ логику и безопасно выполняется в фоне.
     """
-    # --- НАЧАЛО ВАШЕЙ ЛОГИКИ (скопировано 1 в 1) ---
+    # --- НАЧАЛО ВАШЕЙ ЛОГИКИ ---
     logging.info("--- ЗАПУЩЕНА ФОНОВАЯ ОБРАБОТКА webhook ---")
     
-    SERVICE_ACCOUNT_IDS = {
-        777000,      # 'Telegram' (сообщения от имени канала)
-        1087968824,  # 'Anonymous Admin' / 'Group'
-        136817688,   # 'Group' (более старый ID)
-    }
+    SERVICE_ACCOUNT_IDS = {777000, 1087968824, 136817688}
 
     try:
         message = update.get("message")
         if not message:
             logging.info("Фоновая задача: пропущено, нет поля 'message'")
-            return  # Просто выходим из фоновой задачи
+            return
 
         from_user = message.get("from", {})
         telegram_id = from_user.get("id")
@@ -632,8 +633,8 @@ async def process_webhook_in_background(update: dict, supabase_client: httpx.Asy
 
         logging.info(f"Фоновая задача: получено сообщение от ID: {telegram_id}, Имя: '{full_name}'")
 
-        # Вызываем основную рабочую функцию в Supabase (ВАШ КОД)
-        await supabase_client.post(
+        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ `supabase`
+        await supabase.post(
             "/rpc/handle_user_message",
             json={
                 "p_telegram_id": int(telegram_id),
@@ -644,24 +645,22 @@ async def process_webhook_in_background(update: dict, supabase_client: httpx.Asy
         logging.info(f"Фоновая задача для ID {telegram_id} успешно завершена.")
 
     except Exception as e:
-        # Важно логировать ошибки, чтобы видеть проблемы в фоновых задачах
         logging.error(f"Ошибка в фоновой задаче process_webhook_in_background: {e}", exc_info=True)
     # --- КОНЕЦ ВАШЕЙ ЛОГИКИ ---
 
 @app.post("/api/v1/webhook")
 async def telegram_webhook(
     update: dict,
-    background_tasks: BackgroundTasks, # FastAPI предоставит этот объект
-    supabase: httpx.AsyncClient = Depends(get_supabase_client) # Ваш способ получения клиента сохранен
+    background_tasks: BackgroundTasks
+    # Можно даже убрать `Depends`, если он больше нигде не нужен в этой функции
 ):
     """
     Этот вебхук принимает запрос, запускает вашу логику в фоне и отвечает мгновенно.
     """
-    # Добавляем вашу логику в фоновую очередь.
-    # Обратите внимание: мы передаем `supabase` клиент, который получили через Depends.
-    background_tasks.add_task(process_webhook_in_background, update=update, supabase_client=supabase)
+    # Вызываем фоновую задачу БЕЗ передачи клиента
+    background_tasks.add_task(process_webhook_in_background, update=update)
     
-    # Сразу же возвращаем ответ, не дожидаясь выполнения задачи
+    # Сразу же возвращаем ответ
     return JSONResponse(content={"status": "ok", "processed_in_background": True})
 
 @app.post("/api/v1/webhooks/twitch")
