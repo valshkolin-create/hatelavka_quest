@@ -2680,22 +2680,19 @@ async def update_submission_status(
     submission_id = request_data.submission_id
     action = request_data.action
 
-    # --- НАЧАЛО ИЗМЕНЕНИЯ 1: Получаем reward_amount из связанного квеста ---
+    # Получаем детали квеста, включая reward_amount для билетов
     submission_data_resp = await supabase.get(
         "/quest_submissions",
         params={"id": f"eq.{submission_id}", "select": "user_id, quest:quests(title, reward_amount)"}
     )
-    # --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
-    
     submission_data = submission_data_resp.json()
     if not submission_data:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
 
     user_to_notify = submission_data[0]['user_id']
     quest_title = submission_data[0]['quest']['title']
-    # --- НАЧАЛО ИЗМЕНЕНИЯ 2: Сохраняем кол-во билетов ---
-    ticket_reward = submission_data[0]['quest'].get('reward_amount', 1) # По умолчанию 1, если не указано
-    # --- КОНЕЦ ИЗМЕНЕНИЯ 2 ---
+    # Получаем кол-во билетов из поля reward_amount квеста
+    ticket_reward = submission_data[0]['quest'].get('reward_amount', 0)
 
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
@@ -2704,12 +2701,15 @@ async def update_submission_status(
 
     elif action == 'approved':
         try:
-            # --- НАЧАЛО ИЗМЕНЕНИЯ 3: Добавляем проверку настроек ---
             admin_settings = await get_admin_settings_async(supabase)
+
             if not admin_settings.quest_promocodes_enabled:
-                # Награды ВЫКЛЮЧЕНЫ. Просто одобряем заявку и начисляем билеты.
+                # Награды (промокоды) ВЫКЛЮЧЕНЫ.
+                # Просто одобряем заявку и начисляем билеты.
                 await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "approved"})
-                await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_to_notify, "p_amount": ticket_reward})
+                
+                if ticket_reward > 0:
+                    await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_to_notify, "p_amount": ticket_reward})
                 
                 background_tasks.add_task(
                     safe_send_message, 
@@ -2717,20 +2717,19 @@ async def update_submission_status(
                     f"✅ Заявка на квест «{quest_title}» одобрена! Вам начислено {ticket_reward} билет(а/ов)."
                 )
                 return {"message": f"Заявка одобрена. {ticket_reward} билет(а/ов) начислено. Промокод не отправлен."}
-            # --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
+            else:
+                # Награды (промокоды) ВКЛЮЧЕНЫ.
+                # Вызываем вашу стандартную функцию, которая делает всё остальное.
+                response = await supabase.post(
+                    "/rpc/award_reward_and_get_promocode",
+                    json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
+                )
+                response.raise_for_status()
+                promo_code = response.text.strip('"')
+                
+                background_tasks.add_task(send_approval_notification, user_to_notify, quest_title, promo_code)
 
-            # Этот код выполняется, только если награды-промокоды ВКЛЮЧЕНЫ
-            response = await supabase.post(
-                "/rpc/award_reward_and_get_promocode",
-                json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
-            )
-            response.raise_for_status()
-            promo_code = response.text.strip('"')
-            
-            # Предполагаем, что RPC-функция сама начисляет билеты из reward_amount квеста
-            background_tasks.add_task(send_approval_notification, user_to_notify, quest_title, promo_code)
-
-            return {"message": "Заявка одобрена. Награда отправляется пользователю.", "promocode": promo_code}
+                return {"message": "Заявка одобрена. Награда отправляется пользователю.", "promocode": promo_code}
 
         except httpx.HTTPStatusError as e:
             error_details = e.response.json().get("message", "Ошибка базы данных.")
@@ -2862,6 +2861,7 @@ async def get_promocode(
     try:
         admin_settings = await get_admin_settings_async(supabase)
 
+        # Получаем прогресс квеста и reward_amount из самого квеста
         progress_resp = await supabase.get(
             "/user_quest_progress",
             params={
@@ -2869,7 +2869,7 @@ async def get_promocode(
                 "quest_id": f"eq.{quest_id}",
                 "status": "eq.completed",
                 "claimed_at": "is.null",
-                "select": "id, quests(reward_amount)", # <-- Изменение 1: получаем reward_amount
+                "select": "id, quests(reward_amount)",
                 "limit": 1
             }
         )
@@ -2880,13 +2880,14 @@ async def get_promocode(
             raise HTTPException(status_code=404, detail="Нет выполненных квестов для получения награды.")
         
         progress_id_to_claim = progress_data[0]['id']
-        # --- Изменение 2: Сохраняем кол-во билетов ---
-        ticket_reward = progress_data[0]['quests'].get('reward_amount', 1)
+        ticket_reward = progress_data[0]['quests'].get('reward_amount', 0)
 
-        # --- Изменение 3: Логика для отключенных наград ---
         if not admin_settings.quest_promocodes_enabled:
-            # Награды ВЫКЛЮЧЕНЫ. Вручную помечаем квест как "полученный", сбрасываем активный квест и начисляем билеты.
-            await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_reward})
+            # Награды (промокоды) ВЫКЛЮЧЕНЫ.
+            # Вручную завершаем квест и начисляем только билеты.
+            if ticket_reward > 0:
+                await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_reward})
+            
             await supabase.patch(
                 "/user_quest_progress",
                 params={"id": f"eq.{progress_id_to_claim}"},
@@ -2897,24 +2898,25 @@ async def get_promocode(
                 params={"telegram_id": f"eq.{user_id}", "active_quest_id": f"eq.{quest_id}"},
                 json={"active_quest_id": None, "active_quest_end_date": None, "quest_progress": 0}
             )
-            return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов). Выдача промокодов временно отключена."}
-
-        # Этот код выполняется, если награды-промокоды ВКЛЮЧЕНЫ
-        response = await supabase.post(
-            "/rpc/award_reward_and_get_promocode",
-            json={
-                "p_user_id": user_id,
-                "p_source_type": "quest",
-                "p_source_id": progress_id_to_claim 
+            return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов)."}
+        else:
+            # Награды (промокоды) ВКЛЮЧЕНЫ.
+            # Вызываем вашу стандартную функцию.
+            response = await supabase.post(
+                "/rpc/award_reward_and_get_promocode",
+                json={
+                    "p_user_id": user_id,
+                    "p_source_type": "quest",
+                    "p_source_id": progress_id_to_claim 
+                }
+            )
+            response.raise_for_status()
+            
+            promocode_data = response.json()
+            return {
+                "message": "Квест выполнен! Ваша награда добавлена в профиль.",
+                "promocode": promocode_data
             }
-        )
-        response.raise_for_status()
-        
-        promocode_data = response.json()
-        return {
-            "message": "Квест выполнен! Ваша награда добавлена в профиль.",
-            "promocode": promocode_data
-        }
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Не удалось получить награду.")
         logging.error(f"Ошибка при получении награды за квест: {error_details}")
