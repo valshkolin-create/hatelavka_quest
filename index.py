@@ -595,6 +595,26 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
     # Возвращаем дефолтные настройки, если в базе ничего нет или произошла ошибка
     return AdminSettings()
 
+# --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ---
+async def get_ticket_reward_amount(action_type: str, supabase: httpx.AsyncClient) -> int:
+    """Получает количество билетов для награды из таблицы reward_rules."""
+    try:
+        resp = await supabase.get(
+            "/reward_rules",
+            params={"action_type": f"eq.{action_type}", "select": "ticket_amount", "limit": 1}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data and 'ticket_amount' in data[0]:
+            return data[0]['ticket_amount']
+        
+        logging.warning(f"Правило награды для '{action_type}' не найдено в таблице reward_rules. Используется значение по умолчанию: 1.")
+        return 1
+        
+    except Exception as e:
+        logging.error(f"Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
+        return 1
+
 # Где-нибудь рядом с другими эндпоинтами
 @app.post("/api/v1/admin/verify_password")
 async def verify_admin_password(request: Request, data: dict = Body(...)):
@@ -2494,12 +2514,16 @@ async def claim_challenge(
         )
         logging.info(f"✅ Пользователю {current_user_id} начислена 1 звезда для Чекпоинта.")
 
-        # 2. Начисляем билет (НОВОЕ)
-        await supabase.post(
-            "/rpc/increment_tickets",
-            json={"p_user_id": current_user_id, "p_amount": 1}
-        )
-        logging.info(f"✅ Пользователю {current_user_id} начислен 1 билет за челлендж.")
+        # --- НАЧАЛО ИЗМЕНЕНИЯ ---
+        # 2. Начисляем билет из таблицы reward_rules
+        ticket_amount = await get_ticket_reward_amount("challenge_completion", supabase)
+        if ticket_amount > 0:
+            await supabase.post(
+                "/rpc/increment_tickets",
+                json={"p_user_id": current_user_id, "p_amount": ticket_amount}
+            )
+            logging.info(f"✅ Пользователю {current_user_id} начислено {ticket_amount} билет(а/ов) за челлендж.")
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 
         # Обновляем таймер последнего выполненного челленджа
@@ -2680,10 +2704,10 @@ async def update_submission_status(
     submission_id = request_data.submission_id
     action = request_data.action
 
-    # Получаем детали квеста, включая reward_amount для билетов
+    # Поле reward_amount из квеста больше не используется, берем только title
     submission_data_resp = await supabase.get(
         "/quest_submissions",
-        params={"id": f"eq.{submission_id}", "select": "user_id, quest:quests(title, reward_amount)"}
+        params={"id": f"eq.{submission_id}", "select": "user_id, quest:quests(title)"}
     )
     submission_data = submission_data_resp.json()
     if not submission_data:
@@ -2691,8 +2715,6 @@ async def update_submission_status(
 
     user_to_notify = submission_data[0]['user_id']
     quest_title = submission_data[0]['quest']['title']
-    # Получаем кол-во билетов из поля reward_amount квеста
-    ticket_reward = submission_data[0]['quest'].get('reward_amount', 0)
 
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
@@ -2701,16 +2723,18 @@ async def update_submission_status(
 
     elif action == 'approved':
         try:
+            # --- НАЧАЛО ИЗМЕНЕНИЯ ---
+            # 1. Начисляем билеты из таблицы reward_rules в любом случае
+            ticket_reward = await get_ticket_reward_amount("manual_quest_approval", supabase)
+            if ticket_reward > 0:
+                await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_to_notify, "p_amount": ticket_reward})
+            # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
             admin_settings = await get_admin_settings_async(supabase)
 
             if not admin_settings.quest_promocodes_enabled:
-                # Награды (промокоды) ВЫКЛЮЧЕНЫ.
-                # Просто одобряем заявку и начисляем билеты.
+                # Если промокоды выключены, просто завершаем квест
                 await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "approved"})
-                
-                if ticket_reward > 0:
-                    await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_to_notify, "p_amount": ticket_reward})
-                
                 background_tasks.add_task(
                     safe_send_message, 
                     user_to_notify, 
@@ -2718,26 +2742,21 @@ async def update_submission_status(
                 )
                 return {"message": f"Заявка одобрена. {ticket_reward} билет(а/ов) начислено. Промокод не отправлен."}
             else:
-                # Награды (промокоды) ВКЛЮЧЕНЫ.
-                # Вызываем вашу стандартную функцию, которая делает всё остальное.
+                # Если промокоды включены, выдаем их
                 response = await supabase.post(
                     "/rpc/award_reward_and_get_promocode",
                     json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
                 )
                 response.raise_for_status()
                 promo_code = response.text.strip('"')
-                
                 background_tasks.add_task(send_approval_notification, user_to_notify, quest_title, promo_code)
-
                 return {"message": "Заявка одобрена. Награда отправляется пользователю.", "promocode": promo_code}
 
         except httpx.HTTPStatusError as e:
             error_details = e.response.json().get("message", "Ошибка базы данных.")
-            logging.error(f"Ошибка Supabase при одобрении заявки {submission_id}: {error_details}")
             raise HTTPException(status_code=400, detail=error_details)
         except Exception as e:
-            logging.error(f"Критическая ошибка при одобрении заявки {submission_id}: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Не удалось одобрить заявку и отправить награду.")
+            raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
 
@@ -2859,35 +2878,31 @@ async def get_promocode(
     quest_id = request_data.quest_id
 
     try:
-        admin_settings = await get_admin_settings_async(supabase)
+        # --- НАЧАЛО ИЗМЕНЕНИЯ ---
+        # 1. Начисляем билеты из таблицы reward_rules в любом случае
+        ticket_reward = await get_ticket_reward_amount("automatic_quest_claim", supabase)
+        if ticket_reward > 0:
+            await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_reward})
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-        # Получаем прогресс квеста и reward_amount из самого квеста
         progress_resp = await supabase.get(
             "/user_quest_progress",
             params={
-                "user_id": f"eq.{user_id}",
-                "quest_id": f"eq.{quest_id}",
-                "status": "eq.completed",
-                "claimed_at": "is.null",
-                "select": "id, quests(reward_amount)",
-                "limit": 1
+                "user_id": f"eq.{user_id}", "quest_id": f"eq.{quest_id}",
+                "status": "eq.completed", "claimed_at": "is.null",
+                "select": "id", "limit": 1
             }
         )
         progress_resp.raise_for_status()
         progress_data = progress_resp.json()
-
         if not progress_data:
             raise HTTPException(status_code=404, detail="Нет выполненных квестов для получения награды.")
         
         progress_id_to_claim = progress_data[0]['id']
-        ticket_reward = progress_data[0]['quests'].get('reward_amount', 0)
+        admin_settings = await get_admin_settings_async(supabase)
 
         if not admin_settings.quest_promocodes_enabled:
-            # Награды (промокоды) ВЫКЛЮЧЕНЫ.
-            # Вручную завершаем квест и начисляем только билеты.
-            if ticket_reward > 0:
-                await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_reward})
-            
+            # Если промокоды выключены, просто завершаем квест
             await supabase.patch(
                 "/user_quest_progress",
                 params={"id": f"eq.{progress_id_to_claim}"},
@@ -2900,30 +2915,20 @@ async def get_promocode(
             )
             return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов)."}
         else:
-            # Награды (промокоды) ВКЛЮЧЕНЫ.
-            # Вызываем вашу стандартную функцию.
+            # Если промокоды включены, выдаем их
             response = await supabase.post(
                 "/rpc/award_reward_and_get_promocode",
-                json={
-                    "p_user_id": user_id,
-                    "p_source_type": "quest",
-                    "p_source_id": progress_id_to_claim 
-                }
+                json={ "p_user_id": user_id, "p_source_type": "quest", "p_source_id": progress_id_to_claim }
             )
             response.raise_for_status()
-            
             promocode_data = response.json()
-            return {
-                "message": "Квест выполнен! Ваша награда добавлена в профиль.",
-                "promocode": promocode_data
-            }
+            return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_data }
+
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Не удалось получить награду.")
-        logging.error(f"Ошибка при получении награды за квест: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Ошибка при получении награды за квест: {e}")
-        raise HTTPException(status_code=400, detail="Не удалось получить награду.")
+        raise HTTPException(status_code=500, detail="Не удалось получить награду.")
     
 # --- Пользовательские эндпоинты ---
 @app.post("/api/v1/user/challenge/available")
