@@ -280,33 +280,44 @@
         box-shadow: 0 0 8px var(--quest-icon-color);
     }
     /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
-    /* --- СТИЛИ ДЛЯ ИВЕНТ-РЕЖИМА --- */
-.event-mode-reward {
-    font-weight: 700;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    line-height: 1.4;
-    padding: 5px 8px;
+/* --- НОВЫЕ СТИЛИ ДЛЯ ИВЕНТ-РЕЖИМА (ЗАМЕНА) --- */
+.event-mode-reward-wrapper {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left; /* Растягиваем блок по всей ширине */
+    margin-top: 8px;
+    padding: 8px;
     border-radius: 8px;
-    background: linear-gradient(45deg, #FFC837, #FF8008); /* Градиент от золотого к оранжевому */
-    color: #4B1C03; /* Глубокий коричневый цвет для контраста */
-    text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
-    margin-top: 4px; /* Небольшой отступ сверху */
+    background-color: rgba(40, 32, 18, 0.7); /* Темно-золотой фон */
+    border: 1px solid #FFC837; /* Золотая обводка */
+    box-shadow: 0 0 10px rgba(255, 200, 55, 0.3); /* Легкое свечение */
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.event-mode-reward-small {
+.event-mode-reward-wrapper .icon {
+    font-size: 20px;
+    color: #FFC837; /* Золотой цвет иконки */
+    flex-shrink: 0;
+}
+
+.event-mode-reward-wrapper .text-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.event-mode-reward-wrapper .title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #FFD700; /* Яркий золотой */
+    letter-spacing: 0.5px;
+}
+
+.event-mode-reward-wrapper .subtitle {
     font-size: 10px;
     font-weight: 500;
-    text-transform: none;
-    display: block;
-    margin-top: 4px;
-    color: var(--text-color-muted);
-    background: none;
-    box-shadow: none;
-    text-shadow: none;
-    padding: 0;
-    border-radius: 0;
-    letter-spacing: 0;
+    color: #EAEAEA; /* Светлый цвет для хорошей читаемости */
+    line-height: 1.3;
 }
