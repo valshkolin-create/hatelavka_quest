@@ -2183,15 +2183,13 @@ async def get_promocode(
             params={
                 "user_id": f"eq.{user_id}", "quest_id": f"eq.{quest_id}",
                 "status": "eq.completed", "claimed_at": "is.null",
-                "select": "id", "limit": 1
+                "select": "quest_id", "limit": 1
             }
         )
         progress_resp.raise_for_status()
         progress_data = progress_resp.json()
         if not progress_data:
             raise HTTPException(status_code=404, detail="Нет выполненных квестов для получения награды.")
-        
-        progress_id_to_claim = progress_data[0]['id']
         
         # 3. Получаем настройки из админ-панели
         admin_settings = await get_admin_settings_async(supabase)
@@ -2203,7 +2201,7 @@ async def get_promocode(
             # Если промокоды выключены, просто завершаем квест без выдачи промокода
             await supabase.patch(
                 "/user_quest_progress",
-                params={"id": f"eq.{progress_id_to_claim}"},
+                params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{quest_id}"},
                 json={"claimed_at": datetime.now(timezone.utc).isoformat()}
             )
             # Также сбрасываем активный квест у пользователя
@@ -2218,7 +2216,7 @@ async def get_promocode(
             # Если промокоды включены, вызываем функцию для их выдачи
             response = await supabase.post(
                 "/rpc/award_reward_and_get_promocode",
-                json={ "p_user_id": user_id, "p_source_type": "quest", "p_source_id": progress_id_to_claim }
+                json={ "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
             )
             response.raise_for_status()
             promocode_data = response.json()
