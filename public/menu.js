@@ -828,8 +828,12 @@ async function startQuestRoulette() {
             // 👇 ЛОГИКА ОТОБРАЖЕНИЯ НАГРАДЫ ИЗМЕНЕНА ЗДЕСЬ 👇
             const rewardHtml = userData.quest_rewards_enabled
                 ? `<div class="quest-subtitle">Награда: ${quest.reward_amount} ⭐</div>`
-                : `<div class="quest-subtitle event-mode-reward">ИДЕТ ИВЕНТ!
-                       <span class="event-mode-reward-small">Звёзды отключены, награда - только билеты</span>
+                : `<div class="event-mode-reward-wrapper">
+                       <i class="icon fa-solid fa-trophy"></i>
+                       <div class="text-content">
+                           <span class="title">Идет ивент!</span>
+                           <span class="subtitle">Звёзды отключены, награда - только билеты</span>
+                       </div>
                    </div>`;
     
             card.innerHTML = `
