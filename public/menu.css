@@ -133,7 +133,23 @@
     margin-bottom: 10px; /* Дополнительный отступ снизу */
     perspective: 1000px;
 }
-    .quest-option-card { width: 120px; height: 160px; background: var(--surface-glass-bg); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transform: rotateY(90deg); opacity: 0; transition: transform 0.6s ease, opacity 0.6s ease; text-align: center; }
+    .quest-option-card {
+    width: 120px;
+    height: 160px; /* Сохраняем высоту */
+    background: var(--surface-glass-bg);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Изменяем выравнивание, чтобы контент распределялся по высоте */
+    align-items: center;
+    cursor: pointer;
+    transform: rotateY(90deg);
+    opacity: 0;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+    text-align: center;
+    padding: 10px; /* Добавляем внутренние отступы, чтобы контент не прилипал к краям */
+    box-sizing: border-box; /* Важно, чтобы padding не ломал размеры карточки */
+}
     .quest-option-card.show { transform: rotateY(0); opacity: 1; }
     .quest-option-card.chosen { animation: questChosen 0.6s forwards; }
     .quest-option-card.fade-out { animation: fadeOut 0.5s forwards; }
@@ -289,10 +305,9 @@
     /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
 /* --- НОВЫЕ СТИЛИ ДЛЯ ИВЕНТ-РЕЖИМА (ЗАМЕНА) --- */
 .event-mode-reward-wrapper {
-    align-self: stretch; /* Растягиваем блок по ширине родителя (карточки) */
-    margin: 8px 5px 0 5px; /* Добавляем небольшие отступы по бокам */
     box-sizing: border-box;
     text-align: left;
+    margin: 0; /* Убираем все внешние отступы */
     padding: 8px;
     border-radius: 8px;
     background-color: rgba(40, 32, 18, 0.7);
@@ -301,8 +316,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%; /* Заставляем блок занимать всю доступную ширину внутри padding'а */
 }
-
 .event-mode-reward-wrapper .icon {
     font-size: 20px;
     color: #FFC837; /* Золотой цвет иконки */
