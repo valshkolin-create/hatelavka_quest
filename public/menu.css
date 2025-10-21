@@ -135,7 +135,7 @@
 }
 .quest-option-card {
     min-width: 0; /* ВАЖНО: Позволяет карточке сжиматься в гриде */
-    height: 210px; /* <-- ИЗМЕНЕНИЕ: Карточка протянута вниз */
+    height: 220px; /* <-- ИЗМЕНЕНИЕ: Карточка протянута вниз */
     background: var(--surface-glass-bg);
     border-radius: 12px;
     display: flex;
@@ -308,16 +308,17 @@
     width: 100%; 
     box-sizing: border-box;
     text-align: left;
-    margin-top: auto; /* <-- Этот трюк прижимает блок к низу flex-контейнера. */
-    padding: 6px; /* <-- ИЗМЕНЕНИЕ: Уменьшен отступ */
+    margin-top: auto; /* <-- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ДЛЯ ВЫРАВНИВАНИЯ */
+    padding: 8px;
     border-radius: 8px;
     background-color: rgba(40, 32, 18, 0.7);
     border: 1px solid #FFC837;
     box-shadow: 0 0 10px rgba(255, 200, 55, 0.3);
     display: flex;
     align-items: center;
-    gap: 6px; /* <-- ИЗМЕНЕНИЕ: Уменьшен отступ */
+    gap: 8px;
 }
+
 
 /* Добавлены стили для дочерних элементов, чтобы управлять их размерами */
 .event-mode-reward-wrapper .icon {
