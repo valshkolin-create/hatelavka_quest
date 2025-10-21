@@ -280,10 +280,33 @@
         box-shadow: 0 0 8px var(--quest-icon-color);
     }
     /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
-    .event-mode-reward {
-        color: #ffcc00;
-        font-weight: 600;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
+    /* --- СТИЛИ ДЛЯ ИВЕНТ-РЕЖИМА --- */
+.event-mode-reward {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.4;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: linear-gradient(45deg, #FFC837, #FF8008); /* Градиент от золотого к оранжевому */
+    color: #4B1C03; /* Глубокий коричневый цвет для контраста */
+    text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    margin-top: 4px; /* Небольшой отступ сверху */
+}
+
+.event-mode-reward-small {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: none;
+    display: block;
+    margin-top: 4px;
+    color: var(--text-color-muted);
+    background: none;
+    box-shadow: none;
+    text-shadow: none;
+    padding: 0;
+    border-radius: 0;
+    letter-spacing: 0;
+}
