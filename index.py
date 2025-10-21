@@ -2159,6 +2159,15 @@ async def get_twitch_reward_purchases(
         logging.error(f"Критическая ошибка при получении покупок (RPC): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
 
+Да, конечно. Сделаем.
+
+Вам нужно будет внести изменения в три файла. Просто скопируйте и замените указанные блоки кода.
+
+1. Файл index.py (Сервер)
+Замените вашу текущую функцию get_promocode на эту. Здесь изменена только одна строка: теперь, когда промокоды отключены, сервер отправляет специальный флаг tickets_only: True, чтобы приложение menu это поняло.
+
+Python
+
 @app.post("/api/v1/promocode")
 async def get_promocode(
     request_data: PromocodeClaimRequest,
@@ -2173,7 +2182,6 @@ async def get_promocode(
 
     try:
         # 1. Проверяем, что квест действительно завершен и награда еще не получена
-        # Сначала получаем прогресс пользователя и проверяем, не была ли награда уже получена
         progress_resp = await supabase.get(
             "/user_quest_progress",
             params={
@@ -2191,7 +2199,6 @@ async def get_promocode(
 
         user_progress = progress_data[0].get("current_progress", 0)
 
-        # Затем получаем цель квеста
         quest_resp = await supabase.get(
             "/quests",
             params={"id": f"eq.{quest_id}", "select": "target_value"}
@@ -2204,46 +2211,40 @@ async def get_promocode(
 
         target_value = quest_data[0].get("target_value", 1)
 
-        # Сравниваем прогресс с целью
         if user_progress < target_value:
             raise HTTPException(status_code=400, detail="Задание еще не выполнено.")
 
-        # Если все проверки выше пройдены, квест считается выполненным и не полученным.
-        # Теперь выполняем остальную логику.
-
-        # 2. Начисляем билеты из таблицы reward_rules в любом случае
+        # 2. Начисляем билеты
         ticket_reward = await get_ticket_reward_amount("automatic_quest_claim", supabase)
         if ticket_reward > 0:
             await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_reward})
         
-        # 3. Получаем настройки из админ-панели
+        # 3. Получаем настройки админ-панели
         admin_settings = await get_admin_settings_async(supabase)
 
         # 4. Проверяем, включена ли выдача промокодов
         if not admin_settings.quest_promocodes_enabled:
-            # Если промокоды выключены, просто завершаем квест без выдачи промокода
+            # Если промокоды выключены, просто завершаем квест
             await supabase.patch(
                 "/user_quest_progress",
                 params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{quest_id}"},
                 json={"claimed_at": datetime.now(timezone.utc).isoformat()}
             )
-            # Также сбрасываем активный квест у пользователя
             await supabase.patch(
                 "/users",
                 params={"telegram_id": f"eq.{user_id}", "active_quest_id": f"eq.{quest_id}"},
                 json={"active_quest_id": None, "active_quest_end_date": None, "quest_progress": 0}
             )
-            # Возвращаем ответ без промокода
-            return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов)."}
+            # 👇 ИЗМЕНЕНИЕ ЗДЕСЬ 👇
+            return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов).", "tickets_only": True, "tickets_awarded": ticket_reward}
         else:
-            # Если промокоды включены, вызываем функцию для их выдачи
+            # Если промокоды включены, выдаем их
             response = await supabase.post(
                 "/rpc/award_reward_and_get_promocode",
                 json={ "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
             )
             response.raise_for_status()
             promocode_data = response.json()
-            # Возвращаем ответ с промокодом
             return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_data }
 
     except httpx.HTTPStatusError as e:
