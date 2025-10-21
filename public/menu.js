@@ -809,7 +809,7 @@ try {
         }
     }
     
-    async function startQuestRoulette() {
+async function startQuestRoulette() {
         dom.questChooseBtn.disabled = true;
         if (questsForRoulette.length === 0) {
             Telegram.WebApp.showAlert("Сейчас нет доступных испытаний.");
@@ -824,10 +824,16 @@ try {
         selected.forEach((quest, index) => {
             const card = document.createElement("div");
             card.className = "quest-option-card";
+            
+            // 👇 Эта логика остаётся, она для автоматических заданий 👇
+            const rewardHtml = userData.quest_rewards_enabled
+                ? `<div class="quest-subtitle">Награда: ${quest.reward_amount} ⭐</div>`
+                : `<div class="quest-subtitle event-mode-reward">ИВЕНТ: ТОЛЬКО БИЛЕТЫ</div>`;
+    
             card.innerHTML = `
                 <div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>
                 <div class="quest-title">${quest.title}</div>
-                <div class="quest-subtitle">Награда: ${quest.reward_amount} ⭐</div>
+                ${rewardHtml}
             `;
             setTimeout(() => card.classList.add("show"), index * 200);
             card.addEventListener("click", async () => {
