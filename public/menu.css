@@ -135,7 +135,7 @@
 }
 .quest-option-card {
     min-width: 0; /* ВАЖНО: Позволяет карточке сжиматься в гриде */
-    height: 180px; /* <-- ИЗМЕНЕНИЕ: Карточка протянута вниз */
+    height: 210px; /* <-- ИЗМЕНЕНИЕ: Карточка протянута вниз */
     background: var(--surface-glass-bg);
     border-radius: 12px;
     display: flex;
