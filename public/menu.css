@@ -125,7 +125,14 @@
     .quest-choose-btn-roulette { display: block; width: 100%; padding: 12px; margin: 15px 0; font-size: 16px; font-weight: 700; border: none; border-radius: 10px; color: #1c1c1e; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, background 0.4s ease; box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); }
     .quest-choose-btn-roulette.twitch-theme { background: linear-gradient(90deg, #a97cff, var(--twitch-color)); color: white; box-shadow: 0 0 12px rgba(145, 70, 255, 0.6); }
     .quest-choose-btn-roulette.telegram-theme { background: linear-gradient(90deg, #24a1de, var(--telegram-color)); color: white; box-shadow: 0 0 12px rgba(0, 136, 204, 0.6); }
-    .quest-choose-container { display: flex; justify-content: center; gap: 15px; margin-top: 20px; perspective: 1000px; }
+.quest-choose-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 25px; /* Увеличенный отступ сверху */
+    margin-bottom: 10px; /* Дополнительный отступ снизу */
+    perspective: 1000px;
+}
     .quest-option-card { width: 120px; height: 160px; background: var(--surface-glass-bg); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transform: rotateY(90deg); opacity: 0; transition: transform 0.6s ease, opacity 0.6s ease; text-align: center; }
     .quest-option-card.show { transform: rotateY(0); opacity: 1; }
     .quest-option-card.chosen { animation: questChosen 0.6s forwards; }
@@ -282,15 +289,15 @@
     /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
 /* --- НОВЫЕ СТИЛИ ДЛЯ ИВЕНТ-РЕЖИМА (ЗАМЕНА) --- */
 .event-mode-reward-wrapper {
-    width: 100%;
+    align-self: stretch; /* Растягиваем блок по ширине родителя (карточки) */
+    margin: 8px 5px 0 5px; /* Добавляем небольшие отступы по бокам */
     box-sizing: border-box;
-    text-align: left; /* Растягиваем блок по всей ширине */
-    margin-top: 8px;
+    text-align: left;
     padding: 8px;
     border-radius: 8px;
-    background-color: rgba(40, 32, 18, 0.7); /* Темно-золотой фон */
-    border: 1px solid #FFC837; /* Золотая обводка */
-    box-shadow: 0 0 10px rgba(255, 200, 55, 0.3); /* Легкое свечение */
+    background-color: rgba(40, 32, 18, 0.7);
+    border: 1px solid #FFC837;
+    box-shadow: 0 0 10px rgba(255, 200, 55, 0.3);
     display: flex;
     align-items: center;
     gap: 8px;
