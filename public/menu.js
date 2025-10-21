@@ -825,10 +825,12 @@ async function startQuestRoulette() {
             const card = document.createElement("div");
             card.className = "quest-option-card";
             
-            // 👇 Эта логика остаётся, она для автоматических заданий 👇
+            // 👇 ЛОГИКА ОТОБРАЖЕНИЯ НАГРАДЫ ИЗМЕНЕНА ЗДЕСЬ 👇
             const rewardHtml = userData.quest_rewards_enabled
                 ? `<div class="quest-subtitle">Награда: ${quest.reward_amount} ⭐</div>`
-                : `<div class="quest-subtitle event-mode-reward">ИВЕНТ: ТОЛЬКО БИЛЕТЫ</div>`;
+                : `<div class="quest-subtitle event-mode-reward">ИДЕТ ИВЕНТ!
+                       <span class="event-mode-reward-small">Звёзды отключены, награда - только билеты</span>
+                   </div>`;
     
             card.innerHTML = `
                 <div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>
