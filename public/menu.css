@@ -280,3 +280,10 @@
         box-shadow: 0 0 8px var(--quest-icon-color);
     }
     /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
+    .event-mode-reward {
+        color: #ffcc00;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
