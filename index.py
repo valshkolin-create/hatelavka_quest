@@ -2172,29 +2172,66 @@ async def get_promocode(
     quest_id = request_data.quest_id
 
     try:
-        # Просто вызываем нашу исправленную SQL-функцию
-        response = await supabase.post(
-            "/rpc/award_reward_and_get_promocode",
-            json={
-                "p_user_id": user_id,
-                "p_source_type": "quest",
-                "p_source_id": quest_id
+        # 1. Начисляем билеты из таблицы reward_rules в любом случае
+        ticket_reward = await get_ticket_reward_amount("automatic_quest_claim", supabase)
+        if ticket_reward > 0:
+            await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_reward})
+        
+        # 2. Проверяем, что квест действительно выполнен и награда еще не получена
+        progress_resp = await supabase.get(
+            "/user_quest_progress",
+            params={
+                "user_id": f"eq.{user_id}", "quest_id": f"eq.{quest_id}",
+                "status": "eq.completed", "claimed_at": "is.null",
+                "select": "id", "limit": 1
             }
         )
-        response.raise_for_status()
+        progress_resp.raise_for_status()
+        progress_data = progress_resp.json()
+        if not progress_data:
+            raise HTTPException(status_code=404, detail="Нет выполненных квестов для получения награды.")
         
-        promocode_data = response.json()
-        return {
-            "message": "Квест выполнен! Ваша награда добавлена в профиль.",
-            "promocode": promocode_data
-        }
+        progress_id_to_claim = progress_data[0]['id']
+        
+        # 3. Получаем настройки из админ-панели
+        admin_settings = await get_admin_settings_async(supabase)
+
+        logging.warning(f"!!! DEBUG: Проверяем настройку. quest_promocodes_enabled = {admin_settings.quest_promocodes_enabled}")
+
+        # 4. Проверяем, включена ли выдача промокодов
+        if not admin_settings.quest_promocodes_enabled:
+            # Если промокоды выключены, просто завершаем квест без выдачи промокода
+            await supabase.patch(
+                "/user_quest_progress",
+                params={"id": f"eq.{progress_id_to_claim}"},
+                json={"claimed_at": datetime.now(timezone.utc).isoformat()}
+            )
+            # Также сбрасываем активный квест у пользователя
+            await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{user_id}", "active_quest_id": f"eq.{quest_id}"},
+                json={"active_quest_id": None, "active_quest_end_date": None, "quest_progress": 0}
+            )
+            # Возвращаем ответ без промокода
+            return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов)."}
+        else:
+            # Если промокоды включены, вызываем функцию для их выдачи
+            response = await supabase.post(
+                "/rpc/award_reward_and_get_promocode",
+                json={ "p_user_id": user_id, "p_source_type": "quest", "p_source_id": progress_id_to_claim }
+            )
+            response.raise_for_status()
+            promocode_data = response.json()
+            # Возвращаем ответ с промокодом
+            return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_data }
+
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Не удалось получить награду.")
         logging.error(f"Ошибка при получении награды за квест: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Ошибка при получении награды за квест: {e}")
-        raise HTTPException(status_code=400, detail="Не удалось получить награду.")
+        logging.error(f"Критическая ошибка при получении награды за квест: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 # --- АДМИНСКИЕ ПРОМОКОДЫ ---
 @app.post("/api/v1/admin/promocodes")
 async def create_promocodes(
