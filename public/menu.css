@@ -134,13 +134,12 @@
     perspective: 1000px;
 }
 .quest-option-card {
-    /* width: 120px; <-- УБИРАЕМ ФИКСИРОВАННУЮ ШИРИНУ */
-    height: 170px; /* Немного увеличиваем высоту для нового блока */
+    min-width: 0; /* ВАЖНО: Позволяет карточке сжиматься в гриде */
+    height: 170px;
     background: var(--surface-glass-bg);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between; /* Распределяем контент по вертикали */
     align-items: center;
     cursor: pointer;
     transform: rotateY(90deg);
@@ -149,6 +148,7 @@
     text-align: center;
     padding: 10px;
     box-sizing: border-box;
+    gap: 8px; /* Добавляет отступ между иконкой и заголовком */
 }
     .quest-option-card.show { transform: rotateY(0); opacity: 1; }
     .quest-option-card.chosen { animation: questChosen 0.6s forwards; }
@@ -305,10 +305,10 @@
     /* --- КОНЕЦ СТИЛЕЙ СЛАЙДЕРА --- */
 /* --- НОВЫЕ СТИЛИ ДЛЯ ИВЕНТ-РЕЖИМА (ЗАМЕНА) --- */
 .event-mode-reward-wrapper {
-    width: 100%; /* Занимает всю ширину внутри отступов (padding) родителя */
+    width: 100%; 
     box-sizing: border-box;
     text-align: left;
-    margin: 0; /* Убираем внешние отступы */
+    margin-top: auto; /* <-- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ДЛЯ ВЫРАВНИВАНИЯ */
     padding: 8px;
     border-radius: 8px;
     background-color: rgba(40, 32, 18, 0.7);
