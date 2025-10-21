@@ -2159,15 +2159,6 @@ async def get_twitch_reward_purchases(
         logging.error(f"Критическая ошибка при получении покупок (RPC): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
 
-Да, конечно. Сделаем.
-
-Вам нужно будет внести изменения в три файла. Просто скопируйте и замените указанные блоки кода.
-
-1. Файл index.py (Сервер)
-Замените вашу текущую функцию get_promocode на эту. Здесь изменена только одна строка: теперь, когда промокоды отключены, сервер отправляет специальный флаг tickets_only: True, чтобы приложение menu это поняло.
-
-Python
-
 @app.post("/api/v1/promocode")
 async def get_promocode(
     request_data: PromocodeClaimRequest,
