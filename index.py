@@ -585,8 +585,9 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
             settings_data = data[0]['value']
             
             # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-            # Явная проверка значения, так как оно может быть строкой "false"
-            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', True)
+            
+            # 👇 ВОТ ЗДЕСЬ НУЖНО ЗАМЕНИТЬ True НА False 👇
+            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False) #
             quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
 
             challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
@@ -603,11 +604,11 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
             # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
             return AdminSettings(
-                challenge_promocodes_enabled=challenge_rewards_bool, # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
-                quest_promocodes_enabled=quest_rewards_bool,         # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
-                challenges_enabled=challenges_bool,                  # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
-                quests_enabled=quests_bool,                          # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
-                checkpoint_enabled=checkpoint_bool                   # <-- ИСПОЛЬЗУЕМ НОВУЮ ПЕРЕМЕННУЮ
+                challenge_promocodes_enabled=challenge_rewards_bool,
+                quest_promocodes_enabled=quest_rewards_bool, # Используем исправленную переменную
+                challenges_enabled=challenges_bool,
+                quests_enabled=quests_bool,
+                checkpoint_enabled=checkpoint_bool
             )
     except Exception as e:
         logging.error(f"Не удалось получить admin_settings, используются значения по умолчанию: {e}")
