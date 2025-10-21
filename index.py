@@ -1480,6 +1480,9 @@ async def get_current_user_data(
 
         admin_settings = await get_admin_settings_async(supabase)
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
+
+        # 👇 ДОБАВЬТЕ ЭТУ СТРОКУ 👇
+        final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
         
         return JSONResponse(content=final_response)
 
