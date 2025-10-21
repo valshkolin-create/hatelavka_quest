@@ -22,6 +22,8 @@ try {
         promocodeOverlay: document.getElementById('promocode-overlay'),
         rewardClaimedOverlay: document.getElementById('reward-claimed-overlay'),
         rewardCloseBtn: document.getElementById('reward-close-btn'),
+        ticketsClaimedOverlay: document.getElementById('tickets-claimed-overlay'),
+        ticketsClaimCloseBtn: document.getElementById('tickets-claim-close-btn'),
         
         promptOverlay: document.getElementById('custom-prompt-overlay'),
         promptTitle: document.getElementById('prompt-title'),
@@ -382,6 +384,14 @@ try {
         dom.rewardClaimedOverlay.classList.add('hidden');
     }
 
+    function showTicketsClaimedModal() {
+        dom.ticketsClaimedOverlay.classList.remove('hidden');
+    }
+
+    function hideTicketsClaimedModal() {
+        dom.ticketsClaimedOverlay.classList.add('hidden');
+    }
+    
     function showInfoModal() {
         dom.infoModalOverlay.classList.remove('hidden');
     }
@@ -855,7 +865,7 @@ try {
         }, 500);
     }
 
-    function setupEventListeners() {
+function setupEventListeners() {
         document.getElementById('nav-dashboard').addEventListener('click', async (e) => { 
             e.preventDefault(); 
             switchView('view-dashboard');
@@ -881,6 +891,13 @@ try {
             hideRewardClaimedModal();
             main();
         });
+
+        // 👇 ДОБАВЛЕНА СТРОКА ДЛЯ НОВОЙ КНОПКИ 👇
+        dom.ticketsClaimCloseBtn.addEventListener('click', () => {
+            hideTicketsClaimedModal();
+            main();
+        });
+
         dom.infoQuestionIcon.addEventListener('click', showInfoModal);
         dom.infoModalCloseBtn.addEventListener('click', hideInfoModal);
         dom.questChooseBtn.addEventListener("click", () => {
@@ -930,17 +947,38 @@ try {
                     target.disabled = false;
                     target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
                 }
+            
+            // 👇 БЛОК 'claim-reward-button' ПОЛНОСТЬЮ ЗАМЕНЁН 👇
             } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
                 const questId = target.dataset.questId;
                 if (!questId) return;
+                
                 target.disabled = true;
+                target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
                 try {
                     const result = await makeApiRequest('/api/v1/promocode', { quest_id: parseInt(questId) });
+                    
                     if (result && result.promocode) {
+                        // Случай 1: Промокод получен
                         showRewardClaimedModal();
+                    } else if (result && result.tickets_only) {
+                        // Случай 2: Получены только билеты
+                        const ticketStatsEl = document.getElementById('ticketStats');
+                        if (ticketStatsEl) {
+                            const currentTickets = parseInt(ticketStatsEl.textContent, 10);
+                            const newTotal = currentTickets + (result.tickets_awarded || 0);
+                            ticketStatsEl.textContent = newTotal;
+                        }
+                        showTicketsClaimedModal();
+                    } else {
+                        // Если что-то пошло не так, просто перезагружаем
+                        await main();
                     }
                 } catch (e) {
+                    // При ошибке возвращаем кнопку в исходное состояние
                     target.disabled = false;
+                    target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать</span>';
                 }
             } else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
                 const questId = target.dataset.id;
