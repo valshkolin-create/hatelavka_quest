@@ -298,7 +298,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .admin-controls {
     position: fixed;
     bottom: calc(60px + env(safe-area-inset-bottom) + 15px);
-    left: 50%;
+    left: 42%;
     transform: translateX(-50%);
     z-index: 1000;
     display: flex;
