@@ -233,7 +233,7 @@ body.is-admin .theme-switcher { display: flex; }
     padding: 0;
     border-radius: 16px;
     width: 100%;
-    max-width: 394px;
+    max-width: 385px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.7);
     display: flex;
     flex-direction: column;
@@ -391,3 +391,12 @@ body.edit-mode [data-editable]:hover {
     background-color: rgba(212, 51, 255, 0.1);
 }
 /* ===== КОНЕЦ СТИЛЕЙ АДМИНА ===== */
+/* --- ИСПРАВЛЕНИЕ ФОНА НА МОБИЛЬНЫХ --- */
+@media (max-width: 768px) {
+    body::after {
+        /* Отменяем 'fixed', чтобы исправить баг на iOS/Android. 
+           Фон все равно останется 'приклеенным', 
+           так как сам элемент body::after имеет position: fixed. */
+        background-attachment: scroll; 
+    }
+}
