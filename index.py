@@ -1523,7 +1523,7 @@ async def get_current_user_data(
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
-@app.post("/api/v1/admin/events/cauldron/update")
+@app.post("/api/v1/admin/cauldron/update")
 async def update_cauldron_event(
     request_data: CauldronUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
