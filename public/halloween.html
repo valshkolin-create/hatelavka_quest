@@ -39,6 +39,24 @@
             <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
         </header>
 
+        <section id="event-dates-section" class="event-dates-section">
+            <div id="event-dates-display" class="event-dates-display">
+                <p>
+                    <i class="fa-solid fa-calendar-days"></i>
+                    Даты проведения: <strong id="event-start-date">...</strong> – <strong id="event-end-date">...</strong>
+                </p>
+            </div>
+            <form id="admin-dates-form" class="admin-dates-form hidden">
+                <div class="admin-dates-inputs">
+                    <label for="admin-start-date">Начало:</label>
+                    <input type="date" id="admin-start-date">
+                    <label for="admin-end-date">Конец:</label>
+                    <input type="date" id="admin-end-date">
+                </div>
+                <button type="submit">Сохранить даты</button>
+            </form>
+            <div id="admin-dates-error" class="error-message hidden" style="text-align: center;"></div>
+        </section>
         <div class="rules-button-container">
             <button id="rules-button" class="rules-button">КАК ИГРАТЬ?</button>
         </div>
