@@ -2827,44 +2827,51 @@ async def update_submission_status(
         background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
         return {"message": "Заявка отклонена."}
 
-    elif action == 'approved':
+elif action == 'approved':
         try:
-            # --- НАЧАЛО ИЗМЕНЕНИЯ ---
-            # 1. Начисляем билеты из таблицы reward_rules в любом случае
+            # --- НАЧАЛО ИЗМЕНЕНИЯ: Убрана проверка admin_settings.quest_promocodes_enabled ---
+
+            # 1. Начисляем билеты ВСЕГДА при одобрении ручного квеста
             ticket_reward = await get_ticket_reward_amount("manual_quest_approval", supabase)
             if ticket_reward > 0:
                 await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_to_notify, "p_amount": ticket_reward})
+                logging.info(f"Начислено {ticket_reward} билета(ов) за ручной квест пользователю {user_to_notify}.")
+
+            # 2. Выдаем промокод ВСЕГДА при одобрении ручного квеста
+            # Эта RPC-функция также должна помечать заявку 'approved' в базе
+            response = await supabase.post(
+                "/rpc/award_reward_and_get_promocode",
+                json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
+            )
+            response.raise_for_status() # Проверяем, что RPC выполнилась успешно
+            promo_code = response.text.strip('"') # Получаем промокод из ответа RPC
+
+            # 3. Отправляем уведомление пользователю о билетах и промокоде
+            background_tasks.add_task(
+                send_approval_notification, # Используем твою функцию уведомления
+                user_id=user_to_notify,
+                quest_title=quest_title,
+                promo_code=promo_code
+                # Добавляем информацию о билетах в уведомление (если нужно, измени send_approval_notification)
+                # Например, можно добавить f" Также начислено {ticket_reward} билета(ов)." в текст сообщения
+            )
+
+            logging.info(f"Заявка {submission_id} одобрена. Билеты ({ticket_reward}) начислены, промокод '{promo_code}' отправляется.")
+            return {"message": "Заявка одобрена. Награда (билеты и промокод) отправляется пользователю.", "promocode": promo_code}
+
             # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-            admin_settings = await get_admin_settings_async(supabase)
-
-            if not admin_settings.quest_promocodes_enabled:
-                # Если промокоды выключены, просто завершаем квест
-                await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "approved"})
-                background_tasks.add_task(
-                    safe_send_message, 
-                    user_to_notify, 
-                    f"✅ Заявка на квест «{quest_title}» одобрена! Вам начислено {ticket_reward} билет(а/ов)."
-                )
-                return {"message": f"Заявка одобрена. {ticket_reward} билет(а/ов) начислено. Промокод не отправлен."}
-            else:
-                # Если промокоды включены, выдаем их
-                response = await supabase.post(
-                    "/rpc/award_reward_and_get_promocode",
-                    json={ "p_user_id": user_to_notify, "p_source_type": "manual_submission", "p_source_id": submission_id }
-                )
-                response.raise_for_status()
-                promo_code = response.text.strip('"')
-                background_tasks.add_task(send_approval_notification, user_to_notify, quest_title, promo_code)
-                return {"message": "Заявка одобрена. Награда отправляется пользователю.", "promocode": promo_code}
-
         except httpx.HTTPStatusError as e:
-            error_details = e.response.json().get("message", "Ошибка базы данных.")
+            # Обработка ошибок, если RPC award_reward_and_get_promocode вернула ошибку
+            # (например, не нашлось свободного промокода)
+            error_details = e.response.json().get("message", "Ошибка базы данных при выдаче награды.")
+            logging.error(f"Ошибка при одобрении заявки {submission_id}: {error_details}")
+            # Важно: Не меняем статус заявки на approved, если награду выдать не удалось
             raise HTTPException(status_code=400, detail=error_details)
         except Exception as e:
+            logging.error(f"Критическая ошибка при одобрении заявки {submission_id}: {e}", exc_info=True)
+            # Важно: Не меняем статус заявки на approved при неизвестной ошибке
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
-    else:
-        raise HTTPException(status_code=400, detail="Неверное действие.")
 
 # --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
 @app.get("/api/v1/leaderboard/wizebot")
