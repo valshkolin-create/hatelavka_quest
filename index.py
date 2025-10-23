@@ -43,6 +43,14 @@ sleep_cache = {
 }
 CACHE_DURATION_SECONDS = 43200 # Проверять базу данных только раз в 15 секунд
 
+# --- НОВЫЙ КЭШ ДЛЯ НАСТРОЕК АДМИНА ---
+admin_settings_cache = {
+    "settings": None, # Здесь будут храниться сами настройки (объект AdminSettings)
+    "last_checked": 0 # Unix timestamp
+}
+ADMIN_SETTINGS_CACHE_DURATION = 300 # Кэшировать настройки админа на 5 минут (300 секунд)
+# --- КОНЕЦ НОВОГО КЭША ---
+
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
     initData: str
@@ -576,46 +584,69 @@ async def track_message(message: types.Message, supabase: httpx.AsyncClient = De
         logging.error(f"Ошибка в handle_user_message для user_id={user.id}: {e}", exc_info=True)
 
 async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings:
-    """Вспомогательная функция для получения настроек админки."""
+    """Вспомогательная функция для получения настроек админки (с кэшированием)."""
+    now = time.time()
+    # Проверяем, есть ли валидный кэш
+    if admin_settings_cache["settings"] and (now - admin_settings_cache["last_checked"] < ADMIN_SETTINGS_CACHE_DURATION):
+        # logging.info("⚙️ Используем кэшированные настройки админа.") # Раскомментируй для отладки
+        return admin_settings_cache["settings"]
+
+    logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД...")
     try:
         resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
         resp.raise_for_status()
         data = resp.json()
         if data and data[0].get('value'):
             settings_data = data[0]['value']
-            
-            # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-            
-            # 👇 ВОТ ЗДЕСЬ НУЖНО ЗАМЕНИТЬ True НА False 👇
-            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False) #
+            # --- Логика парсинга boolean значений (остается без изменений) ---
+            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False)
             quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
 
             challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
             challenge_rewards_bool = challenge_rewards_raw if isinstance(challenge_rewards_raw, bool) else str(challenge_rewards_raw).lower() == 'true'
-            
+
             challenges_raw = settings_data.get('challenges_enabled', True)
             challenges_bool = challenges_raw if isinstance(challenges_raw, bool) else str(challenges_raw).lower() == 'true'
 
             quests_raw = settings_data.get('quests_enabled', True)
             quests_bool = quests_raw if isinstance(quests_raw, bool) else str(quests_raw).lower() == 'true'
-            
+
             checkpoint_raw = settings_data.get('checkpoint_enabled', False)
             checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
-            # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            # --- Конец логики парсинга ---
 
-            return AdminSettings(
+            # Создаем объект настроек
+            loaded_settings = AdminSettings(
+                skin_race_enabled=settings_data.get('skin_race_enabled', True), # Добавляем недостающие поля
+                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron"]),
                 challenge_promocodes_enabled=challenge_rewards_bool,
-                quest_promocodes_enabled=quest_rewards_bool, # Используем исправленную переменную
+                quest_promocodes_enabled=quest_rewards_bool,
                 challenges_enabled=challenges_bool,
                 quests_enabled=quests_bool,
-                checkpoint_enabled=checkpoint_bool
+                checkpoint_enabled=checkpoint_bool,
+                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png")
             )
+
+            # Сохраняем в кэш
+            admin_settings_cache["settings"] = loaded_settings
+            admin_settings_cache["last_checked"] = now
+            logging.info("✅ Настройки админа загружены и закэшированы.")
+            return loaded_settings
+        else:
+            logging.warning("Настройки 'admin_controls' не найдены в БД, используем дефолтные и кэшируем их.")
+            # Если в базе нет, кэшируем дефолтные, чтобы не запрашивать постоянно
+            default_settings = AdminSettings()
+            admin_settings_cache["settings"] = default_settings
+            admin_settings_cache["last_checked"] = now
+            return default_settings
+
     except Exception as e:
         logging.error(f"Не удалось получить admin_settings, используются значения по умолчанию: {e}")
-    
-    # Возвращаем дефолтные настройки, если в базе ничего нет или произошла ошибка
-    return AdminSettings()
-
+        # Возвращаем дефолтные настройки и НЕ кэшируем при ошибке, чтобы попробовать снова позже
+        admin_settings_cache["settings"] = None # Сбрасываем кэш при ошибке
+        admin_settings_cache["last_checked"] = 0
+        return AdminSettings()
 # --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ---
 async def get_ticket_reward_amount(action_type: str, supabase: httpx.AsyncClient) -> int:
     """Получает количество билетов для награды из таблицы reward_rules."""
