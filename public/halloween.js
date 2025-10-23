@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cauldronImage: document.getElementById('cauldron-image'),
         progressBarFill: document.getElementById('progress-bar-fill'),
         progressText: document.getElementById('progress-text'),
-        rewardSectionTitle: document.getElementById('reward-section-title'),
+        // rewardSectionTitle: document.getElementById('reward-section-title'), // <-- Этого ID нет в HTML, закомментировал
         rewardImage: document.getElementById('reward-image'),
         rewardName: document.getElementById('reward-name'),
         leaderboardRewardsList: document.getElementById('leaderboard-rewards-list'),
@@ -34,8 +34,17 @@ document.addEventListener('DOMContentLoaded', () => {
         viewerCloseBtn: document.querySelector('.viewer-close-btn'),
         viewerCaption: document.getElementById('viewer-caption'),
         defaultRewardZoomContainer: document.getElementById('default-reward-zoom-container'),
-        // --- ДОБАВЛЕН ЭЛЕМЕНТ ФЛАСКИ ---
-        flaskAnimation: document.getElementById('flask-animation')
+        flaskAnimation: document.getElementById('flask-animation'),
+
+        // --- ДОБАВЛЕНЫ ЭЛЕМЕНТЫ ДЛЯ ДАТ ---
+        eventDatesSection: document.getElementById('event-dates-section'),
+        eventDatesDisplay: document.getElementById('event-dates-display'),
+        eventStartDate: document.getElementById('event-start-date'),
+        eventEndDate: document.getElementById('event-end-date'),
+        adminDatesForm: document.getElementById('admin-dates-form'),
+        adminStartDate: document.getElementById('admin-start-date'),
+        adminEndDate: document.getElementById('admin-end-date'),
+        adminDatesError: document.getElementById('admin-dates-error')
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
@@ -80,29 +89,62 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
 
+    // --- ФУНКЦИИ ФОРМАТИРОВАНИЯ ДАТ ---
+    /** Преобразует ISO-строку (или Date) в формат 'YYYY-MM-DD' для <input type="date"> */
+    function formatDateToInput(isoString) {
+        if (!isoString) return '';
+        try {
+            return new Date(isoString).toISOString().split('T')[0];
+        } catch (e) {
+            console.warn(`[DATE] Не удалось отформатировать дату для input: ${isoString}`, e);
+            return '';
+        }
+    }
+    /** Преобразует ISO-строку (или Date) в формат 'DD.MM.YYYY' для отображения пользователю */
+    function formatDateToDisplay(isoString) {
+        if (!isoString) return '...';
+        try {
+            return new Date(isoString).toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (e) {
+            console.warn(`[DATE] Не удалось отформатировать дату для display: ${isoString}`, e);
+            return '...';
+        }
+    }
+    // --- КОНЕЦ ФУНКЦИЙ ФОРМАТИРОВАНИЯ ДАТ ---
+
+    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👇👇👇 ---
     function setTheme(themeName) {
         console.log(`[THEME] Устанавливаем тему: ${themeName}`);
         document.body.dataset.theme = themeName;
+        // Обновляем "активную" кнопку на переключателе
         dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.themeSet === themeName);
         });
 
-        if (currentUserData.is_admin) {
-            console.log('[THEME] Пользователь - админ. Сохраняем тему в localStorage.');
-            localStorage.setItem('adminSelectedTheme', themeName);
-        }
-        
+        // УДАЛЕНО: `localStorage.setItem`. Локальное хранилище админа
+        // больше не используется, тема всегда берется с сервера.
+
         const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
         
-        const { levels = {} } = currentEventData;
+        const { levels = {} } = currentEventData; // Убедимся, что currentEventData доступна
         const currentLevel = getCurrentLevel(currentEventData);
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const defaultReward = levelConfig.default_reward || {};
-        dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
-        console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
+        
+        // Обновляем картинку награды по умолчанию, если она зависит от темы
+        // (Мы проверяем, установлена ли картинка с сервера, и только если НЕТ, ставим картику из THEME_ASSETS)
+        if (dom.rewardImage.src.includes('URL_ВАШЕЙ_НАГРАДЫ')) { // Проверяем, не установлена ли уже кастомная
+             dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
+        }
+        console.log(`[THEME] Тема ${themeName} применена.`);
     }
+    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👆👆👆 ---
     
-function getCurrentLevel(eventData) {
+    function getCurrentLevel(eventData) {
         const { goals = {}, current_progress = 0 } = eventData;
         if (goals.level_3 && current_progress >= goals.level_3) return 4;
         if (goals.level_2 && current_progress >= goals.level_2) return 3;
@@ -112,21 +154,18 @@ function getCurrentLevel(eventData) {
     
     function renderPage(eventData, leaderboardData = {}) {
         console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
-        // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-        // Стабильная сортировка: сначала по вкладу (убывание), потом по имени (возрастание)
+        
+        // Стабильная сортировка (без изменений)
         if (leaderboardData.top20 && Array.isArray(leaderboardData.top20)) {
             leaderboardData.top20.sort((a, b) => {
                 const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
-                if (contributionDiff !== 0) {
-                    return contributionDiff;
-                }
-                // Если вклады одинаковые, сортируем по имени для стабильности
+                if (contributionDiff !== 0) return contributionDiff;
                 const nameA = a.full_name || '';
                 const nameB = b.full_name || '';
                 return nameA.localeCompare(nameB);
             });
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+        
         currentEventData = eventData;
         const isAdmin = currentUserData.is_admin;
         const canViewEvent = eventData && (eventData.is_visible_to_users || isAdmin);
@@ -139,6 +178,20 @@ function getCurrentLevel(eventData) {
         }
 
         dom.adminNotice.classList.toggle('hidden', !(isAdmin && !eventData.is_visible_to_users));
+
+        // --- ЛОГИКА ДЛЯ ОТОБРАЖЕНИЯ/РЕДАКТИРОВАНИЯ ДАТ ---
+        if (isAdmin) {
+            dom.adminDatesForm.classList.remove('hidden');
+            dom.eventDatesDisplay.classList.add('hidden');
+            dom.adminStartDate.value = formatDateToInput(eventData.start_date);
+            dom.adminEndDate.value = formatDateToInput(eventData.end_date);
+        } else {
+            dom.adminDatesForm.classList.add('hidden');
+            dom.eventDatesDisplay.classList.remove('hidden');
+            dom.eventStartDate.textContent = formatDateToDisplay(eventData.start_date);
+            dom.eventEndDate.textContent = formatDateToDisplay(eventData.end_date);
+        }
+        // --- КОНЕЦ ЛОГИКИ ДАТ ---
 
         const { goals = {}, levels = {}, current_progress = 0 } = eventData || {};
         const top20 = leaderboardData.top20 || [];
@@ -169,13 +222,14 @@ function getCurrentLevel(eventData) {
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
         console.log(`[RENDER] Прогресс-бар обновлен: ${progressPercentage.toFixed(2)}%`);
         
-        if (dom.rewardSectionTitle) {
-            dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
-        }
+        // if (dom.rewardSectionTitle) {
+        //     dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
+        // }
         
         const defaultRewardName = defaultReward.name || 'Награда не настроена';
         dom.rewardName.textContent = defaultRewardName;
         const activeTheme = document.body.dataset.theme || 'halloween';
+        // Устанавливаем картинку с сервера, если она есть, иначе - из ассетов темы
         dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
         dom.defaultRewardZoomContainer.dataset.itemName = defaultRewardName;
 
@@ -214,6 +268,7 @@ function getCurrentLevel(eventData) {
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
 
+    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👇👇👇 ---
     async function fetchDataAndRender() {
         console.log('1. [MAIN] Вызвана функция fetchDataAndRender.');
         try {
@@ -228,14 +283,17 @@ function getCurrentLevel(eventData) {
             currentUserData = userData;
             console.log('3. [MAIN] Данные пользователя сохранены.', currentUserData);
 
+            // ДОБАВЛЯЕМ КЛАСС АДМИНА
             if (currentUserData.is_admin) {
                 document.body.classList.add('is-admin');
-                const savedTheme = localStorage.getItem('adminSelectedTheme') || 'halloween';
-                setTheme(savedTheme);
-            } else {
-                const globalTheme = eventData.current_theme || 'halloween'; 
-                setTheme(globalTheme);
             }
+            
+            // ИСПРАВЛЕНА ЛОГИКА ТЕМ:
+            // Тема ВСЕГДА берется с сервера (`eventData.current_theme`).
+            // `setTheme` просто применит ее (и для админа, и для юзера).
+            const globalTheme = eventData.current_theme || 'halloween'; 
+            setTheme(globalTheme);
+            console.log(`[MAIN] Установлена глобальная тема с сервера: ${globalTheme}`);
             
             dom.userTicketBalance.textContent = currentUserData.tickets || 0;
             console.log('4. [MAIN] Баланс пользователя установлен. Вызываем renderPage.');
@@ -251,10 +309,11 @@ function getCurrentLevel(eventData) {
             dom.appContainer.classList.remove('hidden');
         }
     }
+    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👆👆👆 ---
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
-    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА 👇👇👇 ---
+    // Обработчик вклада (без изменений)
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const submitButton = dom.contributionForm.querySelector('button[type="submit"]');
@@ -277,19 +336,14 @@ function getCurrentLevel(eventData) {
         submitButton.disabled = true;
 
         try {
-            // Шаг 1: Отправляем запрос на сервер. В этот момент запускается и триггер для OBS.
             const result = await makeApiRequest('/api/v1/events/cauldron/contribute', { amount });
             
-            // --- УЛУЧШЕНИЕ: Мгновенное обновление баланса ---
-            // Сразу после успешного ответа от сервера, обновляем баланс на странице.
-            tg.showAlert("Ваш вклад принят!"); // Показываем стандартное уведомление
+            tg.showAlert("Ваш вклад принят!"); 
             currentUserData.tickets = result.new_ticket_balance;
             dom.userTicketBalance.textContent = result.new_ticket_balance;
             dom.ticketsInput.value = '';
             console.log('[EVENT] Баланс пользователя мгновенно обновлен на странице.');
-            // --- КОНЕЦ УЛУЧШЕНИЯ ---
 
-            // Шаг 2: Запускаем ЛОКАЛЬНУЮ анимацию фласки на странице
             const flask = dom.flaskAnimation;
             const cauldron = dom.cauldronImage;
 
@@ -310,7 +364,6 @@ function getCurrentLevel(eventData) {
             flask.classList.add('animate');
             cauldron.classList.add('pulse');
 
-            // Шаг 3: После завершения локальной анимации, обновляем остальную часть страницы
             setTimeout(() => {
                 flask.classList.remove('animate');
                 cauldron.classList.remove('pulse');
@@ -320,39 +373,93 @@ function getCurrentLevel(eventData) {
             }, 1200);
 
         } catch(error) {
-            // Проверяем, содержит ли сообщение об ошибке ключевую фразу
             if (error.message && error.message.includes("трейд-ссылку")) {
-                // Если да, показываем диалоговое окно Telegram
                 tg.showConfirm(
                     "Пожалуйста, укажите вашу трейд-ссылку в профиле для участия. Перейти в профиль сейчас?",
                     (ok) => {
                         if (ok) {
-                            // Если пользователь нажал "ОК", перенаправляем его в профиль
                             window.location.href = '/profile';
                         }
                     }
                 );
             } else {
-                // Для всех остальных ошибок показываем стандартное сообщение
                 dom.errorMessage.textContent = error.message;
                 dom.errorMessage.classList.remove('hidden');
-        }
+            }
         } finally {
             setTimeout(() => {
                  submitButton.disabled = false;
             }, 1500);
         }
     });
-    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА 👆👆👆 ---
 
-    dom.themeSwitcher.addEventListener('click', (e) => {
+
+    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👇👇👇 ---
+    // Обработчик смены темы (теперь асинхронный и отправляет API)
+    dom.themeSwitcher.addEventListener('click', async (e) => {
         const button = e.target.closest('.theme-btn');
         if (button && button.dataset.themeSet) {
-            console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${button.dataset.themeSet}`);
-            setTheme(button.dataset.themeSet);
+            const themeName = button.dataset.themeSet;
+            console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${themeName}`);
+            
+            // 1. Сразу меняем тему локально для админа (для UI отклика)
+            setTheme(themeName); 
+            
+            try {
+                // 2. Отправляем изменение на сервер, чтобы оно стало глобальным
+                await makeApiRequest('/api/v1/events/cauldron/admin/set-theme', { theme: themeName });
+                console.log(`[API SUCCESS] Глобальная тема успешно обновлена на ${themeName}`);
+            } catch (error) {
+                console.error('[API ERROR] Не удалось обновить тему на сервере:', error);
+                tg.showAlert('Ошибка при смене темы на сервере. Тема может не сохраниться для других пользователей.');
+            }
         }
     });
+    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👆👆👆 ---
 
+    // --- 👇👇👇 НАЧАЛО НОВОГО БЛОКА (ФОРМА ДАТ) 👇👇👇 ---
+    dom.adminDatesForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = dom.adminDatesForm.querySelector('button[type="submit"]');
+        console.log('[EVENT] Админ сохраняет даты.');
+        
+        dom.adminDatesError.classList.add('hidden');
+        submitButton.disabled = true;
+
+        const startDate = dom.adminStartDate.value;
+        const endDate = dom.adminEndDate.value;
+
+        if (!startDate || !endDate) {
+            dom.adminDatesError.textContent = 'Обе даты должны быть заполнены.';
+            dom.adminDatesError.classList.remove('hidden');
+            submitButton.disabled = false;
+            return;
+        }
+
+        try {
+            // Предполагаемый API эндпоинт. Замени, если он другой.
+            const result = await makeApiRequest('/api/v1/events/cauldron/admin/update-details', {
+                start_date: new Date(startDate).toISOString(),
+                end_date: new Date(endDate).toISOString()
+            });
+            
+            // Обновляем локальные данные, чтобы не перезагружать всю страницу
+            currentEventData.start_date = result.event.start_date;
+            currentEventData.end_date = result.event.end_date;
+            
+            tg.showAlert('Даты ивента успешно обновлены!');
+
+        } catch (error) {
+            dom.adminDatesError.textContent = `Ошибка: ${error.message}`;
+            dom.adminDatesError.classList.remove('hidden');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+    // --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА (ФОРМА ДАТ) 👆👆👆 ---
+
+
+    // Обработчик модалки правил
     dom.rulesButton.addEventListener('click', () => {
         dom.rulesModal.classList.remove('hidden');
         dom.rulesButton.classList.remove('highlight');
@@ -366,9 +473,7 @@ function getCurrentLevel(eventData) {
         }
     });
 
-    // --- ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ: ДЛЯ ПРОСМОТРА ИЗОБРАЖЕНИЙ ---
-    
-    // Открытие просмотрщика по клику на контейнер с изображением
+    // Обработчики просмотра изображений (без изменений)
     dom.appContainer.addEventListener('click', (e) => {
         const zoomContainer = e.target.closest('.image-zoom-container');
         if (!zoomContainer) return;
@@ -383,14 +488,12 @@ function getCurrentLevel(eventData) {
         }
     });
 
-    // Закрытие просмотрщика по клику на крестик
     dom.viewerCloseBtn.addEventListener('click', () => {
         dom.imageViewerModal.classList.add('hidden');
         dom.viewerImage.src = ''; 
         dom.viewerCaption.textContent = ''; 
     });
 
-    // Закрытие просмотрщика по клику на оверлей (фон)
     dom.imageViewerModal.addEventListener('click', (e) => {
         if (e.target === dom.imageViewerModal) {
             dom.imageViewerModal.classList.add('hidden');
@@ -405,7 +508,7 @@ function getCurrentLevel(eventData) {
     console.log('[INIT] Telegram.WebApp.ready() вызван.');
     tg.expand();
     console.log('[INIT] Telegram.WebApp.expand() вызван.');
-    fetchDataAndRender();
+    fetchDataAndRender(); // Первый запуск
 
     const rulesViewed = localStorage.getItem('cauldronRulesViewed');
     if (!rulesViewed) {
