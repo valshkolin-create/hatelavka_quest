@@ -1,10 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ... (начало скрипта без изменений) ...
+    console.log('[INIT] DOMContentLoaded сработало. Начинаем инициализацию скрипта.');
+
     const tg = window.Telegram.WebApp;
-    if (!tg) { /* ... */ return; }
+    if (!tg) {
+        console.error('[INIT] Объект window.Telegram.WebApp не найден! Скрипт не сможет работать.');
+        document.body.innerHTML = '<h2>Ошибка: Не удалось инициализировать Telegram Web App.</h2>';
+        return;
+    }
+    console.log('[INIT] Объект Telegram Web App успешно получен.');
 
     const dom = {
-        // ... (остальные элементы dom) ...
         loaderOverlay: document.getElementById('loader-overlay'),
         appContainer: document.getElementById('app-container'),
         adminNotice: document.getElementById('admin-notice'),
@@ -37,17 +42,25 @@ document.addEventListener('DOMContentLoaded', () => {
         adminDatesForm: document.getElementById('admin-dates-form'),
         adminStartDate: document.getElementById('admin-start-date'),
         adminEndDate: document.getElementById('admin-end-date'),
-        // --- ДОБАВЛЕНА КНОПКА-ТОГГЛ ---
-        toggleEditBtn: document.getElementById('toggle-edit-btn') 
+        toggleEditBtn: document.getElementById('toggle-edit-btn')
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
-    // --- Определение функции handleApiError ---
+    const THEME_ASSETS = {
+        halloween: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png' },
+        new_year: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png' },
+        classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }
+    };
+
+    const FALLBACK_CAULDRON_URL = 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
+
+    let currentUserData = {};
+    let currentEventData = {};
+
     async function handleApiError(error) {
         let errorMessage = 'Произошла неизвестная ошибка.';
-        // ... (логика разбора ошибки, как в events.html)
-        if (error instanceof Response || (error.response && error.response.status)) {
-            const response = error instanceof Response ? error : error.response;
+        if (error.response && error.response.status) {
+            const response = error.response;
              try {
                  const errorData = await response.json();
                  errorMessage = errorData.detail || `Ошибка ${response.status}`;
@@ -56,28 +69,16 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         } else if (error instanceof Error) {
             errorMessage = error.message;
+        } else if (error.detail) { // Обработка нашей кастомной ошибки
+             errorMessage = error.detail;
         }
 
         try { tg.showAlert(errorMessage); } catch(e) { alert(errorMessage); }
         console.error("ПОЛНЫЙ ОТВЕТ ОБ ОШИБКЕ:", error);
     }
-    // --- Конец определения handleApiError ---
-
-
-    // ... (THEME_ASSETS, FALLBACK_CAULDRON_URL, currentUserData, currentEventData) ...
-    const THEME_ASSETS = {
-        halloween: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png' },
-        new_year: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png' },
-        classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }
-    };
-    const FALLBACK_CAULDRON_URL = 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
-    let currentUserData = {};
-    let currentEventData = {};
-
 
     async function makeApiRequest(url, body = {}, method = 'POST') {
-        // ... (без изменений) ...
-         console.log(`[API] Начинаем запрос на ${url} методом ${method}`);
+        console.log(`[API] Начинаем запрос на ${url} методом ${method}`);
         try {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
@@ -85,46 +86,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const response = await fetch(url, options);
             console.log(`[API] Получен ответ от ${url}. Статус: ${response.status}`);
-            
+
             if (!response.ok) {
-                // Пытаемся получить JSON с ошибкой
                 let errorData;
                 try {
                     errorData = await response.json();
                 } catch (jsonError) {
-                    // Если тело ответа не JSON или пустое
                     errorData = { detail: response.statusText || `Ошибка ${response.status}` };
                 }
                 console.error(`[API ERROR] Ошибка от сервера (${url}):`, errorData);
-                 // Передаем весь объект ошибки, чтобы handleApiError мог его разобрать
-                throw { response, detail: errorData.detail }; 
+                throw { response, detail: errorData.detail };
             }
-            
+
             const data = await response.json();
             console.log(`[API SUCCESS] Успешно получили и распарсили JSON от ${url}`, data);
             return data;
         } catch (e) {
             console.error(`[API FATAL] Критическая ошибка при запросе на ${url}:`, e);
-            // Если это уже наша кастомная ошибка, пробрасываем ее дальше
             if (e.response) {
-                throw e;
+                throw e; // Пробрасываем кастомную ошибку
             }
-            // Иначе создаем стандартную ошибку
-            throw new Error(e.message || 'Сетевая ошибка');
+            throw new Error(e.message || 'Сетевая ошибка'); // Создаем стандартную
         }
     }
 
-    // ... (escapeHTML, formatDateToInput, formatDateToDisplay, setTheme, getCurrentLevel, renderPage) ...
-     function escapeHTML(str) { /* ... */ }
-    function formatDateToInput(isoString) { /* ... */ }
-    function formatDateToDisplay(isoString) { /* ... */ }
-    function setTheme(themeName) { /* ... */ }
-    function getCurrentLevel(eventData) { /* ... */ }
-    function renderPage(eventData, leaderboardData = {}) { /* ... */ }
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
+
     function formatDateToInput(isoString) {
         if (!isoString) return '';
         try {
@@ -135,15 +125,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const hh = String(date.getHours()).padStart(2, '0');
             const min = String(date.getMinutes()).padStart(2, '0');
             return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-        } catch (e) { return ''; }
+        } catch (e) { console.warn(`[DATE] Input format error: ${isoString}`, e); return ''; }
     }
     function formatDateToDisplay(isoString) {
         if (!isoString) return '...';
         try {
             return new Date(isoString).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-        } catch (e) { return '...'; }
+        } catch (e) { console.warn(`[DATE] Display format error: ${isoString}`, e); return '...'; }
     }
-     function setTheme(themeName) {
+
+    function setTheme(themeName) {
         console.log(`[THEME] Устанавливаем тему: ${themeName}`);
         document.body.dataset.theme = themeName;
         dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
@@ -154,36 +145,47 @@ document.addEventListener('DOMContentLoaded', () => {
             currentEventData.current_theme = themeName;
         }
         const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
-        const { levels = {} } = currentEventData;
+        const { levels = {} } = currentEventData || {}; // Добавил || {}
         const currentLevel = getCurrentLevel(currentEventData);
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const defaultReward = levelConfig.default_reward || {};
         dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
         console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
     }
+
     function getCurrentLevel(eventData) {
-        const { goals = {}, current_progress = 0 } = eventData || {}; // Добавил || {} для безопасности
+        const { goals = {}, current_progress = 0 } = eventData || {};
         if (goals.level_3 && current_progress >= goals.level_3) return 4;
         if (goals.level_2 && current_progress >= goals.level_2) return 3;
         if (goals.level_1 && current_progress >= goals.level_1) return 2;
         return 1;
     }
+
     function renderPage(eventData, leaderboardData = {}) {
         console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
-        
+
         if (leaderboardData.top20 && Array.isArray(leaderboardData.top20)) {
-            leaderboardData.top20.sort((a, b) => { /* ... */ });
+            leaderboardData.top20.sort((a, b) => {
+                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
+                if (contributionDiff !== 0) return contributionDiff;
+                const nameA = a.full_name || '';
+                const nameB = b.full_name || '';
+                return nameA.localeCompare(nameB);
+            });
         }
-        
+
         if (eventData) { currentEventData = eventData; }
-        
+
         const isAdmin = currentUserData.is_admin;
         const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
 
-        if (!canViewEvent) { /* ... */ return; }
+        if (!canViewEvent) {
+            document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>';
+            return;
+        }
 
         dom.adminNotice.classList.toggle('hidden', !(isAdmin && !currentEventData.is_visible_to_users));
-        if (isAdmin) { dom.adminControls.classList.remove('hidden'); }
+        if (isAdmin && dom.adminControls) { dom.adminControls.classList.remove('hidden'); }
 
         if (currentEventData.start_date && currentEventData.end_date) {
             dom.eventDatesDisplay.innerHTML = `<i class="fa-solid fa-calendar-days"></i><span>${formatDateToDisplay(currentEventData.start_date)} - ${formatDateToDisplay(currentEventData.end_date)}</span>`;
@@ -197,13 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cauldronImageUrl = currentEventData[`cauldron_image_url_${currentLevel}`] || currentEventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
         dom.cauldronImage.src = cauldronImageUrl;
-        
+
         let currentGoal = 1, prevGoal = 0;
         if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
         else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
         else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
         else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
-        
+
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const topPlaceRewards = levelConfig.top_places || [];
         const defaultReward = levelConfig.default_reward || {};
@@ -214,27 +216,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
-        
+
         const defaultRewardName = defaultReward.name || 'Награда не настроена';
         dom.rewardName.textContent = defaultRewardName;
         const activeTheme = document.body.dataset.theme || 'halloween';
         dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
         dom.defaultRewardZoomContainer.dataset.itemName = defaultRewardName;
 
-        dom.leaderboardRewardsList.innerHTML = top20.length === 0 
+        dom.leaderboardRewardsList.innerHTML = top20.length === 0
             ? '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>'
-            : top20.map((p, index) => { /* ... */ }).join('');
-         if (leaderboardData.top20 && Array.isArray(leaderboardData.top20)) {
-            leaderboardData.top20.sort((a, b) => {
-                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
-                if (contributionDiff !== 0) return contributionDiff;
-                const nameA = a.full_name || '';
-                const nameB = b.full_name || '';
-                return nameA.localeCompare(nameB);
-            });
-        }
-        if (top20.length > 0) {
-            dom.leaderboardRewardsList.innerHTML = top20.map((p, index) => {
+            : top20.map((p, index) => {
                 const rank = index + 1;
                 const contributionAmount = p.total_contribution || 0;
                 const assignedReward = topPlaceRewards.find(r => r.place === rank);
@@ -256,18 +247,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="contribution align-right">${contributionAmount} 🎟️</span>
                 </div>`;
             }).join('');
-        }
-            
+
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
 
-
-    async function fetchDataAndRender(leaderboardOnly = false) { /* ... без изменений ... */ }
-     async function fetchDataAndRender(leaderboardOnly = false) {
+    async function fetchDataAndRender(leaderboardOnly = false) {
         console.log(`1. [MAIN] Вызвана функция fetchDataAndRender. leaderboardOnly: ${leaderboardOnly}`);
         try {
             let leaderboardData;
-            
+
             if (!leaderboardOnly) {
                 console.log('1.1. [MAIN] Полная загрузка (Promise.all).');
                 const [eventData, lbData, userData] = await Promise.all([
@@ -276,8 +264,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     makeApiRequest("/api/v1/user/me", {}, 'POST')
                 ]);
                 console.log('2. [MAIN] Все данные из Promise.all успешно получены.');
-                
-                currentEventData = eventData; 
+
+                currentEventData = eventData;
                 currentUserData = userData;
                 leaderboardData = lbData;
                 console.log('3. [MAIN] Данные пользователя сохранены.', currentUserData);
@@ -285,11 +273,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentUserData.is_admin) {
                     document.body.classList.add('is-admin');
                 }
-                
-                const globalTheme = currentEventData.current_theme || 'halloween'; 
-                setTheme(globalTheme); // Устанавливаем тему (и локально для админа, если надо)
+
+                const globalTheme = currentEventData.current_theme || 'halloween';
+                setTheme(globalTheme);
                 console.log(`[MAIN] Установлена глобальная тема с сервера: ${globalTheme}`);
-                
+
                 dom.userTicketBalance.textContent = currentUserData.tickets || 0;
             } else {
                  console.log('1.1. [MAIN] Загрузка только лидерборда.');
@@ -302,10 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (e) {
             console.error('X. [MAIN CATCH] Перехвачена ошибка в fetchDataAndRender:', e);
-            // Используем handleApiError для отображения ошибки пользователю
-            handleApiError(e); 
-             // Можно также показать сообщение об ошибке прямо на странице
-            // document.body.innerHTML = `<h2 style="text-align:center; padding-top: 50px;">Ошибка загрузки ивента: ${e.detail || e.message}</h2>`;
+            handleApiError(e); // Используем handleApiError
         } finally {
             if (!leaderboardOnly) {
                 console.log('6. [MAIN FINALLY] Блок finally. Скрываем загрузчик.');
@@ -315,16 +300,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
-    dom.contributionForm.addEventListener('submit', async (e) => { /* ... без изменений ... */ });
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const submitButton = dom.contributionForm.querySelector('button[type="submit"]');
         dom.errorMessage.classList.add('hidden');
         const amount = parseInt(dom.ticketsInput.value, 10);
-        
+
         if (!amount || amount <= 0 || amount > (currentUserData.tickets || 0)) {
              dom.errorMessage.textContent = amount > (currentUserData.tickets || 0) ? 'У вас недостаточно билетов.' : 'Введите корректное количество билетов.';
              dom.errorMessage.classList.remove('hidden');
@@ -333,10 +316,11 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.disabled = true;
         try {
             const result = await makeApiRequest('/api/v1/events/cauldron/contribute', { amount });
-            tg.showAlert("Ваш вклад принят!"); 
+            tg.showAlert("Ваш вклад принят!");
             currentUserData.tickets = result.new_ticket_balance;
             dom.userTicketBalance.textContent = result.new_ticket_balance;
             dom.ticketsInput.value = '';
+
             const flask = dom.flaskAnimation;
             const cauldron = dom.cauldronImage;
             const btnRect = submitButton.getBoundingClientRect();
@@ -351,19 +335,20 @@ document.addEventListener('DOMContentLoaded', () => {
             flask.style.setProperty('--end-y', `${endY}px`);
             flask.classList.add('animate');
             cauldron.classList.add('pulse');
+
             setTimeout(() => {
                 flask.classList.remove('animate');
                 cauldron.classList.remove('pulse');
-                fetchDataAndRender(true); 
+                fetchDataAndRender(true);
             }, 1200);
         } catch(error) {
-             if (error.detail && error.detail.includes("трейд-ссылку")) { // Проверяем error.detail
+             if (error.detail && error.detail.includes("трейд-ссылку")) {
                  tg.showConfirm(
                      "Пожалуйста, укажите вашу трейд-ссылку в профиле для участия. Перейти в профиль сейчас?",
                      (ok) => { if (ok) window.location.href = '/profile'; }
                  );
              } else {
-                 dom.errorMessage.textContent = error.detail || error.message; // Показываем error.detail или error.message
+                 dom.errorMessage.textContent = error.detail || error.message;
                  dom.errorMessage.classList.remove('hidden');
              }
         } finally {
@@ -371,86 +356,82 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
-    // --- ОБНОВЛЕННАЯ ЛОГИКА АДМИН-ПАНЕЛИ ---
+    // --- ЛОГИКА АДМИН-ПАНЕЛИ ---
 
     // Клик по кнопке-тогглу
     dom.toggleEditBtn.addEventListener('click', () => {
-        dom.adminControls.classList.toggle('expanded');
+        const isAdminPanelExpanded = dom.adminControls.classList.toggle('expanded');
+        // Если панель свернута и мы были в режиме редактирования, выходим из него
+        if (!isAdminPanelExpanded && document.body.classList.contains('edit-mode')) {
+             document.body.classList.remove('edit-mode');
+             dom.adminControls.classList.remove('edit-mode-active');
+        }
     });
 
     // Клик по кнопке "Редактировать"
     dom.editBtn.onclick = () => {
         document.body.classList.add('edit-mode');
         dom.adminControls.classList.add('edit-mode-active');
-        // Кнопки уже видимы, т.к. есть класс 'expanded'
     };
-    
+
     // Клик по кнопке "Сохранить"
     dom.saveBtn.onclick = async () => {
         dom.saveBtn.disabled = true;
         dom.saveBtn.textContent = 'Сохранение...';
         try {
-            // АПИ эндпоинт для сохранения
-            // ВАЖНО: Убедись, что `/api/v1/admin/cauldron/update` существует и работает на бэкенде!
             const response = await makeApiRequest(
-                '/api/v1/admin/cauldron/update', 
-                { content: currentEventData } 
+                '/api/v1/admin/cauldron/update', // Убедись, что этот URL правильный на бэкенде!
+                { content: currentEventData }
             );
-            
+
             tg.showAlert('Изменения сохранены!');
-            
-            // Сворачиваем панель и выходим из режима редактирования
+
             document.body.classList.remove('edit-mode');
             dom.adminControls.classList.remove('edit-mode-active');
-            dom.adminControls.classList.remove('expanded'); // <--- Сворачиваем панель
-            
-            // Обновляем данные с сервера (если нужно)
+            dom.adminControls.classList.remove('expanded'); // Сворачиваем панель
+
             if(response.updated_content) {
                  currentEventData = response.updated_content;
             }
             renderPage(null, {}); // Перерисовка
 
         } catch (e) {
-            handleApiError(e); // Используем общую функцию обработки ошибок
+            handleApiError(e);
         } finally {
             dom.saveBtn.disabled = false;
             dom.saveBtn.textContent = 'Сохранить';
         }
     };
 
-    // Глобальный обработчик кликов (для режима редактирования)
+    // Глобальный обработчик кликов
     document.body.addEventListener('click', async (e) => {
-         // --- Логика для НЕ-админов (просмотр картинок, правила) ---
+         // --- Логика для НЕ-админов (просмотр картинок) ---
         if (!document.body.classList.contains('edit-mode')) {
              const zoomContainer = e.target.closest('.image-zoom-container');
              if (zoomContainer) {
                  const imageToZoom = zoomContainer.querySelector('img');
-                 const itemName = zoomContainer.dataset.itemName; 
+                 const itemName = zoomContainer.dataset.itemName;
                  if (imageToZoom && imageToZoom.src) {
                      dom.viewerImage.src = imageToZoom.src;
-                     dom.viewerCaption.textContent = itemName || ''; 
-                     showModal(dom.imageViewerModal); // Используем showModal
+                     dom.viewerCaption.textContent = itemName || '';
+                     showModal(dom.imageViewerModal);
                  }
-                 return; // Выходим, чтобы не сработала админская логика
+                 return; // Выходим
              }
-             // Можно добавить сюда обработчик кнопки правил, если он нужен здесь
-             // ...
         }
-
 
         // --- Логика ТОЛЬКО для админов в режиме редактирования ---
         if (document.body.classList.contains('edit-mode')) {
-            // Клик по элементу [data-editable="dates"]
+            // Клик по [data-editable="dates"]
             const editableText = e.target.closest('[data-editable="dates"]');
             if (editableText) {
                 console.log('[ADMIN] Открываем модальное окно дат');
                 dom.adminStartDate.value = formatDateToInput(currentEventData.start_date);
                 dom.adminEndDate.value = formatDateToInput(currentEventData.end_date);
-                showModal(dom.adminDatesModal); // Используем showModal
+                showModal(dom.adminDatesModal);
             }
 
-            // Клик по смене темы (только в режиме edit-mode)
+            // Клик по смене темы
             const themeButton = e.target.closest('.theme-btn');
             if (themeButton && themeButton.dataset.themeSet) {
                 console.log(`[ADMIN] Тема изменена локально на: ${themeButton.dataset.themeSet}`);
@@ -464,41 +445,40 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const startDateLocal = new Date(dom.adminStartDate.value);
         const endDateLocal = new Date(dom.adminEndDate.value);
+        // Преобразуем в ISO строку (UTC) для сохранения
         currentEventData.start_date = startDateLocal.toISOString();
         currentEventData.end_date = endDateLocal.toISOString();
-        console.log('[ADMIN] Даты сохранены локально:', currentEventData.start_date);
-        hideModal(dom.adminDatesModal); // Используем hideModal
-        renderPage(null, {}); 
-    });
 
+        console.log('[ADMIN] Даты сохранены локально:', currentEventData.start_date, currentEventData.end_date);
+
+        hideModal(dom.adminDatesModal);
+        renderPage(null, {}); // Перерисовываем страницу, используя currentEventData
+    });
     // --- КОНЕЦ ЛОГИКИ АДМИН-ПАНЕЛИ ---
 
 
     // Обработчик модалки правил
     dom.rulesButton.addEventListener('click', () => {
-        showModal(dom.rulesModal); // Используем showModal
+        showModal(dom.rulesModal);
         dom.rulesButton.classList.remove('highlight');
-        dom.tutorialOverlay.classList.add('hidden'); 
+        dom.tutorialOverlay.classList.add('hidden');
         localStorage.setItem('cauldronRulesViewed', 'true');
     });
 
-    // Обработчики просмотра изображений (перенесены в общий обработчик кликов)
-    // dom.appContainer.addEventListener('click', (e) => { ... }); // Удалено
-    dom.viewerCloseBtn.addEventListener('click', () => hideModal(dom.imageViewerModal)); // Используем hideModal
-    
+    // Закрытие просмотрщика
+    dom.viewerCloseBtn.addEventListener('click', () => hideModal(dom.imageViewerModal));
+
     // --- УНИВЕРСАЛЬНЫЕ ФУНКЦИИ МОДАЛОК ---
     function showModal(modalElement) {
         modalElement.classList.remove('hidden');
-        // Прячем кнопки админа только если панель НЕ развернута
         if (dom.adminControls && !dom.adminControls.classList.contains('expanded')) {
              dom.adminControls.style.display = 'none';
         }
     }
     function hideModal(modalElement) {
         modalElement.classList.add('hidden');
-        // Показываем кнопки админа обратно, если он админ
         if (currentUserData.is_admin && dom.adminControls) {
-            dom.adminControls.style.display = 'flex'; // Используем flex, т.к. у нас flex-контейнер
+            dom.adminControls.style.display = 'flex';
         }
     }
 
@@ -510,14 +490,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-    
+
     // --- ИНИЦИАЛИЗАЦИЯ ---
     console.log('[INIT] Добавляем обработчики событий.');
     tg.ready();
     console.log('[INIT] Telegram.WebApp.ready() вызван.');
     tg.expand();
     console.log('[INIT] Telegram.WebApp.expand() вызван.');
-    fetchDataAndRender(); 
+    fetchDataAndRender();
 
     const rulesViewed = localStorage.getItem('cauldronRulesViewed');
     if (!rulesViewed) {
