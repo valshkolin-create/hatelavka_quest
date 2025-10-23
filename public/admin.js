@@ -1228,7 +1228,7 @@ async function renderCauldronParticipants() {
                             const currentStatus = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                             eventData.current_progress = currentStatus.current_progress || 0; // Сохраняем текущий прогресс
                             
-                            await makeApiRequest('/api/v1/admin/events/cauldron/update', { content: eventData });
+                            await makeApiRequest('/api/v1/admin/cauldron/update', { content: eventData });
                             tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
                         } catch (error) {
                             tg.showAlert(`Ошибка сохранения: ${error.message}`);
