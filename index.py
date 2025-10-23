@@ -48,7 +48,7 @@ admin_settings_cache = {
     "settings": None, # Здесь будут храниться сами настройки (объект AdminSettings)
     "last_checked": 0 # Unix timestamp
 }
-ADMIN_SETTINGS_CACHE_DURATION = 300 # Кэшировать настройки админа на 5 минут (300 секунд)
+ADMIN_SETTINGS_CACHE_DURATION = 900 # Кэшировать настройки админа на 5 минут (300 секунд)
 # --- КОНЕЦ НОВОГО КЭША ---
 
 # --- Pydantic Models ---
