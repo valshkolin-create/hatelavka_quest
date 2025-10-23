@@ -2827,7 +2827,8 @@ async def update_submission_status(
         background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
         return {"message": "Заявка отклонена."}
 
-elif action == 'approved':
+    # --- 👇 CORRECTED INDENTATION FOR ELIF 👇 ---
+    elif action == 'approved':
         try:
             # --- НАЧАЛО ИЗМЕНЕНИЯ: Убрана проверка admin_settings.quest_promocodes_enabled ---
 
@@ -2872,7 +2873,9 @@ elif action == 'approved':
             logging.error(f"Критическая ошибка при одобрении заявки {submission_id}: {e}", exc_info=True)
             # Важно: Не меняем статус заявки на approved при неизвестной ошибке
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
-
+    # --- 👇 CORRECTED INDENTATION FOR ELSE 👇 ---
+    else:
+        raise HTTPException(status_code=400, detail="Неверное действие.")
 # --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
 @app.get("/api/v1/leaderboard/wizebot")
 async def get_wizebot_leaderboard(sub_type: str = "ALL", limit: int = 50):
