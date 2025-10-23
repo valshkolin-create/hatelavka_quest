@@ -39,24 +39,8 @@
             <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
         </header>
 
-        <section id="event-dates-section" class="event-dates-section">
-            <div id="event-dates-display" class="event-dates-display">
-                <p>
-                    <i class="fa-solid fa-calendar-days"></i>
-                    Даты проведения: <strong id="event-start-date">...</strong> – <strong id="event-end-date">...</strong>
-                </p>
+        <div id="event-dates-display" class="event-timer" data-editable="dates">
             </div>
-            <form id="admin-dates-form" class="admin-dates-form hidden">
-                <div class="admin-dates-inputs">
-                    <label for="admin-start-date">Начало:</label>
-                    <input type="date" id="admin-start-date">
-                    <label for="admin-end-date">Конец:</label>
-                    <input type="date" id="admin-end-date">
-                </div>
-                <button type="submit">Сохранить даты</button>
-            </form>
-            <div id="admin-dates-error" class="error-message hidden" style="text-align: center;"></div>
-        </section>
         <div class="rules-button-container">
             <button id="rules-button" class="rules-button">КАК ИГРАТЬ?</button>
         </div>
@@ -107,6 +91,10 @@
         </div>
     </main>
 
+    <div id="admin-controls" class="admin-controls hidden">
+        <button id="edit-btn">Редактировать</button>
+        <button id="save-btn">Сохранить</button>
+    </div>
     <div id="rules-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -129,6 +117,23 @@
         </div>
     </div>
 
+    <div id="admin-dates-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">Назначить сроки ивента</h3>
+                <button type="button" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="admin-dates-form" class="modal-form">
+                    <label>Дата и время начала</label>
+                    <input type="datetime-local" id="admin-start-date" required>
+                    <label>Дата и время окончания</label>
+                    <input type="datetime-local" id="admin-end-date" required>
+                    <button type="submit">Установить</button>
+                </form>
+            </div>
+        </div>
+    </div>
     <img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDd2azc1aXVvcmE3eG81a3FxZDlya2M4c3NmNDZweHFnOW8za3d2eiZlcD12MV9pbnRlcm5hbF_naWZfYnlfaWQmY3Q9cw/GqegZvkq9kgxuk1kTC/giphy.gif" alt="Flying Witch" class="flying-witch">
 
     <footer class="app-footer">
