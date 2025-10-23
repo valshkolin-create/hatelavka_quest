@@ -319,6 +319,14 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert("Ваш вклад принят!");
             currentUserData.tickets = result.new_ticket_balance;
             dom.userTicketBalance.textContent = result.new_ticket_balance;
+
+            // --- ИСПРАВЛЕНИЕ: ДОБАВЛЕН ЭТОТ БЛОК ---
+            // Обновляем глобальный прогресс котла данными из ответа API
+            if (result.new_progress !== undefined) {
+                currentEventData.current_progress = result.new_progress;
+            }
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
             dom.ticketsInput.value = '';
 
             const flask = dom.flaskAnimation;
@@ -339,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 flask.classList.remove('animate');
                 cauldron.classList.remove('pulse');
-                fetchDataAndRender(true);
+                fetchDataAndRender(true); // Эта функция теперь использует обновленный currentEventData.current_progress
             }, 1200);
         } catch(error) {
              if (error.detail && error.detail.includes("трейд-ссылку")) {
