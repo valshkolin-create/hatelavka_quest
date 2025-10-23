@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cauldronImage: document.getElementById('cauldron-image'),
         progressBarFill: document.getElementById('progress-bar-fill'),
         progressText: document.getElementById('progress-text'),
-        // rewardSectionTitle: document.getElementById('reward-section-title'), // <-- Этого ID нет в HTML, закомментировал
+        // rewardSectionTitle: document.getElementById('reward-section-title'), // Убрано, т.к. нет в HTML
         rewardImage: document.getElementById('reward-image'),
         rewardName: document.getElementById('reward-name'),
         leaderboardRewardsList: document.getElementById('leaderboard-rewards-list'),
@@ -36,15 +36,15 @@ document.addEventListener('DOMContentLoaded', () => {
         defaultRewardZoomContainer: document.getElementById('default-reward-zoom-container'),
         flaskAnimation: document.getElementById('flask-animation'),
 
-        // --- ДОБАВЛЕНЫ ЭЛЕМЕНТЫ ДЛЯ ДАТ ---
-        eventDatesSection: document.getElementById('event-dates-section'),
+        // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ДАТ И РЕЖИМА РЕДАКТИРОВАНИЯ ---
         eventDatesDisplay: document.getElementById('event-dates-display'),
-        eventStartDate: document.getElementById('event-start-date'),
-        eventEndDate: document.getElementById('event-end-date'),
+        adminControls: document.getElementById('admin-controls'),
+        editBtn: document.getElementById('edit-btn'),
+        saveBtn: document.getElementById('save-btn'),
+        adminDatesModal: document.getElementById('admin-dates-modal'),
         adminDatesForm: document.getElementById('admin-dates-form'),
         adminStartDate: document.getElementById('admin-start-date'),
-        adminEndDate: document.getElementById('admin-end-date'),
-        adminDatesError: document.getElementById('admin-dates-error')
+        adminEndDate: document.getElementById('admin-end-date')
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
@@ -57,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const FALLBACK_CAULDRON_URL = 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
 
     let currentUserData = {};
-    let currentEventData = {};
+    // currentEventData будет хранить *все* данные страницы, которые админ может редактировать
+    let currentEventData = {}; 
     
     async function makeApiRequest(url, body = {}, method = 'POST') {
         console.log(`[API] Начинаем запрос на ${url} методом ${method}`);
@@ -72,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) {
                 const errorData = await response.json();
                 console.error(`[API ERROR] Ошибка от сервера (${url}):`, errorData);
-                throw new Error(errorData.detail || 'Ошибка сервера');
+                throw new Error(errorData.detail || `Ошибка ${response.status}`);
             }
             
             const data = await response.json();
@@ -89,25 +90,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
 
-    // --- ФУНКЦИИ ФОРМАТИРОВАНИЯ ДАТ ---
-    /** Преобразует ISO-строку (или Date) в формат 'YYYY-MM-DD' для <input type="date"> */
+    // --- ФУНКЦИИ ФОРМАТИРОВАНИЯ ДАТ (для модального окна и дисплея) ---
     function formatDateToInput(isoString) {
         if (!isoString) return '';
         try {
-            return new Date(isoString).toISOString().split('T')[0];
+            const date = new Date(isoString);
+            // Форматируем в YYYY-MM-DDTHH:MM
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const hh = String(date.getHours()).padStart(2, '0');
+            const min = String(date.getMinutes()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
         } catch (e) {
             console.warn(`[DATE] Не удалось отформатировать дату для input: ${isoString}`, e);
             return '';
         }
     }
-    /** Преобразует ISO-строку (или Date) в формат 'DD.MM.YYYY' для отображения пользователю */
     function formatDateToDisplay(isoString) {
         if (!isoString) return '...';
         try {
             return new Date(isoString).toLocaleDateString('ru-RU', {
                 day: '2-digit',
                 month: '2-digit',
-                year: 'numeric'
+                hour: '2-digit',
+                minute: '2-digit'
             });
         } catch (e) {
             console.warn(`[DATE] Не удалось отформатировать дату для display: ${isoString}`, e);
@@ -116,33 +123,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // --- КОНЕЦ ФУНКЦИЙ ФОРМАТИРОВАНИЯ ДАТ ---
 
-    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👇👇👇 ---
+    
+    // --- ЛОГИКА СМЕНЫ ТЕМ (теперь без API вызова) ---
     function setTheme(themeName) {
         console.log(`[THEME] Устанавливаем тему: ${themeName}`);
         document.body.dataset.theme = themeName;
-        // Обновляем "активную" кнопку на переключателе
         dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.themeSet === themeName);
         });
 
-        // УДАЛЕНО: `localStorage.setItem`. Локальное хранилище админа
-        // больше не используется, тема всегда берется с сервера.
-
+        // НЕ отправляем API запрос, просто обновляем локальные данные, если мы админ
+        if (currentUserData.is_admin) {
+            console.log('[THEME] Режим админа: тема обновлена локально.');
+            currentEventData.current_theme = themeName;
+        }
+        
         const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
         
-        const { levels = {} } = currentEventData; // Убедимся, что currentEventData доступна
+        const { levels = {} } = currentEventData;
         const currentLevel = getCurrentLevel(currentEventData);
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const defaultReward = levelConfig.default_reward || {};
         
-        // Обновляем картинку награды по умолчанию, если она зависит от темы
-        // (Мы проверяем, установлена ли картинка с сервера, и только если НЕТ, ставим картику из THEME_ASSETS)
-        if (dom.rewardImage.src.includes('URL_ВАШЕЙ_НАГРАДЫ')) { // Проверяем, не установлена ли уже кастомная
-             dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
-        }
-        console.log(`[THEME] Тема ${themeName} применена.`);
+        // Проверяем, есть ли у награды своя картинка, если нет - ставим из темы
+        dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
+        console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
     }
-    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👆👆👆 ---
     
     function getCurrentLevel(eventData) {
         const { goals = {}, current_progress = 0 } = eventData;
@@ -155,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPage(eventData, leaderboardData = {}) {
         console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
         
-        // Стабильная сортировка (без изменений)
         if (leaderboardData.top20 && Array.isArray(leaderboardData.top20)) {
             leaderboardData.top20.sort((a, b) => {
                 const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
@@ -166,10 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        currentEventData = eventData;
+        // Только обновляем currentEventData, если это не просто перерисовка (т.е. eventData передан)
+        if (eventData) {
+            currentEventData = eventData;
+        }
+        
         const isAdmin = currentUserData.is_admin;
-        const canViewEvent = eventData && (eventData.is_visible_to_users || isAdmin);
-        console.log(`[RENDER] isAdmin: ${isAdmin}, is_visible_to_users: ${eventData?.is_visible_to_users}, canViewEvent: ${canViewEvent}`);
+        const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
+        console.log(`[RENDER] isAdmin: ${isAdmin}, is_visible_to_users: ${currentEventData?.is_visible_to_users}, canViewEvent: ${canViewEvent}`);
 
         if (!canViewEvent) {
             console.warn('[RENDER] Ивент неактивен для пользователя. Показываем сообщение.');
@@ -177,29 +186,29 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        dom.adminNotice.classList.toggle('hidden', !(isAdmin && !eventData.is_visible_to_users));
-
-        // --- ЛОГИКА ДЛЯ ОТОБРАЖЕНИЯ/РЕДАКТИРОВАНИЯ ДАТ ---
+        dom.adminNotice.classList.toggle('hidden', !(isAdmin && !currentEventData.is_visible_to_users));
         if (isAdmin) {
-            dom.adminDatesForm.classList.remove('hidden');
-            dom.eventDatesDisplay.classList.add('hidden');
-            dom.adminStartDate.value = formatDateToInput(eventData.start_date);
-            dom.adminEndDate.value = formatDateToInput(eventData.end_date);
+            dom.adminControls.classList.remove('hidden');
+        }
+
+        // --- ЛОГИКА ДЛЯ МИНИМАЛИСТИЧНОГО ОТОБРАЖЕНИЯ ДАТ ---
+        if (currentEventData.start_date && currentEventData.end_date) {
+            dom.eventDatesDisplay.innerHTML = `
+                <i class="fa-solid fa-calendar-days"></i>
+                <span>${formatDateToDisplay(currentEventData.start_date)} - ${formatDateToDisplay(currentEventData.end_date)}</span>
+            `;
         } else {
-            dom.adminDatesForm.classList.add('hidden');
-            dom.eventDatesDisplay.classList.remove('hidden');
-            dom.eventStartDate.textContent = formatDateToDisplay(eventData.start_date);
-            dom.eventEndDate.textContent = formatDateToDisplay(eventData.end_date);
+            dom.eventDatesDisplay.innerHTML = `<span>Сроки ивента не назначены</span>`;
         }
         // --- КОНЕЦ ЛОГИКИ ДАТ ---
 
-        const { goals = {}, levels = {}, current_progress = 0 } = eventData || {};
+        const { goals = {}, levels = {}, current_progress = 0 } = currentEventData || {};
         const top20 = leaderboardData.top20 || [];
-        const currentLevel = getCurrentLevel(eventData);
+        const currentLevel = getCurrentLevel(currentEventData);
         console.log(`[RENDER] Текущий прогресс: ${current_progress}, текущий уровень: ${currentLevel}`);
 
-        const cauldronImageUrl = eventData[`cauldron_image_url_${currentLevel}`] 
-                               || eventData.cauldron_image_url
+        const cauldronImageUrl = currentEventData[`cauldron_image_url_${currentLevel}`] 
+                               || currentEventData.cauldron_image_url
                                || FALLBACK_CAULDRON_URL;
         dom.cauldronImage.src = cauldronImageUrl;
         console.log(`[RENDER] URL котла: ${cauldronImageUrl}`);
@@ -214,13 +223,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const topPlaceRewards = levelConfig.top_places || [];
         const defaultReward = levelConfig.default_reward || {};
 
-        dom.eventTitle.textContent = eventData.title || "Ивент-Котел";
+        dom.eventTitle.textContent = currentEventData.title || "Ивент-Котел";
         const progressInLevel = current_progress - prevGoal;
         const goalForLevel = currentGoal - prevGoal;
         const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
-        console.log(`[RENDER] Прогресс-бар обновлен: ${progressPercentage.toFixed(2)}%`);
         
         // if (dom.rewardSectionTitle) {
         //     dom.rewardSectionTitle.textContent = `Награды Уровня ${currentLevel}`;
@@ -229,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultRewardName = defaultReward.name || 'Награда не настроена';
         dom.rewardName.textContent = defaultRewardName;
         const activeTheme = document.body.dataset.theme || 'halloween';
-        // Устанавливаем картинку с сервера, если она есть, иначе - из ассетов темы
         dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
         dom.defaultRewardZoomContainer.dataset.itemName = defaultRewardName;
 
@@ -268,48 +275,56 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
 
-    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👇👇👇 ---
-    async function fetchDataAndRender() {
-        console.log('1. [MAIN] Вызвана функция fetchDataAndRender.');
+    async function fetchDataAndRender(leaderboardOnly = false) {
+        console.log(`1. [MAIN] Вызвана функция fetchDataAndRender. leaderboardOnly: ${leaderboardOnly}`);
         try {
-            console.log('1.1. [MAIN] Начинаем Promise.all для загрузки всех данных.');
-            const [eventData, leaderboardData, userData] = await Promise.all([
-                makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET'),
-                makeApiRequest('/api/v1/events/cauldron/leaderboard', {}, 'GET'),
-                makeApiRequest("/api/v1/user/me", {}, 'POST')
-            ]);
-            console.log('2. [MAIN] Все данные из Promise.all успешно получены.');
+            let leaderboardData;
             
-            currentUserData = userData;
-            console.log('3. [MAIN] Данные пользователя сохранены.', currentUserData);
+            if (!leaderboardOnly) {
+                console.log('1.1. [MAIN] Полная загрузка (Promise.all).');
+                const [eventData, lbData, userData] = await Promise.all([
+                    makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET'),
+                    makeApiRequest('/api/v1/events/cauldron/leaderboard', {}, 'GET'),
+                    makeApiRequest("/api/v1/user/me", {}, 'POST')
+                ]);
+                console.log('2. [MAIN] Все данные из Promise.all успешно получены.');
+                
+                currentEventData = eventData; // Сохраняем как глобальные данные
+                currentUserData = userData;
+                leaderboardData = lbData;
+                console.log('3. [MAIN] Данные пользователя сохранены.', currentUserData);
 
-            // ДОБАВЛЯЕМ КЛАСС АДМИНА
-            if (currentUserData.is_admin) {
-                document.body.classList.add('is-admin');
+                if (currentUserData.is_admin) {
+                    document.body.classList.add('is-admin');
+                }
+                
+                // Тема ВСЕГДА берется с сервера (из currentEventData)
+                const globalTheme = currentEventData.current_theme || 'halloween'; 
+                setTheme(globalTheme);
+                console.log(`[MAIN] Установлена глобальная тема с сервера: ${globalTheme}`);
+                
+                dom.userTicketBalance.textContent = currentUserData.tickets || 0;
+            } else {
+                 console.log('1.1. [MAIN] Загрузка только лидерборда.');
+                 leaderboardData = await makeApiRequest('/api/v1/events/cauldron/leaderboard', {}, 'GET');
             }
-            
-            // ИСПРАВЛЕНА ЛОГИКА ТЕМ:
-            // Тема ВСЕГДА берется с сервера (`eventData.current_theme`).
-            // `setTheme` просто применит ее (и для админа, и для юзера).
-            const globalTheme = eventData.current_theme || 'halloween'; 
-            setTheme(globalTheme);
-            console.log(`[MAIN] Установлена глобальная тема с сервера: ${globalTheme}`);
-            
-            dom.userTicketBalance.textContent = currentUserData.tickets || 0;
-            console.log('4. [MAIN] Баланс пользователя установлен. Вызываем renderPage.');
-            renderPage(eventData, leaderboardData);
+
+            console.log('4. [MAIN] Вызываем renderPage.');
+            // Передаем null для eventData, чтобы renderPage использовал уже сохраненный currentEventData
+            renderPage(leaderboardOnly ? null : currentEventData, leaderboardData);
             console.log('5. [MAIN] renderPage успешно завершен.');
 
         } catch (e) {
             console.error('X. [MAIN CATCH] Перехвачена ошибка в fetchDataAndRender:', e);
             document.body.innerHTML = `<h2 style="text-align:center; padding-top: 50px;">Ошибка загрузки ивента: ${e.message}</h2>`;
         } finally {
-            console.log('6. [MAIN FINALLY] Блок finally. Скрываем загрузчик.');
-            dom.loaderOverlay.classList.add('hidden');
-            dom.appContainer.classList.remove('hidden');
+            if (!leaderboardOnly) {
+                console.log('6. [MAIN FINALLY] Блок finally. Скрываем загрузчик.');
+                dom.loaderOverlay.classList.add('hidden');
+                dom.appContainer.classList.remove('hidden');
+            }
         }
     }
-    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👆👆👆 ---
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
@@ -367,9 +382,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 flask.classList.remove('animate');
                 cauldron.classList.remove('pulse');
-                
-                // Обновляем прогресс-бар и лидерборд, чтобы увидеть изменения
-                fetchDataAndRender();
+                // Загружаем только лидерборд, т.к. eventData (уровни) не изменились
+                fetchDataAndRender(true); 
             }, 1200);
 
         } catch(error) {
@@ -393,70 +407,88 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- ЛОГИКА АДМИН-ПАНЕЛИ (СКОПИРОВАНА ИЗ EVENTS.HTML) ---
 
-    // --- 👇👇👇 НАЧАЛО ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👇👇👇 ---
-    // Обработчик смены темы (теперь асинхронный и отправляет API)
-    dom.themeSwitcher.addEventListener('click', async (e) => {
-        const button = e.target.closest('.theme-btn');
-        if (button && button.dataset.themeSet) {
-            const themeName = button.dataset.themeSet;
-            console.log(`[EVENT] Клик по переключателю тем. Новая тема: ${themeName}`);
-            
-            // 1. Сразу меняем тему локально для админа (для UI отклика)
-            setTheme(themeName); 
-            
-            try {
-                // 2. Отправляем изменение на сервер, чтобы оно стало глобальным
-                await makeApiRequest('/api/v1/events/cauldron/admin/set-theme', { theme: themeName });
-                console.log(`[API SUCCESS] Глобальная тема успешно обновлена на ${themeName}`);
-            } catch (error) {
-                console.error('[API ERROR] Не удалось обновить тему на сервере:', error);
-                tg.showAlert('Ошибка при смене темы на сервере. Тема может не сохраниться для других пользователей.');
-            }
-        }
-    });
-    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕННОГО БЛОКА (ФИКС ТЕМ) 👆👆👆 ---
-
-    // --- 👇👇👇 НАЧАЛО НОВОГО БЛОКА (ФОРМА ДАТ) 👇👇👇 ---
-    dom.adminDatesForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitButton = dom.adminDatesForm.querySelector('button[type="submit"]');
-        console.log('[EVENT] Админ сохраняет даты.');
-        
-        dom.adminDatesError.classList.add('hidden');
-        submitButton.disabled = true;
-
-        const startDate = dom.adminStartDate.value;
-        const endDate = dom.adminEndDate.value;
-
-        if (!startDate || !endDate) {
-            dom.adminDatesError.textContent = 'Обе даты должны быть заполнены.';
-            dom.adminDatesError.classList.remove('hidden');
-            submitButton.disabled = false;
-            return;
-        }
-
+    dom.editBtn.onclick = () => {
+        document.body.classList.add('edit-mode');
+        dom.adminControls.classList.add('edit-mode-active');
+        // renderPage(); // Перерисовка, чтобы показать [data-editable]
+    };
+    
+    dom.saveBtn.onclick = async () => {
+        dom.saveBtn.disabled = true;
+        dom.saveBtn.textContent = 'Сохранение...';
         try {
-            // Предполагаемый API эндпоинт. Замени, если он другой.
-            const result = await makeApiRequest('/api/v1/events/cauldron/admin/update-details', {
-                start_date: new Date(startDate).toISOString(),
-                end_date: new Date(endDate).toISOString()
-            });
+            // Используем АНАЛОГИЧНЫЙ эндпоинт, как в events.html
+            // events.html -> /api/v1/admin/events/update
+            // halloween.html -> /api/v1/admin/cauldron/update (НАША ДОГАДКА)
+            const response = await makeApiRequest(
+                '/api/v1/admin/cauldron/update', 
+                { content: currentEventData } // Отправляем ВЕСЬ объект, как в events.html
+            );
             
-            // Обновляем локальные данные, чтобы не перезагружать всю страницу
-            currentEventData.start_date = result.event.start_date;
-            currentEventData.end_date = result.event.end_date;
+            tg.showAlert('Изменения сохранены!');
+            document.body.classList.remove('edit-mode');
+            dom.adminControls.classList.remove('edit-mode-active');
             
-            tg.showAlert('Даты ивента успешно обновлены!');
+            // Обновляем currentEventData данными с сервера
+            // (на случай, если сервер что-то изменил/добавил)
+            if(response.updated_content) {
+                 currentEventData = response.updated_content;
+            }
+            renderPage(null, {}); // Перерисовка с новыми данными
 
-        } catch (error) {
-            dom.adminDatesError.textContent = `Ошибка: ${error.message}`;
-            dom.adminDatesError.classList.remove('hidden');
+        } catch (e) {
+            handleApiError(e);
         } finally {
-            submitButton.disabled = false;
+            dom.saveBtn.disabled = false;
+            dom.saveBtn.textContent = 'Сохранить';
+        }
+    };
+
+    // Глобальный обработчик кликов (для режима редактирования)
+    document.body.addEventListener('click', async (e) => {
+        if (!document.body.classList.contains('edit-mode')) return;
+
+        // Клик по элементу [data-editable]
+        const editableText = e.target.closest('[data-editable="dates"]');
+        if (editableText) {
+            console.log('[ADMIN] Открываем модальное окно дат');
+            // Заполняем модальное окно текущими датами из currentEventData
+            dom.adminStartDate.value = formatDateToInput(currentEventData.start_date);
+            dom.adminEndDate.value = formatDateToInput(currentEventData.end_date);
+            showModal(dom.adminDatesModal);
+        }
+
+        // Клик по смене темы (только в режиме edit-mode)
+        const themeButton = e.target.closest('.theme-btn');
+        if (themeButton && themeButton.dataset.themeSet) {
+            console.log(`[ADMIN] Тема изменена локально на: ${themeButton.dataset.themeSet}`);
+            // Просто обновляем тему локально. Сохранение будет по кнопке "Сохранить"
+            setTheme(themeButton.dataset.themeSet);
         }
     });
-    // --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА (ФОРМА ДАТ) 👆👆👆 ---
+
+    // Обработчик формы модального окна дат
+    dom.adminDatesForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        // Преобразуем локальное время из инпута в ISO строку (UTC)
+        // (Предполагаем, что админ вводит время по МСК (UTC+3))
+        const startDateLocal = new Date(dom.adminStartDate.value);
+        const endDateLocal = new Date(dom.adminEndDate.value);
+
+        // Сохраняем как ISO
+        currentEventData.start_date = startDateLocal.toISOString();
+        currentEventData.end_date = endDateLocal.toISOString();
+        
+        console.log('[ADMIN] Даты сохранены локально:', currentEventData.start_date);
+        
+        hideModal(dom.adminDatesModal);
+        renderPage(null, {}); // Перерисовка (null значит "использовать
+    });
+
+    // --- КОНЕЦ ЛОГИКИ АДМИН-ПАНЕЛИ ---
 
 
     // Обработчик модалки правил
@@ -467,13 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('cauldronRulesViewed', 'true');
     });
 
-    dom.rulesModal.addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal-close-btn') || e.target.classList.contains('modal-overlay')) {
-            dom.rulesModal.classList.add('hidden');
-        }
-    });
-
-    // Обработчики просмотра изображений (без изменений)
+    // Обработчики просмотра изображений
     dom.appContainer.addEventListener('click', (e) => {
         const zoomContainer = e.target.closest('.image-zoom-container');
         if (!zoomContainer) return;
@@ -494,12 +520,25 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.viewerCaption.textContent = ''; 
     });
 
-    dom.imageViewerModal.addEventListener('click', (e) => {
-        if (e.target === dom.imageViewerModal) {
-            dom.imageViewerModal.classList.add('hidden');
-            dom.viewerImage.src = '';
-            dom.viewerCaption.textContent = ''; 
-        }
+    // --- УНИВЕРСАЛЬНЫЕ ФУНКЦИИ МОДАЛОК ---
+    function showModal(modalElement) {
+        modalElement.classList.remove('hidden');
+        if (dom.adminControls) dom.adminControls.style.display = 'none'; // Прячем кнопки админа
+    }
+
+    function hideModal(modalElement) {
+        modalElement.classList.add('hidden');
+        // Показываем кнопки админа обратно, если он админ
+        if (currentUserData.is_admin) dom.adminControls.style.display = 'block'; 
+    }
+
+    // Закрытие всех модалок по клику на фон или крестик
+    document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay') || e.target.closest('.modal-close-btn')) {
+                hideModal(modalOverlay);
+            }
+        });
     });
     
     // --- ИНИЦИАЛИЗАЦИЯ ---
@@ -508,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[INIT] Telegram.WebApp.ready() вызван.');
     tg.expand();
     console.log('[INIT] Telegram.WebApp.expand() вызван.');
-    fetchDataAndRender(); // Первый запуск
+    fetchDataAndRender(); // Первый полный запуск
 
     const rulesViewed = localStorage.getItem('cauldronRulesViewed');
     if (!rulesViewed) {
