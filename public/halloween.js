@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatDateToDisplay(isoString) {
         if (!isoString) return '...';
         try {
-            return new Date(isoString).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            return new Date(isoString).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
         } catch (e) { console.warn(`[DATE] Display format error: ${isoString}`, e); return '...'; }
     }
 
