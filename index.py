@@ -41,7 +41,7 @@ sleep_cache = {
     "wake_up_at": None,
     "last_checked": 0 # Unix timestamp
 }
-CACHE_DURATION_SECONDS = 15 # Проверять базу данных только раз в 15 секунд
+CACHE_DURATION_SECONDS = 43200 # Проверять базу данных только раз в 15 секунд
 
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
