@@ -108,7 +108,7 @@ body::after {
     z-index: 2;
 }
 .page-header { display: flex; justify-content: center; align-items: center; margin-bottom: 5px; padding-top: 15px; }
-.page-header-title { margin: 0; font-size: 16px; font-weight: 700; text-align: center; }
+.page-header-title { margin: 0; font-size: 17px; font-weight: 700; text-align: center; }
 
 /* --- Кнопка "КАК ИГРАТЬ?" --- */
 .rules-button-container { text-align: center; margin-bottom: 20px; position: relative; z-index: 201; }
@@ -120,8 +120,8 @@ body::after {
 /* ===== СТИЛИ ДЛЯ МИНИМАЛИСТИЧНЫХ ДАТ ===== */
 .event-timer {
     text-align: center;
-    font-size: 0.6em;
-    font-weight: 300;
+    font-size: 0.8em;
+    font-weight: 400;
     color: var(--text-color);
     margin-bottom: 15px;
     letter-spacing: 0.5px;
@@ -130,9 +130,9 @@ body::after {
     align-items: center;
     gap: 8px;
     padding: 10px;
-    background-color: var(--surface-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    /* background-color: var(--surface-primary); */
+    /* border: 1px solid var(--border-color); */
+    /* border-radius: 12px; */
 }
 .event-timer .loader-spinner {
     width: 20px;
@@ -292,7 +292,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 @keyframes cauldron-pulse { 0% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--primary-color)); } 100% { transform: scale(1); filter: brightness(1); } }
 
 /* --- Адаптация заголовка --- */
-@media (max-width: 768px) { .page-header-title { font-size: 16px; } }
+@media (max-width: 768px) { .page-header-title { font-size: 17px; } }
 
 /* ===== СТИЛИ АДМИНА (Обновленные) ===== */
 .admin-controls {
