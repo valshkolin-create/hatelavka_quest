@@ -4464,37 +4464,43 @@ async def freeze_user_stars(
         logging.error(f"Ошибка при заморозке звезд для {user_id_to_freeze}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выполнить заморозку.")
 
-@app.get("/api/v1/content/menu")
-async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """Предоставляет динамический контент для главной страницы меню, например, URL баннера."""
+app.get("/api/v1/content/menu")
+async def get_menu_content(): # <<< Убрали Depends
+    """Предоставляет динамический контент для главной страницы меню, используя глобальный клиент."""
+    # Значения по умолчанию вынесены для ясности
+    defaults = {
+        "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
+        "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
+        "skin_race_enabled": True,
+        "slider_order": ["skin_race", "cauldron"]
+    }
     try:
-        # Мы повторно используем настройки админа, так как это простое хранилище ключ-значение
-        resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
-        resp.raise_for_status()
-        data = resp.json()
+        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
+        response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
+        # execute() вызывается без await
 
-        # Значения по умолчанию
-        defaults = {
-            "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
-            "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
-            "skin_race_enabled": True,
-            "slider_order": ["skin_race", "cauldron"] # <-- НОВОЕ ПОЛЕ
-        }
+        data = response.data # Данные в response.data (это список)
 
         if not data or not data[0].get('value'):
             # Возвращаем контент по умолчанию, если ничего не найдено
+            logging.warning("Настройки 'admin_controls' для меню не найдены, используются дефолтные.")
             return defaults
-        
+
         settings = data[0]['value']
+        # Используем .get() с дефолтными значениями при извлечении
         return {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
-            "slider_order": settings.get("slider_order", defaults["slider_order"]) # <-- НОВОЕ ПОЛЕ
+            "slider_order": settings.get("slider_order", defaults["slider_order"])
         }
+
+    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
+    #     logging.error(f"Ошибка Supabase API в /content/menu: {e}", exc_info=True)
+    #     return defaults # Возвращаем дефолт при ошибке базы данных
     except Exception as e:
-        logging.error(f"Ошибка при получении контента для меню: {e}")
-        # Возвращаем контент по умолчанию при ошибке, чтобы не сломать клиент
+        logging.error(f"Критическая ошибка при получении контента для меню: {e}", exc_info=True)
+        # Возвращаем контент по умолчанию при любой другой ошибке
         return defaults
 
 @app.post("/api/v1/admin/manual_rewards")
