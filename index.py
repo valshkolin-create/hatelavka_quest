@@ -1431,6 +1431,74 @@ async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.A
     telegram_id = user_info["id"]
     await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"twitch_id": None, "twitch_login": None})
     return {"message": "Аккаунт Twitch успешно отвязан."}
+
+async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
+    """Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
+    now = time.time()
+    # Проверяем, есть ли валидный кэш
+    if admin_settings_cache["settings"] and (now - admin_settings_cache["last_checked"] < ADMIN_SETTINGS_CACHE_DURATION):
+        # logging.info("⚙️ Используем кэшированные настройки админа (глобальный).") # Раскомментируй для отладки
+        return admin_settings_cache["settings"]
+
+    logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД (глобальный клиент)...")
+    try:
+        # --- ИЗМЕНЕНИЕ: Используем глобальный клиент supabase и новый синтаксис ---
+        response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
+        # execute() вызывается без await
+
+        data = response.data # Данные теперь в response.data
+
+        if data and data[0].get('value'):
+            settings_data = data[0]['value']
+            # --- Логика парсинга boolean значений (остается без изменений) ---
+            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False)
+            quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
+
+            challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
+            challenge_rewards_bool = challenge_rewards_raw if isinstance(challenge_rewards_raw, bool) else str(challenge_rewards_raw).lower() == 'true'
+
+            challenges_raw = settings_data.get('challenges_enabled', True)
+            challenges_bool = challenges_raw if isinstance(challenges_raw, bool) else str(challenges_raw).lower() == 'true'
+
+            quests_raw = settings_data.get('quests_enabled', True)
+            quests_bool = quests_raw if isinstance(quests_raw, bool) else str(quests_raw).lower() == 'true'
+
+            checkpoint_raw = settings_data.get('checkpoint_enabled', False)
+            checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
+            # --- Конец логики парсинга ---
+
+            # Создаем объект настроек
+            loaded_settings = AdminSettings(
+                skin_race_enabled=settings_data.get('skin_race_enabled', True),
+                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron"]),
+                challenge_promocodes_enabled=challenge_rewards_bool,
+                quest_promocodes_enabled=quest_rewards_bool,
+                challenges_enabled=challenges_bool,
+                quests_enabled=quests_bool,
+                checkpoint_enabled=checkpoint_bool,
+                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png")
+            )
+
+            # Сохраняем в кэш
+            admin_settings_cache["settings"] = loaded_settings
+            admin_settings_cache["last_checked"] = now
+            logging.info("✅ Настройки админа загружены и закэшированы (глобальный).")
+            return loaded_settings
+        else:
+            logging.warning("Настройки 'admin_controls' не найдены в БД (глобальный), используем дефолтные и кэшируем их.")
+            # Если в базе нет, кэшируем дефолтные
+            default_settings = AdminSettings()
+            admin_settings_cache["settings"] = default_settings
+            admin_settings_cache["last_checked"] = now
+            return default_settings
+
+    except Exception as e:
+        logging.error(f"Не удалось получить admin_settings (глобальный клиент): {e}", exc_info=True)
+        # Возвращаем дефолтные настройки и НЕ кэшируем при ошибке
+        admin_settings_cache["settings"] = None
+        admin_settings_cache["last_checked"] = 0
+        return AdminSettings()
     
 # --- ПРАВИЛЬНО ---
 @app.post("/api/v1/user/me")
