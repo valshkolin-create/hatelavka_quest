@@ -2019,31 +2019,30 @@ async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.As
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
 @app.get("/api/v1/events/cauldron/status")
-async def get_cauldron_status(
-    request: Request,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """Отдает текущее состояние ивента 'Котел'. 
-    Всегда возвращает полные данные; фронтенд решает, что показывать.
-    """
+async def get_cauldron_status(): # <<< Убрали request и Depends
+    """Отдает текущее состояние ивента 'Котел', используя глобальный клиент."""
     try:
-        resp = await supabase.get(
-            "/pages_content",
-            params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
+        response = supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
+        # execute() вызывается без await
 
-        # Если в базе данных еще нет записи об ивенте, возвращаем пустой объект
+        data = response.data # Данные в response.data (это список)
+
+        # Если запись не найдена или content пустой
         if not data or not data[0].get('content'):
-            return {"is_visible_to_users": False}
+            logging.warning("Контент для 'cauldron_event' не найден в pages_content.")
+            return {"is_visible_to_users": False} # Возвращаем статус по умолчанию
 
-        # Просто возвращаем все содержимое как есть
+        # Просто возвращаем содержимое поля content
         return data[0]['content']
 
+    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
+    #     logging.error(f"Ошибка Supabase API в /events/cauldron/status: {e}", exc_info=True)
+    #     # Возвращаем статус по умолчанию при ошибке базы данных
+    #     return {"is_visible_to_users": False}
     except Exception as e:
-        logging.error(f"Ошибка при получении статуса котла: {e}")
-        # В случае ошибки также возвращаем "невидимый" статус
+        logging.error(f"Критическая ошибка при получении статуса котла: {e}", exc_info=True)
+        # Возвращаем статус по умолчанию при любой другой ошибке
         return {"is_visible_to_users": False}
 
 @app.get("/api/v1/events/cauldron/leaderboard")
