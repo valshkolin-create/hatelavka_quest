@@ -1087,11 +1087,11 @@ async def get_public_quests(request_data: InitDataRequest):
         return []
 
     try:
-        # Вызываем созданную SQL функцию через глобальный асинхронный клиент supabase
-        response = await supabase.rpc(
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Убираем await перед вызовом ---
+        response = supabase.rpc(
             "get_available_quests_for_user",
             {"p_telegram_id": telegram_id}
-        ).execute()
+        ).execute() # execute() вызывается без await
 
         # Данные теперь находятся в response.data
         available_quests_raw = response.data
@@ -1104,12 +1104,9 @@ async def get_public_quests(request_data: InitDataRequest):
             available_quests = available_quests_raw
 
         # --- Сохраняем логику добавления 'is_completed' ---
-        # (Хотя SQL функция могла бы это делать, оставим здесь для совместимости)
-        # Убедимся, что работаем со списком словарей
         processed_quests = []
         if isinstance(available_quests, list):
             for quest_data in available_quests:
-                 # Доп. проверка на случай, если RPC вернет что-то неожиданное
                 if isinstance(quest_data, dict):
                     quest_data['is_completed'] = False # Добавляем поле как в оригинальной функции
                     processed_quests.append(quest_data)
@@ -1120,7 +1117,6 @@ async def get_public_quests(request_data: InitDataRequest):
 
 
         # --- Сохраняем логику заполнения недостающих данных ---
-        # (Если SQL функция возвращает ВСЕ поля, это можно убрать)
         # Убедись, что функция fill_missing_quest_data определена где-то в твоем коде
         return fill_missing_quest_data(processed_quests)
 
@@ -1129,6 +1125,7 @@ async def get_public_quests(request_data: InitDataRequest):
         logging.error(f"Ошибка при вызове RPC get_available_quests_for_user для {telegram_id}: {e}", exc_info=True)
         # Возвращаем 500 ошибку клиенту
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
+        
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(initData: str):
     if not initData:
