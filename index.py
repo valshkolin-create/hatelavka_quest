@@ -4464,7 +4464,7 @@ async def freeze_user_stars(
         logging.error(f"Ошибка при заморозке звезд для {user_id_to_freeze}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выполнить заморозку.")
 
-app.get("/api/v1/content/menu")
+@app.get("/api/v1/content/menu")
 async def get_menu_content(): # <<< Убрали Depends
     """Предоставляет динамический контент для главной страницы меню, используя глобальный клиент."""
     # Значения по умолчанию вынесены для ясности
