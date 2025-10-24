@@ -2261,11 +2261,26 @@ async def get_twitch_reward_purchases(
         logging.error(f"Критическая ошибка при получении покупок (RPC): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
 
+async def get_ticket_reward_amount_global(action_type: str) -> int:
+    """Получает количество билетов для награды из таблицы reward_rules, используя глобальный клиент."""
+    try:
+        # Используем глобальный клиент supabase
+        response = supabase.table("reward_rules").select("ticket_amount").eq("action_type", action_type).limit(1).execute()
+        data = response.data
+        if data and 'ticket_amount' in data[0]:
+            return data[0]['ticket_amount']
+
+        logging.warning(f"Правило награды для '{action_type}' не найдено (глобальный). Используется 1.")
+        return 1
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении правила награды для '{action_type}' (глобальный): {e}. Используется 1.")
+        return 1
+# --- КОНЕЦ НОВОЙ ВСПОМОГАТЕЛЬНОЙ ФУНКЦИИ ---
+
+
 @app.post("/api/v1/promocode")
-async def get_promocode(
-    request_data: PromocodeClaimRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
+async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали Depends
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -2274,30 +2289,20 @@ async def get_promocode(
     quest_id = request_data.quest_id
 
     try:
-        # 1. Проверяем, что квест действительно завершен и награда еще не получена
-        progress_resp = await supabase.get(
-            "/user_quest_progress",
-            params={
-                "user_id": f"eq.{user_id}",
-                "quest_id": f"eq.{quest_id}",
-                "claimed_at": "is.null",
-                "select": "current_progress"
-            }
-        )
-        progress_resp.raise_for_status()
-        progress_data = progress_resp.json()
+        # --- 1. Проверяем прогресс квеста ---
+        # ИЗМЕНЕНИЕ: Используем глобальный supabase
+        progress_response = supabase.table("user_quest_progress").select("current_progress").eq("user_id", user_id).eq("quest_id", quest_id).is_("claimed_at", None).execute()
+        progress_data = progress_response.data
 
         if not progress_data:
             raise HTTPException(status_code=400, detail="Награда уже была получена или квест не был начат.")
 
         user_progress = progress_data[0].get("current_progress", 0)
 
-        quest_resp = await supabase.get(
-            "/quests",
-            params={"id": f"eq.{quest_id}", "select": "target_value"}
-        )
-        quest_resp.raise_for_status()
-        quest_data = quest_resp.json()
+        # --- Получаем детали квеста ---
+        # ИЗМЕНЕНИЕ: Используем глобальный supabase
+        quest_response = supabase.table("quests").select("target_value").eq("id", quest_id).execute()
+        quest_data = quest_response.data
 
         if not quest_data:
             raise HTTPException(status_code=404, detail="Задание не найдено.")
@@ -2307,46 +2312,61 @@ async def get_promocode(
         if user_progress < target_value:
             raise HTTPException(status_code=400, detail="Задание еще не выполнено.")
 
-        # 2. Начисляем билеты
-        ticket_reward = await get_ticket_reward_amount("automatic_quest_claim", supabase)
+        # --- 2. Начисляем билеты ---
+        # ИЗМЕНЕНИЕ: Используем новую вспомогательную функцию с глобальным клиентом
+        ticket_reward = await get_ticket_reward_amount_global("automatic_quest_claim")
         if ticket_reward > 0:
-            await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_reward})
-        
-        # 3. Получаем настройки админ-панели
-        admin_settings = await get_admin_settings_async(supabase)
+            # ИЗМЕНЕНИЕ: Используем глобальный supabase
+             supabase.rpc(
+                 "increment_tickets",
+                 {"p_user_id": user_id, "p_amount": ticket_reward}
+             ).execute()
 
-        # 4. Проверяем, включена ли выдача промокодов
+        # --- 3. Получаем настройки админ-панели ---
+        # ИЗМЕНЕНИЕ: Используем новую вспомогательную функцию с глобальным клиентом
+        admin_settings = await get_admin_settings_async_global()
+
+        # --- 4. Проверяем, включена ли выдача промокодов ---
         if not admin_settings.quest_promocodes_enabled:
             # Если промокоды выключены, просто завершаем квест
-            await supabase.patch(
-                "/user_quest_progress",
-                params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{quest_id}"},
-                json={"claimed_at": datetime.now(timezone.utc).isoformat()}
-            )
-            await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{user_id}", "active_quest_id": f"eq.{quest_id}"},
-                json={"active_quest_id": None, "active_quest_end_date": None, "quest_progress": 0}
-            )
-            # 👇 ИЗМЕНЕНИЕ ЗДЕСЬ 👇
+            # ИЗМЕНЕНИЕ: Используем глобальный supabase
+            supabase.table("user_quest_progress").update(
+                {"claimed_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("user_id", user_id).eq("quest_id", quest_id).execute()
+
+            # ИЗМЕНЕНИЕ: Используем глобальный supabase
+            supabase.table("users").update(
+                {"active_quest_id": None, "active_quest_end_date": None, "quest_progress": 0}
+            ).eq("telegram_id", user_id).eq("active_quest_id", quest_id).execute() # Добавил eq active_quest_id для безопасности
+
             return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов).", "tickets_only": True, "tickets_awarded": ticket_reward}
         else:
             # Если промокоды включены, выдаем их
-            response = await supabase.post(
-                "/rpc/award_reward_and_get_promocode",
-                json={ "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
-            )
-            response.raise_for_status()
-            promocode_data = response.json()
-            return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_data }
+            # ИЗМЕНЕНИЕ: Используем глобальный supabase
+            rpc_response = supabase.rpc(
+                 "award_reward_and_get_promocode",
+                 { "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
+            ).execute()
 
-    except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Не удалось получить награду.")
-        logging.error(f"Ошибка при получении награды за квест: {error_details}")
-        raise HTTPException(status_code=400, detail=error_details)
+            promocode_data = rpc_response.data
+            # RPC возвращает сам промокод строкой, а не JSON объект
+            # Поэтому нужно убедиться, что фронтенд ожидает именно строку или адаптировать ответ
+            if isinstance(promocode_data, str): # Проверка, что вернулась строка
+                 # Адаптируем ответ под старый формат, если нужно
+                 promocode_obj = {"code": promocode_data} # Пример, если фронтенд ждет объект
+            else:
+                 # Если RPC возвращает JSON или что-то другое, используем как есть
+                 promocode_obj = promocode_data
+
+            return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_obj }
+
+    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
+    #     error_details = getattr(e, 'message', str(e))
+    #     logging.error(f"Ошибка Supabase API при получении награды за квест: {error_details}", exc_info=True)
+    #     raise HTTPException(status_code=getattr(e, 'status_code', 400), detail=error_details)
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении награды за квест: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+        logging.error(f"Критическая ошибка при получении награды за квест для user {user_id}, quest {quest_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось получить награду.")
         
 # --- АДМИНСКИЕ ПРОМОКОДЫ ---
 @app.post("/api/v1/admin/promocodes")
