@@ -1074,81 +1074,61 @@ async def get_quests_categories(request_data: InitDataRequest, supabase: httpx.A
     return resp.json()
     
 @app.post("/api/v1/quests/list")
-async def get_public_quests(
-    request_data: InitDataRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
+async def get_public_quests(request_data: InitDataRequest):
+    """
+    Получает список доступных квестов для пользователя,
+    используя оптимизированную SQL-функцию get_available_quests_for_user.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     telegram_id = user_info.get("id") if user_info else None
 
     if not telegram_id:
+        # Если нет ID пользователя (например, невалидный initData), возвращаем пустой список
         return []
 
-    user_resp = await supabase.get("users", params={"telegram_id": f"eq.{telegram_id}", "select": "active_quest_id"})
-    user_resp.raise_for_status()
-    user_data = user_resp.json()
-    
-    active_quest_id = user_data[0].get("active_quest_id") if user_data else None
-
-    if active_quest_id:
-        quest_check_resp = await supabase.get("/quests", params={"id": f"eq.{active_quest_id}", "select": "is_active"})
-        quest_check_resp.raise_for_status()
-        quest_check_data = quest_check_resp.json()
-
-        if quest_check_data and quest_check_data[0].get("is_active"):
-            full_quest_resp = await supabase.get("/quests", params={"id": f"eq.{active_quest_id}", "select": "*"})
-            active_quest = full_quest_resp.json()
-            if active_quest:
-                active_quest[0]['is_completed'] = False
-            return active_quest
-        else:
-            logging.warning(f"User {telegram_id} had an invalid active_quest_id ({active_quest_id}). Clearing it.")
-            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"active_quest_id": None})
-
-    completed_resp = await supabase.get(
-        "/user_quest_progress",
-        params={"user_id": f"eq.{telegram_id}", "claimed_at": "not.is.null", "select": "quest_id"}
-    )
-    completed_resp.raise_for_status()
-    completed_quest_ids = {sub['quest_id'] for sub in completed_resp.json()}
-
-    all_quests_resp = await supabase.get(
-        "/quests",
-        params={"is_active": "eq.true", "quest_type": "not.eq.manual_check", "select": "*", "order": "id.desc"}
-    )
-    all_quests_resp.raise_for_status()
-    all_active_quests = all_quests_resp.json()
-    
-    # --- НОВЫЙ БЛОК: Фильтрация квестов по дню недели ---
     try:
-        moscow_tz = ZoneInfo("Europe/Moscow")
-        current_day = datetime.now(moscow_tz).weekday() # Понедельник = 0, Воскресенье = 6
-    except Exception:
-        current_day = datetime.now(timezone.utc).weekday() # Fallback to UTC
+        # Вызываем созданную SQL функцию через глобальный асинхронный клиент supabase
+        response = await supabase.rpc(
+            "get_available_quests_for_user",
+            {"p_telegram_id": telegram_id}
+        ).execute()
 
-    filtered_quests = []
-    if current_day == 6 or current_day == 0: # Воскресенье или Понедельник
-        logging.info(f"День недели {current_day}: Выдаем Telegram задания.")
-        for quest in all_active_quests:
-            if quest.get("quest_type", "").startswith("automatic_telegram"):
-                filtered_quests.append(quest)
-    else: # Вторник - Суббота
-        logging.info(f"День недели {current_day}: Выдаем Twitch задания.")
-        for quest in all_active_quests:
-            if quest.get("quest_type", "").startswith("automatic_twitch"):
-                filtered_quests.append(quest)
-    # --- КОНЕЦ НОВОГО БЛОКА ---
+        # Данные теперь находятся в response.data
+        available_quests_raw = response.data
 
-    available_quests = [
-        quest for quest in filtered_quests # Работаем с уже отфильтрованным списком
-        if quest.get('is_repeatable') or quest['id'] not in completed_quest_ids
-    ]
-    
-    for q in available_quests:
-        q['is_completed'] = False
+        # SQL функция возвращает '[]'::json (пустой JSON массив) или null, если ничего не найдено.
+        # Обрабатываем оба случая.
+        if available_quests_raw is None or not isinstance(available_quests_raw, list):
+            available_quests = []
+        else:
+            available_quests = available_quests_raw
 
-    return fill_missing_quest_data(available_quests)
+        # --- Сохраняем логику добавления 'is_completed' ---
+        # (Хотя SQL функция могла бы это делать, оставим здесь для совместимости)
+        # Убедимся, что работаем со списком словарей
+        processed_quests = []
+        if isinstance(available_quests, list):
+            for quest_data in available_quests:
+                 # Доп. проверка на случай, если RPC вернет что-то неожиданное
+                if isinstance(quest_data, dict):
+                    quest_data['is_completed'] = False # Добавляем поле как в оригинальной функции
+                    processed_quests.append(quest_data)
+                else:
+                    logging.warning(f"Неожиданный формат данных квеста: {quest_data}")
+        else:
+             logging.warning(f"RPC вернула не список: {available_quests}")
 
+
+        # --- Сохраняем логику заполнения недостающих данных ---
+        # (Если SQL функция возвращает ВСЕ поля, это можно убрать)
+        # Убедись, что функция fill_missing_quest_data определена где-то в твоем коде
+        return fill_missing_quest_data(processed_quests)
+
+    except Exception as e:
+        # Используем exc_info=True для получения полного traceback в логах
+        logging.error(f"Ошибка при вызове RPC get_available_quests_for_user для {telegram_id}: {e}", exc_info=True)
+        # Возвращаем 500 ошибку клиенту
+        raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(initData: str):
     if not initData:
