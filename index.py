@@ -1434,10 +1434,7 @@ async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.A
     
 # --- ПРАВИЛЬНО ---
 @app.post("/api/v1/user/me")
-async def get_current_user_data(
-    request_data: InitDataRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
+async def get_current_user_data(request_data: InitDataRequest): # <<< Убрали Depends(get_supabase_client)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         return JSONResponse(content={"is_guest": True})
@@ -1445,57 +1442,84 @@ async def get_current_user_data(
     telegram_id = user_info["id"]
 
     try:
-        # Основной вызов RPC-функции
-        response = await supabase.post(
-            "/rpc/get_user_dashboard_data",
-            json={"p_telegram_id": telegram_id}
-        )
-        response.raise_for_status()
-        data = response.json()
+        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .rpc().execute() без await ---
+        response = supabase.rpc(
+            "get_user_dashboard_data",
+            {"p_telegram_id": telegram_id}
+        ).execute()
+        # raise_for_status() не нужен, execute() выбросит исключение при ошибке API
+        data = response.data # Данные теперь в response.data
 
         # Если профиль пустой, создаем его
-        if not data.get('profile'):
+        # Проверяем data перед доступом к .get()
+        if not data or not data.get('profile'):
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
-            await supabase.post(
-                "/users",
-                json={"telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg},
-                headers={"Prefer": "resolution=merge-duplicates"}
-            )
-            # Повторно запрашиваем данные после создания
-            response = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
-            data = response.json()
 
-        # Собираем основной ответ
+            # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().insert().execute() без await ---
+            insert_response = supabase.table("users").insert(
+                 {"telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg},
+                 # Используем upsert вместо resolution=merge-duplicates для большей надежности
+                 # (если вдруг пользователь создастся между двумя вызовами rpc)
+                 # count='exact' # Можно добавить count, если нужно знать, была ли вставка
+                 returning='minimal' # Нам не нужны возвращаемые данные
+            ).execute()
+            # Проверка ошибок вставки (опционально, execute выбросит исключение)
+            # if insert_response.error: ...
+
+            # Повторно запрашиваем данные после создания
+            # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .rpc().execute() без await ---
+            response = supabase.rpc(
+                "get_user_dashboard_data",
+                {"p_telegram_id": telegram_id}
+            ).execute()
+            data = response.data
+
+        # --- Проверка на случай, если data все еще пустые после попытки создания ---
+        if not data:
+             logging.error(f"Не удалось получить или создать данные для пользователя {telegram_id}")
+             raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
+
+        # Собираем основной ответ (проверяем наличие 'profile' перед доступом)
         final_response = data.get('profile', {})
-        final_response['challenge'] = data.get('challenge')
-        final_response['event_participations'] = data.get('event_participations', {})
-        
+        if not final_response: # Если профиль пуст даже после создания, возвращаем ошибку
+             logging.error(f"RPC get_user_dashboard_data вернула пустой профиль для {telegram_id} после создания.")
+             # Можно вернуть пустой объект или ошибку, в зависимости от логики фронтенда
+             raise HTTPException(status_code=500, detail="Ошибка получения данных профиля.")
+
+        final_response['challenge'] = data.get('challenge') # .get() безопасен
+        final_response['event_participations'] = data.get('event_participations', {}) # .get() с default безопасен
+
         # Проверяем, является ли пользователь админом
         is_admin = telegram_id in ADMIN_IDS
         final_response['is_admin'] = is_admin
 
-        # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-        # Если это админ, и по какой-то причине RPC не вернула его баланс билетов,
-        # делаем дополнительный надежный запрос.
+        # --- Логика для админа, если RPC не вернула билеты ---
         if is_admin and 'tickets' not in final_response:
-            logging.warning(f"RPC не вернула баланс билетов для админа {telegram_id}. Делаю дополнительный запрос...")
-            user_details_resp = await supabase.get("users", params={"telegram_id": f"eq.{telegram_id}", "select": "tickets"})
-            user_details_resp.raise_for_status()
-            user_details = user_details_resp.json()
-            if user_details:
-                final_response['tickets'] = user_details[0].get('tickets', 0)
-        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            logging.warning(f"RPC не вернула баланс билетов для админа {telegram_id}. Делаю доп. запрос...")
+            # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
+            user_details_resp = supabase.table("users").select("tickets").eq("telegram_id", telegram_id).execute()
 
-        admin_settings = await get_admin_settings_async(supabase)
+            # Данные в user_details_resp.data (это список)
+            if user_details_resp.data:
+                final_response['tickets'] = user_details_resp.data[0].get('tickets', 0)
+            else:
+                 # Если админ не найден (маловероятно), оставляем tickets=0 или логируем ошибку
+                 final_response['tickets'] = 0
+                 logging.error(f"Не удалось найти админа {telegram_id} в таблице users для получения билетов.")
+
+        # --- ИЗМЕНЕНИЕ: Вызываем вспомогательную функцию, адаптированную под глобальный клиент ---
+        # Убедись, что такая функция существует и использует глобальный supabase
+        admin_settings = await get_admin_settings_async_global()
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
-
-        # 👇 ДОБАВЬТЕ ЭТУ СТРОКУ 👇
         final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
-        
+
         return JSONResponse(content=final_response)
 
+    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
+    #     logging.error(f"Ошибка Supabase API в /api/v1/user/me: {e}", exc_info=True)
+    #     raise HTTPException(status_code=getattr(e, 'status_code', 500), detail=str(e))
     except Exception as e:
-        logging.error(f"Критическая ошибка в /api/v1/user/me: {e}", exc_info=True)
+        logging.error(f"Критическая ошибка в /api/v1/user/me для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
