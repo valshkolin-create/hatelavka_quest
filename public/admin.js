@@ -380,9 +380,12 @@ async function loadStatistics() {
         }
     };
 
-    const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
-    const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
-
+    const showLoader = () => {
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
+    };
+    const hideLoader = () => {
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    };
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) showLoader();
 
