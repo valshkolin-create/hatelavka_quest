@@ -373,9 +373,9 @@ async function loadStatistics() {
     const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
     const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
 
-    async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
+async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) showLoader();
-        
+
         try {
             const options = {
                 method: method,
@@ -387,17 +387,69 @@ async function loadStatistics() {
             }
 
             const response = await fetch(url, options);
-            if (response.status === 204) return null;
-            
-            const result = await response.json();
+
+            if (response.status === 204) {
+                return null;
+            }
+
+            // --- НАЧАЛО ИЗМЕНЕНИЙ В ОБРАБОТКЕ ОТВЕТА ---
+            let result;
+            try {
+                result = await response.json(); // Пытаемся распарсить JSON
+            } catch (jsonError) {
+                // Если не JSON, читаем как текст (на случай HTML-ошибки или простой строки)
+                const textResponse = await response.text();
+                console.error("Non-JSON response received:", textResponse);
+                 // Если ответ не был успешным (не 2xx), бросаем ошибку с текстом ответа
+                if (!response.ok) {
+                    throw new Error(`Ошибка ${response.status}: ${textResponse || 'Не удалось получить детали ошибки'}`);
+                }
+                 // Если ответ успешный, но не JSON (маловероятно для FastAPI), возвращаем текст
+                return textResponse;
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЙ В ОБРАБОТКЕ ОТВЕТА ---
+
 
             if (!response.ok) {
-                throw new Error(result.detail || 'Ошибка сервера');
+                // --- УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК FastAPI ---
+                let detailMessage = 'Неизвестная ошибка сервера';
+                if (result && result.detail) {
+                    if (Array.isArray(result.detail)) {
+                         try {
+                            // Собираем сообщения для каждого невалидного поля
+                            detailMessage = result.detail.map(err => {
+                                const field = err.loc && Array.isArray(err.loc) ? err.loc.join(' -> ') : 'поле'; // Добавлена проверка на массив err.loc
+                                return `${field}: ${err.msg}`;
+                            }).join('; ');
+                         } catch (parseError) {
+                             console.error("Error parsing FastAPI detail array:", parseError);
+                            detailMessage = JSON.stringify(result.detail); // Если структура не та, показываем как есть
+                         }
+                    } else if (typeof result.detail === 'string') {
+                        detailMessage = result.detail; // Если просто строка
+                    } else {
+                         // Если detail не строка и не массив, пытаемся превратить в строку
+                         detailMessage = JSON.stringify(result.detail);
+                    }
+                } else if (typeof result === 'string') {
+                    detailMessage = result; // Если сам ответ - строка
+                } else if (result && typeof result === 'object') {
+                    // Если detail нет, но есть другие поля, показываем их
+                    detailMessage = JSON.stringify(result);
+                }
+                 // Формируем сообщение для пользователя
+                const userErrorMessage = `Ошибка ${response.status}: ${detailMessage}`;
+                console.error("API Error Response:", result); // Логируем полный ответ для отладки
+                throw new Error(userErrorMessage); // Бросаем ошибку с детальным сообщением
+                 // --- КОНЕЦ УЛУЧШЕННОЙ ОБРАБОТКИ ---
             }
             return result;
         } catch (e) {
-            if (!isSilent) tg.showAlert(`Ошибка: ${e.message}`);
-            throw e;
+            // Теперь e.message должно быть строкой
+            const errorMessage = e instanceof Error ? e.message : 'Произошла неизвестная ошибка';
+            if (!isSilent) tg.showAlert(errorMessage);
+            console.error(`Ошибка в makeApiRequest для ${url}:`, e); // Логируем исходную ошибку
+            throw e; // Перебрасываем ошибку дальше
         } finally {
             if (!isSilent) hideLoader();
         }
