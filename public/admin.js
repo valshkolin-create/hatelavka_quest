@@ -265,34 +265,93 @@ async function loadStatistics() {
         }
     }
 
-    const switchView = async (targetViewId) => {
-            // --- ADD THESE LINES at the beginning ---
-        if (orderChanged) {
-            // Если были изменения порядка, но пользователь уходит со страницы, не сохраняя
-            // Можно добавить тут подтверждение tg.showConfirm(...)
-            console.log("Switching view with unsaved order changes.");
+const showLoader = () => {
+        // Добавляем проверку перед доступом к classList
+        if (dom.loaderOverlay && dom.loaderOverlay.classList) {
+            dom.loaderOverlay.classList.remove('hidden');
+        } else {
+            console.warn("[showLoader] Элемент dom.loaderOverlay не найден или не имеет classList!");
         }
-        dom.saveOrderButton.classList.add('hidden'); // Прячем кнопку при смене вида
+    };
+    const hideLoader = () => {
+        // Добавляем проверку перед доступом к classList
+        if (dom.loaderOverlay && dom.loaderOverlay.classList) {
+            dom.loaderOverlay.classList.add('hidden');
+        } else {
+            console.warn("[hideLoader] Элемент dom.loaderOverlay не найден или не имеет classList!");
+        }
+    };
+
+    const switchView = async (targetViewId) => {
+        console.log(`[switchView] Начинаем для targetViewId = ${targetViewId}`); // Лог входа
+
+        // --- ADD THESE LINES at the beginning ---
+        if (orderChanged) {
+             console.log("[switchView] Обнаружены несохраненные изменения порядка.");
+        }
+        // Проверяем кнопку сохранения перед доступом к classList
+        if (dom.saveOrderButton && dom.saveOrderButton.classList) { // Добавлена проверка classList
+            dom.saveOrderButton.classList.add('hidden'); // Прячем кнопку при смене вида
+        } else {
+             console.warn("[switchView] Элемент dom.saveOrderButton не найден или не имеет classList!");
+        }
         orderChanged = false; // Сбрасываем флаг
         // --- END of ADDED LINES ---
-        dom.views.forEach(view => view.classList.add('hidden'));
-        const targetView = document.getElementById(targetViewId);
-        if (targetView) targetView.classList.remove('hidden');
 
-        if (dom.sleepModeToggle) { // <-- ПРОВЕРКА УЖЕ БЫЛА, НО УБЕДИСЬ, ЧТО ОНА ЕСТЬ
-            const isAdmin = document.body.dataset.isAdmin === 'true';
-            // Дополнительная проверка перед toggle
-            if (dom.sleepModeToggle.classList) {
-                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
-            } else {
-                console.warn("switchView: dom.sleepModeToggle найден, но classList отсутствует?");
-            }
+        console.log("[switchView] Начинаем скрывать все view...");
+        try {
+            dom.views.forEach((view, index) => {
+                if (view && view.classList) { // Проверка перед доступом
+                    // console.log(`[switchView] Скрываем view #${index}, ID: ${view.id}`); // Раскомментируй для детального лога
+                    view.classList.add('hidden');
+                } else {
+                    // Эта ошибка критична, если произойдет
+                    console.error(`[switchView] ОШИБКА: Не удалось скрыть view #${index}. Элемент или classList отсутствует. View:`, view);
+                }
+            });
+        } catch(e) {
+             console.error("[switchView] ИСКЛЮЧЕНИЕ при скрытии views:", e); // Ловим возможные исключения
+        }
+        console.log("[switchView] Все views скрыты.");
+
+
+        const targetView = document.getElementById(targetViewId);
+        console.log(`[switchView] Найден элемент для ID ${targetViewId}:`, targetView ? 'Да' : 'Нет'); // Лог найден ли элемент
+
+        if (targetView && targetView.classList) { // Проверка перед доступом
+            console.log(`[switchView] Показываем view ${targetViewId}...`);
+            targetView.classList.remove('hidden');
+            console.log(`[switchView] View ${targetViewId} показан.`);
         } else {
-             console.warn("switchView: Элемент dom.sleepModeToggle не найден при переключении вида!");
+             // Эта ошибка критична
+             console.error(`[switchView] ОШИБКА: Элемент targetView не найден или не имеет classList для ID ${targetViewId}!`);
+             // Можно добавить return или throw, если без этого элемента продолжать нельзя
         }
 
-        showLoader();
+        // --- Безопасная проверка для sleepModeToggle ---
+        console.log("[switchView] Проверяем dom.sleepModeToggle...");
+        if (dom.sleepModeToggle) {
+            console.log("[switchView] dom.sleepModeToggle найден.");
+            const isAdmin = document.body.dataset.isAdmin === 'true';
+            if (dom.sleepModeToggle.classList) {
+                 console.log("[switchView] dom.sleepModeToggle имеет classList, переключаем видимость...");
+                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
+                 console.log("[switchView] Видимость dom.sleepModeToggle переключена.");
+            } else {
+                console.warn("[switchView] dom.sleepModeToggle найден, но classList отсутствует?");
+            }
+        } else {
+             console.warn("[switchView] Элемент dom.sleepModeToggle не найден при переключении видимости!");
+        }
+        // --- Конец проверки ---
+
+        console.log("[switchView] Показываем loader...");
+        showLoader(); // Уже безопасно
+        console.log("[switchView] Loader показан.");
+
         try {
+            console.log(`[switchView] Входим в switch-блок для ${targetViewId}...`);
+            // --- Блок switch остается без изменений ---
             switch (targetViewId) {
                 case 'view-admin-quests': {
                     const allQuests = await makeApiRequest('/api/v1/admin/quests/all', {}, 'POST', true);
@@ -371,27 +430,56 @@ async function loadStatistics() {
                         const defaultReward = levelData.default_reward || {};
 
                         const container = document.getElementById(`top-rewards-container-${level}`);
-                        container.innerHTML = ''; // Очищаем перед заполнением
-                        topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
-                            container.appendChild(createTopRewardRow(reward));
-                        });
+                        if (container) { // Добавлена проверка на существование container
+                           container.innerHTML = ''; // Очищаем перед заполнением
+                           topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+                               container.appendChild(createTopRewardRow(reward));
+                           });
+                        } else {
+                            console.warn(`[switchView] Контейнер top-rewards-container-${level} не найден!`);
+                        }
 
-                        form.elements[`default_reward_name_${level}`].value = defaultReward.name || '';
-                        form.elements[`default_reward_image_url_${level}`].value = defaultReward.image_url || '';
+
+                        // Добавляем проверки для элементов формы
+                        const nameInput = form.elements[`default_reward_name_${level}`];
+                        const imageInput = form.elements[`default_reward_image_url_${level}`];
+
+                        if (nameInput) {
+                            nameInput.value = defaultReward.name || '';
+                        } else {
+                             console.warn(`[switchView] Элемент default_reward_name_${level} не найден в форме!`);
+                        }
+                        if (imageInput) {
+                            imageInput.value = defaultReward.image_url || '';
+                        } else {
+                             console.warn(`[switchView] Элемент default_reward_image_url_${level} не найден в форме!`);
+                        }
                     });
                     break;
                 }
+                 case 'view-admin-main': {
+                   console.log("[switchView] Выполнен case 'view-admin-main'."); // Лог выполнения case
+                   break; // Этот case остается пустым
+                }
+                // --- ДОБАВЬТЕ ЭТОТ БЛОК ---
+                default: {
+                    console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
+                    break;
+                }
+                // --- КОНЕЦ БЛОКА ---
             }
+            console.log(`[switchView] Выход из switch-блока для ${targetViewId}.`);
+        } catch (e) {
+            console.error(`[switchView] ИСКЛЮЧЕНИЕ внутри switch-блока для ${targetViewId}:`, e);
+             // Убедимся, что loader скрывается даже при ошибке в switch
+             hideLoader(); // Уже безопасно
+             throw e; // Перебрасываем ошибку дальше, чтобы увидеть ее в main()
         } finally {
-            hideLoader();
+            console.log("[switchView] Входим в finally, скрываем loader...");
+            hideLoader(); // Уже безопасно
+            console.log("[switchView] Loader скрыт в finally.");
         }
-    };
-
-    const showLoader = () => {
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
-    };
-    const hideLoader = () => {
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+        console.log(`[switchView] Завершаем для targetViewId = ${targetViewId}`); // Лог выхода
     };
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) showLoader();
