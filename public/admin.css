@@ -72,8 +72,6 @@ body { margin: 0; min-height: 100vh; background-color: var(--bg-color); backgrou
 .prompt-actions > * { flex:1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
 .prompt-actions .confirm-btn { background-color: var(--primary-color); color: white; }
 .prompt-actions .cancel-btn { background-color: #555; color: white; }
-.category-actions .sort-btn, .sort-quest-btn { background-color: #555; padding: 4px 8px; font-size: 14px; }
-.sort-btn:disabled, .sort-quest-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .quest-category-accordion { width: 100%;}
 .quest-category-header { cursor: pointer; font-size: 16px; font-weight: 600; padding: 12px; background-color: rgba(44, 44, 46, 0.85); border-radius: 8px; list-style: none; display: flex; align-items: center; justify-content: space-between; }
 .quest-category-header::-webkit-details-marker { display: none; }
@@ -451,4 +449,30 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     color: white;
     font-size: 13px; /* Размер иконки */
     margin: 0; /* Убираем лишние отступы */
+}
+/* ДОБАВЬ ЭТИ СТИЛИ (можно в конец файла) */
+.sort-order-input {
+    width: 45px; /* Ширина поля */
+    padding: 6px 8px;
+    font-size: 14px;
+    text-align: center;
+    border: 1px solid var(--divider-glass-color);
+    background-color: rgba(0,0,0,0.2);
+    color: var(--text-color);
+    border-radius: 6px;
+    margin-right: 10px; /* Отступ справа от поля */
+    -moz-appearance: textfield; /* Убираем стрелки в Firefox */
+}
+/* Убираем стрелки в Chrome/Safari */
+.sort-order-input::-webkit-outer-spin-button,
+.sort-order-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.category-card {
+    flex-direction: row; /* Чтобы инпут и название были в строку */
+    align-items: center; /* Выравниваем по центру */
+}
+.manage-quest-card .quest-admin-meta {
+    align-items: center; /* Выравниваем инпут и бейджи по центру */
 }
