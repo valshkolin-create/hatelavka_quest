@@ -1024,44 +1024,47 @@ async def get_manual_quests(
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
-    
+
     telegram_id = user_info["id"]
 
-    # 1. Получаем ID всех одобренных заявок для этого пользователя
-    completed_resp = await supabase.get(
-        "/quest_submissions",
-        params={"user_id": f"eq.{telegram_id}", "status": "eq.approved", "select": "quest_id"}
-    )
-    completed_resp.raise_for_status()
-    completed_quest_ids = {sub['quest_id'] for sub in completed_resp.json()}
+    try:
+        # 1. Получаем ID всех одобренных заявок для этого пользователя
+        completed_resp = await supabase.get(
+            "/quest_submissions",
+            params={"user_id": f"eq.{telegram_id}", "status": "eq.approved", "select": "quest_id"}
+        )
+        completed_resp.raise_for_status()
+        completed_quest_ids = {sub['quest_id'] for sub in completed_resp.json()}
 
-    # 2. Получаем все активные квесты с ручной проверкой
-    all_manual_quests_resp = await supabase.get(
-        "/quests",
-        params={
-            "is_active": "eq.true", 
-            "quest_type": "eq.manual_check", 
-            "select": "*, quest_categories(name, sort_order)"
-        }
-    )
-    all_manual_quests_resp.raise_for_status()
-    all_manual_quests = all_manual_quests_resp.json()
+        # 2. Получаем все активные квесты с ручной проверкой, включая данные категории и sort_order
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Добавляем sort_order и сортировку ---
+        all_manual_quests_resp = await supabase.get(
+            "/quests",
+            params={
+                "is_active": "eq.true",
+                "quest_type": "eq.manual_check",
+                "select": "*, quest_categories(name, sort_order), sort_order", # Добавили sort_order квеста
+                # Сортируем: сначала по sort_order категории (nulls last), потом по sort_order квеста (nulls last), потом по ID
+                "order": "quest_categories.sort_order.asc.nullslast,sort_order.asc.nullslast,id.asc"
+            }
+        )
+        all_manual_quests_resp.raise_for_status()
+        all_manual_quests = all_manual_quests_resp.json()
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-    # 3. Фильтруем квесты, оставляя только те, которые не были выполнены
-    # или являются многоразовыми (is_repeatable = true)
-    available_quests = [
-        quest for quest in all_manual_quests 
-        # ИСПРАВЛЕНО: Используем .get() для безопасного доступа к полю
-        if quest.get('is_repeatable') or quest.get('id') not in completed_quest_ids
-    ]
+        # 3. Фильтруем квесты, оставляя только те, которые не были выполнены
+        # или являются многоразовыми (is_repeatable = true)
+        available_quests = [
+            quest for quest in all_manual_quests
+            if quest.get('is_repeatable') or quest.get('id') not in completed_quest_ids
+        ]
 
-    # Сортируем финальный список
-    available_quests.sort(key=lambda q: (
-        (q.get('quest_categories') or {}).get('sort_order', 999), 
-        -q.get('id', 0)
-    ))
+        # 4. Возвращаем уже отсортированный список (сортировка произошла на уровне запроса к БД)
+        return available_quests
 
-    return available_quests
+    except Exception as e:
+        logging.error(f"Ошибка при получении ручных квестов для {telegram_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить задания.")
 
 @app.post("/api/v1/quests/close_expired")
 async def close_expired_quest(
