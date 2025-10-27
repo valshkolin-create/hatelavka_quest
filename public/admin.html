@@ -692,6 +692,35 @@
             <div id="modal-body" class="modal-body"></div>
         </div>
     </div>
+  
+    <div id="edit-roulette-prize-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">Редактировать приз</h2>
+                    <button class="modal-close-btn" data-close-modal="edit-roulette-prize-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-roulette-prize-form" class="admin-form">
+                        <input type="hidden" name="prize_id">
+                        <label>Название Twitch награды (триггер)</label>
+                        <input type="text" name="reward_title" required>
+                        <label>Название скина</label>
+                        <input type="text" name="skin_name" required>
+                        <label>URL картинки скина</label>
+                        <input type="text" name="image_url" required>
+                        <label>Вес шанса</label>
+                        <input type="number" step="0.1" name="chance_weight" required>
+                        <label>Количество в наличии</label>
+                        <input type="number" name="quantity" required min="0">
+                        <div class="prompt-actions" style="margin-top: 20px;">
+                            <button type="button" class="cancel-btn" data-close-modal="edit-roulette-prize-modal">Отмена</button>
+                            <button type="submit" class="confirm-btn">Сохранить</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+  
     <div id="generic-prompt-overlay" class="modal-overlay hidden">
         <div class="prompt-modal">
             <h3 id="generic-prompt-title">Редактировать</h3>
