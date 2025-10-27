@@ -897,7 +897,7 @@ function setupEventListeners() {
             e.preventDefault(); 
             switchView('view-quests');
             const manualQuests = await makeApiRequest("/api/v1/quests/manual");
-            renderManualQuests(manualQuests, categories);
+            renderManualQuests(manualQuests); // <<< УБРАЛИ ВТОРОЙ АРГУМЕНТ
         });
         dom.promptCancel.addEventListener('click', hideCustomPrompt);
         dom.promptConfirm.addEventListener('click', async () => {
