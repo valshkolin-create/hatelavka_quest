@@ -1252,6 +1252,9 @@ class QuestUpdateRequest(BaseModel):
 
 class SubmissionUpdateRequest(BaseModel): initData: str; submission_id: int; action: str
 class QuestDeleteRequest(BaseModel): initData: str; quest_id: int
+class QuestDetailsRequest(BaseModel):
+    initData: str
+    quest_id: int
 class PromocodeAddRequest(BaseModel): initData: str; codes: str; reward_value: int; description: str
 class PromocodeClaimRequest(BaseModel): initData: str; quest_id: int
 class ChallengeAdminCreateRequest(BaseModel): initData: str; description: str; condition_type: str; target_value: int; duration_days: int; reward_amount: int; is_active: bool = True
@@ -2022,7 +2025,7 @@ async def delete_quest(request_data: QuestDeleteRequest, supabase: httpx.AsyncCl
     return {"message": "Задание и все заявки по нему удалены."}
     
 @app.post("/api/v1/admin/quest/details")
-async def get_quest_details(request_data: QuestDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_quest_details(request_data: QuestDetailsRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS: raise HTTPException(status_code=403, detail="Доступ запрещен")
     quest_id = request_data.quest_id
