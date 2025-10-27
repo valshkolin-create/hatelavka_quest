@@ -2235,10 +2235,15 @@ if(dom.createRoulettePrizeForm) {
         }
     }
 
-    async function main() {
+async function main() {
         try {
             tg.expand();
-            if (!tg.initData) throw new Error("Требуется авторизация в Telegram.");
+            // --- ЛОГ 1: Проверяем initData ---
+            console.log("main(): Проверка tg.initData:", tg.initData);
+            if (!tg.initData) {
+                console.error("main(): tg.initData отсутствует!"); // <-- Добавлено
+                throw new Error("Требуется авторизация в Telegram.");
+            }
 
             showLoader();
             const [userData, sleepStatus] = await Promise.all([
@@ -2246,21 +2251,36 @@ if(dom.createRoulettePrizeForm) {
                 makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true)
             ]);
 
-            if (!userData.is_admin) throw new Error("Доступ запрещен.");
+            // --- ЛОГ 2: Проверяем ответ от /user/me ---
+            console.log("main(): Ответ от /api/v1/user/me:", JSON.stringify(userData));
+            // --- ЛОГ 3: Проверяем результат проверки админа ---
+            console.log(`main(): Проверка userData.is_admin. Значение: ${userData?.is_admin}. Результат проверки (!userData.is_admin): ${!userData?.is_admin}`);
 
+            if (!userData.is_admin) {
+                // --- ЛОГ 4: Фиксируем момент выбрасывания ошибки ---
+                console.error("main(): ОШИБКА ДОСТУПА! userData.is_admin НЕ true. Выбрасываем ошибку.");
+                throw new Error("Доступ запрещен.");
+            }
+
+            // Этот код не должен выполниться, если нет доступа
+            console.log("main(): Доступ разрешен. Установка isAdmin=true и переключение вида."); // <-- Добавлено
             document.body.dataset.isAdmin = 'true';
             updateSleepButton(sleepStatus);
-
             await switchView('view-admin-main');
+
         } catch (e) {
+            // --- ЛОГ 5: Фиксируем ошибку в блоке catch ---
+            console.error("main(): Ошибка поймана в блоке catch:", e.message);
             document.body.dataset.isAdmin = 'false';
             if(dom.sleepModeToggle) dom.sleepModeToggle.classList.add('hidden');
             if(dom.appContainer) dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
         } finally {
+            // --- ЛОГ 6: Фиксируем выполнение finally ---
+            console.log("main(): Блок finally выполняется.");
             hideLoader();
         }
     }
-
+    
     document.addEventListener("DOMContentLoaded", () => {
         tg.ready();
         setupEventListeners();
