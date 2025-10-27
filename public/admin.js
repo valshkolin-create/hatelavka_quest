@@ -1158,7 +1158,7 @@ function renderRoulettePrizes(prizes) {
             // Отображаем аккордеон, даже если в "Без категории" нет квестов
             if (questsInCategory.length > 0 || cat.id === 'no_category') {
                 const accordionHtml = `
-                    <details class="quest-category-accordion" ${cat.id === 'no_category' && questsInCategory.length > 0 ? 'open' : ''}>
+                    <details class="quest-category-accordion"> // <<< УСЛОВИЕ ДЛЯ 'open' УДАЛЕНО
                         <summary class="quest-category-header">
                             <div class="category-info">${escapeHTML(cat.name)}</div>
                         </summary>
