@@ -438,3 +438,17 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 #cauldron-tabs {
     grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
 }
+/* Стили для кнопки редактирования приза рулетки */
+.edit-roulette-prize-btn {
+    background-color: var(--warning-color); /* Или другой цвет */
+    padding: 8px; /* Немного больше для иконки */
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Убедись, что иконка внутри кнопки видна */
+.edit-roulette-prize-btn i {
+    color: white;
+    font-size: 13px; /* Размер иконки */
+    margin: 0; /* Убираем лишние отступы */
+}
