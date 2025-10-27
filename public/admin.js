@@ -1688,57 +1688,57 @@ function renderRoulettePrizes(prizes) {
                 });
 
 } else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.sort-quest-btn') && !actionButton.matches('.edit-category-btn')) {
-                const idStr = actionButton.dataset.id;
-                // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
-                console.log("[DEBUG] Raw data-id from button:", idStr, "(type:", typeof idStr, ")");
+                 const idStr = actionButton.dataset.id;
+                 // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
+                 console.log("[DEBUG] Raw data-id from button:", idStr, "(type:", typeof idStr, ")");
 
-                // Более строгая проверка: idStr должен существовать и быть парсибельным в конечное число
-                const potentialId = parseInt(idStr);
-                if (idStr === null || idStr === undefined || idStr.trim() === '' || isNaN(potentialId) || !isFinite(potentialId)) {
-                    console.error("[DEBUG] Invalid or missing quest ID found:", idStr);
-                    tg.showAlert("Ошибка: Неверный или отсутствующий ID квеста.");
-                    return; // Прерываем, если ID плохой
-                }
-                const questIdInt = potentialId; // Используем уже распарсенное значение
-                console.log("[DEBUG] Parsed quest_id:", questIdInt, "(type:", typeof questIdInt, ")");
-                // --- >>> КОНЕЦ ЛОГИРОВАНИЯ <<< ---
-
-                // Используем questIdInt при вызове makeApiRequest
-                const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: questIdInt });
-
-                // --- >>> Проверка ответа от API <<<---
-                 if (!quest) {
-                     console.error("[DEBUG] API returned null/undefined for quest details");
-                     tg.showAlert("Ошибка: Не удалось получить детали квеста от сервера.");
-                     return;
+                 // Более строгая проверка: idStr должен существовать и быть парсибельным в конечное число
+                 const potentialId = parseInt(idStr);
+                 if (idStr === null || idStr === undefined || idStr.trim() === '' || isNaN(potentialId) || !isFinite(potentialId)) {
+                     console.error("[DEBUG] Invalid or missing quest ID found:", idStr);
+                     tg.showAlert("Ошибка: Неверный или отсутствующий ID квеста.");
+                     return; // Прерываем, если ID плохой
                  }
-                 console.log("[DEBUG] Received quest details:", quest);
-                 // --- >>> Конец проверки ответа <<<---
+                 const questIdInt = potentialId; // Используем уже распарсенное значение
+                 console.log("[DEBUG] Parsed quest_id:", questIdInt, "(type:", typeof questIdInt, ")");
+                 // --- >>> КОНЕЦ ЛОГИРОВАНИЯ <<< ---
+
+                 // Используем questIdInt при вызове makeApiRequest
+                 const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: questIdInt });
+
+                 // --- >>> Проверка ответа от API <<<---
+                  if (!quest) {
+                      console.error("[DEBUG] API returned null/undefined for quest details");
+                      tg.showAlert("Ошибка: Не удалось получить детали квеста от сервера.");
+                      return;
+                  }
+                  console.log("[DEBUG] Received quest details:", quest);
+                  // --- >>> Конец проверки ответа <<<---
 
 
-                await fetchAndCacheCategories(true);
-                populateCategorySelects(quest.category_id);
-                const form = dom.editQuestForm;
-                let questType = quest.quest_type, twitchPeriod = 'session';
-                if (quest.quest_type && quest.quest_type.startsWith('automatic_twitch_')) { // Добавлена проверка quest.quest_type
-                    const parts = quest.quest_type.split('_');
-                    if (parts.length > 3) { questType = parts.slice(0, 3).join('_'); twitchPeriod = parts[3]; }
-                }
-                form.elements['quest_id'].value = quest.id;
-                form.elements['title'].value = quest.title;
-                form.elements['icon_url'].value = quest.icon_url || '';
-                form.elements['description'].value = quest.description || '';
-                form.elements['reward_amount'].value = quest.reward_amount;
-                form.elements['category_id'].value = quest.category_id || '';
-                form.elements['quest_type'].value = questType;
-                form.elements['action_url'].value = quest.action_url || '';
-                form.elements['twitch_period'].value = twitchPeriod;
-                form.elements['target_value'].value = quest.target_value || '';
-                form.elements['duration_hours'].value = quest.duration_hours || 0;
-                form.elements['is_active'].value = quest.is_active.toString();
-                form.elements['is_repeatable'].value = quest.is_repeatable.toString();
-                updateQuestFormUI(form);
-                await switchView('view-admin-edit');
+                 await fetchAndCacheCategories(true);
+                 populateCategorySelects(quest.category_id);
+                 const form = dom.editQuestForm;
+                 let questType = quest.quest_type, twitchPeriod = 'session';
+                 if (quest.quest_type && quest.quest_type.startsWith('automatic_twitch_')) { // Добавлена проверка quest.quest_type
+                     const parts = quest.quest_type.split('_');
+                     if (parts.length > 3) { questType = parts.slice(0, 3).join('_'); twitchPeriod = parts[3]; }
+                 }
+                 form.elements['quest_id'].value = quest.id;
+                 form.elements['title'].value = quest.title;
+                 form.elements['icon_url'].value = quest.icon_url || '';
+                 form.elements['description'].value = quest.description || '';
+                 form.elements['reward_amount'].value = quest.reward_amount;
+                 form.elements['category_id'].value = quest.category_id || '';
+                 form.elements['quest_type'].value = questType;
+                 form.elements['action_url'].value = quest.action_url || '';
+                 form.elements['twitch_period'].value = twitchPeriod;
+                 form.elements['target_value'].value = quest.target_value || '';
+                 form.elements['duration_hours'].value = quest.duration_hours || 0;
+                 form.elements['is_active'].value = quest.is_active.toString();
+                 form.elements['is_repeatable'].value = quest.is_repeatable.toString();
+                 updateQuestFormUI(form);
+                 await switchView('view-admin-edit');
             } else if (actionButton.matches('.admin-delete-quest-btn') && !actionButton.matches('.delete-category-btn')) {
                 tg.showConfirm(`Удалить задание ID ${id}?`, async (ok) => {
                     if (ok) {
