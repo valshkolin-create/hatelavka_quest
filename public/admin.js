@@ -1687,6 +1687,20 @@ function renderRoulettePrizes(prizes) {
                     }
                 });
 
+} else if (actionButton.matches('.edit-roulette-prize-btn')) {
+                // Твой код для открытия модального окна редактирования приза рулетки
+                // (тот, что мы добавляли раньше, использует data-prize)
+                if (editPrizeModal && editPrizeForm) {
+                    const prizeData = JSON.parse(actionButton.dataset.prize);
+                    editPrizeForm.elements['prize_id'].value = prizeData.id;
+                    editPrizeForm.elements['reward_title'].value = prizeData.reward_title;
+                    editPrizeForm.elements['skin_name'].value = prizeData.skin_name;
+                    editPrizeForm.elements['image_url'].value = prizeData.image_url;
+                    editPrizeForm.elements['chance_weight'].value = prizeData.chance_weight;
+                    editPrizeForm.elements['quantity'].value = prizeData.quantity;
+                    editPrizeModal.classList.remove('hidden');
+                }
+                
 } else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.sort-quest-btn') && !actionButton.matches('.edit-category-btn')) {
                  const idStr = actionButton.dataset.id;
                  // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
