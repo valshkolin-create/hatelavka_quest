@@ -970,12 +970,10 @@ function renderRoulettePrizes(prizes) {
         for (const rewardTitle in groupedPrizes) {
             const group = groupedPrizes[rewardTitle];
 
-            // Считаем сумму БАЗОВЫХ весов (для "Шанса на старте")
-            // Используем || 0 для безопасности, если chance_weight отсутствует или null
+            // Считаем сумму БАЗОВЫХ весов (для "Расчетного шанса")
             const totalBaseWeight = group.reduce((sum, p) => sum + (p.chance_weight || 0), 0);
 
-            // Считаем сумму ЭФФЕКТИВНЫХ весов (для "Умного шанса")
-            // Используем || 0 для безопасности
+            // Считаем сумму ЭФФЕКТИВНЫХ весов (для "Текущего шанса")
             const totalEffectiveWeight = group.reduce((sum, p) => sum + ((p.chance_weight || 0) * (p.quantity || 0)), 0);
 
             // Сортируем призы внутри группы (например, по названию скина)
@@ -987,7 +985,7 @@ function renderRoulettePrizes(prizes) {
                 const effectiveWeight = baseWeight * quantity;
 
                 // Рассчитываем проценты, проверяем деление на ноль
-                const startChancePercent = totalBaseWeight > 0 ? ((baseWeight / totalBaseWeight) * 100).toFixed(1) : '0.0'; // Используем '0.0' для единообразия
+                const startChancePercent = totalBaseWeight > 0 ? ((baseWeight / totalBaseWeight) * 100).toFixed(1) : '0.0';
                 const smartChancePercent = totalEffectiveWeight > 0 ? ((effectiveWeight / totalEffectiveWeight) * 100).toFixed(1) : '0.0';
 
                 // Формируем HTML для отображения
@@ -998,14 +996,12 @@ function renderRoulettePrizes(prizes) {
                         <p style="margin: 0 0 5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(prize.skin_name)}">
                             ${escapeHTML(prize.skin_name)}
                         </p>
-                        {/* --- НОВЫЙ БЛОК ОТОБРАЖЕНИЯ ШАНСОВ --- */}
                         <small style="color: var(--text-color-muted); display: block; line-height: 1.6;">
                             1. Кол-во: ${quantity}<br>
-                            2. Баз. Шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Относительный вес предмета, заданный в админке. Используется для расчета % шансов.</span></div>: ${baseWeight}<br>
-                            3. Умный Шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Реальный шанс выпадения сейчас (%) = (Баз. Шанс × Кол-во) / Сумма (Баз. Шанс × Кол-во) для всех призов в этой рулетке.</span></div>: ${smartChancePercent}%<br>
-                            4. Шанс на старте <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Шанс выпадения (%), если бы количество не учитывалось = Баз. Шанс / Сумма всех Баз. Шансов в этой рулетке.</span></div>: ${startChancePercent}%
+                            2. Базовый вес <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Начальный вес шанса предмета, заданный администратором. Определяет относительную редкость.</span></div>: ${baseWeight}<br>
+                            3. Текущий шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Актуальный % выпадения, учитывающий кол-во: (Баз. вес × Кол-во) / Сумма (Баз. вес × Кол-во) для всех призов в этой рулетке.</span></div>: ${smartChancePercent}%<br>
+                            4. Расчетный шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">% выпадения, если бы кол-во не влияло: Баз. вес / Сумма всех Баз. весов в этой рулетке.</span></div>: ${startChancePercent}%
                         </small>
-                         {/* --- КОНЕЦ НОВОГО БЛОКА --- */}
                     </div>
                     <div style="display: flex; gap: 8px; flex-shrink: 0;">
                          <button class="admin-edit-quest-btn edit-roulette-prize-btn" data-prize='${JSON.stringify(prize)}'>
@@ -1024,7 +1020,6 @@ function renderRoulettePrizes(prizes) {
                 <details class="quest-category-accordion">
                     <summary class="quest-category-header">
                        ${escapeHTML(rewardTitle)}
-                       {/* Убрали отображение суммы весов */}
                     </summary>
                     <div class="quest-category-body">
                         ${prizesHtml}
