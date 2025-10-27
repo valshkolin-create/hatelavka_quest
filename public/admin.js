@@ -957,6 +957,7 @@ function renderRoulettePrizes(prizes) {
             return;
         }
 
+        // 1. Группируем призы по названию рулетки (reward_title)
         const groupedPrizes = prizes.reduce((acc, prize) => {
             if (!acc[prize.reward_title]) {
                 acc[prize.reward_title] = [];
@@ -965,23 +966,43 @@ function renderRoulettePrizes(prizes) {
             return acc;
         }, {});
 
-        // Сортируем группы по названию Twitch награды
-        const sortedTitles = Object.keys(groupedPrizes).sort();
+        // 2. Рассчитываем шансы для каждой группы отдельно
+        for (const rewardTitle in groupedPrizes) {
+            const group = groupedPrizes[rewardTitle];
 
-        sortedTitles.forEach(rewardTitle => {
-             // Сортируем призы внутри группы (например, по названию скина)
-            groupedPrizes[rewardTitle].sort((a, b) => a.skin_name.localeCompare(b.skin_name));
+            // Считаем сумму БАЗОВЫХ весов (для "Шанса на старте")
+            const totalBaseWeight = group.reduce((sum, p) => sum + (p.chance_weight || 0), 0);
 
-            const prizesHtml = groupedPrizes[rewardTitle].map(prize => `
+            // Считаем сумму ЭФФЕКТИВНЫХ весов (для "Умного шанса")
+            const totalEffectiveWeight = group.reduce((sum, p) => sum + ((p.chance_weight || 0) * (p.quantity || 0)), 0);
+
+            // Сортируем призы внутри группы (например, по названию скина)
+            group.sort((a, b) => a.skin_name.localeCompare(b.skin_name));
+
+            const prizesHtml = group.map(prize => {
+                const baseWeight = prize.chance_weight || 0;
+                const quantity = prize.quantity || 0;
+                const effectiveWeight = baseWeight * quantity;
+
+                // Рассчитываем проценты
+                const startChancePercent = totalBaseWeight > 0 ? ((baseWeight / totalBaseWeight) * 100).toFixed(1) : 0;
+                const smartChancePercent = totalEffectiveWeight > 0 ? ((effectiveWeight / totalEffectiveWeight) * 100).toFixed(1) : 0;
+
+                return `
                 <div class="quest-card" style="flex-direction: row; align-items: center; gap: 15px;">
                     <img src="${escapeHTML(prize.image_url)}" alt="skin" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px; flex-shrink: 0;">
                     <div style="flex-grow: 1; min-width: 0;">
                         <p style="margin: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(prize.skin_name)}">
                             ${escapeHTML(prize.skin_name)}
                         </p>
-                        <small style="color: var(--text-color-muted);">
-                            Вес: ${prize.chance_weight} | Кол-во: ${prize.quantity}
+                        {/* --- ИЗМЕНЕННЫЙ БЛОК ОТОБРАЖЕНИЯ ШАНСОВ --- */}
+                        <small style="color: var(--text-color-muted); display: block; line-height: 1.5;">
+                            Баз. Шанс: ${baseWeight} | Кол-во: ${quantity}<br>
+                            Умный Шанс: ${smartChancePercent}%
+                            <div class="tooltip" style="margin-left: 3px;">?<span class="tooltip-text">Эффективный вес = (Базовый Шанс × Количество в наличии).<br>Процент расчитан относительно суммы всех Умных Шансов в этой рулетке (${totalEffectiveWeight}).</span></div><br>
+                            Шанс на старте: ${startChancePercent}%
                         </small>
+                         {/* --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА --- */}
                     </div>
                     <div style="display: flex; gap: 8px; flex-shrink: 0;">
                          <button class="admin-edit-quest-btn edit-roulette-prize-btn" data-prize='${JSON.stringify(prize)}'>
@@ -992,12 +1013,17 @@ function renderRoulettePrizes(prizes) {
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
+            // --- ИЗМЕНЕНИЕ: Убираем 'open' из <details> ---
             const groupHtml = `
-                <details class="quest-category-accordion" open>
+                <details class="quest-category-accordion"> {/* <-- Убрали 'open' */}
                     <summary class="quest-category-header">
                        ${escapeHTML(rewardTitle)}
+                       <span style="font-size: 12px; color: var(--text-color-muted); margin-left: auto; padding-left: 10px;">
+                           (Сумм. Эфф. Вес: ${totalEffectiveWeight.toFixed(1)})
+                       </span>
                     </summary>
                     <div class="quest-category-body">
                         ${prizesHtml}
@@ -1005,7 +1031,7 @@ function renderRoulettePrizes(prizes) {
                 </details>
             `;
             dom.roulettePrizesList.insertAdjacentHTML('beforeend', groupHtml);
-        });
+        } // Конец цикла for по группам
     }
     
     function renderQuests(quests, categories) {
