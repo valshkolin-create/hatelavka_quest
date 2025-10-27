@@ -692,56 +692,63 @@ try {
         dom.questChooseContainer.classList.add('hidden');
     }
 
-    function renderManualQuests(quests, categories) {
+function renderManualQuests(quests) { // Убран аргумент categories, он больше не нужен отдельно
         const container = dom.viewQuests;
-        const title = container.querySelector('.page-title'); 
-        container.innerHTML = ''; 
-        if (title) container.appendChild(title); 
+        const title = container.querySelector('.page-title');
+        container.innerHTML = '';
+        if (title) container.appendChild(title);
+
         if (!quests || quests.length === 0) {
             container.insertAdjacentHTML('beforeend', `<p style="text-align: center; font-size: 12px; color: var(--text-color-muted); grid-column: 1 / -1;">Нет заданий для ручной проверки.</p>`);
             return;
         }
-        const groupedQuests = quests.reduce((acc, quest) => {
-            const category = quest.quest_categories ? quest.quest_categories.name : 'Разное';
-            if (!acc[category]) {
-                acc[category] = [];
+
+        // Используем Map для сохранения порядка категорий, как они пришли от API
+        const groupedQuests = new Map();
+
+        quests.forEach(quest => {
+            // Используем имя категории или "Разное" как ключ
+            const categoryName = quest.quest_categories ? quest.quest_categories.name : 'Разное';
+            if (!groupedQuests.has(categoryName)) {
+                groupedQuests.set(categoryName, []);
             }
-            acc[category].push(quest);
-            return acc;
-        }, {});
-        for (const categoryName in groupedQuests) {
-            const questsInCategory = groupedQuests[categoryName];
+            groupedQuests.get(categoryName).push(quest);
+        });
+
+        // Отображаем категории и квесты в том порядке, в котором они были добавлены в Map
+        groupedQuests.forEach((questsInCategory, categoryName) => {
             const questsHtml = questsInCategory.map(quest => {
-                const iconHtml = (quest.icon_url && quest.icon_url !== "") ? `<img src="${quest.icon_url}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-user-check"></i></div>`;
+                const iconHtml = (quest.icon_url && quest.icon_url !== "") ? `<img src="${escapeHTML(quest.icon_url)}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-user-check"></i></div>`;
                 const actionLinkHtml = (quest.action_url && quest.action_url !== "")
-                    ? `<a href="${quest.action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
+                    ? `<a href="${escapeHTML(quest.action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
                     : '';
                 const submitButtonText = (quest.action_url && quest.action_url !== "") ? 'Отправить' : 'Выполнить';
                 return `
                     <div class="quest-card" style="display: flex; flex-direction: column;">
                         <div style="flex-grow: 1;">
                             ${iconHtml}
-                            <h2 class="quest-title">${quest.title || ''}</h2>
-                            <p class="quest-subtitle">${quest.description || ''}</p>
+                            <h2 class="quest-title">${escapeHTML(quest.title || '')}</h2>
+                            <p class="quest-subtitle">${escapeHTML(quest.description || '')}</p>
                             <p class="quest-subtitle">Награда: ${quest.reward_amount || ''} ⭐</p>
                         </div>
                         <div class="manual-quest-actions">
                             ${actionLinkHtml}
-                            <button class="perform-quest-button" data-id="${quest.id}" data-title="${quest.title}">${submitButtonText}</button>
+                            <button class="perform-quest-button" data-id="${quest.id}" data-title="${escapeHTML(quest.title)}">${submitButtonText}</button>
                         </div>
                     </div>
                 `;
             }).join('');
+
             const accordionHtml = `
                 <details class="quest-category-accordion">
-                    <summary class="quest-category-header">${categoryName}</summary>
+                    <summary class="quest-category-header">${escapeHTML(categoryName)}</summary>
                     <div class="quest-category-body">
                         ${questsHtml}
                     </div>
                 </details>
             `;
             container.insertAdjacentHTML('beforeend', accordionHtml);
-        }
+        });
     }
     
     async function refreshDataSilently() {
@@ -887,7 +894,6 @@ function setupEventListeners() {
             e.preventDefault(); 
             switchView('view-quests');
             const manualQuests = await makeApiRequest("/api/v1/quests/manual");
-            const categories = await makeApiRequest("/api/v1/quests/categories");
             renderManualQuests(manualQuests, categories);
         });
         dom.promptCancel.addEventListener('click', hideCustomPrompt);
