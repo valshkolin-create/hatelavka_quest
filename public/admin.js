@@ -279,9 +279,16 @@ async function loadStatistics() {
         const targetView = document.getElementById(targetViewId);
         if (targetView) targetView.classList.remove('hidden');
 
-        if (dom.sleepModeToggle) {
+        if (dom.sleepModeToggle) { // <-- ПРОВЕРКА УЖЕ БЫЛА, НО УБЕДИСЬ, ЧТО ОНА ЕСТЬ
             const isAdmin = document.body.dataset.isAdmin === 'true';
-            dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
+            // Дополнительная проверка перед toggle
+            if (dom.sleepModeToggle.classList) {
+                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
+            } else {
+                console.warn("switchView: dom.sleepModeToggle найден, но classList отсутствует?");
+            }
+        } else {
+             console.warn("switchView: Элемент dom.sleepModeToggle не найден при переключении вида!");
         }
 
         showLoader();
@@ -1214,13 +1221,26 @@ function renderRoulettePrizes(prizes) {
         return finalData;
     }
 
-    function updateSleepButton(status) {
-        if (status.is_sleeping) {
-            dom.sleepModeToggle.classList.add('is-sleeping');
-            dom.sleepModeToggle.title = "Разбудить бота";
+function updateSleepButton(status) {
+        // --- БЫЛО ---
+        // if (status.is_sleeping) {
+        //     dom.sleepModeToggle.classList.add('is-sleeping');
+        //     dom.sleepModeToggle.title = "Разбудить бота";
+        // } else {
+        //     dom.sleepModeToggle.classList.remove('is-sleeping');
+        //     dom.sleepModeToggle.title = "Уложить бота спать";
+        // }
+        // --- СТАЛО ---
+        if (dom.sleepModeToggle) { // <-- ДОБАВЛЕНА ПРОВЕРКА
+            if (status.is_sleeping) {
+                dom.sleepModeToggle.classList.add('is-sleeping');
+                dom.sleepModeToggle.title = "Разбудить бота";
+            } else {
+                dom.sleepModeToggle.classList.remove('is-sleeping');
+                dom.sleepModeToggle.title = "Уложить бота спать";
+            }
         } else {
-            dom.sleepModeToggle.classList.remove('is-sleeping');
-            dom.sleepModeToggle.title = "Уложить бота спать";
+            console.warn("updateSleepButton: Элемент dom.sleepModeToggle не найден!"); // Добавим лог на всякий случай
         }
     }
 
