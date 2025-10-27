@@ -458,6 +458,24 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             if (!isSilent) hideLoader();
         }
     }
+
+    async function fetchAndCacheCategories(isSilent = false) {
+        // --- >>> ДОБАВЬ ЭТОТ ЛОГ <<< ---
+        console.log("[DEBUG] fetchAndCacheCategories function started. isSilent:", isSilent);
+        // --- >>> КОНЕЦ ЛОГА <<< ---
+        try {
+            categoriesCache = await makeApiRequest('/api/v1/admin/categories', {}, 'POST', isSilent) || [];
+            // --- >>> ДОБАВЬ ЭТОТ ЛОГ <<< ---
+            console.log("[DEBUG] fetchAndCacheCategories function finished. categoriesCache:", categoriesCache);
+            // --- >>> КОНЕЦ ЛОГА <<< ---
+        } catch (e) {
+            console.error("Не удалось загрузить категории", e);
+             // --- >>> ДОБАВЬ ЭТОТ ЛОГ <<< ---
+            console.log("[DEBUG] fetchAndCacheCategories function caught an error.");
+             // --- >>> КОНЕЦ ЛОГА <<< ---
+            categoriesCache = [];
+        }
+    }
     
     function populateCategorySelects(selectedId = null) {
         const selects = document.querySelectorAll('select[name="category_id"]');
