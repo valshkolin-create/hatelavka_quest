@@ -2,7 +2,7 @@
 
 try {
     const tg = window.Telegram.WebApp;
-    
+
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
         appContainer: document.getElementById('app-container'),
@@ -75,7 +75,7 @@ try {
     let categoriesCache = [];
     let currentEditingCategoryId = null;
     let hasAdminAccess = false;
-    let currentCauldronData = {}; 
+    let currentCauldronData = {};
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
@@ -94,7 +94,7 @@ function getCurrentLevel(eventData) {
         return 1;
     }
     // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 1
-    
+
     // Создает HTML-строку для награды из топ-20
     function createTopRewardRow(reward = { place: '', name: '', image_url: '' }) {
         const wrapper = document.createElement('div');
@@ -148,12 +148,11 @@ function collectCauldronData() {
                 }
             });
         });
-        
+
         return content;
     }
-    
+
     // Загружает и отображает список участников
-// Загружает и отображает список участников
 async function renderCauldronParticipants() {
         const container = document.getElementById('cauldron-distribution-list');
         if (!container) return;
@@ -184,7 +183,7 @@ async function renderCauldronParticipants() {
                 activeRewardLevel = currentCauldronData.levels[`level_${currentLevel}`];
             }
             // --- КОНЕЦ ИЗМЕНЕНИЙ ---
-            
+
             container.innerHTML = `
                 <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Приз</span><span>Трейд</span></div>
                 ${participants.map((p, index) => {
@@ -195,7 +194,7 @@ async function renderCauldronParticipants() {
                     if (activeRewardLevel) {
                         // Сначала ищем награду в топе (для мест с 1 по 20)
                         prize = activeRewardLevel.top_places?.find(r => r.place === place);
-                        
+
                         // Если для этого места нет награды в топе, назначаем награду по умолчанию
                         if (!prize) {
                             prize = activeRewardLevel.default_reward;
@@ -273,7 +272,7 @@ async function loadStatistics() {
             const isAdmin = document.body.dataset.isAdmin === 'true';
             dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
         }
-        
+
         showLoader();
         try {
             switch (targetViewId) {
@@ -352,7 +351,7 @@ async function loadStatistics() {
                         const levelData = levels[`level_${level}`] || {};
                         const topPlaces = levelData.top_places || [];
                         const defaultReward = levelData.default_reward || {};
-                        
+
                         const container = document.getElementById(`top-rewards-container-${level}`);
                         container.innerHTML = ''; // Очищаем перед заполнением
                         topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
@@ -476,7 +475,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             categoriesCache = [];
         }
     }
-    
+
     function populateCategorySelects(selectedId = null) {
         const selects = document.querySelectorAll('select[name="category_id"]');
         selects.forEach(select => {
@@ -492,28 +491,70 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             });
         });
     }
-    
+
+    // --- NEW Functions for Sort Order Update ---
+    async function updateCategorySortOrder(categoryId, sortOrder) {
+        try {
+            await makeApiRequest('/api/v1/admin/categories/update_sort_order', {
+                category_id: categoryId,
+                sort_order: sortOrder
+            }, 'POST', true); // true - silent mode
+            console.log(`Category ${categoryId} sort order updated to ${sortOrder}`);
+            // Не перезагружаем здесь, чтобы не прерывать ввод
+        } catch (e) {
+            console.error("Failed to update category sort order:", e);
+            tg.showAlert(`Ошибка обновления порядка категории: ${e.message}`);
+             // Можно добавить откат значения в input при ошибке
+        }
+    }
+
+    async function updateQuestSortOrder(questId, sortOrder) {
+        try {
+            await makeApiRequest('/api/v1/admin/quests/update_sort_order', {
+                quest_id: questId,
+                sort_order: sortOrder
+            }, 'POST', true); // true - silent mode
+            console.log(`Quest ${questId} sort order updated to ${sortOrder}`);
+            // Не перезагружаем здесь, чтобы не прерывать ввод
+        } catch (e) {
+            console.error("Failed to update quest sort order:", e);
+            tg.showAlert(`Ошибка обновления порядка задания: ${e.message}`);
+            // Можно добавить откат значения в input при ошибке
+        }
+    }
+    // --- End NEW Functions ---
+
+    // --- MODIFIED function: renderCategoriesList ---
     function renderCategoriesList() {
         dom.categoriesList.innerHTML = '';
         if (categoriesCache.length === 0) {
              dom.categoriesList.innerHTML = '<p style="text-align: center;">Категорий пока нет.</p>';
              return;
         }
-        categoriesCache.forEach((cat, index) => {
+        // Сортируем кэш перед отображением
+        categoriesCache.sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999) || a.id - b.id);
+
+        categoriesCache.forEach(cat => {
+             // Добавляем input type="number" и убираем кнопки-стрелки
              dom.categoriesList.insertAdjacentHTML('beforeend', `
                  <div class="quest-card category-card" data-category-id="${cat.id}">
-                     <span class="category-name">${cat.name}</span>
+                     <input type="number"
+                            class="sort-order-input category-sort-order"
+                            data-category-id="${cat.id}"
+                            value="${cat.sort_order ?? ''}"
+                            placeholder="#"
+                            min="1">
+                     <span class="category-name">${escapeHTML(cat.name)}</span>
                      <div class="category-actions">
-                         <button class="admin-edit-quest-btn sort-btn" data-index="${index}" data-direction="up" ${index === 0 ? 'disabled' : ''}>▲</button>
-                         <button class="admin-edit-quest-btn sort-btn" data-index="${index}" data-direction="down" ${index === categoriesCache.length - 1 ? 'disabled' : ''}>▼</button>
-                         <button class="admin-edit-quest-btn edit-category-btn" data-id="${cat.id}" data-name="${cat.name}">Редакт.</button>
+                         <button class="admin-edit-quest-btn edit-category-btn" data-id="${cat.id}" data-name="${escapeHTML(cat.name)}">Редакт.</button>
                          <button class="admin-delete-quest-btn delete-category-btn" data-id="${cat.id}">Удалить</button>
                      </div>
                  </div>
              `);
         });
     }
-    
+    // --- End MODIFIED function: renderCategoriesList ---
+
     function renderChallenges(challenges) {
         dom.challengesList.innerHTML = '';
         if (!challenges || challenges.length === 0) {
@@ -542,7 +583,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             dom.challengesList.insertAdjacentHTML('beforeend', cardHtml);
         });
     }
-    
+
     function updateChallengeFormUI(form) {
         const conditionType = form.querySelector('select[name="condition_type"]').value;
         const periodWrapper = form.querySelector('.challenge-period-wrapper');
@@ -551,7 +592,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             periodWrapper.classList.toggle('hidden', !showPeriod);
         }
     }
-    
+
     function updateQuestFormUI(form) {
         const questType = form.querySelector('select[name="quest_type"]').value;
         const isManual = questType === 'manual_check';
@@ -563,7 +604,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             twitchPeriodWrapper.classList.toggle('hidden', !showPeriodSelector);
         }
     }
-    
+
     function showGenericPrompt(title, value, id) {
         currentEditingCategoryId = id;
         dom.genericPromptTitle.textContent = title;
@@ -571,7 +612,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         dom.genericPromptOverlay.classList.remove('hidden');
         dom.genericPromptInput.focus();
     }
-    
+
     function hideGenericPrompt() {
         dom.genericPromptOverlay.classList.add('hidden');
         currentEditingCategoryId = null;
@@ -615,7 +656,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                 const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
                     ? `<a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
                     : '';
-                    
+
                 const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
 
                 const cardHtml = `
@@ -670,19 +711,19 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             dom.tabContentCheckpointPrizes.innerHTML += cardHtml;
         });
     }
-    
+
     function renderWinners(winners) {
         dom.tabContentEventPrizes.innerHTML = '';
         if (!winners || winners.length === 0) {
             dom.tabContentEventPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет победителей для отображения.</p>';
             return;
         }
-        
+
         winners.forEach(winner => {
             const hasValidTradeLink = winner.trade_link && winner.trade_link !== 'Не указана' && winner.trade_link.startsWith('http');
             const tradeLinkClass = hasValidTradeLink ? '' : 'disabled';
             const tradeLinkHref = hasValidTradeLink ? winner.trade_link : '#';
-            
+
             const confirmationHtml = winner.prize_sent_confirmed
                 ? '<p style="text-align:center; color: var(--status-active-color); font-weight: 600;">✅ Приз выдан</p>'
                 : `<button class="admin-action-btn confirm confirm-winner-prize-btn" data-event-id="${winner.event_id}">Подтвердить выдачу</button>`;
@@ -699,7 +740,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             dom.tabContentEventPrizes.innerHTML += cardHtml;
         });
     }
-    
+
     async function loadAndRenderSettings() {
         try {
              const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
@@ -812,7 +853,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         const modal = document.getElementById('twitch-reward-settings-modal');
         const form = document.getElementById('twitch-reward-settings-form');
         document.getElementById('twitch-settings-title').textContent = `Настройки: ${reward.title}`;
-        
+
         form.elements['reward_id'].value = reward.id;
         form.elements['is_active'].checked = reward.is_active;
         form.elements['notify_admin'].checked = reward.notify_admin;
@@ -843,7 +884,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             headerEl.insertBefore(deleteAllBtn, refreshBtn);
         }
         deleteAllBtn.dataset.rewardId = rewardId;
-        
+
         titleEl.textContent = `Покупки: ${rewardTitle}`;
         body.innerHTML = '<i>Загрузка покупок и проверка прогресса...</i>';
         modal.classList.remove('hidden');
@@ -866,7 +907,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                 return;
             }
             deleteAllBtn.classList.remove('hidden');
-            
+
             const targetValue = reward_settings.target_value;
             const conditionType = reward_settings.condition_type || '';
             const period = conditionType.split('_').pop();
@@ -896,12 +937,12 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                 const date = new Date(p.created_at).toLocaleString('ru-RU');
                 const progress = p.progress_value === null || typeof p.progress_value === 'undefined' ? 0 : p.progress_value;
                 const isLocked = targetValue > 0 && progress < targetValue;
-                
+
                 const isViewed = viewedPurchases.has(p.id);
                 const viewedStatusClass = isViewed ? 'status-viewed' : 'status-not-viewed';
                 const viewedStatusText = isViewed ? 'Просмотрено' : 'Не просмотрено';
                 const viewStatusHtml = `<p class="purchase-view-status ${viewedStatusClass}">${viewedStatusText}</p>`;
-                
+
                 let userInputHtml = '';
                 let rouletteWinHtml = '';
                 if (reward_settings.show_user_input && p.user_input) {
@@ -909,7 +950,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                     if (userInputContent.startsWith("Выигрыш:")) {
                         const parts = userInputContent.split("| Сообщение:");
                         rouletteWinHtml = `<p class="purchase-win-info">${parts[0].trim()}</p>`;
-                        userInputContent = (parts.length > 1) ? parts[1].trim() : ''; 
+                        userInputContent = (parts.length > 1) ? parts[1].trim() : '';
                     }
                     if (userInputContent) {
                        userInputHtml = `<div class="purchase-user-input">${makeLinksClickable(userInputContent)}</div>`;
@@ -917,7 +958,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                 }
 
                 const tradeLinkHtml = p.trade_link ? `<p>Трейд: <a href="${p.trade_link}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color);">Открыть</a></p>` : '';
-                
+
                 let actionButtonsHtml;
                 if (p.rewarded_at) {
                     actionButtonsHtml = `
@@ -942,13 +983,13 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                     </div>
                 ` : '';
 
-                const telegramNameDisplay = p.status === 'Привязан' 
+                const telegramNameDisplay = p.status === 'Привязан'
                     ? `<span style="color: var(--text-color-muted); font-weight: normal; margin-left: 5px;">(${p.username || '...'})</span>`
                     : `<span style="color: var(--warning-color); font-weight: normal; margin-left: 5px;">(Не привязан)</span>`;
 
                 return `
                 <div class="purchase-item ${isLocked ? 'is-locked' : ''}" id="purchase-item-${p.id}" data-purchase-id="${p.id}">
-                    ${lockedOverlayHtml} 
+                    ${lockedOverlayHtml}
                     <div class="purchase-item-header">
                         <strong>${p.twitch_login || '???'}${telegramNameDisplay}</strong>
                         <span class="purchase-status-badge purchase-status-${p.status.replace(' ', '.')}">${p.status}</span>
@@ -1047,7 +1088,8 @@ function renderRoulettePrizes(prizes) {
             dom.roulettePrizesList.insertAdjacentHTML('beforeend', groupHtml);
         } // Конец цикла for по группам
     }
-    
+
+    // --- MODIFIED function: renderQuests ---
     function renderQuests(quests, categories) {
         dom.questsList.innerHTML = '';
         if (!quests || quests.length === 0) {
@@ -1066,49 +1108,68 @@ function renderRoulettePrizes(prizes) {
             return baseType ? questTypeMap[baseType] : { name: type, color: '#98989d' };
         };
 
+        // Сортируем категории по sort_order перед группировкой
+        const sortedCategories = [...categories].sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999) || a.id - b.id);
+
         const groupedQuests = quests.reduce((acc, quest) => {
             const categoryId = quest.category_id || 'no_category';
             if (!acc[categoryId]) acc[categoryId] = [];
             acc[categoryId].push(quest);
             return acc;
         }, {});
-        const allCategories = [{ id: 'no_category', name: 'Автоматические и без категории' }, ...categories];
-        allCategories.forEach(cat => {
-            const questsInCategory = (groupedQuests[cat.id] || []).sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
-            if (questsInCategory.length === 0) return;
-            const questsHtml = questsInCategory.map((quest, index) => {
+
+        // Добавляем "Без категории" в начало списка для отображения
+        const allCategoriesForDisplay = [{ id: 'no_category', name: 'Автоматические и без категории' }, ...sortedCategories];
+
+        allCategoriesForDisplay.forEach(cat => {
+            // Сортируем квесты ВНУТРИ категории по sort_order
+            const questsInCategory = (groupedQuests[cat.id] || []).sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999) || a.id - b.id);
+
+            if (questsInCategory.length === 0 && cat.id !== 'no_category') return; // Не отображаем пустые реальные категории
+
+            const questsHtml = questsInCategory.map(quest => {
                 const statusClass = quest.is_active ? 'status-active' : 'status-inactive';
                 const typeDetails = getQuestTypeDetails(quest.quest_type);
+                // Добавляем input type="number" и убираем кнопки-стрелки
                 return `
                 <div class="quest-card manage-quest-card" data-quest-id="${quest.id}">
                     <div class="quest-admin-meta">
+                        <input type="number"
+                               class="sort-order-input quest-sort-order"
+                               data-quest-id="${quest.id}"
+                               value="${quest.sort_order ?? ''}"
+                               placeholder="#"
+                               min="1">
                         <span class="quest-status-badge ${statusClass}">${quest.is_active ? 'Активен' : 'Неактивен'}</span>
                         <span class="quest-status-badge" style="background-color: ${typeDetails.color}20; color: ${typeDetails.color};">${typeDetails.name}</span>
-                        <button class="admin-edit-quest-btn sort-quest-btn" data-quest-id="${quest.id}" data-category-id="${cat.id === 'no_category' ? '' : cat.id}" data-index="${index}" data-direction="up" ${index === 0 ? 'disabled' : ''}>▲</button>
-                        <button class="admin-edit-quest-btn sort-quest-btn" data-quest-id="${quest.id}" data-category-id="${cat.id === 'no_category' ? '' : cat.id}" data-index="${index}" data-direction="down" ${index === questsInCategory.length - 1 ? 'disabled' : ''}>▼</button>
                     </div>
                     <div class="manage-quest-info">
-                        <span>${quest.title}</span><br>
+                        <span>${escapeHTML(quest.title)}</span><br>
                         <small style="color: var(--text-color-muted);">ID: ${quest.id} | Награда: ${quest.reward_amount || 'нет'} ⭐</small>
                     </div>
                     <div class="admin-buttons-wrapper">
-                        ${quest.quest_type === 'manual_check' ? `<button class="admin-view-subs-btn" data-id="${quest.id}" data-title="${quest.title}">Заявки</button>` : ''}
+                        ${quest.quest_type === 'manual_check' ? `<button class="admin-view-subs-btn" data-id="${quest.id}" data-title="${escapeHTML(quest.title)}">Заявки</button>` : ''}
                         <button class="admin-edit-quest-btn" data-id="${quest.id}">Редактировать</button>
                         <button class="admin-delete-quest-btn" data-id="${quest.id}">Удалить</button>
                     </div>
                 </div>`;
             }).join('');
-            const accordionHtml = `
-                <details class="quest-category-accordion">
-                    <summary class="quest-category-header">
-                        <div class="category-info">${cat.name}</div>
-                    </summary>
-                    <div class="quest-category-body">${questsHtml}</div>
-                </details>`;
-            dom.questsList.insertAdjacentHTML('beforeend', accordionHtml);
+
+            // Отображаем аккордеон, даже если в "Без категории" нет квестов
+            if (questsInCategory.length > 0 || cat.id === 'no_category') {
+                const accordionHtml = `
+                    <details class="quest-category-accordion" ${cat.id === 'no_category' && questsInCategory.length > 0 ? 'open' : ''}>
+                        <summary class="quest-category-header">
+                            <div class="category-info">${escapeHTML(cat.name)}</div>
+                        </summary>
+                        <div class="quest-category-body">${questsHtml || '<p style="font-size: 12px; color: var(--text-color-muted); text-align: center;">В этой категории пока нет заданий.</p>'}</div>
+                    </details>`;
+                dom.questsList.insertAdjacentHTML('beforeend', accordionHtml);
+            }
         });
     }
-    
+    // --- End MODIFIED function: renderQuests ---
+
     function renderSubmissionsInModal(submissions, questTitle) {
         dom.modalTitle.textContent = `Заявки: ${questTitle}`;
         dom.modalBody.innerHTML = (!submissions || submissions.length === 0) ? '<p style="text-align: center;">Для этого квеста нет заявок.</p>' :
@@ -1159,7 +1220,7 @@ function renderRoulettePrizes(prizes) {
                 }
             });
         }
-        
+
         const cauldronTriggersContainer = document.getElementById('cauldron-triggers-container');
         if(cauldronTriggersContainer) {
             cauldronTriggersContainer.addEventListener('click', (e) => {
@@ -1214,14 +1275,14 @@ function renderRoulettePrizes(prizes) {
                     condition_type: form.elements['condition_type'].value || null,
                     target_value: form.elements['target_value'].value ? parseInt(form.elements['target_value'].value) : null
                 };
-                
+
                 await makeApiRequest('/api/v1/admin/twitch_rewards/update', payload);
                 document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
                 tg.showAlert('Настройки сохранены!');
                 await loadTwitchRewards();
             });
         }
-        
+
         if(document.getElementById('delete-twitch-reward-btn')) {
             document.getElementById('delete-twitch-reward-btn').addEventListener('click', async () => {
                 const form = document.getElementById('twitch-reward-settings-form');
@@ -1245,14 +1306,14 @@ function renderRoulettePrizes(prizes) {
                 });
             });
         }
-        
+
         document.querySelectorAll('.tabs-container').forEach(container => {
             container.addEventListener('click', (e) => {
                 const button = e.target.closest('.tab-button');
                 if (!button || button.classList.contains('active')) return;
 
                 const tabId = button.dataset.tab;
-                
+
                 if (container.classList.contains('main-tabs')) {
                     if (tabId === 'admin' && !hasAdminAccess) {
                         dom.passwordPromptOverlay.classList.remove('hidden');
@@ -1263,7 +1324,7 @@ function renderRoulettePrizes(prizes) {
 
                 container.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
-                
+
                 const parentElement = container.closest('.view');
 
                 if (container.classList.contains('main-tabs')) {
@@ -1352,13 +1413,13 @@ function renderRoulettePrizes(prizes) {
              target.classList.add('hidden'); // Закрытие по клику на фон
         }
     });
-        
+
         if(dom.passwordPromptCancel) {
             dom.passwordPromptCancel.addEventListener('click', () => {
                 dom.passwordPromptOverlay.classList.add('hidden');
             });
         }
-        
+
         if(dom.passwordPromptConfirm) {
             dom.passwordPromptConfirm.addEventListener('click', async () => {
                 const password = dom.passwordPromptInput.value;
@@ -1370,7 +1431,7 @@ function renderRoulettePrizes(prizes) {
                         hasAdminAccess = true;
                         dom.passwordPromptOverlay.classList.add('hidden');
                         dom.passwordPromptInput.value = '';
-                        
+
                         const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
                         if(adminTabButton) adminTabButton.click();
 
@@ -1393,7 +1454,7 @@ function renderRoulettePrizes(prizes) {
                             const eventData = collectCauldronData();
                             const currentStatus = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                             eventData.current_progress = currentStatus.current_progress || 0; // Сохраняем текущий прогресс
-                            
+
                             await makeApiRequest('/api/v1/admin/cauldron/update', { content: eventData });
                             tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
                         } catch (error) {
@@ -1421,7 +1482,7 @@ function renderRoulettePrizes(prizes) {
             cauldronTabs.addEventListener('click', (e) => {
                 const button = e.target.closest('.tab-button');
                 if (button && button.dataset.tab === 'cauldron-distribution') {
-                    renderCauldronParticipants(); 
+                    renderCauldronParticipants();
                 }
             });
         }
@@ -1476,7 +1537,7 @@ function renderRoulettePrizes(prizes) {
                 tg.showAlert('Настройки сохранены!');
             });
         }
-        
+
         if(dom.resetAllQuestsBtn) {
             dom.resetAllQuestsBtn.addEventListener('click', () => {
                  tg.showConfirm('Вы уверены, что хотите сбросить ВСЕ активные квесты у ВСЕХ пользователей?', async (ok) => {
@@ -1498,7 +1559,7 @@ function renderRoulettePrizes(prizes) {
                  });
             });
         }
-        
+
         if(dom.clearAllCheckpointStarsBtn) {
             dom.clearAllCheckpointStarsBtn.addEventListener('click', () => {
                  tg.showConfirm('ЭТО ДЕЙСТВИЕ НЕОБРАТИМО! Вы уверены, что хотите ОБНУЛИТЬ БАЛАНС ЗВЁЗД Чекпоинта у ВСЕХ пользователей? Их полученные награды останутся.', async (ok) => {
@@ -1509,7 +1570,7 @@ function renderRoulettePrizes(prizes) {
                  });
             });
         }
-        
+
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
 
@@ -1540,7 +1601,7 @@ function renderRoulettePrizes(prizes) {
                 }
                 return;
             }
-        
+
             const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
             if (navButton && navButton.tagName.toLowerCase() !== 'a') {
                 event.preventDefault();
@@ -1556,7 +1617,7 @@ function renderRoulettePrizes(prizes) {
                 }
                 return;
             }
-            
+
             const settingsBtn = target.closest('.settings-btn');
             if (settingsBtn) {
                 const rewardData = JSON.parse(settingsBtn.dataset.reward);
@@ -1570,7 +1631,7 @@ function renderRoulettePrizes(prizes) {
                 await openTwitchPurchases(rewardId, rewardTitle);
                 return;
             }
-            
+
             const issuePromoBtn = target.closest('.issue-promo-btn');
             if (issuePromoBtn) {
                 const purchaseId = issuePromoBtn.dataset.purchaseId;
@@ -1599,7 +1660,7 @@ function renderRoulettePrizes(prizes) {
                 });
                 return;
             }
-            
+
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
@@ -1636,14 +1697,14 @@ function renderRoulettePrizes(prizes) {
                         }
                     }
                 });
-                return; 
+                return;
             }
 
             const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
             if (checkBtn) {
                 const nickname = checkBtn.dataset.nickname;
                 const period = checkBtn.dataset.period || 'session';
-                
+
                 const card = checkBtn.closest('.admin-submission-card, .purchase-item');
                 let resultDiv;
                 if(checkBtn.classList.contains('wizebot-check-btn')){
@@ -1652,19 +1713,19 @@ function renderRoulettePrizes(prizes) {
                 } else {
                    resultDiv = card.querySelector('.wizebot-stats-result');
                 }
-                
+
                 if (!nickname) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Никнейм не найден.</p>`; return; }
-                
+
                 resultDiv.innerHTML = '<i>Проверяем...</i>';
                 checkBtn.disabled = true;
                 try {
                     const stats = await makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: period }, 'POST', true);
                     if (stats.found) resultDiv.innerHTML = `<p style="color: var(--primary-color);">✅ ${stats.messages} сообщений (ранг ${stats.rank})</p>`;
                     else resultDiv.innerHTML = `<p style="color: var(--warning-color);">⚠️ Не найден в топ-100</p>`;
-                } catch (e) { 
+                } catch (e) {
                     console.error('Ошибка Wizebot:', e);
-                    resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка: ${e.message}</p>`; 
-                } 
+                    resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка: ${e.message}</p>`;
+                }
                 finally { checkBtn.disabled = false; }
                 return;
             }
@@ -1681,10 +1742,10 @@ function renderRoulettePrizes(prizes) {
                 });
                 return;
             }
-            
-            const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .sort-btn, .sort-quest-btn');
+
+            const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn'); // REMOVED: .sort-btn, .sort-quest-btn
             if (!actionButton) return;
-            
+
             const id = actionButton.dataset.id;
 
             if (actionButton.matches('.edit-category-btn')) {
@@ -1740,8 +1801,8 @@ function renderRoulettePrizes(prizes) {
                     editPrizeForm.elements['quantity'].value = prizeData.quantity;
                     editPrizeModal.classList.remove('hidden');
                 }
-                
-} else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.sort-quest-btn') && !actionButton.matches('.edit-category-btn')) {
+
+} else if (actionButton.matches('.admin-edit-quest-btn') /* REMOVED: && !actionButton.matches('.sort-quest-btn') */ && !actionButton.matches('.edit-category-btn')) {
                  const idStr = actionButton.dataset.id;
                  // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
                  console.log("[DEBUG] Raw data-id from button:", idStr, "(type:", typeof idStr, ")");
@@ -1797,7 +1858,7 @@ function renderRoulettePrizes(prizes) {
                 tg.showConfirm(`Удалить задание ID ${id}?`, async (ok) => {
                     if (ok) {
                         await makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) });
-                        await switchView('view-admin-quests'); 
+                        await switchView('view-admin-quests');
                     }
                 });
 
@@ -1822,26 +1883,54 @@ function renderRoulettePrizes(prizes) {
                          }
                     });
                 }
-                
-            } else if (actionButton.matches('.sort-btn')) {
-                const index = parseInt(actionButton.dataset.index);
-                const direction = actionButton.dataset.direction;
-                const newIndex = direction === 'up' ? index - 1 : index + 1;
-                if (newIndex >= 0 && newIndex < categoriesCache.length) {
-                    [categoriesCache[index], categoriesCache[newIndex]] = [categoriesCache[newIndex], categoriesCache[index]];
-                    renderCategoriesList();
-                    makeApiRequest('/api/v1/admin/categories/reorder', { ordered_ids: categoriesCache.map(c => c.id) }, 'POST', true);
+
+            } /* REMOVED: else if (actionButton.matches('.sort-btn')) { ... } */
+              /* REMOVED: else if (actionButton.matches('.sort-quest-btn')) { ... } */
+        });
+
+        // --- NEW Event Listener for Sort Order Inputs ---
+        let sortOrderDebounceTimer;
+        document.body.addEventListener('change', async (event) => {
+            const input = event.target;
+            if (input.classList.contains('sort-order-input')) {
+                clearTimeout(sortOrderDebounceTimer);
+
+                const value = input.value.trim();
+                // Пустое значение отправляем как null, иначе парсим как число
+                const sortOrder = value === '' ? null : parseInt(value, 10);
+
+                // Доп. проверка: если не пусто и не число, или < 1, сбрасываем
+                if (value !== '' && (isNaN(sortOrder) || sortOrder < 1)) {
+                    input.value = ''; // Очищаем поле при невалидном вводе
+                    console.warn("Invalid sort order input, cleared.");
+                    return; // Не отправляем невалидное значение
                 }
-                
-            } else if (actionButton.matches('.sort-quest-btn')) {
-                const questId = parseInt(actionButton.dataset.questId);
-                const categoryId = actionButton.dataset.categoryId ? parseInt(actionButton.dataset.categoryId) : null;
-                const direction = actionButton.dataset.direction;
-                await makeApiRequest('/api/v1/admin/quests/reorder', { quest_id: questId, category_id: categoryId, direction: direction });
-                await switchView('view-admin-quests');
+
+                if (input.classList.contains('category-sort-order')) {
+                    const categoryId = parseInt(input.dataset.categoryId);
+                    if (categoryId) {
+                        // Используем debounce, чтобы не слать запросы на каждое изменение
+                        sortOrderDebounceTimer = setTimeout(async () => {
+                            await updateCategorySortOrder(categoryId, sortOrder);
+                            // Перезагружаем список категорий ПОСЛЕ небольшой задержки
+                            await fetchAndCacheCategories(true); // Обновляем кэш
+                            renderCategoriesList(); // Перерисовываем
+                        }, 800); // Задержка в мс
+                    }
+                } else if (input.classList.contains('quest-sort-order')) {
+                    const questId = parseInt(input.dataset.questId);
+                    if (questId) {
+                         sortOrderDebounceTimer = setTimeout(async () => {
+                            await updateQuestSortOrder(questId, sortOrder);
+                            // Перезагружаем список квестов ПОСЛЕ небольшой задержки
+                            await switchView('view-admin-quests');
+                        }, 800); // Задержка в мс
+                    }
+                }
             }
         });
-        
+        // --- End NEW Event Listener ---
+
         if(dom.createQuestForm) dom.createQuestForm.querySelector('select[name="quest_type"]').addEventListener('change', () => updateQuestFormUI(dom.createQuestForm));
         if(dom.editQuestForm) dom.editQuestForm.querySelector('select[name="quest_type"]').addEventListener('change', () => updateQuestFormUI(dom.editQuestForm));
         if(dom.challengeForm) dom.challengeForm.querySelector('select[name="condition_type"]').addEventListener('change', () => updateChallengeFormUI(dom.challengeForm));
@@ -1865,7 +1954,7 @@ function renderRoulettePrizes(prizes) {
                 await switchView('view-admin-challenges');
             });
         }
-        
+
         if(dom.createQuestForm) {
             dom.createQuestForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -1874,18 +1963,18 @@ function renderRoulettePrizes(prizes) {
                 await switchView('view-admin-quests');
             });
         }
-        
+
         if(dom.editQuestForm) {
             dom.editQuestForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
-                
+
                 try {
                     const questData = getQuestFormData(form);
-                    const finalData = { 
-                        ...questData, 
-                        quest_id: parseInt(form.elements['quest_id'].value, 10), 
-                        is_active: form.elements['is_active'].value === 'true' 
+                    const finalData = {
+                        ...questData,
+                        quest_id: parseInt(form.elements['quest_id'].value, 10),
+                        is_active: form.elements['is_active'].value === 'true'
                     };
 
                     await makeApiRequest('/api/v1/admin/quest/update', finalData);
@@ -1898,7 +1987,7 @@ function renderRoulettePrizes(prizes) {
                 }
             });
         }
-        
+
         if(dom.createCategoryForm) {
             dom.createCategoryForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -1911,7 +2000,7 @@ function renderRoulettePrizes(prizes) {
                 await switchView('view-admin-categories');
             });
         }
-        
+
         if(dom.addPromocodesForm) {
             dom.addPromocodesForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -1926,7 +2015,7 @@ function renderRoulettePrizes(prizes) {
                 e.target.reset();
             });
         }
-        
+
         if(dom.grantCheckpointStarsForm) {
             dom.grantCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -1934,7 +2023,7 @@ function renderRoulettePrizes(prizes) {
                 const userId = parseInt(form.elements['user_id_to_grant_cp'].value);
                 const amount = parseInt(form.elements['amount_cp'].value);
                 if (!userId || !amount) return;
-                
+
                 const result = await makeApiRequest('/api/v1/admin/users/grant-checkpoint-stars', {
                     user_id_to_grant: userId,
                     amount: amount
@@ -1943,7 +2032,7 @@ function renderRoulettePrizes(prizes) {
                 form.reset();
             });
         }
-        
+
         if(dom.freezeCheckpointStarsForm) {
             dom.freezeCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -1968,7 +2057,7 @@ function renderRoulettePrizes(prizes) {
                 const userId = parseInt(form.elements['user_id_to_grant_tickets'].value);
                 const amount = parseInt(form.elements['amount_tickets'].value);
                 if (!userId || !amount) return;
-                
+
                 const result = await makeApiRequest('/api/v1/admin/users/grant-stars', {
                     user_id_to_grant: userId,
                     amount: amount
@@ -1977,7 +2066,7 @@ function renderRoulettePrizes(prizes) {
                 form.reset();
             });
         }
-        
+
         if(dom.freezeTicketsForm) {
             dom.freezeTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -2011,7 +2100,7 @@ function renderRoulettePrizes(prizes) {
                 });
             });
         }
-        
+
         if(dom.clearCheckpointStarsForm) {
             dom.clearCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -2028,7 +2117,7 @@ function renderRoulettePrizes(prizes) {
                 });
             });
         }
-      
+
         if(dom.modalCloseBtn) dom.modalCloseBtn.addEventListener('click', () => dom.submissionsModal.classList.add('hidden'));
         if(dom.submissionsModal) dom.submissionsModal.addEventListener('click', (e) => { if (e.target === dom.submissionsModal) dom.submissionsModal.classList.add('hidden'); });
 
@@ -2046,7 +2135,7 @@ function renderRoulettePrizes(prizes) {
                 await switchView('view-admin-categories');
             });
         }
-        
+
 if(dom.createRoulettePrizeForm) {
         dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -2080,7 +2169,7 @@ if(dom.createRoulettePrizeForm) {
             renderRoulettePrizes(prizes);
         });
     }
-        
+
         if(dom.roulettePrizesList) {
             dom.roulettePrizesList.addEventListener('click', async (e) => {
                 const deleteBtn = e.target.closest('.delete-roulette-prize-btn');
@@ -2102,15 +2191,15 @@ if(dom.createRoulettePrizeForm) {
         try {
             tg.expand();
             if (!tg.initData) throw new Error("Требуется авторизация в Telegram.");
-            
+
             showLoader();
             const [userData, sleepStatus] = await Promise.all([
                 makeApiRequest("/api/v1/user/me", {}, 'POST', true),
                 makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true)
             ]);
-            
+
             if (!userData.is_admin) throw new Error("Доступ запрещен.");
-            
+
             document.body.dataset.isAdmin = 'true';
             updateSleepButton(sleepStatus);
 
