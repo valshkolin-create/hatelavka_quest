@@ -53,7 +53,7 @@ try {
         resetAllCheckpointProgressBtn: document.getElementById('reset-all-checkpoint-progress-btn'),
         clearAllCheckpointStarsBtn: document.getElementById('clear-all-checkpoint-stars-btn'),
         settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
-        // --- НОВЫЙ КОД ---
+        // --- НОВЫЙ КОД ---       
         settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
         // --- КОНЕЦ НОВОГО КОДА ---
         statisticsContent: document.getElementById('statistics-content'),
@@ -70,12 +70,14 @@ try {
         addTopRewardBtn: document.getElementById('add-top-reward-btn'),
         topRewardsContainer: document.getElementById('top-rewards-container'),
         defaultRewardForm: document.getElementById('default-reward-form'),
+        saveOrderButton: document.getElementById('save-order-button')
     };
 
     let categoriesCache = [];
     let currentEditingCategoryId = null;
     let hasAdminAccess = false;
     let currentCauldronData = {};
+    let orderChanged = false;
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
@@ -264,6 +266,15 @@ async function loadStatistics() {
     }
 
     const switchView = async (targetViewId) => {
+            // --- ADD THESE LINES at the beginning ---
+        if (orderChanged) {
+            // Если были изменения порядка, но пользователь уходит со страницы, не сохраняя
+            // Можно добавить тут подтверждение tg.showConfirm(...)
+            console.log("Switching view with unsaved order changes.");
+        }
+        dom.saveOrderButton.classList.add('hidden'); // Прячем кнопку при смене вида
+        orderChanged = false; // Сбрасываем флаг
+        // --- END of ADDED LINES ---
         dom.views.forEach(view => view.classList.add('hidden'));
         const targetView = document.getElementById(targetViewId);
         if (targetView) targetView.classList.remove('hidden');
@@ -1486,6 +1497,38 @@ function renderRoulettePrizes(prizes) {
                 }
             });
         }
+// --- NEW Event Listener for Save Order Button ---
+            if (dom.saveOrderButton) {
+                dom.saveOrderButton.addEventListener('click', async () => {
+                    showLoader(); // Показываем загрузчик на время обновления
+                    try {
+                        // Определяем активную вкладку, чтобы знать, что обновлять
+                        const categoriesView = document.getElementById('view-admin-categories');
+                        const questsView = document.getElementById('view-admin-quests');
+
+                        if (categoriesView && !categoriesView.classList.contains('hidden')) {
+                            // Если активна вкладка Категории
+                            await fetchAndCacheCategories(true); // Обновляем кэш категорий
+                            renderCategoriesList(); // Перерисовываем список категорий
+                        } else if (questsView && !questsView.classList.contains('hidden')) {
+                            // Если активна вкладка Задания
+                            // Используем switchView, так как он уже содержит логику загрузки и рендера
+                            await switchView('view-admin-quests');
+                        }
+                         // TODO: Добавить сюда логику для других вкладок, если там тоже нужна эта кнопка (например, рулетки)
+
+                        tg.showPopup({message: 'Порядок успешно сохранен!'});
+                    } catch (e) {
+                        console.error("Ошибка при сохранении порядка:", e);
+                        tg.showAlert("Не удалось сохранить порядок: " + e.message);
+                    } finally {
+                        dom.saveOrderButton.classList.add('hidden'); // Прячем кнопку
+                        orderChanged = false; // Сбрасываем флаг
+                        hideLoader(); // Прячем загрузчик
+                    }
+                });
+            }
+            // --- End NEW Event Listener ---
 
         if(dom.sleepModeToggle) {
             dom.sleepModeToggle.addEventListener('click', async () => {
@@ -1909,14 +1952,25 @@ function renderRoulettePrizes(prizes) {
                 if (input.classList.contains('category-sort-order')) {
                     const categoryId = parseInt(input.dataset.categoryId);
                     if (categoryId) {
-                        // Используем debounce, чтобы не слать запросы на каждое изменение
+                        // Используем debounce для отправки API запроса
                         sortOrderDebounceTimer = setTimeout(async () => {
                             await updateCategorySortOrder(categoryId, sortOrder);
-                            // Перезагружаем список категорий ПОСЛЕ небольшой задержки
-                            await fetchAndCacheCategories(true); // Обновляем кэш
-                            renderCategoriesList(); // Перерисовываем
-                        }, 800); // Задержка в мс
+                            // НЕ перезагружаем список здесь
+                            orderChanged = true; // Ставим флаг, что были изменения
+                            dom.saveOrderButton.classList.remove('hidden'); // Показываем кнопку
+                        }, 500); // Уменьшили задержку debounce
                     }
+                } else if (input.classList.contains('quest-sort-order')) {
+                    const questId = parseInt(input.dataset.questId);
+                    if (questId) {
+                         sortOrderDebounceTimer = setTimeout(async () => {
+                            await updateQuestSortOrder(questId, sortOrder);
+                            // НЕ перезагружаем список здесь
+                            orderChanged = true; // Ставим флаг, что были изменения
+                            dom.saveOrderButton.classList.remove('hidden'); // Показываем кнопку
+                        }, 500); // Уменьшили задержку debounce
+                    }
+                }
                 } else if (input.classList.contains('quest-sort-order')) {
                     const questId = parseInt(input.dataset.questId);
                     if (questId) {
