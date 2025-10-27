@@ -692,7 +692,7 @@ try {
         dom.questChooseContainer.classList.add('hidden');
     }
 
-function renderManualQuests(quests) { // Убран аргумент categories, он больше не нужен отдельно
+function renderManualQuests(quests) { // Принимает только ОДИН аргумент
         const container = dom.viewQuests;
         const title = container.querySelector('.page-title');
         container.innerHTML = '';
@@ -708,6 +708,7 @@ function renderManualQuests(quests) { // Убран аргумент categories,
 
         quests.forEach(quest => {
             // Используем имя категории или "Разное" как ключ
+            // Информация о категории теперь берется из объекта quest
             const categoryName = quest.quest_categories ? quest.quest_categories.name : 'Разное';
             if (!groupedQuests.has(categoryName)) {
                 groupedQuests.set(categoryName, []);
@@ -718,6 +719,7 @@ function renderManualQuests(quests) { // Убран аргумент categories,
         // Отображаем категории и квесты в том порядке, в котором они были добавлены в Map
         groupedQuests.forEach((questsInCategory, categoryName) => {
             const questsHtml = questsInCategory.map(quest => {
+                // Внутренняя логика map остается без изменений, т.к. она уже работает с одним quest
                 const iconHtml = (quest.icon_url && quest.icon_url !== "") ? `<img src="${escapeHTML(quest.icon_url)}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-user-check"></i></div>`;
                 const actionLinkHtml = (quest.action_url && quest.action_url !== "")
                     ? `<a href="${escapeHTML(quest.action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
@@ -750,6 +752,7 @@ function renderManualQuests(quests) { // Убран аргумент categories,
             container.insertAdjacentHTML('beforeend', accordionHtml);
         });
     }
+    // --- КОНЕЦ ОБНОВЛЕННОЙ ВЕРСИИ ---
     
     async function refreshDataSilently() {
         try {
