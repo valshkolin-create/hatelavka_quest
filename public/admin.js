@@ -384,11 +384,15 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
 
             if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
                 options.body = JSON.stringify({ ...body, initData: tg.initData });
+                // --- >>> ДОБАВЬ ЭТУ СТРОКУ ЛОГИРОВАНИЯ <<< ---
+                console.log(`Sending body to ${url}:`, options.body);
+                // --- >>> КОНЕЦ ДОБАВЛЕНИЯ <<< ---
             }
 
             const response = await fetch(url, options);
 
-            if (response.status === 204) {
+            // ... (остальная часть функции без изменений) ...
+             if (response.status === 204) {
                 return null;
             }
 
@@ -452,15 +456,6 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             throw e; // Перебрасываем ошибку дальше
         } finally {
             if (!isSilent) hideLoader();
-        }
-    }
-    
-    async function fetchAndCacheCategories(isSilent = false) {
-        try {
-            categoriesCache = await makeApiRequest('/api/v1/admin/categories', {}, 'POST', isSilent) || [];
-        } catch (e) {
-            console.error("Не удалось загрузить категории", e);
-            categoriesCache = [];
         }
     }
     
