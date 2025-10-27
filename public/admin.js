@@ -1931,7 +1931,7 @@ function renderRoulettePrizes(prizes) {
               /* REMOVED: else if (actionButton.matches('.sort-quest-btn')) { ... } */
         });
 
-        // --- NEW Event Listener for Sort Order Inputs ---
+// --- NEW Event Listener for Sort Order Inputs ---
         let sortOrderDebounceTimer;
         document.body.addEventListener('change', async (event) => {
             const input = event.target;
@@ -1971,17 +1971,8 @@ function renderRoulettePrizes(prizes) {
                         }, 500); // Уменьшили задержку debounce
                     }
                 }
-                } else if (input.classList.contains('quest-sort-order')) {
-                    const questId = parseInt(input.dataset.questId);
-                    if (questId) {
-                         sortOrderDebounceTimer = setTimeout(async () => {
-                            await updateQuestSortOrder(questId, sortOrder);
-                            // Перезагружаем список квестов ПОСЛЕ небольшой задержки
-                            await switchView('view-admin-quests');
-                        }, 800); // Задержка в мс
-                    }
-                }
-        }
+            }
+            // Здесь НЕ должно быть другого 'else if'
         });
         // --- End NEW Event Listener ---
 
