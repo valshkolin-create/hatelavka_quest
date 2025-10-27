@@ -285,13 +285,21 @@ class RoulettePrizeCreateRequest(BaseModel):
     skin_name: str
     image_url: str
     chance_weight: float
+    quantity: int # <-- ДОБАВЛЕНО
 
 class RoulettePrizeDeleteRequest(BaseModel):
     initData: str
     prize_id: int
 
-class StatisticsRequest(BaseModel):
+# <-- ДОБАВЛЕНА НОВАЯ МОДЕЛЬ -->
+class RoulettePrizeUpdateRequest(BaseModel):
     initData: str
+    prize_id: int
+    reward_title: str # Добавляем все поля, чтобы их можно было редактировать
+    skin_name: str
+    image_url: str
+    chance_weight: float
+    quantity: int
 
 # --- НОВАЯ Pydantic модель для создания ивента ---
 class EventCreateRequest(BaseModel):
@@ -779,31 +787,24 @@ async def handle_twitch_webhook(
             reward_title = reward_data.get("title", "Unknown Reward")
             user_input = event_data.get("user_input")
 
-            # Ищем пользователя в нашей базе
             user_resp = await supabase.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, full_name, trade_link"})
             user_data = user_resp.json()
             user_record = user_data[0] if user_data else None
             user_id = user_record.get("telegram_id") if user_record else None
             user_display_name = user_record.get("full_name") if user_record else twitch_login
 
-            # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
-            # Получаем настройки ивента "Котел"
             cauldron_resp = await supabase.get(
                 "/pages_content",
                 params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
             )
             cauldron_settings = cauldron_resp.json()[0]['content'] if cauldron_resp.json() and cauldron_resp.json()[0].get('content') else {}
-            # Теперь получаем готовый список объектов [{title, value}]
-            cauldron_triggers = cauldron_settings.get("twitch_reward_triggers", []) 
+            cauldron_triggers = cauldron_settings.get("twitch_reward_triggers", [])
 
-            # 1. ПРОВЕРКА НА ВКЛАД В КОТЕЛ
-            # Ищем нужную награду в списке объектов
             found_trigger = next((trigger for trigger in cauldron_triggers if trigger.get("title") == reward_title), None)
-            
+
             if cauldron_settings.get("is_visible_to_users", False) and found_trigger:
                 contribution_value = found_trigger.get("value", 0)
                 logging.info(f"🔥 Получен вклад в котел от {twitch_login} ценностью {contribution_value}.")
-
                 response = await supabase.post(
                     "/rpc/contribute_to_cauldron",
                     json={
@@ -815,53 +816,83 @@ async def handle_twitch_webhook(
                 )
                 response.raise_for_status()
                 result = response.json()
-
                 await manager.broadcast(json.dumps({
                     "type": "cauldron_update",
                     "new_progress": result.get('new_progress'),
                     "last_contributor": { "name": user_display_name, "type": "twitch_points", "amount": contribution_value }
                 }))
-                
                 return {"status": "cauldron_contribution_accepted"}
 
-            # 2. ПРОВЕРКА НА РУЛЕТКУ (старая логика)
+            # --- НАЧАЛО ИЗМЕНЕНИЙ РУЛЕТКИ ---
             prizes_resp = await supabase.get(
-                "/roulette_prizes", 
-                params={"reward_title": f"eq.{reward_title}", "select": "skin_name,image_url,chance_weight"}
+                "/roulette_prizes",
+                params={
+                    "reward_title": f"eq.{reward_title}",
+                    "quantity": "gt.0", # <-- Только те, что в наличии
+                    "select": "id,skin_name,image_url,chance_weight,quantity" # <-- Выбираем id и quantity
+                }
             )
             prizes_resp.raise_for_status()
-            roulette_prizes = prizes_resp.json()
+            in_stock_prizes = prizes_resp.json()
 
-            if roulette_prizes:
-                logging.info(f"Запуск рулетки для '{reward_title}' от пользователя {twitch_login}")
-                
-                weights = [p['chance_weight'] for p in roulette_prizes]
-                winner_prize = random.choices(roulette_prizes, weights=weights, k=1)[0]
+            if in_stock_prizes:
+                logging.info(f"Запуск рулетки для '{reward_title}' от {twitch_login}. Найдено призов в наличии: {len(in_stock_prizes)}")
+
+                # Динамический расчет весов
+                weights = [p['chance_weight'] * p['quantity'] for p in in_stock_prizes]
+
+                # Если сумма весов 0 (маловероятно, но возможно при ошибках), прекращаем
+                if sum(weights) <= 0:
+                     logging.error(f"Сумма весов для рулетки '{reward_title}' равна нулю. Призы: {in_stock_prizes}")
+                     return {"status": "error_zero_weight"}
+
+                # Выбираем победителя
+                winner_prize = random.choices(in_stock_prizes, weights=weights, k=1)[0]
                 winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
-                
+                winner_prize_id = winner_prize.get('id')
+                winner_quantity_before_win = winner_prize.get('quantity', 1) # Сохраняем кол-во до списания
+
+                # Уменьшаем количество на 1 в базе данных СРАЗУ
+                if winner_prize_id:
+                    try:
+                        decrement_resp = await supabase.post(
+                            "/rpc/decrement_roulette_prize_quantity",
+                            json={"p_prize_id": winner_prize_id}
+                        )
+                        decrement_resp.raise_for_status() # Проверяем, что функция выполнилась
+                        logging.info(f"Количество приза ID {winner_prize_id} уменьшено.")
+                    except httpx.HTTPStatusError as e_dec:
+                        logging.error(f"Не удалось уменьшить количество приза ID {winner_prize_id}: {e_dec.response.text}")
+                        # Продолжаем выполнение, но логируем ошибку
+                    except Exception as e_dec_general:
+                         logging.error(f"Критическая ошибка при уменьшении кол-ва приза ID {winner_prize_id}: {e_dec_general}")
+
+
+                # --- КОНЕЦ ИЗМЕНЕНИЙ РУЛЕТКИ ---
+
                 reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
                 reward_settings = reward_settings_resp.json()
                 if not reward_settings:
                     reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
-                
+
                 final_user_input = f"Выигрыш: {winner_skin_name}"
                 if user_input:
                     final_user_input += f" | Сообщение: {user_input}"
-                
+
                 purchase_payload = {
                     "reward_id": reward_settings[0]["id"],
                     "username": user_record.get("full_name", twitch_login) if user_record else twitch_login,
                     "twitch_login": twitch_login,
                     "trade_link": user_record.get("trade_link") if user_record else user_input,
                     "status": "Привязан" if user_record else "Не привязан",
-                    "user_input": final_user_input 
+                    "user_input": final_user_input
                 }
-                
+
                 if user_record:
                     purchase_payload["user_id"] = user_record.get("telegram_id")
                 else:
                     purchase_payload["user_id"] = None
-                    
+
                 await supabase.post("/twitch_reward_purchases", json=purchase_payload)
 
                 if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
@@ -870,67 +901,61 @@ async def handle_twitch_webhook(
                         f"<b>Пользователь:</b> {html_decoration.quote(user_record.get('full_name', twitch_login) if user_record else twitch_login)}\n"
                         f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
                         f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
+                        # Показываем остаток (количество до выигрыша минус 1)
+                        f"<b>Остаток:</b> {winner_quantity_before_win - 1} шт."
                     )
-                    
+
                     if purchase_payload["trade_link"]:
-                        notification_text += f"<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>\n\n"
-                    
-                    notification_text += "Информация добавлена в раздел 'Покупки' для этой награды."
+                        notification_text += f"\n<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>"
+
+                    notification_text += "\n\nИнформация добавлена в раздел 'Покупки' для этой награды."
 
                     background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
+                # Ищем индекс победителя в *отфильтрованном* списке
+                winner_index_in_filtered_list = next((i for i, prize in enumerate(in_stock_prizes) if prize['id'] == winner_prize_id), 0)
+
+                # --- ИЗМЕНЕНИЕ: Отправляем prize_name для отображения в roulette.html ---
                 animation_payload = {
-                    "prizes": roulette_prizes,
-                    "winner": winner_prize,
-                    "winner_index": next((i for i, prize in enumerate(roulette_prizes) if prize['skin_name'] == winner_skin_name), 0),
-                    "user_name": twitch_login
+                    "prizes": in_stock_prizes, # Отправляем только те, что были в наличии
+                    "winner": winner_prize,    # Отправляем данные победителя
+                    "winner_index": winner_index_in_filtered_list, # Индекс в списке in_stock_prizes
+                    "user_name": twitch_login,
+                    "prize_name": reward_title # Добавлено для отображения названия рулетки
                 }
                 await supabase.post("/roulette_triggers", json={"payload": animation_payload})
-                
+
                 logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен через Supabase.")
                 return {"status": "roulette_triggered"}
+            elif not roulette_prizes: # Если prizes_resp вернул пустой список (даже с quantity=0)
+                 logging.info(f"Пропускаем рулетку для '{reward_title}' - призов не найдено в базе.")
+            else: # Если in_stock_prizes пуст, но roulette_prizes не пуст
+                 logging.warning(f"Рулетка '{reward_title}' не запущена - все призы закончились.")
+                 # Можно добавить уведомление админу здесь, если нужно
+                 # background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, f"⚠️ Закончились призы для рулетки «{reward_title}»!")
 
-            # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (старая логика)
+
+            # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (без изменений)
             logging.info(f"Обычная награда '{reward_title}' от {twitch_login}.")
-            
+
             payload_for_purchase = {}
             if user_record:
                 telegram_id = user_record.get("telegram_id")
-                payload_for_purchase = {
-                    "user_id": telegram_id,
-                    "username": user_record.get("full_name", twitch_login),
-                    "trade_link": user_record.get("trade_link"),
-                    "status": "Привязан"
-                }
+                payload_for_purchase = { "user_id": telegram_id, "username": user_record.get("full_name", twitch_login), "trade_link": user_record.get("trade_link"), "status": "Привязан" }
             else:
-                payload_for_purchase = {
-                    "user_id": None,
-                    "username": twitch_login,
-                    "trade_link": None,
-                    "status": "Не привязан"
-                }
-            
-            reward_settings_resp = await supabase.get(
-                "/twitch_rewards",
-                params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"}
-            )
+                payload_for_purchase = { "user_id": None, "username": twitch_login, "trade_link": None, "status": "Не привязан" }
+
+            reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"})
             reward_settings = reward_settings_resp.json()
             if not reward_settings:
-                reward_settings = (await supabase.post(
-                    "/twitch_rewards",
-                    json={"title": reward_title, "is_active": True, "notify_admin": True},
-                    headers={"Prefer": "return=representation"}
-                )).json()
+                reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title, "is_active": True, "notify_admin": True}, headers={"Prefer": "return=representation"})).json()
 
             if not reward_settings[0]["is_active"]:
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
             if user_record and telegram_id:
                 try:
-                    await supabase.post(
-                        "/rpc/increment_tickets",
-                        json={"p_user_id": telegram_id, "p_amount": 1}
-                    )
+                    await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": 1})
                     logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) начислен 1 билет за награду Twitch.")
                 except Exception as e:
                     logging.error(f"❌ Не удалось начислить билет за Twitch награду пользователю {telegram_id}: {e}")
@@ -949,21 +974,21 @@ async def handle_twitch_webhook(
                     f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n"
                     f"<b>Статус:</b> {payload_for_purchase['status']}"
                 )
-                if user_input:
-                    notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
-                if payload_for_purchase.get("user_id"):
-                    notification_text += "\n\n✅ Пользователю начислен 1 билет."
+                if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
+                if payload_for_purchase.get("user_id"): notification_text += "\n\n✅ Пользователю начислен 1 билет."
                 notification_text += "\nИнформация добавлена в раздел 'Покупки'."
                 background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
-            
+
             return {"status": "ok"}
 
         except Exception as e:
             logging.error(f"Ошибка обработки уведомления от Twitch: {e}", exc_info=True)
-            return {"status": "error_processing"}
+            # Возвращаем 500 ошибку, чтобы Twitch попробовал снова
+            raise HTTPException(status_code=500, detail="Internal processing error")
 
-    return {"status": "ok", "detail": "Запрос обработан."}
-
+    # Если message_type не 'notification' и не 'webhook_callback_verification'
+    return {"status": "ok", "detail": "Запрос обработан, но не является уведомлением."}
+    
 @app.get("/api/v1/auth/check_token")
 async def check_token_auth(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     try:
@@ -1773,43 +1798,38 @@ async def create_event(
 
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
-    request_data: StatisticsRequest, # Убедитесь, что модель StatisticsRequest добавлена
+    request_data: StatisticsRequest, # Используем твою модель
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    (Админ) Собирает и возвращает ключевую статистику по активности пользователей и ивентам.
+    (Админ) Возвращает общую статистику - количество скинов на складе.
     """
-    # 1. Проверка прав администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 2. Вызываем RPC-функцию в Supabase, которая соберет всю статистику за один раз
-        response = await supabase.post("/rpc/get_project_pulse_stats")
+        # 1. Вызываем RPC функцию для подсчета суммы quantity
+        response = await supabase.post("/rpc/get_total_roulette_stock")
         response.raise_for_status()
-        
-        # Функция вернет все данные в нужном формате
-        stats_data = response.json()
 
-        # 3. Дополнительно получаем статистику по активным розыгрышам
-        events_stats_resp = await supabase.post("/rpc/get_active_events_stats")
-        events_stats_resp.raise_for_status()
-        
-        # 4. Собираем финальный ответ
+        # Функция вернет объект вида {"total_stock": N} или {"total_stock": null}
+        stats_data = response.json()
+        total_stock = stats_data.get("total_stock") if stats_data else 0
+
+        # 2. Формируем ответ только с этим значением
         final_response = {
-            "pulse": stats_data,
-            "events": events_stats_resp.json()
+            "total_skin_stock": total_stock if total_stock is not None else 0
         }
-        
+
         return final_response
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка базы данных")
-        logging.error(f"HTTP-ошибка при получении статистики: {error_details}")
+        logging.error(f"HTTP-ошибка при получении статистики склада: {error_details}")
         raise HTTPException(status_code=500, detail=f"Не удалось загрузить статистику: {error_details}")
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении статистики: {e}", exc_info=True)
+        logging.error(f"Критическая ошибка при получении статистики склада: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сборе статистики.")
 
 @app.post("/api/v1/admin/events/update")
@@ -5034,21 +5054,55 @@ async def get_roulette_prizes(
 
 @app.post("/api/v1/admin/roulette/create")
 async def create_roulette_prize(
-    request_data: RoulettePrizeCreateRequest,
+    request_data: RoulettePrizeCreateRequest, # <-- Используем обновленную модель
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Создает новый приз для рулетки."""
+    """(Админ) Создает новый приз для рулетки, включая количество."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    if request_data.quantity < 0:
+        raise HTTPException(status_code=400, detail="Количество не может быть отрицательным.")
 
     await supabase.post("/roulette_prizes", json={
         "reward_title": request_data.reward_title.strip(),
         "skin_name": request_data.skin_name.strip(),
         "image_url": request_data.image_url.strip(),
-        "chance_weight": request_data.chance_weight
+        "chance_weight": request_data.chance_weight,
+        "quantity": request_data.quantity # <-- ДОБАВЛЕНО
     })
     return {"message": "Приз успешно добавлен в рулетку."}
+
+@app.post("/api/v1/admin/roulette/update")
+async def update_roulette_prize(
+    request_data: RoulettePrizeUpdateRequest, # <-- Используем новую модель
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Обновляет существующий приз рулетки."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    prize_id = request_data.prize_id
+
+    if request_data.quantity < 0:
+        raise HTTPException(status_code=400, detail="Количество не может быть отрицательным.")
+
+    # Используем dict() для преобразования Pydantic модели в словарь, исключая initData и prize_id
+    update_data = request_data.dict(exclude={'initData', 'prize_id'})
+
+    # Убираем пробелы из строковых полей на всякий случай
+    if 'reward_title' in update_data: update_data['reward_title'] = update_data['reward_title'].strip()
+    if 'skin_name' in update_data: update_data['skin_name'] = update_data['skin_name'].strip()
+    if 'image_url' in update_data: update_data['image_url'] = update_data['image_url'].strip()
+
+    await supabase.patch(
+        "/roulette_prizes",
+        params={"id": f"eq.{prize_id}"},
+        json=update_data
+    )
+    return {"message": f"Приз ID {prize_id} успешно обновлен."}
 
 @app.post("/api/v1/admin/roulette/delete")
 async def delete_roulette_prize(
