@@ -1036,31 +1036,41 @@ async def get_manual_quests(
         completed_resp.raise_for_status()
         completed_quest_ids = {sub['quest_id'] for sub in completed_resp.json()}
 
-        # 2. Получаем все активные квесты с ручной проверкой, включая данные категории и sort_order
-        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Добавляем sort_order и сортировку ---
+# 2. Получаем все активные квесты с ручной проверкой, включая данные категории и sort_order
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Упрощаем сортировку в запросе ---
         all_manual_quests_resp = await supabase.get(
             "/quests",
             params={
                 "is_active": "eq.true",
                 "quest_type": "eq.manual_check",
-                "select": "*, quest_categories(name, sort_order), sort_order", # Добавили sort_order квеста
-                # Сортируем: сначала по sort_order категории (nulls last), потом по sort_order квеста (nulls last), потом по ID
-                "order": "quest_categories.sort_order.asc.nullslast,sort_order.asc.nullslast,id.asc"
+                "select": "*, quest_categories(name, sort_order), sort_order", # Запрашиваем все нужные поля
+                # Сортируем ТОЛЬКО по ID для начала, остальное сделаем в Python
+                "order": "id.asc"
             }
         )
         all_manual_quests_resp.raise_for_status()
         all_manual_quests = all_manual_quests_resp.json()
         # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-        # 3. Фильтруем квесты, оставляя только те, которые не были выполнены
-        # или являются многоразовыми (is_repeatable = true)
-        available_quests = [
+        # 3. Фильтруем квесты...
+        available_quests_filtered = [
             quest for quest in all_manual_quests
             if quest.get('is_repeatable') or quest.get('id') not in completed_quest_ids
         ]
 
-        # 4. Возвращаем уже отсортированный список (сортировка произошла на уровне запроса к БД)
-        return available_quests
+        # --- НОВЫЙ БЛОК: Сортируем отфильтрованный список в Python ---
+        def get_sort_key(quest):
+            category_sort = 9999 # По умолчанию для квестов без категории
+            quest_sort = quest.get('sort_order') if quest.get('sort_order') is not None else 9999
+            if quest.get('quest_categories'):
+                category_sort = quest['quest_categories'].get('sort_order') if quest['quest_categories'].get('sort_order') is not None else 9999
+            return (category_sort, quest_sort, quest.get('id', 0))
+
+        available_quests_filtered.sort(key=get_sort_key)
+        # --- КОНЕЦ НОВОГО БЛОКА ---
+
+        # 4. Возвращаем отсортированный и отфильтрованный список
+        return available_quests_filtered # Возвращаем новый отсортированный список
 
     except Exception as e:
         logging.error(f"Ошибка при получении ручных квестов для {telegram_id}: {e}", exc_info=True)
