@@ -1981,7 +1981,6 @@ function renderRoulettePrizes(prizes) {
                         }, 800); // Задержка в мс
                     }
                 }
-            }
         });
         // --- End NEW Event Listener ---
 
