@@ -80,10 +80,6 @@ class CategoryDeleteRequest(BaseModel):
     initData: str
     category_id: int
 
-class CategoryReorderRequest(BaseModel):
-    initData: str
-    ordered_ids: List[int]
-
 class UserChallengesRequest(BaseModel):
     initData: str
     user_id: str
@@ -101,11 +97,17 @@ class EventParticipantsRequest(BaseModel):
     initData: str
     event_id: int
 
-class QuestReorderRequest(BaseModel):
+# --- NEW Pydantic Models for Sort Order Update ---
+class CategorySortOrderUpdateRequest(BaseModel):
+    initData: str
+    category_id: int
+    sort_order: Optional[int] = None # Optional to allow null/clearing
+
+class QuestSortOrderUpdateRequest(BaseModel):
     initData: str
     quest_id: int
-    category_id: Optional[int] = None
-    direction: str
+    sort_order: Optional[int] = None # Optional to allow null/clearing
+# --- End NEW Pydantic Models ---
 
 class PromocodeAdminListRequest(BaseModel):
     initData: str
@@ -3537,81 +3539,64 @@ async def get_categories(request_data: InitDataRequest, supabase: httpx.AsyncCli
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    resp = await supabase.get("/quest_categories", params={"select": "*", "order": "sort_order.asc"})
+    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+    # Добавляем sort_order в select и order
+    resp = await supabase.get(
+        "/quest_categories",
+        params={"select": "*,sort_order", "order": "sort_order.asc.nullslast,id.asc"} # Сначала по номеру, потом по ID
+    )
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     resp.raise_for_status()
     return resp.json()
 
-@app.post("/api/v1/admin/quests/reorder")
-async def reorder_quests(
-    request_data: QuestReorderRequest,
+@app.post("/api/v1/admin/categories/update_sort_order")
+async def update_category_sort_order(
+    request_data: CategorySortOrderUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    Меняет местами два соседних квеста.
-    Эта версия реализована полностью на Python для максимальной надежности.
-    """
+    """Обновляет порядковый номер (sort_order) для категории."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен")
-
-    quest_id = request_data.quest_id
-    category_id = request_data.category_id
-    direction = request_data.direction
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем все квесты в нужной категории (или без категории)
-        query_params = {"select": "id,sort_order"}
-        if category_id is None:
-            query_params["category_id"] = "is.null"
-        else:
-            query_params["category_id"] = f"eq.{category_id}"
-        
-        quests_resp = await supabase.get("/quests", params=query_params)
-        quests_resp.raise_for_status()
-        quests = quests_resp.json()
+        # Преобразуем None в null для базы данных, если нужно
+        sort_order_value = request_data.sort_order if request_data.sort_order is not None else None
 
-        # 2. Нормализуем sort_order: если где-то его нет, проставляем всем по порядку
-        if any(q.get('sort_order') is None for q in quests):
-            quests.sort(key=lambda q: q.get('id')) # Сортируем по ID для стабильности
-            for i, quest in enumerate(quests):
-                quest['sort_order'] = i + 1
-        
-        # Сортируем по sort_order
-        quests.sort(key=lambda q: q.get('sort_order'))
-
-        # 3. Находим индекс текущего квеста
-        current_index = -1
-        for i, q in enumerate(quests):
-            if q['id'] == quest_id:
-                current_index = i
-                break
-        
-        if current_index == -1:
-            raise HTTPException(status_code=404, detail="Задание не найдено в этой категории.")
-
-        # 4. Определяем, с каким квестом меняться
-        if direction == "up":
-            if current_index == 0: return {"message": "Задание уже на первом месте."}
-            target_index = current_index - 1
-        elif direction == "down":
-            if current_index == len(quests) - 1: return {"message": "Задание уже на последнем месте."}
-            target_index = current_index + 1
-        else:
-            raise HTTPException(status_code=400, detail="Неверное направление.")
-
-        # 5. Меняем их sort_order местами
-        current_sort_order = quests[current_index]['sort_order']
-        target_sort_order = quests[target_index]['sort_order']
-        
-        # Обновляем в базе данных
-        await supabase.patch("/quests", params={"id": f"eq.{quests[current_index]['id']}"}, json={"sort_order": target_sort_order})
-        await supabase.patch("/quests", params={"id": f"eq.{quests[target_index]['id']}"}, json={"sort_order": current_sort_order})
-
-        return {"message": "Порядок заданий успешно обновлен."}
-    
+        await supabase.patch(
+            "/quest_categories",
+            params={"id": f"eq.{request_data.category_id}"},
+            json={"sort_order": sort_order_value}
+        )
+        return {"message": "Порядок категории обновлен."}
     except Exception as e:
-        logging.error(f"Ошибка при изменении порядка заданий: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сортировке.")
+        logging.error(f"Ошибка обновления sort_order категории: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось обновить порядок категории.")
+
+@app.post("/api/v1/admin/quests/update_sort_order")
+async def update_quest_sort_order(
+    request_data: QuestSortOrderUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обновляет порядковый номер (sort_order) для задания."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Преобразуем None в null для базы данных, если нужно
+        sort_order_value = request_data.sort_order if request_data.sort_order is not None else None
+
+        await supabase.patch(
+            "/quests",
+            params={"id": f"eq.{request_data.quest_id}"},
+            json={"sort_order": sort_order_value}
+        )
+        return {"message": "Порядок задания обновлен."}
+    except Exception as e:
+        logging.error(f"Ошибка обновления sort_order задания: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось обновить порядок задания.")
         
 @app.post("/api/v1/admin/categories/create")
 async def create_category(request_data: CategoryCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -3712,12 +3697,15 @@ async def get_all_quests(request_data: InitDataRequest, supabase: httpx.AsyncCli
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
-    
-    # Запрашиваем все квесты из базы данных
-    resp = await supabase.get("/quests", params={"select": "*", "order": "id.desc"})
+
+    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+    # Добавляем sort_order в select. Сортировка будет на фронтенде.
+    resp = await supabase.get("/quests", params={"select": "*,sort_order", "order": "id.desc"})
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     resp.raise_for_status()
     return resp.json()
-
+    
 @app.post("/api/v1/admin/challenges/reset-cooldown")
 async def reset_challenge_cooldown(
     request_data: AdminResetCooldownRequest,
