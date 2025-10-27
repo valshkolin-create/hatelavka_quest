@@ -998,9 +998,9 @@ function renderRoulettePrizes(prizes) {
                         </p>
                         <small style="color: var(--text-color-muted); display: block; line-height: 1.6;">
                             1. Кол-во: ${quantity}<br>
-                            2. Базовый вес <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Начальный вес шанса предмета, заданный администратором. Определяет относительную редкость.</span></div>: ${baseWeight}<br>
-                            3. Текущий шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Актуальный % выпадения, учитывающий кол-во: (Баз. вес × Кол-во) / Сумма (Баз. вес × Кол-во) для всех призов в этой рулетке.</span></div>: ${smartChancePercent}%<br>
-                            4. Расчетный шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">% выпадения, если бы кол-во не влияло: Баз. вес / Сумма всех Баз. весов в этой рулетке.</span></div>: ${startChancePercent}%
+                            2. Текущий шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Актуальный % выпадения, учитывающий кол-во: (Баз. шанс × Кол-во) / Сумма (Баз. шанс × Кол-во) для всех призов в этой рулетке.</span></div>: ${smartChancePercent}%<br>
+                            3. Базовый шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Начальный шанс шанса предмета, заданный администратором. Определяет относительную редкость.</span></div>: ${baseWeight}<br>
+                            4. Расчетный шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">% выпадения, если бы кол-во не влияло: Баз. шанс / Сумма всех Баз. шансов в этой рулетке.</span></div>: ${startChancePercent}%
                         </small>
                     </div>
                     <div style="display: flex; gap: 8px; flex-shrink: 0;">
