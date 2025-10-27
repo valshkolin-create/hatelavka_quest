@@ -1099,7 +1099,7 @@ function renderRoulettePrizes(prizes) {
                 </div>`;
             }).join('');
             const accordionHtml = `
-                <details class="quest-category-accordion" ${cat.id === 'no_category' ? 'open' : ''}>
+                <details class="quest-category-accordion">
                     <summary class="quest-category-header">
                         <div class="category-info">${cat.name}</div>
                     </summary>
