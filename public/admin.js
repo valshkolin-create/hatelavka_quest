@@ -991,7 +991,7 @@ function renderRoulettePrizes(prizes) {
                 const smartChancePercent = totalEffectiveWeight > 0 ? ((effectiveWeight / totalEffectiveWeight) * 100).toFixed(1) : '0.0';
 
                 // Формируем HTML для отображения
-                return 
+                return `
                 <div class="quest-card" style="flex-direction: row; align-items: center; gap: 15px;">
                     <img src="${escapeHTML(prize.image_url)}" alt="skin" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px; flex-shrink: 0;">
                     <div style="flex-grow: 1; min-width: 0;">
@@ -1016,11 +1016,11 @@ function renderRoulettePrizes(prizes) {
                         </button>
                     </div>
                 </div>
-            ;
+            `;
             }).join('');
 
             // Аккордеон по умолчанию закрыт (без 'open')
-            const groupHtml = 
+            const groupHtml = `
                 <details class="quest-category-accordion">
                     <summary class="quest-category-header">
                        ${escapeHTML(rewardTitle)}
@@ -1030,7 +1030,7 @@ function renderRoulettePrizes(prizes) {
                         ${prizesHtml}
                     </div>
                 </details>
-            ;
+            `;
             dom.roulettePrizesList.insertAdjacentHTML('beforeend', groupHtml);
         } // Конец цикла for по группам
     }
