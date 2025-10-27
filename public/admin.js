@@ -971,9 +971,11 @@ function renderRoulettePrizes(prizes) {
             const group = groupedPrizes[rewardTitle];
 
             // Считаем сумму БАЗОВЫХ весов (для "Шанса на старте")
+            // Используем || 0 для безопасности, если chance_weight отсутствует или null
             const totalBaseWeight = group.reduce((sum, p) => sum + (p.chance_weight || 0), 0);
 
             // Считаем сумму ЭФФЕКТИВНЫХ весов (для "Умного шанса")
+            // Используем || 0 для безопасности
             const totalEffectiveWeight = group.reduce((sum, p) => sum + ((p.chance_weight || 0) * (p.quantity || 0)), 0);
 
             // Сортируем призы внутри группы (например, по названию скина)
@@ -984,25 +986,26 @@ function renderRoulettePrizes(prizes) {
                 const quantity = prize.quantity || 0;
                 const effectiveWeight = baseWeight * quantity;
 
-                // Рассчитываем проценты
-                const startChancePercent = totalBaseWeight > 0 ? ((baseWeight / totalBaseWeight) * 100).toFixed(1) : 0;
-                const smartChancePercent = totalEffectiveWeight > 0 ? ((effectiveWeight / totalEffectiveWeight) * 100).toFixed(1) : 0;
+                // Рассчитываем проценты, проверяем деление на ноль
+                const startChancePercent = totalBaseWeight > 0 ? ((baseWeight / totalBaseWeight) * 100).toFixed(1) : '0.0'; // Используем '0.0' для единообразия
+                const smartChancePercent = totalEffectiveWeight > 0 ? ((effectiveWeight / totalEffectiveWeight) * 100).toFixed(1) : '0.0';
 
-                return `
+                // Формируем HTML для отображения
+                return 
                 <div class="quest-card" style="flex-direction: row; align-items: center; gap: 15px;">
                     <img src="${escapeHTML(prize.image_url)}" alt="skin" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px; flex-shrink: 0;">
                     <div style="flex-grow: 1; min-width: 0;">
-                        <p style="margin: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(prize.skin_name)}">
+                        <p style="margin: 0 0 5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(prize.skin_name)}">
                             ${escapeHTML(prize.skin_name)}
                         </p>
-                        {/* --- ИЗМЕНЕННЫЙ БЛОК ОТОБРАЖЕНИЯ ШАНСОВ --- */}
-                        <small style="color: var(--text-color-muted); display: block; line-height: 1.5;">
-                            Баз. Шанс: ${baseWeight} | Кол-во: ${quantity}<br>
-                            Умный Шанс: ${smartChancePercent}%
-                            <div class="tooltip" style="margin-left: 3px;">?<span class="tooltip-text">Эффективный вес = (Базовый Шанс × Количество в наличии).<br>Процент расчитан относительно суммы всех Умных Шансов в этой рулетке (${totalEffectiveWeight}).</span></div><br>
-                            Шанс на старте: ${startChancePercent}%
+                        {/* --- НОВЫЙ БЛОК ОТОБРАЖЕНИЯ ШАНСОВ --- */}
+                        <small style="color: var(--text-color-muted); display: block; line-height: 1.6;">
+                            1. Кол-во: ${quantity}<br>
+                            2. Баз. Шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Относительный вес предмета, заданный в админке. Используется для расчета % шансов.</span></div>: ${baseWeight}<br>
+                            3. Умный Шанс <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Реальный шанс выпадения сейчас (%) = (Баз. Шанс × Кол-во) / Сумма (Баз. Шанс × Кол-во) для всех призов в этой рулетке.</span></div>: ${smartChancePercent}%<br>
+                            4. Шанс на старте <div class="tooltip" style="display: inline-flex;">?<span class="tooltip-text">Шанс выпадения (%), если бы количество не учитывалось = Баз. Шанс / Сумма всех Баз. Шансов в этой рулетке.</span></div>: ${startChancePercent}%
                         </small>
-                         {/* --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА --- */}
+                         {/* --- КОНЕЦ НОВОГО БЛОКА --- */}
                     </div>
                     <div style="display: flex; gap: 8px; flex-shrink: 0;">
                          <button class="admin-edit-quest-btn edit-roulette-prize-btn" data-prize='${JSON.stringify(prize)}'>
@@ -1013,23 +1016,21 @@ function renderRoulettePrizes(prizes) {
                         </button>
                     </div>
                 </div>
-            `;
+            ;
             }).join('');
 
-            // --- ИЗМЕНЕНИЕ: Убираем 'open' из <details> ---
-            const groupHtml = `
-                <details class="quest-category-accordion"> {/* <-- Убрали 'open' */}
+            // Аккордеон по умолчанию закрыт (без 'open')
+            const groupHtml = 
+                <details class="quest-category-accordion">
                     <summary class="quest-category-header">
                        ${escapeHTML(rewardTitle)}
-                       <span style="font-size: 12px; color: var(--text-color-muted); margin-left: auto; padding-left: 10px;">
-                           (Сумм. Эфф. Вес: ${totalEffectiveWeight.toFixed(1)})
-                       </span>
+                       {/* Убрали отображение суммы весов */}
                     </summary>
                     <div class="quest-category-body">
                         ${prizesHtml}
                     </div>
                 </details>
-            `;
+            ;
             dom.roulettePrizesList.insertAdjacentHTML('beforeend', groupHtml);
         } // Конец цикла for по группам
     }
