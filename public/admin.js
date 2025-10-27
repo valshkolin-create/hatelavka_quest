@@ -225,43 +225,40 @@ async function renderCauldronParticipants() {
     }
     // --- Конец новых функций для "Котла" ---
 
-    async function loadStatistics() {
+async function loadStatistics() {
         showLoader();
         try {
+            // Запрашиваем только данные о складе
             const stats = await makeApiRequest("/api/v1/admin/stats", {}, 'POST', true);
-            
-            const pulse = stats.pulse || {};
-            const dau = pulse.dau || 0;
-            const wau = pulse.wau || 0;
-            const mau = pulse.mau || 0;
-            const newToday = pulse.new_users_today || 0;
-            const newWeek = pulse.new_users_week || 0;
 
-            document.getElementById('stat-dau').textContent = dau;
-            document.getElementById('stat-wau').textContent = wau;
-            document.getElementById('stat-mau').textContent = mau;
-            document.getElementById('stat-new-today').textContent = newToday;
-            document.getElementById('stat-new-week').textContent = newWeek;
+            // Очищаем старую статистику
+            dom.statisticsContent.innerHTML = '';
 
-            const stickiness = mau > 0 ? ((dau / mau) * 100).toFixed(1) : 0;
-            document.getElementById('stat-stickiness').textContent = `${stickiness}%`;
+            // Отображаем новую статистику склада
+            const totalStock = stats.total_skin_stock !== undefined ? stats.total_skin_stock : 0;
 
-            const eventsList = document.getElementById('events-stats-list');
-            eventsList.innerHTML = '';
-            if (stats.events && stats.events.length > 0) {
-                stats.events.forEach(event => {
-                    eventsList.insertAdjacentHTML('beforeend', `
-                        <div class="event-stat-item">
-                            <strong>${event.title}</strong>
-                            <span>${event.participants} уч.</span>
-                        </div>`);
-                });
-            } else {
-                eventsList.innerHTML = '<p style="color: var(--text-color-muted); text-align: center;">Нет активных розыгрышей.</p>';
-            }
+            dom.statisticsContent.innerHTML = `
+                <h2 style="font-size: 20px; margin-bottom: 15px;">Склад Рулеток 📦</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                         <div class="stat-card-header">
+                            <h4>Всего скинов в наличии</h4>
+                            <div class="tooltip">?<span class="tooltip-text">Общее количество всех скинов, доступных для выпадения во всех рулетках.</span></div>
+                        </div>
+                        <p id="stat-total-stock">${totalStock}</p>
+                    </div>
+                     <div class="stat-card">
+                         <div class="stat-card-header">
+                            <h4>Примерная стоимость</h4>
+                            <div class="tooltip">?<span class="tooltip-text">Скоро... Ориентировочная суммарная стоимость всех скинов на складе.</span></div>
+                        </div>
+                        <p>Скоро...</p>
+                    </div>
+                </div>
+            `;
 
         } catch (e) {
-            dom.statisticsContent.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить статистику: ${e.message}</p>`;
+            dom.statisticsContent.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить статистику склада: ${e.message}</p>`;
         } finally {
             hideLoader();
         }
@@ -906,7 +903,7 @@ async function renderCauldronParticipants() {
         }
     }
 
-    function renderRoulettePrizes(prizes) {
+function renderRoulettePrizes(prizes) {
         dom.roulettePrizesList.innerHTML = '';
         if (!prizes || prizes.length === 0) {
             dom.roulettePrizesList.innerHTML = '<p style="text-align: center;">Призов для рулеток пока нет.</p>';
@@ -921,24 +918,39 @@ async function renderCauldronParticipants() {
             return acc;
         }, {});
 
-        for (const rewardTitle in groupedPrizes) {
+        // Сортируем группы по названию Twitch награды
+        const sortedTitles = Object.keys(groupedPrizes).sort();
+
+        sortedTitles.forEach(rewardTitle => {
+             // Сортируем призы внутри группы (например, по названию скина)
+            groupedPrizes[rewardTitle].sort((a, b) => a.skin_name.localeCompare(b.skin_name));
+
             const prizesHtml = groupedPrizes[rewardTitle].map(prize => `
                 <div class="quest-card" style="flex-direction: row; align-items: center; gap: 15px;">
-                    <img src="${prize.image_url}" alt="skin" style="width: 56px; height: 56px; object-fit: contain; border-radius: 8px;">
-                    <div style="flex-grow: 1;">
-                        <p style="margin: 0; font-weight: 600;">${prize.skin_name}</p>
-                        <small style="color: var(--text-color-muted);">Вес шанса: ${prize.chance_weight}</small>
+                    <img src="${escapeHTML(prize.image_url)}" alt="skin" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px; flex-shrink: 0;">
+                    <div style="flex-grow: 1; min-width: 0;">
+                        <p style="margin: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(prize.skin_name)}">
+                            ${escapeHTML(prize.skin_name)}
+                        </p>
+                        <small style="color: var(--text-color-muted);">
+                            Вес: ${prize.chance_weight} | Кол-во: ${prize.quantity}
+                        </small>
                     </div>
-                    <button class="admin-delete-quest-btn delete-roulette-prize-btn" data-id="${prize.id}">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
+                    <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                         <button class="admin-edit-quest-btn edit-roulette-prize-btn" data-prize='${JSON.stringify(prize)}'>
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="admin-delete-quest-btn delete-roulette-prize-btn" data-id="${prize.id}">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             `).join('');
 
             const groupHtml = `
                 <details class="quest-category-accordion" open>
                     <summary class="quest-category-header">
-                       ${rewardTitle}
+                       ${escapeHTML(rewardTitle)}
                     </summary>
                     <div class="quest-category-body">
                         ${prizesHtml}
@@ -946,9 +958,9 @@ async function renderCauldronParticipants() {
                 </details>
             `;
             dom.roulettePrizesList.insertAdjacentHTML('beforeend', groupHtml);
-        }
+        });
     }
-
+    
     function renderQuests(quests, categories) {
         dom.questsList.innerHTML = '';
         if (!quests || quests.length === 0) {
@@ -1186,6 +1198,73 @@ async function renderCauldronParticipants() {
                 }
             });
         });
+
+    const editPrizeModal = document.getElementById('edit-roulette-prize-modal');
+    const editPrizeForm = document.getElementById('edit-roulette-prize-form');
+
+    // Открытие модального окна при клике на кнопку "Редактировать"
+    if (dom.roulettePrizesList) {
+        dom.roulettePrizesList.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.edit-roulette-prize-btn');
+            if (editBtn && editPrizeModal && editPrizeForm) {
+                const prizeData = JSON.parse(editBtn.dataset.prize);
+                editPrizeForm.elements['prize_id'].value = prizeData.id;
+                editPrizeForm.elements['reward_title'].value = prizeData.reward_title;
+                editPrizeForm.elements['skin_name'].value = prizeData.skin_name;
+                editPrizeForm.elements['image_url'].value = prizeData.image_url;
+                editPrizeForm.elements['chance_weight'].value = prizeData.chance_weight;
+                editPrizeForm.elements['quantity'].value = prizeData.quantity;
+                editPrizeModal.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Сохранение изменений при отправке формы редактирования
+    if (editPrizeForm) {
+        editPrizeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const prizeId = parseInt(form.elements['prize_id'].value);
+            const quantity = parseInt(form.elements['quantity'].value);
+
+            if (isNaN(quantity) || quantity < 0) {
+                 tg.showAlert('Количество должно быть 0 или больше.');
+                 return;
+            }
+
+            const data = {
+                prize_id: prizeId,
+                reward_title: form.elements['reward_title'].value,
+                skin_name: form.elements['skin_name'].value,
+                image_url: form.elements['image_url'].value,
+                chance_weight: parseFloat(form.elements['chance_weight'].value),
+                quantity: quantity
+            };
+
+            await makeApiRequest('/api/v1/admin/roulette/update', data);
+            tg.showAlert('Приз обновлен!');
+            if (editPrizeModal) editPrizeModal.classList.add('hidden');
+
+            // Перезагружаем список призов
+            const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+            renderRoulettePrizes(prizes);
+        });
+    }
+
+    // Закрытие модального окна (убедись, что этот код уже есть или добавь его)
+    document.body.addEventListener('click', (event) => {
+        const target = event.target;
+        const closeButton = target.closest('[data-close-modal]');
+        if (closeButton) {
+            const modalId = closeButton.dataset.closeModal;
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        } else if (target.classList.contains('modal-overlay')) {
+             target.classList.add('hidden'); // Закрытие по клику на фон
+        }
+    });
         
         if(dom.passwordPromptCancel) {
             dom.passwordPromptCancel.addEventListener('click', () => {
@@ -1841,28 +1920,39 @@ async function renderCauldronParticipants() {
             });
         }
         
-        if(dom.createRoulettePrizeForm) {
-            dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const form = e.target;
-                const data = {
-                    reward_title: form.elements['reward_title'].value,
-                    skin_name: form.elements['skin_name'].value,
-                    image_url: form.elements['image_url'].value,
-                    chance_weight: parseInt(form.elements['chance_weight'].value),
-                };
+if(dom.createRoulettePrizeForm) {
+        dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const quantity = parseInt(form.elements['quantity'].value);
 
-                await makeApiRequest('/api/v1/admin/roulette/create', data);
-                tg.showAlert('Приз добавлен!');
-                form.elements['skin_name'].value = '';
-                form.elements['image_url'].value = '';
-                form.elements['chance_weight'].value = 10;
-                form.elements['skin_name'].focus();
-                
-                const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
-                renderRoulettePrizes(prizes);
-            });
-        }
+            if (isNaN(quantity) || quantity < 0) {
+                 tg.showAlert('Количество должно быть 0 или больше.');
+                 return;
+            }
+
+            const data = {
+                reward_title: form.elements['reward_title'].value,
+                skin_name: form.elements['skin_name'].value,
+                image_url: form.elements['image_url'].value,
+                chance_weight: parseFloat(form.elements['chance_weight'].value),
+                quantity: quantity // <-- Убедись, что это поле добавлено
+            };
+
+            await makeApiRequest('/api/v1/admin/roulette/create', data);
+            tg.showAlert('Приз добавлен!');
+            // Очищаем только поля скина, оставляем название рулетки
+            form.elements['skin_name'].value = '';
+            form.elements['image_url'].value = '';
+            form.elements['chance_weight'].value = 10;
+            form.elements['quantity'].value = 0; // Сбрасываем количество
+            form.elements['skin_name'].focus();
+
+            // Перезагружаем список призов
+            const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+            renderRoulettePrizes(prizes);
+        });
+    }
         
         if(dom.roulettePrizesList) {
             dom.roulettePrizesList.addEventListener('click', async (e) => {
