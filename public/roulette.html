@@ -272,13 +272,12 @@
         });
     }
 
-function runAnimation(payload) {
+    function runAnimation(payload) {
         return new Promise((resolve) => {
-            // --- ИЗМЕНЕНИЕ: Достаем prize_name из payload ---
             const { prizes, winner_index, user_name, prize_name } = payload.new.payload;
 
-            // Показываем надпись купленной награды (название рулетки)
-            currentPrizeText.textContent = prize_name || "Рулетка"; // Используем prize_name
+            // Показываем надпись купленной награды
+            currentPrizeText.textContent = prize_name;
 
             reel.innerHTML = '';
             reel.style.transition = 'none';
@@ -288,82 +287,54 @@ function runAnimation(payload) {
             const existingWinner = document.querySelector('.item.winner');
             if (existingWinner) existingWinner.classList.remove('winner');
 
-            // Проверка, что prizes - это массив и winner_index валиден
-            if (!Array.isArray(prizes) || prizes.length === 0) {
-                console.error("Ошибка: Список призов пуст или не является массивом.");
-                resolve(); // Завершаем промис, чтобы не блокировать очередь
-                return;
-            }
-            if (winner_index < 0 || winner_index >= prizes.length) {
-                console.error(`Ошибка: Неверный индекс победителя (${winner_index}) для списка из ${prizes.length} призов.`);
-                 resolve(); // Завершаем промис
-                return;
-            }
-
             let fullPrizeList = [];
-            for (let i = 0; i < REEL_REPEAT_COUNT; i++) {
-                // Добавляем копии призов, чтобы избежать проблем с ссылками
-                fullPrizeList.push(...prizes.map(p => ({...p})));
-            }
+            for (let i = 0; i < REEL_REPEAT_COUNT; i++) fullPrizeList.push(...prizes);
 
             fullPrizeList.forEach(prize => {
                 const itemElement = document.createElement('div');
                 itemElement.className = 'item';
-                // Используем escapeHTML для безопасности
-                const safeImageUrl = escapeHTML(prize.image_url || '');
-                const safeSkinName = escapeHTML(prize.skin_name || 'Приз');
-                itemElement.innerHTML = `<img src="${safeImageUrl}" alt="${safeSkinName}">`;
+                itemElement.innerHTML = `<img src="${prize.image_url}" alt="${prize.skin_name}">`;
                 reel.appendChild(itemElement);
             });
 
             const itemFullWidth = ITEM_WIDTH + ITEM_MARGIN;
-            // Индекс победителя в расширенном списке
             const winnerPositionInFullList = (REEL_REPEAT_COUNT - 2) * prizes.length + winner_index;
-            // Небольшой случайный сдвиг для реализма
-            const randomShift = Math.random() * (ITEM_WIDTH * 0.4) - (ITEM_WIDTH * 0.2); // Уменьшил диапазон сдвига
-            // Рассчитываем позицию остановки точно по центру победителя + сдвиг
-            const distanceToWinnerCenter = (winnerPositionInFullList * itemFullWidth) + (itemFullWidth / 2) - (ITEM_MARGIN / 2); // Центрирование
+            const randomShift = Math.random() * (ITEM_WIDTH * 0.5) - (ITEM_WIDTH * 0.25);
+            const distanceToWinnerCenter = (winnerPositionInFullList * itemFullWidth) + (ITEM_WIDTH / 2);
             const stopPosition = -distanceToWinnerCenter + randomShift;
 
             rouletteWrapper.classList.add('visible');
             playSound(soundStart);
 
             setTimeout(() => {
-                reel.style.transition = `transform ${SCROLL_DURATION_SECONDS}s cubic-bezier(.15, .85, .35, 1)`; // Более плавная анимация
+                reel.style.transition = `transform ${SCROLL_DURATION_SECONDS}s cubic-bezier(.25, 1, .5, 1)`;
                 reel.style.transform = `translateX(${stopPosition}px)`;
                 playSound(soundTick);
-            }, 800); // Небольшая задержка перед стартом
+            }, 800);
 
             reel.addEventListener('transitionend', function handler() {
                 stopSound(soundTick);
                 playSound(soundWin);
 
                 const allItems = document.querySelectorAll('.item');
-                // Убедимся, что элемент существует перед добавлением класса
-                if (winnerPositionInFullList >= 0 && winnerPositionInFullList < allItems.length) {
-                     const actualWinnerElement = allItems[winnerPositionInFullList];
-                    if (actualWinnerElement) actualWinnerElement.classList.add('winner');
-                } else {
-                     console.error("Ошибка: Не удалось найти элемент победителя в DOM по индексу", winnerPositionInFullList);
-                }
+                const actualWinnerElement = allItems[winnerPositionInFullList];
+                if (actualWinnerElement) actualWinnerElement.classList.add('winner');
 
                 setTimeout(() => {
                     rouletteWrapper.classList.remove('visible');
                     winnerDisplay.classList.add('visible');
-                    // Используем escapeHTML и данные из оригинального списка призов
-                    winnerUserText.textContent = escapeHTML(user_name || 'Победитель');
-                    winnerPrizeImage.src = escapeHTML(prizes[winner_index].image_url || '');
-                    winnerPrizeName.textContent = escapeHTML(prizes[winner_index].skin_name || '');
+                    winnerUserText.textContent = user_name;
+                    winnerPrizeImage.src = prizes[winner_index].image_url;
+                    winnerPrizeName.textContent = prizes[winner_index].skin_name;
 
                     setTimeout(() => {
                         winnerDisplay.classList.remove('visible');
-                        currentPrizeText.textContent = ''; // Очищаем название рулетки
-                        resolve(); // Завершаем промис анимации
+                        resolve();
                     }, WINNER_DISPLAY_DURATION_MS);
 
-                }, 1000); // Задержка перед показом окна победителя
+                }, 1000);
 
-                reel.removeEventListener('transitionend', handler); // Удаляем обработчик
+                reel.removeEventListener('transitionend', handler);
             });
         });
     }
