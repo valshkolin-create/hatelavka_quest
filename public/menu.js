@@ -629,10 +629,17 @@ function renderChallenge(challengeData, isGuest) {
     function renderActiveAutomaticQuest(quest, userData) {
         dom.activeAutomaticQuestContainer.innerHTML = '';
         if (!quest || !userData || !userData.active_quest_id) {
+            console.log("renderActiveAutomaticQuest: Нет активного квеста для отображения."); // DEBUG
             return;
         }
         const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
-        if (!activeQuest) return;
+        if (!activeQuest) {
+             console.error("renderActiveAutomaticQuest: Не найдены детали для active_quest_id:", userData.active_quest_id); // DEBUG
+             return;
+        }
+        
+        console.log("renderActiveAutomaticQuest: Отображаем квест:", activeQuest.title, "ID:", activeQuest.id); // DEBUG
+
         const iconHtml = (activeQuest.icon_url && activeQuest.icon_url !== "") ? `<img src="${activeQuest.icon_url}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>`;
         const progress = userData.active_quest_progress || 0;
         const target = activeQuest.target_value || 1;
@@ -679,8 +686,13 @@ function renderChallenge(challengeData, isGuest) {
         } else if (questType.includes('telegram_messages')) {
             progressTextContent = `✉️ ${currentProgress} / ${target}`;
         }
+        
         const questEndDate = userData.active_quest_end_date;
-        const timerHtml = questEndDate ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer"></div>` : '';
+        console.log("renderActiveAutomaticQuest: Дата окончания квеста (questEndDate):", questEndDate); // DEBUG
+
+        // --- ИЗМЕНЕНИЕ: Добавили '...' как начальный текст ---
+        const timerHtml = questEndDate ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer">...</div>` : '';
+        
         dom.activeAutomaticQuestContainer.innerHTML = `
             <div class="quest-card">
                 ${!isCompleted ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
@@ -688,7 +700,7 @@ function renderChallenge(challengeData, isGuest) {
                     ${iconHtml}
                     <h2 class="quest-title">${activeQuest.title || ''}</h2>
                     <p class="quest-subtitle">${activeQuest.description || ''}</p>
-                    ${timerHtml}
+                    ${timerHtml} 
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${percent}%;"></div>
                         <div class="progress-content"><span class="progress-text">${progressTextContent}</span></div>
@@ -697,9 +709,21 @@ function renderChallenge(challengeData, isGuest) {
                 </div>
                 <div class="button-container">${buttonHtml}</div>
             </div>`;
+            
         if (questEndDate) {
-            startCountdown(document.getElementById(`quest-timer-${activeQuest.id}`), questEndDate, `quest_${activeQuest.id}`);
+            // --- ИЗМЕНЕНИЕ: Убедимся, что элемент найден перед запуском таймера ---
+            // Даем браузеру микро-задачу на отрисовку перед поиском элемента
+            setTimeout(() => {
+                 const timerElement = document.getElementById(`quest-timer-${activeQuest.id}`);
+                 if (timerElement) {
+                    console.log(`renderActiveAutomaticQuest: Элемент таймера #quest-timer-${activeQuest.id} НАЙДЕН. Запускаем startCountdown.`); // DEBUG
+                    startCountdown(timerElement, questEndDate, `quest_${activeQuest.id}`);
+                 } else {
+                    console.error(`renderActiveAutomaticQuest: Элемент таймера #quest-timer-${activeQuest.id} НЕ НАЙДЕН после отрисовки!`); // DEBUG
+                 }
+            }, 0); // Нулевая задержка выполнит код после текущего потока отрисовки
         }
+        
         dom.questChooseBtn.classList.add('hidden');
         dom.questChooseContainer.classList.add('hidden');
     }
