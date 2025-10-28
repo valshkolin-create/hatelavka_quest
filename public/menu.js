@@ -958,11 +958,13 @@ function setupEventListeners() {
         dom.infoQuestionIcon.addEventListener('click', showInfoModal);
         dom.infoModalCloseBtn.addEventListener('click', hideInfoModal);
         dom.questChooseBtn.addEventListener("click", () => {
-            if(dom.questChooseContainer.classList.contains('hidden')) {
-                startQuestRoulette();
-            } else {
-                hideQuestRoulette();
-            }
+                if (dom.questChooseContainer.classList.contains('hidden')) {
+                        // Если контейнер скрыт - показываем рулетку
+                        startQuestRoulette();
+                } else {
+                        // Если контейнер виден - скрываем рулетку
+                        hideQuestRoulette();
+                }
         });
         dom.closePromoNotification.addEventListener('click', () => {
             dom.newPromoNotification.classList.add('hidden');
