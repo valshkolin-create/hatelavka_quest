@@ -838,37 +838,33 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         currentEditingCategoryId = null;
     }
 
-    function renderSubmissions(submissions, targetElement) { // Добавлен второй аргумент targetElement
-        // Заменяем dom.tabContentSubmissions на targetElement
+function renderSubmissions(submissions, targetElement) { // Добавлен второй аргумент targetElement
         if (!targetElement) {
              console.error("renderSubmissions: targetElement не передан!");
-             return; // Прекращаем выполнение, если целевой элемент не указан
+             return;
         }
 
         targetElement.innerHTML = ''; // Очищаем целевой элемент
 
         if (!submissions || submissions.length === 0) {
-            // Заменяем dom.tabContentSubmissions на targetElement
             targetElement.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
             return;
         }
 
         submissions.forEach(action => {
-            let submissionContent = '';
-            const data = action.submitted_data || '';
-            const isUrl = data.startsWith('http://') || data.startsWith('https');
+            let submissionContentHtml = ''; // Переименовал для ясности
+            const submittedData = action.submitted_data || '';
+            const isUrl = submittedData.startsWith('http://') || submittedData.startsWith('https');
 
-            // --- ИЗМЕНЕНИЕ 1: Отображение submitted_data ---
-            // Если это URL, делаем ссылку (как и было, но с escapeHTML)
+            // --- ИСПРАВЛЕНИЕ ОТОБРАЖЕНИЯ submitted_data ---
+            // Возвращаемся к span, но всегда используем escapeHTML
             if (isUrl) {
-                submissionContent = `<a href="${escapeHTML(data)}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${escapeHTML(data)}</a>`;
+                submissionContentHtml = `<a href="${escapeHTML(submittedData)}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${escapeHTML(submittedData)}</a>`;
             } else {
-                // Если это НЕ URL, вставляем текст напрямую в <pre> для сохранения форматирования и переносов строк,
-                // а внутри <pre> используем escapeHTML для безопасности.
-                // Тег <pre> поможет избежать проблем с "черным квадратом", если это был какой-то спецсимвол.
-                submissionContent = `<pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; font-family: inherit; font-size: inherit;">${escapeHTML(data)}</pre>`;
+                // Просто текст, экранированный
+                submissionContentHtml = `<span>${escapeHTML(submittedData)}</span>`;
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
             const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
                 ? `<a href="${escapeHTML(action.quest_action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
@@ -876,23 +872,34 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
 
             const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
 
+            // --- ИСПРАВЛЕНИЕ: Добавляем описание квеста и проверяем данные ---
+            // Убедимся, что все поля существуют перед использованием
+            const questTitle = action.quest_title || action.title || 'Ручное задание'; // Берем quest_title, если есть
+            const questDescription = action.quest_description || 'Описание отсутствует.';
+            const rewardAmount = action.reward_amount || '?';
+            const userFullName = action.user_full_name || 'Неизвестный';
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
             const cardHtml = `
             <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
-                <h3 class="quest-title">${escapeHTML(action.title || 'Ручное задание')}</h3>
+                <h3 class="quest-title">${escapeHTML(questTitle)}</h3>
 
                 <p style="font-size: 13px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--divider-glass-color);">
-                    <b>Описание задания:</b> ${escapeHTML(action.quest_description || 'Отсутствует.')}
+                    <b>Описание задания:</b><br>${escapeHTML(questDescription)}
                 </p>
-                <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(action.reward_amount || '?')} ⭐</p>
-                <p>Пользователь: <strong>${escapeHTML(action.user_full_name || 'Неизвестный')}</strong></p>
+
+                <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(rewardAmount)} ⭐</p>
+                <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
-                    <div class="submission-data">${submissionContent}</div> ${actionLinkHtml}
+                    <div class="submission-data">${submissionContentHtml}</div>
+                    ${actionLinkHtml}
                 </div>
 
                 ${isWizebotQuest ? `
                 <div class="submission-actions" style="margin-top: 10px;">
-                    <button class="admin-action-btn check-wizebot-btn" data-nickname="${escapeHTML(data)}" style="background-color: #6441a5;"> <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
+                    <button class="admin-action-btn check-wizebot-btn" data-nickname="${escapeHTML(submittedData)}" style="background-color: #6441a5;">
+                        <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
                     </button>
                 </div>
                 <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
@@ -905,6 +912,7 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             </div>`;
             targetElement.innerHTML += cardHtml;
         });
+    }
 
     function renderCheckpointPrizes(prizes, targetElement) { // Добавлен второй аргумент targetElement
         // Заменяем dom.tabContentCheckpointPrizes на targetElement
@@ -2159,20 +2167,89 @@ function updateSleepButton(status) {
             } else if (actionButton.matches('.admin-action-btn')) {
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
+                const id = actionButton.dataset.id; // Получаем ID здесь
+
+                if (!id) return; // Прерываем, если ID не найден
+
                 if (action === 'approved' || action === 'rejected') {
-                     await makeApiRequest('/api/v1/admin/submission/update', { submission_id: parseInt(id), action });
-                     tg.showAlert(`Заявка ${action === 'approved' ? 'одобрена' : 'отклонена'}.`);
-                     card?.remove();
+                     try { // Оборачиваем в try...catch на случай ошибки API
+                         await makeApiRequest('/api/v1/admin/submission/update', { submission_id: parseInt(id), action });
+                         tg.showAlert(`Заявка ${action === 'approved' ? 'одобрена' : 'отклонена'}.`);
+
+                         // --- ЛОГИКА АВТООБНОВЛЕНИЯ ---
+                         if (card) {
+                             card.remove(); // Удаляем карточку из модального окна
+
+                             // Проверяем, остались ли еще карточки в модалке
+                             const remainingCards = dom.modalBody.querySelectorAll('.admin-submission-card');
+                             if (remainingCards.length === 0) {
+                                 // Если карточек не осталось
+                                 dom.submissionsModal.classList.add('hidden'); // Закрываем модалку
+                                 tg.showPopup({message: 'Проверка завершена. Обновление...'}); // Уведомляем пользователя
+                                 await switchView('view-admin-pending-actions'); // Перезагружаем текущий вид (сетку)
+
+                                 // Дополнительно обновим главный счетчик
+                                 try {
+                                     const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+                                     const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                                     const mainBadge = document.getElementById('main-pending-count');
+                                     if (mainBadge) {
+                                         mainBadge.textContent = totalPending;
+                                         mainBadge.classList.toggle('hidden', totalPending === 0);
+                                     }
+                                 } catch (countError) {
+                                     console.error("Не удалось обновить главный счетчик после проверки:", countError);
+                                 }
+
+                             }
+                         }
+                         // --- КОНЕЦ ЛОГИКИ АВТООБНОВЛЕНИЯ ---
+
+                     } catch (apiError) {
+                         // Ошибка при обновлении статуса - не удаляем карточку, показываем ошибку
+                         console.error("Ошибка при обновлении статуса заявки:", apiError);
+                         // tg.showAlert уже был вызван в makeApiRequest
+                     }
+
                 } else if (action === 'confirm_prize') {
                     tg.showConfirm('Вы уверены, что выдали этот приз?', async (ok) => {
                          if(ok) {
-                            await makeApiRequest('/api/v1/admin/manual_rewards/complete', { reward_id: parseInt(id) });
-                            tg.showAlert('Выдача приза подтверждена.');
-                            card?.remove();
+                             try { // Добавляем try...catch
+                                 await makeApiRequest('/api/v1/admin/manual_rewards/complete', { reward_id: parseInt(id) });
+                                 tg.showAlert('Выдача приза подтверждена.');
+
+                                 // --- ЛОГИКА АВТООБНОВЛЕНИЯ (аналогично) ---
+                                 if (card) {
+                                     card.remove();
+                                     const remainingCards = dom.modalBody.querySelectorAll('.admin-submission-card');
+                                     if (remainingCards.length === 0) {
+                                         dom.submissionsModal.classList.add('hidden');
+                                         tg.showPopup({message: 'Выдача завершена. Обновление...'});
+                                         await switchView('view-admin-pending-actions'); // Перезагружаем вид
+
+                                         // Обновляем главный счетчик
+                                         try {
+                                             const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+                                             const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                                             const mainBadge = document.getElementById('main-pending-count');
+                                             if (mainBadge) {
+                                                 mainBadge.textContent = totalPending;
+                                                 mainBadge.classList.toggle('hidden', totalPending === 0);
+                                             }
+                                         } catch (countError) {
+                                             console.error("Не удалось обновить главный счетчик после выдачи приза:", countError);
+                                         }
+                                     }
+                                 }
+                                 // --- КОНЕЦ ЛОГИКИ АВТООБНОВЛЕНИЯ ---
+
+                             } catch (apiError) {
+                                 console.error("Ошибка при подтверждении выдачи приза:", apiError);
+                             }
                          }
                     });
                 }
-
+            }
             } /* REMOVED: else if (actionButton.matches('.sort-btn')) { ... } */
               /* REMOVED: else if (actionButton.matches('.sort-quest-btn')) { ... } */
         });
