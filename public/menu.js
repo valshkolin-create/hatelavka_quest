@@ -683,11 +683,11 @@ try {
                     ${iconHtml}
                     <h2 class="quest-title">${activeQuest.title || ''}</h2>
                     <p class="quest-subtitle">${activeQuest.description || ''}</p>
+                    ${timerHtml}
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${percent}%;"></div>
                         <div class="progress-content"><span class="progress-text">${progressTextContent}</span></div>
                     </div>
-                    ${timerHtml}
                     ${twitchNotice}
                 </div>
                 <div class="button-container">${buttonHtml}</div>
@@ -699,7 +699,7 @@ try {
         dom.questChooseContainer.classList.add('hidden');
     }
 
-function renderManualQuests(quests) { // Принимает только ОДИН аргумент
+    function renderManualQuests(quests) { // Принимает только ОДИН аргумент
         const container = dom.viewQuests;
         const title = container.querySelector('.page-title');
         container.innerHTML = '';
