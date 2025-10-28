@@ -1015,7 +1015,67 @@ async def session_check(request: Request):
     if not user_data or "id" not in user_data:
         return {"is_guest": True}
     return {"is_guest": False}
-    
+
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ СЧЕТЧИКОВ ---
+@app.post("/api/v1/admin/pending_counts")
+async def get_pending_counts(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает количество ожидающих действий."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # 1. Считаем заявки на ручные квесты
+        subs_resp = await supabase.get(
+            "/quest_submissions",
+            params={"status": "eq.pending", "select": "id"},
+            headers={"Prefer": "count=exact"} # Запрашиваем только количество
+        )
+        subs_resp.raise_for_status()
+        submission_count = int(subs_resp.headers.get('content-range', '0').split('/')[-1])
+
+        # 2. Считаем ручные награды (чекпоинт и т.д.)
+        manual_rewards_resp = await supabase.get(
+            "/manual_rewards",
+            params={"status": "eq.pending", "select": "id"},
+            headers={"Prefer": "count=exact"}
+        )
+        manual_rewards_resp.raise_for_status()
+        manual_reward_count = int(manual_rewards_resp.headers.get('content-range', '0').split('/')[-1])
+
+        # Фильтруем награды чекпоинта внутри Python
+        manual_rewards_details = await supabase.get(
+            "/manual_rewards",
+            params={"status": "eq.pending", "select": "source_description"}
+        )
+        checkpoint_prize_count = sum(1 for r in manual_rewards_details.json() if r.get("source_description") and "чекпоинт" in r["source_description"].lower())
+
+
+        # 3. Считаем невыданные призы розыгрышей (сложнее, т.к. данные в JSON)
+        content_resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.events", "select": "content", "limit": 1}
+        )
+        event_prize_count = 0
+        if content_resp.is_success and content_resp.json():
+            content = content_resp.json()[0].get('content', {})
+            events = content.get("events", [])
+            event_prize_count = sum(1 for event in events if 'winner_id' in event and not event.get('prize_sent_confirmed', False))
+
+        return {
+            "submissions": submission_count,
+            "event_prizes": event_prize_count,
+            "checkpoint_prizes": checkpoint_prize_count
+        }
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении счетчиков: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось получить счетчики.")
+# --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
+
 @app.post("/api/v1/quests/manual")
 async def get_manual_quests(
     request_data: InitDataRequest,
@@ -4008,42 +4068,43 @@ async def save_trade_link(
     return {"message": "Трейд-ссылка успешно сохранена!"}
 
 @app.post("/api/v1/admin/events/winners")
-async def get_event_winners_for_admin(
+async def get_pending_event_prizes_grouped( # Переименовали функцию
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает список победителей и их трейд-ссылки для админа."""
+    """Возвращает сгруппированные данные для иконок невыданных призов розыгрышей."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
-        
-    content_resp = await supabase.get("/pages_content", params={"page_name": "eq.events", "select": "content", "limit": 1})
-    content_resp.raise_for_status()
-    content_data = content_resp.json()
-    if not content_data:
-        return []
-    
-    events = content_data[0].get("content", {}).get("events", [])
-    winners_info = []
-    
-    # Собираем все ID победителей, чтобы сделать один запрос к базе
-    winner_ids = [event['winner_id'] for event in events if 'winner_id' in event]
-    if not winner_ids:
-        return []
 
-    users_resp = await supabase.get("users", params={"telegram_id": f"in.({','.join(map(str, winner_ids))})", "select": "telegram_id,trade_link"})
-    users_data = {user['telegram_id']: user.get('trade_link', 'Не указана') for user in users_resp.json()}
+    try:
+        content_resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.events", "select": "content", "limit": 1}
+        )
+        content_resp.raise_for_status()
+        content_data = content_resp.json()
 
-    for event in events:
-        if "winner_id" in event and "winner_name" in event:
-            winners_info.append({
-                "winner_name": event["winner_name"],
-                "prize_title": event["title"],
-                "prize_description": event.get("description", ""),
-                "trade_link": users_data.get(event["winner_id"], "Не указана")
-            })
-            
-    return winners_info
+        count = 0
+        if content_data:
+            content = content_data[0].get('content', {})
+            events = content.get("events", [])
+            count = sum(1 for event in events if 'winner_id' in event and not event.get('prize_sent_confirmed', False))
+
+        # Возвращаем массив с одним элементом, если есть что выдать
+        if count > 0:
+            return [{
+                "type": "event_prizes",
+                "title": "Розыгрыши",
+                "icon_class": "fa-solid fa-trophy", # Иконка FontAwesome
+                "pending_count": count
+            }]
+        else:
+            return [] # Пустой массив, если выдавать нечего
+
+    except Exception as e:
+        logging.error(f"Ошибка при группировке призов розыгрышей: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сгруппировать призы розыгрышей.")
 
 @app.post("/api/v1/admin/events/clear_participants")
 async def clear_event_participants(
@@ -4578,93 +4639,78 @@ async def complete_manual_reward(
     )
     return {"message": "Награда помечена как выданная."}
 
+# --- МОДИФИЦИРОВАННЫЙ ЭНДПОИНТ ДЛЯ ГРУППИРОВКИ ЗАЯВОК ---
 @app.post("/api/v1/admin/pending_actions")
-async def get_pending_actions(
-    request_data: PendingActionRequest, 
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """
-    Собирает ТОЛЬКО заявки на ручные квесты (submissions).
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен")
-
-    try:
-        submissions_resp = await supabase.post("/rpc/get_pending_submissions_with_details")
-        submissions_resp.raise_for_status()
-        submissions = submissions_resp.json()
-        
-        # Сортируем по дате создания, чтобы новые были сверху
-        submissions.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-
-        return submissions
-
-    except Exception as e:
-        logging.error(f"Ошибка при получении pending_actions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось загрузить список действий.")
-
-@app.post("/api/v1/admin/checkpoint_rewards")
-async def get_checkpoint_rewards(
+async def get_grouped_pending_submissions( # Переименовали функцию для ясности
     request_data: PendingActionRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Получает ТОЛЬКО ручные награды из системы Чекпоинт.
-    ФИНАЛЬНАЯ ВЕРСИЯ: Использует прямой запрос к таблицам для максимальной надежности.
+    Возвращает сгруппированный список квестов, у которых есть ожидающие заявки.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     try:
-        # Шаг 1: Получаем все ожидающие награды напрямую из таблицы
-        rewards_resp = await supabase.get(
+        # Используем новую RPC функцию, которую нужно создать в Supabase
+        response = await supabase.post("/rpc/get_grouped_pending_submissions")
+        response.raise_for_status()
+        grouped_submissions = response.json()
+
+        # Если RPC вернула null или пустой результат
+        if not grouped_submissions:
+            return []
+
+        # Сортируем по названию квеста для консистентности
+        grouped_submissions.sort(key=lambda x: x.get('quest_title', ''))
+
+        return grouped_submissions
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка базы данных")
+        logging.error(f"Ошибка RPC get_grouped_pending_submissions: {error_details}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Не удалось сгруппировать заявки: {error_details}")
+    except Exception as e:
+        logging.error(f"Ошибка при группировке pending_actions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить сгруппированный список.")
+# --- КОНЕЦ МОДИФИЦИРОВАННОГО ЭНДПОИНТА ---
+
+@app.post("/api/v1/admin/checkpoint_rewards")
+async def get_pending_checkpoint_prizes_grouped( # Переименовали функцию
+    request_data: PendingActionRequest, # Модель осталась прежней
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Возвращает сгруппированные данные для иконок невыданных призов чекпоинта."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # Получаем детали всех ожидающих ручных наград
+        rewards_details = await supabase.get(
             "/manual_rewards",
-            params={
-                "status": "eq.pending",
-                "select": "id,user_id,reward_details,source_description,created_at"
-            }
+            params={"status": "eq.pending", "select": "source_description"}
         )
-        rewards_resp.raise_for_status()
-        all_pending_rewards = rewards_resp.json()
+        rewards_details.raise_for_status()
 
-        # Шаг 2: Фильтруем в Python, чтобы остались только награды из Чекпоинта
-        checkpoint_rewards_raw = [
-            r for r in all_pending_rewards
-            if r.get("source_description") and "чекпоинт" in r["source_description"].lower()
-        ]
+        # Считаем только те, что относятся к чекпоинту
+        count = sum(1 for r in rewards_details.json() if r.get("source_description") and "чекпоинт" in r["source_description"].lower())
 
-        if not checkpoint_rewards_raw:
-            return [] # Возвращаем пустой список, если наград нет
-
-        # Шаг 3: Собираем ID пользователей и запрашиваем их данные
-        user_ids = {r["user_id"] for r in checkpoint_rewards_raw}
-        users_resp = await supabase.get(
-            "/users",
-            params={
-                "telegram_id": f"in.({','.join(map(str, user_ids))})",
-                "select": "telegram_id,full_name,trade_link"
-            }
-        )
-        users_resp.raise_for_status()
-        users_data = {u["telegram_id"]: u for u in users_resp.json()}
-
-        # Шаг 4: Объединяем данные о наградах с данными о пользователях
-        final_rewards = []
-        for reward in checkpoint_rewards_raw:
-            user_details = users_data.get(reward["user_id"], {})
-            reward["user_full_name"] = user_details.get("full_name", "N/A")
-            reward["user_trade_link"] = user_details.get("trade_link")
-            final_rewards.append(reward)
-
-        # Шаг 5: Сортируем и возвращаем
-        final_rewards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-        return final_rewards
+        # Возвращаем массив с одним элементом, если есть что выдать
+        if count > 0:
+            return [{
+                "type": "checkpoint_prizes",
+                "title": "Чекпоинт",
+                "icon_class": "fa-solid fa-flag-checkered", # Иконка FontAwesome
+                "pending_count": count
+            }]
+        else:
+            return [] # Пустой массив, если выдавать нечего
 
     except Exception as e:
-        logging.error(f"Ошибка при получении наград из Чекпоинта: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось загрузить награды из Чекпоинта.")
+        logging.error(f"Ошибка при группировке призов чекпоинта: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сгруппировать призы чекпоинта.")
 
 @app.post("/api/v1/admin/users/reset-checkpoint-progress")
 async def reset_user_checkpoint_progress(
@@ -4682,6 +4728,41 @@ async def reset_user_checkpoint_progress(
         params={"user_id": f"eq.{user_id}"}
     )
     return {"message": f"Список наград Чекпоинта для пользователя {user_id} был очищен."}
+
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ ДЕТАЛЕЙ ЗАЯВОК ПО КВЕСТУ ---
+@app.post("/api/v1/admin/pending_actions/quest/{quest_id}")
+async def get_pending_submissions_for_single_quest(
+    quest_id: int,
+    request_data: InitDataRequest, # Используем простую модель для initData
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает список ожидающих заявок ТОЛЬКО для указанного quest_id."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # Можно адаптировать существующую RPC get_pending_submissions_with_details,
+        # добавив ей параметр p_quest_id, или сделать прямой запрос:
+        response = await supabase.post(
+            "/rpc/get_quest_submissions_with_details", # Используем твою существующую RPC
+            json={"p_quest_id": quest_id} # Передаем ID квеста
+        )
+        response.raise_for_status()
+        submissions = response.json()
+
+        # Дополнительно фильтруем по статусу 'pending', если RPC не делает этого
+        pending_submissions = [s for s in submissions if s.get('status') == 'pending']
+
+        # Сортируем по дате создания
+        pending_submissions.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        return pending_submissions
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении заявок для квеста {quest_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить список заявок.")
+# --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
 
 @app.post("/api/v1/admin/users/clear-checkpoint-stars")
 async def clear_user_checkpoint_stars(
