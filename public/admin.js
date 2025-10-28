@@ -360,15 +360,18 @@ const showLoader = () => {
                     break;
                 }
                 case 'view-admin-pending-actions': {
-                    const [submissions, winners, checkpointPrizes] = await Promise.all([
-                        makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),
-                        makeApiRequest('/api/v1/admin/events/winners', {}, 'POST', true),
-                        makeApiRequest('/api/v1/admin/checkpoint_rewards', {}, 'POST', true)
+                    // Запрашиваем СГРУППИРОВАННЫЕ данные
+                    const [groupedSubmissions, groupedEventPrizes, groupedCheckpointPrizes] = await Promise.all([
+                        makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true), // Теперь возвращает группы квестов
+                        makeApiRequest('/api/v1/admin/events/winners', {}, 'POST', true), // Теперь возвращает [{ type: ..., count: N }]
+                        makeApiRequest('/api/v1/admin/checkpoint_rewards', {}, 'POST', true) // Теперь возвращает [{ type: ..., count: N }]
                     ]);
-                    renderSubmissions(submissions);
-                    renderWinners(winners);
-                    renderCheckpointPrizes(checkpointPrizes);
-                    break;
+
+                    // Вызываем новую функцию рендеринга сетки для каждой вкладки
+                    renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
+                    renderGroupedItemsGrid('tab-content-event-prizes', groupedEventPrizes);
+                    renderGroupedItemsGrid('tab-content-checkpoint-prizes', groupedCheckpointPrizes);
+                    break; // Не забываем break
                 }
                 case 'view-admin-challenges': {
                     renderChallenges(await makeApiRequest('/api/v1/admin/challenges', {}, 'POST', true));
@@ -520,8 +523,6 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                 return textResponse;
             }
             // --- КОНЕЦ ИЗМЕНЕНИЙ В ОБРАБОТКЕ ОТВЕТА ---
-
-
             if (!response.ok) {
                 // --- УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК FastAPI ---
                 let detailMessage = 'Неизвестная ошибка сервера';
@@ -567,6 +568,116 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         }
     }
 
+// --- НОВАЯ ФУНКЦИЯ ДЛЯ РЕНДЕРИНГА СЕТКИ ИКОНОК ---
+    function renderGroupedItemsGrid(containerId, groupedData) {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error(`Контейнер ${containerId} не найден!`);
+            return;
+        }
+        const grid = container.querySelector('.pending-actions-grid');
+        if (!grid) {
+            console.error(`Внутренний grid в ${containerId} не найден!`);
+            container.innerHTML = '<p class="error-message">Ошибка отображения: не найден grid.</p>'; // Сообщаем об ошибке
+            return;
+        }
+
+        grid.innerHTML = ''; // Очищаем только grid
+
+        if (!groupedData || groupedData.length === 0) {
+            grid.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Здесь пока пусто.</p>';
+            return;
+        }
+
+        groupedData.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'admin-icon-button'; // Используем существующий класс
+
+            // Добавляем data-атрибуты
+            if (item.quest_id) { // Это заявка на квест
+                itemDiv.dataset.type = 'submission';
+                itemDiv.dataset.questId = item.quest_id;
+                itemDiv.dataset.title = item.quest_title || 'Задание'; // Сохраняем заголовок для модалки
+            } else { // Это приз (розыгрыш или чекпоинт)
+                itemDiv.dataset.type = item.type; // 'event_prizes' или 'checkpoint_prizes'
+                itemDiv.dataset.title = item.title || 'Призы'; // Сохраняем заголовок
+            }
+
+            // Иконка: URL или FontAwesome класс
+            const iconHtml = item.quest_icon_url
+                ? `<img src="${escapeHTML(item.quest_icon_url)}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover;" alt="">`
+                : `<i class="${escapeHTML(item.icon_class || 'fa-solid fa-question-circle')}"></i>`; // Убрали fa-xl
+
+            // Бейдж со счетчиком
+            const countBadge = (item.pending_count || 0) > 0
+                ? `<span class="notification-badge">${item.pending_count}</span>`
+                : '';
+
+            itemDiv.innerHTML = `
+                <div class="icon-wrapper">
+                    ${iconHtml}
+                    ${countBadge}
+                </div>
+                <span>${escapeHTML(item.quest_title || item.title)}</span>
+            `;
+
+            // Добавляем обработчик клика
+            itemDiv.addEventListener('click', handleGridItemClick);
+
+            grid.appendChild(itemDiv);
+        });
+    }
+    // --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
+
+    // --- НОВЫЙ ОБРАБОТЧИК КЛИКА ПО ИКОНКЕ ---
+    async function handleGridItemClick(event) {
+        const itemDiv = event.currentTarget;
+        const type = itemDiv.dataset.type;
+        const questId = itemDiv.dataset.questId; // Будет undefined для призов
+        const title = itemDiv.dataset.title || 'Детали'; // Заголовок для модалки
+
+        showLoader();
+        try {
+            let detailedData = [];
+            let renderFunction = null;
+
+            if (type === 'submission' && questId) {
+                detailedData = await makeApiRequest(`/api/v1/admin/pending_actions/quest/${questId}`);
+                renderFunction = renderSubmissions; // Используем существующую функцию
+            } else if (type === 'event_prizes') {
+                // Запрашиваем ПОЛНЫЙ список победителей для отображения в модалке
+                 detailedData = await makeApiRequest('/api/v1/admin/events/winners/details'); // <-- НУЖЕН НОВЫЙ БЭКЕНД ЭНДПОИНТ!
+                renderFunction = renderWinners; // Используем существующую
+            } else if (type === 'checkpoint_prizes') {
+                // Запрашиваем ПОЛНЫЙ список призов чекпоинта для модалки
+                 detailedData = await makeApiRequest('/api/v1/admin/checkpoint_rewards/details'); // <-- НУЖЕН НОВЫЙ БЭКЕНД ЭНДПОИНТ!
+                renderFunction = renderCheckpointPrizes; // Используем существующую
+            } else {
+                throw new Error(`Неизвестный тип элемента: ${type}`);
+            }
+
+            if (renderFunction) {
+                // Убедимся, что dom.modalBody существует перед вызовом
+                if (dom.modalBody) {
+                    renderFunction(detailedData, dom.modalBody); // Рендерим в тело модалки
+                    if (dom.modalTitle) dom.modalTitle.textContent = title; // Устанавливаем заголовок
+                    if (dom.submissionsModal) dom.submissionsModal.classList.remove('hidden'); // Показываем модалку
+                } else {
+                    console.error("Элемент dom.modalBody не найден!");
+                    tg.showAlert("Ошибка отображения деталей.");
+                }
+            } else {
+                 tg.showAlert("Не удалось определить, как отобразить детали.");
+            }
+
+        } catch (e) {
+            console.error("Ошибка при загрузке деталей:", e);
+            tg.showAlert(`Не удалось загрузить детали: ${e.message}`);
+        } finally {
+            hideLoader();
+        }
+    }
+    // --- КОНЕЦ НОВОГО ОБРАБОТЧИКА ---
     async function fetchAndCacheCategories(isSilent = false) {
         // --- >>> ДОБАВЬ ЭТОТ ЛОГ <<< ---
         console.log("[DEBUG] fetchAndCacheCategories function started. isSilent:", isSilent);
@@ -727,10 +838,18 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         currentEditingCategoryId = null;
     }
 
-    function renderSubmissions(submissions) {
-        dom.tabContentSubmissions.innerHTML = '';
+    function renderSubmissions(submissions, targetElement) { // Добавлен второй аргумент targetElement
+        // Заменяем dom.tabContentSubmissions на targetElement
+        if (!targetElement) {
+             console.error("renderSubmissions: targetElement не передан!");
+             return; // Прекращаем выполнение, если целевой элемент не указан
+        }
+
+        targetElement.innerHTML = ''; // Очищаем целевой элемент
+
         if (!submissions || submissions.length === 0) {
-            dom.tabContentSubmissions.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
+            // Заменяем dom.tabContentSubmissions на targetElement
+            targetElement.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
             return;
         }
 
@@ -739,6 +858,8 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             const data = action.submitted_data || '';
             const isUrl = data.startsWith('http://') || data.startsWith('https');
 
+            // Блок if (action.type === 'twitch_message') остается без изменений во внутренней логике,
+            // но результат добавляется в targetElement
             if (action.type === 'twitch_message') {
                 const cardHtml = `
                 <div class="pending-action-card admin-submission-card" data-action-id="${action.id}" data-action-type="twitch_message">
@@ -746,44 +867,44 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                         <div class="pending-action-type-badge type-twitch">Twitch</div>
                         <div class="submission-user">
                             <i class="fa-brands fa-twitch"></i>
-                            <strong>${action.user_full_name}</strong>
-                        </div>
+                            <strong>${escapeHTML(action.user_full_name)}</strong> </div>
                     </div>
-                    <p>${action.submitted_data}</p>
-                    <div class="submission-actions">
+                    <p>${escapeHTML(action.submitted_data)}</p> <div class="submission-actions">
                         <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
                     </div>
                 </div>
                 `;
-                dom.tabContentSubmissions.innerHTML += cardHtml;
+                // Заменяем dom.tabContentSubmissions на targetElement
+                targetElement.innerHTML += cardHtml;
             } else {
                 if (isUrl) {
-                    submissionContent = `<a href="${data}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${data}</a>`;
+                    // Используем escapeHTML для data перед вставкой в href и текст ссылки
+                    submissionContent = `<a href="${escapeHTML(data)}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${escapeHTML(data)}</a>`;
                 } else {
-                    submissionContent = `<span>${data}</span>`;
+                     // Используем escapeHTML для data
+                    submissionContent = `<span>${escapeHTML(data)}</span>`;
                 }
+                 // Используем escapeHTML для action.quest_action_url
                 const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
-                    ? `<a href="${action.quest_action_url}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
+                    ? `<a href="${escapeHTML(action.quest_action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
                     : '';
 
-                const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
+                const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен"); // Используем escapeHTML позже
 
+                // Используем escapeHTML для всех динамических данных action.*
                 const cardHtml = `
                 <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
-                    <h3 class="quest-title">${action.title || 'Ручное задание'}</h3>
-                    <p style="font-size: 14px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 12px;">${action.quest_description || 'Описание отсутствует.'}</p>
-                    <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${action.reward_amount || '?'} ⭐</p>
-                    <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
+                    <h3 class="quest-title">${escapeHTML(action.title || 'Ручное задание')}</h3>
+                    <p style="font-size: 14px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 12px;">${escapeHTML(action.quest_description || 'Описание отсутствует.')}</p>
+                    <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(action.reward_amount || '?')} ⭐</p>
+                    <p>Пользователь: <strong>${escapeHTML(action.user_full_name || 'Неизвестный')}</strong></p>
                     <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                     <div class="submission-wrapper">
-                        <div class="submission-data">${submissionContent}</div>
-                        ${actionLinkHtml}
-                    </div>
+                        <div class="submission-data">${submissionContent}</div> ${actionLinkHtml} </div>
 
                     ${isWizebotQuest ? `
                     <div class="submission-actions" style="margin-top: 10px;">
-                        <button class="admin-action-btn check-wizebot-btn" data-nickname="${data}" style="background-color: #6441a5;">
-                            <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
+                        <button class="admin-action-btn check-wizebot-btn" data-nickname="${escapeHTML(data)}" style="background-color: #6441a5;"> <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
                         </button>
                     </div>
                     <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
@@ -794,59 +915,88 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                         <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
                     </div>
                 </div>`;
-                dom.tabContentSubmissions.innerHTML += cardHtml;
+                // Заменяем dom.tabContentSubmissions на targetElement
+                targetElement.innerHTML += cardHtml;
             }
         });
     }
 
-    function renderCheckpointPrizes(prizes) {
-        dom.tabContentCheckpointPrizes.innerHTML = '';
+    function renderCheckpointPrizes(prizes, targetElement) { // Добавлен второй аргумент targetElement
+        // Заменяем dom.tabContentCheckpointPrizes на targetElement
+        if (!targetElement) {
+             console.error("renderCheckpointPrizes: targetElement не передан!");
+             return; // Прекращаем выполнение, если целевой элемент не указан
+        }
+
+        targetElement.innerHTML = ''; // Очищаем целевой элемент
+
         if (!prizes || prizes.length === 0) {
-            dom.tabContentCheckpointPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград из Чекпоинта.</p>';
+            // Заменяем dom.tabContentCheckpointPrizes на targetElement
+            targetElement.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет наград из Чекпоинта.</p>';
             return;
         }
 
         prizes.forEach(action => {
+            // Используем escapeHTML для всех динамических данных action.*
+            // Экранируем ссылку перед вставкой в href
+            const safeTradeLink = action.user_trade_link ? escapeHTML(action.user_trade_link) : null;
+            const tradeLinkHtml = safeTradeLink
+                ? `<p>Ссылка: <a href="${safeTradeLink}" target="_blank" style="color: var(--action-color);">Проверить трейд-ссылку</a></p>`
+                : '<p style="color:var(--warning-color);">Трейд-ссылка не указана!</p>';
+
             const cardHtml = `
             <div class="quest-card admin-submission-card" id="prize-card-${action.id}">
-                <h3 class="quest-title">${action.source_description || 'Выдача награды'}</h3>
-                <p><b>Приз:</b> ${action.reward_details || 'Не указан'}</p>
-                <p>Пользователь: <strong>${action.user_full_name || 'Неизвестный'}</strong></p>
-                ${action.user_trade_link ? `<p>Ссылка: <a href="${action.user_trade_link}" target="_blank" style="color: var(--action-color);">Проверить трейд-ссылку</a></p>` : '<p style="color:var(--warning-color);">Трейд-ссылка не указана!</p>'}
+                <h3 class="quest-title">${escapeHTML(action.source_description || 'Выдача награды')}</h3>
+                <p><b>Приз:</b> ${escapeHTML(action.reward_details || 'Не указан')}</p>
+                <p>Пользователь: <strong>${escapeHTML(action.user_full_name || 'Неизвестный')}</strong></p>
+                ${tradeLinkHtml}
                 <div class="submission-actions">
                     <button class="admin-action-btn confirm" data-id="${action.id}" data-action="confirm_prize">✅ Подтвердить выдачу</button>
                 </div>
             </div>`;
-            dom.tabContentCheckpointPrizes.innerHTML += cardHtml;
+            // Заменяем dom.tabContentCheckpointPrizes на targetElement
+            targetElement.innerHTML += cardHtml;
         });
     }
 
-    function renderWinners(winners) {
-        dom.tabContentEventPrizes.innerHTML = '';
+    function renderWinners(winners, targetElement) { // Добавлен второй аргумент targetElement
+        // Заменяем dom.tabContentEventPrizes на targetElement
+        if (!targetElement) {
+             console.error("renderWinners: targetElement не передан!");
+             return; // Прекращаем выполнение, если целевой элемент не указан
+        }
+
+        targetElement.innerHTML = ''; // Очищаем целевой элемент
+
         if (!winners || winners.length === 0) {
-            dom.tabContentEventPrizes.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет победителей для отображения.</p>';
+            // Заменяем dom.tabContentEventPrizes на targetElement
+            targetElement.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет победителей для отображения.</p>';
             return;
         }
 
         winners.forEach(winner => {
+            // Проверяем трейд-ссылку, используем escapeHTML для безопасной вставки в href
             const hasValidTradeLink = winner.trade_link && winner.trade_link !== 'Не указана' && winner.trade_link.startsWith('http');
-            const tradeLinkClass = hasValidTradeLink ? '' : 'disabled';
-            const tradeLinkHref = hasValidTradeLink ? winner.trade_link : '#';
+            const tradeLinkHref = hasValidTradeLink ? escapeHTML(winner.trade_link) : '#'; // Экранируем ссылку
 
+            // HTML для кнопки подтверждения или статуса
             const confirmationHtml = winner.prize_sent_confirmed
                 ? '<p style="text-align:center; color: var(--status-active-color); font-weight: 600;">✅ Приз выдан</p>'
-                : `<button class="admin-action-btn confirm confirm-winner-prize-btn" data-event-id="${winner.event_id}">Подтвердить выдачу</button>`;
+                // Используем escapeHTML для data-event-id, хотя это число, на всякий случай
+                : `<button class="admin-action-btn confirm confirm-winner-prize-btn" data-event-id="${escapeHTML(winner.event_id)}">Подтвердить выдачу</button>`;
 
+            // Используем escapeHTML для всех динамических текстовых данных
             const cardHtml = `
-                <div class="quest-card admin-submission-card" id="winner-card-${winner.event_id}">
-                    <h3 class="quest-title">${winner.prize_title || 'Без названия'}</h3>
-                    <p>Победитель: <strong>${winner.winner_name || 'Неизвестно'}</strong></p>
+                <div class="quest-card admin-submission-card" id="winner-card-${escapeHTML(winner.event_id)}">
+                    <h3 class="quest-title">${escapeHTML(winner.prize_title || 'Без названия')}</h3>
+                    <p>Победитель: <strong>${escapeHTML(winner.winner_name || 'Неизвестно')}</strong></p>
                     <p>Трейд-ссылка: ${hasValidTradeLink ? `<a href="${tradeLinkHref}" target="_blank" style="color: var(--action-color);">Открыть</a>` : '<span style="color:var(--warning-color);">Не указана</span>'}</p>
                     <div class="submission-actions">
                         ${confirmationHtml}
                     </div>
                 </div>`;
-            dom.tabContentEventPrizes.innerHTML += cardHtml;
+            // Заменяем dom.tabContentEventPrizes на targetElement
+            targetElement.innerHTML += cardHtml;
         });
     }
 
@@ -2369,7 +2519,22 @@ async function main() {
                 console.error("main(): ОШИБКА ДОСТУПА! userData.is_admin НЕ true. Выбрасываем ошибку.");
                 throw new Error("Доступ запрещен.");
             }
-
+            // ЗАПРОС СЧЕТЧИКОВ ПЕРЕД ПОКАЗОМ ГЛАВНОГО ЭКРАНА
+            try {
+                const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+                const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                const mainBadge = document.getElementById('main-pending-count');
+                if (mainBadge) {
+                    mainBadge.textContent = totalPending;
+                    mainBadge.classList.toggle('hidden', totalPending === 0);
+                }
+            } catch (countError) {
+                console.error("Не удалось загрузить счетчики:", countError);
+                // Можно скрыть бейдж или показать ошибку
+                const mainBadge = document.getElementById('main-pending-count');
+                if (mainBadge) mainBadge.classList.add('hidden');
+            }
+            // КОНЕЦ ЗАПРОСА СЧЕТЧИКОВ
             // Этот код не должен выполниться, если нет доступа
             console.log("main(): Доступ разрешен. Установка isAdmin=true и переключение вида."); // <-- Добавлено
             document.body.dataset.isAdmin = 'true';
