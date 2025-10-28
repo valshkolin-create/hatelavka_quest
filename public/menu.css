@@ -50,15 +50,18 @@
     .challenge-card .quest-title { font-size: 14px; margin-bottom: 5px; }
     .challenge-card .quest-subtitle { font-size: 12px; margin-bottom: 8px; }
     .challenge-card .claim-reward-button { font-size: 13px; padding: 9px; margin-top: 8px; }
-    .challenge-timer { 
-        font-size: 11px; 
-        font-weight: 500; 
-        color: var(--text-color-muted); 
-        margin-top: 6px; 
-        text-align: center; 
-        margin-bottom: 8px; 
-        position: static; /* Убедимся, что он в обычном потоке документа */
-        z-index: auto; /* Сбросим z-index на всякий случай */
+    .challenge-timer {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-color-muted);
+        margin-top: 6px;
+        text-align: center;
+        margin-bottom: 8px;
+        position: static; /* Оставляем на всякий случай */
+        z-index: auto;    /* Оставляем на всякий случай */
+
+        /* 👇 ДОБАВЬ ЭТУ СТРОКУ 👇 */
+        min-width: 75px; /* Задает минимальную ширину (подбери, если нужно чуть больше/меньше) */
     }
     .app-footer { display: flex; justify-content: space-around; align-items: flex-start; background-color: var(--surface-glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid rgba(58, 58, 60, 0.6); width: 100%; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; z-index: 100; box-sizing: border-box; }
     .hidden { display: none !important; }
