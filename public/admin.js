@@ -908,7 +908,11 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 <div class="submission-actions">
                     <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
                     <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
-                </div>
+
+                    <button class="admin-action-btn reject-silent" data-id="${action.id}" data-action="rejected_silent" title="Отклонить без уведомления пользователя">
+                        <i class="fa-solid fa-microphone-slash"></i>
+                    </button>
+                    </div>
             </div>`;
             targetElement.innerHTML += cardHtml;
         });
@@ -2177,71 +2181,84 @@ function updateSleepButton(status) {
                 if (!id) return; // Прерываем, если ID не найден
 
                 // --- Общая функция для обновления и закрытия, если нужно ---
+                // --- Общая функция для обновления и закрытия, если нужно (ВЕРСИЯ 3) ---
                 const handleCompletion = async () => {
-                    if (card) {
-                        card.remove(); // Удаляем карточку из модального окна
-                        const remainingCards = dom.modalBody.querySelectorAll('.admin-submission-card');
-                        if (remainingCards.length === 0) {
-                            // Если карточек не осталось
-                            dom.submissionsModal.classList.add('hidden'); // Закрываем модалку
-                            tg.showPopup({message: 'Обработка завершена. Обновление...'});
-
-                            // СНАЧАЛА обновим главный счетчик
-                            try {
-                                const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
-                                const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
-                                const mainBadge = document.getElementById('main-pending-count');
-                                if (mainBadge) {
-                                    mainBadge.textContent = totalPending;
-                                    mainBadge.classList.toggle('hidden', totalPending === 0);
-                                }
-                            } catch (countError) {
-                                console.error("Не удалось обновить главный счетчик после проверки:", countError);
+                    // Проверяем наличие карточки перед действиями
+                    if (!card) {
+                        console.warn("handleCompletion: card element not found.");
+                        // Попробуем обновить главный счетчик и вид в любом случае
+                        try {
+                            const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+                            const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                            const mainBadge = document.getElementById('main-pending-count');
+                            if (mainBadge) {
+                                mainBadge.textContent = totalPending;
+                                mainBadge.classList.toggle('hidden', totalPending === 0);
                             }
-
-                            // ПОТОМ перезагружаем вид (сетку иконок)
-                            console.log("Calling switchView('view-admin-pending-actions')..."); // Лог перед вызовом
+                            // Если модалка открыта, но карточки нет (странно), закроем
+                            if (!dom.submissionsModal.classList.contains('hidden')) {
+                                dom.submissionsModal.classList.add('hidden');
+                            }
                             await switchView('view-admin-pending-actions');
-                            console.log("switchView call finished."); // Лог после вызова
+                        } catch (err) {
+                             console.error("Error during fallback refresh in handleCompletion:", err);
+                        }
+                        return;
+                    }
+
+                    card.remove(); // Удаляем карточку из модального окна
+                    const remainingCards = dom.modalBody.querySelectorAll('.admin-submission-card');
+
+                    if (remainingCards.length === 0) {
+                        // Если карточек не осталось
+                        dom.submissionsModal.classList.add('hidden'); // Закрываем модалку
+                        tg.showPopup({message: 'Обработка завершена. Обновление...'});
+
+                        // Ставим небольшую задержку
+                        await new Promise(resolve => setTimeout(resolve, 300));
+
+                        // Обновляем главный счетчик
+                        try {
+                            console.log("Updating main count...");
+                            const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+                            const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                            const mainBadge = document.getElementById('main-pending-count');
+                            if (mainBadge) {
+                                mainBadge.textContent = totalPending;
+                                mainBadge.classList.toggle('hidden', totalPending === 0);
+                                console.log("Main count updated:", totalPending);
+                            }
+                        } catch (countError) {
+                            console.error("Не удалось обновить главный счетчик после проверки:", countError);
+                        }
+
+                        // Перезагружаем вид (сетку иконок)
+                        console.log("Calling switchView('view-admin-pending-actions')...");
+                        try {
+                             await switchView('view-admin-pending-actions');
+                             console.log("switchView call finished successfully.");
+                        } catch (switchError) {
+                             console.error("Error during switchView call:", switchError);
+                             tg.showAlert("Не удалось обновить список.");
+                        }
+
+                    } else {
+                         // Если карточки еще остались, обновляем только главный счетчик
+                         try {
+                            console.log("Updating main count (cards remaining)...");
+                            const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+                            const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                            const mainBadge = document.getElementById('main-pending-count');
+                            if (mainBadge) {
+                                mainBadge.textContent = totalPending;
+                                mainBadge.classList.toggle('hidden', totalPending === 0);
+                            }
+                        } catch (countError) {
+                            console.error("Не удалось обновить главный счетчик (карточки остались):", countError);
                         }
                     }
                 };
-                // --- Конец общей функции ---
-
-                if (action === 'approved' || action === 'rejected') {
-                     try {
-                         await makeApiRequest('/api/v1/admin/submission/update', { submission_id: parseInt(id), action });
-                         // Уведомление только для обычного отклонения
-                         if (action === 'rejected') {
-                            tg.showAlert('Заявка отклонена.');
-                         } else {
-                             tg.showAlert('Заявка одобрена.');
-                         }
-                         await handleCompletion(); // Вызываем общую функцию обновления
-                     } catch (apiError) {
-                         console.error("Ошибка при обновлении статуса заявки:", apiError);
-                     }
-                } else if (action === 'rejected_silent') { // --- НОВЫЙ БЛОК для тихого отказа ---
-                     try {
-                         await makeApiRequest('/api/v1/admin/submission/update', { submission_id: parseInt(id), action: 'rejected' }); // Отправляем 'rejected' на бэкенд
-                         console.log(`Заявка ${id} тихо отклонена.`); // Уведомление админу в консоль
-                         await handleCompletion(); // Вызываем общую функцию обновления
-                     } catch (apiError) {
-                         console.error("Ошибка при тихом отклонении заявки:", apiError);
-                     }
-                 // --- КОНЕЦ НОВОГО БЛОКА ---
-                } else if (action === 'confirm_prize') {
-                    tg.showConfirm('Вы уверены, что выдали этот приз?', async (ok) => {
-                         if(ok) {
-                             try {
-                                 await makeApiRequest('/api/v1/admin/manual_rewards/complete', { reward_id: parseInt(id) });
-                                 tg.showAlert('Выдача приза подтверждена.');
-                                 await handleCompletion(); // Вызываем общую функцию обновления
-                             } catch (apiError) {
-                                 console.error("Ошибка при подтверждении выдачи приза:", apiError);
-                             }
-                         }
-                    });
+                // --- Конец общей функции (ВЕРСИЯ 3) --
                 }
             } // Закрытие для else if (actionButton.matches('.admin-action-btn'))
         });
