@@ -523,3 +523,21 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     /* Дополнительные стили, если нужны */
     cursor: pointer; /* Явно указать, что это кликабельно */
 }
+/* --- СТИЛИ ДЛЯ КНОПКИ ТИХОГО ОТКАЗА --- */
+.admin-action-btn.reject-silent {
+  background-color: #555; /* Темно-серый или другой цвет */
+  flex-grow: 0; /* Не растягивать */
+  min-width: 44px; /* Фиксированная ширина */
+  padding: 10px; /* Одинаковые отступы для квадратности */
+  font-size: 16px; /* Размер иконки */
+}
+
+/* Убедимся, что иконка внутри */
+.admin-action-btn.reject-silent i {
+    margin: 0;
+}
+
+/* Если кнопки начинают переноситься, можно добавить flex-wrap */
+.submission-actions {
+    flex-wrap: wrap; /* Разрешить перенос кнопок */
+}
