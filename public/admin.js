@@ -2244,8 +2244,6 @@ function updateSleepButton(status) {
                     });
                 }
             } // Закрытие для else if (actionButton.matches('.admin-action-btn'))
-            } /* REMOVED: else if (actionButton.matches('.sort-btn')) { ... } */
-              /* REMOVED: else if (actionButton.matches('.sort-quest-btn')) { ... } */
         });
 
 // --- NEW Event Listener for Sort Order Inputs ---
