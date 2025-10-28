@@ -540,7 +540,7 @@ try {
         return `<div class="twitch-update-notice">ℹ️ Прогресс обновляется с задержкой (до 30 мин).</div>`;
     }
 
-    function renderChallenge(challengeData, isGuest) {
+function renderChallenge(challengeData, isGuest) {
         dom.challengeContainer.innerHTML = '';
         if (isGuest) {
             dom.challengeContainer.innerHTML = `
@@ -601,21 +601,26 @@ try {
         } else if (conditionType.includes('telegram_messages')) {
             progressTextContent = `✉️ ${currentProgress} / ${target}`;
         }
+        
+        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
         dom.challengeContainer.innerHTML = `
             <div class="quest-card challenge-card">
                 <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
                 <h2 class="quest-title">${challenge.description || ''}</h2>
                 ${statusText}
+                
+                <div id="challenge-timer" class="challenge-timer">...</div>
+
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${percent}%;"></div>
                     <div class="progress-content">
                         <span class="progress-text">${progressTextContent}</span>
                     </div>
                 </div>
-                <div id="challenge-timer" class="challenge-timer">...</div>
                 ${twitchNotice}
                 ${claimButton}
             </div>`;
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         if (challenge.expires_at) {
             startCountdown(document.getElementById('challenge-timer'), challenge.expires_at, 'challenge');
         }
