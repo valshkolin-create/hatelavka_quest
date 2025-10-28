@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-  
+
     <button id="sleep-mode-toggle" class="sleep-mode-toggle hidden" title="Режим сна">
         <i class="fa-solid fa-power-off"></i>
     </button>
@@ -33,23 +33,22 @@
 
             <div id="tab-content-main" class="tab-content active">
                 <div class="admin-icon-menu">
-        <div class="admin-icon-button" data-view="view-admin-pending-actions">
-            <div class="icon-wrapper">
-                <i class="fa-solid fa-user-check"></i>
-                <span class="notification-badge hidden" id="main-pending-count">0</span>
-            </div>
-            <span>Выдача и проверки</span>
-        </div>
-        <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
-            <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
-            <span>Twitch награды</span>
-        </div>
-        <div class="admin-icon-button" data-view="view-admin-promocodes">
-            <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
-            <span>Промокоды</span>
-        </div>
-
-            <div id="tab-content-admin" class="tab-content hidden">
+                    <div class="admin-icon-button" data-view="view-admin-pending-actions">
+                        <div class="icon-wrapper">
+                            <i class="fa-solid fa-user-check"></i>
+                            <span class="notification-badge hidden" id="main-pending-count">0</span>
+                        </div>
+                        <span>Выдача и проверки</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
+                        <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
+                        <span>Twitch награды</span>
+                    </div>
+                    <div class="admin-icon-button" data-view="view-admin-promocodes">
+                        <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
+                        <span>Промокоды</span>
+                    </div>
+                </div> </div> <div id="tab-content-admin" class="tab-content hidden">
                 <div class="admin-icon-menu">
                     <div class="admin-icon-button" data-view="view-admin-quests">
                         <div class="icon-wrapper"><i class="fa-solid fa-list-check"></i></div>
@@ -87,16 +86,12 @@
                         <div class="icon-wrapper" style="color: #ff9500;"><i class="fa-solid fa-hat-wizard"></i></div>
                         <span>Ивент "Котел"</span>
                     </div>
-                </div>
-            </div>
-             <div class="quest-card" style="margin-top: 20px; text-align: center;">
+                </div> </div> <div class="quest-card" style="margin-top: 20px; text-align: center;">
                 <p style="font-size: 14px; color: var(--text-color-muted); margin:0;">
                     Панель для администратирования канала HATElove.ttv.
                 </p>
             </div>
-        </div>
-        
-        <div id="view-admin-user-management" class="view hidden">
+        </div> <div id="view-admin-user-management" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Управление</h1>
@@ -154,29 +149,29 @@
         </div>
 
         <div id="view-admin-pending-actions" class="view hidden">
-        <div class="page-header">
-            <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-            <h1 class="page-header-title">Ожидают действия</h1>
-            <div style="width: 60px;"></div>
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Ожидают действия</h1>
+                <div style="width: 60px;"></div>
+            </div>
+            <div class="tabs-container">
+                <button class="tab-button active" data-tab="submissions"><i class="fa-solid fa-user-check"></i> Проверки</button>
+                <button class="tab-button" data-tab="event-prizes"><i class="fa-solid fa-trophy"></i> Розыгрыши</button>
+                <button class="tab-button" data-tab="checkpoint-prizes"><i class="fa-solid fa-flag-checkered"></i> Чекпоинт</button>
+            </div>
+            <div id="tab-content-submissions" class="tab-content active">
+                <div class="pending-actions-grid">
+                    </div>
+            </div>
+            <div id="tab-content-event-prizes" class="tab-content hidden">
+                 <div class="pending-actions-grid">
+                    </div>
+            </div>
+            <div id="tab-content-checkpoint-prizes" class="tab-content hidden">
+                 <div class="pending-actions-grid">
+                    </div>
+            </div>
         </div>
-        <div class="tabs-container">
-            <button class="tab-button active" data-tab="submissions"><i class="fa-solid fa-user-check"></i> Проверки</button>
-            <button class="tab-button" data-tab="event-prizes"><i class="fa-solid fa-trophy"></i> Розыгрыши</button>
-            <button class="tab-button" data-tab="checkpoint-prizes"><i class="fa-solid fa-flag-checkered"></i> Чекпоинт</button>
-        </div>
-        <div id="tab-content-submissions" class="tab-content active">
-            <div class="pending-actions-grid">
-                </div>
-        </div>
-        <div id="tab-content-event-prizes" class="tab-content hidden">
-             <div class="pending-actions-grid">
-                </div>
-        </div>
-        <div id="tab-content-checkpoint-prizes" class="tab-content hidden">
-             <div class="pending-actions-grid">
-                </div>
-        </div>
-    </div>
 
         <div id="view-admin-settings" class="view hidden">
             <div class="page-header">
@@ -257,7 +252,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div id="view-admin-categories" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
@@ -282,7 +277,7 @@
             </div>
             <div id="challenges-list" class="quests-container"></div>
         </div>
-        
+
         <div id="view-admin-challenge-form" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-challenges"><i class="fa-solid fa-arrow-left"></i> Назад</button>
@@ -335,7 +330,7 @@
         </div>
                 <button id="save-order-button" class="admin-action-btn approve hidden" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; width: auto; padding: 10px 20px;">
             <i class="fa-solid fa-save"></i> Сохранить порядок</button>
-      
+
         <div id="view-admin-promocodes" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
@@ -481,22 +476,26 @@
                 <div style="width: 60px;"></div>
             </div>
             <div id="statistics-content">
-                <h2 style="font-size: 20px; margin-bottom: 15px;">Пульс проекта 🩺</h2>
-                <div class="stats-grid">
-                    <div class="stat-card"><div class="stat-card-header"><h4>Активных сегодня (DAU)</h4><div class="tooltip">?<span class="tooltip-text">Daily Active Users. Уникальные пользователи, которые заходили в приложение сегодня (с 00:00).</span></div></div><p id="stat-dau">0</p></div>
-                    <div class="stat-card"><div class="stat-card-header"><h4>Активных за неделю (WAU)</h4><div class="tooltip">?<span class="tooltip-text">Weekly Active Users. Уникальные пользователи, которые заходили в приложение за последние 7 дней.</span></div></div><p id="stat-wau">0</p></div>
-                    <div class="stat-card"><div class="stat-card-header"><h4>Активных за месяц (MAU)</h4><div class="tooltip">?<span class="tooltip-text">Monthly Active Users. Уникальные пользователи, которые заходили в приложение за последние 30 дней.</span></div></div><p id="stat-mau">0</p></div>
-                    <div class="stat-card"><div class="stat-card-header"><h4>"Липкость" (DAU/MAU)</h4><div class="tooltip">?<span class="tooltip-text">Ключевой показатель вовлечённости. Показывает, какой % месячной аудитории заходит каждый день. Хорошим считается значение >20%.</span></div></div><p id="stat-stickiness">0%</p></div>
-                    <div class="stat-card"><div class="stat-card-header"><h4>Новых сегодня</h4><div class="tooltip">?<span class="tooltip-text">Количество пользователей, которые зарегистрировались сегодня (с 00:00).</span></div></div><p id="stat-new-today">0</p></div>
-                    <div class="stat-card"><div class="stat-card-header"><h4>Новых за неделю</h4><div class="tooltip">?<span class="tooltip-text">Количество пользователей, которые зарегистрировались за последние 7 дней.</span></div></div><p id="stat-new-week">0</p></div>
-                </div>
-                <div id="events-stats-container" style="margin-top: 25px;">
-                    <h2 style="font-size: 20px; margin-bottom: 15px;">Активные розыгрыши 🔥</h2>
-                    <div id="events-stats-list"></div>
+                <h2 style="font-size: 20px; margin-bottom: 15px;">Склад Рулеток 📦</h2>
+                 <div class="stats-grid">
+                    <div class="stat-card">
+                         <div class="stat-card-header">
+                            <h4>Всего скинов в наличии</h4>
+                            <div class="tooltip">?<span class="tooltip-text">Общее количество всех скинов, доступных для выпадения во всех рулетках.</span></div>
+                        </div>
+                        <p id="stat-total-stock">0</p>
+                    </div>
+                     <div class="stat-card">
+                         <div class="stat-card-header">
+                            <h4>Примерная стоимость</h4>
+                            <div class="tooltip">?<span class="tooltip-text">Скоро... Ориентировочная суммарная стоимость всех скинов на складе.</span></div>
+                        </div>
+                        <p>Скоро...</p>
+                    </div>
                 </div>
             </div>
         </div>
-      
+
         <div id="view-admin-twitch-rewards" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
@@ -522,13 +521,15 @@
                     <input type="text" name="image_url" required placeholder="https:// ... .png">
                     <label>Вес шанса<div class="tooltip">?<span class="tooltip-text">Чем выше число, тем выше шанс. Если у одного скина вес 90, а у другого 10, то их шансы будут 90% и 10%.</span></div></label>
                     <input type="number" name="chance_weight" required value="10">
+                    <label>Количество в наличии</label>
+                    <input type="number" name="quantity" required value="0" min="0">
                     <button type="submit">Добавить приз</button>
                 </form>
             </div>
             <div id="roulette-prizes-list" class="quests-container" style="margin-top: 20px;"></div>
         </div>
 
-<div id="view-admin-cauldron" class="view hidden">
+        <div id="view-admin-cauldron" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Ивент "Котел"</h1>
@@ -543,7 +544,7 @@
                 <button class="tab-button" data-tab="cauldron-rewards-4">Награды Ур. 4</button>
                 <button class="tab-button" data-tab="cauldron-distribution">Участники</button>
             </div>
-            
+
             <form id="cauldron-settings-form">
                 <div id="tab-content-cauldron-settings" class="tab-content active">
                     <div class="quest-card">
@@ -555,31 +556,31 @@
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
-                            
+
                             <label>Название ивента</label>
                             <input type="text" name="title" required placeholder="Ведьминский котел">
-    
+
                             <label>Цель Уровня 1</label>
                             <input type="number" name="goal_level_1" required placeholder="Например: 1000">
-    
+
                             <label>Цель Уровня 2</label>
                             <input type="number" name="goal_level_2" required placeholder="Например: 3000">
-                            
+
                             <label>Цель Уровня 3</label>
                             <input type="number" name="goal_level_3" required placeholder="Например: 5000">
 
                             <label>Цель Уровня 4 (финал)</label>
                             <input type="number" name="goal_level_4" required placeholder="Например: 10000">
-    
+
                             <label>URL баннера для главной</label>
                             <input type="text" name="banner_image_url" placeholder="https://....png">
-    
+
                             <label>URL картинки Котла (Уровень 1)</label>
                             <input type="text" name="cauldron_image_url_1" placeholder="https://....png">
-    
+
                             <label>URL картинки Котла (Уровень 2)</label>
                             <input type="text" name="cauldron_image_url_2" placeholder="https://....png">
-    
+
                             <label>URL картинки Котла (Уровень 3)</label>
                             <input type="text" name="cauldron_image_url_3" placeholder="https://....png">
 
@@ -668,7 +669,7 @@
                         </div>
                     </div>
                 </div>
-    
+
                 <div id="tab-content-cauldron-distribution" class="tab-content hidden">
                     <div class="quest-card">
                         <h3 style="margin: 0 0 15px;">Все участники по вкладу</h3>
@@ -677,7 +678,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="quest-card" style="margin-top: 20px;">
                     <button type="submit" class="admin-action-btn approve" style="width: 100%;">Сохранить все настройки</button>
                 </div>
@@ -704,7 +705,7 @@
             <div id="modal-body" class="modal-body"></div>
         </div>
     </div>
-  
+
     <div id="edit-roulette-prize-modal" class="modal-overlay hidden">
             <div class="modal-content">
                 <div class="modal-header">
@@ -732,7 +733,7 @@
                 </div>
             </div>
         </div>
-  
+
     <div id="generic-prompt-overlay" class="modal-overlay hidden">
         <div class="prompt-modal">
             <h3 id="generic-prompt-title">Редактировать</h3>
@@ -768,6 +769,7 @@
             <div class="modal-header">
                 <h2 id="twitch-purchases-title" class="modal-title">Покупки награды</h2>
                 <button id="refresh-purchases-btn" title="Обновить список"><i class="fa-solid fa-rotate-right"></i></button>
+                 <button id="delete-all-purchases-btn" class="admin-action-btn reject hidden" style="margin-left: auto; margin-right: 10px; padding: 6px 10px; font-size: 12px;" title="Удалить все покупки для этой награды"><i class="fa-solid fa-trash-can"></i></button>
                 <button class="modal-close-btn" data-close-modal="twitch-purchases-modal">&times;</button>
             </div>
             <div id="twitch-purchases-body" class="modal-body"></div>
