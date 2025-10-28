@@ -2249,7 +2249,6 @@ function updateSleepButton(status) {
                          }
                     });
                 }
-            }
             } /* REMOVED: else if (actionButton.matches('.sort-btn')) { ... } */
               /* REMOVED: else if (actionButton.matches('.sort-quest-btn')) { ... } */
         });
