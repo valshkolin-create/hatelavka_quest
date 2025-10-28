@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
         rewardName: document.getElementById('reward-name'),
         leaderboardRewardsList: document.getElementById('leaderboard-rewards-list'),
         userTicketBalance: document.getElementById('user-ticket-balance'),
+        userContributionTotal: document.getElementById('user-contribution-total'),
+        userLeaderboardRank: document.getElementById('user-leaderboard-rank'),
         contributionForm: document.getElementById('contribution-form'),
         ticketsInput: document.getElementById('tickets-input'),
         errorMessage: document.getElementById('error-message'),
@@ -161,20 +163,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return 1;
     }
 
-    function renderPage(eventData, leaderboardData = {}) {
-        console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
+ function renderPage(eventData, leaderboardData = {}) {
+    console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
 
-        if (leaderboardData.top20 && Array.isArray(leaderboardData.top20)) {
-            leaderboardData.top20.sort((a, b) => {
-                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
-                if (contributionDiff !== 0) return contributionDiff;
-                const nameA = a.full_name || '';
-                const nameB = b.full_name || '';
-                return nameA.localeCompare(nameB);
-            });
-        }
+    // --- НАЧАЛО ИЗМЕНЕНИЯ: Сортировка полного списка ---
+    // Сортируем ВЕСЬ список участников (all) для определения ранга
+    const allParticipants = leaderboardData.all || [];
+    if (allParticipants.length > 0) {
+        allParticipants.sort((a, b) => {
+            const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
+            if (contributionDiff !== 0) return contributionDiff;
+            // Дополнительная сортировка по имени для одинаковых вкладов (опционально)
+            const nameA = a.full_name || '';
+            const nameB = b.full_name || '';
+            return nameA.localeCompare(nameB);
+        });
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-        if (eventData) { currentEventData = eventData; }
+    if (eventData) { currentEventData = eventData; }
 
         const isAdmin = currentUserData.is_admin;
         const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
