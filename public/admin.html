@@ -33,20 +33,21 @@
 
             <div id="tab-content-main" class="tab-content active">
                 <div class="admin-icon-menu">
-                    <div class="admin-icon-button" data-view="view-admin-pending-actions">
-                        <div class="icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
-                        <span>Выдача и проверки</span>
-                    </div>
-                    <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
-                        <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
-                        <span>Twitch награды</span>
-                    </div>
-                    <div class="admin-icon-button" data-view="view-admin-promocodes">
-                        <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
-                        <span>Промокоды</span>
-                    </div>
-                </div>
+        <div class="admin-icon-button" data-view="view-admin-pending-actions">
+            <div class="icon-wrapper">
+                <i class="fa-solid fa-user-check"></i>
+                <span class="notification-badge hidden" id="main-pending-count">0</span>
             </div>
+            <span>Выдача и проверки</span>
+        </div>
+        <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
+            <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
+            <span>Twitch награды</span>
+        </div>
+        <div class="admin-icon-button" data-view="view-admin-promocodes">
+            <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
+            <span>Промокоды</span>
+        </div>
 
             <div id="tab-content-admin" class="tab-content hidden">
                 <div class="admin-icon-menu">
