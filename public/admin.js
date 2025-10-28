@@ -2259,6 +2259,36 @@ function updateSleepButton(status) {
                     }
                 };
                 // --- Конец общей функции (ВЕРСИЯ 3) --
+                
+                // --- 👇 НАЧАЛО ИСПРАВЛЕНИЯ: ЭТОТ БЛОК БЫЛ ПРОПУЩЕН ---
+                try {
+                    let apiUrl = '';
+                    const payload = { id: parseInt(id), action: action };
+    
+                    // Определяем, какую карточку мы обрабатываем, по ее ID
+                    // (ID задаются в renderSubmissions и renderCheckpointPrizes)
+                    if (card && card.id.startsWith('submission-card-')) {
+                        apiUrl = '/api/v1/admin/pending_actions/respond';
+                    } else if (card && card.id.startsWith('prize-card-')) {
+                        // Убедитесь, что этот эндпоинт на бэкенде верный
+                        apiUrl = '/api/v1/admin/checkpoint_rewards/respond'; 
+                    } else {
+                        console.error('Не удалось определить тип карточки:', card ? card.id : 'карточка не найдена');
+                        throw new Error('Не удалось определить тип действия.');
+                    }
+    
+                    // 1. Отправляем запрос на сервер
+                    await makeApiRequest(apiUrl, payload);
+    
+                    // 2. Если запрос успешен, вызываем обновление UI
+                    await handleCompletion();
+    
+                } catch (e) {
+                    console.error('Ошибка при обработке действия:', e);
+                    tg.showAlert(`Ошибка: ${e.message}`);
+                }
+                // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ ---
+                
                 }
         });
 
