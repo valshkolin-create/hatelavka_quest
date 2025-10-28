@@ -990,6 +990,145 @@ async def handle_twitch_webhook(
 
     # Если message_type не 'notification' и не 'webhook_callback_verification'
     return {"status": "ok", "detail": "Запрос обработан, но не является уведомлением."}
+
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ ---
+@app.post("/api/v1/admin/events/winners/details")
+async def get_event_winners_details_for_admin( # Новое имя функции
+    request_data: InitDataRequest, # Используем простую модель
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает ПОЛНЫЙ список победителей и их трейд-ссылки для модального окна."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Получаем контент страницы ивентов
+        content_resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.events", "select": "content", "limit": 1}
+        )
+        content_resp.raise_for_status()
+        content_data = content_resp.json()
+        if not content_data:
+            return [] # Возвращаем пустой список, если контента нет
+
+        content = content_data[0].get('content', {})
+        events = content.get("events", [])
+
+        # Фильтруем только те ивенты, где есть победитель и приз НЕ подтвержден
+        pending_winners_events = [
+            event for event in events
+            if 'winner_id' in event and not event.get('prize_sent_confirmed', False)
+        ]
+
+        if not pending_winners_events:
+            return [] # Возвращаем пустой список, если нет ожидающих
+
+        # Собираем ID победителей для запроса трейд-ссылок
+        winner_ids = {event['winner_id'] for event in pending_winners_events}
+
+        users_resp = await supabase.get(
+            "users",
+            params={
+                "telegram_id": f"in.({','.join(map(str, winner_ids))})",
+                "select": "telegram_id,trade_link"
+            }
+        )
+        users_resp.raise_for_status()
+        users_data = {user['telegram_id']: user.get('trade_link', 'Не указана') for user in users_resp.json()}
+
+        # Формируем финальный список для фронтенда
+        winners_details = []
+        for event in pending_winners_events:
+            winners_details.append({
+                "event_id": event.get("id"), # Важно вернуть ID для кнопки подтверждения
+                "winner_name": event.get("winner_name", "Неизвестно"),
+                "prize_title": event.get("title", "Без названия"),
+                "trade_link": users_data.get(event["winner_id"], "Не указана"),
+                "prize_sent_confirmed": event.get("prize_sent_confirmed", False) # Возвращаем статус подтверждения
+            })
+
+        # Сортируем (опционально, например, по ID ивента)
+        winners_details.sort(key=lambda x: x.get('event_id', 0))
+
+        return winners_details
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении деталей победителей: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось получить детали победителей.")
+# --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
+
+
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПРИЗОВ ЧЕКПОИНТА ---
+@app.post("/api/v1/admin/checkpoint_rewards/details")
+async def get_checkpoint_rewards_details_for_admin( # Новое имя функции
+    request_data: PendingActionRequest, # Модель можно оставить
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) Возвращает ПОЛНЫЙ список ручных наград из системы Чекпоинт для модального окна.
+    (Повторяет логику старого эндпоинта /api/v1/admin/checkpoint_rewards до изменений)
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # Шаг 1: Получаем все ожидающие награды напрямую из таблицы
+        rewards_resp = await supabase.get(
+            "/manual_rewards",
+            params={
+                "status": "eq.pending",
+                "select": "id,user_id,reward_details,source_description,created_at"
+            }
+        )
+        rewards_resp.raise_for_status()
+        all_pending_rewards = rewards_resp.json()
+
+        # Шаг 2: Фильтруем в Python, чтобы остались только награды из Чекпоинта
+        checkpoint_rewards_raw = [
+            r for r in all_pending_rewards
+            if r.get("source_description") and "чекпоинт" in r["source_description"].lower()
+        ]
+
+        if not checkpoint_rewards_raw:
+            return [] # Возвращаем пустой список, если наград нет
+
+        # Шаг 3: Собираем ID пользователей и запрашиваем их данные
+        user_ids = {r["user_id"] for r in checkpoint_rewards_raw}
+        users_resp = await supabase.get(
+            "/users",
+            params={
+                "telegram_id": f"in.({','.join(map(str, user_ids))})",
+                "select": "telegram_id,full_name,trade_link"
+            }
+        )
+        users_resp.raise_for_status()
+        users_data = {u["telegram_id"]: u for u in users_resp.json()}
+
+        # Шаг 4: Объединяем данные о наградах с данными о пользователях
+        final_rewards = []
+        for reward in checkpoint_rewards_raw:
+            user_details = users_data.get(reward["user_id"], {})
+            # Добавляем все нужные поля для renderCheckpointPrizes
+            final_rewards.append({
+                "id": reward.get("id"),
+                "source_description": reward.get("source_description"),
+                "reward_details": reward.get("reward_details"),
+                "user_full_name": user_details.get("full_name", "N/A"),
+                "user_trade_link": user_details.get("trade_link"),
+                "created_at": reward.get("created_at") # Добавим дату для сортировки
+            })
+
+        # Шаг 5: Сортируем по дате создания (новые сверху)
+        final_rewards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return final_rewards
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении деталей наград Чекпоинта: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить детали наград Чекпоинта.")
+# --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
     
 @app.get("/api/v1/auth/check_token")
 async def check_token_auth(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
