@@ -115,7 +115,8 @@
         border-radius: 12px;
         box-shadow: 0 0 8px rgba(52, 199, 89, 0);
         opacity: 0.7;
-        animation: pulse-optimized 2s infinite ease-out;
+        /* 👇 ЗАКОММЕНТИРУЙ ЭТУ СТРОКУ 👇 */
+        /* animation: pulse-optimized 2s infinite ease-out; */
     }
     .tickets-item .stats-text { color: var(--primary-color); font-weight: 700; font-size: 14px; }
     .stats-icon-star { background: var(--primary-color); margin-right: 0; }
