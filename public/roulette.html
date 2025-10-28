@@ -329,6 +329,7 @@
 
                     setTimeout(() => {
                         winnerDisplay.classList.remove('visible');
+                        currentPrizeText.textContent = ''; // <== ДОБАВЬТЕ ЭТУ СТРОКУ
                         resolve();
                     }, WINNER_DISPLAY_DURATION_MS);
 
