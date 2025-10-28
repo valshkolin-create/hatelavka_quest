@@ -502,3 +502,50 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 @keyframes spin { 
     to { transform: rotate(360deg); } 
 }
+
+/* --- СТИЛИ ДЛЯ БЕЙДЖЕЙ УВЕДОМЛЕНИЙ --- */
+.notification-badge {
+  position: absolute;
+  top: -6px; /* Подобрать позицию */
+  right: -8px; /* Подобрать позицию */
+  background-color: var(--danger-color); /* Красный цвет */
+  color: white;
+  border-radius: 50%;
+  min-width: 20px; /* Минимальная ширина */
+  height: 20px;
+  padding: 0 4px; /* Отступы по бокам, если число > 9 */
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 2px var(--surface-glass-bg); /* Обводка фоном */
+  z-index: 1; /* Поверх иконки */
+}
+
+/* Позиционирование для .icon-wrapper */
+.admin-icon-button .icon-wrapper {
+    position: relative; /* Чтобы бейдж позиционировался относительно */
+}
+
+/* Скрыть бейдж, если он пустой или 0 (через JS) */
+.notification-badge.hidden {
+    display: none;
+}
+
+/* --- СТИЛИ ДЛЯ СЕТКИ ОЖИДАЮЩИХ ДЕЙСТВИЙ --- */
+.pending-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 20px; /* Отступ между иконками */
+  padding: 10px 0;
+}
+
+/* Можно использовать существующие стили .admin-icon-button
+   или создать свои, если нужно другое отображение */
+.pending-actions-grid .admin-icon-button {
+    /* Дополнительные стили, если нужны */
+    cursor: pointer; /* Явно указать, что это кликабельно */
+}
