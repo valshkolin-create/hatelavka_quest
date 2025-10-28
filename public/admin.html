@@ -154,20 +154,29 @@
         </div>
 
         <div id="view-admin-pending-actions" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Ожидают действия</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            <div class="tabs-container">
-                <button class="tab-button active" data-tab="submissions"><i class="fa-solid fa-user-check"></i> Проверки</button>
-                <button class="tab-button" data-tab="event-prizes"><i class="fa-solid fa-trophy"></i> Розыгрыши</button>
-                <button class="tab-button" data-tab="checkpoint-prizes"><i class="fa-solid fa-flag-checkered"></i> Чекпоинт</button>
-            </div>
-            <div id="tab-content-submissions" class="tab-content active quests-container"></div>
-            <div id="tab-content-event-prizes" class="tab-content hidden quests-container"></div>
-            <div id="tab-content-checkpoint-prizes" class="tab-content hidden quests-container"></div>
+        <div class="page-header">
+            <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+            <h1 class="page-header-title">Ожидают действия</h1>
+            <div style="width: 60px;"></div>
         </div>
+        <div class="tabs-container">
+            <button class="tab-button active" data-tab="submissions"><i class="fa-solid fa-user-check"></i> Проверки</button>
+            <button class="tab-button" data-tab="event-prizes"><i class="fa-solid fa-trophy"></i> Розыгрыши</button>
+            <button class="tab-button" data-tab="checkpoint-prizes"><i class="fa-solid fa-flag-checkered"></i> Чекпоинт</button>
+        </div>
+        <div id="tab-content-submissions" class="tab-content active">
+            <div class="pending-actions-grid">
+                </div>
+        </div>
+        <div id="tab-content-event-prizes" class="tab-content hidden">
+             <div class="pending-actions-grid">
+                </div>
+        </div>
+        <div id="tab-content-checkpoint-prizes" class="tab-content hidden">
+             <div class="pending-actions-grid">
+                </div>
+        </div>
+    </div>
 
         <div id="view-admin-settings" class="view hidden">
             <div class="page-header">
