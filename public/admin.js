@@ -858,68 +858,53 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             const data = action.submitted_data || '';
             const isUrl = data.startsWith('http://') || data.startsWith('https');
 
-            // Блок if (action.type === 'twitch_message') остается без изменений во внутренней логике,
-            // но результат добавляется в targetElement
-            if (action.type === 'twitch_message') {
-                const cardHtml = `
-                <div class="pending-action-card admin-submission-card" data-action-id="${action.id}" data-action-type="twitch_message">
-                    <div class="pending-action-header">
-                        <div class="pending-action-type-badge type-twitch">Twitch</div>
-                        <div class="submission-user">
-                            <i class="fa-brands fa-twitch"></i>
-                            <strong>${escapeHTML(action.user_full_name)}</strong> </div>
-                    </div>
-                    <p>${escapeHTML(action.submitted_data)}</p> <div class="submission-actions">
-                        <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
-                    </div>
-                </div>
-                `;
-                // Заменяем dom.tabContentSubmissions на targetElement
-                targetElement.innerHTML += cardHtml;
+            // --- ИЗМЕНЕНИЕ 1: Отображение submitted_data ---
+            // Если это URL, делаем ссылку (как и было, но с escapeHTML)
+            if (isUrl) {
+                submissionContent = `<a href="${escapeHTML(data)}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${escapeHTML(data)}</a>`;
             } else {
-                if (isUrl) {
-                    // Используем escapeHTML для data перед вставкой в href и текст ссылки
-                    submissionContent = `<a href="${escapeHTML(data)}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${escapeHTML(data)}</a>`;
-                } else {
-                     // Используем escapeHTML для data
-                    submissionContent = `<span>${escapeHTML(data)}</span>`;
-                }
-                 // Используем escapeHTML для action.quest_action_url
-                const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
-                    ? `<a href="${escapeHTML(action.quest_action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
-                    : '';
-
-                const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен"); // Используем escapeHTML позже
-
-                // Используем escapeHTML для всех динамических данных action.*
-                const cardHtml = `
-                <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
-                    <h3 class="quest-title">${escapeHTML(action.title || 'Ручное задание')}</h3>
-                    <p style="font-size: 14px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 12px;">${escapeHTML(action.quest_description || 'Описание отсутствует.')}</p>
-                    <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(action.reward_amount || '?')} ⭐</p>
-                    <p>Пользователь: <strong>${escapeHTML(action.user_full_name || 'Неизвестный')}</strong></p>
-                    <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
-                    <div class="submission-wrapper">
-                        <div class="submission-data">${submissionContent}</div> ${actionLinkHtml} </div>
-
-                    ${isWizebotQuest ? `
-                    <div class="submission-actions" style="margin-top: 10px;">
-                        <button class="admin-action-btn check-wizebot-btn" data-nickname="${escapeHTML(data)}" style="background-color: #6441a5;"> <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
-                        </button>
-                    </div>
-                    <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
-                    ` : ''}
-
-                    <div class="submission-actions">
-                        <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
-                        <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
-                    </div>
-                </div>`;
-                // Заменяем dom.tabContentSubmissions на targetElement
-                targetElement.innerHTML += cardHtml;
+                // Если это НЕ URL, вставляем текст напрямую в <pre> для сохранения форматирования и переносов строк,
+                // а внутри <pre> используем escapeHTML для безопасности.
+                // Тег <pre> поможет избежать проблем с "черным квадратом", если это был какой-то спецсимвол.
+                submissionContent = `<pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; font-family: inherit; font-size: inherit;">${escapeHTML(data)}</pre>`;
             }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 1 ---
+
+            const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
+                ? `<a href="${escapeHTML(action.quest_action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
+                : '';
+
+            const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
+
+            const cardHtml = `
+            <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
+                <h3 class="quest-title">${escapeHTML(action.title || 'Ручное задание')}</h3>
+
+                <p style="font-size: 13px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--divider-glass-color);">
+                    <b>Описание задания:</b> ${escapeHTML(action.quest_description || 'Отсутствует.')}
+                </p>
+                <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(action.reward_amount || '?')} ⭐</p>
+                <p>Пользователь: <strong>${escapeHTML(action.user_full_name || 'Неизвестный')}</strong></p>
+                <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
+                <div class="submission-wrapper">
+                    <div class="submission-data">${submissionContent}</div> ${actionLinkHtml}
+                </div>
+
+                ${isWizebotQuest ? `
+                <div class="submission-actions" style="margin-top: 10px;">
+                    <button class="admin-action-btn check-wizebot-btn" data-nickname="${escapeHTML(data)}" style="background-color: #6441a5;"> <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
+                    </button>
+                </div>
+                <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
+                ` : ''}
+
+                <div class="submission-actions">
+                    <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
+                    <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
+                </div>
+            </div>`;
+            targetElement.innerHTML += cardHtml;
         });
-    }
 
     function renderCheckpointPrizes(prizes, targetElement) { // Добавлен второй аргумент targetElement
         // Заменяем dom.tabContentCheckpointPrizes на targetElement
