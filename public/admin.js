@@ -2260,7 +2260,6 @@ function updateSleepButton(status) {
                 };
                 // --- Конец общей функции (ВЕРСИЯ 3) --
                 }
-            } // Закрытие для else if (actionButton.matches('.admin-action-btn'))
         });
 
 // --- NEW Event Listener for Sort Order Inputs ---
