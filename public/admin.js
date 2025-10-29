@@ -2674,7 +2674,10 @@ function updateSleepButton(status) {
     async function loadEntitiesForForceComplete(entityType) {
         const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
         container.innerHTML = '<i>Загрузка...</i>';
-        activeUserEntities = { quest_id: null, challenge_id: null }; // Сброс перед загрузкой
+        
+        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ: Добавлено 'let' ---
+        let activeUserEntities = { quest_id: null, challenge_id: null }; // Сброс перед загрузкой
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         if (!selectedAdminUser) {
             container.innerHTML = '<p class="error-message">Ошибка: Пользователь не выбран.</p>';
