@@ -327,6 +327,16 @@ class AdminUserSearchRequest(BaseModel):
     initData: str
     search_term: str
 
+class AdminForceCompleteRequest(BaseModel):
+    initData: str
+    user_id: int
+    entity_type: str # 'quest' или 'challenge'
+    entity_id: int
+
+class AdminEntityListRequest(BaseModel):
+    initData: str
+    entity_type: str # 'quest' или 'challenge'    
+
 class EventUpdateRequest(BaseModel):
     initData: str
     event_id: int
@@ -680,6 +690,78 @@ async def get_ticket_reward_amount(action_type: str, supabase: httpx.AsyncClient
     except Exception as e:
         logging.error(f"Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
         return 1
+
+# --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
+@app.post("/api/v1/admin/actions/list_entities")
+async def admin_list_entities(
+    request_data: AdminEntityListRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает список активных квестов или челленджей для принудительного выполнения."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        if request_data.entity_type == 'quest':
+            resp = await supabase.get(
+                "/quests",
+                params={"is_active": "eq.true", "select": "id,title", "order": "title.asc"}
+            )
+            return resp.json()
+        elif request_data.entity_type == 'challenge':
+            resp = await supabase.get(
+                "/challenges",
+                params={"is_active": "eq.true", "select": "id,description", "order": "id.asc"}
+            )
+            # Переименуем 'description' в 'title' для удобства фронтенда
+            return [{"id": c["id"], "title": c["description"]} for c in resp.json()]
+        else:
+            raise HTTPException(status_code=400, detail="Неверный тип.")
+            
+    except Exception as e:
+        logging.error(f"Ошибка при получении списка (админ): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось получить список.")
+
+# --- НОВЫЙ ЭНДПОИНТ: Принудительное выполнение ---
+@app.post("/api/v1/admin/actions/force_complete")
+async def admin_force_complete(
+    request_data: AdminForceCompleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Принудительно выполняет квест или челлендж для пользователя."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    p_user_id = request_data.user_id
+    p_entity_id = request_data.entity_id
+
+    try:
+        if request_data.entity_type == 'quest':
+            # Вызываем RPC-функцию для выполнения квеста
+            await supabase.post(
+                "/rpc/admin_force_complete_quest",
+                json={"p_user_id": p_user_id, "p_quest_id": p_entity_id}
+            )
+            return {"message": "Квест принудительно выполнен. Пользователь может забрать награду."}
+            
+        elif request_data.entity_type == 'challenge':
+            # Вызываем RPC-функцию для выполнения челленджа
+            await supabase.post(
+                "/rpc/admin_force_complete_challenge",
+                json={"p_user_id": p_user_id, "p_challenge_id": p_entity_id}
+            )
+            return {"message": "Челлендж принудительно выполнен. Пользователь может забрать награду."}
+        else:
+            raise HTTPException(status_code=400, detail="Неверный тип.")
+            
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка базы данных.")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Ошибка при принудительном выполнении: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выполнить действие.")
 
 # Где-нибудь рядом с другими эндпоинтами
 @app.post("/api/v1/admin/verify_password")
