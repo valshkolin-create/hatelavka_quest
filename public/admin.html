@@ -91,115 +91,116 @@
                     Панель для администратирования канала HATElove.ttv.
                 </p>
             </div>
-        </div> <div id="view-admin-user-management" class="view hidden">
+        </div> 
+      <div id="view-admin-user-management" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Управление</h1>
-                <div style="width: 60px;"></div>
-            </div>
+                <div style="width: 60px;"></div> </div>
+
             <div class="quest-card">
                 <div class="user-management-section">
-                    <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Управление Звездами (Чекпоинт)</h3>
+                    <h3><i class="fa-solid fa-gifts" style="color: var(--primary-color);"></i> Выдача наград</h3>
                     <div class="admin-form">
-                        <label>Выдать звезды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Добавляет указанное количество звёзд Чекпоинта пользователю. Не отнимает существующие.</span></div></label>
-                        <form id="grant-checkpoint-stars-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
-                            <p style="margin: 0 0 10px;">
-                                Выдача для: <strong id="grant-cp-user-name">...</strong>
-                            </p>
+                        <label>Выдать звезды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Добавляет указанное количество звёзд Чекпоинта пользователю.</span></div></label>
+                        <form id="grant-checkpoint-stars-form" class="hidden admin-sub-form">
+                            <p>Для: <strong id="grant-cp-user-name">...</strong></p>
                             <input type="hidden" name="user_id_to_grant_cp">
                             <input type="number" name="amount_cp" required placeholder="Количество звезд">
                             <button type="submit">Подтвердить выдачу</button>
                         </form>
-                        <button id="open-grant-cp-search" class="admin-menu-button" style="width: 100%; margin-top: 5px;">
+                        <button id="open-grant-cp-search" class="admin-menu-button">
                             <i class="fa-solid fa-search"></i> Найти пользователя
-                        </button>
-                        <button id="open-force-complete-search" class="admin-menu-button" style="width: 100%; margin-top: 15px; background-color: var(--warning-color);">
-                            <i class="fa-solid fa-bolt"></i> Принудительно выполнить
                         </button>
                     </div>
                     <div class="admin-form" style="margin-top: 20px;">
-                        <label>Заморозка/разморозка звезд Чекпоинта<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю тратить звёзды Чекпоинта. Введите 0 дней для немедленной разморозки.</span></div></label>
-                        <form id="freeze-checkpoint-stars-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
-                            <p style="margin: 0 0 10px;">
-                                Применить для: <strong id="freeze-cp-user-name">...</strong>
-                            </p>
-                            <input type="hidden" name="user_id_to_freeze_cp">
-                            <input type="number" name="days_cp" required placeholder="Кол-во дней (0 для разморозки)">
-                            <button type="submit">Подтвердить заморозку/разморозку</button>
-                        </form>
-                        <button id="open-freeze-cp-search" class="admin-menu-button" style="width: 100%; margin-top: 5px; background-color: var(--status-inactive-color);">
-                            <i class="fa-solid fa-search"></i> Найти пользователя
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="quest-card" style="margin-top: 20px;">
-                 <div class="user-management-section">
-                    <h3><i class="fa-solid fa-ticket" style="color: var(--primary-color);"></i> Управление Билетами (Ивенты)</h3>
-                    <div class="admin-form">
-                        <label>Выдать билеты<div class="tooltip">?<span class="tooltip-text">Добавляет указанное количество билетов для участия в розыгрышах.</span></div></label>
-                        <form id="grant-tickets-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
-                            <p style="margin: 0 0 10px;">
-                                Выдача для: <strong id="grant-tickets-user-name">...</strong>
-                            </p>
+                        <label>Выдать билеты<div class="tooltip">?<span class="tooltip-text">Добавляет билеты для участия в розыгрышах.</span></div></label>
+                        <form id="grant-tickets-form" class="hidden admin-sub-form">
+                            <p>Для: <strong id="grant-tickets-user-name">...</strong></p>
                             <input type="hidden" name="user_id_to_grant_tickets">
                             <input type="number" name="amount_tickets" required placeholder="Количество билетов">
                             <button type="submit">Подтвердить выдачу</button>
                         </form>
-                        <button id="open-grant-tickets-search" class="admin-menu-button" style="width: 100%; margin-top: 5px;">
+                        <button id="open-grant-tickets-search" class="admin-menu-button">
                             <i class="fa-solid fa-search"></i> Найти пользователя
                         </button>
                     </div>
                     <div class="admin-form" style="margin-top: 20px;">
-                        <label>Заморозка/разморозка билетов<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю участвовать в розыгрышах. Введите 0 дней для немедленной разморозки.</span></div></label>
-                        <form id="freeze-tickets-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
-                            <p style="margin: 0 0 10px;">
-                                Применить для: <strong id="freeze-tickets-user-name">...</strong>
-                            </p>
+                        <label>Выдать промокод<div class="tooltip">?<span class="tooltip-text">Находит свободный промокод указанного номинала и отправляет пользователю в ЛС.</span></div></label>
+                        <button id="open-issue-promocode-search" class="admin-menu-button">
+                            <i class="fa-solid fa-search"></i> Найти пользователя
+                        </button>
+                        </div>
+                </div>
+            </div>
+
+            <div class="quest-card" style="margin-top: 20px;">
+                <div class="user-management-section">
+                    <h3><i class="fa-solid fa-snowflake" style="color: #5ac8fa;"></i> Заморозка / Разморозка</h3>
+                     <div class="admin-form">
+                        <label>Звезды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю тратить звёзды Чекпоинта. 0 дней = разморозка.</span></div></label>
+                        <form id="freeze-checkpoint-stars-form" class="hidden admin-sub-form">
+                            <p>Для: <strong id="freeze-cp-user-name">...</strong></p>
+                            <input type="hidden" name="user_id_to_freeze_cp">
+                            <input type="number" name="days_cp" required placeholder="Кол-во дней (0 для разморозки)">
+                            <button type="submit">Применить</button>
+                        </form>
+                        <button id="open-freeze-cp-search" class="admin-menu-button">
+                            <i class="fa-solid fa-search"></i> Найти пользователя
+                        </button>
+                    </div>
+                    <div class="admin-form" style="margin-top: 20px;">
+                        <label>Билеты<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю участвовать в розыгрышах. 0 дней = разморозка.</span></div></label>
+                        <form id="freeze-tickets-form" class="hidden admin-sub-form">
+                            <p>Для: <strong id="freeze-tickets-user-name">...</strong></p>
                             <input type="hidden" name="user_id_to_freeze_tickets">
                             <input type="number" name="days_tickets" required placeholder="Кол-во дней (0 для разморозки)">
-                            <button type="submit">Подтвердить заморозку/разморозку</button>
+                            <button type="submit">Применить</button>
                         </form>
-                        <button id="open-freeze-tickets-search" class="admin-menu-button" style="width: 100%; margin-top: 5px; background-color: var(--status-inactive-color);">
+                        <button id="open-freeze-tickets-search" class="admin-menu-button">
                             <i class="fa-solid fa-search"></i> Найти пользователя
                         </button>
                     </div>
                 </div>
             </div>
-          <div id="admin-entity-select-modal" class="modal-overlay hidden">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 id="admin-entity-select-title" class="modal-title">Выберите что выполнить</h2>
-            <button class="modal-close-btn" data-close-modal="admin-entity-select-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="tabs-container" style="margin-bottom: 0;">
-                <button class="tab-button active" data-tab="quest">Квест</button>
-                <button class="tab-button" data-tab="challenge">Челлендж</button>
+
+            <div class="quest-card" style="margin-top: 20px;">
+                <div class="user-management-section">
+                    <h3><i class="fa-solid fa-bolt" style="color: var(--warning-color);"></i> Принудительное выполнение</h3>
+                    <div class="admin-form">
+                        <label>Выполнить квест/челлендж<div class="tooltip">?<span class="tooltip-text">Обходит все проверки и помечает квест или челлендж как выполненный для пользователя. Он сможет забрать награду.</span></div></label>
+                         <button id="open-force-complete-search" class="admin-menu-button">
+                             <i class="fa-solid fa-search"></i> Найти пользователя
+                         </button>
+                         </div>
+                </div>
             </div>
-            <div id="admin-entity-list-quest" class="tab-content active" style="padding-top: 15px; max-height: 40vh; overflow-y: auto;">
-                <i>Загрузка квестов...</i>
-            </div>
-            <div id="admin-entity-list-challenge" class="tab-content hidden" style="padding-top: 15px; max-height: 40vh; overflow-y: auto;">
-                <i>Загрузка челленджей...</i>
-            </div>
-        </div>
-    </div>
-</div>
-   
+
             <div class="quest-card" style="margin-top: 20px;">
                  <div class="user-management-section">
                     <h3 style="color: var(--danger-color);"><i class="fa-solid fa-broom"></i> Очистка прогресса (Чекпоинт)</h3>
-                    <form id="reset-checkpoint-progress-form" class="admin-form">
-                        <label>Сбросить награды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Удаляет все полученные награды Чекпоинта, но НЕ ТРОГАЕТ баланс звёзд пользователя. Действие необратимо.</span></div></label>
-                        <input type="number" name="user_id_to_reset" required placeholder="Telegram ID пользователя">
-                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Сбросить награды</button>
-                    </form>
-                    <form id="clear-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
-                        <label>Обнулить звёзды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Устанавливает баланс звёзд Чекпоинта на 0, но НЕ ТРОГАЕТ список полученных наград. Действие необратимо.</span></div></label>
-                        <input type="number" name="user_id_to_clear" required placeholder="Telegram ID пользователя">
-                        <button type="submit" class="admin-action-btn reject" style="width: 100%;">Обнулить звёзды</button>
-                    </form>
+                    <div class="admin-form">
+                        <label>Сбросить награды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Удаляет все полученные награды Чекпоинта у пользователя, но НЕ ТРОГАЕТ баланс звёзд. Действие необратимо.</span></div></label>
+                        <form id="reset-checkpoint-progress-form" class="hidden admin-sub-form">
+                             <p>Для: <strong id="reset-cp-progress-user-name">...</strong></p>
+                             <input type="hidden" name="user_id_to_reset">
+                             <button type="submit" class="admin-action-btn reject" style="width: 100%;">Подтвердить сброс наград</button>
+                        </form>
+                        <button id="open-reset-cp-progress-search" class="admin-menu-button">
+                             <i class="fa-solid fa-search"></i> Найти пользователя
+                        </button>
+                    </div>
+                    <div class="admin-form" style="margin-top: 20px;">
+                        <label>Обнулить звёзды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Устанавливает баланс звёзд Чекпоинта на 0, но НЕ ТРОГАЕТ список наград. Действие необратимо.</span></div></label>
+                        <form id="clear-checkpoint-stars-form" class="hidden admin-sub-form">
+                             <p>Для: <strong id="clear-cp-stars-user-name">...</strong></p>
+                             <input type="hidden" name="user_id_to_clear">
+                             <button type="submit" class="admin-action-btn reject" style="width: 100%;">Подтвердить обнуление звёзд</button>
+                        </form>
+                         <button id="open-clear-cp-stars-search" class="admin-menu-button">
+                             <i class="fa-solid fa-search"></i> Найти пользователя
+                         </button>
+                    </div>
                 </div>
             </div>
         </div>
