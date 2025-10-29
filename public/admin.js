@@ -36,9 +36,15 @@ try {
         tabContentSubmissions: document.getElementById('tab-content-submissions'),
         tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
         tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
+        // --- Админ search ---  
         grantCheckpointStarsForm: document.getElementById('grant-checkpoint-stars-form'),
+        grantCpUserName: document.getElementById('grant-cp-user-name'),
+        openGrantCpSearchBtn: document.getElementById('open-grant-cp-search'),
         freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
         grantTicketsForm: document.getElementById('grant-tickets-form'),
+        grantTicketsUserName: document.getElementById('grant-tickets-user-name'),
+        openGrantTicketsSearchBtn: document.getElementById('open-grant-tickets-search'),
+        // --- Завершение Админ search ---  
         freezeTicketsForm: document.getElementById('freeze-tickets-form'),
         resetCheckpointProgressForm: document.getElementById('reset-checkpoint-progress-form'),
         clearCheckpointStarsForm: document.getElementById('clear-checkpoint-stars-form'),
@@ -55,6 +61,12 @@ try {
         settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
         // --- НОВЫЙ КОД ---       
         settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
+        // --- КОНЕЦ НОВОГО КОДА ---
+        // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ПОИСКА ПОЛЬЗОВАТЕЛЯ ---
+        adminUserSearchModal: document.getElementById('admin-user-search-modal'),
+        adminUserSearchTitle: document.getElementById('admin-user-search-title'),
+        adminUserSearchInput: document.getElementById('admin-user-search-input'),
+        adminUserSearchResults: document.getElementById('admin-user-search-results'),
         // --- КОНЕЦ НОВОГО КОДА ---
         statisticsContent: document.getElementById('statistics-content'),
         sliderOrderManager: document.getElementById('slider-order-manager'),
@@ -78,10 +90,55 @@ try {
     let hasAdminAccess = false;
     let currentCauldronData = {};
     let orderChanged = false;
+    // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОИСКА ---
+    let adminUserSearchDebounceTimer; // Таймер для задержки поиска
+    let onAdminUserSelectCallback = null; // Функция, которая вызовется после выбора юзера
+    let selectedAdminUser = null; // Хранит {id, name} выбранного юзера
+    // --- КОНЕЦ НОВЫХ ПЕРЕМЕННЫХ ---
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
+    }
+    /**
+     * Открывает модальное окно для поиска и выбора пользователя.
+     * @param {string} title - Заголовок модального окна (н.п., "Выдать билеты: ...")
+     * @param {function} onSelectCallback - Функция, которая будет вызвана с объектом {id, name}
+     * выбранного пользователя.
+     */
+    function openAdminUserSearchModal(title, onSelectCallback) {
+        dom.adminUserSearchTitle.textContent = title;
+        onAdminUserSelectCallback = onSelectCallback; // Сохраняем коллбэк
+        dom.adminUserSearchInput.value = ''; // Очищаем инпут
+        dom.adminUserSearchResults.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Начните вводить для поиска...</p>';
+        dom.adminUserSearchModal.classList.remove('hidden');
+        dom.adminUserSearchInput.focus();
+    }
+
+    /**
+     * Рендерит список пользователей в модалке поиска
+     * @param {Array} users - Массив пользователей от API
+     */
+    function renderAdminSearchResults(users) {
+        if (!users || users.length === 0) {
+            dom.adminUserSearchResults.innerHTML = '<p style="text-align: center;">Пользователи не найдены.</p>';
+            return;
+        }
+
+        // Рендерим список
+        dom.adminUserSearchResults.innerHTML = users.map(user => `
+            <div class="submission-item" 
+                 data-user-id="${user.telegram_id}" 
+                 data-user-name="${escapeHTML(user.full_name || 'Без имени')}"
+                 style="cursor: pointer; padding: 12px 5px;">
+                <p style="margin: 0; font-weight: 500;">
+                    ${escapeHTML(user.full_name || 'Без имени')}
+                </p>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-color-muted);">
+                    ID: ${user.telegram_id} | Twitch: ${escapeHTML(user.twitch_login || 'не привязан')}
+                </p>
+            </div>
+        `).join('');
     }
 
     // --- Новые функции для "Котла" ---
@@ -1876,6 +1933,54 @@ function updateSleepButton(status) {
                  });
             });
         }
+        // --- НОВЫЕ ОБРАБОТЧИКИ ДЛЯ ПОИСКА ПОЛЬЗОВАТЕЛЯ ---
+        if (dom.adminUserSearchInput) {
+            // Поиск при вводе текста
+            dom.adminUserSearchInput.addEventListener('input', () => {
+                clearTimeout(adminUserSearchDebounceTimer);
+                const searchTerm = dom.adminUserSearchInput.value.trim();
+
+                if (searchTerm.length < 2) {
+                    dom.adminUserSearchResults.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Введите минимум 2 символа...</p>';
+                    return;
+                }
+
+                dom.adminUserSearchResults.innerHTML = '<i>Идет поиск...</i>';
+
+                adminUserSearchDebounceTimer = setTimeout(async () => {
+                    try {
+                        const users = await makeApiRequest('/api/v1/admin/users/search', { search_term: searchTerm }, 'POST', true);
+                        renderAdminSearchResults(users); // Используем новую функцию
+                    } catch (e) {
+                        dom.adminUserSearchResults.innerHTML = `<p class="error-message">Ошибка поиска: ${e.message}</p>`;
+                    }
+                }, 400); // Задержка 400мс
+            });
+        }
+
+        if (dom.adminUserSearchResults) {
+            // Клик по результату поиска
+            dom.adminUserSearchResults.addEventListener('click', (e) => {
+                const item = e.target.closest('.submission-item');
+                if (!item) return;
+
+                const userId = item.dataset.userId;
+                const userName = item.dataset.userName;
+
+                if (userId && userName) {
+                    selectedAdminUser = { id: parseInt(userId), name: userName };
+                    
+                    // Если есть коллбэк (старый флоу), вызываем его
+                    if (onAdminUserSelectCallback) {
+                        onAdminUserSelectCallback(selectedAdminUser);
+                        onAdminUserSelectCallback = null;
+                    }
+                    
+                    dom.adminUserSearchModal.classList.add('hidden');
+                }
+            });
+        }
+        // --- КОНЕЦ НОВЫХ ОБРАБОТЧИКОВ ---
 
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
@@ -2441,13 +2546,30 @@ function updateSleepButton(status) {
             });
         }
 
+        // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
+        if (dom.openGrantCpSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openGrantCpSearchBtn.addEventListener('click', () => {
+                dom.grantCheckpointStarsForm.classList.add('hidden');
+                // Открываем модалку и передаем коллбэк
+                openAdminUserSearchModal('Выдать звезды Чекпоинта', (user) => {
+                    // Этот код выполнится, когда админ выбрал пользователя
+                    dom.grantCheckpointStarsForm.elements['user_id_to_grant_cp'].value = user.id;
+                    dom.grantCpUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.grantCheckpointStarsForm.classList.remove('hidden');
+                    dom.grantCheckpointStarsForm.elements['amount_cp'].focus();
+                });
+            });
+        }
         if(dom.grantCheckpointStarsForm) {
+            // 2. Отправка самой формы (после выбора пользователя)
             dom.grantCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_grant_cp'].value);
                 const amount = parseInt(form.elements['amount_cp'].value);
-                if (!userId || !amount) return;
+                if (!userId || !amount || amount <= 0) return;
 
                 const result = await makeApiRequest('/api/v1/admin/users/grant-checkpoint-stars', {
                     user_id_to_grant: userId,
@@ -2455,6 +2577,7 @@ function updateSleepButton(status) {
                 });
                 tg.showAlert(result.message);
                 form.reset();
+                form.classList.add('hidden'); // Снова прячем форму
             });
         }
 
@@ -2475,20 +2598,38 @@ function updateSleepButton(status) {
             });
         }
 
+        // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ БИЛЕТОВ ---
+        if (dom.openGrantTicketsSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openGrantTicketsSearchBtn.addEventListener('click', () => {
+                dom.grantTicketsForm.classList.add('hidden');
+                // Открываем модалку и передаем коллбэк
+                openAdminUserSearchModal('Выдать билеты', (user) => {
+                    // Этот код выполнится, когда админ выбрал пользователя
+                    dom.grantTicketsForm.elements['user_id_to_grant_tickets'].value = user.id;
+                    dom.grantTicketsUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.grantTicketsForm.classList.remove('hidden');
+                    dom.grantTicketsForm.elements['amount_tickets'].focus();
+                });
+            });
+        }
         if(dom.grantTicketsForm) {
+            // 2. Отправка самой формы (после выбора пользователя)
             dom.grantTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_grant_tickets'].value);
                 const amount = parseInt(form.elements['amount_tickets'].value);
-                if (!userId || !amount) return;
+                if (!userId || !amount || amount <= 0) return;
 
-                const result = await makeApiRequest('/api/v1/admin/users/grant-stars', {
+                const result = await makeApiRequest('/api/v1/admin/users/grant-stars', { // Используем /grant-stars, как в твоем коде
                     user_id_to_grant: userId,
                     amount: amount
                 });
                 tg.showAlert(result.message);
                 form.reset();
+                form.classList.add('hidden'); // Снова прячем форму
             });
         }
 
