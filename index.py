@@ -198,12 +198,12 @@ class AdminGrantCheckpointStarsRequest(BaseModel):
 
 class AdminFreezeCheckpointStarsRequest(BaseModel):
     initData: str
-    user_id_to_freeze: int
+    user_id: int # <-- ИЗМЕНЕНО с user_id_to_freeze
     days: int
 
 class AdminFreezeStarsRequest(BaseModel):
     initData: str
-    user_id_to_freeze: int
+    user_id: int # <-- ИЗМЕНЕНО с user_id_to_freeze
     days: int
 
 class AdminSettings(BaseModel):
@@ -4724,6 +4724,7 @@ async def grant_checkpoint_stars_to_user(
         raise HTTPException(status_code=500, detail="Не удалось выдать звезды Чекпоинта.")
 
 
+# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАМОРОЗКИ ЗВЕЗД ЧЕКПОИНТА ---
 @app.post("/api/v1/admin/users/freeze-checkpoint-stars")
 async def freeze_checkpoint_stars(
     request_data: AdminFreezeCheckpointStarsRequest,
@@ -4734,7 +4735,9 @@ async def freeze_checkpoint_stars(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    user_id_to_freeze = request_data.user_id_to_freeze
+    # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+    user_id_to_freeze = request_data.user_id # Получаем user_id из request_data
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     days = request_data.days
 
     if days < 0:
@@ -4752,12 +4755,50 @@ async def freeze_checkpoint_stars(
             params={"telegram_id": f"eq.{user_id_to_freeze}"},
             json={"checkpoint_stars_frozen_until": freeze_until_date}
         )
-        
+
         message = f"Звезды Чекпоинта для пользователя {user_id_to_freeze} заморожены на {days} дней." if days > 0 else f"Заморозка звезд Чекпоинта для пользователя {user_id_to_freeze} снята."
         return {"message": message}
     except Exception as e:
         logging.error(f"Ошибка при заморозке звезд Чекпоинта для {user_id_to_freeze}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выполнить заморозку звезд Чекпоинта.")
+
+
+# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАМОРОЗКИ БИЛЕТОВ (ЗВЕЗД) ---
+@app.post("/api/v1/admin/users/freeze-stars")
+async def freeze_user_stars(
+    request_data: AdminFreezeStarsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Замораживает звезды (билеты) пользователя на указанное количество дней."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+    user_id_to_freeze = request_data.user_id # Получаем user_id из request_data
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+    days = request_data.days
+
+    if days < 0:
+        raise HTTPException(status_code=400, detail="Количество дней не может быть отрицательным.")
+
+    try:
+        # Это предполагает, что у вас есть колонка `stars_frozen_until` типа 'timestamptz' в таблице 'users'.
+        freeze_until_date = None
+        if days > 0:
+            freeze_until_date = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id_to_freeze}"},
+            json={"stars_frozen_until": freeze_until_date} # Убедитесь, что колонка называется именно так
+        )
+
+        message = f"Билеты пользователя {user_id_to_freeze} заморожены на {days} дней." if days > 0 else f"Заморозка билетов для пользователя {user_id_to_freeze} снята."
+        return {"message": message}
+    except Exception as e:
+        logging.error(f"Ошибка при заморозке билетов для {user_id_to_freeze}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выполнить заморозку билетов.")
 
 @app.post("/api/v1/admin/users/grant-stars")
 async def grant_stars_to_user(
@@ -4785,42 +4826,6 @@ async def grant_stars_to_user(
     except Exception as e:
         logging.error(f"Ошибка при выдаче звезд пользователю {user_id_to_grant}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выдать звезды.")
-
-
-@app.post("/api/v1/admin/users/freeze-stars")
-async def freeze_user_stars(
-    request_data: AdminFreezeStarsRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """(Админ) Замораживает звезды пользователя на указанное количество дней."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    user_id_to_freeze = request_data.user_id_to_freeze
-    days = request_data.days
-
-    if days < 0:
-        raise HTTPException(status_code=400, detail="Количество дней не может быть отрицательным.")
-
-    try:
-        # Это предполагает, что у вас есть колонка `stars_frozen_until` типа 'timestamptz' в таблице 'users'.
-        # Если колонка не существует, вам нужно будет добавить ее в вашей панели Supabase.
-        freeze_until_date = None
-        if days > 0:
-            freeze_until_date = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
-
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{user_id_to_freeze}"},
-            json={"stars_frozen_until": freeze_until_date}
-        )
-        
-        message = f"Звезды пользователя {user_id_to_freeze} заморожены на {days} дней." if days > 0 else f"Заморозка звезд для пользователя {user_id_to_freeze} снята."
-        return {"message": message}
-    except Exception as e:
-        logging.error(f"Ошибка при заморозке звезд для {user_id_to_freeze}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось выполнить заморозку.")
 
 @app.get("/api/v1/content/menu")
 async def get_menu_content(): # <<< Убрали Depends
