@@ -68,6 +68,13 @@ try {
         adminUserSearchInput: document.getElementById('admin-user-search-input'),
         adminUserSearchResults: document.getElementById('admin-user-search-results'),
         // --- КОНЕЦ НОВОГО КОДА ---
+        // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ВЫПОЛНЕНИЯ ---
+        openForceCompleteSearchBtn: document.getElementById('open-force-complete-search'),
+        adminEntitySelectModal: document.getElementById('admin-entity-select-modal'),
+        adminEntitySelectTitle: document.getElementById('admin-entity-select-title'),
+        adminEntityListQuest: document.getElementById('admin-entity-list-quest'),
+        adminEntityListChallenge: document.getElementById('admin-entity-list-challenge'),
+        // --- КОНЕЦ НОВОГО КОДА ---
         statisticsContent: document.getElementById('statistics-content'),
         sliderOrderManager: document.getElementById('slider-order-manager'),
         createRoulettePrizeForm: document.getElementById('create-roulette-prize-form'),
@@ -1981,6 +1988,70 @@ function updateSleepButton(status) {
             });
         }
         // --- КОНЕЦ НОВЫХ ОБРАБОТЧИКОВ ---
+        // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ "ПРИНУДИТЕЛЬНО ВЫПОЛНИТЬ" ---
+        if (dom.openForceCompleteSearchBtn) {
+            dom.openForceCompleteSearchBtn.addEventListener('click', () => {
+                // 1. Сначала ищем пользователя
+                openAdminUserSearchModal('Принудительно выполнить для...', (user) => {
+                    // 2. Пользователь выбран, сохраняем его в ГЛОБАЛЬНУЮ переменную
+                    selectedAdminUser = user; // Используем `selectedAdminUser`
+                    
+                    // 3. Открываем вторую модалку (выбора квеста/челленджа)
+                    dom.adminEntitySelectTitle.textContent = `Выполнить для: ${user.name}`;
+                    dom.adminEntitySelectModal.classList.remove('hidden');
+                    
+                    // 4. Сбрасываем вкладки и загружаем данные
+                    const tabsContainer = dom.adminEntitySelectModal.querySelector('.tabs-container');
+                    tabsContainer.querySelector('.tab-button[data-tab="quest"]').click();
+                    loadEntitiesForForceComplete('quest'); // Загружаем квесты по умолчанию
+                });
+            });
+        }
+
+        // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ МОДАЛКИ ВЫБОРА КВЕСТА/ЧЕЛЛЕНДЖА ---
+        if (dom.adminEntitySelectModal) {
+            // Переключение вкладок
+            const tabsContainer = dom.adminEntitySelectModal.querySelector('.tabs-container');
+            tabsContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('.tab-button');
+                if (!button || button.classList.contains('active')) return;
+
+                const tabId = button.dataset.tab; // 'quest' или 'challenge'
+                tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                dom.adminEntityListQuest.classList.toggle('hidden', tabId !== 'quest');
+                dom.adminEntityListChallenge.classList.toggle('hidden', tabId !== 'challenge');
+                loadEntitiesForForceComplete(tabId); // Загружаем данные для активной вкладки
+            });
+
+            // Клик по элементу в списке
+            dom.adminEntitySelectModal.addEventListener('click', async (e) => {
+                const item = e.target.closest('.submission-item');
+                if (!item || !selectedAdminUser) return; // Проверяем ГЛОБАЛЬНУЮ переменную
+
+                const entityId = parseInt(item.dataset.entityId);
+                const entityType = item.dataset.entityType;
+                const entityName = item.dataset.entityName;
+
+                tg.showConfirm(`Принудительно выполнить "${entityName}" для пользователя ${selectedAdminUser.name}?`, async (ok) => {
+                    if (ok) {
+                        try {
+                            const result = await makeApiRequest('/api/v1/admin/actions/force_complete', {
+                                user_id: selectedAdminUser.id,
+                                entity_type: entityType,
+                                entity_id: entityId
+                            });
+                            tg.showAlert(result.message);
+                            dom.adminEntitySelectModal.classList.add('hidden');
+                            selectedAdminUser = null; // Сбрасываем
+                        } catch (err) {
+                            tg.showAlert(`Ошибка: ${err.message}`);
+                        }
+                    }
+                });
+            });
+        }
+        
 
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
@@ -2546,6 +2617,38 @@ function updateSleepButton(status) {
             });
         }
 
+        /**
+     * Загружает список квестов или челленджей в модальное окно.
+     * @param {string} entityType - 'quest' или 'challenge'
+     */
+    async function loadEntitiesForForceComplete(entityType) {
+        const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
+        container.innerHTML = '<i>Загрузка...</i>';
+
+        try {
+            const entities = await makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true);
+            
+            if (!entities || entities.length === 0) {
+                container.innerHTML = `<p style="text-align: center;">Активных ${entityType === 'quest' ? 'квестов' : 'челленджей'} не найдено.</p>`;
+                return;
+            }
+
+            container.innerHTML = entities.map(entity => `
+                <div class="submission-item"
+                     data-entity-id="${entity.id}"
+                     data-entity-type="${entityType}"
+                     data-entity-name="${escapeHTML(entity.title)}"
+                     style="cursor: pointer; padding: 12px 5px;">
+                    <p style="margin: 0; font-weight: 500;">
+                        ${escapeHTML(entity.title)} (ID: ${entity.id})
+                    </p>
+                </div>
+            `).join('');
+
+        } catch (e) {
+            container.innerHTML = `<p class="error-message">Ошибка загрузки: ${e.message}</p>`;
+        }
+    }
         // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
         if (dom.openGrantCpSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
