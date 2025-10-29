@@ -821,6 +821,22 @@
             </div>
         </div>
     </div>
+  <div id="admin-user-search-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="admin-user-search-title" class="modal-title">Выберите пользователя</h2>
+            <button class="modal-close-btn" data-close-modal="admin-user-search-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="admin-user-search-form" class="admin-form" style="gap: 5px;">
+                <input type="text" id="admin-user-search-input" placeholder="Введите ID, TG-ник или Twitch-ник...">
+            </form>
+            <div id="admin-user-search-results" style="margin-top: 15px; max-height: 40vh; overflow-y: auto;">
+                <p style="text-align: center; color: var(--text-color-muted);">Начните вводить для поиска...</p>
+            </div>
+        </div>
+    </div>
+</div>
 
     <script src="admin.js" defer></script>
 </body>
