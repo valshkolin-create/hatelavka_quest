@@ -100,12 +100,20 @@
             <div class="quest-card">
                 <div class="user-management-section">
                     <h3><i class="fa-solid fa-star" style="color: var(--warning-color);"></i> Управление Звездами (Чекпоинт)</h3>
-                    <form id="grant-checkpoint-stars-form" class="admin-form">
+                    <div class="admin-form">
                         <label>Выдать звезды Чекпоинта<div class="tooltip">?<span class="tooltip-text">Добавляет указанное количество звёзд Чекпоинта пользователю. Не отнимает существующие.</span></div></label>
-                        <input type="number" name="user_id_to_grant_cp" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="amount_cp" required placeholder="Количество звезд">
-                        <button type="submit">Выдать</button>
-                    </form>
+                        <form id="grant-checkpoint-stars-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
+                            <p style="margin: 0 0 10px;">
+                                Выдача для: <strong id="grant-cp-user-name">...</strong>
+                            </p>
+                            <input type="hidden" name="user_id_to_grant_cp">
+                            <input type="number" name="amount_cp" required placeholder="Количество звезд">
+                            <button type="submit">Подтвердить выдачу</button>
+                        </form>
+                        <button id="open-grant-cp-search" class="admin-menu-button" style="width: 100%; margin-top: 5px;">
+                            <i class="fa-solid fa-search"></i> Найти пользователя
+                        </button>
+                    </div>
                     <form id="freeze-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
                         <label>Заморозка/разморозка звезд<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю тратить звёзды Чекпоинта. Введите 0 дней для немедленной разморозки.</span></div></label>
                         <input type="number" name="user_id_to_freeze_cp" required placeholder="Telegram ID пользователя">
@@ -117,12 +125,20 @@
             <div class="quest-card" style="margin-top: 20px;">
                  <div class="user-management-section">
                     <h3><i class="fa-solid fa-ticket" style="color: var(--primary-color);"></i> Управление Билетами (Ивенты)</h3>
-                    <form id="grant-tickets-form" class="admin-form">
+                    <div class="admin-form">
                         <label>Выдать билеты<div class="tooltip">?<span class="tooltip-text">Добавляет указанное количество билетов для участия в розыгрышах.</span></div></label>
-                        <input type="number" name="user_id_to_grant_tickets" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="amount_tickets" required placeholder="Количество билетов">
-                        <button type="submit">Выдать</button>
-                    </form>
+                        <form id="grant-tickets-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
+                            <p style="margin: 0 0 10px;">
+                                Выдача для: <strong id="grant-tickets-user-name">...</strong>
+                            </p>
+                            <input type="hidden" name="user_id_to_grant_tickets">
+                            <input type="number" name="amount_tickets" required placeholder="Количество билетов">
+                            <button type="submit">Подтвердить выдачу</button>
+                        </form>
+                        <button id="open-grant-tickets-search" class="admin-menu-button" style="width: 100%; margin-top: 5px;">
+                            <i class="fa-solid fa-search"></i> Найти пользователя
+                        </button>
+                    </div>
                     <form id="freeze-tickets-form" class="admin-form" style="margin-top: 20px;">
                         <label>Заморозка/разморозка билетов<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю участвовать в розыгрышах. Введите 0 дней для немедленной разморозки.</span></div></label>
                         <input type="number" name="user_id_to_freeze_tickets" required placeholder="Telegram ID пользователя">
