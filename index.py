@@ -2989,16 +2989,17 @@ async def claim_challenge(
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
-    
+
     current_user_id = user_info["id"]
 
     try:
         logging.info(f"🔹 Пользователь {current_user_id} запрашивает награду за челлендж {challenge_id}")
-        
+
         admin_settings = await get_admin_settings_async(supabase)
 
         promocode_text = None # Переменная для промокода
-        
+        message = "" # Переменная для сообщения
+
         # Проверяем, включены ли награды за челленджи
         if not admin_settings.challenge_promocodes_enabled:
             logging.info(f"Награды за челленджи отключены. Обработка для user {current_user_id}")
@@ -3008,40 +3009,145 @@ async def claim_challenge(
                 json={"p_user_id": current_user_id, "p_challenge_id": challenge_id}
             )
             message = "Челлендж выполнен! Выдача наград временно отключена."
+            # success = True # Устанавливаем флаг успеха
         else:
-            # Если награды включены, выполняем стандартную логику с выдачей промокода
-            rpc_payload = {
-                "p_user_id": current_user_id,
-                "p_challenge_id": challenge_id
-            }
-            rpc_response = await supabase.post("/rpc/claim_challenge_and_get_reward", json=rpc_payload)
-            
-            # Эта строка вызовет исключение HTTPStatusError для ответов 4xx/5xx (например, 400 Bad Request от RPC)
-            rpc_response.raise_for_status()
+            # Если награды включены, выполняем логику с выдачей промокода
+            try:
+                # --- ПОПЫТКА 1: Вызвать основную RPC ---
+                logging.info(f"Вызов RPC 'claim_challenge_and_get_reward' для user {current_user_id}, challenge {challenge_id}")
+                rpc_payload = {
+                    "p_user_id": current_user_id,
+                    "p_challenge_id": challenge_id
+                }
+                rpc_response = await supabase.post("/rpc/claim_challenge_and_get_reward", json=rpc_payload)
+                rpc_response.raise_for_status() # Вызовет ошибку, если RPC вернула RAISE EXCEPTION
 
-            promocode_text = rpc_response.text.strip('"')
-            message = "Награда получена!"
-            
-        # --- НАЧИСЛЯЕМ ВСЕГДА ПОСЛЕ УСПЕШНОГО ВЫПОЛНЕНИЯ ---
-        
+                promocode_text = rpc_response.text.strip('"')
+                message = "Награда получена!"
+                logging.info(f"Успех RPC 'claim_challenge_and_get_reward', промокод: {promocode_text}")
+                # success = True # Устанавливаем флаг успеха
+
+            except httpx.HTTPStatusError as e:
+                # --- ОБРАБОТКА ОШИБКИ ОТ RPC ---
+                error_details = ""
+                try:
+                    # Пытаемся получить детали ошибки из JSON ответа
+                    error_details = e.response.json().get("message", e.response.text)
+                except json.JSONDecodeError:
+                    # Если ответ не JSON, используем текст
+                    error_details = e.response.text
+
+                logging.warning(f"Ошибка RPC 'claim_challenge_and_get_reward': {e.response.status_code} - {error_details}")
+
+                # --- ПОПЫТКА 2: Если ошибка из-за статуса 'completed' (после force_complete) ---
+                # Проверяем, что ошибка связана с тем, что статус НЕ 'pending'
+                # (Текст ошибки зависит от RAISE EXCEPTION в вашей SQL-функции)
+                is_status_error = (
+                    e.response.status_code == 400 and
+                    ('уже выполнен' in error_details or
+                     'обрабатывается' in error_details or
+                     'истек' in error_details or
+                     'not pending' in error_details.lower() or # Дополнительная проверка на английский
+                     status == 'completed' # Проверяем статус, если он доступен в ошибке
+                     )
+                )
+
+                if is_status_error:
+                    logging.info(f"Челлендж {challenge_id} уже в статусе 'completed' или 'processing'. Вызов RPC 'award_reward_and_get_promocode'...")
+                    try:
+                        # Используем RPC, которая проверяет только status='completed' и claimed_at IS NULL
+                        # Важно: Эта RPC должна сама устанавливать claimed_at и кулдаун!
+                        award_rpc_response = await supabase.post(
+                            "/rpc/award_reward_and_get_promocode",
+                            json={"p_user_id": current_user_id, "p_source_type": "challenge", "p_source_id": challenge_id}
+                        )
+                        award_rpc_response.raise_for_status() # Проверяем успех этой RPC
+
+                        # Обрабатываем ответ от award_reward_and_get_promocode
+                        award_data_text = award_rpc_response.text # Получаем текстовый ответ
+                        try:
+                            # Пытаемся распарсить как JSON
+                             award_data = award_rpc_response.json()
+                             if isinstance(award_data, dict) and "code" in award_data:
+                                 promocode_text = award_data["code"]
+                             elif isinstance(award_data, str): # Если вернулась просто строка в JSON
+                                  promocode_text = award_data.strip('"')
+                             else: # Неожиданный JSON
+                                  logging.error(f"Неожиданный JSON ответ от award_reward_and_get_promocode: {award_data}")
+                                  raise HTTPException(status_code=500, detail="Ошибка обработки JSON при выдаче награды.")
+                        except json.JSONDecodeError:
+                             # Если ответ не JSON, предполагаем, что это просто строка промокода
+                             promocode_text = award_data_text.strip('"')
+
+
+                        message = "Награда за принудительно выполненный челлендж получена!"
+                        logging.info(f"Успех RPC 'award_reward_and_get_promocode', промокод: {promocode_text}")
+                        # success = True # Устанавливаем флаг успеха
+
+                        # --- ВАЖНО: УСТАНОВКА КУЛДАУНА (если нужно) ---
+                        # Если award_reward_and_get_promocode НЕ устанавливает кулдаун сам,
+                        # раскомментируйте и адаптируйте этот блок:
+                        # try:
+                        #     cooldown_resp = await supabase.get("/settings", params={"key": "eq.challenge_cooldown_hours", "select": "value"}, headers={"Prefer": "count=exact"})
+                        #     cooldown_data = cooldown_resp.json()
+                        #     cooldown_hours = int(cooldown_data[0]['value']) if cooldown_data else 24
+                        #     await supabase.patch(
+                        #         "/users",
+                        #         params={"telegram_id": f"eq.{current_user_id}"},
+                        #         json={"challenge_cooldown_until": (datetime.now(timezone.utc) + timedelta(hours=cooldown_hours)).isoformat()}
+                        #     )
+                        #     logging.info(f"Установлен кулдаун {cooldown_hours}ч для user {current_user_id} после award_reward_and_get_promocode.")
+                        # except Exception as cooldown_e:
+                        #      logging.error(f"Не удалось установить кулдаун после award_reward_and_get_promocode: {cooldown_e}")
+                        # --- КОНЕЦ БЛОКА КУЛДАУНА ---
+
+                    except httpx.HTTPStatusError as award_e:
+                        award_error_details = ""
+                        try:
+                           award_error_details = award_e.response.json().get("message", award_e.response.text)
+                        except json.JSONDecodeError:
+                           award_error_details = award_e.response.text
+                        logging.error(f"Ошибка RPC 'award_reward_and_get_promocode': {award_error_details}")
+                        # Если и вторая RPC не сработала (например, награда уже была забрана), сообщаем об этом
+                        raise HTTPException(status_code=409, detail=award_error_details) # Используем 409 Conflict
+                    except Exception as award_general_e:
+                         logging.error(f"Неизвестная ошибка при вызове award_reward_and_get_promocode: {award_general_e}", exc_info=True)
+                         raise HTTPException(status_code=500, detail="Внутренняя ошибка при выдаче награды.")
+                else:
+                    # Если ошибка была не из-за статуса 'completed'/'processing', пробрасываем её дальше
+                    raise HTTPException(status_code=e.response.status_code, detail=error_details)
+            except Exception as general_e:
+                 # Ловим другие возможные ошибки при первом вызове RPC
+                 logging.error(f"Неизвестная ошибка при вызове claim_challenge_and_get_reward: {general_e}", exc_info=True)
+                 raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении награды.")
+
+
+        # --- НАЧИСЛЯЕМ БИЛЕТЫ/ЗВЕЗДЫ И ОБНОВЛЯЕМ ТАЙМЕР ПОСЛЕ УСПЕШНОГО ПОЛУЧЕНИЯ НАГРАДЫ ---
+        # Этот блок выполняется, если не было выброшено исключение HTTPException выше
+
         # 1. Начисляем звезду Чекпоинта
-        await supabase.post(
-            "/rpc/increment_checkpoint_stars",
-            json={"p_user_id": current_user_id, "p_amount": 1} 
-        )
-        logging.info(f"✅ Пользователю {current_user_id} начислена 1 звезда для Чекпоинта.")
+        try:
+             await supabase.post(
+                 "/rpc/increment_checkpoint_stars",
+                 json={"p_user_id": current_user_id, "p_amount": 1}
+             )
+             logging.info(f"✅ Пользователю {current_user_id} начислена 1 звезда для Чекпоинта.")
+        except Exception as star_e:
+             logging.error(f"Не удалось начислить звезду чекпоинта для user {current_user_id}: {star_e}")
+             # Не прерываем выполнение, просто логируем ошибку
 
-        # --- НАЧАЛО ИЗМЕНЕНИЯ ---
         # 2. Начисляем билет из таблицы reward_rules
-        ticket_amount = await get_ticket_reward_amount("challenge_completion", supabase)
-        if ticket_amount > 0:
-            await supabase.post(
-                "/rpc/increment_tickets",
-                json={"p_user_id": current_user_id, "p_amount": ticket_amount}
-            )
-            logging.info(f"✅ Пользователю {current_user_id} начислено {ticket_amount} билет(а/ов) за челлендж.")
-        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
+        try:
+             ticket_amount = await get_ticket_reward_amount("challenge_completion", supabase)
+             if ticket_amount > 0:
+                 await supabase.post(
+                     "/rpc/increment_tickets",
+                     json={"p_user_id": current_user_id, "p_amount": ticket_amount}
+                 )
+                 logging.info(f"✅ Пользователю {current_user_id} начислено {ticket_amount} билет(а/ов) за челлендж.")
+        except Exception as ticket_e:
+             logging.error(f"Не удалось начислить билеты за челлендж для user {current_user_id}: {ticket_e}")
+             # Не прерываем выполнение
 
         # Обновляем таймер последнего выполненного челленджа
         try:
@@ -3050,27 +3156,25 @@ async def claim_challenge(
                 json={"p_user_id": current_user_id}
             )
             logging.info(f"✅ Обновлена дата последнего челленджа для пользователя {current_user_id}.")
-        except Exception as e:
-            logging.error(f"Не удалось обновить last_challenge_completed_at для user {current_user_id}: {e}")
+        except Exception as time_e:
+            logging.error(f"Не удалось обновить last_challenge_completed_at для user {current_user_id}: {time_e}")
+            # Не прерываем выполнение
 
         return {
-            "success": True,
+            "success": True, # Возвращаем success=True, если дошли до сюда
             "message": message,
-            "promocode": promocode_text 
+            "promocode": promocode_text
         }
 
-    # --- ИСПРАВЛЕННЫЙ БЛОК ОБРАБОТКИ ОШИБОК ---
-    except httpx.HTTPStatusError as e:
-        # Ловим ошибку от Supabase (например, 400 Bad Request, если RPC вызвала RAISE EXCEPTION)
-        error_details = e.response.json().get("message", "Не удалось выполнить действие.")
-        logging.warning(f"Предотвращена повторная выдача награды или условие не выполнено для user {current_user_id}: {error_details}")
-        
-        # Возвращаем 409 Conflict - это более корректный код для такой ситуации (попытка дублирующего действия)
-        raise HTTPException(status_code=409, detail=error_details)
-    
+    # --- БЛОК ОБРАБОТКИ ОСНОВНЫХ ОШИБОК ---
+    except HTTPException as http_e:
+         # Перехватываем HTTPException, которые мы выбросили выше
+         # Логировать их не нужно, так как они уже залогированы там, где возникли
+         raise http_e # Просто пробрасываем дальше
     except Exception as e:
-        logging.error(f"❌ Неизвестная ошибка при выдаче награды: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+         # Ловим все остальные непредвиденные ошибки
+         logging.error(f"❌ Неизвестная ошибка при выдаче награды за челлендж {challenge_id} для user {current_user_id}: {e}", exc_info=True)
+         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 # --- НОВЫЙ ЭНДПОИНТ: Получение активных сущностей пользователя ---
 @app.get("/api/v1/admin/users/{user_id}/active_entities")
