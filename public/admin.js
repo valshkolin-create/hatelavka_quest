@@ -2036,48 +2036,54 @@ function updateSleepButton(status) {
             });
         }
 
-        // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ МОДАЛКИ ВЫБОРА КВЕСТА/ЧЕЛЛЕНДЖА ---
+        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ МОДАЛКИ ВЫБОРА КВЕСТА/ЧЕЛЛЕНДЖА ---
         if (dom.adminEntitySelectModal) {
-            // Переключение вкладок
             const tabsContainer = dom.adminEntitySelectModal.querySelector('.tabs-container');
+            // Переключение вкладок (этот обработчик остается без изменений)
             tabsContainer.addEventListener('click', (e) => {
+                e.stopPropagation(); // Предотвращаем всплытие до контейнера списка
                 const button = e.target.closest('.tab-button');
                 if (!button || button.classList.contains('active')) return;
-
-                const tabId = button.dataset.tab; // 'quest' или 'challenge'
+                const tabId = button.dataset.tab;
                 tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
                 dom.adminEntityListQuest.classList.toggle('hidden', tabId !== 'quest');
                 dom.adminEntityListChallenge.classList.toggle('hidden', tabId !== 'challenge');
-                loadEntitiesForForceComplete(tabId); // Загружаем данные для активной вкладки
+                // Загружаем данные ТОЛЬКО если контейнер пуст или содержит сообщение о загрузке/ошибке
+                const container = (tabId === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
+                if (!container.querySelector('.entity-list-item')) {
+                    loadEntitiesForForceComplete(tabId);
+                }
             });
 
-            // Клик по элементу в списке
-            dom.adminEntitySelectModal.addEventListener('click', async (e) => {
-                const item = e.target.closest('.submission-item');
-                if (!item || !selectedAdminUser) return; // Проверяем ГЛОБАЛЬНУЮ переменную
+            // --- ЗАМЕНЯЕМ СТАРЫЙ ОБРАБОТЧИК КЛИКА ПО СПИСКУ НА ЭТОТ ---
+            // Клик по элементу списка (делегирование на оба контейнера)
+            [dom.adminEntityListQuest, dom.adminEntityListChallenge].forEach(container => {
+                 container.addEventListener('click', async (e) => {
+                    // --- ВАЖНО: Останавливаем всплытие здесь, чтобы не триггерить клик на вкладках ---
+                    e.stopPropagation();
+                    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-                const entityId = parseInt(item.dataset.entityId);
-                const entityType = item.dataset.entityType;
-                const entityName = item.dataset.entityName;
+                    const item = e.target.closest('.entity-list-item'); // Ищем новый класс
+                    if (!item || !selectedAdminUser) return; // Проверяем, что юзер еще выбран
 
-                tg.showConfirm(`Принудительно выполнить "${entityName}" для пользователя ${selectedAdminUser.name}?`, async (ok) => {
-                    if (ok) {
-                        try {
-                            const result = await makeApiRequest('/api/v1/admin/actions/force_complete', {
-                                user_id: selectedAdminUser.id,
-                                entity_type: entityType,
-                                entity_id: entityId
-                            });
-                            tg.showAlert(result.message);
-                            dom.adminEntitySelectModal.classList.add('hidden');
-                            selectedAdminUser = null; // Сбрасываем
-                        } catch (err) {
-                            tg.showAlert(`Ошибка: ${err.message}`);
+                    const entityId = parseInt(item.dataset.entityId);
+                    const entityType = item.dataset.entityType;
+                    const entityName = item.dataset.entityName;
+
+                    tg.showConfirm(`Принудительно выполнить "${escapeHTML(entityName)}" для ${selectedAdminUser.name}?`, async (ok) => {
+                        if (ok) {
+                            try {
+                                const result = await makeApiRequest('/api/v1/admin/actions/force_complete', { user_id: selectedAdminUser.id, entity_type: entityType, entity_id: entityId });
+                                tg.showAlert(result.message);
+                                dom.adminEntitySelectModal.classList.add('hidden'); // Закрываем модалку
+                                selectedAdminUser = null; // Сбрасываем юзера
+                            } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
                         }
-                    }
+                    });
                 });
             });
+            // --- КОНЕЦ ЗАМЕНЫ ---
         }
         
 
