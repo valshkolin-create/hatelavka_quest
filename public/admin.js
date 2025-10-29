@@ -2053,36 +2053,49 @@ function updateSleepButton(status) {
             });
         }
 
-        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ МОДАЛКИ ВЫБОРА КВЕСТА/ЧЕЛЛЕНДЖА ---
+                // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ МОДАЛКИ ВЫБОРА КВЕСТА/ЧЕЛЛЕНДЖА ---
         if (dom.adminEntitySelectModal) {
             const tabsContainer = dom.adminEntitySelectModal.querySelector('.tabs-container');
-            // Переключение вкладок (этот обработчик остается без изменений)
+
+            // Переключение вкладок
             tabsContainer.addEventListener('click', (e) => {
                 e.stopPropagation(); // Предотвращаем всплытие до контейнера списка
                 const button = e.target.closest('.tab-button');
                 if (!button || button.classList.contains('active')) return;
-                const tabId = button.dataset.tab;
+
+                const tabId = button.dataset.tab; // 'quest' или 'challenge'
+
+                // Обновляем активную вкладку
                 tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
+
+                // Показываем/скрываем нужный контейнер
                 dom.adminEntityListQuest.classList.toggle('hidden', tabId !== 'quest');
                 dom.adminEntityListChallenge.classList.toggle('hidden', tabId !== 'challenge');
-                // Загружаем данные ТОЛЬКО если контейнер пуст или содержит сообщение о загрузке/ошибке
+
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ (v2) ---
+                // Загружаем данные для АКТИВНОЙ вкладки, если они еще не загружены
                 const container = (tabId === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
-                if (!container.querySelector('.entity-list-item')) {
-                    loadEntitiesForForceComplete(tabId);
+                // Проверяем, есть ли уже элементы списка или только сообщение "Загрузка..."/"Ошибка..."/"Не найдено"
+                const needsLoading = !container.querySelector('.entity-list-item');
+
+                if (needsLoading) {
+                    console.log(`[ForceComplete Tabs] Switched to '${tabId}', calling loadEntitiesForForceComplete('${tabId}')...`);
+                    loadEntitiesForForceComplete(tabId); // Вызываем загрузку для нужного типа
+                } else {
+                    console.log(`[ForceComplete Tabs] Switched to '${tabId}', content already loaded.`);
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЯ (v2) ---
             });
 
-            // --- ЗАМЕНЯЕМ СТАРЫЙ ОБРАБОТЧИК КЛИКА ПО СПИСКУ НА ЭТОТ ---
             // Клик по элементу списка (делегирование на оба контейнера)
             [dom.adminEntityListQuest, dom.adminEntityListChallenge].forEach(container => {
                  container.addEventListener('click', async (e) => {
-                    // --- ВАЖНО: Останавливаем всплытие здесь, чтобы не триггерить клик на вкладках ---
+                    // Останавливаем всплытие
                     e.stopPropagation();
-                    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-                    const item = e.target.closest('.entity-list-item'); // Ищем новый класс
-                    if (!item || !selectedAdminUser) return; // Проверяем, что юзер еще выбран
+                    const item = e.target.closest('.entity-list-item');
+                    if (!item || !selectedAdminUser) return;
 
                     const entityId = parseInt(item.dataset.entityId);
                     const entityType = item.dataset.entityType;
@@ -2097,17 +2110,23 @@ function updateSleepButton(status) {
                                 // --- ЛОГ: Успешный ответ ---
                                 console.log(`[ForceComplete API] Success response:`, result);
                                 tg.showAlert(result.message); // Показываем сообщение от бэкенда
+
+                                // --- Добавлено обновление данных (v2) ---
+                                tg.showPopup({message: 'Обновляем данные пользователя... Попросите его перезайти в профиль или список квестов/челленджей.'});
+                                // --- Конец добавления ---
+
                                 dom.adminEntitySelectModal.classList.add('hidden'); // Закрываем модалку
                                 selectedAdminUser = null; // Сбрасываем юзера
                             } catch (err) {
                                 // --- ЛОГ: Ошибка API ---
                                 console.error(`[ForceComplete API] Error response:`, err);
-                                tg.showAlert(`Ошибка принудительного выполнения: ${err.message}`); }
+                                // Теперь err.message содержит ошибку от Supabase благодаря исправлению в Python
+                                tg.showAlert(`Ошибка принудительного выполнения: ${err.message}`);
+                            }
                         }
                     });
                 });
             });
-            // --- КОНЕЦ ЗАМЕНЫ ---
         }
         
 
