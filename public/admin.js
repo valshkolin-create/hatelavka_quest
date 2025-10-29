@@ -2104,7 +2104,6 @@ function updateSleepButton(status) {
                                 console.error(`[ForceComplete API] Error response:`, err);
                                 tg.showAlert(`Ошибка принудительного выполнения: ${err.message}`);
                             }
-                });
             });
             // --- КОНЕЦ ЗАМЕНЫ ---
         }
