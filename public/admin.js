@@ -40,12 +40,16 @@ try {
         grantCheckpointStarsForm: document.getElementById('grant-checkpoint-stars-form'),
         grantCpUserName: document.getElementById('grant-cp-user-name'),
         openGrantCpSearchBtn: document.getElementById('open-grant-cp-search'),
-        freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
         grantTicketsForm: document.getElementById('grant-tickets-form'),
         grantTicketsUserName: document.getElementById('grant-tickets-user-name'),
         openGrantTicketsSearchBtn: document.getElementById('open-grant-tickets-search'),
-        // --- Завершение Админ search ---  
+        freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
+        freezeCpUserName: document.getElementById('freeze-cp-user-name'),
+        openFreezeCpSearchBtn: document.getElementById('open-freeze-cp-search'),
         freezeTicketsForm: document.getElementById('freeze-tickets-form'),
+        freezeTicketsUserName: document.getElementById('freeze-tickets-user-name'),
+        openFreezeTicketsSearchBtn: document.getElementById('open-freeze-tickets-search'),
+        // --- Завершение Админ search ---  
         resetCheckpointProgressForm: document.getElementById('reset-checkpoint-progress-form'),
         clearCheckpointStarsForm: document.getElementById('clear-checkpoint-stars-form'),
         settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
@@ -528,6 +532,14 @@ const showLoader = () => {
                    console.log("[switchView] Выполнен case 'view-admin-main'."); // Лог выполнения case
                    break; // Этот case остается пустым
                 }
+                 case 'view-admin-user-management': {
+                // Пока эта страница не требует специальной загрузки данных при открытии,
+                // поэтому case остается пустым. Главное, чтобы он был.
+                    console.log("[switchView] Выполнен case 'view-admin-user-management'.");
+                    break;
+                }
+            // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+                    
                 // --- ДОБАВЬТЕ ЭТОТ БЛОК ---
                 default: {
                     console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
@@ -2684,23 +2696,41 @@ function updateSleepButton(status) {
             });
         }
 
+        // --- НОВЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ ЗВЕЗД ЧЕКПОИНТА ---
+        if (dom.openFreezeCpSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openFreezeCpSearchBtn.addEventListener('click', () => {
+                dom.freezeCheckpointStarsForm.classList.add('hidden');
+                openAdminUserSearchModal('Заморозить/разморозить звезды Чекпоинта', (user) => {
+                    dom.freezeCheckpointStarsForm.elements['user_id_to_freeze_cp'].value = user.id;
+                    dom.freezeCpUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.freezeCheckpointStarsForm.classList.remove('hidden');
+                    dom.freezeCheckpointStarsForm.elements['days_cp'].focus();
+                });
+            });
+        }
+        
         if(dom.freezeCheckpointStarsForm) {
+            // 2. Отправка самой формы
             dom.freezeCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_freeze_cp'].value);
                 const days = parseInt(form.elements['days_cp'].value);
+                // Проверяем, что userId есть и days - это число (может быть 0)
                 if (!userId || isNaN(days)) return;
 
                 const result = await makeApiRequest('/api/v1/admin/users/freeze-checkpoint-stars', {
-                    user_id_to_freeze: userId,
+                    // --- ИЗМЕНЕНИЕ: Отправляем user_id вместо user_id_to_freeze ---
+                    user_id: userId,
                     days: days
                 });
                 tg.showAlert(result.message);
                 form.reset();
+                form.classList.add('hidden');
             });
         }
-
         // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ БИЛЕТОВ ---
         if (dom.openGrantTicketsSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
@@ -2736,20 +2766,37 @@ function updateSleepButton(status) {
             });
         }
 
+        // --- НОВЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ БИЛЕТОВ ---
+        if (dom.openFreezeTicketsSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openFreezeTicketsSearchBtn.addEventListener('click', () => {
+                dom.freezeTicketsForm.classList.add('hidden');
+                openAdminUserSearchModal('Заморозить/разморозить билеты', (user) => {
+                    dom.freezeTicketsForm.elements['user_id_to_freeze_tickets'].value = user.id;
+                    dom.freezeTicketsUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.freezeTicketsForm.classList.remove('hidden');
+                    dom.freezeTicketsForm.elements['days_tickets'].focus();
+                });
+            });
+        }
         if(dom.freezeTicketsForm) {
+            // 2. Отправка самой формы
             dom.freezeTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_freeze_tickets'].value);
                 const days = parseInt(form.elements['days_tickets'].value);
                 if (!userId || isNaN(days)) return;
 
-                const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', {
-                    user_id_to_freeze: userId,
+                const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', { // Используем /freeze-stars
+                    // --- ИЗМЕНЕНИЕ: Отправляем user_id вместо user_id_to_freeze ---
+                    user_id: userId,
                     days: days
                 });
                 tg.showAlert(result.message);
                 form.reset();
+                form.classList.add('hidden');
             });
         }
 
