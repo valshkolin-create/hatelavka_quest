@@ -757,12 +757,21 @@ async def admin_force_complete(
             raise HTTPException(status_code=400, detail="Неверный тип.")
             
     except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Ошибка базы данных.")
-        raise HTTPException(status_code=400, detail=error_details)
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+        error_details = "Unknown database error"
+        try:
+            # Пытаемся получить детальное сообщение от Supabase
+            error_details = e.response.json().get("message", e.response.text)
+        except json.JSONDecodeError:
+            error_details = e.response.text # Если ответ не JSON
+        logging.error(f"❌ ОШИБКА от Supabase при принудительном выполнении: {e.response.status_code} - {error_details}")
+        # Пробрасываем ошибку Supabase на фронтенд
+        raise HTTPException(status_code=400, detail=f"Ошибка базы данных: {error_details}")
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
     except Exception as e:
         logging.error(f"Ошибка при принудительном выполнении: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выполнить действие.")
-
+        
 # Где-нибудь рядом с другими эндпоинтами
 @app.post("/api/v1/admin/verify_password")
 async def verify_admin_password(request: Request, data: dict = Body(...)):
