@@ -2672,47 +2672,72 @@ function updateSleepButton(status) {
      * @param {string} entityType - 'quest' или 'challenge'
      */
     async function loadEntitiesForForceComplete(entityType) {
-        const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
-        container.innerHTML = '<i>Загрузка...</i>';
+        // --- ЛОГ 1 ---
+        console.log(`[ForceComplete] START: entityType = ${entityType}`);
         
-        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ: Добавлено 'let' ---
-        let activeUserEntities = { quest_id: null, challenge_id: null }; // Сброс перед загрузкой
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+        const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
+        // Я добавил (v3), чтобы мы были уверены, что новый код работает
+        container.innerHTML = '<i>Загрузка... (JS v3)</i>'; 
+        
+        let activeUserEntities = { quest_id: null, challenge_id: null };
 
         if (!selectedAdminUser) {
+            // --- ЛОГ 2 ---
+            console.error("[ForceComplete] FATAL: selectedAdminUser is null!");
             container.innerHTML = '<p class="error-message">Ошибка: Пользователь не выбран.</p>';
             return;
         }
 
+        // --- ЛОГ 3 ---
+        console.log(`[ForceComplete] User selected: ID=${selectedAdminUser.id}, Name=${selectedAdminUser.name}`);
+
         try {
-            // 1. Параллельно: получаем ID активных сущностей и список всех сущностей
+            // --- ЛОГ 4 ---
+            console.log("[ForceComplete] Starting Promise.allSettled...");
             const [activeDataResult, entitiesResult] = await Promise.allSettled([
-                // Используем GET и query параметр для initData
                 makeApiRequest(`/api/v1/admin/users/${selectedAdminUser.id}/active_entities?initData=${encodeURIComponent(tg.initData)}`, {}, 'GET', true),
                 makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true)
             ]);
+            
+            // --- ЛОГ 5 ---
+            console.log("[ForceComplete] Promise.allSettled FINISHED.");
+            // Логируем результаты как строки, чтобы их можно было легко скопировать
+            console.log("[ForceComplete] activeDataResult:", JSON.stringify(activeDataResult, null, 2));
+            console.log("[ForceComplete] entitiesResult:", JSON.stringify(entitiesResult, null, 2));
+
 
             // Обработка результата активных сущностей
             if (activeDataResult.status === 'fulfilled' && activeDataResult.value) {
                 activeUserEntities.quest_id = activeDataResult.value.active_quest_id;
                 activeUserEntities.challenge_id = activeDataResult.value.active_challenge_id;
-                console.log("Активные сущности:", activeUserEntities); // Лог для отладки
+                // --- ЛОГ 6 ---
+                console.log("[ForceComplete] Active entities parsed:", activeUserEntities);
             } else if (activeDataResult.status === 'rejected') {
-                console.warn("Не удалось получить активные сущности:", activeDataResult.reason?.message || activeDataResult.reason);
+                // --- ЛОГ 7 ---
+                console.warn("[ForceComplete] Failed to get active entities:", activeDataResult.reason?.message || activeDataResult.reason);
             }
 
             // Обработка результата списка сущностей
             if (entitiesResult.status === 'rejected') {
+                 // --- ЛОГ 8 ---
+                 console.error("[ForceComplete] Failed to list entities:", entitiesResult.reason);
                  throw entitiesResult.reason; // Перебрасываем ошибку загрузки списка
             }
 
             const entities = entitiesResult.value;
+            
+            // --- ЛОГ 9 ---
+            console.log(`[ForceComplete] Entities list received. Count: ${entities ? entities.length : 'null'}`);
+
 
             if (!entities || entities.length === 0) {
                 container.innerHTML = `<p style="text-align: center;">Активных ${entityType === 'quest' ? 'квестов' : 'челленджей'} не найдено.</p>`;
                 return;
             }
 
+            // --- ЛОГ 10 ---
+            console.log("[ForceComplete] Rendering list...");
+            
             // 3. Рендерим список, отмечая активный
             container.innerHTML = entities.map(entity => {
                 const isActive = (entityType === 'quest' && entity.id === activeUserEntities.quest_id) ||
@@ -2732,9 +2757,15 @@ function updateSleepButton(status) {
                 </div>
             `;
             }).join('');
+            
+            // --- ЛОГ 11 ---
+            console.log("[ForceComplete] Rendering FINISHED.");
 
         } catch (e) {
-            container.innerHTML = `<p class="error-message">Ошибка загрузки: ${e.message}</p>`;
+            // --- ЛОГ 12 ---
+            console.error("[ForceComplete] CATCH block triggered:", e);
+            // Добавляем (v3), чтобы видеть ошибку из нового кода
+            container.innerHTML = `<p class="error-message">Ошибка загрузки (v3): ${e.message}</p>`;
         }
     }
         // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
