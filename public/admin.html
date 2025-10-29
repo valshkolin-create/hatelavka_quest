@@ -114,12 +114,20 @@
                             <i class="fa-solid fa-search"></i> Найти пользователя
                         </button>
                     </div>
-                    <form id="freeze-checkpoint-stars-form" class="admin-form" style="margin-top: 20px;">
-                        <label>Заморозка/разморозка звезд<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю тратить звёзды Чекпоинта. Введите 0 дней для немедленной разморозки.</span></div></label>
-                        <input type="number" name="user_id_to_freeze_cp" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="days_cp" required placeholder="Кол-во дней (0 для разморозки)">
-                        <button type="submit">Применить</button>
-                    </form>
+                    <div class="admin-form" style="margin-top: 20px;">
+                        <label>Заморозка/разморозка звезд Чекпоинта<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю тратить звёзды Чекпоинта. Введите 0 дней для немедленной разморозки.</span></div></label>
+                        <form id="freeze-checkpoint-stars-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
+                            <p style="margin: 0 0 10px;">
+                                Применить для: <strong id="freeze-cp-user-name">...</strong>
+                            </p>
+                            <input type="hidden" name="user_id_to_freeze_cp">
+                            <input type="number" name="days_cp" required placeholder="Кол-во дней (0 для разморозки)">
+                            <button type="submit">Подтвердить заморозку/разморозку</button>
+                        </form>
+                        <button id="open-freeze-cp-search" class="admin-menu-button" style="width: 100%; margin-top: 5px; background-color: var(--status-inactive-color);">
+                            <i class="fa-solid fa-search"></i> Найти пользователя
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="quest-card" style="margin-top: 20px;">
@@ -139,12 +147,20 @@
                             <i class="fa-solid fa-search"></i> Найти пользователя
                         </button>
                     </div>
-                    <form id="freeze-tickets-form" class="admin-form" style="margin-top: 20px;">
+                    <div class="admin-form" style="margin-top: 20px;">
                         <label>Заморозка/разморозка билетов<div class="tooltip">?<span class="tooltip-text">Временно запрещает пользователю участвовать в розыгрышах. Введите 0 дней для немедленной разморозки.</span></div></label>
-                        <input type="number" name="user_id_to_freeze_tickets" required placeholder="Telegram ID пользователя">
-                        <input type="number" name="days_tickets" required placeholder="Кол-во дней (0 для разморозки)">
-                        <button type="submit">Применить</button>
-                    </form>
+                        <form id="freeze-tickets-form" class="hidden" style="margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
+                            <p style="margin: 0 0 10px;">
+                                Применить для: <strong id="freeze-tickets-user-name">...</strong>
+                            </p>
+                            <input type="hidden" name="user_id_to_freeze_tickets">
+                            <input type="number" name="days_tickets" required placeholder="Кол-во дней (0 для разморозки)">
+                            <button type="submit">Подтвердить заморозку/разморозку</button>
+                        </form>
+                        <button id="open-freeze-tickets-search" class="admin-menu-button" style="width: 100%; margin-top: 5px; background-color: var(--status-inactive-color);">
+                            <i class="fa-solid fa-search"></i> Найти пользователя
+                        </button>
+                    </div>
                 </div>
             </div>
           <div id="admin-entity-select-modal" class="modal-overlay hidden">
