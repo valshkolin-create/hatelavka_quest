@@ -3071,7 +3071,54 @@ async def claim_challenge(
     except Exception as e:
         logging.error(f"❌ Неизвестная ошибка при выдаче награды: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-        
+
+# --- НОВЫЙ ЭНДПОИНТ: Получение активных сущностей пользователя ---
+@app.get("/api/v1/admin/users/{user_id}/active_entities")
+async def admin_get_user_active_entities(
+    user_id: int,
+    initData: str = Query(...), # Получаем initData из query параметра
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает ID активного квеста и/или челленджа для пользователя."""
+    # Валидация админа
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Получаем активный квест пользователя
+        user_resp = await supabase.get(
+            "/users",
+            params={"telegram_id": f"eq.{user_id}", "select": "active_quest_id"}
+        )
+        user_resp.raise_for_status()
+        user_data = user_resp.json()
+        active_quest_id = user_data[0].get("active_quest_id") if user_data else None
+
+        # Получаем активный челлендж пользователя (pending и не истекший)
+        challenge_resp = await supabase.get(
+            "/user_challenges",
+            params={
+                "user_id": f"eq.{user_id}",
+                "status": "eq.pending",
+                "expires_at": f"gte.{datetime.now(timezone.utc).isoformat()}", # gte = greater than or equal
+                "select": "challenge_id",
+                "limit": 1
+            }
+        )
+        challenge_resp.raise_for_status()
+        challenge_data = challenge_resp.json()
+        active_challenge_id = challenge_data[0].get("challenge_id") if challenge_data else None
+
+        return {
+            "active_quest_id": active_quest_id,
+            "active_challenge_id": active_challenge_id
+        }
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении активных сущностей для user {user_id} (админ): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось получить данные.")
+
 @app.get("/api/v1/challenges/{challenge_id}/debug")
 async def check_challenge_state(
     challenge_id: int,
