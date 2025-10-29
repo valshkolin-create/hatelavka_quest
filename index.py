@@ -736,41 +736,59 @@ async def admin_force_complete(
 
     p_user_id = request_data.user_id
     p_entity_id = request_data.entity_id
+    entity_type = request_data.entity_type # Сохраняем тип для логирования
 
     try:
-        if request_data.entity_type == 'quest':
-            # Вызываем RPC-функцию для выполнения квеста
-            await supabase.post(
-                "/rpc/admin_force_complete_quest",
-                json={"p_user_id": p_user_id, "p_quest_id": p_entity_id}
-            )
-            return {"message": "Квест принудительно выполнен. Пользователь может забрать награду."}
-            
-        elif request_data.entity_type == 'challenge':
-            # Вызываем RPC-функцию для выполнения челленджа
-            await supabase.post(
-                "/rpc/admin_force_complete_challenge",
-                json={"p_user_id": p_user_id, "p_challenge_id": p_entity_id}
-            )
-            return {"message": "Челлендж принудительно выполнен. Пользователь может забрать награду."}
+        rpc_function = ""
+        payload = {}
+
+        if entity_type == 'quest':
+            rpc_function = "/rpc/admin_force_complete_quest"
+            payload = {"p_user_id": p_user_id, "p_quest_id": p_entity_id}
+            message_on_success = "Квест принудительно выполнен. Пользователь может забрать награду."
+
+        elif entity_type == 'challenge':
+            rpc_function = "/rpc/admin_force_complete_challenge"
+            payload = {"p_user_id": p_user_id, "p_challenge_id": p_entity_id}
+            message_on_success = "Челлендж принудительно выполнен. Пользователь может забрать награду."
         else:
             raise HTTPException(status_code=400, detail="Неверный тип.")
-            
+
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Вызываем RPC и проверяем ответ ---
+        logging.info(f"Вызов RPC '{rpc_function}' с payload: {payload}")
+        response = await supabase.post(rpc_function, json=payload)
+
+        # Эта строка выбросит исключение HTTPStatusError для ответов 4xx/5xx (и, возможно, 3xx)
+        response.raise_for_status()
+        logging.info(f"Успешный ответ от RPC '{rpc_function}'. Status: {response.status_code}")
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        return {"message": message_on_success}
+
     except httpx.HTTPStatusError as e:
-        # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-        error_details = "Unknown database error"
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Улучшенная обработка ошибок ---
+        error_details = f"Unknown database error (Status: {e.response.status_code})"
         try:
             # Пытаемся получить детальное сообщение от Supabase
             error_details = e.response.json().get("message", e.response.text)
         except json.JSONDecodeError:
             error_details = e.response.text # Если ответ не JSON
-        logging.error(f"❌ ОШИБКА от Supabase при принудительном выполнении: {e.response.status_code} - {error_details}")
-        # Пробрасываем ошибку Supabase на фронтенд
+
+        # Логируем полную ошибку
+        logging.error(f"❌ ОШИБКА от Supabase при вызове '{rpc_function}': {e.response.status_code} - {error_details}")
+
+        # Пробрасываем ошибку Supabase на фронтенд с кодом 400
+        # Код 300 тоже попадет сюда и будет возвращен как 400 с деталями
         raise HTTPException(status_code=400, detail=f"Ошибка базы данных: {error_details}")
         # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+    except HTTPException as http_e:
+         # Если мы сами выбросили HTTPException (например, "Неверный тип.")
+         raise http_e
     except Exception as e:
-        logging.error(f"Ошибка при принудительном выполнении: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось выполнить действие.")
+        # Ловим все остальные непредвиденные ошибки
+        logging.error(f"Непредвиденная ошибка при принудительном выполнении ({entity_type} ID: {p_entity_id} для user: {p_user_id}): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
         
 # Где-нибудь рядом с другими эндпоинтами
 @app.post("/api/v1/admin/verify_password")
