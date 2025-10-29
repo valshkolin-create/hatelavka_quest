@@ -147,6 +147,27 @@
                     </form>
                 </div>
             </div>
+          <div id="admin-entity-select-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="admin-entity-select-title" class="modal-title">Выберите что выполнить</h2>
+            <button class="modal-close-btn" data-close-modal="admin-entity-select-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="tabs-container" style="margin-bottom: 0;">
+                <button class="tab-button active" data-tab="quest">Квест</button>
+                <button class="tab-button" data-tab="challenge">Челлендж</button>
+            </div>
+            <div id="admin-entity-list-quest" class="tab-content active" style="padding-top: 15px; max-height: 40vh; overflow-y: auto;">
+                <i>Загрузка квестов...</i>
+            </div>
+            <div id="admin-entity-list-challenge" class="tab-content hidden" style="padding-top: 15px; max-height: 40vh; overflow-y: auto;">
+                <i>Загрузка челленджей...</i>
+            </div>
+        </div>
+    </div>
+</div>
+   
             <div class="quest-card" style="margin-top: 20px;">
                  <div class="user-management-section">
                     <h3 style="color: var(--danger-color);"><i class="fa-solid fa-broom"></i> Очистка прогресса (Чекпоинт)</h3>
