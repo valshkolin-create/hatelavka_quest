@@ -2018,25 +2018,38 @@ function updateSleepButton(status) {
         // --- КОНЕЦ НОВЫХ ОБРАБОТЧИКОВ ---
         // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ "ПРИНУДИТЕЛЬНО ВЫПОЛНИТЬ" ---
         if (dom.openForceCompleteSearchBtn) {
-    dom.openForceCompleteSearchBtn.addEventListener('click', () => {
-        openAdminUserSearchModal('Принудительно выполнить для...', (user) => {
-            selectedAdminUser = user;
-            if (dom.adminEntitySelectTitle && dom.adminEntitySelectModal) { // Проверка
-                dom.adminEntitySelectTitle.textContent = `Выполнить для: ${user.name}`;
-                dom.adminEntitySelectModal.classList.remove('hidden');
-                const tabsContainer = dom.adminEntitySelectModal.querySelector('.tabs-container');
-                const firstTabButton = tabsContainer?.querySelector('.tab-button[data-tab="quest"]');
-                if(firstTabButton){
-                    firstTabButton.click();
-                } else {
-                     loadEntitiesForForceComplete('quest');
-                }
-            } else {
-                console.error("Entity select modal elements not found!");
-            }
-        });
-    });
-}
+            dom.openForceCompleteSearchBtn.addEventListener('click', () => {
+                openAdminUserSearchModal('Принудительно выполнить для...', (user) => {
+                    selectedAdminUser = user;
+
+                    // --- ИЗМЕНЕНИЕ: Прямой поиск элементов ---
+                    const modalElement = document.getElementById('admin-entity-select-modal');
+                    const titleElement = document.getElementById('admin-entity-select-title');
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+                    console.log("Inside callback for openForceCompleteSearchBtn:");
+                    console.log("Found modalElement:", modalElement); // Лог найденного элемента
+                    console.log("Found titleElement:", titleElement); // Лог найденного элемента
+
+                    if (titleElement && modalElement) { // Проверяем найденные элементы
+                        titleElement.textContent = `Выполнить для: ${user.name}`;
+                        modalElement.classList.remove('hidden');
+                        const tabsContainer = modalElement.querySelector('.tabs-container'); // Ищем внутри найденного modalElement
+                        const firstTabButton = tabsContainer?.querySelector('.tab-button[data-tab="quest"]');
+                        if(firstTabButton){
+                            firstTabButton.click();
+                        } else {
+                             // Если вкладки не найдены, все равно пытаемся загрузить
+                             console.warn("Could not find tabs/button, loading quests directly.");
+                             loadEntitiesForForceComplete('quest');
+                        }
+                    } else {
+                        console.error("Entity select modal elements NOT FOUND using getElementById!"); // Новая, более явная ошибка
+                        tg.showAlert("Критическая ошибка: Не найдены элементы окна выбора квеста/челленджа.");
+                    }
+                });
+            });
+        }
 
         // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ МОДАЛКИ ВЫБОРА КВЕСТА/ЧЕЛЛЕНДЖА ---
         if (dom.adminEntitySelectModal) {
