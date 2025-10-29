@@ -323,6 +323,10 @@ class TwitchRewardIdRequest(BaseModel):
     initData: str
     reward_id: int
 
+class AdminUserSearchRequest(BaseModel):
+    initData: str
+    search_term: str
+
 class EventUpdateRequest(BaseModel):
     initData: str
     event_id: int
@@ -3698,6 +3702,34 @@ async def toggle_sleep_mode(request_data: SleepModeRequest, supabase: httpx.Asyn
     )
     
     return {"message": message, "new_status": new_value}
+
+# --- НОВЫЙ ЭНДПОИНТ: Поиск пользователей для админки ---
+@app.post("/api/v1/admin/users/search")
+async def admin_search_users(
+    request_data: AdminUserSearchRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Ищет пользователей по ID, TG-нику или Twitch-нику."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    term = request_data.search_term.strip()
+    if len(term) < 2: # Не ищем по слишком коротким запросам
+        return []
+
+    try:
+        # Эта RPC-функция будет искать по нескольким полям
+        response = await supabase.post(
+            "/rpc/admin_search_users",
+            json={"p_term": f"%{term}%"} # Используем % для поиска подстроки
+        )
+        response.raise_for_status()
+        return response.json()
+
+    except Exception as e:
+        logging.error(f"Ошибка при поиске пользователя (админ): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выполнить поиск.")
     
 @app.post("/api/v1/admin/challenges")
 async def get_all_challenges(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
