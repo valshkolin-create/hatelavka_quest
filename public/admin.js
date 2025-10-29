@@ -2022,29 +2022,31 @@ function updateSleepButton(status) {
                 openAdminUserSearchModal('Принудительно выполнить для...', (user) => {
                     selectedAdminUser = user;
 
-                    // --- ИЗМЕНЕНИЕ: Прямой поиск элементов ---
                     const modalElement = document.getElementById('admin-entity-select-modal');
                     const titleElement = document.getElementById('admin-entity-select-title');
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+                    const tabsContainer = modalElement?.querySelector('.tabs-container'); // Находим контейнер вкладок
+                    const firstTabButton = tabsContainer?.querySelector('.tab-button[data-tab="quest"]'); // Находим кнопку "Квест"
 
-                    console.log("Inside callback for openForceCompleteSearchBtn:");
-                    console.log("Found modalElement:", modalElement); // Лог найденного элемента
-                    console.log("Found titleElement:", titleElement); // Лог найденного элемента
+                    console.log("[ForceComplete] User selected, preparing modal.");
 
-                    if (titleElement && modalElement) { // Проверяем найденные элементы
+                    if (titleElement && modalElement && firstTabButton) { // Проверяем все элементы
                         titleElement.textContent = `Выполнить для: ${user.name}`;
                         modalElement.classList.remove('hidden');
-                        const tabsContainer = modalElement.querySelector('.tabs-container'); // Ищем внутри найденного modalElement
-                        const firstTabButton = tabsContainer?.querySelector('.tab-button[data-tab="quest"]');
-                        if(firstTabButton){
-                            firstTabButton.click();
-                        } else {
-                             // Если вкладки не найдены, все равно пытаемся загрузить
-                             console.warn("Could not find tabs/button, loading quests directly.");
-                             loadEntitiesForForceComplete('quest');
-                        }
+
+                        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                        // 1. Активируем первую вкладку (Квест)
+                        tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                        firstTabButton.classList.add('active');
+                        dom.adminEntityListQuest.classList.remove('hidden'); // Показываем контент квестов
+                        dom.adminEntityListChallenge.classList.add('hidden'); // Прячем контент челленджей
+
+                        // 2. СРАЗУ ЗАГРУЖАЕМ СПИСОК КВЕСТОВ
+                        console.log("[ForceComplete] Modal opened, calling loadEntitiesForForceComplete('quest')...");
+                        loadEntitiesForForceComplete('quest'); // <-- ВЫЗЫВАЕМ ЗАГРУЗКУ
+                        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
                     } else {
-                        console.error("Entity select modal elements NOT FOUND using getElementById!"); // Новая, более явная ошибка
+                        console.error("[ForceComplete] Entity select modal elements NOT FOUND!");
                         tg.showAlert("Критическая ошибка: Не найдены элементы окна выбора квеста/челленджа.");
                     }
                 });
