@@ -43,15 +43,26 @@ try {
         grantTicketsForm: document.getElementById('grant-tickets-form'),
         grantTicketsUserName: document.getElementById('grant-tickets-user-name'),
         openGrantTicketsSearchBtn: document.getElementById('open-grant-tickets-search'),
-        freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
         freezeCpUserName: document.getElementById('freeze-cp-user-name'),
         openFreezeCpSearchBtn: document.getElementById('open-freeze-cp-search'),
-        freezeTicketsForm: document.getElementById('freeze-tickets-form'),
         freezeTicketsUserName: document.getElementById('freeze-tickets-user-name'),
         openFreezeTicketsSearchBtn: document.getElementById('open-freeze-tickets-search'),
-        // --- Завершение Админ search ---  
+        // --- Завершение Админ search ---
+        // Заморозка
+        freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
+        freezeCpUserName: document.getElementById('freeze-cp-user-name'), // Новое
+        openFreezeCpSearchBtn: document.getElementById('open-freeze-cp-search'), // Новое
+        freezeTicketsForm: document.getElementById('freeze-tickets-form'),
+        freezeTicketsUserName: document.getElementById('freeze-tickets-user-name'), // Новое
+        openFreezeTicketsSearchBtn: document.getElementById('open-freeze-tickets-search'), // Новое
+        // Очистка (новые элементы)
         resetCheckpointProgressForm: document.getElementById('reset-checkpoint-progress-form'),
+        resetCpProgressUserName: document.getElementById('reset-cp-progress-user-name'), // Новое
+        openResetCpProgressSearchBtn: document.getElementById('open-reset-cp-progress-search'), // Новое
         clearCheckpointStarsForm: document.getElementById('clear-checkpoint-stars-form'),
+        clearCpStarsUserName: document.getElementById('clear-cp-stars-user-name'), // Новое
+        openClearCpStarsSearchBtn: document.getElementById('open-clear-cp-stars-search'), // Новое
+        // --- Завершение Админ search ---
         settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
         settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
         saveSettingsBtn: document.getElementById('save-settings-btn'),
@@ -65,7 +76,6 @@ try {
         settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
         // --- НОВЫЙ КОД ---       
         settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
-        // --- КОНЕЦ НОВОГО КОДА ---
         // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ПОИСКА ПОЛЬЗОВАТЕЛЯ ---
         adminUserSearchModal: document.getElementById('admin-user-search-modal'),
         adminUserSearchTitle: document.getElementById('admin-user-search-title'),
@@ -532,13 +542,19 @@ const showLoader = () => {
                    console.log("[switchView] Выполнен case 'view-admin-main'."); // Лог выполнения case
                    break; // Этот case остается пустым
                 }
+                 // --- ДОБАВЬ ЭТОТ CASE ---
                  case 'view-admin-user-management': {
-                // Пока эта страница не требует специальной загрузки данных при открытии,
-                // поэтому case остается пустым. Главное, чтобы он был.
                     console.log("[switchView] Выполнен case 'view-admin-user-management'.");
+                    // Сбрасываем видимость скрытых форм при переходе
+                    [
+                        dom.grantCheckpointStarsForm, dom.grantTicketsForm,
+                        dom.freezeCheckpointStarsForm, dom.freezeTicketsForm,
+                        dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm
+                    ].forEach(form => form?.classList.add('hidden'));
+                    selectedAdminUser = null; // Сбрасываем выбранного юзера
                     break;
                 }
-            // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+                // --- КОНЕЦ ДОБАВЛЕНИЯ ---
                     
                 // --- ДОБАВЬТЕ ЭТОТ БЛОК ---
                 default: {
@@ -2629,33 +2645,69 @@ function updateSleepButton(status) {
             });
         }
 
-        /**
-     * Загружает список квестов или челленджей в модальное окно.
+    /**
+     * Загружает и отображает список квестов или челленджей в модальное окно.
+     * Отмечает активный для выбранного пользователя.
      * @param {string} entityType - 'quest' или 'challenge'
      */
     async function loadEntitiesForForceComplete(entityType) {
         const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
         container.innerHTML = '<i>Загрузка...</i>';
+        activeUserEntities = { quest_id: null, challenge_id: null }; // Сброс перед загрузкой
+
+        if (!selectedAdminUser) {
+            container.innerHTML = '<p class="error-message">Ошибка: Пользователь не выбран.</p>';
+            return;
+        }
 
         try {
-            const entities = await makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true);
-            
+            // 1. Параллельно: получаем ID активных сущностей и список всех сущностей
+            const [activeDataResult, entitiesResult] = await Promise.allSettled([
+                // Используем GET и query параметр для initData
+                makeApiRequest(`/api/v1/admin/users/${selectedAdminUser.id}/active_entities?initData=${encodeURIComponent(tg.initData)}`, {}, 'GET', true),
+                makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true)
+            ]);
+
+            // Обработка результата активных сущностей
+            if (activeDataResult.status === 'fulfilled' && activeDataResult.value) {
+                activeUserEntities.quest_id = activeDataResult.value.active_quest_id;
+                activeUserEntities.challenge_id = activeDataResult.value.active_challenge_id;
+                console.log("Активные сущности:", activeUserEntities); // Лог для отладки
+            } else if (activeDataResult.status === 'rejected') {
+                console.warn("Не удалось получить активные сущности:", activeDataResult.reason?.message || activeDataResult.reason);
+            }
+
+            // Обработка результата списка сущностей
+            if (entitiesResult.status === 'rejected') {
+                 throw entitiesResult.reason; // Перебрасываем ошибку загрузки списка
+            }
+
+            const entities = entitiesResult.value;
+
             if (!entities || entities.length === 0) {
                 container.innerHTML = `<p style="text-align: center;">Активных ${entityType === 'quest' ? 'квестов' : 'челленджей'} не найдено.</p>`;
                 return;
             }
 
-            container.innerHTML = entities.map(entity => `
-                <div class="submission-item"
+            // 3. Рендерим список, отмечая активный
+            container.innerHTML = entities.map(entity => {
+                const isActive = (entityType === 'quest' && entity.id === activeUserEntities.quest_id) ||
+                                 (entityType === 'challenge' && entity.id === activeUserEntities.challenge_id);
+                const activeClass = isActive ? 'active' : ''; // Класс для подсветки
+
+                // Используем класс 'entity-list-item' для элементов списка
+                return `
+                <div class="submission-item entity-list-item ${activeClass}"
                      data-entity-id="${entity.id}"
                      data-entity-type="${entityType}"
                      data-entity-name="${escapeHTML(entity.title)}"
-                     style="cursor: pointer; padding: 12px 5px;">
+                     style="cursor: pointer;">
                     <p style="margin: 0; font-weight: 500;">
                         ${escapeHTML(entity.title)} (ID: ${entity.id})
                     </p>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
         } catch (e) {
             container.innerHTML = `<p class="error-message">Ошибка загрузки: ${e.message}</p>`;
@@ -2710,25 +2762,37 @@ function updateSleepButton(status) {
             });
         }
         
+        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ ЗВЕЗД ЧЕКПОИНТА ---
+        if (dom.openFreezeCpSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openFreezeCpSearchBtn.addEventListener('click', () => {
+                dom.freezeCheckpointStarsForm.classList.add('hidden'); // Прячем форму подтверждения
+                openAdminUserSearchModal('Заморозить/разморозить звезды Чекпоинта', (user) => {
+                    // Коллбэк после выбора пользователя
+                    dom.freezeCheckpointStarsForm.elements['user_id_to_freeze_cp'].value = user.id;
+                    dom.freezeCpUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.freezeCheckpointStarsForm.classList.remove('hidden'); // Показываем форму
+                    dom.freezeCheckpointStarsForm.elements['days_cp'].focus();
+                });
+            });
+        }
         if(dom.freezeCheckpointStarsForm) {
-            // 2. Отправка самой формы
+            // 2. Отправка самой формы (после выбора пользователя)
             dom.freezeCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_freeze_cp'].value);
                 const days = parseInt(form.elements['days_cp'].value);
-                // Проверяем, что userId есть и days - это число (может быть 0)
-                if (!userId || isNaN(days)) return;
-
-                const result = await makeApiRequest('/api/v1/admin/users/freeze-checkpoint-stars', {
-                    // --- ИЗМЕНЕНИЕ: Отправляем user_id вместо user_id_to_freeze ---
-                    user_id: userId,
-                    days: days
-                });
-                tg.showAlert(result.message);
-                form.reset();
-                form.classList.add('hidden');
+                if (!userId || isNaN(days)) { // days может быть 0
+                     tg.showAlert('Выберите пользователя и укажите количество дней.');
+                     return;
+                }
+                try {
+                    // Используем user_id из Pydantic модели
+                    const result = await makeApiRequest('/api/v1/admin/users/freeze-checkpoint-stars', { user_id: userId, days: days });
+                    tg.showAlert(result.message);
+                    form.reset(); form.classList.add('hidden'); selectedAdminUser = null; // Сброс
+                } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
             });
         }
         // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ БИЛЕТОВ ---
@@ -2779,57 +2843,101 @@ function updateSleepButton(status) {
                 });
             });
         }
+        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ БИЛЕТОВ ---
+        if (dom.openFreezeTicketsSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openFreezeTicketsSearchBtn.addEventListener('click', () => {
+                dom.freezeTicketsForm.classList.add('hidden');
+                openAdminUserSearchModal('Заморозить/разморозить билеты', (user) => {
+                    dom.freezeTicketsForm.elements['user_id_to_freeze_tickets'].value = user.id;
+                    dom.freezeTicketsUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.freezeTicketsForm.classList.remove('hidden');
+                    dom.freezeTicketsForm.elements['days_tickets'].focus();
+                });
+            });
+        }
         if(dom.freezeTicketsForm) {
             // 2. Отправка самой формы
             dom.freezeTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_freeze_tickets'].value);
                 const days = parseInt(form.elements['days_tickets'].value);
-                if (!userId || isNaN(days)) return;
-
-                const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', { // Используем /freeze-stars
-                    // --- ИЗМЕНЕНИЕ: Отправляем user_id вместо user_id_to_freeze ---
-                    user_id: userId,
-                    days: days
-                });
-                tg.showAlert(result.message);
-                form.reset();
-                form.classList.add('hidden');
+                 if (!userId || isNaN(days)) {
+                     tg.showAlert('Выберите пользователя и укажите количество дней.');
+                     return;
+                 }
+                try {
+                    // Используем user_id из Pydantic модели
+                    const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', { user_id: userId, days: days });
+                    tg.showAlert(result.message);
+                    form.reset(); form.classList.add('hidden'); selectedAdminUser = null; // Сброс
+                } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
             });
         }
-
-        if(dom.resetCheckpointProgressForm) {
+        
+        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК СБРОСА НАГРАД ЧЕКПОИНТА ---
+        if (dom.openResetCpProgressSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openResetCpProgressSearchBtn.addEventListener('click', () => {
+                dom.resetCheckpointProgressForm.classList.add('hidden');
+                openAdminUserSearchModal('Сбросить награды Чекпоинта', (user) => {
+                    dom.resetCheckpointProgressForm.elements['user_id_to_reset'].value = user.id;
+                    dom.resetCpProgressUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.resetCheckpointProgressForm.classList.remove('hidden');
+                });
+            });
+        }
+        if (dom.resetCheckpointProgressForm) {
+            // 2. Отправка самой формы
             dom.resetCheckpointProgressForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_reset'].value);
                 if (!userId) return;
 
-                tg.showConfirm(`Вы уверены, что хотите сбросить ТОЛЬКО СПИСОК НАГРАД Чекпоинта для пользователя ${userId}? Его звёзды останутся.`, async (ok) => {
+                tg.showConfirm(`Точно сбросить ВСЕ награды Чекпоинта для пользователя ${dom.resetCpProgressUserName.textContent}? Звёзды останутся.`, async (ok) => {
                     if (ok) {
-                        const result = await makeApiRequest('/api/v1/admin/users/reset-checkpoint-progress', { user_id: userId });
-                        tg.showAlert(result.message);
-                        form.reset();
+                         try {
+                            // Эндпоинт остается тот же, но теперь ID берется из скрытого поля
+                            const result = await makeApiRequest('/api/v1/admin/users/reset-checkpoint-progress', { user_id: userId });
+                            tg.showAlert(result.message);
+                            form.reset(); form.classList.add('hidden'); selectedAdminUser = null;
+                        } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
                     }
                 });
             });
         }
 
-        if(dom.clearCheckpointStarsForm) {
+        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ОБНУЛЕНИЯ ЗВЕЗД ЧЕКПОИНТА ---
+        if (dom.openClearCpStarsSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openClearCpStarsSearchBtn.addEventListener('click', () => {
+                dom.clearCheckpointStarsForm.classList.add('hidden');
+                openAdminUserSearchModal('Обнулить звёзды Чекпоинта', (user) => {
+                    dom.clearCheckpointStarsForm.elements['user_id_to_clear'].value = user.id;
+                    dom.clearCpStarsUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.clearCheckpointStarsForm.classList.remove('hidden');
+                });
+            });
+        }
+        if (dom.clearCheckpointStarsForm) {
+            // 2. Отправка самой формы
             dom.clearCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_clear'].value);
                 if (!userId) return;
 
-                tg.showConfirm(`Вы уверены, что хотите ОБНУЛИТЬ БАЛАНС ЗВЁЗД Чекпоинта для пользователя ${userId}? Его полученные награды останутся.`, async (ok) => {
-                    if (ok) {
-                        const result = await makeApiRequest('/api/v1/admin/users/clear-checkpoint-stars', { user_id: userId });
-                        tg.showAlert(result.message);
-                        form.reset();
-                    }
+                tg.showConfirm(`Точно обнулить БАЛАНС звёзд Чекпоинта для ${dom.clearCpStarsUserName.textContent}? Полученные награды останутся.`, async (ok) => {
+                     if (ok) {
+                         try {
+                             // Эндпоинт остается тот же
+                             const result = await makeApiRequest('/api/v1/admin/users/clear-checkpoint-stars', { user_id: userId });
+                             tg.showAlert(result.message);
+                             form.reset(); form.classList.add('hidden'); selectedAdminUser = null;
+                         } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
+                     }
                 });
             });
         }
