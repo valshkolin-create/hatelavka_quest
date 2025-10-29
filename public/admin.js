@@ -2018,23 +2018,25 @@ function updateSleepButton(status) {
         // --- КОНЕЦ НОВЫХ ОБРАБОТЧИКОВ ---
         // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ "ПРИНУДИТЕЛЬНО ВЫПОЛНИТЬ" ---
         if (dom.openForceCompleteSearchBtn) {
-            dom.openForceCompleteSearchBtn.addEventListener('click', () => {
-                // 1. Сначала ищем пользователя
-                openAdminUserSearchModal('Принудительно выполнить для...', (user) => {
-                    // 2. Пользователь выбран, сохраняем его в ГЛОБАЛЬНУЮ переменную
-                    selectedAdminUser = user; // Используем `selectedAdminUser`
-                    
-                    // 3. Открываем вторую модалку (выбора квеста/челленджа)
-                    dom.adminEntitySelectTitle.textContent = `Выполнить для: ${user.name}`;
-                    dom.adminEntitySelectModal.classList.remove('hidden');
-                    
-                    // 4. Сбрасываем вкладки и загружаем данные
-                    const tabsContainer = dom.adminEntitySelectModal.querySelector('.tabs-container');
-                    tabsContainer.querySelector('.tab-button[data-tab="quest"]').click();
-                    loadEntitiesForForceComplete('quest'); // Загружаем квесты по умолчанию
-                });
-            });
-        }
+    dom.openForceCompleteSearchBtn.addEventListener('click', () => {
+        openAdminUserSearchModal('Принудительно выполнить для...', (user) => {
+            selectedAdminUser = user;
+            if (dom.adminEntitySelectTitle && dom.adminEntitySelectModal) { // Проверка
+                dom.adminEntitySelectTitle.textContent = `Выполнить для: ${user.name}`;
+                dom.adminEntitySelectModal.classList.remove('hidden');
+                const tabsContainer = dom.adminEntitySelectModal.querySelector('.tabs-container');
+                const firstTabButton = tabsContainer?.querySelector('.tab-button[data-tab="quest"]');
+                if(firstTabButton){
+                    firstTabButton.click();
+                } else {
+                     loadEntitiesForForceComplete('quest');
+                }
+            } else {
+                console.error("Entity select modal elements not found!");
+            }
+        });
+    });
+}
 
         // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ МОДАЛКИ ВЫБОРА КВЕСТА/ЧЕЛЛЕНДЖА ---
         if (dom.adminEntitySelectModal) {
