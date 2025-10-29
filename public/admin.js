@@ -2091,12 +2091,19 @@ function updateSleepButton(status) {
                     tg.showConfirm(`Принудительно выполнить "${escapeHTML(entityName)}" для ${selectedAdminUser.name}?`, async (ok) => {
                         if (ok) {
                             try {
+                                // --- ЛОГ: Перед вызовом API ---
+                                console.log(`[ForceComplete API] Calling /force_complete with:`, { user_id: selectedAdminUser.id, entity_type: entityType, entity_id: entityId });
                                 const result = await makeApiRequest('/api/v1/admin/actions/force_complete', { user_id: selectedAdminUser.id, entity_type: entityType, entity_id: entityId });
-                                tg.showAlert(result.message);
+                                // --- ЛОГ: Успешный ответ ---
+                                console.log(`[ForceComplete API] Success response:`, result);
+                                tg.showAlert(result.message); // Показываем сообщение от бэкенда
                                 dom.adminEntitySelectModal.classList.add('hidden'); // Закрываем модалку
                                 selectedAdminUser = null; // Сбрасываем юзера
-                            } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
-                        }
+                            } catch (err) {
+                                // --- ЛОГ: Ошибка API ---
+                                console.error(`[ForceComplete API] Error response:`, err);
+                                tg.showAlert(`Ошибка принудительного выполнения: ${err.message}`);
+                            }
                     });
                 });
             });
@@ -2668,19 +2675,19 @@ function updateSleepButton(status) {
             });
         }
 
-    /**
+/**
      * Загружает и отображает список квестов или челленджей в модальное окно.
-     * Отмечает активный для выбранного пользователя.
+     * Отмечает и сортирует активный для выбранного пользователя.
      * @param {string} entityType - 'quest' или 'challenge'
      */
     async function loadEntitiesForForceComplete(entityType) {
         // --- ЛОГ 1 ---
         console.log(`[ForceComplete] START: entityType = ${entityType}`);
-        
+
         const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
-        // Я добавил (v3), чтобы мы были уверены, что новый код работает
-        container.innerHTML = '<i>Загрузка... (JS v3)</i>'; 
-        
+        // Добавил (v4) для уверенности
+        container.innerHTML = '<i>Загрузка... (JS v4)</i>';
+
         let activeUserEntities = { quest_id: null, challenge_id: null };
 
         if (!selectedAdminUser) {
@@ -2700,13 +2707,11 @@ function updateSleepButton(status) {
                 makeApiRequest(`/api/v1/admin/users/${selectedAdminUser.id}/active_entities?initData=${encodeURIComponent(tg.initData)}`, {}, 'GET', true),
                 makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true)
             ]);
-            
+
             // --- ЛОГ 5 ---
             console.log("[ForceComplete] Promise.allSettled FINISHED.");
-            // Логируем результаты как строки, чтобы их можно было легко скопировать
             console.log("[ForceComplete] activeDataResult:", JSON.stringify(activeDataResult, null, 2));
             console.log("[ForceComplete] entitiesResult:", JSON.stringify(entitiesResult, null, 2));
-
 
             // Обработка результата активных сущностей
             if (activeDataResult.status === 'fulfilled' && activeDataResult.value) {
@@ -2726,8 +2731,8 @@ function updateSleepButton(status) {
                  throw entitiesResult.reason; // Перебрасываем ошибку загрузки списка
             }
 
-            const entities = entitiesResult.value;
-            
+            let entities = entitiesResult.value; // Используем let, так как будем сортировать
+
             // --- ЛОГ 9 ---
             console.log(`[ForceComplete] Entities list received. Count: ${entities ? entities.length : 'null'}`);
 
@@ -2737,16 +2742,28 @@ function updateSleepButton(status) {
                 return;
             }
 
+            // --- СОРТИРОВКА ---
+            const activeEntityId = (entityType === 'quest') ? activeUserEntities.quest_id : activeUserEntities.challenge_id;
+            entities.sort((a, b) => {
+                const aIsActive = a.id === activeEntityId;
+                const bIsActive = b.id === activeEntityId;
+                if (aIsActive && !bIsActive) return -1; // Активный элемент идет первым
+                if (!aIsActive && bIsActive) return 1;  // Активный элемент идет первым
+                // Если оба активны/неактивны, сортируем по ID или названию (опционально)
+                return (a.title || '').localeCompare(b.title || ''); // Сортировка по названию
+                // return a.id - b.id; // Или сортировка по ID
+            });
+            console.log("[ForceComplete] Entities sorted.");
+            // --- КОНЕЦ СОРТИРОВКИ ---
+
             // --- ЛОГ 10 ---
             console.log("[ForceComplete] Rendering list...");
-            
-            // 3. Рендерим список, отмечая активный
+
+            // 3. Рендерим отсортированный список
             container.innerHTML = entities.map(entity => {
-                const isActive = (entityType === 'quest' && entity.id === activeUserEntities.quest_id) ||
-                                 (entityType === 'challenge' && entity.id === activeUserEntities.challenge_id);
+                const isActive = entity.id === activeEntityId; // Перепроверяем после сортировки
                 const activeClass = isActive ? 'active' : ''; // Класс для подсветки
 
-                // Используем класс 'entity-list-item' для элементов списка
                 return `
                 <div class="submission-item entity-list-item ${activeClass}"
                      data-entity-id="${entity.id}"
@@ -2754,22 +2771,22 @@ function updateSleepButton(status) {
                      data-entity-name="${escapeHTML(entity.title)}"
                      style="cursor: pointer;">
                     <p style="margin: 0; font-weight: 500;">
-                        ${escapeHTML(entity.title)} (ID: ${entity.id})
+                        ${isActive ? '⭐ ' : ''}${escapeHTML(entity.title)} (ID: ${entity.id})
                     </p>
                 </div>
             `;
             }).join('');
-            
+
             // --- ЛОГ 11 ---
             console.log("[ForceComplete] Rendering FINISHED.");
 
         } catch (e) {
             // --- ЛОГ 12 ---
             console.error("[ForceComplete] CATCH block triggered:", e);
-            // Добавляем (v3), чтобы видеть ошибку из нового кода
-            container.innerHTML = `<p class="error-message">Ошибка загрузки (v3): ${e.message}</p>`;
+            container.innerHTML = `<p class="error-message">Ошибка загрузки (v4): ${e.message}</p>`;
         }
     }
+
         // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
         if (dom.openGrantCpSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
