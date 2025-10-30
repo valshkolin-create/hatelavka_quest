@@ -1186,7 +1186,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         }
     }
 
-    async function loadTwitchRewards() {
+        async function loadTwitchRewards() {
         const container = document.getElementById('twitch-rewards-container');
         container.innerHTML = '';
         try {
@@ -1231,6 +1231,41 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
 
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'admin-icon-button';
+                itemDiv.dataset.rewardId = reward.id;
+
+                const pendingCount = reward.pending_count || 0;
+                const badgeHtml = pendingCount > 0
+                    ? `<span class="notification-badge">${pendingCount}</span>`
+                    : '';
+                
+                // Иконка по умолчанию
+                const iconUrl = reward.icon_url || 'https://static-cdn.jtvnw.net/custom-reward-images/default-4.png';
+                
+                // Скрываем инпут, если hasAdminAccess = false
+                const adminDisplayStyle = hasAdminAccess ? 'block' : 'none';
+
+                itemDiv.innerHTML = `
+                    <div class="icon-wrapper">
+                        <a href="#" class="reward-purchases-link" data-reward-id="${reward.id}" data-reward-title="${escapeHTML(reward.title)}">
+                            <img src="${escapeHTML(iconUrl)}" alt="reward">
+                        </a>
+                        
+                        <button class="reward-shortcut-btn reward-settings-btn" data-reward='${JSON.stringify(reward)}'>
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
+                        
+                        ${badgeHtml}
+                        
+                    </div>
+                    <span>${escapeHTML(reward.title)}</span>
+                `;
+                container.appendChild(itemDiv);
+            }); // <--- ВОТ ЭТИ СТРОКИ БЫЛИ УДАЛЕНЫ
+        } catch (e) {
+            console.error('Ошибка загрузки Twitch наград:', e);
+            container.innerHTML = `<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград: ${e.message}</p>`;
+        }
+    }
     
     async function loadAdminGrantLog() {
         if (!dom.adminGrantLogList) return;
