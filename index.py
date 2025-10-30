@@ -723,6 +723,8 @@ async def admin_list_entities(
         logging.error(f"Ошибка при получении списка (админ): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список.")
 
+
+
 # --- НОВЫЙ ЭНДПОИНТ: Принудительное выполнение ---
 @app.post("/api/v1/admin/actions/force_complete")
 async def admin_force_complete(
@@ -3563,11 +3565,59 @@ async def get_leaderboard_data(request: Request, period: str = "day", supabase: 
     return response.json()
 
 @app.post("/api/v1/user/rewards")
-async def get_user_rewards(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_user_rewards(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Возвращает ОБЪЕДИНЕННЫЙ список наград: промокоды и ручные выдачи."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info: raise HTTPException(status_code=401, detail="Доступ запрещен")
-    rewards_resp = await supabase.get("/promocodes", params={"telegram_id": f"eq.{user_info['id']}", "select": "code,description,reward_value,claimed_at", "order": "claimed_at.desc"})
-    return rewards_resp.json()
+    if not user_info or "id" not in user_info: 
+        raise HTTPException(status_code=401, detail="Доступ запрещен")
+    
+    user_id = user_info['id']
+    all_rewards = []
+
+    try:
+        # 1. Получаем промокоды
+        promocodes_resp = await supabase.get(
+            "/promocodes", 
+            params={
+                "telegram_id": f"eq.{user_id}", 
+                "select": "code,description,reward_value,claimed_at"
+            }
+        )
+        promocodes = promocodes_resp.json()
+        for promo in promocodes:
+            all_rewards.append({
+                "type": "promocode",
+                "date": promo['claimed_at'],
+                "data": promo
+            })
+
+        # 2. Получаем ручные выдачи
+        grants_resp = await supabase.get(
+            "/manual_grants",
+            params={
+                "user_id": f"eq.{user_id}",
+                "select": "created_at, grant_type, amount"
+            }
+        )
+        grants = grants_resp.json()
+        for grant in grants:
+            all_rewards.append({
+                "type": "grant",
+                "date": grant['created_at'],
+                "data": grant
+            })
+            
+        # 3. Сортируем все награды по дате (новые сверху)
+        all_rewards.sort(key=lambda x: x['date'], reverse=True)
+        
+        return all_rewards
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении объединенных наград для {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить список наград.")
 
 # --- ИСПРАВЛЕННЫЙ ЭНДПОИНТ ДЛЯ КВЕСТОВ ---
 @app.post("/api/v1/promocode")
@@ -3990,6 +4040,34 @@ async def admin_search_users(
     except Exception as e:
         logging.error(f"Ошибка при поиске пользователя (админ): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выполнить поиск.")
+
+@app.post("/api/v1/admin/grants/log")
+async def get_admin_grant_log(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает лог выдачи наград за последние 7 дней."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    try:
+        # Запрашиваем записи за последнюю неделю
+        seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        
+        resp = await supabase.get(
+            "/manual_grants",
+            params={
+                "created_at": f"gte.{seven_days_ago}",
+                "select": "*",
+                "order": "created_at.desc"
+            }
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        logging.error(f"Ошибка при получении лога выдачи: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить лог.")
     
 @app.post("/api/v1/admin/challenges")
 async def get_all_challenges(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -4877,13 +4955,15 @@ async def update_admin_settings(
 @app.post("/api/v1/admin/users/grant-checkpoint-stars")
 async def grant_checkpoint_stars_to_user(
     request_data: AdminGrantCheckpointStarsRequest,
+    background_tasks: BackgroundTasks, # <-- Добавили BackgroundTasks
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Вручную выдает звезды для Чекпоинта."""
+    """(Админ) Вручную выдает звезды для Чекпоинта, логирует действие и уведомляет пользователя."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    admin_id = user_info["id"]
     user_id_to_grant = request_data.user_id_to_grant
     amount = request_data.amount
 
@@ -4891,12 +4971,41 @@ async def grant_checkpoint_stars_to_user(
         raise HTTPException(status_code=400, detail="Количество звезд должно быть положительным.")
 
     try:
-        # Вызываем новую RPC функцию, которую мы создали
+        # 1. Получаем имена админа и пользователя
+        # (Мы можем сделать это одним запросом, но для ясности разделим)
+        admin_name_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "full_name"})
+        user_name_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id_to_grant}", "select": "full_name"})
+        
+        admin_name = admin_name_resp.json()[0]['full_name'] if admin_name_resp.json() else "Админ"
+        user_name = user_name_resp.json()[0]['full_name'] if user_name_resp.json() else "Пользователь"
+
+        # 2. Вызываем RPC функцию
         await supabase.post(
             "/rpc/increment_checkpoint_stars",
             json={"p_user_id": user_id_to_grant, "p_amount": amount}
         )
-        return {"message": f"{amount} звезд Чекпоинта успешно выдано пользователю {user_id_to_grant}."}
+        
+        # 3. Пишем лог в новую таблицу
+        await supabase.post(
+            "/manual_grants",
+            json={
+                "admin_id": admin_id,
+                "user_id": user_id_to_grant,
+                "grant_type": "checkpoint_stars",
+                "amount": amount,
+                "admin_name": admin_name,
+                "user_name": user_name
+            }
+        )
+
+        # 4. Отправляем уведомление пользователю в фоне
+        notification_text = (
+            f"⭐ Вам начислено <b>{amount} звёзд</b> Чекпоинта!\n\n"
+            f"Награда выдана администратором и уже доступна на вашем балансе в профиле."
+        )
+        background_tasks.add_task(safe_send_message, user_id_to_grant, notification_text)
+
+        return {"message": f"{amount} звезд Чекпоинта успешно выдано пользователю {user_name}."}
     except Exception as e:
         logging.error(f"Ошибка при выдаче звезд Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выдать звезды Чекпоинта.")
@@ -4981,13 +5090,15 @@ async def freeze_user_stars(
 @app.post("/api/v1/admin/users/grant-stars")
 async def grant_stars_to_user(
     request_data: AdminGrantStarsRequest,
+    background_tasks: BackgroundTasks, # <-- Добавили BackgroundTasks
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Вручную выдает указанное количество звезд (билетов) пользователю."""
+    """(Админ) Вручную выдает билеты, логирует действие и уведомляет пользователя."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    admin_id = user_info["id"]
     user_id_to_grant = request_data.user_id_to_grant
     amount = request_data.amount
 
@@ -4995,12 +5106,40 @@ async def grant_stars_to_user(
         raise HTTPException(status_code=400, detail="Количество звезд должно быть положительным.")
 
     try:
-        # Мы используем существующую RPC функцию для увеличения билетов (звезд)
+        # 1. Получаем имена
+        admin_name_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "full_name"})
+        user_name_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id_to_grant}", "select": "full_name"})
+        
+        admin_name = admin_name_resp.json()[0]['full_name'] if admin_name_resp.json() else "Админ"
+        user_name = user_name_resp.json()[0]['full_name'] if user_name_resp.json() else "Пользователь"
+
+        # 2. Вызываем RPC
         await supabase.post(
             "/rpc/increment_tickets",
             json={"p_user_id": user_id_to_grant, "p_amount": amount}
         )
-        return {"message": f"{amount} билетов успешно выдано пользователю {user_id_to_grant}."}
+
+        # 3. Пишем лог
+        await supabase.post(
+            "/manual_grants",
+            json={
+                "admin_id": admin_id,
+                "user_id": user_id_to_grant,
+                "grant_type": "tickets",
+                "amount": amount,
+                "admin_name": admin_name,
+                "user_name": user_name
+            }
+        )
+
+        # 4. Отправляем уведомление
+        notification_text = (
+            f"🎟️ Вам начислено <b>{amount} билетов</b>!\n\n"
+            f"Награда выдана администратором и уже доступна на вашем балансе."
+        )
+        background_tasks.add_task(safe_send_message, user_id_to_grant, notification_text)
+
+        return {"message": f"{amount} билетов успешно выдано пользователю {user_name}."}
     except Exception as e:
         logging.error(f"Ошибка при выдаче звезд пользователю {user_id_to_grant}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выдать билеты.")
