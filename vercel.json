@@ -10,6 +10,13 @@
       "use": "@vercel/python"
     }
   ],
+
+  "build": { 
+    "env": {
+      "FORCE_REBUILD_TIMESTAMP": "1" 
+    }
+  },
+
   "routes": [
     { "src": "/public/(.*)", "dest": "/public/$1" },
     { "src": "/menu", "dest": "/public/menu.html" },
