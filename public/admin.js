@@ -996,9 +996,9 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 
                 <div class="submission-user-header">
                     <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
-                    <a href="tg://user?id=${action.user_id}" target="_blank" rel="noopener noreferrer" class="admin-tg-link-btn" style="background-color: #007aff; padding: 6px 10px; font-size: 12px; text-decoration: none; flex-shrink: 0;">
+                    <button type="button" class="admin-tg-link-btn" data-user-id="${action.user_id}" style="background-color: #007aff; padding: 6px 10px; font-size: 12px; text-decoration: none; flex-shrink: 0; border: none; color: white; font-family: inherit; cursor: pointer; border-radius: 6px; line-height: 1.2;">
                         <i class="fa-solid fa-paper-plane"></i> Написать
-                    </a>
+                    </button>
                 </div>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
@@ -2353,6 +2353,17 @@ function updateSleepButton(status) {
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
 
+            // --- 👇 ВОТ ЭТОТ БЛОК НУЖНО ДОБАВИТЬ 👇 ---
+            const writeToUserBtn = target.closest('.admin-tg-link-btn');
+            if (writeToUserBtn) {
+                const userId = writeToUserBtn.dataset.userId;
+                if (userId && window.Telegram && window.Telegram.WebApp) {
+                    // Это "официальный" способ открытия ссылок в Mini App
+                    window.Telegram.WebApp.openLink(`tg://user?id=${userId}`);
+                }
+                return; // Важно, чтобы другие обработчики не сработали
+            }
+            // --- 👆 КОНЕЦ НОВОГО БЛОКА 👆 ---
             // --- Новые обработчики для Котла ---
             const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
             if (addRewardBtn) {
