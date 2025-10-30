@@ -628,29 +628,36 @@ function renderChallenge(challengeData, isGuest) {
     
     function renderActiveAutomaticQuest(quest, userData) {
         dom.activeAutomaticQuestContainer.innerHTML = '';
-        if (!quest || !userData || !userData.active_quest_id) {
-            console.log("renderActiveAutomaticQuest: Нет активного квеста для отображения."); // DEBUG
+        if (!quest) {
+            console.log("renderActiveAutomaticQuest: Квест для отображения не передан.");
             return;
         }
-        const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
-        if (!activeQuest) {
-             console.error("renderActiveAutomaticQuest: Не найдены детали для active_quest_id:", userData.active_quest_id); // DEBUG
-             return;
-        }
-        
-        console.log("renderActiveAutomaticQuest: Отображаем квест:", activeQuest.title, "ID:", activeQuest.id); // DEBUG
 
-        const iconHtml = (activeQuest.icon_url && activeQuest.icon_url !== "") ? `<img src="${activeQuest.icon_url}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>`;
-        const progress = userData.active_quest_progress || 0;
-        const target = activeQuest.target_value || 1;
+        console.log("renderActiveAutomaticQuest: Отображаем квест:", quest.title, "ID:", quest.id);
+
+        const iconHtml = (quest.icon_url && quest.icon_url !== "") ? `<img src="${quest.icon_url}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>`;
+        
+        // Используем 'current_progress' из объекта квеста (который мы добавили в SQL)
+        const progress = quest.current_progress || 0; 
+        const target = quest.target_value || 1;
         const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
-        const isCompleted = progress >= target;
-        const isTwitchQuest = activeQuest.quest_type && activeQuest.quest_type.includes('twitch');
+        
+        // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
+        // Проверяем флаг 'is_claimable', который приходит из SQL
+        const isCompletedAndNotClaimed = quest.is_claimable === true;
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        const isTwitchQuest = quest.quest_type && quest.quest_type.includes('twitch');
         const twitchNotice = isTwitchQuest ? createTwitchNoticeHtml() : '';
+        
         let buttonHtml = '';
-        if (isCompleted) {
-            buttonHtml = `<button class="claim-reward-button" data-quest-id="${activeQuest.id}"><i class="fa-solid fa-gift"></i> <span>Забрать</span></button>`;
+        if (isCompletedAndNotClaimed) {
+            // ЕСЛИ ГОТОВ К ПОЛУЧЕНИЮ - показываем кнопку "Забрать"
+            console.log(`renderActiveAutomaticQuest: Квест ${quest.id} готов к получению.`);
+            buttonHtml = `<button class="claim-reward-button" data-quest-id="${quest.id}"><i class="fa-solid fa-gift"></i> <span>Забрать</span></button>`;
         } else {
+            // ИНАЧЕ - квест в процессе выполнения, показываем кнопку "Отменить"
+            console.log(`renderActiveAutomaticQuest: Квест ${quest.id} в процессе выполнения.`);
             const lastCancel = userData.last_quest_cancel_at;
             let cancelBtnDisabled = false;
             let cooldownEndTime = null;
@@ -676,9 +683,10 @@ function renderChallenge(challengeData, isGuest) {
                 }, 0);
             }
         }
+        
         const currentProgress = Math.min(progress, target);
         let progressTextContent = `${currentProgress} / ${target}`;
-        const questType = activeQuest.quest_type || '';
+        const questType = quest.quest_type || '';
         if (questType.includes('twitch_uptime')) {
             progressTextContent = `${currentProgress} / ${target} мин.`;
         } else if (questType.includes('twitch_messages')) {
@@ -687,19 +695,23 @@ function renderChallenge(challengeData, isGuest) {
             progressTextContent = `✉️ ${currentProgress} / ${target}`;
         }
         
-        const questEndDate = userData.active_quest_end_date;
-        console.log("renderActiveAutomaticQuest: Дата окончания квеста (questEndDate):", questEndDate); // DEBUG
+        // Ищем дату окончания в 'active_quest_end_date' из userData (если квест активен)
+        // или в 'expires_at' из самого квеста (если SQL-функция это добавит, пока не используется)
+        const questEndDate = userData.active_quest_id === quest.id ? userData.active_quest_end_date : null; 
+        console.log("renderActiveAutomaticQuest: Дата окончания квеста (questEndDate):", questEndDate);
 
-        // --- ИЗМЕНЕНИЕ: Добавили '...' как начальный текст ---
-        const timerHtml = questEndDate ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer">...</div>` : '';
+        const timerHtml = questEndDate ? `<div id="quest-timer-${quest.id}" class="challenge-timer">...</div>` : '';
         
         dom.activeAutomaticQuestContainer.innerHTML = `
             <div class="quest-card">
-                ${!isCompleted ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
+                ${isCompletedAndNotClaimed ? 
+                    '<div class="active-quest-indicator" style="color: #FFCC00; background-color: rgba(255, 204, 0, 0.15);">Готово к выдаче!</div>' : 
+                    '<div class="active-quest-indicator">Выполняется</div>'}
+                
                 <div class="quest-content-wrapper">
                     ${iconHtml}
-                    <h2 class="quest-title">${activeQuest.title || ''}</h2>
-                    <p class="quest-subtitle">${activeQuest.description || ''}</p>
+                    <h2 class="quest-title">${quest.title || ''}</h2>
+                    <p class="quest-subtitle">${quest.description || ''}</p>
                     ${timerHtml} 
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${percent}%;"></div>
@@ -711,17 +723,15 @@ function renderChallenge(challengeData, isGuest) {
             </div>`;
             
         if (questEndDate) {
-            // --- ИЗМЕНЕНИЕ: Убедимся, что элемент найден перед запуском таймера ---
-            // Даем браузеру микро-задачу на отрисовку перед поиском элемента
             setTimeout(() => {
-                 const timerElement = document.getElementById(`quest-timer-${activeQuest.id}`);
+                 const timerElement = document.getElementById(`quest-timer-${quest.id}`);
                  if (timerElement) {
-                    console.log(`renderActiveAutomaticQuest: Элемент таймера #quest-timer-${activeQuest.id} НАЙДЕН. Запускаем startCountdown.`); // DEBUG
-                    startCountdown(timerElement, questEndDate, `quest_${activeQuest.id}`);
+                    console.log(`renderActiveAutomaticQuest: Элемент таймера #quest-timer-${quest.id} НАЙДЕН. Запускаем startCountdown.`);
+                    startCountdown(timerElement, questEndDate, `quest_${quest.id}`);
                  } else {
-                    console.error(`renderActiveAutomaticQuest: Элемент таймера #quest-timer-${activeQuest.id} НЕ НАЙДЕН после отрисовки!`); // DEBUG
+                    console.error(`renderActiveAutomaticQuest: Элемент таймера #quest-timer-${quest.id} НЕ НАЙДЕН после отрисовки!`);
                  }
-            }, 0); // Нулевая задержка выполнит код после текущего потока отрисовки
+            }, 0);
         }
         
         dom.questChooseBtn.classList.add('hidden');
@@ -1103,7 +1113,13 @@ function setupEventListeners() {
             if (sessionStorage.getItem('newPromoReceived') === 'true') {
                 dom.newPromoNotification.classList.remove('hidden');
             }
-            const dashboardData = await makeApiRequest("/api/v1/user/me");
+            
+            // Запрашиваем данные пользователя и квесты одновременно
+            const [dashboardData, questsDataResp] = await Promise.all([
+                makeApiRequest("/api/v1/user/me"),
+                makeApiRequest("/api/v1/quests/list")
+            ]);
+
             userData = dashboardData || {}; 
             const challengeData = dashboardData.challenge;
             const isGuest = !userData || !userData.full_name;
@@ -1114,9 +1130,10 @@ function setupEventListeners() {
                 if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
             }
             document.getElementById('ticketStats').textContent = userData.tickets || 0;
+
+            // Обработка баннеров (как и было)
             const menuContent = await menuContentPromise;
             if (menuContent) {
-                // --- НОВЫЙ КОД ДЛЯ СОРТИРОВКИ СЛАЙДОВ ---
                 const sliderWrapper = document.querySelector('.slider-wrapper');
                 if (sliderWrapper && menuContent.slider_order) {
                     menuContent.slider_order.forEach(slideId => {
@@ -1126,25 +1143,18 @@ function setupEventListeners() {
                         }
                     });
                 }
-                // --- КОНЕЦ НОВОГО КОДА ---
-
-                // --- НОВЫЙ КОД: Логика для баннера "Гонка за скинами" ---
                 const skinRaceBannerImg = document.getElementById('menu-banner-img');
                 const skinRaceSlide = skinRaceBannerImg ? skinRaceBannerImg.closest('.slide') : null;
-
                 if (skinRaceSlide) {
-                    // Показываем слайд, если гонка включена ИЛИ если пользователь - админ
                     if (menuContent.skin_race_enabled || (userData && userData.is_admin)) {
-                        skinRaceSlide.style.display = ''; // Показываем слайд
+                        skinRaceSlide.style.display = ''; 
                         if (menuContent.menu_banner_url) {
                             skinRaceBannerImg.src = menuContent.menu_banner_url;
                         }
                     } else {
-                        skinRaceSlide.style.display = 'none'; // Скрываем слайд
+                        skinRaceSlide.style.display = 'none';
                     }
                 }
-                // --- КОНЕЦ НОВОГО КОДА ---
-
                 if (menuContent.checkpoint_banner_url) {
                     const checkpointBannerImg = document.getElementById('checkpoint-banner-img');
                     if (checkpointBannerImg) {
@@ -1152,65 +1162,69 @@ function setupEventListeners() {
                     }
                 }
             }
-            // --- Логика для баннера ивента "Котел" (ИСПРАВЛЕНО ДЛЯ АДМИНА) ---
+            
+            // Обработка баннера "Котел" (как и было)
             try {
                 const eventData = await fetch('/api/v1/events/cauldron/status', {
-                    headers: { 'X-Init-Data': Telegram.WebApp.initData } // Отправляем initData для проверки админа
+                    headers: { 'X-Init-Data': Telegram.WebApp.initData }
                 }).then(res => res.json());
-
                 const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
-
                 if (eventSlide) {
-                    // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
-                    // Показываем слайд, если (ивент видим для всех) ИЛИ (текущий пользователь - админ)
                     if ((eventData && eventData.is_visible_to_users) || (userData && userData.is_admin)) {
-                        
-                        // Если ивент активен (или мы админ), настраиваем и показываем слайд
                         eventSlide.href = eventData.event_page_url || '/halloween';
                         const img = eventSlide.querySelector('img');
                         if (img && eventData.banner_image_url) {
                             img.src = eventData.banner_image_url;
                         }
-                        eventSlide.style.display = ''; // Показываем слайд
-                        
+                        eventSlide.style.display = ''; 
                     } else {
-                        // Если ивент неактивен и мы НЕ админ, скрываем слайд
                         eventSlide.style.display = 'none';
                     }
                 }
             } catch (e) {
                 console.error("Не удалось загрузить статус ивента 'Котел'", e);
                 const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
-                
-                // --- ИЗМЕНЕНИЕ ПРИ ОШИБКЕ ---
-                // Прячем слайд при ошибке только если пользователь НЕ админ
                 if (eventSlide && !(userData && userData.is_admin)) {
                     eventSlide.style.display = 'none';
                 } else if (eventSlide) {
-                    // Если админ, но произошла ошибка, все равно оставляем слайд видимым
                     eventSlide.style.display = '';
                 }
             }
-            // --- Конец логики для баннера ---
             
-            // ВЫЗОВ ФУНКЦИИ СЛАЙДЕРА (ПРАВИЛЬНОЕ МЕСТО)
             setTimeout(() => {
                 setupSlider();
             }, 0);
 
-            const questsDataResp = await makeApiRequest("/api/v1/quests/list");
-            allQuests = questsDataResp || [];
-            questsForRoulette = allQuests.filter(q => q.quest_type && q.quest_type.startsWith('automatic') && !q.is_completed);
-            const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+            // --- КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ В ЛОГИКЕ КВЕСТОВ ---
+            allQuests = questsDataResp || []; // Сохраняем все квесты (и активные, и готовые, и новые)
+            
+            // Ищем, есть ли в ответе квест, который активен ИЛИ готов к получению
+            // (SQL-функция теперь возвращает такой квест как единственный элемент массива)
+            const activeOrClaimableQuest = (allQuests.length === 1) ? allQuests[0] : null;
+
             const questChooseWrapper = document.getElementById('quest-choose-wrapper');
-            if (questChooseWrapper) {
-                questChooseWrapper.classList.toggle('hidden', !!activeQuest);
-            }
-            if (activeQuest) {
-                renderActiveAutomaticQuest(activeQuest, userData);
+
+            if (activeOrClaimableQuest) {
+                // Если есть активный ИЛИ готовый к выдаче квест - рендерим его
+                console.log(`[main] Найден активный или готовый квест: ${activeOrClaimableQuest.title} (is_claimable: ${activeOrClaimableQuest.is_claimable})`);
+                renderActiveAutomaticQuest(activeOrClaimableQuest, userData);
+                if (questChooseWrapper) questChooseWrapper.classList.add('hidden'); // Прячем кнопку "Начать испытание"
             } else {
-                dom.activeAutomaticQuestContainer.innerHTML = '';
+                // Если нет ни активного, ни готового к выдаче
+                console.log("[main] Нет активных/готовых квестов, показываем список для выбора.");
+                dom.activeAutomaticQuestContainer.innerHTML = ''; // Очищаем контейнер активного
+                if (questChooseWrapper) questChooseWrapper.classList.remove('hidden'); // Показываем кнопку "Начать испытание"
+                
+                // Фильтруем квесты, которые доступны для рулетки (т.е. новые)
+                questsForRoulette = allQuests.filter(q => 
+                    q.quest_type && q.quest_type.startsWith('automatic') && 
+                    q.is_claimable === false &&
+                    q.current_progress === 0 // Убедимся, что это новый квест
+                );
             }
+            // --- КОНЕЦ ИЗМЕНЕНИЙ В ЛОГИКЕ КВЕСТОВ ---
+
+            // Рендерим челлендж (как и было)
             if (challengeData) {
                 renderChallenge(challengeData, !userData.twitch_id);
             } else {
