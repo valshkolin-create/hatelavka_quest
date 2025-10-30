@@ -2644,33 +2644,62 @@ async def update_twitch_reward(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     reward_id = request_data.id
-    # --- ИЗМЕНЕНИЕ ---
-    # Получаем все поля, КРОМЕ initData и id
-    # НЕ ИСПОЛЬЗУЙТЕ exclude_none=True, иначе null не отправится для sort_order
-    update_fields = request_data.dict(exclude={'initData', 'id'})
-    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ: Перевод имен колонок ---
 
-    if not update_fields:
+    # 1. Получаем все поля, которые прислал фронтенд (включая null для sort_order)
+    update_data = request_data.dict(exclude={'initData', 'id'})
+    
+    # 2. Создаем новый словарь, который пойдет в Supabase
+    supabase_payload = {}
+
+    # 3. Копируем все ключи из присланных данных
+    for key, value in update_data.items():
+        supabase_payload[key] = value
+
+    # 4. Переименовываем 'reward_type' -> 'reward_action_type'
+    if 'reward_type' in supabase_payload:
+        supabase_payload['reward_action_type'] = supabase_payload.pop('reward_type')
+
+    # 5. Переименовываем 'reward_amount' -> 'promocode_amount'
+    #    Ваш JS-код уже обеспечивает, что 'reward_amount' и 'promocode_amount'
+    #    приходят с одинаковым значением.
+    if 'reward_amount' in supabase_payload:
+        supabase_payload['promocode_amount'] = supabase_payload.pop('reward_amount')
+
+    # 6. Удаляем 'promocode_amount', если он пришел как None (чтобы не нарушить 'not null')
+    if 'promocode_amount' in supabase_payload and supabase_payload['promocode_amount'] is None:
+        # Если 'promocode_amount' стал None, а он 'not null' в базе,
+        # лучше его удалить, чтобы база использовала 'default 10'.
+        # Но если вы сделали поле 'required' в HTML (как я советовал), 
+        # 'None' сюда не придет, и эта проверка просто для безопасности.
+        del supabase_payload['promocode_amount']
+
+    # Теперь в supabase_payload лежат 'promocode_amount', 'reward_action_type', 'sort_order' и т.д.
+    # 'reward_amount' и 'reward_type' в нем больше нет.
+    
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+    if not supabase_payload:
         raise HTTPException(status_code=400, detail="Нет полей для обновления")
 
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ (Блок try...except) ---
     try:
         response = await supabase.patch(
             "/twitch_rewards",
             params={"id": f"eq.{reward_id}"},
-            json=update_fields
+            json=supabase_payload  # <--- Используем новый, исправленный payload
         )
         response.raise_for_status() # <--- Эта строка выбросит ошибку, если Supabase вернул 400
     
     except httpx.HTTPStatusError as e:
-        # Перехватываем ошибку от Supabase и отправляем ее на фронтенд
         error_details = e.response.json().get("message", e.response.text)
         logging.error(f"Ошибка Supabase при обновлении twitch_rewards: {error_details}")
+        # Добавляем лог того, что мы пытались отправить
+        logging.error(f"Payload, который не понравился Supabase: {supabase_payload}")
         raise HTTPException(status_code=400, detail=f"Ошибка Supabase: {error_details}")
     except Exception as e:
         logging.error(f"Неизвестная ошибка при обновлении twitch_rewards: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     return {"status": "ok", "message": "Настройки награды обновлены."}
 
