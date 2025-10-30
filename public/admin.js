@@ -1028,7 +1028,11 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             const questDescription = action.quest_description || 'Описание отсутствует.';
             const rewardAmount = action.reward_amount || '?';
             const userFullName = action.user_full_name || 'Неизвестный';
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            
+            // --- 👇 ИЗМЕНЕНИЕ 1: Достаем username 👇 ---
+            // (Предполагаем, что бэкенд отдает поле "user_username")
+            const userUsername = action.user_username || ''; 
+            // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 1 👆 ---
 
             const cardHtml = `
             <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
@@ -1042,12 +1046,15 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 
                 <div class="submission-user-header">
                     <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
-                    <a href="tg://user?id=${action.user_id}" 
-                       class="admin-tg-link-btn admin-action-btn" 
-                       style="background-color: #007aff; flex-shrink: 0; text-decoration: none;">
-                        <i class="fa-solid fa-paper-plane"></i> Написать
-                    </a>
-                </div>
+                    
+                    <button type="button" 
+                            class="admin-contact-btn admin-action-btn" 
+                            data-user-id="${action.user_id}"
+                            data-user-username="${escapeHTML(userUsername)}" 
+                            style="background-color: #007aff; flex-shrink: 0;">
+                        <i class="fa-solid fa-user"></i> Связаться
+                    </button>
+                    </div>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
                     <div class="submission-data">${submissionContentHtml}</div>
@@ -1790,6 +1797,105 @@ function updateSleepButton(status) {
         }
     }
 
+    function renderSubmissions(submissions, targetElement) { // Добавлен второй аргумент targetElement
+        if (!targetElement) {
+             console.error("renderSubmissions: targetElement не передан!");
+             return;
+        }
+
+        targetElement.innerHTML = ''; // Очищаем целевой элемент
+
+        if (!submissions || submissions.length === 0) {
+            targetElement.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет заданий на проверку.</p>';
+            return;
+        }
+
+        submissions.forEach(action => {
+            let submissionContentHtml = ''; // Переименовал для ясности
+            const submittedData = action.submitted_data || '';
+            const isUrl = submittedData.startsWith('http://') || submittedData.startsWith('https');
+
+            // --- ИСПРАВЛЕНИЕ ОТОБРАЖЕНИЯ submitted_data ---
+            // Возвращаемся к span, но всегда используем escapeHTML
+            if (isUrl) {
+                submissionContentHtml = `<a href="${escapeHTML(submittedData)}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color); text-decoration: underline; word-break: break-all;">${escapeHTML(submittedData)}</a>`;
+            } else {
+                // Просто текст, экранированный
+                submissionContentHtml = `<span>${escapeHTML(submittedData)}</span>`;
+            }
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+            const actionLinkHtml = (action.quest_action_url && action.quest_action_url !== "")
+                ? `<a href="${escapeHTML(action.quest_action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
+                : '';
+
+            const isWizebotQuest = (action.title || "").toLowerCase().includes("сообщен");
+
+            // --- ИСПРАВЛЕНИЕ: Добавляем описание квеста и проверяем данные ---
+            // Убедимся, что все поля существуют перед использованием
+            const questTitle = action.quest_title || action.title || 'Ручное задание'; // Берем quest_title, если есть
+            const questDescription = action.quest_description || 'Описание отсутствует.';
+            const rewardAmount = action.reward_amount || '?';
+            const userFullName = action.user_full_name || 'Неизвестный';
+            
+            // --- 👇 ИЗМЕНЕНИЕ 1: Достаем username 👇 ---
+            // (Предполагаем, что бэкенд отдает поле "user_username")
+            const userUsername = action.user_username || ''; 
+            // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 1 👆 ---
+
+            const cardHtml = `
+            <div class="quest-card admin-submission-card" id="submission-card-${action.id}">
+                <h3 class="quest-title">${escapeHTML(questTitle)}</h3>
+
+                <p style="font-size: 13px; color: var(--text-color-muted); line-height: 1.4; margin: 4px 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--divider-glass-color);">
+                    <b>Описание задания:</b><br>${escapeHTML(questDescription)}
+                </p>
+
+                <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(rewardAmount)} ⭐</p>
+                
+                <div class="submission-user-header">
+                    <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
+                    
+                    <button type="button" 
+                            class="admin-contact-btn admin-action-btn" 
+                            data-user-id="${action.user_id}"
+                            data-user-username="${escapeHTML(userUsername)}" 
+                            style="background-color: #007aff; flex-shrink: 0;">
+                        <i class="fa-solid fa-user"></i> Связаться
+                    </button>
+                    </div>
+                <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
+                <div class="submission-wrapper">
+                    <div class="submission-data">${submissionContentHtml}</div>
+                    ${actionLinkHtml}
+                </div>
+
+                ${isWizebotQuest ? `
+                <div class="submission-actions" style="margin-top: 10px;">
+                    <button class="admin-action-btn check-wizebot-btn" data-nickname="${escapeHTML(submittedData)}" style="background-color: #6441a5;">
+                        <i class="fa-brands fa-twitch"></i> Проверить на Wizebot
+                    </button>
+                </div>
+                <div class="wizebot-stats-result" style="margin-top: 10px; font-weight: 500;"></div>
+                ` : ''}
+
+                <div class="submission-actions">
+                    <button class="admin-action-btn approve" data-id="${action.id}" data-action="approved">Одобрить</button>
+                    <button class="admin-action-btn reject" data-id="${action.id}" data-action="rejected">Отклонить</button>
+
+                    <button class="admin-action-btn reject-silent" data-id="${action.id}" data-action="rejected_silent" title="Отклонить без уведомления пользователя">
+                        <i class="fa-solid fa-microphone-slash"></i>
+                    </button>
+                    </div>
+            </div>`;
+            targetElement.innerHTML += cardHtml;
+        });
+    }
+2. Функция setupEventListeners
+Скопируй и полностью замени всю твою функцию setupEventListeners (которая у тебя начинается на строке 2146) вот этим кодом:
+
+JavaScript
+
     function setupEventListeners() {
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
@@ -2400,6 +2506,41 @@ function updateSleepButton(status) {
 
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
+
+            // --- 👇 ИЗМЕНЕНИЕ 3: Добавляем новый обработчик "Связаться" 👇 ---
+            const contactBtn = target.closest('.admin-contact-btn');
+            if (contactBtn) {
+                const userId = contactBtn.dataset.userId;
+                const userUsername = contactBtn.dataset.userUsername; // Получаем username
+                
+                if (userId && window.Telegram && window.Telegram.WebApp) {
+                    try {
+                        let textToCopy = '';
+                        let message = '';
+
+                        if (userUsername && userUsername !== 'null' && userUsername !== 'undefined' && userUsername.trim() !== '') {
+                            // Если есть @username, копируем его
+                            textToCopy = `@${userUsername}`;
+                            message = 'Username @' + userUsername + ' скопирован!';
+                        } else {
+                            // Если нет @username, копируем ID (как запасной вариант)
+                            textToCopy = userId;
+                            message = 'Username не найден. ID пользователя скопирован!';
+                        }
+                        
+                        // Копируем в буфер обмена
+                        window.Telegram.WebApp.writeTextToClipboard(textToCopy);
+                        // Показываем всплывающее уведомление
+                        tg.showPopup({message: message});
+
+                    } catch (e) {
+                        console.error('Ошибка копирования в буфер:', e);
+                        tg.showAlert('Не удалось скопировать. Ошибка в консоли.');
+                    }
+                }
+                return; // Останавливаем выполнение
+            }
+            // --- 👆 КОНЕЦ НОВОГО БЛОКА 👆 ---
             
             // --- Новые обработчики для Котла ---
             const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
@@ -2723,14 +2864,16 @@ function updateSleepButton(status) {
                 renderSubmissionsInModal(submissions, actionButton.dataset.title);
                 dom.submissionsModal.classList.remove('hidden');
 
-            } else if (actionButton.matches('.admin-action-btn') && !actionButton.matches('.admin-tg-link-btn')) {
+            // --- 👇 ИЗМЕНЕНИЕ 4: Возвращаем эту строку к оригиналу 👇 ---
+            } else if (actionButton.matches('.admin-action-btn')) {
+            // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 4 👆 ---
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
                 const id = actionButton.dataset.id; // Получаем ID
 
                 if (!id) return; // Прерываем, если ID не найден
 
-                // --- Общая функция для обновления и закрытия, если нужно (ВЕРСИЯ 3) ---
+                // --- Общая функция для обновления и закрытия, если нужно (ВЕРСЯ 3) ---
                 const handleCompletion = async () => {
                     // Проверяем наличие карточки перед действиями
                     if (!card) {
