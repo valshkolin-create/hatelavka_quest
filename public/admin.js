@@ -1198,8 +1198,13 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 return;
             }
 
-            // Бэкенд УЖЕ отсортировал их (nullslast)
-            rewards.forEach(reward => {
+            // --- НАЧАЛО ИСПРАВЛЕНИЯ (Разделитель и скрытие) ---
+            
+            const mainRewardsCount = 9; // Количество "основных" наград
+            let hiddenItemsContainer = null; // Контейнер для "остальных"
+
+            rewards.forEach((reward, index) => {
+                // 1. Создаем саму карточку награды (код тот же)
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'admin-icon-button';
                 itemDiv.dataset.rewardId = reward.id;
@@ -1209,10 +1214,8 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     ? `<span class="notification-badge">${pendingCount}</span>`
                     : '';
                 
-                // Иконка по умолчанию
                 const iconUrl = reward.icon_url || 'https://static-cdn.jtvnw.net/custom-reward-images/default-4.png';
                 
-                // Скрываем инпут, если hasAdminAccess = false
                 const adminDisplayStyle = hasAdminAccess ? 'block' : 'none';
 
                 itemDiv.innerHTML = `
@@ -1230,13 +1233,51 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     </div>
                     <span>${escapeHTML(reward.title)}</span>
                 `;
-                container.appendChild(itemDiv);
+                
+                // 2. Логика добавления разделителя
+                // Вставляем кнопку *после* 9-й награды (index 8)
+                if (index === (mainRewardsCount - 1) && rewards.length > mainRewardsCount) {
+                    // Создаем кнопку "Показать остальные"
+                    const showMoreButton = document.createElement('button');
+                    showMoreButton.id = 'show-more-rewards-btn';
+                    showMoreButton.className = 'admin-action-btn';
+                    // Растягиваем на всю ширину сетки
+                    showMoreButton.style.cssText = 'width: 100%; grid-column: 1 / -1; background-color: #555; margin-top: 10px;';
+                    showMoreButton.textContent = `Показать остальные награды (${rewards.length - mainRewardsCount})...`;
+                    
+                    // Вставляем кнопку *после* контейнера
+                    container.insertAdjacentElement('afterend', showMoreButton);
+
+                    // Создаем скрытый контейнер для остальных наград
+                    hiddenItemsContainer = document.createElement('div');
+                    hiddenItemsContainer.id = 'hidden-rewards-container';
+                    hiddenItemsContainer.className = 'hidden'; // Скрыт по умолчанию
+                    // Стили, как у родительского контейнера
+                    hiddenItemsContainer.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; margin-top: 15px;';
+                    
+                    // Вставляем скрытый контейнер *после* кнопки
+                    showMoreButton.insertAdjacentElement('afterend', hiddenItemsContainer);
+
+                    // Добавляем обработчик на кнопку
+                    showMoreButton.addEventListener('click', () => {
+                        hiddenItemsContainer.classList.toggle('hidden');
+                        showMoreButton.textContent = hiddenItemsContainer.classList.contains('hidden')
+                            ? `Показать остальные награды (${rewards.length - mainRewardsCount})...`
+                            : 'Скрыть остальные награды';
+                    });
+                }
+
+                // 3. Решаем, куда добавить карточку
+                if (index < mainRewardsCount) {
+                    container.appendChild(itemDiv); // Добавляем в основной контейнер
+                } else if (hiddenItemsContainer) {
+                    hiddenItemsContainer.appendChild(itemDiv); // Добавляем в скрытый
+                } else {
+                    // Запасной вариант, если наград < 9 (или ровно 9)
+                    container.appendChild(itemDiv);
+                }
             });
-        } catch (e) {
-            console.error('Ошибка загрузки Twitch наград:', e);
-            container.innerHTML = `<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград: ${e.message}</p>`;
-        }
-    }
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     
     async function loadAdminGrantLog() {
         if (!dom.adminGrantLogList) return;
