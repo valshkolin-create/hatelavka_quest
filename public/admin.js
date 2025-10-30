@@ -3718,4 +3718,4 @@ async function main() {
 } catch (e) {
     console.error(`Критическая ошибка на старте: ${e.message}`);
     alert(`Критическая ошибка: ${e.message}`);
-}
+
