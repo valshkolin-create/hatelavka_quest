@@ -2524,8 +2524,10 @@ function updateSleepButton(status) {
                             message = 'Username не найден. ID пользователя скопирован!';
                         }
                         
-                        // Копируем в буфер обмена
-                        window.Telegram.WebApp.writeTextToClipboard(textToCopy);
+                        // --- 👇 ВОТ ИСПРАВЛЕНИЕ (v6) 👇 ---
+                        // Используем стандартный Web API для буфера обмена
+                        await navigator.clipboard.writeText(textToCopy);
+                        // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
                         // Показываем всплывающее уведомление
                         tg.showPopup({message: message});
 
