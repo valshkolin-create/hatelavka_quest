@@ -560,7 +560,81 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
         width: 100%;
         margin-top: 5px;
      }
+/* --- Стили для сетки Twitch наград --- */
+.pending-actions-grid .admin-icon-button .icon-wrapper img {
+    width: 36px; 
+    height: 36px; 
+    border-radius: 6px; 
+    object-fit: cover;
+}
 
+.pending-actions-grid .admin-icon-button .reward-shortcut-btn {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    background-color: rgba(0,0,0,0.6);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    backdrop-filter: blur(3px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    transition: transform 0.1s, background-color 0.1s;
+}
+
+.pending-actions-grid .admin-icon-button .reward-shortcut-btn:active {
+    background-color: rgba(0,0,0,0.8);
+    transform: scale(0.95);
+}
+
+.pending-actions-grid .admin-icon-button .reward-settings-btn {
+    top: -6px; /* Позиция шестеренки (сверху слева) */
+    left: -6px; /* Позиция шестеренки */
+    background-color: var(--action-color);
+}
+
+/* Бейдж для наград Twitch (сверху справа) */
+.pending-actions-grid .admin-icon-button .notification-badge {
+    top: -6px;
+    right: -8px; 
+}
+
+/* Поле для сортировки (скрыто по умолчанию) */
+.pending-actions-grid .admin-icon-button .reward-sort-order-input {
+    position: absolute;
+    bottom: -8px; /* Позиция инпута (снизу по центру) */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 45px;
+    height: 26px;
+    padding: 2px;
+    font-size: 13px;
+    text-align: center;
+    border-radius: 8px;
+    z-index: 2;
+    border: 1px solid var(--divider-glass-color);
+    background-color: rgba(0,0,0,0.6);
+    color: var(--text-color);
+    backdrop-filter: blur(3px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    display: none; /* Скрыто по умолчанию */
+}
+
+/* Ссылка для основного клика (на покупки) */
+.pending-actions-grid .admin-icon-button .reward-purchases-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--twitch-color); /* Цвет иконки Twitch */
+    text-decoration: none;
+}
 /* Убедимся, что иконка внутри */
 .admin-action-btn.reject-silent i {
     margin: 0;
