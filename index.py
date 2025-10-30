@@ -5000,10 +5000,10 @@ async def grant_stars_to_user(
             "/rpc/increment_tickets",
             json={"p_user_id": user_id_to_grant, "p_amount": amount}
         )
-        return {"message": f"{amount} звезд успешно выдано пользователю {user_id_to_grant}."}
+        return {"message": f"{amount} билетов успешно выдано пользователю {user_id_to_grant}."}
     except Exception as e:
         logging.error(f"Ошибка при выдаче звезд пользователю {user_id_to_grant}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось выдать звезды.")
+        raise HTTPException(status_code=500, detail="Не удалось выдать билеты.")
 
 @app.get("/api/v1/content/menu")
 async def get_menu_content(): # <<< Убрали Depends
