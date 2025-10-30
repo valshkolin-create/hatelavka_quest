@@ -74,6 +74,7 @@ try {
         resetAllCheckpointProgressBtn: document.getElementById('reset-all-checkpoint-progress-btn'),
         clearAllCheckpointStarsBtn: document.getElementById('clear-all-checkpoint-stars-btn'),
         settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
+        adminGrantLogList: document.getElementById('admin-grant-log-list'),
         // --- НОВЫЙ КОД ---       
         settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
         // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ПОИСКА ПОЛЬЗОВАТЕЛЯ ---
@@ -552,6 +553,11 @@ const showLoader = () => {
                         dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm
                     ].forEach(form => form?.classList.add('hidden'));
                     selectedAdminUser = null; // Сбрасываем выбранного юзера
+                    
+                    // --- 👇 ДОБАВЬТЕ ЭТУ СТРОКУ 👇 ---
+                    loadAdminGrantLog(); 
+                    // --- 👆 КОНЕЦ ДОБАВЛЕНИЯ 👆 ---
+
                     break;
                 }
                 // --- КОНЕЦ ДОБАВЛЕНИЯ ---
@@ -1199,6 +1205,40 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         } catch (e) {
             console.error('Ошибка загрузки Twitch наград:', e);
             container.innerHTML = `<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград: ${e.message}</p>`;
+        }
+    }
+    async function loadAdminGrantLog() {
+        if (!dom.adminGrantLogList) return;
+        
+        dom.adminGrantLogList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Загрузка журнала...</p>';
+        try {
+            const logs = await makeApiRequest('/api/v1/admin/grants/log', {}, 'POST', true);
+            
+            if (!logs || logs.length === 0) {
+                dom.adminGrantLogList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Записей о выдаче нет.</p>';
+                return;
+            }
+            
+            dom.adminGrantLogList.innerHTML = logs.map(log => {
+                const date = new Date(log.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const typeText = log.grant_type === 'tickets' ? 'билетов' : 'звёзд';
+                const icon = log.grant_type === 'tickets' ? 'fa-ticket' : 'fa-star';
+                
+                return `
+                    <div class="submission-item" style="padding-bottom: 8px;">
+                        <p style="margin: 0; font-size: 13px;">
+                            <i class="fa-solid ${icon}" style="color: var(--primary-color); width: 16px; text-align: center;"></i>
+                            <strong>${log.amount} ${typeText}</strong> для <strong>${escapeHTML(log.user_name)}</strong>
+                        </p>
+                        <p style="margin: 4px 0 0; font-size: 11px; color: var(--text-color-muted);">
+                            ${date} — (Админ: ${escapeHTML(log.admin_name)})
+                        </p>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (e) {
+            dom.adminGrantLogList.innerHTML = `<p class="error-message">Не удалось загрузить лог: ${e.message}</p>`;
         }
     }
 
