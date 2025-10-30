@@ -464,9 +464,13 @@ const showLoader = () => {
 
                             // 2. Устанавливаем новый текст
                             if (hasData) {
-                                tabElement.textContent = `${cleanText} ❓`;
+                                // --- 👇 ВОТ ИЗМЕНЕНИЕ 👇 ---
+                                // Добавляем иконку Font Awesome и выравниваем ее
+                                tabElement.innerHTML = `${cleanText} <i class="fa-solid fa-circle-question" style="font-size: 0.9em; vertical-align: middle; margin-left: 5px; color: var(--primary-color);"></i>`;
+                                // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 👆 ---
                             } else {
-                                tabElement.textContent = cleanText;
+                                // Возвращаем чистый текст
+                                tabElement.innerHTML = cleanText;
                             }
                         };
                         
