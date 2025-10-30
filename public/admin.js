@@ -2610,7 +2610,7 @@ function updateSleepButton(status) {
                     }
                 });
 
-            } else if (actionButton.matches('.edit-roulette-prize-btn')) {
+} else if (actionButton.matches('.edit-roulette-prize-btn')) {
                 // Твой код для открытия модального окна редактирования приза рулетки
                 // (тот, что мы добавляли раньше, использует data-prize)
                 if (editPrizeModal && editPrizeForm) {
@@ -2624,7 +2624,7 @@ function updateSleepButton(status) {
                     editPrizeModal.classList.remove('hidden');
                 }
 
-            } else if (actionButton.matches('.admin-edit-quest-btn') /* REMOVED: && !actionButton.matches('.sort-quest-btn') */ && !actionButton.matches('.edit-category-btn')) {
+} else if (actionButton.matches('.admin-edit-quest-btn') /* REMOVED: && !actionButton.matches('.sort-quest-btn') */ && !actionButton.matches('.edit-category-btn')) {
                  const idStr = actionButton.dataset.id;
                  // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
                  console.log("[DEBUG] Raw data-id from button:", idStr, "(type:", typeof idStr, ")");
@@ -2690,10 +2690,6 @@ function updateSleepButton(status) {
                 dom.submissionsModal.classList.remove('hidden');
 
             } else if (actionButton.matches('.admin-action-btn')) {
-            // --- 👇 ИСПРАВЛЕНИЕ #2: УДАЛЕН СТАРЫЙ ФИКС 👇 ---
-            // (здесь был блок `if (actionButton.tagName === 'A' ...)` , он удален)
-            // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ #2 👆 ---
-
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
                 const id = actionButton.dataset.id; // Получаем ID
@@ -2853,6 +2849,48 @@ function updateSleepButton(status) {
                 }
         });
 
+// --- NEW Event Listener for Sort Order Inputs ---
+        let sortOrderDebounceTimer;
+        document.body.addEventListener('change', async (event) => {
+            const input = event.target;
+            if (input.classList.contains('sort-order-input')) {
+                clearTimeout(sortOrderDebounceTimer);
+
+                const value = input.value.trim();
+                // Пустое значение отправляем как null, иначе парсим как число
+                const sortOrder = value === '' ? null : parseInt(value, 10);
+
+                // Доп. проверка: если не пусто и не число, или < 1, сбрасываем
+                if (value !== '' && (isNaN(sortOrder) || sortOrder < 1)) {
+                    input.value = ''; // Очищаем поле при невалидном вводе
+                    console.warn("Invalid sort order input, cleared.");
+                    return; // Не отправляем невалидное значение
+                }
+
+                if (input.classList.contains('category-sort-order')) {
+                    const categoryId = parseInt(input.dataset.categoryId);
+                    if (categoryId) {
+                        // Используем debounce для отправки API запроса
+                        sortOrderDebounceTimer = setTimeout(async () => {
+                            await updateCategorySortOrder(categoryId, sortOrder);
+                            // НЕ перезагружаем список здесь
+                            orderChanged = true; // Ставим флаг, что были изменения
+                            dom.saveOrderButton.classList.remove('hidden'); // Показываем кнопку
+                        }, 500); // Уменьшили задержку debounce
+                    }
+                } else if (input.classList.contains('quest-sort-order')) {
+                    const questId = parseInt(input.dataset.questId);
+                    if (questId) {
+                         sortOrderDebounceTimer = setTimeout(async () => {
+                            await updateQuestSortOrder(questId, sortOrder);
+                            orderChanged = true; 
+                            dom.saveOrderButton.classList.remove('hidden');
+                        }, 500);
+                    }
+                }
+            }
+        });
+
 } else if (actionButton.matches('.edit-roulette-prize-btn')) {
                 // Твой код для открытия модального окна редактирования приза рулетки
                 // (тот, что мы добавляли раньше, использует data-prize)
@@ -2933,7 +2971,6 @@ function updateSleepButton(status) {
                 dom.submissionsModal.classList.remove('hidden');
 
             } else if (actionButton.matches('.admin-action-btn')) {
-
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
                 const id = actionButton.dataset.id; // Получаем ID
@@ -3718,4 +3755,4 @@ async function main() {
 } catch (e) {
     console.error(`Критическая ошибка на старте: ${e.message}`);
     alert(`Критическая ошибка: ${e.message}`);
-
+}
