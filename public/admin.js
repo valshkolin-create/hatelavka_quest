@@ -1495,6 +1495,45 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         }
     }
 
+// --- НАЧАЛО НОВОГО КОДА ---
+    function updateTwitchBadgeCount() {
+        try {
+            // 1. Находим модалку и ее кнопку "обновить", чтобы получить ID награды
+            const refreshBtn = document.getElementById('refresh-purchases-btn');
+            const rewardId = refreshBtn.dataset.rewardId; // Мы сохранили ID на кнопке
+            
+            if (!rewardId) {
+                console.warn("updateTwitchBadgeCount: не удалось найти rewardId на refresh-btn.");
+                return;
+            }
+
+            // 2. Находим иконку этой награды на ГЛАВНОЙ странице
+            const iconToUpdate = document.querySelector(`#view-admin-twitch-rewards .admin-icon-button[data-reward-id="${rewardId}"]`);
+            if (!iconToUpdate) {
+                console.warn(`updateTwitchBadgeCount: не удалось найти иконку для reward_id ${rewardId}`);
+                return;
+            }
+
+            // 3. Находим ее бейдж
+            const badge = iconToUpdate.querySelector('.notification-badge');
+            if (!badge || badge.classList.contains('hidden')) {
+                // Бейджа нет или он уже 0, делать нечего
+                return;
+            }
+
+            // 4. Уменьшаем счетчик
+            let count = parseInt(badge.textContent || '1') - 1;
+            badge.textContent = count;
+            badge.classList.toggle('hidden', count <= 0);
+            
+            console.log(`Twitch badge ${rewardId} updated to ${count}`);
+
+        } catch (e) {
+            console.error("Ошибка при обновлении бейджа Twitch:", e);
+        }
+    }
+    // --- КОНЕЦ НОВОГО КОДА ---
+    
 function renderRoulettePrizes(prizes) {
         dom.roulettePrizesList.innerHTML = '';
         if (!prizes || prizes.length === 0) {
@@ -1721,7 +1760,17 @@ function updateSleepButton(status) {
                 }
             });
         }
-
+        // --- НАЧАЛО НОВОГО КОДА ---
+        const reloadTwitchBtn = document.getElementById('reload-twitch-rewards-btn');
+        if (reloadTwitchBtn) {
+            reloadTwitchBtn.addEventListener('click', async () => {
+                tg.showPopup({message: 'Обновление...'});
+                showLoader(); // Показываем лоадер
+                await loadTwitchRewards(); // Вызываем функцию загрузки
+                hideLoader(); // Прячем лоадер
+            });
+        }
+        // --- КОНЕЦ НОВОГО КОДА ---
         if(document.getElementById('twitch-purchases-body')) {
             document.getElementById('twitch-purchases-body').addEventListener('click', (e) => {
                 const link = e.target.closest('a');
@@ -2388,6 +2437,11 @@ function updateSleepButton(status) {
                             const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
                             if (itemDiv) itemDiv.remove();
                             tg.showAlert('Покупка успешно удалена.');
+
+                            // --- ДОБАВЬТЕ ЭТУ СТРОКУ ---
+                            updateTwitchBadgeCount(); 
+                            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
                         } catch (e) {
                             console.error('Ошибка при удалении покупки:', e);
                             tg.showAlert(`Ошибка при удалении: ${e.message}`);
@@ -2417,6 +2471,41 @@ function updateSleepButton(status) {
                 return;
             }
 
+            // --- НАЧАЛО НОВОГО КОДА: Обработчик кнопки "Выдать промокод" ---
+            const issuePromoBtn = target.closest('.issue-promo-btn');
+            if (issuePromoBtn) {
+                const purchaseId = issuePromoBtn.dataset.purchaseId;
+                if (!purchaseId) return;
+
+                issuePromoBtn.disabled = true; // Блокируем кнопку
+                issuePromoBtn.innerHTML = '<i>Выдача...</i>';
+
+                try {
+                    const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', {
+                        purchase_id: parseInt(purchaseId)
+                    });
+                    
+                    tg.showAlert(result.message); // Показываем "Награда... отправлена"
+
+                    // 1. Удаляем карточку из модалки
+                    const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                    if (itemDiv) itemDiv.remove();
+
+                    // 2. Обновляем бейдж на главной странице
+                    updateTwitchBadgeCount();
+
+                } catch (e) {
+                    console.error('Ошибка при выдаче промокода:', e);
+                    tg.showAlert(`Ошибка: ${e.message}`); // Показываем ошибку (н.п., "Условие не выполнено")
+                } finally {
+                    // Возвращаем кнопку (на случай, если она не удалилась)
+                    issuePromoBtn.disabled = false;
+                    issuePromoBtn.innerHTML = 'Выдать промокод';
+                }
+                return; // Важно, чтобы не сработали другие обработчики
+            }
+            // --- КОНЕЦ НОВОГО КОДА ---
+            
             const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
             if (checkBtn) {
                 const nickname = checkBtn.dataset.nickname;
