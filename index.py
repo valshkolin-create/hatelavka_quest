@@ -1425,6 +1425,7 @@ async def get_quests_categories(request_data: InitDataRequest, supabase: httpx.A
     resp.raise_for_status()
     return resp.json()
     
+# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ---
 @app.post("/api/v1/quests/list")
 async def get_public_quests(request_data: InitDataRequest):
     """
@@ -1434,10 +1435,17 @@ async def get_public_quests(request_data: InitDataRequest):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     telegram_id = user_info.get("id") if user_info else None
 
+    # --- ЛОГ 1 ---
+    logging.info(f"[/api/v1/quests/list] Запрос для user_id: {telegram_id}")
+
     if not telegram_id:
-        return [] # Возвращаем пустой список, если нет ID
+        logging.warning(f"[/api/v1/quests/list] Отклонено: нет telegram_id.")
+        return []
 
     try:
+        # --- ЛОГ 2 ---
+        logging.info(f"[/api/v1/quests/list] Вызов RPC 'get_available_quests_for_user' для user_id: {telegram_id}...")
+        
         # Используем глобальный клиент supabase и вызов .rpc().execute()
         response = supabase.rpc(
             "get_available_quests_for_user",
@@ -1446,25 +1454,42 @@ async def get_public_quests(request_data: InitDataRequest):
 
         available_quests_raw = response.data
 
+        # --- ЛОГ 3 (САМЫЙ ВАЖНЫЙ) ---
+        # Логируем "сырой" ответ от Supabase, чтобы увидеть, что именно пришло
+        logging.info(f"[/api/v1/quests/list] 'Сырой' ответ от RPC (available_quests_raw): {available_quests_raw}")
+        logging.info(f"[/api/v1/quests/list] Тип 'сырого' ответа: {type(available_quests_raw)}")
+
         # --- НОВАЯ УПРОЩЕННАЯ ЛОГИКА ---
         if available_quests_raw is None:
-            # Если SQL вернул NULL
-            logging.warning(f"RPC get_available_quests_for_user вернула NULL для user {telegram_id}")
+            # --- ЛОГ 4 ---
+            logging.warning(f"[/api/v1/quests/list] RPC вернула NULL (None). Возвращаем пустой список [].")
             return []
         
         if not isinstance(available_quests_raw, list):
-             # Если SQL вернул не список
-             logging.error(f"RPC get_available_quests_for_user вернула НЕ список: {available_quests_raw}")
-             return []
+             # --- ЛОГ 5 ---
+             logging.error(f"[/api/v1/quests/list] RPC вернула НЕ список. Тип: {type(available_quests_raw)}. Ответ: {available_quests_raw}")
+             raise HTTPException(status_code=500, detail="Ошибка формата данных от RPC.")
 
-        # Просто возвращаем "сырые" данные из SQL-функции,
-        # так как она уже возвращает готовый JSON-массив
+        # --- ЛОГ 6 (ПРОВЕРКА НА [None]) ---
+        # Проверяем, не содержит ли список `None`
+        if any(item is None for item in available_quests_raw):
+            logging.error(f"[/api/v1/quests/list] ОШИБКА: Список от RPC содержит 'None' (null)! Ответ: {available_quests_raw}")
+            # Отфильтровываем None, чтобы не сломать фронтенд
+            cleaned_list = [item for item in available_quests_raw if item is not None]
+            logging.info(f"[/api/v1/quests/list] Отправляем 'очищенный' список: {cleaned_list}")
+            return cleaned_list
+
+        # --- ЛОГ 7 ---
+        logging.info(f"[/api/v1/quests/list] Успешно. Возвращаем список из {len(available_quests_raw)} квестов.")
+        
+        # Просто возвращаем "сырые" данные из SQL-функции
         return available_quests_raw 
         # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
     except Exception as e:
+        # --- ЛОГ 8 ---
         # Используем exc_info=True для получения полного traceback в логах
-        logging.error(f"Ошибка при вызове RPC get_available_quests_for_user для {telegram_id}: {e}", exc_info=True)
+        logging.error(f"[/api/v1/quests/list] КРИТИЧЕСКАЯ ОШИБКА при вызове RPC для {telegram_id}: {e}", exc_info=True)
         # Возвращаем 500 ошибку клиенту
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
