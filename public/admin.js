@@ -1743,7 +1743,7 @@ function updateSleepButton(status) {
                     payload.reward_type = form.elements['reward_type'].value;
                     payload.reward_amount = parseInt(form.elements['reward_amount'].value);
                     // Также обновляем старое поле, чтобы модераторы видели актуальное
-                    payload.promocode_amount = (payload.reward_type === 'promocode') ? payload.reward_amount : null;
+                    payload.promocode_amount = payload.reward_amount;
                     
                     // Добавляем сохранение sort_order
                     const sortOrderVal = form.elements['sort_order'].value;
