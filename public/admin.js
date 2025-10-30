@@ -462,11 +462,11 @@ const showLoader = () => {
                                 tabElement.dataset.baseText = cleanText;
                             }
 
-                            // 2. Устанавливаем новый текст
+                            // 2. Устанавливаем новый текст, ИСПОЛЬЗУЯ innerHTML
                             if (hasData) {
-                                // --- 👇 ВОТ ИЗМЕНЕНИЕ 👇 ---
-                                // Добавляем иконку Font Awesome и выравниваем ее
-                                tabElement.innerHTML = `${cleanText} <i class="fa-solid fa-circle-question" style="font-size: 0.9em; vertical-align: middle; margin-left: 5px; color: var(--primary-color);"></i>`;
+                                // --- 👇 ВОТ ИЗМЕНЕНИЕ (v3) 👇 ---
+                                // Меняем иконку на "fa-circle-exclamation" и цвет на красный
+                                tabElement.innerHTML = `${cleanText} <i class="fa-solid fa-circle-exclamation" style="font-size: 0.9em; vertical-align: middle; margin-left: 5px; color: var(--danger-color);"></i>`;
                                 // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 👆 ---
                             } else {
                                 // Возвращаем чистый текст
@@ -1042,9 +1042,12 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 
                 <div class="submission-user-header">
                     <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
-                    <a href="tg://user?id=${action.user_id}" target="_blank" rel="noopener noreferrer" class="admin-tg-link-btn" style="background-color: #007aff; padding: 6px 10px; font-size: 12px; text-decoration: none; flex-shrink: 0;">
+                    <button type="button" 
+                            class="admin-tg-link-btn admin-action-btn" 
+                            data-user-id="${action.user_id}" 
+                            style="background-color: #007aff; flex-shrink: 0;">
                         <i class="fa-solid fa-paper-plane"></i> Написать
-                    </a>
+                    </button>
                 </div>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
@@ -2398,6 +2401,23 @@ function updateSleepButton(status) {
 
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
+            
+            // --- 👇 ВСТАВЬТЕ ЭТОТ КОД ДЛЯ ОТЛАДКИ 👇 ---
+            const writeToUserBtn = target.closest('.admin-tg-link-btn');
+            if (writeToUserBtn) {
+                console.log('Нажата кнопка "Написать"'); // Лог 1
+                const userId = writeToUserBtn.dataset.userId;
+                console.log('UserID:', userId); // Лог 2
+
+                if (userId && window.Telegram && window.Telegram.WebApp) {
+                    console.log('API Telegram найдено, вызываю openLink...'); // Лог 3
+                    window.Telegram.WebApp.openLink(`tg://user?id=${userId}`);
+                } else {
+                    console.error('Ошибка: UserID не найден или API Telegram недоступно!', 'UserID:', userId, 'TG API:', window.Telegram); // Лог 4
+                }
+                return; // Важно, чтобы другие обработчики не сработали
+            }
+            // --- 👆 КОНЕЦ КОДА ДЛЯ ОТЛАДКИ 👆 --
 
             // --- Новые обработчики для Котла ---
             const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
@@ -2721,7 +2741,7 @@ function updateSleepButton(status) {
                 renderSubmissionsInModal(submissions, actionButton.dataset.title);
                 dom.submissionsModal.classList.remove('hidden');
 
-            } else if (actionButton.matches('.admin-action-btn')) {
+            } else if (actionButton.matches('.admin-action-btn') && !actionButton.matches('.admin-tg-link-btn')) {
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
                 const id = actionButton.dataset.id; // Получаем ID
