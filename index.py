@@ -2636,7 +2636,7 @@ async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase
 
 @app.post("/api/v1/admin/twitch_rewards/update")
 async def update_twitch_reward(
-    request_data: TwitchRewardUpdateRequest, # Используем новую модель
+    request_data: TwitchRewardUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -2644,16 +2644,34 @@ async def update_twitch_reward(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     reward_id = request_data.id
-    update_fields = request_data.dict(exclude={'initData', 'id'}, exclude_none=True)
+    # --- ИЗМЕНЕНИЕ ---
+    # Получаем все поля, КРОМЕ initData и id
+    # НЕ ИСПОЛЬЗУЙТЕ exclude_none=True, иначе null не отправится для sort_order
+    update_fields = request_data.dict(exclude={'initData', 'id'})
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     if not update_fields:
         raise HTTPException(status_code=400, detail="Нет полей для обновления")
 
-    await supabase.patch(
-        "/twitch_rewards",
-        params={"id": f"eq.{reward_id}"},
-        json=update_fields
-    )
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ (Блок try...except) ---
+    try:
+        response = await supabase.patch(
+            "/twitch_rewards",
+            params={"id": f"eq.{reward_id}"},
+            json=update_fields
+        )
+        response.raise_for_status() # <--- Эта строка выбросит ошибку, если Supabase вернул 400
+    
+    except httpx.HTTPStatusError as e:
+        # Перехватываем ошибку от Supabase и отправляем ее на фронтенд
+        error_details = e.response.json().get("message", e.response.text)
+        logging.error(f"Ошибка Supabase при обновлении twitch_rewards: {error_details}")
+        raise HTTPException(status_code=400, detail=f"Ошибка Supabase: {error_details}")
+    except Exception as e:
+        logging.error(f"Неизвестная ошибка при обновлении twitch_rewards: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
     return {"status": "ok", "message": "Настройки награды обновлены."}
 
 @app.post("/api/v1/twitch_rewards/purchase")
