@@ -488,15 +488,6 @@ const showLoader = () => {
                         console.error("Ошибка при обновлении индикаторов вкладок:", e);
                     }
                     // --- 👆 КОНЕЦ НОВОГО КОДА 👆 ---
-
-                    // Вызываем новую функцию рендеринга сетки для каждой вкладки
-                    // (строка 405)
-                    renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
-                    renderGroupedItemsGrid('tab-content-event-prizes', groupedEventPrizes);
-                    renderGroupedItemsGrid('tab-content-checkpoint-prizes', groupedCheckpointPrizes);
-                    break; // Не забываем break
-                }
-
                     // Вызываем новую функцию рендеринга сетки для каждой вкладки
                     renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
                     renderGroupedItemsGrid('tab-content-event-prizes', groupedEventPrizes);
