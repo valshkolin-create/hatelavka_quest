@@ -993,11 +993,13 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 </p>
 
                 <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(rewardAmount)} ⭐</p>
-                <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong>
-                    <a href="tg://user?id=${action.user_id}" class="admin-action-btn" style="background-color: #007aff; padding: 4px 8px; font-size: 12px; margin-left: 10px; text-decoration: none;">
+                
+                <div class="submission-user-header">
+                    <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
+                    <a href="tg://user?id=${action.user_id}" target="_blank" rel="noopener noreferrer" class="admin-action-btn" style="background-color: #007aff; padding: 6px 10px; font-size: 12px; text-decoration: none; flex-shrink: 0;">
                         <i class="fa-solid fa-paper-plane"></i> Написать
                     </a>
-                </p>
+                </div>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
                     <div class="submission-data">${submissionContentHtml}</div>
@@ -1764,7 +1766,7 @@ function updateSleepButton(status) {
         const reloadTwitchBtn = document.getElementById('reload-twitch-rewards-btn');
         if (reloadTwitchBtn) {
             reloadTwitchBtn.addEventListener('click', async () => {
-                tg.showPopup({message: 'Обновление...'});
+                // tg.showPopup({message: 'Обновление...'}); // <-- УБИРАЕМ ЭТУ СТРОКУ
                 showLoader(); // Показываем лоадер
                 await loadTwitchRewards(); // Вызываем функцию загрузки
                 hideLoader(); // Прячем лоадер
