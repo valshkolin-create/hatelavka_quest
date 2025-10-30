@@ -1022,7 +1022,7 @@ async def handle_twitch_webhook(
                         )
                         if purchase_payload["trade_link"]:
                             notification_text += f"\n<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>"
-                        notification_text += "\n\nИнформация добавлена в раздел 'Покупки'."
+                        notification_text += "\n\nИнформация добавлена в раздел 'TWITCH награды'."
                         background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
                     # (Логика триггера анимации)
