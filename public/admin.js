@@ -1198,86 +1198,39 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 return;
             }
 
-            // --- НАЧАЛО ИСПРАВЛЕНИЯ (Разделитель и скрытие) ---
-            
-            const mainRewardsCount = 9; // Количество "основных" наград
-            let hiddenItemsContainer = null; // Контейнер для "остальных"
-
+            // Бэкенд УЖЕ отсортировал их (nullslast)
             rewards.forEach((reward, index) => {
-                // 1. Создаем саму карточку награды (код тот же)
+
+                // --- НАЧАЛО ИСПРАВЛЕНИЯ: Добавляем разделитель ---
+                if (index === 9) {
+                    const dividerHtml = `
+                    <div class="quest-card" style="
+                        grid-column: 1 / -1; /* Растягиваем на всю ширину сетки */
+                        background-color: transparent; 
+                        padding: 20px 5px 10px; 
+                        backdrop-filter: none; 
+                        box-shadow: none;
+                        border-radius: 0;">
+                        
+                        <h3 style="
+                            margin: 0; 
+                            font-size: 14px; 
+                            color: var(--text-color-muted); 
+                            text-align: left; 
+                            border-bottom: 1px solid var(--divider-glass-color); 
+                            padding-bottom: 8px;
+                            width: 100%;">
+                            
+                            <i class="fa-solid fa-box-archive" style="margin-right: 8px;"></i>
+                            Дополнительные / Архивные
+                        </h3>
+                    </div>`;
+                    container.insertAdjacentHTML('beforeend', dividerHtml);
+                }
+                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'admin-icon-button';
-                itemDiv.dataset.rewardId = reward.id;
-
-                const pendingCount = reward.pending_count || 0;
-                const badgeHtml = pendingCount > 0
-                    ? `<span class="notification-badge">${pendingCount}</span>`
-                    : '';
-                
-                const iconUrl = reward.icon_url || 'https://static-cdn.jtvnw.net/custom-reward-images/default-4.png';
-                
-                const adminDisplayStyle = hasAdminAccess ? 'block' : 'none';
-
-                itemDiv.innerHTML = `
-                    <div class="icon-wrapper">
-                        <a href="#" class="reward-purchases-link" data-reward-id="${reward.id}" data-reward-title="${escapeHTML(reward.title)}">
-                            <img src="${escapeHTML(iconUrl)}" alt="reward">
-                        </a>
-                        
-                        <button class="reward-shortcut-btn reward-settings-btn" data-reward='${JSON.stringify(reward)}'>
-                            <i class="fa-solid fa-gear"></i>
-                        </button>
-                        
-                        ${badgeHtml}
-                        
-                    </div>
-                    <span>${escapeHTML(reward.title)}</span>
-                `;
-                
-                // 2. Логика добавления разделителя
-                // Вставляем кнопку *после* 9-й награды (index 8)
-                if (index === (mainRewardsCount - 1) && rewards.length > mainRewardsCount) {
-                    // Создаем кнопку "Показать остальные"
-                    const showMoreButton = document.createElement('button');
-                    showMoreButton.id = 'show-more-rewards-btn';
-                    showMoreButton.className = 'admin-action-btn';
-                    // Растягиваем на всю ширину сетки
-                    showMoreButton.style.cssText = 'width: 100%; grid-column: 1 / -1; background-color: #555; margin-top: 10px;';
-                    showMoreButton.textContent = `Показать остальные награды (${rewards.length - mainRewardsCount})...`;
-                    
-                    // Вставляем кнопку *после* контейнера
-                    container.insertAdjacentElement('afterend', showMoreButton);
-
-                    // Создаем скрытый контейнер для остальных наград
-                    hiddenItemsContainer = document.createElement('div');
-                    hiddenItemsContainer.id = 'hidden-rewards-container';
-                    hiddenItemsContainer.className = 'hidden'; // Скрыт по умолчанию
-                    // Стили, как у родительского контейнера
-                    hiddenItemsContainer.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; margin-top: 15px;';
-                    
-                    // Вставляем скрытый контейнер *после* кнопки
-                    showMoreButton.insertAdjacentElement('afterend', hiddenItemsContainer);
-
-                    // Добавляем обработчик на кнопку
-                    showMoreButton.addEventListener('click', () => {
-                        hiddenItemsContainer.classList.toggle('hidden');
-                        showMoreButton.textContent = hiddenItemsContainer.classList.contains('hidden')
-                            ? `Показать остальные награды (${rewards.length - mainRewardsCount})...`
-                            : 'Скрыть остальные награды';
-                    });
-                }
-
-                // 3. Решаем, куда добавить карточку
-                if (index < mainRewardsCount) {
-                    container.appendChild(itemDiv); // Добавляем в основной контейнер
-                } else if (hiddenItemsContainer) {
-                    hiddenItemsContainer.appendChild(itemDiv); // Добавляем в скрытый
-                } else {
-                    // Запасной вариант, если наград < 9 (или ровно 9)
-                    container.appendChild(itemDiv);
-                }
-            });
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     
     async function loadAdminGrantLog() {
         if (!dom.adminGrantLogList) return;
