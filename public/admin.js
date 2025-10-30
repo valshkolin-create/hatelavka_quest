@@ -2402,7 +2402,7 @@ function updateSleepButton(status) {
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
             
-            // --- 👇 ВСТАВЬТЕ ЭТОТ КОД ДЛЯ ОТЛАДКИ 👇 ---
+           // --- 👇 ИСПРАВЛЕННЫЙ БЛОК v3 👇 ---
             const writeToUserBtn = target.closest('.admin-tg-link-btn');
             if (writeToUserBtn) {
                 console.log('Нажата кнопка "Написать"'); // Лог 1
@@ -2410,14 +2410,21 @@ function updateSleepButton(status) {
                 console.log('UserID:', userId); // Лог 2
 
                 if (userId && window.Telegram && window.Telegram.WebApp) {
-                    console.log('API Telegram найдено, вызываю openTelegramLink...'); // Лог 3 (тоже поправил текст лога)
-                    window.Telegram.WebApp.openTelegramLink(`tg://user?id=${userId}`); // <-- ВОТ ИСПРАВЛЕНИЕ
+                    
+                    // --- 👇 ВОТ ИСПРАВЛЕНИЕ (v3) 👇 ---
+                    // Используем ПРАВИЛЬНЫЙ формат deep-link: tg://openmessage?user_id=...
+                    const tgLink = `tg://openmessage?user_id=${userId}`;
+                    console.log('API Telegram найдено, вызываю openTelegramLink с:', tgLink); // Лог 3
+                    
+                    window.Telegram.WebApp.openTelegramLink(tgLink); 
+                    // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
+
                 } else {
                     console.error('Ошибка: UserID не найден или API Telegram недоступно!', 'UserID:', userId, 'TG API:', window.Telegram); // Лог 4
                 }
                 return; // Важно, чтобы другие обработчики не сработали
             }
-            // --- 👆 КОНЕЦ КОДА ДЛЯ ОТЛАДКИ 👆 ---
+            // --- 👆 КОНЕЦ БЛОКА 👆 ---
 
             // --- Новые обработчики для Котла ---
             const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
