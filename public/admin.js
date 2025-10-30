@@ -2410,14 +2410,14 @@ function updateSleepButton(status) {
                 console.log('UserID:', userId); // Лог 2
 
                 if (userId && window.Telegram && window.Telegram.WebApp) {
-                    console.log('API Telegram найдено, вызываю openLink...'); // Лог 3
-                    window.Telegram.WebApp.openLink(`tg://user?id=${userId}`);
+                    console.log('API Telegram найдено, вызываю openTelegramLink...'); // Лог 3 (тоже поправил текст лога)
+                    window.Telegram.WebApp.openTelegramLink(`tg://user?id=${userId}`); // <-- ВОТ ИСПРАВЛЕНИЕ
                 } else {
                     console.error('Ошибка: UserID не найден или API Telegram недоступно!', 'UserID:', userId, 'TG API:', window.Telegram); // Лог 4
                 }
                 return; // Важно, чтобы другие обработчики не сработали
             }
-            // --- 👆 КОНЕЦ КОДА ДЛЯ ОТЛАДКИ 👆 --
+            // --- 👆 КОНЕЦ КОДА ДЛЯ ОТЛАДКИ 👆 ---
 
             // --- Новые обработчики для Котла ---
             const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
