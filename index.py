@@ -264,10 +264,14 @@ class TwitchRewardUpdateRequest(BaseModel):
     id: int
     is_active: Optional[bool] = None
     notify_admin: Optional[bool] = None
-    promocode_amount: Optional[int] = None
+    promocode_amount: Optional[int] = None # Старое поле, оставляем для совместимости
     show_user_input: Optional[bool] = None
-    condition_type: Optional[str] = None # <-- ДОБАВЛЕНО
-    target_value: Optional[int] = None   # <-- ДОБАВЛЕНО
+    condition_type: Optional[str] = None
+    target_value: Optional[int] = None
+    # Новые поля для Админа 6971
+    reward_type: Optional[str] = None      # 'promocode' или 'tickets'
+    reward_amount: Optional[int] = None    # Количество для нового типа
+    sort_order: Optional[int] = None       # Порядковый номер
 
 class TwitchRewardIssueRequest(BaseModel):
     initData: str
@@ -1052,59 +1056,119 @@ async def handle_twitch_webhook(
             # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
 
 
-            # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (без изменений)
-            logging.info(f"Обычная награда '{reward_title}' от {twitch_login}.")
+            # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (Новая логика с типами)
+            logging.info(f"Обычная награда (не рулетка) '{reward_title}' от {twitch_login}.")
 
-            payload_for_purchase = {}
-            if user_record:
-                telegram_id = user_record.get("telegram_id")
-                payload_for_purchase = { "user_id": telegram_id, "username": user_record.get("full_name", twitch_login), "trade_link": user_record.get("trade_link"), "status": "Привязан" }
-            else:
-                payload_for_purchase = { "user_id": None, "username": twitch_login, "trade_link": None, "status": "Не привязан" }
+            # 3.1. Получаем полные настройки награды из нашей таблицы
+            reward_settings_resp = await supabase.get(
+                "/twitch_rewards", 
+                params={"title": f"eq.{reward_title}", "select": "*"}
+            )
+            reward_settings_list = reward_settings_resp.json()
+            
+            # 3.2. Если награды нет в базе, создаем ее с настройками по умолчанию
+            if not reward_settings_list:
+                logging.info(f"Создание новой награды '{reward_title}' в базе.")
+                # Новые награды получают sort_order = NULL и окажутся в конце
+                reward_settings_list = (await supabase.post(
+                    "/twitch_rewards", 
+                    json={
+                        "title": reward_title, 
+                        "is_active": True, 
+                        "notify_admin": True,
+                        "reward_type": "promocode", # По умолчанию - промокод
+                        "reward_amount": 10,         # По умолчанию - 10
+                        "promocode_amount": 10       # Дублируем в старое поле
+                    }, 
+                    headers={"Prefer": "return=representation"}
+                )).json()
+            
+            reward_settings = reward_settings_list[0]
 
-            reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,is_active,notify_admin"})
-            reward_settings = reward_settings_resp.json()
-            if not reward_settings:
-                reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title, "is_active": True, "notify_admin": True}, headers={"Prefer": "return=representation"})).json()
-
-            if not reward_settings[0]["is_active"]:
+            if not reward_settings["is_active"]:
+                logging.info(f"Награда '{reward_title}' отключена админом. Игнорируем.")
                 return {"status": "ok", "detail": "Эта награда отключена админом."}
 
-            if user_record and telegram_id:
+            # 3.3. Определяем пользователя
+            telegram_id = user_record.get("telegram_id") if user_record else None
+            user_display_name = user_record.get("full_name", twitch_login) if user_record else twitch_login
+            user_status = "Привязан" if user_record else "Не привязан"
+            
+            # 3.4. Определяем тип награды
+            reward_type = reward_settings.get("reward_type", "promocode")
+            # Используем новое поле amount, если оно есть, иначе старое
+            reward_amount = reward_settings.get("reward_amount") if reward_settings.get("reward_amount") is not None else reward_settings.get("promocode_amount", 10)
+
+            # 3.5. Выполняем действие в зависимости от типа награды
+            if reward_type == "tickets" and telegram_id:
+                # --- АВТОМАТИЧЕСКАЯ ВЫДАЧА БИЛЕТОВ ---
                 try:
-                    await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": 1})
-                    logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) начислен 1 билет за награду Twitch.")
+                    await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": reward_amount})
+                    logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) АВТОМАТИЧЕСКИ начислено {reward_amount} билетов.")
+                    
+                    # Создаем лог покупки (сразу как "выданный")
+                    await supabase.post("/twitch_reward_purchases", json={
+                        "reward_id": reward_settings["id"], "user_id": telegram_id,
+                        "username": user_display_name, "twitch_login": twitch_login,
+                        "trade_link": user_record.get("trade_link"), "status": user_status,
+                        "user_input": user_input,
+                        "rewarded_at": datetime.now(timezone.utc).isoformat(), # Сразу помечаем выданным
+                        "viewed_by_admin": True # Сразу помечаем просмотренным
+                    })
+
+                    if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
+                        notification_text = (
+                            f"🎟️ <b>Авто-награда Twitch!</b>\n\n"
+                            f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
+                            f"<b>Награда:</b> «{html_decoration.quote(reward_title)}»\n"
+                            f"✅ <b>Автоматически начислено: {reward_amount} билетов.</b>"
+                        )
+                        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
+                    
+                    return {"status": "ok", "detail": "Билеты начислены."}
+
                 except Exception as e:
-                    logging.error(f"❌ Не удалось начислить билет за Twitch награду пользователю {telegram_id}: {e}")
+                    logging.error(f"❌ Не удалось начислить билеты за Twitch награду пользователю {telegram_id}: {e}")
+                    # Проваливаемся в "ручной режим" (промокод), если выдача билетов не удалась
+                    pass
+            
+            # --- РУЧНАЯ ВЫДАЧА (Промокод или Билеты для не-авторизованного) ---
+            log_message = "Создан лог на выдачу ПРОМОКОДА."
+            if reward_type == "tickets":
+                 log_message = f"Создан лог на РУЧНУЮ выдачу {reward_amount} билетов (пользователь не привязан)."
+
+            logging.info(log_message)
 
             await supabase.post("/twitch_reward_purchases", json={
-                "reward_id": reward_settings[0]["id"], "user_id": payload_for_purchase["user_id"],
-                "username": payload_for_purchase["username"], "twitch_login": twitch_login,
-                "trade_link": payload_for_purchase["trade_link"], "status": payload_for_purchase["status"],
-                "user_input": user_input
+                "reward_id": reward_settings["id"], "user_id": telegram_id,
+                "username": user_display_name, "twitch_login": twitch_login,
+                "trade_link": user_record.get("trade_link"), "status": user_status,
+                "user_input": user_input,
+                "viewed_by_admin": False # <-- ВАЖНО: Новая заявка
             })
 
-            if ADMIN_NOTIFY_CHAT_ID and reward_settings[0]["notify_admin"]:
+            if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
                 notification_text = (
-                    f"🔔 <b>Новая награда за баллы Twitch!</b>\n\n"
-                    f"<b>Пользователь:</b> {html_decoration.quote(payload_for_purchase['username'])} ({html_decoration.quote(twitch_login)})\n"
-                    f"<b>Награда:</b> {html_decoration.quote(reward_title)}\n"
-                    f"<b>Статус:</b> {payload_for_purchase['status']}"
+                    f"🔔 <b>Новая заявка Twitch!</b>\n\n"
+                    f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
+                    f"<b>Награда:</b> «{html_decoration.quote(reward_title)}»\n"
+                    f"<b>Статус:</b> {user_status}"
                 )
+                if reward_type == "tickets":
+                    notification_text += f"\n<b>Запрос на:</b> {reward_amount} билетов (ручная выдача)"
+                else:
+                    notification_text += f"\n<b>Запрос на:</b> Промокод ({reward_amount} звёзд)"
+
                 if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
-                if payload_for_purchase.get("user_id"): notification_text += "\n\n✅ Пользователю начислен 1 билет."
-                notification_text += "\nИнформация добавлена в раздел 'TWITCH награды'."
+                notification_text += "\n\nЗаявка ждет в админ-панели 'TWITCH награды'."
                 background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
-            return {"status": "ok"}
+            return {"status": "ok", "detail": "Заявка на награду создана."}
 
         except Exception as e:
             logging.error(f"Ошибка обработки уведомления от Twitch: {e}", exc_info=True)
             # Возвращаем 500 ошибку, чтобы Twitch попробовал снова
             raise HTTPException(status_code=500, detail="Internal processing error")
-
-    # Если message_type не 'notification' и не 'webhook_callback_verification'
-    return {"status": "ok", "detail": "Запрос обработан, но не является уведомлением."}
     
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ ---
 @app.post("/api/v1/admin/events/winners/details")
@@ -2534,9 +2598,40 @@ async def contribute_to_cauldron(
 
 @app.get("/api/v1/admin/twitch_rewards/list")
 async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    resp = await supabase.get("/twitch_rewards", params={"select": "*", "order": "id.desc"})
+    # 1. Получаем ВСЕ данные наград, сортируем (новые в конце)
+    resp = await supabase.get(
+        "/twitch_rewards", 
+        params={"select": "*", "order": "sort_order.asc.nullslast,id.asc"}
+    )
     resp.raise_for_status()
-    return resp.json()
+    data = resp.json()
+    reward_ids = [r['id'] for r in data]
+    
+    if not reward_ids:
+        return []
+
+    # 2. Запрос для подсчета неотвеченных (непросмотренных И невыданных)
+    pending_resp = await supabase.get(
+        "/twitch_reward_purchases",
+        params={
+            "reward_id": f"in.({','.join(map(str, reward_ids))})",
+            "viewed_by_admin": "eq.false",
+            "rewarded_at": "is.null",
+            "select": "reward_id"
+        }
+    )
+    
+    # 3. Считаем в Python
+    pending_counts_map = {}
+    for purchase in pending_resp.json():
+        r_id = purchase['reward_id']
+        pending_counts_map[r_id] = pending_counts_map.get(r_id, 0) + 1
+    
+    # 4. Добавляем счетчик к каждому объекту
+    for reward in data:
+        reward['pending_count'] = pending_counts_map.get(reward['id'], 0)
+        
+    return data
 
 
 @app.post("/api/v1/admin/twitch_rewards/update")
