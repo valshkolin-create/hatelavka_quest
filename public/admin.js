@@ -2333,6 +2333,25 @@ function updateSleepButton(status) {
                 return;
             }
             
+            // --- ИСПРАВЛЕННЫЙ ПОРЯДОК ---
+
+            // Клик по шестеренке (Настройки)
+            const settingsBtn = target.closest('.reward-settings-btn');
+            if (settingsBtn) {
+                const rewardData = JSON.parse(settingsBtn.dataset.reward);
+                openTwitchRewardSettings(rewardData); // Используем старую функцию
+                return;
+            }
+
+            // Клик по иконке (Покупки)
+            const purchasesLink = target.closest('.reward-purchases-link');
+            if (purchasesLink) {
+                event.preventDefault(); // Предотвратить переход по ссылке #
+                const { rewardId, rewardTitle } = purchasesLink.dataset;
+                await openTwitchPurchases(rewardId, rewardTitle);
+                return;
+            }
+            
             // Общий клик по иконке (Навигация) - должен быть ПОСЛЕ кнопок
             const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
             if (navButton && navButton.tagName.toLowerCase() !== 'a') {
