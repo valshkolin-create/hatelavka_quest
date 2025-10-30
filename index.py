@@ -940,116 +940,116 @@ async def handle_twitch_webhook(
                 }))
                 return {"status": "cauldron_contribution_accepted"}
 
-            # --- НАЧАЛО ИЗМЕНЕНИЙ РУЛЕТКИ ---
+            # --- НАЧАЛО ИСПРАВЛЕННОЙ ЛОГИКИ РУЛЕТКИ / БИЛЕТОВ ---
+
+            # 1. Проверяем, существует ли награда в рулетках ВООБЩЕ (независимо от кол-ва)
             prizes_resp = await supabase.get(
                 "/roulette_prizes",
                 params={
                     "reward_title": f"eq.{reward_title}",
-                    "quantity": "gt.0", # <-- Только те, что в наличии
-                    "select": "id,skin_name,image_url,chance_weight,quantity" # <-- Выбираем id и quantity
+                    "select": "id,skin_name,image_url,chance_weight,quantity"
                 }
             )
             prizes_resp.raise_for_status()
-            in_stock_prizes = prizes_resp.json()
+            roulette_definitions = prizes_resp.json() # Эта переменная теперь определена
 
-            if in_stock_prizes:
-                logging.info(f"Запуск рулетки для '{reward_title}' от {twitch_login}. Найдено призов в наличии: {len(in_stock_prizes)}")
+            # 2. Если это награда из рулетки (список НЕ пустой)
+            if roulette_definitions:
+                # 2a. Фильтруем те, что в наличии
+                in_stock_prizes = [p for p in roulette_definitions if p.get("quantity", 0) > 0]
+                
+                # 2b. Если есть в наличии - запускаем рулетку
+                if in_stock_prizes:
+                    logging.info(f"Запуск рулетки для '{reward_title}' от {twitch_login}. Найдено призов в наличии: {len(in_stock_prizes)}")
+                    
+                    # Динамический расчет весов
+                    weights = [p['chance_weight'] * p['quantity'] for p in in_stock_prizes]
+                    if sum(weights) <= 0:
+                         logging.error(f"Сумма весов для рулетки '{reward_title}' равна нулю. Призы: {in_stock_prizes}")
+                         return {"status": "error_zero_weight"}
 
-                # Динамический расчет весов
-                weights = [p['chance_weight'] * p['quantity'] for p in in_stock_prizes]
+                    # Выбираем победителя
+                    winner_prize = random.choices(in_stock_prizes, weights=weights, k=1)[0]
+                    winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
+                    winner_prize_id = winner_prize.get('id')
+                    winner_quantity_before_win = winner_prize.get('quantity', 1)
 
-                # Если сумма весов 0 (маловероятно, но возможно при ошибках), прекращаем
-                if sum(weights) <= 0:
-                     logging.error(f"Сумма весов для рулетки '{reward_title}' равна нулю. Призы: {in_stock_prizes}")
-                     return {"status": "error_zero_weight"}
+                    # Уменьшаем количество на 1 в базе данных
+                    if winner_prize_id:
+                        try:
+                            decrement_resp = await supabase.post(
+                                "/rpc/decrement_roulette_prize_quantity",
+                                json={"p_prize_id": winner_prize_id}
+                            )
+                            decrement_resp.raise_for_status()
+                            logging.info(f"Количество приза ID {winner_prize_id} уменьшено.")
+                        except Exception as e_dec:
+                             logging.error(f"Не удалось уменьшить количество приза ID {winner_prize_id}: {e_dec}")
 
-                # Выбираем победителя
-                winner_prize = random.choices(in_stock_prizes, weights=weights, k=1)[0]
-                winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
-                winner_prize_id = winner_prize.get('id')
-                winner_quantity_before_win = winner_prize.get('quantity', 1) # Сохраняем кол-во до списания
+                    # (Логика записи лога покупки для рулетки)
+                    reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
+                    reward_settings = reward_settings_resp.json()
+                    if not reward_settings:
+                        reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
 
-                # Уменьшаем количество на 1 в базе данных СРАЗУ
-                if winner_prize_id:
-                    try:
-                        decrement_resp = await supabase.post(
-                            "/rpc/decrement_roulette_prize_quantity",
-                            json={"p_prize_id": winner_prize_id}
+                    final_user_input = f"Выигрыш: {winner_skin_name}"
+                    if user_input:
+                        final_user_input += f" | Сообщение: {user_input}"
+
+                    purchase_payload = {
+                        "reward_id": reward_settings[0]["id"],
+                        "username": user_record.get("full_name", twitch_login) if user_record else twitch_login,
+                        "twitch_login": twitch_login,
+                        "trade_link": user_record.get("trade_link") if user_record else user_input,
+                        "status": "Привязан" if user_record else "Не привязан",
+                        "user_input": final_user_input,
+                        "user_id": user_record.get("telegram_id") if user_record else None # Добавлено
+                    }
+                    await supabase.post("/twitch_reward_purchases", json=purchase_payload)
+
+                    # (Логика уведомления админа о рулетке)
+                    if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
+                        notification_text = (
+                            f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
+                            f"<b>Пользователь:</b> {html_decoration.quote(purchase_payload['username'])}\n" # Исправлено
+                            f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
+                            f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
+                            f"<b>Остаток:</b> {winner_quantity_before_win - 1} шт."
                         )
-                        decrement_resp.raise_for_status() # Проверяем, что функция выполнилась
-                        logging.info(f"Количество приза ID {winner_prize_id} уменьшено.")
-                    except httpx.HTTPStatusError as e_dec:
-                        logging.error(f"Не удалось уменьшить количество приза ID {winner_prize_id}: {e_dec.response.text}")
-                        # Продолжаем выполнение, но логируем ошибку
-                    except Exception as e_dec_general:
-                         logging.error(f"Критическая ошибка при уменьшении кол-ва приза ID {winner_prize_id}: {e_dec_general}")
+                        if purchase_payload["trade_link"]:
+                            notification_text += f"\n<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>"
+                        notification_text += "\n\nИнформация добавлена в раздел 'Покупки'."
+                        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
+                    # (Логика триггера анимации)
+                    winner_index_in_filtered_list = next((i for i, prize in enumerate(in_stock_prizes) if prize['id'] == winner_prize_id), 0)
+                    animation_payload = {
+                        "prizes": in_stock_prizes,
+                        "winner": winner_prize,
+                        "winner_index": winner_index_in_filtered_list,
+                        "user_name": twitch_login,
+                        "prize_name": reward_title
+                    }
+                    await supabase.post("/roulette_triggers", json={"payload": animation_payload})
+                    
+                    logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен.")
+                    return {"status": "roulette_triggered"}
 
-                # --- КОНЕЦ ИЗМЕНЕНИЙ РУЛЕТКИ ---
-
-                reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
-                reward_settings = reward_settings_resp.json()
-                if not reward_settings:
-                    reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
-
-                final_user_input = f"Выигрыш: {winner_skin_name}"
-                if user_input:
-                    final_user_input += f" | Сообщение: {user_input}"
-
-                purchase_payload = {
-                    "reward_id": reward_settings[0]["id"],
-                    "username": user_record.get("full_name", twitch_login) if user_record else twitch_login,
-                    "twitch_login": twitch_login,
-                    "trade_link": user_record.get("trade_link") if user_record else user_input,
-                    "status": "Привязан" if user_record else "Не привязан",
-                    "user_input": final_user_input
-                }
-
-                if user_record:
-                    purchase_payload["user_id"] = user_record.get("telegram_id")
+                # 2c. Если это рулетка, но призы закончились
                 else:
-                    purchase_payload["user_id"] = None
+                    logging.warning(f"Рулетка '{reward_title}' не запущена - все призы закончились.")
+                    # Отправляем уведомление админу, если нужно
+                    if ADMIN_NOTIFY_CHAT_ID:
+                        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, f"⚠️ <b>Закончились призы</b> для рулетки «{html_decoration.quote(reward_title)}»!")
+                    # ВАЖНО: Завершаем выполнение, чтобы не перейти к логике "других наград"
+                    return {"status": "roulette_out_of_stock"}
 
-                await supabase.post("/twitch_reward_purchases", json=purchase_payload)
-
-                if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
-                    notification_text = (
-                        f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
-                        f"<b>Пользователь:</b> {html_decoration.quote(user_record.get('full_name', twitch_login) if user_record else twitch_login)}\n"
-                        f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
-                        f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
-                        # Показываем остаток (количество до выигрыша минус 1)
-                        f"<b>Остаток:</b> {winner_quantity_before_win - 1} шт."
-                    )
-
-                    if purchase_payload["trade_link"]:
-                        notification_text += f"\n<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>"
-
-                    notification_text += "\n\nИнформация добавлена в раздел 'Покупки' для этой награды."
-
-                    background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
-
-                # Ищем индекс победителя в *отфильтрованном* списке
-                winner_index_in_filtered_list = next((i for i, prize in enumerate(in_stock_prizes) if prize['id'] == winner_prize_id), 0)
-
-                # --- ИЗМЕНЕНИЕ: Отправляем prize_name для отображения в roulette.html ---
-                animation_payload = {
-                    "prizes": in_stock_prizes, # Отправляем только те, что были в наличии
-                    "winner": winner_prize,    # Отправляем данные победителя
-                    "winner_index": winner_index_in_filtered_list, # Индекс в списке in_stock_prizes
-                    "user_name": twitch_login,
-                    "prize_name": reward_title # Добавлено для отображения названия рулетки
-                }
-                await supabase.post("/roulette_triggers", json={"payload": animation_payload})
-
-                logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен через Supabase.")
-                return {"status": "roulette_triggered"}
-            elif not roulette_prizes: # Если prizes_resp вернул пустой список (даже с quantity=0)
-                 logging.info(f"Пропускаем рулетку для '{reward_title}' - призов не найдено в базе.")
-            else: # Если in_stock_prizes пуст, но roulette_prizes не пуст
-                 logging.warning(f"Рулетка '{reward_title}' не запущена - все призы закончились.")
-                 # Можно добавить уведомление админу здесь, если нужно
-                 # background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, f"⚠️ Закончились призы для рулетки «{reward_title}»!")
+            # 3. Если это НЕ награда из рулетки (т.е. это "Билет")
+            else:
+                logging.info(f"Обычная награда (не рулетка) '{reward_title}' от {twitch_login}.")
+                # Код просто "проваливается" в следующий раздел
+            
+            # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
 
 
             # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (без изменений)
@@ -1105,7 +1105,7 @@ async def handle_twitch_webhook(
 
     # Если message_type не 'notification' и не 'webhook_callback_verification'
     return {"status": "ok", "detail": "Запрос обработан, но не является уведомлением."}
-
+    
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ ---
 @app.post("/api/v1/admin/events/winners/details")
 async def get_event_winners_details_for_admin( # Новое имя функции
