@@ -1435,42 +1435,33 @@ async def get_public_quests(request_data: InitDataRequest):
     telegram_id = user_info.get("id") if user_info else None
 
     if not telegram_id:
-        # Если нет ID пользователя (например, невалидный initData), возвращаем пустой список
-        return []
+        return [] # Возвращаем пустой список, если нет ID
 
     try:
-        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Убираем await перед вызовом ---
+        # Используем глобальный клиент supabase и вызов .rpc().execute()
         response = supabase.rpc(
             "get_available_quests_for_user",
             {"p_telegram_id": telegram_id}
-        ).execute() # execute() вызывается без await
+        ).execute() 
 
-        # Данные теперь находятся в response.data
         available_quests_raw = response.data
 
-        # SQL функция возвращает '[]'::json (пустой JSON массив) или null, если ничего не найдено.
-        # Обрабатываем оба случая.
-        if available_quests_raw is None or not isinstance(available_quests_raw, list):
-            available_quests = []
-        else:
-            available_quests = available_quests_raw
+        # --- НОВАЯ УПРОЩЕННАЯ ЛОГИКА ---
+        if available_quests_raw is None:
+            # Если SQL вернул NULL (чего не должно быть, но на всякий случай)
+            logging.warning(f"RPC get_available_quests_for_user вернула NULL для user {telegram_id}")
+            return []
+        
+        if not isinstance(available_quests_raw, list):
+             # Если SQL вернул не список (например, ошибку, не пойманную execute())
+             logging.error(f"RPC get_available_quests_for_user вернула НЕ список: {available_quests_raw}")
+             return []
 
-        # --- Сохраняем логику добавления 'is_completed' ---
-        processed_quests = []
-        if isinstance(available_quests, list):
-            for quest_data in available_quests:
-                if isinstance(quest_data, dict):
-                    quest_data['is_completed'] = False # Добавляем поле как в оригинальной функции
-                    processed_quests.append(quest_data)
-                else:
-                    logging.warning(f"Неожиданный формат данных квеста: {quest_data}")
-        else:
-             logging.warning(f"RPC вернула не список: {available_quests}")
-
-
-        # --- Сохраняем логику заполнения недостающих данных ---
-        # Убедись, что функция fill_missing_quest_data определена где-то в твоем коде
-        return fill_missing_quest_data(processed_quests)
+        # Просто возвращаем "сырые" данные из SQL-функции,
+        # так как она уже возвращает готовый JSON-массив
+        # (fill_missing_quest_data больше не нужен, т.к. SQL возвращает все поля)
+        return available_quests_raw 
+        # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
     except Exception as e:
         # Используем exc_info=True для получения полного traceback в логах
