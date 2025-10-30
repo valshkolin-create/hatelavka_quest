@@ -2645,39 +2645,32 @@ async def update_twitch_reward(
 
     reward_id = request_data.id
     
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ: Перевод имен колонок ---
-
-    # 1. Получаем все поля, которые прислал фронтенд (включая null для sort_order)
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ (v3) ---
+    
+    # 1. Получаем все поля, которые прислал фронтенд
+    #    (JS присылает 'reward_amount', 'promocode_amount', 'reward_type' и 'sort_order')
     update_data = request_data.dict(exclude={'initData', 'id'})
     
-    # 2. Создаем новый словарь, который пойдет в Supabase
-    supabase_payload = {}
+    # 2. Создаем payload для Supabase
+    supabase_payload = update_data.copy() # Копируем все данные
 
-    # 3. Копируем все ключи из присланных данных
-    for key, value in update_data.items():
-        supabase_payload[key] = value
+    # 3. 'reward_type' УЖЕ имеет правильное имя ('reward_type'), его трогать не нужно.
+    #    Мой предыдущий совет переименовать его в 'reward_action_type' был неверным.
 
-    # 4. Переименовываем 'reward_type' -> 'reward_action_type'
-    if 'reward_type' in supabase_payload:
-        supabase_payload['reward_action_type'] = supabase_payload.pop('reward_type')
-
-    # 5. Переименовываем 'reward_amount' -> 'promocode_amount'
-    #    Ваш JS-код уже обеспечивает, что 'reward_amount' и 'promocode_amount'
-    #    приходят с одинаковым значением.
+    # 4. Переименовываем 'reward_amount' -> 'promocode_amount'
+    #    и удаляем 'reward_amount', так как его нет в таблице.
     if 'reward_amount' in supabase_payload:
+        # Ваш JS-код (с моим исправлением) отправляет оба поля,
+        # но мы гарантируем, что 'promocode_amount' получит значение,
+        # а 'reward_amount' будет удалено.
         supabase_payload['promocode_amount'] = supabase_payload.pop('reward_amount')
 
-    # 6. Удаляем 'promocode_amount', если он пришел как None (чтобы не нарушить 'not null')
-    if 'promocode_amount' in supabase_payload and supabase_payload['promocode_amount'] is None:
-        # Если 'promocode_amount' стал None, а он 'not null' в базе,
-        # лучше его удалить, чтобы база использовала 'default 10'.
-        # Но если вы сделали поле 'required' в HTML (как я советовал), 
-        # 'None' сюда не придет, и эта проверка просто для безопасности.
-        del supabase_payload['promocode_amount']
+    # 5. Проверяем not null для 'promocode_amount'
+    #    (На случай, если JS прислал null, а в базе 'not null default 10')
+    if 'promocode_amount' not in supabase_payload or supabase_payload['promocode_amount'] is None:
+        logging.warning("promocode_amount is None, устанавливаем default 10")
+        supabase_payload['promocode_amount'] = 10 # Устанавливаем default
 
-    # Теперь в supabase_payload лежат 'promocode_amount', 'reward_action_type', 'sort_order' и т.д.
-    # 'reward_amount' и 'reward_type' в нем больше нет.
-    
     # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     if not supabase_payload:
@@ -2687,14 +2680,13 @@ async def update_twitch_reward(
         response = await supabase.patch(
             "/twitch_rewards",
             params={"id": f"eq.{reward_id}"},
-            json=supabase_payload  # <--- Используем новый, исправленный payload
+            json=supabase_payload  # Используем исправленный payload
         )
-        response.raise_for_status() # <--- Эта строка выбросит ошибку, если Supabase вернул 400
+        response.raise_for_status()
     
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", e.response.text)
         logging.error(f"Ошибка Supabase при обновлении twitch_rewards: {error_details}")
-        # Добавляем лог того, что мы пытались отправить
         logging.error(f"Payload, который не понравился Supabase: {supabase_payload}")
         raise HTTPException(status_code=400, detail=f"Ошибка Supabase: {error_details}")
     except Exception as e:
