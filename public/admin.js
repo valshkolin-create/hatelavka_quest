@@ -2365,33 +2365,21 @@ function updateSleepButton(status) {
                 await openTwitchPurchases(rewardId, rewardTitle);
                 return;
             }
-
-            const issuePromoBtn = target.closest('.issue-promo-btn');
-            if (issuePromoBtn) {
-                const purchaseId = issuePromoBtn.dataset.purchaseId;
-                tg.showConfirm('Вы уверены, что хотите выдать промокод этому пользователю?', async (ok) => {
-                    if (ok) {
-                       try {
-                            const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', { purchase_id: parseInt(purchaseId) });
-                            tg.showAlert(result.message);
-                            const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                            if(itemDiv) {
-                                const actionDiv = itemDiv.querySelector('.purchase-actions');
-                                actionDiv.innerHTML = `
-                                    <div class="rewarded-info" style="flex-grow: 1;">
-                                        <i class="fa-solid fa-check-circle"></i> Награда выдана
-                                    </div>
-                                    <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${purchaseId}">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </button>
-                                `;
-                            }
-                       } catch(e) {
-                            console.error('Ошибка при выдаче промокода:', e);
-                            tg.showAlert(`Ошибка: ${e.message}`);
-                       }
-                    }
-                });
+            
+            // Общий клик по иконке (Навигация) - должен быть ПОСЛЕ кнопок
+            const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
+            if (navButton && navButton.tagName.toLowerCase() !== 'a') {
+                event.preventDefault();
+                const view = navButton.dataset.view;
+                if (view) await switchView(view);
+                else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
+                else if (navButton.id === 'go-create-challenge') {
+                    dom.challengeForm.reset();
+                    dom.challengeForm.elements['challenge_id'].value = '';
+                    updateChallengeFormUI(dom.challengeForm);
+                    dom.challengeFormTitle.textContent = 'Новый челлендж';
+                    await switchView('view-admin-challenge-form');
+                }
                 return;
             }
 
