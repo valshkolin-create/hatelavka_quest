@@ -1425,7 +1425,6 @@ async def get_quests_categories(request_data: InitDataRequest, supabase: httpx.A
     resp.raise_for_status()
     return resp.json()
     
-# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ---
 @app.post("/api/v1/quests/list")
 async def get_public_quests(request_data: InitDataRequest):
     """
@@ -1435,61 +1434,47 @@ async def get_public_quests(request_data: InitDataRequest):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     telegram_id = user_info.get("id") if user_info else None
 
-    # --- ЛОГ 1 ---
-    logging.info(f"[/api/v1/quests/list] Запрос для user_id: {telegram_id}")
-
     if not telegram_id:
-        logging.warning(f"[/api/v1/quests/list] Отклонено: нет telegram_id.")
+        # Если нет ID пользователя (например, невалидный initData), возвращаем пустой список
         return []
 
     try:
-        # --- ЛОГ 2 ---
-        logging.info(f"[/api/v1/quests/list] Вызов RPC 'get_available_quests_for_user' для user_id: {telegram_id}...")
-        
-        # Используем глобальный клиент supabase и вызов .rpc().execute()
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Убираем await перед вызовом ---
         response = supabase.rpc(
             "get_available_quests_for_user",
             {"p_telegram_id": telegram_id}
-        ).execute() 
+        ).execute() # execute() вызывается без await
 
+        # Данные теперь находятся в response.data
         available_quests_raw = response.data
 
-        # --- ЛОГ 3 (САМЫЙ ВАЖНЫЙ) ---
-        # Логируем "сырой" ответ от Supabase, чтобы увидеть, что именно пришло
-        logging.info(f"[/api/v1/quests/list] 'Сырой' ответ от RPC (available_quests_raw): {available_quests_raw}")
-        logging.info(f"[/api/v1/quests/list] Тип 'сырого' ответа: {type(available_quests_raw)}")
+        # SQL функция возвращает '[]'::json (пустой JSON массив) или null, если ничего не найдено.
+        # Обрабатываем оба случая.
+        if available_quests_raw is None or not isinstance(available_quests_raw, list):
+            available_quests = []
+        else:
+            available_quests = available_quests_raw
 
-        # --- НОВАЯ УПРОЩЕННАЯ ЛОГИКА ---
-        if available_quests_raw is None:
-            # --- ЛОГ 4 ---
-            logging.warning(f"[/api/v1/quests/list] RPC вернула NULL (None). Возвращаем пустой список [].")
-            return []
-        
-        if not isinstance(available_quests_raw, list):
-             # --- ЛОГ 5 ---
-             logging.error(f"[/api/v1/quests/list] RPC вернула НЕ список. Тип: {type(available_quests_raw)}. Ответ: {available_quests_raw}")
-             raise HTTPException(status_code=500, detail="Ошибка формата данных от RPC.")
+        # --- Сохраняем логику добавления 'is_completed' ---
+        processed_quests = []
+        if isinstance(available_quests, list):
+            for quest_data in available_quests:
+                if isinstance(quest_data, dict):
+                    quest_data['is_completed'] = False # Добавляем поле как в оригинальной функции
+                    processed_quests.append(quest_data)
+                else:
+                    logging.warning(f"Неожиданный формат данных квеста: {quest_data}")
+        else:
+             logging.warning(f"RPC вернула не список: {available_quests}")
 
-        # --- ЛОГ 6 (ПРОВЕРКА НА [None]) ---
-        # Проверяем, не содержит ли список `None`
-        if any(item is None for item in available_quests_raw):
-            logging.error(f"[/api/v1/quests/list] ОШИБКА: Список от RPC содержит 'None' (null)! Ответ: {available_quests_raw}")
-            # Отфильтровываем None, чтобы не сломать фронтенд
-            cleaned_list = [item for item in available_quests_raw if item is not None]
-            logging.info(f"[/api/v1/quests/list] Отправляем 'очищенный' список: {cleaned_list}")
-            return cleaned_list
 
-        # --- ЛОГ 7 ---
-        logging.info(f"[/api/v1/quests/list] Успешно. Возвращаем список из {len(available_quests_raw)} квестов.")
-        
-        # Просто возвращаем "сырые" данные из SQL-функции
-        return available_quests_raw 
-        # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+        # --- Сохраняем логику заполнения недостающих данных ---
+        # Убедись, что функция fill_missing_quest_data определена где-то в твоем коде
+        return fill_missing_quest_data(processed_quests)
 
     except Exception as e:
-        # --- ЛОГ 8 ---
         # Используем exc_info=True для получения полного traceback в логах
-        logging.error(f"[/api/v1/quests/list] КРИТИЧЕСКАЯ ОШИБКА при вызове RPC для {telegram_id}: {e}", exc_info=True)
+        logging.error(f"Ошибка при вызове RPC get_available_quests_for_user для {telegram_id}: {e}", exc_info=True)
         # Возвращаем 500 ошибку клиенту
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
