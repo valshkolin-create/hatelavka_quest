@@ -1891,11 +1891,7 @@ function updateSleepButton(status) {
             targetElement.innerHTML += cardHtml;
         });
     }
-2. Функция setupEventListeners
-Скопируй и полностью замени всю твою функцию setupEventListeners (которая у тебя начинается на строке 2146) вот этим кодом:
-
-JavaScript
-
+    
     function setupEventListeners() {
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
