@@ -994,9 +994,13 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
 
                 <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(rewardAmount)} ⭐</p>
                 <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong>
-                    <a href="tg://user?id=${action.user_id}" class="admin-action-btn" style="background-color: #007aff; padding: 4px 8px; font-size: 12px; margin-left: 10px; text-decoration: none;">
+                    
+                    // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                    <a href="tg://user?id=${action.user_id}" style="background-color: #007aff; padding: 4px 8px; font-size: 12px; margin-left: 10px; text-decoration: none; border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer;">
                         <i class="fa-solid fa-paper-plane"></i> Написать
                     </a>
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
                 </p>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
