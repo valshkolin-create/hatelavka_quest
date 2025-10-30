@@ -608,10 +608,16 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             // --- НАЧАЛО ИЗМЕНЕНИЙ В ОБРАБОТКЕ ОТВЕТА ---
             let result;
             try {
-                result = await response.json(); // Пытаемся распарсить JSON
+                //
+                // VVV--- ИЗМЕНЕНИЕ ЗДЕСЬ ---VVV
+                //
+                result = await response.clone().json(); // Пытаемся распарсить клон как JSON
+                //
+                // ^^^--- ИЗМЕНЕНИЕ ЗДЕСЬ ---^^^
+                //
             } catch (jsonError) {
-                // Если не JSON, читаем как текст (на случай HTML-ошибки или простой строки)
-                const textResponse = await response.text();
+                // Если не JSON, читаем как текст из ОРИГИНАЛА
+                const textResponse = await response.text(); 
                 console.error("Non-JSON response received:", textResponse);
                  // Если ответ не был успешным (не 2xx), бросаем ошибку с текстом ответа
                 if (!response.ok) {
