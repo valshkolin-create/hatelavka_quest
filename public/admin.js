@@ -2753,7 +2753,10 @@ function updateSleepButton(status) {
                             dom.saveOrderButton.classList.remove('hidden');
                         }, 500);
                     }
+                }
             }
+        });
+
 
         if(dom.createQuestForm) dom.createQuestForm.querySelector('select[name="quest_type"]').addEventListener('change', () => updateQuestFormUI(dom.createQuestForm));
         if(dom.editQuestForm) dom.editQuestForm.querySelector('select[name="quest_type"]').addEventListener('change', () => updateQuestFormUI(dom.editQuestForm));
