@@ -118,6 +118,7 @@ try {
     let adminUserSearchDebounceTimer; // Таймер для задержки поиска
     let onAdminUserSelectCallback = null; // Функция, которая вызовется после выбора юзера
     let selectedAdminUser = null; // Хранит {id, name} выбранного юзера
+    let afterPasswordCallback = null; // Функция для выполнения после ввода пароля 6971
     // --- КОНЕЦ НОВЫХ ПЕРЕМЕННЫХ ---
 
     function escapeHTML(str) {
@@ -1927,7 +1928,16 @@ function updateSleepButton(status) {
                     });
 
                     const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
-                    if(adminTabButton) adminTabButton.click();
+                    // Переключаем вкладку, только если мы не выполняем другое действие
+                    if(adminTabButton && !afterPasswordCallback) { 
+                         adminTabButton.click();
+                    }
+
+                    // Выполняем отложенное действие, если оно есть
+                    if (typeof afterPasswordCallback === 'function') {
+                        afterPasswordCallback();
+                        afterPasswordCallback = null; // Сбрасываем
+                    }
 
                 } else {
                     // Старая проверка (на случай, если у модераторов другой пароль)
@@ -2339,10 +2349,22 @@ function updateSleepButton(status) {
             const settingsBtn = target.closest('.reward-settings-btn');
             if (settingsBtn) {
                 const rewardData = JSON.parse(settingsBtn.dataset.reward);
-                openTwitchRewardSettings(rewardData); // Используем старую функцию
+                
+                if (hasAdminAccess) {
+                    // 1. Пароль уже введен, просто открываем
+                    openTwitchRewardSettings(rewardData);
+                } else {
+                    // 2. Пароль не введен. Запрашиваем его.
+                    // Сохраняем действие, которое нужно выполнить ПОСЛЕ ввода пароля
+                    afterPasswordCallback = () => {
+                        openTwitchRewardSettings(rewardData);
+                    };
+                    // Показываем окно ввода пароля
+                    dom.passwordPromptOverlay.classList.remove('hidden');
+                    dom.passwordPromptInput.focus();
+                }
                 return;
             }
-
             // Клик по иконке (Покупки)
             const purchasesLink = target.closest('.reward-purchases-link');
             if (purchasesLink) {
