@@ -2933,14 +2933,7 @@ function updateSleepButton(status) {
                 dom.submissionsModal.classList.remove('hidden');
 
             } else if (actionButton.matches('.admin-action-btn')) {
-            // --- 👇 ИСПРАВЛЕНИЕ ЗДЕСЬ 👇 ---
-            // Если кнопка, на которую кликнули, на самом деле является
-            // ссылкой (тег <a>) и ведет в Telegram,
-            // то мы ничего не делаем и даем ссылке сработать.
-                if (actionButton.tagName === 'A' && actionButton.href.startsWith('tg://')) {
-                   return; 
-                }
-            // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
+
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
                 const id = actionButton.dataset.id; // Получаем ID
