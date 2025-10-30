@@ -2332,39 +2332,6 @@ function updateSleepButton(status) {
                 }
                 return;
             }
-
-            const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
-            if (navButton && navButton.tagName.toLowerCase() !== 'a') {
-                event.preventDefault();
-                const view = navButton.dataset.view;
-                if (view) await switchView(view);
-                else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
-                else if (navButton.id === 'go-create-challenge') {
-                    dom.challengeForm.reset();
-                    dom.challengeForm.elements['challenge_id'].value = '';
-                    updateChallengeFormUI(dom.challengeForm);
-                    dom.challengeFormTitle.textContent = 'Новый челлендж';
-                    await switchView('view-admin-challenge-form');
-                }
-                return;
-            }
-
-            // Клик по шестеренке (Настройки)
-            const settingsBtn = target.closest('.reward-settings-btn');
-            if (settingsBtn) {
-                const rewardData = JSON.parse(settingsBtn.dataset.reward);
-                openTwitchRewardSettings(rewardData); // Используем старую функцию
-                return;
-            }
-
-            // Клик по иконке (Покупки)
-            const purchasesLink = target.closest('.reward-purchases-link');
-            if (purchasesLink) {
-                event.preventDefault(); // Предотвратить переход по ссылке #
-                const { rewardId, rewardTitle } = purchasesLink.dataset;
-                await openTwitchPurchases(rewardId, rewardTitle);
-                return;
-            }
             
             // Общий клик по иконке (Навигация) - должен быть ПОСЛЕ кнопок
             const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
