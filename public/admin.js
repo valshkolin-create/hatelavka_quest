@@ -996,7 +996,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 
                 <div class="submission-user-header">
                     <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
-                    <a href="tg://user?id=${action.user_id}" target="_blank" rel="noopener noreferrer" class="admin-action-btn" style="background-color: #007aff; padding: 6px 10px; font-size: 12px; text-decoration: none; flex-shrink: 0;">
+                    <a href="tg://user?id=${action.user_id}" target="_blank" rel="noopener noreferrer" class="admin-tg-link-btn" style="background-color: #007aff; padding: 6px 10px; font-size: 12px; text-decoration: none; flex-shrink: 0;">
                         <i class="fa-solid fa-paper-plane"></i> Написать
                     </a>
                 </div>
