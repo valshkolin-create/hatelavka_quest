@@ -2402,7 +2402,7 @@ function updateSleepButton(status) {
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
             
-           // --- 👇 ИСПРАВЛЕННЫЙ БЛОК v3 👇 ---
+           // --- 👇 ИСПРАВЛЕННЫЙ БЛОК v4 👇 ---
             const writeToUserBtn = target.closest('.admin-tg-link-btn');
             if (writeToUserBtn) {
                 console.log('Нажата кнопка "Написать"'); // Лог 1
@@ -2411,9 +2411,10 @@ function updateSleepButton(status) {
 
                 if (userId && window.Telegram && window.Telegram.WebApp) {
                     
-                    // --- 👇 ВОТ ИСПРАВЛЕНИЕ (v3) 👇 ---
-                    // Используем ПРАВИЛЬНЫЙ формат deep-link: tg://openmessage?user_id=...
-                    const tgLink = `tg://openmessage?user_id=${userId}`;
+                    // --- 👇 ВОТ ИСПРАВЛЕНИЕ (v4) 👇 ---
+                    // Возвращаемся к самому простому формату: tg://user?id=...
+                    // Но используем его с openTelegramLink
+                    const tgLink = `tg://user?id=${userId}`;
                     console.log('API Telegram найдено, вызываю openTelegramLink с:', tgLink); // Лог 3
                     
                     window.Telegram.WebApp.openTelegramLink(tgLink); 
