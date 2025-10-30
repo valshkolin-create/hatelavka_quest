@@ -12,7 +12,8 @@ import hashlib
 from urllib.parse import parse_qsl, unquote
 from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
-from supabase import create_client, AsyncClient # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
+from supabase import create_client
+from supabase.client import AsyncClient # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
 
 import requests
 from fastapi.concurrency import run_in_threadpool
