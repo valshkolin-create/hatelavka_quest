@@ -607,28 +607,6 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     right: -8px; 
 }
 
-/* Поле для сортировки (скрыто по умолчанию) */
-.pending-actions-grid .admin-icon-button .reward-sort-order-input,
-#twitch-rewards-container .admin-icon-button .reward-sort-order-input {
-    position: absolute;
-    bottom: -8px; /* Позиция инпута (снизу по центру) */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 45px;
-    height: 26px;
-    padding: 2px;
-    font-size: 13px;
-    text-align: center;
-    border-radius: 8px;
-    z-index: 2;
-    border: 1px solid var(--divider-glass-color);
-    background-color: rgba(0,0,0,0.6);
-    color: var(--text-color);
-    backdrop-filter: blur(3px);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    display: none; /* Скрыто по умолчанию */
-}
-
 /* Ссылка для основного клика (на покупки) */
 .pending-actions-grid .admin-icon-button .reward-purchases-link,
 #twitch-rewards-container .admin-icon-button .reward-purchases-link {
