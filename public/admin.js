@@ -439,64 +439,9 @@ const showLoader = () => {
                     break;
                 }
                 case 'view-admin-pending-actions': {
-                    // Запрашиваем СГРУППИРОВАННЫЕ данные
-                    const [groupedSubmissions, groupedEventPrizes, groupedCheckpointPrizes] = await Promise.all([
-                        makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true), // Теперь возвращает группы квестов
-                        makeApiRequest('/api/v1/admin/events/winners', {}, 'POST', true), // Теперь возвращает [{ type: ..., count: N }]
-                        makeApiRequest('/api/v1/admin/checkpoint_rewards', {}, 'POST', true) // Теперь возвращает [{ type: ..., count: N }]
-                    ]);
-                    // --- 👇 НАЧАЛО НОВОГО КОДА 👇 ---
-                    try {
-                        // Находим кнопки вкладок (табов)
-                        const eventPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]');
-                        const checkpointPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]');
-                        
-                        // Функция для обновления текста кнопки
-                        const updateTabText = (tabElement, baseText, hasData) => {
-                            if (!tabElement) return; // Если кнопка не найдена
-
-                            // 1. Сохраняем "чистый" текст, если он еще не сохранен
-                            // (baseText передается из dataset, если он уже есть)
-                            const cleanText = baseText || tabElement.textContent.trim().replace(' ❓', '');
-                            if (!baseText) {
-                                tabElement.dataset.baseText = cleanText;
-                            }
-
-                            // 2. Устанавливаем новый текст, ИСПОЛЬЗУЯ innerHTML
-                            if (hasData) {
-                                // --- 👇 ВОТ ИЗМЕНЕНИЕ (v3) 👇 ---
-                                // Меняем иконку на "fa-circle-exclamation" и цвет на красный
-                                tabElement.innerHTML = `${cleanText} <i class="fa-solid fa-circle-exclamation" style="font-size: 0.9em; vertical-align: middle; margin-left: 5px; color: var(--danger-color);"></i>`;
-                                // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 👆 ---
-                            } else {
-                                // Возвращаем чистый текст
-                                tabElement.innerHTML = cleanText;
-                            }
-                        };
-                        
-                        // 3. Обновляем вкладку "Розыгрыши" (Event Prizes)
-                        updateTabText(
-                            eventPrizesTab, 
-                            eventPrizesTab ? eventPrizesTab.dataset.baseText : null,
-                            groupedEventPrizes && groupedEventPrizes.length > 0
-                        );
-
-                        // 4. Обновляем вкладку "Чекпоинт" (Checkpoint Prizes)
-                        updateTabText(
-                            checkpointPrizesTab,
-                            checkpointPrizesTab ? checkpointPrizesTab.dataset.baseText : null,
-                            groupedCheckpointPrizes && groupedCheckpointPrizes.length > 0
-                        );
-
-                    } catch (e) {
-                        console.error("Ошибка при обновлении индикаторов вкладок:", e);
-                    }
-                    // --- 👆 КОНЕЦ НОВОГО КОДА 👆 ---
-                    // Вызываем новую функцию рендеринга сетки для каждой вкладки
-                    renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
-                    renderGroupedItemsGrid('tab-content-event-prizes', groupedEventPrizes);
-                    renderGroupedItemsGrid('tab-content-checkpoint-prizes', groupedCheckpointPrizes);
-                    break; // Не забываем break
+                    // Просто вызываем нашу новую функцию
+                    await loadPendingActions();
+                    break;
                 }
                 case 'view-admin-challenges': {
                     renderChallenges(await makeApiRequest('/api/v1/admin/challenges', {}, 'POST', true));
@@ -1323,6 +1268,74 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             container.innerHTML = `<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград: ${e.message}</p>`;
         }
     }
+
+// --- НОВАЯ ФУНКЦИЯ ЗАГРУЗКИ ОЖИДАЮЩИХ ДЕЙСТВИЙ ---
+    async function loadPendingActions() {
+        try {
+            // Запрашиваем СГРУППИРОВАННЫЕ данные
+            const [groupedSubmissions, groupedEventPrizes, groupedCheckpointPrizes] = await Promise.all([
+                makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true), // Теперь возвращает группы квестов
+                makeApiRequest('/api/v1/admin/events/winners', {}, 'POST', true), // Теперь возвращает [{ type: ..., count: N }]
+                makeApiRequest('/api/v1/admin/checkpoint_rewards', {}, 'POST', true) // Теперь возвращает [{ type: ..., count: N }]
+            ]);
+            
+            // --- Код обновления индикаторов вкладок (скопирован из switchView) ---
+            try {
+                // Находим кнопки вкладок (табов)
+                const eventPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]');
+                const checkpointPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]');
+                
+                // Функция для обновления текста кнопки
+                const updateTabText = (tabElement, baseText, hasData) => {
+                    if (!tabElement) return; // Если кнопка не найдена
+                    const cleanText = baseText || tabElement.textContent.trim().replace(' ❓', '');
+                    if (!baseText) {
+                        tabElement.dataset.baseText = cleanText;
+                    }
+                    if (hasData) {
+                        tabElement.innerHTML = `${cleanText} <i class="fa-solid fa-circle-exclamation" style="font-size: 0.9em; vertical-align: middle; margin-left: 5px; color: var(--danger-color);"></i>`;
+                    } else {
+                        tabElement.innerHTML = cleanText;
+                    }
+                };
+                
+                // Обновляем вкладку "Розыгрыши"
+                updateTabText(
+                    eventPrizesTab, 
+                    eventPrizesTab ? eventPrizesTab.dataset.baseText : null,
+                    groupedEventPrizes && groupedEventPrizes.length > 0
+                );
+
+                // Обновляем вкладку "Чекпоинт"
+                updateTabText(
+                    checkpointPrizesTab,
+                    checkpointPrizesTab ? checkpointPrizesTab.dataset.baseText : null,
+                    groupedCheckpointPrizes && groupedCheckpointPrizes.length > 0
+                );
+
+            } catch (e) {
+                console.error("Ошибка при обновлении индикаторов вкладок:", e);
+            }
+            // --- Конец кода обновления индикаторов ---
+
+            // Вызываем функцию рендеринга сетки для каждой вкладки
+            renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
+            renderGroupedItemsGrid('tab-content-event-prizes', groupedEventPrizes);
+            renderGroupedItemsGrid('tab-content-checkpoint-prizes', groupedCheckpointPrizes);
+        
+        } catch (e) {
+            console.error("Не удалось загрузить ожидающие действия:", e);
+            // Безопасно пытаемся отобразить ошибку на всех вкладках
+            const subContent = document.getElementById('tab-content-submissions');
+            const eventContent = document.getElementById('tab-content-event-prizes');
+            const cpContent = document.getElementById('tab-content-checkpoint-prizes');
+
+            if(subContent) subContent.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
+            if(eventContent) eventContent.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
+            if(cpContent) cpContent.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
+        }
+    }
+    // --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
     
     async function loadAdminGrantLog() {
         if (!dom.adminGrantLogList) return;
@@ -1910,6 +1923,15 @@ function updateSleepButton(status) {
                 if (removeBtn) {
                     removeBtn.closest('.cauldron-trigger-row').remove();
                 }
+            });
+        }
+        // --- 👇👇👇 ДОБАВЬТЕ ЭТОТ БЛОК 👇👇👇 ---
+        const reloadPendingBtn = document.getElementById('reload-pending-actions-btn');
+        if (reloadPendingBtn) {
+            reloadPendingBtn.addEventListener('click', async () => {
+                showLoader(); // Показываем лоадер
+                await loadPendingActions(); // Вызываем функцию загрузки
+                hideLoader(); // Прячем лоадер
             });
         }
         // --- НАЧАЛО НОВОГО КОДА ---
