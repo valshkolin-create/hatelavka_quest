@@ -1093,7 +1093,7 @@ async def handle_twitch_webhook(
                 )
                 if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
                 if payload_for_purchase.get("user_id"): notification_text += "\n\n✅ Пользователю начислен 1 билет."
-                notification_text += "\nИнформация добавлена в раздел 'Покупки'."
+                notification_text += "\nИнформация добавлена в раздел 'TWITCH награды'."
                 background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
 
             return {"status": "ok"}
