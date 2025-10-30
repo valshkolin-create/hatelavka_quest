@@ -109,9 +109,11 @@ try {
 
     let categoriesCache = [];
     let currentEditingCategoryId = null;
-    let hasAdminAccess = false;
+    let hasAdminAccess = false; // Станет true после ввода пароля 6971
+    const ADMIN_PASSWORD = '6971'; // Пароль для админ-функций
     let currentCauldronData = {};
     let orderChanged = false;
+    let twitchOrderChanged = false; // Отдельный флаг для наград Twitch
     // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОИСКА ---
     let adminUserSearchDebounceTimer; // Таймер для задержки поиска
     let onAdminUserSelectCallback = null; // Функция, которая вызовется после выбора юзера
@@ -364,19 +366,28 @@ const showLoader = () => {
     const switchView = async (targetViewId) => {
         console.log(`[switchView] Начинаем для targetViewId = ${targetViewId}`); // Лог входа
 
-        // --- ADD THESE LINES at the beginning ---
+        // --- Логика скрытия кнопок сохранения при смене вида ---
         if (orderChanged) {
-             console.log("[switchView] Обнаружены несохраненные изменения порядка.");
+             console.log("[switchView] Обнаружены несохраненные изменения порядка квестов.");
         }
-        // Проверяем кнопку сохранения перед доступом к classList
-        if (dom.saveOrderButton && dom.saveOrderButton.classList) { // Добавлена проверка classList
-            dom.saveOrderButton.classList.add('hidden'); // Прячем кнопку при смене вида
+        if (dom.saveOrderButton) {
+            dom.saveOrderButton.classList.add('hidden');
         } else {
-             console.warn("[switchView] Элемент dom.saveOrderButton не найден или не имеет classList!");
+             console.warn("[switchView] Элемент dom.saveOrderButton не найден!");
         }
-        orderChanged = false; // Сбрасываем флаг
-        // --- END of ADDED LINES ---
+        orderChanged = false; 
 
+        // Новая проверка для кнопки Twitch
+        if (twitchOrderChanged) {
+             console.log("[switchView] Обнаружены несохраненные изменения порядка Twitch.");
+        }
+        const twitchSaveBtn = document.getElementById('save-twitch-order-button');
+        if (twitchSaveBtn) {
+            twitchSaveBtn.classList.add('hidden');
+        }
+        twitchOrderChanged = false; 
+        // --- Конец логики скрытия кнопок ---
+        
         console.log("[switchView] Начинаем скрывать все view...");
         try {
             dom.views.forEach((view, index) => {
@@ -987,7 +998,11 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 </p>
 
                 <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(rewardAmount)} ⭐</p>
-                <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
+                <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong>
+                    <a href="tg://user?id=${action.user_id}" class="admin-action-btn" style="background-color: #007aff; padding: 4px 8px; font-size: 12px; margin-left: 10px; text-decoration: none;">
+                        <i class="fa-solid fa-paper-plane"></i> Написать
+                    </a>
+                </p>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
                     <div class="submission-data">${submissionContentHtml}</div>
@@ -1180,33 +1195,61 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         const container = document.getElementById('twitch-rewards-container');
         container.innerHTML = '';
         try {
-            const rewards = await makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true);
+            // Бэкенд (Изменение 3.2) теперь возвращает 'pending_count' и все поля
+            const rewards = await makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true); 
+            
             if (!Array.isArray(rewards) || rewards.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Наград пока нет. Они создадутся автоматически, когда пользователь купит первую награду за баллы на Twitch.</p>';
                 return;
             }
 
+            // Бэкенд УЖЕ отсортировал их (nullslast)
             rewards.forEach(reward => {
-                const cardHtml = `
-                    <div class="quest-card twitch-reward-card" data-reward-id="${reward.id}">
-                        <h3 class="quest-title">${reward.title}</h3>
-                        <div class="admin-buttons-wrapper">
-                            <button class="admin-action-btn settings-btn" data-reward='${JSON.stringify(reward)}'>
-                                <i class="fa-solid fa-gear"></i> Настройки
-                            </button>
-                            <button class="admin-action-btn purchases-btn" data-reward-id="${reward.id}" data-reward-title="${reward.title}">
-                                <i class="fa-solid fa-receipt"></i> Покупки
-                            </button>
-                        </div>
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'admin-icon-button';
+                itemDiv.dataset.rewardId = reward.id;
+
+                const pendingCount = reward.pending_count || 0;
+                const badgeHtml = pendingCount > 0
+                    ? `<span class="notification-badge">${pendingCount}</span>`
+                    : '';
+                
+                // Иконка по умолчанию
+                const iconUrl = reward.icon_url || 'https://static-cdn.jtvnw.net/custom-reward-images/default-4.png';
+                
+                // Скрываем инпут, если hasAdminAccess = false
+                const adminDisplayStyle = hasAdminAccess ? 'block' : 'none';
+
+                itemDiv.innerHTML = `
+                    <div class="icon-wrapper">
+                        <a href="#" class="reward-purchases-link" data-reward-id="${reward.id}" data-reward-title="${escapeHTML(reward.title)}">
+                            <img src="${escapeHTML(iconUrl)}" alt="reward">
+                        </a>
+                        
+                        <button class="reward-shortcut-btn reward-settings-btn" data-reward='${JSON.stringify(reward)}'>
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
+                        
+                        ${badgeHtml}
+                        
+                        <input type="number"
+                               class="reward-sort-order-input admin-feature-6971"
+                               data-reward-id="${reward.id}"
+                               value="${reward.sort_order ?? ''}"
+                               placeholder="#"
+                               min="1"
+                               style="display: ${adminDisplayStyle};">
                     </div>
+                    <span>${escapeHTML(reward.title)}</span>
                 `;
-                container.insertAdjacentHTML('beforeend', cardHtml);
+                container.appendChild(itemDiv);
             });
         } catch (e) {
             console.error('Ошибка загрузки Twitch наград:', e);
             container.innerHTML = `<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки наград: ${e.message}</p>`;
         }
     }
+    
     async function loadAdminGrantLog() {
         if (!dom.adminGrantLogList) return;
         
@@ -1242,7 +1285,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         }
     }
 
-    function openTwitchRewardSettings(reward) {
+    function openTwitchRewardSettings(reward) { // 'reward' - это полный объект JSON
         const modal = document.getElementById('twitch-reward-settings-modal');
         const form = document.getElementById('twitch-reward-settings-form');
         document.getElementById('twitch-settings-title').textContent = `Настройки: ${reward.title}`;
@@ -1251,7 +1294,37 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         form.elements['is_active'].checked = reward.is_active;
         form.elements['notify_admin'].checked = reward.notify_admin;
         form.elements['show_user_input'].checked = reward.show_user_input;
-        form.elements['promocode_amount'].value = reward.promocode_amount;
+        
+        // Логика полей (старое/новое) в зависимости от пароля
+        const legacyWrapper = document.getElementById('legacy-promocode-field-wrapper');
+        const adminWrapper = modal.querySelector('.admin-feature-6971'); // Ищем внутри модалки
+        
+        if (hasAdminAccess) {
+            // Админ 6971
+            legacyWrapper.style.display = 'none';
+            adminWrapper.style.display = 'block';
+            
+            form.elements['reward_type'].value = reward.reward_type || 'promocode';
+            // Берем новое значение, если нет - старое, если нет - 10
+            form.elements['reward_amount'].value = reward.reward_amount ?? (reward.promocode_amount ?? 10); 
+            
+            // Убираем required со старого поля, ставим на новое
+            form.elements['promocode_amount'].required = false;
+            form.elements['reward_amount'].required = true;
+            
+        } else {
+            // Обычный модератор
+            legacyWrapper.style.display = 'block';
+            adminWrapper.style.display = 'none';
+            
+            // Старое поле для звезд
+            form.elements['promocode_amount'].value = reward.promocode_amount ?? (reward.reward_amount ?? 10);
+            
+            // Ставим required на старое поле, убираем с нового
+            form.elements['promocode_amount'].required = true;
+            form.elements['reward_amount'].required = false;
+        }
+
         form.elements['condition_type'].value = reward.condition_type || "";
         form.elements['target_value'].value = reward.target_value || "";
 
@@ -1594,14 +1667,6 @@ function renderRoulettePrizes(prizes) {
     }
 
 function updateSleepButton(status) {
-        // --- БЫЛО ---
-        // if (status.is_sleeping) {
-        //     dom.sleepModeToggle.classList.add('is-sleeping');
-        //     dom.sleepModeToggle.title = "Разбудить бота";
-        // } else {
-        //     dom.sleepModeToggle.classList.remove('is-sleeping');
-        //     dom.sleepModeToggle.title = "Уложить бота спать";
-        // }
         // --- СТАЛО ---
         if (dom.sleepModeToggle) { // <-- ДОБАВЛЕНА ПРОВЕРКА
             if (status.is_sleeping) {
@@ -1672,15 +1737,29 @@ function updateSleepButton(status) {
             twitchRewardSettingsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
+                // Базовый payload
                 const payload = {
                     id: parseInt(form.elements['reward_id'].value),
                     is_active: form.elements['is_active'].checked,
                     notify_admin: form.elements['notify_admin'].checked,
                     show_user_input: form.elements['show_user_input'].checked,
-                    promocode_amount: parseInt(form.elements['promocode_amount'].value),
                     condition_type: form.elements['condition_type'].value || null,
                     target_value: form.elements['target_value'].value ? parseInt(form.elements['target_value'].value) : null
                 };
+
+                if (hasAdminAccess) {
+                    // Админ 6971 сохраняет новые поля
+                    payload.reward_type = form.elements['reward_type'].value;
+                    payload.reward_amount = parseInt(form.elements['reward_amount'].value);
+                    // Также обновляем старое поле, чтобы модераторы видели актуальное
+                    payload.promocode_amount = (payload.reward_type === 'promocode') ? payload.reward_amount : null; 
+                } else {
+                    // Модератор сохраняет только старое поле
+                    payload.promocode_amount = parseInt(form.elements['promocode_amount'].value);
+                    // Убедимся, что тип 'promocode', если модератор сохраняет
+                    payload.reward_type = 'promocode'; 
+                    payload.reward_amount = payload.promocode_amount;
+                }
 
                 await makeApiRequest('/api/v1/admin/twitch_rewards/update', payload);
                 document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
@@ -1831,22 +1910,42 @@ function updateSleepButton(status) {
                 const password = dom.passwordPromptInput.value;
                 if (!password) return;
 
-                try {
-                    const result = await makeApiRequest('/api/v1/admin/verify_password', { password });
-                    if (result.success) {
-                        hasAdminAccess = true;
-                        dom.passwordPromptOverlay.classList.add('hidden');
-                        dom.passwordPromptInput.value = '';
+                // Новая проверка пароля 6971
+                if (password === ADMIN_PASSWORD) {
+                    hasAdminAccess = true; // <-- Устанавливаем флаг админа
+                    dom.passwordPromptOverlay.classList.add('hidden');
+                    dom.passwordPromptInput.value = '';
 
-                        const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
-                        if(adminTabButton) adminTabButton.click();
+                    // Показываем все скрытые элементы админа
+                    document.querySelectorAll('.admin-feature-6971').forEach(el => {
+                        el.style.display = 'block'; // или 'flex'
+                    });
+                    
+                    // Показываем инпуты сортировки на уже загруженных страницах (если они есть)
+                    document.querySelectorAll('.reward-sort-order-input').forEach(el => {
+                        el.style.display = 'block';
+                    });
 
-                    } else {
-                        tg.showAlert('Неверный пароль!');
+                    const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
+                    if(adminTabButton) adminTabButton.click();
+
+                } else {
+                    // Старая проверка (на случай, если у модераторов другой пароль)
+                    try {
+                        const result = await makeApiRequest('/api/v1/admin/verify_password', { password });
+                        if (result.success) {
+                            // hasAdminAccess остается false, это просто модератор
+                            dom.passwordPromptOverlay.classList.add('hidden');
+                            dom.passwordPromptInput.value = '';
+                            const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
+                            if(adminTabButton) adminTabButton.click();
+                        } else {
+                            tg.showAlert('Неверный пароль!');
+                        }
+                    } catch (error) {
+                        tg.showAlert('Ошибка проверки пароля.');
+                        console.error('Ошибка верификации пароля:', error);
                     }
-                } catch (error) {
-                    tg.showAlert('Ошибка проверки пароля.');
-                    console.error('Ошибка верификации пароля:', error);
                 }
             });
         }
@@ -1892,34 +1991,67 @@ function updateSleepButton(status) {
                 }
             });
         }
-// --- NEW Event Listener for Save Order Button ---
+// --- UPDATED Event Listener for Save Order Button (Квесты) ---
             if (dom.saveOrderButton) {
                 dom.saveOrderButton.addEventListener('click', async () => {
-                    showLoader(); // Показываем загрузчик на время обновления
+                    showLoader(); 
                     try {
-                        // Определяем активную вкладку, чтобы знать, что обновлять
+                        // Определяем активную вкладку
                         const categoriesView = document.getElementById('view-admin-categories');
                         const questsView = document.getElementById('view-admin-quests');
 
                         if (categoriesView && !categoriesView.classList.contains('hidden')) {
-                            // Если активна вкладка Категории
-                            await fetchAndCacheCategories(true); // Обновляем кэш категорий
-                            renderCategoriesList(); // Перерисовываем список категорий
+                            await fetchAndCacheCategories(true);
+                            renderCategoriesList(); 
                         } else if (questsView && !questsView.classList.contains('hidden')) {
-                            // Если активна вкладка Задания
-                            // Используем switchView, так как он уже содержит логику загрузки и рендера
                             await switchView('view-admin-quests');
                         }
-                         // TODO: Добавить сюда логику для других вкладок, если там тоже нужна эта кнопка (например, рулетки)
-
+                        
                         tg.showPopup({message: 'Порядок успешно сохранен!'});
                     } catch (e) {
                         console.error("Ошибка при сохранении порядка:", e);
                         tg.showAlert("Не удалось сохранить порядок: " + e.message);
                     } finally {
-                        dom.saveOrderButton.classList.add('hidden'); // Прячем кнопку
-                        orderChanged = false; // Сбрасываем флаг
-                        hideLoader(); // Прячем загрузчик
+                        dom.saveOrderButton.classList.add('hidden'); 
+                        orderChanged = false; 
+                        hideLoader(); 
+                    }
+                });
+            }
+            // --- End UPDATED Event Listener ---
+
+            // --- NEW Event Listener for Save TWITCH Order Button ---
+            const twitchSaveBtn = document.getElementById('save-twitch-order-button');
+            if (twitchSaveBtn) {
+                twitchSaveBtn.addEventListener('click', async () => {
+                    showLoader();
+                    try {
+                        const rewardsView = document.getElementById('view-admin-twitch-rewards');
+                        if (rewardsView && !rewardsView.classList.contains('hidden')) {
+                            const inputs = rewardsView.querySelectorAll('.reward-sort-order-input');
+                            const promises = [];
+                            inputs.forEach(input => {
+                                const rewardId = parseInt(input.dataset.rewardId);
+                                const value = input.value.trim();
+                                const sortOrder = value === '' ? null : parseInt(value, 10);
+                                promises.push(
+                                    makeApiRequest('/api/v1/admin/twitch_rewards/update', {
+                                        id: rewardId,
+                                        sort_order: sortOrder
+                                    }, 'POST', true)
+                                );
+                            });
+                            await Promise.all(promises);
+                            await switchView('view-admin-twitch-rewards'); // Перезагружаем
+                            tg.showPopup({message: 'Порядок наград сохранен!'});
+                        }
+                    } catch (e) {
+                        console.error("Ошибка при сохранении порядка Twitch:", e);
+                        tg.showAlert("Не удалось сохранить порядок: " + e.message);
+                    } finally {
+                        twitchSaveBtn.classList.add('hidden');
+                        twitchOrderChanged = false;
+                        hideLoader();
                     }
                 });
             }
@@ -2217,16 +2349,19 @@ function updateSleepButton(status) {
                 return;
             }
 
-            const settingsBtn = target.closest('.settings-btn');
+            // Клик по шестеренке (Настройки)
+            const settingsBtn = target.closest('.reward-settings-btn');
             if (settingsBtn) {
                 const rewardData = JSON.parse(settingsBtn.dataset.reward);
-                openTwitchRewardSettings(rewardData);
+                openTwitchRewardSettings(rewardData); // Используем старую функцию
                 return;
             }
 
-            const purchasesBtn = target.closest('.purchases-btn');
-            if (purchasesBtn) {
-                const { rewardId, rewardTitle } = purchasesBtn.dataset;
+            // Клик по иконке (Покупки)
+            const purchasesLink = target.closest('.reward-purchases-link');
+            if (purchasesLink) {
+                event.preventDefault(); // Предотвратить переход по ссылке #
+                const { rewardId, rewardTitle } = purchasesLink.dataset;
                 await openTwitchPurchases(rewardId, rewardTitle);
                 return;
             }
@@ -2638,16 +2773,23 @@ function updateSleepButton(status) {
                     if (questId) {
                          sortOrderDebounceTimer = setTimeout(async () => {
                             await updateQuestSortOrder(questId, sortOrder);
-                            // НЕ перезагружаем список здесь
-                            orderChanged = true; // Ставим флаг, что были изменения
-                            dom.saveOrderButton.classList.remove('hidden'); // Показываем кнопку
-                        }, 500); // Уменьшили задержку debounce
+                            orderChanged = true; 
+                            dom.saveOrderButton.classList.remove('hidden');
+                        }, 500);
+                    }
+                } else if (input.classList.contains('reward-sort-order-input')) { // НОВЫЙ БЛОК
+                    const rewardId = parseInt(input.dataset.rewardId);
+                    if (rewardId) {
+                        sortOrderDebounceTimer = setTimeout(async () => {
+                            // Не отправляем запрос сразу, просто ставим флаг
+                            console.log(`Sort order for reward ${rewardId} changed to ${sortOrder}`);
+                            twitchOrderChanged = true; 
+                            document.getElementById('save-twitch-order-button').classList.remove('hidden');
+                        }, 500);
                     }
                 }
             }
-            // Здесь НЕ должно быть другого 'else if'
         });
-        // --- End NEW Event Listener ---
 
         if(dom.createQuestForm) dom.createQuestForm.querySelector('select[name="quest_type"]').addEventListener('change', () => updateQuestFormUI(dom.createQuestForm));
         if(dom.editQuestForm) dom.editQuestForm.querySelector('select[name="quest_type"]').addEventListener('change', () => updateQuestFormUI(dom.editQuestForm));
@@ -3185,10 +3327,18 @@ async function main() {
                 const mainBadge = document.getElementById('main-pending-count');
                 if (mainBadge) mainBadge.classList.add('hidden');
             }
-            // КОНЕЦ ЗАПРОСА СЧЕТЧИКОВ
             // Этот код не должен выполниться, если нет доступа
             console.log("main(): Доступ разрешен. Установка isAdmin=true и переключение вида."); // <-- Добавлено
             document.body.dataset.isAdmin = 'true';
+            
+            // Проверяем, был ли введен пароль 6971
+            if (hasAdminAccess) {
+                 // Показываем все скрытые элементы админа
+                 document.querySelectorAll('.admin-feature-6971').forEach(el => {
+                    el.style.display = 'block'; // или 'flex'
+                 });
+            }
+
             updateSleepButton(sleepStatus);
             await switchView('view-admin-main');
 
