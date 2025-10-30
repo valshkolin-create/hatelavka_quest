@@ -608,16 +608,10 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
             // --- НАЧАЛО ИЗМЕНЕНИЙ В ОБРАБОТКЕ ОТВЕТА ---
             let result;
             try {
-                //
-                // VVV--- ИЗМЕНЕНИЕ ЗДЕСЬ ---VVV
-                //
-                result = await response.clone().json(); // Пытаемся распарсить клон как JSON
-                //
-                // ^^^--- ИЗМЕНЕНИЕ ЗДЕСЬ ---^^^
-                //
+                result = await response.json(); // Пытаемся распарсить JSON
             } catch (jsonError) {
-                // Если не JSON, читаем как текст из ОРИГИНАЛА
-                const textResponse = await response.text(); 
+                // Если не JSON, читаем как текст (на случай HTML-ошибки или простой строки)
+                const textResponse = await response.text();
                 console.error("Non-JSON response received:", textResponse);
                  // Если ответ не был успешным (не 2xx), бросаем ошибку с текстом ответа
                 if (!response.ok) {
@@ -1000,13 +994,9 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
 
                 <p style="font-size: 13px; font-weight: 500; margin-bottom: 12px;">Награда: ${escapeHTML(rewardAmount)} ⭐</p>
                 <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong>
-                    
-                    // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-                    <a href="tg://user?id=${action.user_id}" style="background-color: #007aff; padding: 4px 8px; font-size: 12px; margin-left: 10px; text-decoration: none; border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer;">
+                    <a href="tg://user?id=${action.user_id}" class="admin-action-btn" style="background-color: #007aff; padding: 4px 8px; font-size: 12px; margin-left: 10px; text-decoration: none;">
                         <i class="fa-solid fa-paper-plane"></i> Написать
                     </a>
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
                 </p>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
