@@ -597,7 +597,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 #twitch-rewards-container .admin-icon-button .reward-settings-btn {
     top: -6px; /* Позиция шестеренки (сверху слева) */
     left: -6px; /* Позиция шестеренки */
-    background-color: var(--action-color);
+    background-color: #555; /* Был --action-color */
 }
 
 /* Бейдж для наград Twitch (сверху справа) */
