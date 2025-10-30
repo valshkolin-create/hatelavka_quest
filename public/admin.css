@@ -135,7 +135,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 
 #twitch-rewards-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(3, 1fr); /* <-- Вот изменение */
     gap: 15px;
 }
 .twitch-reward-card {
@@ -568,7 +568,8 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     object-fit: cover;
 }
 
-.pending-actions-grid .admin-icon-button .reward-shortcut-btn {
+.pending-actions-grid .admin-icon-button .reward-shortcut-btn,
+#twitch-rewards-container .admin-icon-button .reward-shortcut-btn {
     position: absolute;
     width: 26px;
     height: 26px;
@@ -592,20 +593,23 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     transform: scale(0.95);
 }
 
-.pending-actions-grid .admin-icon-button .reward-settings-btn {
+.pending-actions-grid .admin-icon-button .reward-settings-btn,
+#twitch-rewards-container .admin-icon-button .reward-settings-btn {
     top: -6px; /* Позиция шестеренки (сверху слева) */
     left: -6px; /* Позиция шестеренки */
     background-color: var(--action-color);
 }
 
 /* Бейдж для наград Twitch (сверху справа) */
-.pending-actions-grid .admin-icon-button .notification-badge {
+.pending-actions-grid .admin-icon-button .notification-badge,
+#twitch-rewards-container .admin-icon-button .notification-badge {
     top: -6px;
     right: -8px; 
 }
 
 /* Поле для сортировки (скрыто по умолчанию) */
-.pending-actions-grid .admin-icon-button .reward-sort-order-input {
+.pending-actions-grid .admin-icon-button .reward-sort-order-input,
+#twitch-rewards-container .admin-icon-button .reward-sort-order-input {
     position: absolute;
     bottom: -8px; /* Позиция инпута (снизу по центру) */
     left: 50%;
@@ -626,7 +630,8 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 }
 
 /* Ссылка для основного клика (на покупки) */
-.pending-actions-grid .admin-icon-button .reward-purchases-link {
+.pending-actions-grid .admin-icon-button .reward-purchases-link,
+#twitch-rewards-container .admin-icon-button .reward-purchases-link {
     display: flex;
     align-items: center;
     justify-content: center;
