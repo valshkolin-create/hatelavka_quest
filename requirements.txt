@@ -6,11 +6,4 @@ python-dotenv==1.0.1
 httpx==0.27.0
 aiohttp==3.9.5
 requests==2.32.3
-
-# --- Supabase V2 Dependencies ---
-supabase[asyncio]>=2.0.0
-pydantic>=2.7.0  # <-- Явно требуем ОЧЕНЬ новую версию
-
-# Force Vercel to rebuild
-
-# Force Vercel to rebuild
+supabase[asyncio]
