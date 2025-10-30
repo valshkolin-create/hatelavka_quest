@@ -570,9 +570,6 @@
             </div>
             <div id="twitch-rewards-container" class="pending-actions-grid" style="padding: 10px 0;">
                 </div>
-            <button id="save-twitch-order-button" class="admin-action-btn approve hidden" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; width: auto; padding: 10px 20px;">
-                <i class="fa-solid fa-save"></i> Сохранить порядок
-            </button>
         </div>
 
         <div id="view-admin-roulette" class="view hidden">
@@ -889,6 +886,9 @@
                         </select>
                         <label for="reward-amount-input" style="margin-top: 10px;">Количество</label>
                         <input type="number" id="reward-amount-input" name="reward_amount" placeholder="Например, 10">
+                        
+                        <label for="reward-sort-order-input" style="margin-top: 10px;">Порядковый номер (#)</label>
+                        <input type="number" id="reward-sort-order-input" name="sort_order" placeholder="Пусто = в конец">
                     </div>
                     
                     <div class="prompt-actions" style="margin-top: 20px;">
