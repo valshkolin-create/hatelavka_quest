@@ -3553,6 +3553,19 @@ async def update_submission_status(
         background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
         return {"message": "Заявка отклонена."}
 
+    # --- 👇👇👇 НАЧАЛО НОВОГО БЛОКА 👇👇👇 ---
+    elif action == 'rejected_silent':
+        # Просто обновляем статус в базе данных
+        await supabase.patch(
+            "/quest_submissions",
+            params={"id": f"eq.{submission_id}"},
+            json={"status": "rejected"}
+        )
+        # НЕ отправляем уведомление пользователю
+        logging.info(f"Заявка {submission_id} была бесшумно отклонена.")
+        return {"message": "Заявка отклонена (бесшумно)."}
+    # --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА 👆👆👆 ---
+
     # --- 👇 CORRECTED INDENTATION FOR ELIF 👇 ---
     elif action == 'approved':
         try:
