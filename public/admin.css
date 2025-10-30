@@ -618,6 +618,23 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
     color: var(--twitch-color); /* Цвет иконки Twitch */
     text-decoration: none;
 }
+
+/* --- Стили для хедера пользователя в карточке заявки --- */
+.submission-user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px; 
+}
+.submission-user-header p {
+    margin: 0; 
+    flex-grow: 1; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Убедимся, что иконка внутри */
 .admin-action-btn.reject-silent i {
     margin: 0;
