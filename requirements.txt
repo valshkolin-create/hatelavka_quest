@@ -12,3 +12,5 @@ pydantic>=2.0.0
 supabase[asyncio]>=2.0.0
 supabase-auth>=1.0.0
 gotrue>=1.0.0
+
+# Force Vercel to rebuild
