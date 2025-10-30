@@ -2610,7 +2610,7 @@ function updateSleepButton(status) {
                     }
                 });
 
-} else if (actionButton.matches('.edit-roulette-prize-btn')) {
+            } else if (actionButton.matches('.edit-roulette-prize-btn')) {
                 // Твой код для открытия модального окна редактирования приза рулетки
                 // (тот, что мы добавляли раньше, использует data-prize)
                 if (editPrizeModal && editPrizeForm) {
@@ -2624,7 +2624,7 @@ function updateSleepButton(status) {
                     editPrizeModal.classList.remove('hidden');
                 }
 
-} else if (actionButton.matches('.admin-edit-quest-btn') /* REMOVED: && !actionButton.matches('.sort-quest-btn') */ && !actionButton.matches('.edit-category-btn')) {
+            } else if (actionButton.matches('.admin-edit-quest-btn') /* REMOVED: && !actionButton.matches('.sort-quest-btn') */ && !actionButton.matches('.edit-category-btn')) {
                  const idStr = actionButton.dataset.id;
                  // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
                  console.log("[DEBUG] Raw data-id from button:", idStr, "(type:", typeof idStr, ")");
