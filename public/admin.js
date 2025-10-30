@@ -1840,7 +1840,7 @@ function updateSleepButton(status) {
             
             // --- 👇 ИЗМЕНЕНИЕ 1: Достаем username 👇 ---
             // (Предполагаем, что бэкенд отдает поле "user_username")
-            const userUsername = action.user_username || ''; 
+            const userUsername = action.username || '';
             // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 1 👆 ---
 
             const cardHtml = `
