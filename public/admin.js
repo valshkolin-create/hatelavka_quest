@@ -1042,12 +1042,11 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 
                 <div class="submission-user-header">
                     <p>Пользователь: <strong>${escapeHTML(userFullName)}</strong></p>
-                    <button type="button" 
-                            class="admin-tg-link-btn admin-action-btn" 
-                            data-user-id="${action.user_id}" 
-                            style="background-color: #007aff; flex-shrink: 0;">
+                    <a href="tg://user?id=${action.user_id}" 
+                       class="admin-tg-link-btn admin-action-btn" 
+                       style="background-color: #007aff; flex-shrink: 0; text-decoration: none;">
                         <i class="fa-solid fa-paper-plane"></i> Написать
-                    </button>
+                    </a>
                 </div>
                 <p style="margin-top: 10px; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Данные для проверки:</p>
                 <div class="submission-wrapper">
@@ -2402,31 +2401,6 @@ function updateSleepButton(status) {
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
             
-           // --- 👇 ИСПРАВЛЕННЫЙ БЛОК v4 👇 ---
-            const writeToUserBtn = target.closest('.admin-tg-link-btn');
-            if (writeToUserBtn) {
-                console.log('Нажата кнопка "Написать"'); // Лог 1
-                const userId = writeToUserBtn.dataset.userId;
-                console.log('UserID:', userId); // Лог 2
-
-                if (userId && window.Telegram && window.Telegram.WebApp) {
-                    
-                    // --- 👇 ВОТ ИСПРАВЛЕНИЕ (v4) 👇 ---
-                    // Возвращаемся к самому простому формату: tg://user?id=...
-                    // Но используем его с openTelegramLink
-                    const tgLink = `tg://user?id=${userId}`;
-                    console.log('API Telegram найдено, вызываю openTelegramLink с:', tgLink); // Лог 3
-                    
-                    window.Telegram.WebApp.openTelegramLink(tgLink); 
-                    // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
-
-                } else {
-                    console.error('Ошибка: UserID не найден или API Telegram недоступно!', 'UserID:', userId, 'TG API:', window.Telegram); // Лог 4
-                }
-                return; // Важно, чтобы другие обработчики не сработали
-            }
-            // --- 👆 КОНЕЦ БЛОКА 👆 ---
-
             // --- Новые обработчики для Котла ---
             const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
             if (addRewardBtn) {
