@@ -2436,57 +2436,31 @@ async def get_quest_details(request_data: QuestDetailsRequest, supabase: httpx.A
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
 @app.get("/api/v1/events/cauldron/status")
-async def get_cauldron_status(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """
-    (С ЛОГАМИ, ИСПРАВЛЕН СИНТАКСИС) 
-    Отдает текущее состояние ивента 'Котел'.
-    """
-    logging.info("--- 2. ЗАПУСК /api/v1/events/cauldron/status ---")
-    
-    is_admin = False
-    admin_id = "Non-Admin"
+async def get_cauldron_status(): # <<< Убрали request и Depends
+    """Отдает текущее состояние ивента 'Котел', используя глобальный клиент."""
     try:
-        init_data_header = request.headers.get("X-Init-Data")
-        logging.info(f"[cauldron/status] Получен заголовок X-Init-Data: {bool(init_data_header)}")
-        if init_data_header:
-            user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
-            if user_info and user_info.get("id") in ADMIN_IDS:
-                is_admin = True
-                admin_id = user_info.get("id", "Admin_ID_Unknown")
-                logging.info(f"[cauldron/status] УСПЕХ: Пользователь {admin_id} является АДМИНОМ.")
-            else:
-                 logging.warning("[cauldron/status] ВНИМАНИЕ: initData получен, но пользователь НЕ админ.")
-    except Exception as e:
-        logging.warning(f"[cauldron/status] ОШИБКА: Не удалось проверить initData: {e}")
+        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
+        response = supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
+        # execute() вызывается без await
 
-    try:
-        # --- ИСПРАВЛЕНИЕ ЗДЕСЬ: Используем .get() вместо .table().select() ---
-        response = await supabase.get(
-            "/pages_content",
-            params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
-        )
-        response.raise_for_status() # Проверим, что запрос успешен
-        data = response.json()
-        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+        data = response.data # Данные в response.data (это список)
 
+        # Если запись не найдена или content пустой
         if not data or not data[0].get('content'):
-            logging.warning("[cauldron/status] Контент 'cauldron_event' не найден в БД.")
-            return {"is_visible_to_users": is_admin}
+            logging.warning("Контент для 'cauldron_event' не найден в pages_content.")
+            return {"is_visible_to_users": False} # Возвращаем статус по умолчанию
 
-        content_data = data[0]['content']
-        logging.info(f"[cauldron/status] Данные из БД (до проверки): {content_data}")
-        
-        if is_admin:
-            content_data["is_visible_to_users"] = True
-            logging.info("[cauldron/status] Права админа применены. 'is_visible_to_users' принудительно = True")
-            
-        logging.info(f"[cauldron/status] ИТОГОВЫЙ ОТВЕТ: {content_data}")
-        return content_data
+        # Просто возвращаем содержимое поля content
+        return data[0]['content']
 
+    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
+    #     logging.error(f"Ошибка Supabase API в /events/cauldron/status: {e}", exc_info=True)
+    #     # Возвращаем статус по умолчанию при ошибке базы данных
+    #     return {"is_visible_to_users": False}
     except Exception as e:
-        logging.error(f"[cauldron/status] КРИТИЧЕСКАЯ ОШИБКА в get_cauldron_status: {e}", exc_info=True)
-        # Возвращаем видимость для админа даже при ошибке
-        return {"is_visible_to_users": is_admin}
+        logging.error(f"Критическая ошибка при получении статуса котла: {e}", exc_info=True)
+        # Возвращаем статус по умолчанию при любой другой ошибке
+        return {"is_visible_to_users": False}
         
 @app.get("/api/v1/events/cauldron/leaderboard")
 async def get_cauldron_leaderboard(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
