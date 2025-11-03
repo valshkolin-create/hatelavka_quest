@@ -1160,7 +1160,7 @@ function setupEventListeners() {
             // --- Логика для баннера ивента "Котел" (ИСПРАВЛЕНО ДЛЯ АДМИНА) ---
             try {
                 const eventData = await fetch('/api/v1/events/cauldron/status', {
-                    headers: { 'X-Init-Data': Telegram.WebApp.initData } // Отправляем initData для проверки админа
+                    headers: { 'X-Init-Data': Telegram.WebApp.initData } // <-- ДОБАВЬТЕ ЭТОТ HEADER
                 }).then(res => res.json());
 
                 const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
