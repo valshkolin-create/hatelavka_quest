@@ -65,6 +65,7 @@ try {
         // --- Завершение Админ search ---
         settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
         settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
+        settingAuctionBannerUrl: document.getElementById('setting-auction-banner-url'), // <-- ДОБАВЛЕНО
         saveSettingsBtn: document.getElementById('save-settings-btn'),
         settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
         settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
@@ -1131,11 +1132,11 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
 
              // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ ---
-            const sliderOrder = settings.slider_order || ['skin_race', 'cauldron'];
+            const sliderOrder = settings.slider_order || ['skin_race', 'cauldron', 'auction']; // <-- ДОБАВЛЕН АУКЦИОН
             const slideNames = {
                 skin_race: 'Гонка за скинами',
                 cauldron: 'Ивент "Котел"',
-                auction: 'Аукцион'
+                auction: 'Аукцион' // <-- ДОБАВЛЕН АУКЦИОН
             };
 
             dom.sliderOrderManager.innerHTML = '';
@@ -2329,7 +2330,8 @@ function updateSleepButton(status) {
                     challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked,
                     checkpoint_enabled: dom.settingCheckpointEnabled.checked,
                     menu_banner_url: dom.settingMenuBannerUrl.value.trim(),
-                    checkpoint_banner_url: dom.settingCheckpointBannerUrl.value.trim()
+                    checkpoint_banner_url: dom.settingCheckpointBannerUrl.value.trim(),
+                    auction_banner_url: dom.settingAuctionBannerUrl.value.trim() // <-- ДОБАВЛЕНО
                 };
                 await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
                 tg.showAlert('Настройки сохранены!');
