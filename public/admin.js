@@ -2176,19 +2176,54 @@ function updateSleepButton(status) {
 
         document.querySelectorAll('.tabs-container').forEach(container => {
             container.addEventListener('click', (e) => {
+                console.log('--- ✅ 1. КЛИК ПО TABS-CONTAINER ---');
+
                 const button = e.target.closest('.tab-button');
-                if (!button || button.classList.contains('active')) return;
+
+                if (!button) {
+                    console.log('--- 🛑 2. ОСТАНОВКА: Клик был, но не по кнопке (button не найден).');
+                    return;
+                }
+                console.log('--- ✅ 2. Button найден:', button.textContent.trim());
+
+                if (button.classList.contains('active')) {
+                    console.log('--- 🛑 3. ОСТАНОВКА: Кнопка уже активна.');
+                    return;
+                }
+                console.log('--- ✅ 3. Кнопка не активна, продолжаем.');
 
                 const tabId = button.dataset.tab;
+                console.log('--- ✅ 4. Получен data-tab:', tabId);
 
                 if (container.classList.contains('main-tabs')) {
-                    if (tabId === 'admin' && !hasAdminAccess) {
-                        dom.passwordPromptOverlay.classList.remove('hidden');
-                        dom.passwordPromptInput.focus();
-                        return;
+                    console.log('--- ✅ 5. Это главный .main-tabs контейнер.');
+
+                    // Это ключевая проверка для окна пароля
+                    if (tabId === 'admin') {
+                        console.log('--- ✅ 6. Клик по вкладке "admin".');
+                        console.log('--- ❓ 7. Проверяем hasAdminAccess. Текущее значение:', hasAdminAccess);
+
+                        if (!hasAdminAccess) {
+                            console.log('--- 🚀 8. hasAdminAccess = false. ПЫТАЕМСЯ ПОКАЗАТЬ ОКНО ПАРОЛЯ...');
+                            
+                            if (dom.passwordPromptOverlay) {
+                                dom.passwordPromptOverlay.classList.remove('hidden');
+                                dom.passwordPromptInput.focus();
+                                console.log('--- ✅ 9. Окно пароля ДОЛЖНО быть видно. Проверьте classList:', dom.passwordPromptOverlay.classList);
+                            } else {
+                                console.error('--- 🚨 9. КРИТИЧЕСКАЯ ОШИБКА: dom.passwordPromptOverlay НЕ НАЙДЕН!');
+                            }
+                            return; // Важно, выходим
+                        } else {
+                            console.log('--- ℹ️ 8. hasAdminAccess = true. Окно пароля не нужно, просто переключаем вкладку.');
+                        }
                     }
+                } else {
+                    console.log('--- ℹ️ 5. Это не .main-tabs, а другой контейнер (например, в "Ожидают действия").');
                 }
 
+                // --- (Остальная логика переключения вкладок) ---
+                console.log(`--- 🔄 Переключаем вкладку на ${tabId}...`);
                 container.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
 
@@ -2211,6 +2246,7 @@ function updateSleepButton(status) {
                         });
                     }
                 }
+                console.log('--- ✅ 10. КОНЕЦ ОБРАБОТЧИКА КЛИКА ---');
             });
         });
 
