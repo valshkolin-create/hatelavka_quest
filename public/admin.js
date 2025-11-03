@@ -2242,6 +2242,9 @@ function updateSleepButton(status) {
                                 // === КОНЕЦ НОВЫХ ЛОГОВ ===
 
                                 dom.passwordPromptInput.focus();
+                                
+                            e.stopPropagation(); // <--- ВОТ ЭТО ИСПРАВЛЕНИЕ
+
                             } else {
                                 console.error('--- 🚨 9. КРИТИЧЕСКАЯ ОШИБКА: dom.passwordPromptOverlay НЕ НАЙДЕН!');
                             }
