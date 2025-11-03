@@ -5389,42 +5389,67 @@ async def grant_stars_to_user(
         raise HTTPException(status_code=500, detail="Не удалось выдать билеты.")
 
 @app.get("/api/v1/content/menu")
-async def get_menu_content(): # <<< Убрали Depends
-    """Предоставляет динамический контент для главной страницы меню, используя глобальный клиент."""
-    # Значения по умолчанию вынесены для ясности
+async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)): # <-- Добавляем `supabase`
+    """
+    Предоставляет динамический контент для главной страницы меню.
+    ВЕРСИЯ 2: Добавлена логика для аукциона и настроек.
+    """
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
         "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
         "skin_race_enabled": True,
-        "slider_order": ["skin_race", "cauldron"]
+        "slider_order": ["skin_race", "cauldron"],
+        "auction_enabled": False, # <-- Новое поле
+        "auction_slide_data": None # <-- Новое поле
     }
+    
     try:
-        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
-        response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
-        # execute() вызывается без await
+        # 1. Получаем настройки админки
+        settings_resp = await supabase.get(
+            "/settings",
+            params={"key": "eq.admin_controls", "select": "value"}
+        )
+        settings_resp.raise_for_status()
+        
+        settings_data = settings_resp.json()
+        settings = settings_data[0].get('value', {}) if settings_data else {}
 
-        data = response.data # Данные в response.data (это список)
-
-        if not data or not data[0].get('value'):
-            # Возвращаем контент по умолчанию, если ничего не найдено
-            logging.warning("Настройки 'admin_controls' для меню не найдены, используются дефолтные.")
-            return defaults
-
-        settings = data[0]['value']
-        # Используем .get() с дефолтными значениями при извлечении
-        return {
+        # 2. Собираем основной ответ
+        response_data = {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
-            "slider_order": settings.get("slider_order", defaults["slider_order"])
+            "slider_order": settings.get("slider_order", defaults["slider_order"]),
+            "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"]) # <-- Новое поле
         }
 
-    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
-    #     logging.error(f"Ошибка Supabase API в /content/menu: {e}", exc_info=True)
-    #     return defaults # Возвращаем дефолт при ошибке базы данных
+        # 3. Если аукционы включены, ищем активный лот для слайдера
+        if response_data["auction_enabled"]:
+            auction_resp = await supabase.get(
+                "/auctions",
+                params={
+                    "is_active": "eq.true",
+                    "is_visible": "eq.true", # Показываем только "видимые"
+                    "select": "id,title,image_url", # Нам нужны только эти поля
+                    "order": "created_at.desc", # Берем самый новый
+                    "limit": 1
+                }
+            )
+            auction_resp.raise_for_status()
+            
+            auction_data = auction_resp.json()
+            if auction_data:
+                response_data["auction_slide_data"] = auction_data[0] # Добавляем данные лота
+            else:
+                response_data["auction_slide_data"] = None
+        else:
+            response_data["auction_slide_data"] = None
+
+        return response_data
+
     except Exception as e:
         logging.error(f"Критическая ошибка при получении контента для меню: {e}", exc_info=True)
-        # Возвращаем контент по умолчанию при любой другой ошибке
+        # Возвращаем дефолт при любой ошибке
         return defaults
 
 @app.post("/api/v1/admin/manual_rewards")
