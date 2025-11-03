@@ -1267,8 +1267,8 @@ function setupEventListeners() {
                         const hasData = menuContent.auction_slide_data;
                         const isEnabled = menuContent.auction_enabled;
                         const isAdmin = userData && userData.is_admin;
-                        const shouldShowAuction = (hasData && isEnabled) || isAdmin;
-                        console.log(`main() [Аукцион]: ((hasData=${!!hasData} && enabled=${isEnabled}) || admin=${isAdmin}) = ${shouldShowAuction}`); // ЛОГ
+                        const shouldShowAuction = (hasData && isEnabled) || (isAdmin && hasData); // Админ видит слайд, только если hasData (лот существует)
+                        console.log(`main() [Аукцион]: ((hasData=${!!hasData} && enabled=${isEnabled}) || (admin=${isAdmin} && hasData=${!!hasData})) = ${shouldShowAuction}`); // ЛОГ
                         
                         if (shouldShowAuction) {
                                 
