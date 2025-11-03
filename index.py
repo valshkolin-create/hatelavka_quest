@@ -2436,31 +2436,42 @@ async def get_quest_details(request_data: QuestDetailsRequest, supabase: httpx.A
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
 @app.get("/api/v1/events/cauldron/status")
-async def get_cauldron_status(): # <<< Убрали request и Depends
-    """Отдает текущее состояние ивента 'Котел', используя глобальный клиент."""
+async def get_cauldron_status(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """
+    Отдает текущее состояние ивента 'Котел'.
+    ВЕРСИЯ 2: Корректно проверяет права админа.
+    """
+    
+    is_admin = False
     try:
-        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
+        init_data_header = request.headers.get("X-Init-Data")
+        if init_data_header:
+            user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
+            if user_info and user_info.get("id") in ADMIN_IDS:
+                is_admin = True
+    except Exception:
+        pass 
+
+    try:
         response = supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
-        # execute() вызывается без await
+        data = response.data
 
-        data = response.data # Данные в response.data (это список)
-
-        # Если запись не найдена или content пустой
         if not data or not data[0].get('content'):
-            logging.warning("Контент для 'cauldron_event' не найден в pages_content.")
-            return {"is_visible_to_users": False} # Возвращаем статус по умолчанию
+             # Если контент не найден, возвращаем false (или true для админа)
+            return {"is_visible_to_users": is_admin}
 
-        # Просто возвращаем содержимое поля content
-        return data[0]['content']
+        content_data = data[0]['content']
+        
+        # --- ИСПРАВЛЕНИЕ: Если мы админ, принудительно говорим, что ивент видим ---
+        if is_admin:
+            content_data["is_visible_to_users"] = True
+            
+        return content_data
 
-    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
-    #     logging.error(f"Ошибка Supabase API в /events/cauldron/status: {e}", exc_info=True)
-    #     # Возвращаем статус по умолчанию при ошибке базы данных
-    #     return {"is_visible_to_users": False}
     except Exception as e:
         logging.error(f"Критическая ошибка при получении статуса котла: {e}", exc_info=True)
-        # Возвращаем статус по умолчанию при любой другой ошибке
-        return {"is_visible_to_users": False}
+        # Возвращаем видимость для админа даже при ошибке
+        return {"is_visible_to_users": is_admin}
 
 @app.get("/api/v1/events/cauldron/leaderboard")
 async def get_cauldron_leaderboard(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -5392,7 +5403,7 @@ async def grant_stars_to_user(
 async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)): 
     """
     Предоставляет динамический контент для главной страницы меню.
-    ВЕРСИЯ 4: Принимает initData для проверки прав админа.
+    ВЕРСИЯ 5 (ФИНАЛЬНАЯ): Корректно ищет аукцион для админа.
     """
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
@@ -5403,10 +5414,8 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         "auction_slide_data": None
     }
     
-    # --- НОВЫЙ БЛОК: ПРОВЕРКА АДМИНА ---
     is_admin = False
     try:
-        # Пытаемся получить initData из заголовков
         init_data_header = request.headers.get("X-Init-Data")
         if init_data_header:
             user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
@@ -5415,14 +5424,11 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
                 logging.info("get_menu_content: Обнаружен админ.")
     except Exception as e:
         logging.warning(f"get_menu_content: Не удалось проверить initData: {e}")
-    # --- КОНЕЦ НОВОГО БЛОКА ---
 
     try:
-        # 1. Получаем настройки админки
         settings_resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
         settings = settings_resp.json()[0].get('value', {}) if settings_resp.json() else {}
 
-        # 2. Собираем основной ответ
         response_data = {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
@@ -5431,27 +5437,33 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
             "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"])
         }
 
-        # --- ИСПРАВЛЕННАЯ ЛОГИКА АУКЦИОНА ---
-        # 3. Если аукционы включены ИЛИ мы админ, ищем активный лот
+        # --- КОРРЕКТНАЯ ЛОГИКА АУКЦИОНА ---
         if response_data["auction_enabled"] or is_admin:
-            auction_resp = await supabase.get(
-                "auctions",
-                params={
-                    "is_active": "eq.true",
-                    "is_visible": "eq.true",
-                    "select": "id,title,image_url",
-                    "order": "created_at.desc",
-                    "limit": 1
-                }
-            )
+            # Параметры по умолчанию для поиска лота
+            auction_params = {
+                "select": "id,title,image_url",
+                "order": "created_at.desc",
+                "limit": 1
+            }
+            
+            # ЕСЛИ МЫ НЕ АДМИН, добавляем строгие фильтры
+            if not is_admin:
+                auction_params["is_active"] = "eq.true"
+                auction_params["is_visible"] = "eq.true"
+            
+            # Если мы админ, фильтры is_active / is_visible НЕ ДОБАВЛЯЮТСЯ,
+            # и мы просто ищем самый последний созданный лот.
+            
+            auction_resp = await supabase.get("auctions", params=auction_params)
             auction_data = auction_resp.json()
+            
             if auction_data:
                 response_data["auction_slide_data"] = auction_data[0]
             else:
                 response_data["auction_slide_data"] = None
         else:
             response_data["auction_slide_data"] = None
-        # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
+        # --- КОНЕЦ КОРРЕКТНОЙ ЛОГИКИ ---
 
         return response_data
 
