@@ -65,7 +65,7 @@ try {
         // --- Завершение Админ search ---
         settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
         settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
-        settingAuctionBannerUrl: document.getElementById('setting-auction-banner-url'), // <-- ДОБАВЛЕНО
+        settingAuctionBannerUrl: document.getElementById('setting-auction-banner-url'), // <-- 1. ДОБАВИТЬ ЭТУ СТРОКУ
         saveSettingsBtn: document.getElementById('save-settings-btn'),
         settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
         settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
@@ -1136,7 +1136,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             const slideNames = {
                 skin_race: 'Гонка за скинами',
                 cauldron: 'Ивент "Котел"',
-                auction: 'Аукцион' // <-- ДОБАВЛЕН АУКЦИОН
+                auction: 'Аукцион' // <-- 4. ДОБАВИТЬ ЭТУ СТРОКУ
             };
 
             dom.sliderOrderManager.innerHTML = '';
