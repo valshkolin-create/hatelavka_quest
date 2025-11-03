@@ -5225,6 +5225,7 @@ async def get_admin_settings(
     
     # Возвращаем ПОЛНЫЙ объект, а не сырые данные из БД
     return loaded_settings
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
 @app.post("/api/v1/admin/settings/update")
 async def update_admin_settings(
