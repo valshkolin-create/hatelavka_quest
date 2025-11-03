@@ -78,6 +78,9 @@ try {
         // --- НОВЫЙ КОД ---       
         settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
         // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ПОИСКА ПОЛЬЗОВАТЕЛЯ ---
+        // --- ↓↓↓ АУКЦИОН ↓↓↓ ---
+        settingAuctionEnabled: document.getElementById('setting-auction-enabled'),
+        // --- ↑↑↑ АУКЦИОН ↑↑↑ ---
         adminUserSearchModal: document.getElementById('admin-user-search-modal'),
         adminUserSearchTitle: document.getElementById('admin-user-search-title'),
         adminUserSearchInput: document.getElementById('admin-user-search-input'),
@@ -1115,6 +1118,9 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
     async function loadAndRenderSettings() {
         try {
              const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+            // --- ↓↓↓ ДОБАВЬТЕ ЭТУ СТРОКУ ↓↓↓ ---
+             dom.settingAuctionEnabled.checked = settings.auction_enabled || false; // (false - значение по умолчанию)
+             // --- ↑↑↑ КОНЕЦ ДОБАВЛЕНИЯ ↑↑↑ ---
              dom.settingSkinRaceEnabled.checked = settings.skin_race_enabled;
              dom.settingQuestsEnabled.checked = settings.quests_enabled;
              dom.settingChallengesEnabled.checked = settings.challenges_enabled;
@@ -1128,7 +1134,8 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             const sliderOrder = settings.slider_order || ['skin_race', 'cauldron'];
             const slideNames = {
                 skin_race: 'Гонка за скинами',
-                cauldron: 'Ивент "Котел"'
+                cauldron: 'Ивент "Котел"',
+                auction: 'Аукцион'
             };
 
             dom.sliderOrderManager.innerHTML = '';
@@ -2315,6 +2322,7 @@ function updateSleepButton(status) {
                 const payload = {
                     skin_race_enabled: dom.settingSkinRaceEnabled.checked,
                     slider_order: newSliderOrder, // <-- Добавили порядок в сохранение
+                    auction_enabled: dom.settingAuctionEnabled.checked,
                     quests_enabled: dom.settingQuestsEnabled.checked,
                     challenges_enabled: dom.settingChallengesEnabled.checked,
                     quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
