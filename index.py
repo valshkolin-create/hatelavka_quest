@@ -5405,10 +5405,11 @@ async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = 
     
     try:
         # 1. Получаем настройки админки (используем ГЛОБАЛЬНЫЙ клиент)
+        # --- ИСПРАВЛЕНИЕ: Убран await, используется .execute() и .data ---
         settings_response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
-        # execute() вызывается без await
-
         settings_data = settings_response.data
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+        
         settings = settings_data[0].get('value', {}) if settings_data else {}
 
         # 2. Собираем основной ответ
@@ -5422,6 +5423,7 @@ async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = 
 
         # 3. Если аукционы включены, ищем активный лот для слайдера
         if response_data["auction_enabled"]:
+            # --- ИСПРАВЛЕНИЕ: Убран await, используется .execute() и .data ---
             auction_response = supabase.table("auctions").select("id,title,image_url") \
                 .eq("is_active", True) \
                 .eq("is_visible", True) \
@@ -5430,8 +5432,10 @@ async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = 
                 .execute()
             
             auction_data = auction_response.data
+            # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            
             if auction_data:
-                response_data["auction_slide_data"] = auction_data[0] # Добавляем данные лота
+                response_data["auction_slide_data"] = auction_data[0]
             else:
                 response_data["auction_slide_data"] = None
         else:
@@ -5441,7 +5445,6 @@ async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = 
 
     except Exception as e:
         logging.error(f"Критическая ошибка при получении контента для меню: {e}", exc_info=True)
-        # Возвращаем дефолт при любой ошибке
         return defaults
 
 @app.post("/api/v1/admin/manual_rewards")
