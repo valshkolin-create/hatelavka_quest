@@ -2438,41 +2438,49 @@ async def get_quest_details(request_data: QuestDetailsRequest, supabase: httpx.A
 @app.get("/api/v1/events/cauldron/status")
 async def get_cauldron_status(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    Отдает текущее состояние ивента 'Котел'.
-    ВЕРСИЯ 2: Корректно проверяет права админа.
+    (С ЛОГАМИ) Отдает текущее состояние ивента 'Котел'.
     """
+    logging.info("--- 2. ЗАПУСК /api/v1/events/cauldron/status ---")
     
     is_admin = False
+    admin_id = "Non-Admin"
     try:
         init_data_header = request.headers.get("X-Init-Data")
+        logging.info(f"[cauldron/status] Получен заголовок X-Init-Data: {bool(init_data_header)}")
         if init_data_header:
             user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
             if user_info and user_info.get("id") in ADMIN_IDS:
                 is_admin = True
-    except Exception:
-        pass 
+                admin_id = user_info.get("id", "Admin_ID_Unknown")
+                logging.info(f"[cauldron/status] УСПЕХ: Пользователь {admin_id} является АДМИНОМ.")
+            else:
+                 logging.warning("[cauldron/status] ВНИМАНИЕ: initData получен, но пользователь НЕ админ.")
+    except Exception as e:
+        logging.warning(f"[cauldron/status] ОШИБКА: Не удалось проверить initData: {e}")
 
     try:
+        # Используем глобальный клиент supabase и .execute()
         response = supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
         data = response.data
 
         if not data or not data[0].get('content'):
-             # Если контент не найден, возвращаем false (или true для админа)
+            logging.warning("[cauldron/status] Контент 'cauldron_event' не найден в БД.")
             return {"is_visible_to_users": is_admin}
 
         content_data = data[0]['content']
+        logging.info(f"[cauldron/status] Данные из БД (до проверки): {content_data}")
         
-        # --- ИСПРАВЛЕНИЕ: Если мы админ, принудительно говорим, что ивент видим ---
         if is_admin:
             content_data["is_visible_to_users"] = True
+            logging.info("[cauldron/status] Права админа применены. 'is_visible_to_users' принудительно = True")
             
+        logging.info(f"[cauldron/status] ИТОГОВЫЙ ОТВЕТ: {content_data}")
         return content_data
 
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении статуса котла: {e}", exc_info=True)
-        # Возвращаем видимость для админа даже при ошибке
+        logging.error(f"[cauldron/status] КРИТИЧЕСКАЯ ОШИБКА в get_cauldron_status: {e}", exc_info=True)
         return {"is_visible_to_users": is_admin}
-
+        
 @app.get("/api/v1/events/cauldron/leaderboard")
 async def get_cauldron_leaderboard(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """Отдает публичные данные для лидерборда ивента 'Котел'."""
@@ -5402,9 +5410,10 @@ async def grant_stars_to_user(
 @app.get("/api/v1/content/menu")
 async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)): 
     """
-    Предоставляет динамический контент для главной страницы меню.
-    ВЕРСИЯ 5 (ФИНАЛЬНАЯ): Корректно ищет аукцион для админа.
+    (С ЛОГАМИ) Предоставляет динамический контент для главной страницы меню.
     """
+    logging.info("--- 1. ЗАПУСК /api/v1/content/menu ---")
+    
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
         "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
@@ -5415,19 +5424,26 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
     }
     
     is_admin = False
+    admin_id = "Non-Admin"
     try:
         init_data_header = request.headers.get("X-Init-Data")
+        logging.info(f"[content/menu] Получен заголовок X-Init-Data: {bool(init_data_header)}")
+        
         if init_data_header:
             user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
             if user_info and user_info.get("id") in ADMIN_IDS:
                 is_admin = True
-                logging.info("get_menu_content: Обнаружен админ.")
+                admin_id = user_info.get("id", "Admin_ID_Unknown")
+                logging.info(f"[content/menu] УСПЕХ: Пользователь {admin_id} является АДМИНОМ.")
+            else:
+                logging.warning("[content/menu] ВНИМАНИЕ: initData получен, но пользователь НЕ админ.")
     except Exception as e:
-        logging.warning(f"get_menu_content: Не удалось проверить initData: {e}")
+        logging.warning(f"[content/menu] ОШИБКА: Не удалось проверить initData: {e}")
 
     try:
         settings_resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
         settings = settings_resp.json()[0].get('value', {}) if settings_resp.json() else {}
+        logging.info(f"[content/menu] Настройки админа (settings): {settings}")
 
         response_data = {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
@@ -5436,39 +5452,39 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
             "slider_order": settings.get("slider_order", defaults["slider_order"]),
             "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"])
         }
-
-        # --- КОРРЕКТНАЯ ЛОГИКА АУКЦИОНА ---
+        
+        # --- КОРРЕКТНАЯ ЛОГИКА АУКЦИОНА С ЛОГАМИ ---
+        logging.info(f"[content/menu] Проверка аукциона: (auction_enabled={response_data['auction_enabled']} OR is_admin={is_admin})")
         if response_data["auction_enabled"] or is_admin:
-            # Параметры по умолчанию для поиска лота
             auction_params = {
                 "select": "id,title,image_url",
                 "order": "created_at.desc",
                 "limit": 1
             }
-            
-            # ЕСЛИ МЫ НЕ АДМИН, добавляем строгие фильтры
             if not is_admin:
                 auction_params["is_active"] = "eq.true"
                 auction_params["is_visible"] = "eq.true"
             
-            # Если мы админ, фильтры is_active / is_visible НЕ ДОБАВЛЯЮТСЯ,
-            # и мы просто ищем самый последний созданный лот.
-            
+            logging.info(f"[content/menu] Ищем аукцион с параметрами: {auction_params}")
             auction_resp = await supabase.get("auctions", params=auction_params)
             auction_data = auction_resp.json()
             
             if auction_data:
                 response_data["auction_slide_data"] = auction_data[0]
+                logging.info(f"[content/menu] Найден лот аукциона: {auction_data[0]}")
             else:
                 response_data["auction_slide_data"] = None
+                logging.warning("[content/menu] Лот аукциона НЕ НАЙДЕН (это нормально, если их нет).")
         else:
             response_data["auction_slide_data"] = None
-        # --- КОНЕЦ КОРРЕКТНОЙ ЛОГИКИ ---
+            logging.info("[content/menu] Лот аукциона не запрашивался (выключен и не админ).")
+        # --- КОНЕЦ ЛОГИКИ ---
 
+        logging.info(f"[content/menu] ИТОГОВЫЙ ОТВЕТ: {response_data}")
         return response_data
 
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении контента для меню: {e}", exc_info=True)
+        logging.error(f"[content/menu] КРИТИЧЕСКАЯ ОШИБКА в get_menu_content: {e}", exc_info=True)
         return defaults
 
 @app.post("/api/v1/admin/manual_rewards")
