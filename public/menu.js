@@ -1268,7 +1268,7 @@ function setupEventListeners() {
                         const isEnabled = menuContent.auction_enabled;
                         const isAdmin = userData && userData.is_admin;
                         // --- ИЗМЕНЕНИЕ: Админ видит слайд, даже если hasData = null ---
-                       const shouldShowAuction = (hasData && isEnabled) || isAdmin;
+                       const shouldShowAuction = isEnabled || isAdmin;
                         console.log(`main() [Аукцион]: ((hasData=${!!hasData} && enabled=${isEnabled}) || admin=${isAdmin}) = ${shouldShowAuction}`); // ЛОГ
                         
                         if (shouldShowAuction) {
