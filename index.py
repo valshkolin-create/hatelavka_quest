@@ -5426,11 +5426,22 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         settings = settings_resp.json()[0].get('value', {}) if settings_resp.json() else {}
         logging.info(f"[content/menu] Настройки админа (settings): {settings}")
 
+        loaded_order = settings.get("slider_order", defaults["slider_order"])
+        
+        # --- ИСПРАВЛЕНИЕ: Гарантируем, что все ключи есть в списке для сортировки ---
+        # Это предотвратит "призрачные" слайды, остающиеся в начале
+        if "skin_race" not in loaded_order:
+             loaded_order.append("skin_race")
+        if "cauldron" not in loaded_order:
+             loaded_order.append("cauldron")
+        if "auction" not in loaded_order:
+             loaded_order.append("auction")
+
         response_data = {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
-            "slider_order": settings.get("slider_order", defaults["slider_order"]),
+            "slider_order": loaded_order, # <-- Используем исправленный список
             "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"])
         }
         
