@@ -5389,29 +5389,26 @@ async def grant_stars_to_user(
         raise HTTPException(status_code=500, detail="Не удалось выдать билеты.")
 
 @app.get("/api/v1/content/menu")
-async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)): # <-- Добавляем `supabase`
+async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = Depends(get_supabase_client))
     """
     Предоставляет динамический контент для главной страницы меню.
-    ВЕРСИЯ 2: Добавлена логика для аукциона и настроек.
+    ВЕРСИЯ 3: Использует ГЛОБАЛЬНЫЙ клиент supabase и .execute()
     """
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
         "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
         "skin_race_enabled": True,
         "slider_order": ["skin_race", "cauldron"],
-        "auction_enabled": False, # <-- Новое поле
-        "auction_slide_data": None # <-- Новое поле
+        "auction_enabled": False, 
+        "auction_slide_data": None
     }
     
     try:
-        # 1. Получаем настройки админки
-        settings_resp = await supabase.get(
-            "/settings",
-            params={"key": "eq.admin_controls", "select": "value"}
-        )
-        settings_resp.raise_for_status()
-        
-        settings_data = settings_resp.json()
+        # 1. Получаем настройки админки (используем ГЛОБАЛЬНЫЙ клиент)
+        settings_response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
+        # execute() вызывается без await
+
+        settings_data = settings_response.data
         settings = settings_data[0].get('value', {}) if settings_data else {}
 
         # 2. Собираем основной ответ
@@ -5420,24 +5417,19 @@ async def get_menu_content(supabase: httpx.AsyncClient = Depends(get_supabase_cl
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
             "slider_order": settings.get("slider_order", defaults["slider_order"]),
-            "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"]) # <-- Новое поле
+            "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"])
         }
 
         # 3. Если аукционы включены, ищем активный лот для слайдера
         if response_data["auction_enabled"]:
-            auction_resp = await supabase.get(
-                "/auctions",
-                params={
-                    "is_active": "eq.true",
-                    "is_visible": "eq.true", # Показываем только "видимые"
-                    "select": "id,title,image_url", # Нам нужны только эти поля
-                    "order": "created_at.desc", # Берем самый новый
-                    "limit": 1
-                }
-            )
-            auction_resp.raise_for_status()
+            auction_response = supabase.table("auctions").select("id,title,image_url") \
+                .eq("is_active", True) \
+                .eq("is_visible", True) \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
             
-            auction_data = auction_resp.json()
+            auction_data = auction_response.data
             if auction_data:
                 response_data["auction_slide_data"] = auction_data[0] # Добавляем данные лота
             else:
