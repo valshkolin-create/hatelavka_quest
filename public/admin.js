@@ -1130,6 +1130,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              dom.settingCheckpointEnabled.checked = settings.checkpoint_enabled;
              dom.settingMenuBannerUrl.value = settings.menu_banner_url || '';
              dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
+             dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
 
              // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ ---
             const sliderOrder = settings.slider_order || ['skin_race', 'cauldron', 'auction']; // <-- ДОБАВЛЕН АУКЦИОН
