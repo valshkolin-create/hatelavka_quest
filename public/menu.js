@@ -1151,7 +1151,6 @@ function setupEventListeners() {
                         checkpointBannerImg.src = menuContent.checkpoint_banner_url;
                     }
                 }
-            }
             // --- Логика для баннера ивента "Котел" (ИСПРАВЛЕНО ДЛЯ АДМИНА) ---
             try {
                 const eventData = await fetch('/api/v1/events/cauldron/status', {
@@ -1231,6 +1230,7 @@ function setupEventListeners() {
                 }
             }
             // --- ↑↑↑ КОНЕЦ НОВОГО КОДА (ШАГ 3.3) ↑↑↑ ---
+            }
         
             // ВЫЗОВ ФУНКЦИИ СЛАЙДЕРА (ПРАВИЛЬНОЕ МЕСТО)
             setTimeout(() => {
