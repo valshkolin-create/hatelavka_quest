@@ -2438,7 +2438,8 @@ async def get_quest_details(request_data: QuestDetailsRequest, supabase: httpx.A
 @app.get("/api/v1/events/cauldron/status")
 async def get_cauldron_status(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    (С ЛОГАМИ) Отдает текущее состояние ивента 'Котел'.
+    (С ЛОГАМИ, ИСПРАВЛЕН СИНТАКСИС) 
+    Отдает текущее состояние ивента 'Котел'.
     """
     logging.info("--- 2. ЗАПУСК /api/v1/events/cauldron/status ---")
     
@@ -2459,9 +2460,14 @@ async def get_cauldron_status(request: Request, supabase: httpx.AsyncClient = De
         logging.warning(f"[cauldron/status] ОШИБКА: Не удалось проверить initData: {e}")
 
     try:
-        # Используем глобальный клиент supabase и .execute()
-        response = supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
-        data = response.data
+        # --- ИСПРАВЛЕНИЕ ЗДЕСЬ: Используем .get() вместо .table().select() ---
+        response = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
+        )
+        response.raise_for_status() # Проверим, что запрос успешен
+        data = response.json()
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         if not data or not data[0].get('content'):
             logging.warning("[cauldron/status] Контент 'cauldron_event' не найден в БД.")
@@ -2479,6 +2485,7 @@ async def get_cauldron_status(request: Request, supabase: httpx.AsyncClient = De
 
     except Exception as e:
         logging.error(f"[cauldron/status] КРИТИЧЕСКАЯ ОШИБКА в get_cauldron_status: {e}", exc_info=True)
+        # Возвращаем видимость для админа даже при ошибке
         return {"is_visible_to_users": is_admin}
         
 @app.get("/api/v1/events/cauldron/leaderboard")
