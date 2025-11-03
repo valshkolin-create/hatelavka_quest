@@ -2178,10 +2178,20 @@ function updateSleepButton(status) {
             container.addEventListener('click', (e) => {
                 console.log('--- ✅ 1. КЛИК ПО TABS-CONTAINER ---');
 
+                // Лог для проверки, какой CSS файл загружен
+                try {
+                    const cssLink = document.querySelector('link[href="admin.css"]');
+                    if (cssLink) {
+                        console.log('--- ℹ️ 0. CSS-файл <link href="admin.css"> найден на странице.');
+                    } else {
+                        console.warn('--- ⚠️ 0. ВНИМАНИЕ: <link href="admin.css"> НЕ НАЙДЕН! Проверьте HTML.');
+                    }
+                } catch (e) {}
+
                 const button = e.target.closest('.tab-button');
 
                 if (!button) {
-                    console.log('--- 🛑 2. ОСТАНОВКА: Клик был, но не по кнопке (button не найден).');
+                    console.log('--- 🛑 2. ОСТАНОВКА: Клик был, но не по кнопке.');
                     return;
                 }
                 console.log('--- ✅ 2. Button найден:', button.textContent.trim());
@@ -2198,7 +2208,6 @@ function updateSleepButton(status) {
                 if (container.classList.contains('main-tabs')) {
                     console.log('--- ✅ 5. Это главный .main-tabs контейнер.');
 
-                    // Это ключевая проверка для окна пароля
                     if (tabId === 'admin') {
                         console.log('--- ✅ 6. Клик по вкладке "admin".');
                         console.log('--- ❓ 7. Проверяем hasAdminAccess. Текущее значение:', hasAdminAccess);
@@ -2207,19 +2216,42 @@ function updateSleepButton(status) {
                             console.log('--- 🚀 8. hasAdminAccess = false. ПЫТАЕМСЯ ПОКАЗАТЬ ОКНО ПАРОЛЯ...');
                             
                             if (dom.passwordPromptOverlay) {
+                                // === ГЛАВНОЕ ДЕЙСТВИЕ ===
                                 dom.passwordPromptOverlay.classList.remove('hidden');
+                                // ========================
+                                
+                                console.log('--- ✅ 9. Класс .hidden УДАЛЕН. classList:', dom.passwordPromptOverlay.classList);
+
+                                // === НОВЫЕ УГЛУБЛЕННЫЕ ЛОГИ ===
+                                const computedStyle = window.getComputedStyle(dom.passwordPromptOverlay);
+                                console.log('--- 🔍 10. Проверка CSS (Computed Style):');
+                                console.log(`---    > display: [${computedStyle.display}]`);
+                                console.log(`---    > visibility: [${computedStyle.visibility}]`);
+                                console.log(`---    > opacity: [${computedStyle.opacity}]`);
+                                console.log(`---    > z-index: [${computedStyle.zIndex}]`);
+
+                                if (computedStyle.display === 'none') {
+                                    console.error('--- 🚨 ПРОБЛЕМА: CSS все еще говорит "display: none". Это !important в .hidden или конфликт CSS.');
+                                } else if (computedStyle.visibility === 'hidden') {
+                                    console.error('--- 🚨 ПРОБЛЕМА: CSS говорит "visibility: hidden".');
+                                } else if (parseFloat(computedStyle.opacity) === 0) {
+                                    console.warn('--- ⚠️ ПРОБЛЕМА?: Окно видимо, но полностью прозрачно (opacity: 0).');
+                                } else {
+                                    console.log('--- ✅ 11. Судя по CSS, окно должно быть видно.');
+                                }
+                                // === КОНЕЦ НОВЫХ ЛОГОВ ===
+
                                 dom.passwordPromptInput.focus();
-                                console.log('--- ✅ 9. Окно пароля ДОЛЖНО быть видно. Проверьте classList:', dom.passwordPromptOverlay.classList);
                             } else {
                                 console.error('--- 🚨 9. КРИТИЧЕСКАЯ ОШИБКА: dom.passwordPromptOverlay НЕ НАЙДЕН!');
                             }
-                            return; // Важно, выходим
+                            return; 
                         } else {
-                            console.log('--- ℹ️ 8. hasAdminAccess = true. Окно пароля не нужно, просто переключаем вкладку.');
+                            console.log('--- ℹ️ 8. hasAdminAccess = true. Окно пароля не нужно.');
                         }
                     }
                 } else {
-                    console.log('--- ℹ️ 5. Это не .main-tabs, а другой контейнер (например, в "Ожидают действия").');
+                    console.log('--- ℹ️ 5. Это не .main-tabs, а другой контейнер.');
                 }
 
                 // --- (Остальная логика переключения вкладок) ---
@@ -2233,8 +2265,7 @@ function updateSleepButton(status) {
                     document.getElementById('tab-content-main').classList.toggle('hidden', tabId !== 'main');
                     document.getElementById('tab-content-admin').classList.toggle('hidden', tabId !== 'admin');
                 } else if (parentElement) {
-                     // Специальная логика для вкладок котла
-                    if (container.id === 'cauldron-tabs') {
+                     if (container.id === 'cauldron-tabs') {
                          parentElement.querySelectorAll('.tab-content').forEach(content => {
                             if(content.id.startsWith('tab-content-cauldron-')) {
                                 content.classList.toggle('hidden', content.id !== `tab-content-${tabId}`);
@@ -2246,7 +2277,7 @@ function updateSleepButton(status) {
                         });
                     }
                 }
-                console.log('--- ✅ 10. КОНЕЦ ОБРАБОТЧИКА КЛИКА ---');
+                console.log('--- ✅ 12. КОНЕЦ ОБРАБОТЧИКА КЛИКА ---');
             });
         });
 
