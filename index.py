@@ -209,7 +209,7 @@ class AdminFreezeStarsRequest(BaseModel):
 
 class AdminSettings(BaseModel):
     skin_race_enabled: bool = True
-    slider_order: List[str] = Field(default_factory=lambda: ["skin_race", "cauldron"]) # <-- НОВОЕ ПОЛЕ
+    slider_order: List[str] = Field(default_factory=lambda: ["skin_race", "cauldron", "auction"]) # <-- ДОБАВЛЕН АУКЦИОН
     challenge_promocodes_enabled: bool = True
     quest_promocodes_enabled: bool = True
     challenges_enabled: bool = True
@@ -217,6 +217,8 @@ class AdminSettings(BaseModel):
     checkpoint_enabled: bool = False
     menu_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"
     checkpoint_banner_url: Optional[str] = "https://i.postimg.cc/6p39wgzJ/1200-324.png"
+    auction_enabled: bool = False # <-- ДОБАВЛЕНО
+    auction_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2" # <-- ДОБАВЛЕНО
     
 class AdminSettingsUpdateRequest(BaseModel):
     initData: str
@@ -646,15 +648,17 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
 
             # Создаем объект настроек
             loaded_settings = AdminSettings(
-                skin_race_enabled=settings_data.get('skin_race_enabled', True), # Добавляем недостающие поля
-                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron"]),
+                skin_race_enabled=settings_data.get('skin_race_enabled', True),
+                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
                 challenge_promocodes_enabled=challenge_rewards_bool,
                 quest_promocodes_enabled=quest_rewards_bool,
                 challenges_enabled=challenges_bool,
                 quests_enabled=quests_bool,
                 checkpoint_enabled=checkpoint_bool,
                 menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
-                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png")
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+                auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2") # <-- ДОБАВЛЕНО
             )
 
             # Сохраняем в кэш
@@ -1892,14 +1896,16 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
             # Создаем объект настроек
             loaded_settings = AdminSettings(
                 skin_race_enabled=settings_data.get('skin_race_enabled', True),
-                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron"]),
+                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
                 challenge_promocodes_enabled=challenge_rewards_bool,
                 quest_promocodes_enabled=quest_rewards_bool,
                 challenges_enabled=challenges_bool,
                 quests_enabled=quests_bool,
                 checkpoint_enabled=checkpoint_bool,
                 menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
-                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png")
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+                auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2") # <-- ДОБАВЛЕНО
             )
 
             # Сохраняем в кэш
@@ -5398,8 +5404,9 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
         "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
+        "auction_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2", # <-- ДОБАВЛЕНО
         "skin_race_enabled": True,
-        "slider_order": ["skin_race", "cauldron"],
+        "slider_order": ["skin_race", "cauldron", "auction"], # <-- ДОБАВЛЕН АУКЦИОН
         "auction_enabled": False, 
         "auction_slide_data": None
     }
@@ -5440,8 +5447,9 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         response_data = {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
+            "auction_banner_url": settings.get("auction_banner_url", defaults["auction_banner_url"]), # <-- ДОБАВЛЕНО
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
-            "slider_order": loaded_order, # <-- Используем исправленный список
+            "slider_order": loaded_order, # <-- ИСПРАВЛЕНО
             "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"])
         }
         
