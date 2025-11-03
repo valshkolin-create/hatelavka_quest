@@ -5389,10 +5389,10 @@ async def grant_stars_to_user(
         raise HTTPException(status_code=500, detail="Не удалось выдать билеты.")
 
 @app.get("/api/v1/content/menu")
-async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = Depends(get_supabase_client))
+async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)): 
     """
     Предоставляет динамический контент для главной страницы меню.
-    ВЕРСИЯ 3: Использует ГЛОБАЛЬНЫЙ клиент supabase и .execute()
+    ВЕРСИЯ 4: Принимает initData для проверки прав админа.
     """
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
@@ -5403,14 +5403,24 @@ async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = 
         "auction_slide_data": None
     }
     
+    # --- НОВЫЙ БЛОК: ПРОВЕРКА АДМИНА ---
+    is_admin = False
     try:
-        # 1. Получаем настройки админки (используем ГЛОБАЛЬНЫЙ клиент)
-        # --- ИСПРАВЛЕНИЕ: Убран await, используется .execute() и .data ---
-        settings_response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
-        settings_data = settings_response.data
-        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-        
-        settings = settings_data[0].get('value', {}) if settings_data else {}
+        # Пытаемся получить initData из заголовков
+        init_data_header = request.headers.get("X-Init-Data")
+        if init_data_header:
+            user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
+            if user_info and user_info.get("id") in ADMIN_IDS:
+                is_admin = True
+                logging.info("get_menu_content: Обнаружен админ.")
+    except Exception as e:
+        logging.warning(f"get_menu_content: Не удалось проверить initData: {e}")
+    # --- КОНЕЦ НОВОГО БЛОКА ---
+
+    try:
+        # 1. Получаем настройки админки
+        settings_resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
+        settings = settings_resp.json()[0].get('value', {}) if settings_resp.json() else {}
 
         # 2. Собираем основной ответ
         response_data = {
@@ -5421,25 +5431,27 @@ async def get_menu_content(): # <<< УБРАЛИ (supabase: httpx.AsyncClient = 
             "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"])
         }
 
-        # 3. Если аукционы включены, ищем активный лот для слайдера
-        if response_data["auction_enabled"]:
-            # --- ИСПРАВЛЕНИЕ: Убран await, используется .execute() и .data ---
-            auction_response = supabase.table("auctions").select("id,title,image_url") \
-                .eq("is_active", True) \
-                .eq("is_visible", True) \
-                .order("created_at", desc=True) \
-                .limit(1) \
-                .execute()
-            
-            auction_data = auction_response.data
-            # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-            
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА АУКЦИОНА ---
+        # 3. Если аукционы включены ИЛИ мы админ, ищем активный лот
+        if response_data["auction_enabled"] or is_admin:
+            auction_resp = await supabase.get(
+                "auctions",
+                params={
+                    "is_active": "eq.true",
+                    "is_visible": "eq.true",
+                    "select": "id,title,image_url",
+                    "order": "created_at.desc",
+                    "limit": 1
+                }
+            )
+            auction_data = auction_resp.json()
             if auction_data:
                 response_data["auction_slide_data"] = auction_data[0]
             else:
                 response_data["auction_slide_data"] = None
         else:
             response_data["auction_slide_data"] = None
+        # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
 
         return response_data
 
