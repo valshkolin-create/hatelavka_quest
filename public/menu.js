@@ -1231,6 +1231,9 @@ function setupEventListeners() {
                         const img = eventSlide.querySelector('img');
                         if (img && eventData.banner_image_url) {
                             img.src = eventData.banner_image_url;
+                        } else if (img) {
+                            // --- ДОБАВЛЕНО: Картинка-заглушка из твоего старого HTML ---
+                            img.src = 'https://i.postimg.cc/CKKLsnVw/1200-600-hallowen.png';
                         }
                         eventSlide.style.display = ''; // Показываем слайд
                         
@@ -1264,8 +1267,8 @@ function setupEventListeners() {
                         const hasData = menuContent.auction_slide_data;
                         const isEnabled = menuContent.auction_enabled;
                         const isAdmin = userData && userData.is_admin;
-                        const shouldShowAuction = hasData && (isEnabled || isAdmin);
-                        console.log(`main() [Аукцион]: (hasData=${!!hasData} && (enabled=${isEnabled} || admin=${isAdmin})) = ${shouldShowAuction}`); // ЛОГ
+                        const shouldShowAuction = (hasData && isEnabled) || isAdmin;
+                        console.log(`main() [Аукцион]: ((hasData=${!!hasData} && enabled=${isEnabled}) || admin=${isAdmin}) = ${shouldShowAuction}`); // ЛОГ
                         
                         if (shouldShowAuction) {
                                 
