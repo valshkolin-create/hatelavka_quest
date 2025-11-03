@@ -108,7 +108,13 @@ try {
         addTopRewardBtn: document.getElementById('add-top-reward-btn'),
         topRewardsContainer: document.getElementById('top-rewards-container'),
         defaultRewardForm: document.getElementById('default-reward-form'),
-        saveOrderButton: document.getElementById('save-order-button')
+        saveOrderButton: document.getElementById('save-order-button'),
+        // --- ↓↓↓ НОВЫЙ КОД ↓↓↓ ---
+        viewAdminAuctions: document.getElementById('view-admin-auctions'),
+        createAuctionForm: document.getElementById('create-auction-form'),
+        adminAuctionsList: document.getElementById('admin-auctions-list')
+        // --- ↑↑↑ КОНЕЦ НОВОГО КОДА ↑↑↑
+        
     };
 
     let categoriesCache = [];
@@ -556,7 +562,10 @@ const showLoader = () => {
                     break;
                 }
                 // --- КОНЕЦ ДОБАВЛЕНИЯ ---
-                    
+                 case 'view-admin-auctions': {
+                await loadAdminAuctions();
+                break;
+            }   
                 // --- ДОБАВЬТЕ ЭТОТ БЛОК ---
                 default: {
                     console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
@@ -1706,6 +1715,109 @@ function renderRoulettePrizes(prizes) {
         } // Конец цикла for по группам
     }
 
+// --- ↓↓↓ НОВЫЙ КОД ДЛЯ АУКЦИОНОВ ↓↓↓ ---
+async function loadAdminAuctions() {
+    showLoader();
+    try {
+        const auctions = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', true);
+        renderAdminAuctions(auctions);
+    } catch (e) {
+        dom.adminAuctionsList.innerHTML = `<p class="error-message">Не удалось загрузить аукционы.</p>`;
+    } finally {
+        hideLoader();
+    }
+}
+
+function renderAdminAuctions(auctions) {
+    dom.adminAuctionsList.innerHTML = '';
+    if (!auctions || auctions.length === 0) {
+        dom.adminAuctionsList.innerHTML = '<p style="text-align: center;">Аукционов пока нет.</p>';
+        return;
+    }
+
+    auctions.forEach(auction => {
+        let statusBadge = '';
+        if (auction.ended_at) {
+            statusBadge = `<span class="quest-status-badge status-inactive">Завершен</span>`;
+        } else if (auction.is_active) {
+            statusBadge = `<span class="quest-status-badge status-active">Активен</span>`;
+        } else {
+            statusBadge = `<span class="quest-status-badge" style="background-color: #555;">Остановлен</span>`;
+        }
+
+        const cardHtml = `
+        <div class="quest-card manage-quest-card">
+            <div class="quest-admin-meta">
+                ${statusBadge}
+                <span class="quest-status-badge" style="background-color: #007aff20; color: #007aff;">
+                    Таймер: ${auction.bid_cooldown_hours}ч
+                </span>
+            </div>
+            <div class="manage-quest-info">
+                <span>${escapeHTML(auction.title)}</span><br>
+                <small style="color: var(--text-color-muted);">
+                    Ставка: ${auction.current_highest_bid} 🎟️<br>
+                    Лидер: ${escapeHTML(auction.current_highest_bidder_name || '...')}
+                </small>
+            </div>
+            <div class="admin-buttons-wrapper">
+                <button class="admin-edit-quest-btn toggle-active-btn" data-id="${auction.id}" data-active="${auction.is_active}">
+                    ${auction.is_active ? 'Остановить' : 'Запустить'}
+                </button>
+                <button class="admin-edit-quest-btn toggle-visible-btn" data-id="${auction.id}" data-visible="${auction.is_visible}" style="background-color: var(--warning-color);">
+                    ${auction.is_visible ? 'Скрыть' : 'Показать'}
+                </button>
+                <button class="admin-delete-quest-btn delete-auction-btn" data-id="${auction.id}">Удалить</button>
+            </div>
+        </div>`;
+        dom.adminAuctionsList.insertAdjacentHTML('beforeend', cardHtml);
+    });
+}
+
+// Добавить обработчики в `setupEventListeners`
+if (dom.createAuctionForm) {
+    dom.createAuctionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+            title: formData.get('title'),
+            image_url: formData.get('image_url'),
+            bid_cooldown_hours: parseInt(formData.get('bid_cooldown_hours'), 10)
+        };
+        await makeApiRequest('/api/v1/admin/auctions/create', data);
+        tg.showAlert('Лот создан!');
+        e.target.reset();
+        await loadAdminAuctions();
+    });
+}
+
+if (dom.adminAuctionsList) {
+    dom.adminAuctionsList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+
+        const id = btn.dataset.id;
+
+        if (btn.classList.contains('toggle-active-btn')) {
+            const newStatus = !(btn.dataset.active === 'true');
+            await makeApiRequest('/api/v1/admin/auctions/update', { id: id, is_active: newStatus });
+            await loadAdminAuctions();
+        } else if (btn.classList.contains('toggle-visible-btn')) {
+            const newStatus = !(btn.dataset.visible === 'true');
+            await makeApiRequest('/api/v1/admin/auctions/update', { id: id, is_visible: newStatus });
+            await loadAdminAuctions();
+        } else if (btn.classList.contains('delete-auction-btn')) {
+            tg.showConfirm('Удалить этот лот и всю историю ставок? (Нельзя отменить)', async (ok) => {
+                if (ok) {
+                    await makeApiRequest('/api/v1/admin/auctions/delete', { id: id });
+                    await loadAdminAuctions();
+                }
+            });
+        }
+    });
+}
+// --- ↑↑↑ КОНЕЦ НОВОГО КОДА ДЛЯ АУКЦИОНОВ ↑↑↑
+    
     // --- MODIFIED function: renderQuests ---
     function renderQuests(quests, categories) {
         dom.questsList.innerHTML = '';
