@@ -2238,17 +2238,18 @@ function updateSleepButton(status) {
                                     console.warn('--- ⚠️ ПРОБЛЕМА?: Окно видимо, но полностью прозрачно (opacity: 0).');
                                 } else {
                                     console.log('--- ✅ 11. Судя по CSS, окно должно быть видно.');
-                            }
-                            
-                            dom.passwordPromptInput.focus();
-                            
-                            e.stopPropagation(); // <--- ОСТАВЬТЕ ТОЛЬКО ЭТУ СТРОЧКУ
+                                }
+                                // === КОНЕЦ НОВЫХ ЛОГОВ ===
 
+                                dom.passwordPromptInput.focus();
+                                
+                                e.stopPropagation(); // <--- ВОТ ИСПРАВЛЕНИЕ
+
+                            } else {
+                                console.error('--- 🚨 9. КРИТИЧЕСКАЯ ОШИБКА: dom.passwordPromptOverlay НЕ НАЙДЕН!');
+                            }
+                            return; 
                         } else {
-                            console.error('--- 🚨 9. КРИТИЧЕСКАЯ ОШИБКА: dom.passwordPromptOverlay НЕ НАЙДЕН!');
-                        }
-                        return; 
-                    } else {
                             console.log('--- ℹ️ 8. hasAdminAccess = true. Окно пароля не нужно.');
                         }
                     }
