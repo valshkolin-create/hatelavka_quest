@@ -1181,7 +1181,7 @@ function setupEventListeners() {
                         }
                     });
                 }
-              _B_     // --- КОНЕЦ НОВОГО КОДА ---
+                   // --- КОНЕЦ НОВОГО КОДА ---
 
                 // --- НОВЫЙ КОД: Логика для баннера "Гонка за скинами" ---
                 const skinRaceBannerImg = document.getElementById('menu-banner-img');
