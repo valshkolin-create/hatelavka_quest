@@ -1151,6 +1151,7 @@ function setupEventListeners() {
                         checkpointBannerImg.src = menuContent.checkpoint_banner_url;
                     }
                 }
+            }
             // --- Логика для баннера ивента "Котел" (ИСПРАВЛЕНО ДЛЯ АДМИНА) ---
             try {
                 const eventData = await fetch('/api/v1/events/cauldron/status', {
@@ -1191,47 +1192,7 @@ function setupEventListeners() {
                 }
             }
             // --- Конец логики для баннера ---
-           // --- ↓↓↓ НОВЫЙ КОД (ШАГ 3.3) ↓↓↓ ---
-            // --- Логика для баннера "Аукцион" ---
-            try {
-                const auctionSlide = document.querySelector('.slide[data-event="auction"]');
-                
-                if (auctionSlide) {
-                        // Проверяем, есть ли данные И (включен ли он // или мы админ)
-                        if (menuContent.auction_slide_data && (menuContent.auction_enabled || (userData && userData.is_admin))) {
-                                
-                                const auctionData = menuContent.auction_slide_data;
-                                const img = document.getElementById('auction-banner-img');
-                                
-                                // Устанавливаем ссылку на страницу аукциона (мы создадим ее позже)
-                                auctionSlide.href = '/auction'; // TODO: Создать /auction
-                                
-                                // Устанавливаем картинку лота (или заглушку)
-                                if (img && auctionData.image_url) {
-                                        img.src = auctionData.image_url;
-                                } else if (img) {
-                                        // Если у лота нет картинки, ставим заглушку
-                                        img.src = 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2'; 
-                                }
-                                
-                                // Показываем слайд
-                                auctionSlide.style.display = '';
-                                
-                        } else {
-                                // Если аукцион выключен и мы не админ, скрываем
-                                auctionSlide.style.display = 'none';
-                        }
-                }
-            } catch (e) {
-                console.error("Не удалось настроить слайд Аукциона", e);
-                const auctionSlide = document.querySelector('.slide[data-event="auction"]');
-                if (auctionSlide) {
-                        auctionSlide.style.display = 'none';
-                }
-            }
-            // --- ↑↑↑ КОНЕЦ НОВОГО КОДА (ШАГ 3.3) ↑↑↑ ---
-            }
-        
+            
             // ВЫЗОВ ФУНКЦИИ СЛАЙДЕРА (ПРАВИЛЬНОЕ МЕСТО)
             setTimeout(() => {
                 setupSlider();
