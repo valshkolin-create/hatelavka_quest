@@ -1088,7 +1088,12 @@ function setupEventListeners() {
                 document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
                 return;
             }
-            const menuContentPromise = fetch("/api/v1/content/menu").then(res => res.json());
+            const menuContentPromise = fetch("/api/v1/content/menu", {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Init-Data': Telegram.WebApp.initData
+                }
+            }).then(res => res.json());
             const day = new Date().getDay();
             const questButton = dom.questChooseBtn;
             if (day === 0 || day === 1) { 
