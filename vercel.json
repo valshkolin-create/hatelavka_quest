@@ -11,20 +11,20 @@
     }
   ],
   "routes": [
-    { "src": "/public/(.*)", "dest": "/public/$1" },
-    { "src": "/menu", "dest": "/public/menu.html" },
-    { "src": "/leaderboard", "dest": "/public/leaderboard.html" },
-    { "src": "/profile", "dest": "/public/profile.html" },
-    { "src": "/admin", "dest": "/public/admin.html" },
-    { "src": "/events", "dest": "/public/events.html" },
-    { "src": "/checkpoint", "dest": "/public/checkpoint.html" },
-    { "src": "/roulette.html", "dest": "/public/roulette.html" },
-    { "src": "/halloween", "dest": "/public/halloween.html" },
+    { "src": "/public/(.*)", "dest": "/public/$1" },
+    { "src": "/menu", "dest": "/public/menu.html" },
+    { "src": "/leaderboard", "dest": "/public/leaderboard.html" },
+    { "src": "/profile", "dest": "/public/profile.html" },
+    { "src": "/admin", "dest": "/public/admin.html" },
+    { "src": "/events", "dest": "/public/events.html" },
+    { "src": "/checkpoint", "dest": "/public/checkpoint.html" },
+    { "src": "/roulette.html", "dest": "/public/roulette.html" },
+    { "src": "/halloween", "dest": "/public/halloween.html" },
     { "src": "/auction.html", "dest": "/public/auction.html" },
-    { "src": "/", "dest": "/public/index.html" },
-    { "src": "/api/(.*)", "dest": "/index.py" },
-    { "src": "/(.*)", "dest": "/public/$1" }
-  ],
+    { "src": "/", "dest": "/public/index.html" },
+    { "src": "/api/(.*)", "dest": "/index.py" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ],
   "crons": [
     {
       "path": "/api/v1/cron/draw_winner?event_id=1&secret=a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890",
