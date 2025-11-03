@@ -86,10 +86,6 @@
                         <div class="icon-wrapper" style="color: #ff9500;"><i class="fa-solid fa-hat-wizard"></i></div>
                         <span>Ивент "Котел"</span>
                     </div>
-                  <div class="admin-icon-button" data-view="view-admin-auctions">
-                    <div class="icon-wrapper" style="color: #AC87C5;"><i class="fa-solid fa-gavel"></i></div>
-                    <span>Аукционы</span>
-                </div>
                 </div> </div> <div class="quest-card" style="margin-top: 20px; text-align: center;">
                 <p style="font-size: 14px; color: var(--text-color-muted); margin:0;">
                     Панель для администратирования канала HATElove.ttv.
@@ -269,7 +265,6 @@
                             <input type="text" id="setting-auction-banner-url" placeholder="https://example.com/auction.png">
                         </div>
                     </div>
-                </div>
             </div>
             <div class="quest-card" style="margin-top: 20px;">
                 <div class="settings-group">
@@ -771,25 +766,6 @@
         </div>
     </main>
 
-  <div id="view-admin-auctions" class="view hidden">
-        <div class="page-header">
-            <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-            <h1 class="page-header-title">Аукционы</h1>
-            <div style="width: 60px;"></div>
-        </div>
-
-        <div class="quest-card">
-            <form id="create-auction-form" class="admin-form">
-                <label>Название лота</label>
-                <input type="text" name="title" required placeholder="Напр: AWP | Dragon Lore">
-                <label>URL изображения</label>
-                <input type="text" name="image_url" placeholder="https://...">
-                <label>Таймер перехвата (часы)</label>
-                <input type="number" name="bid_cooldown_hours" value="4" required min="1">
-                <button type="submit">Создать лот</button>
-            </form>
-        </div>
-    
     <div id="password-prompt-overlay" class="modal-overlay hidden">
         <div class="prompt-modal">
             <h3>Введите пароль</h3>
