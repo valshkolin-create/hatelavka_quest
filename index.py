@@ -5170,7 +5170,7 @@ async def get_admin_settings(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Получает текущие настройки админ-панели."""
+    """Получает текущие настройки админ-панели (С ПАРСИНГОМ И ДЕФОЛТАМИ)."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -5181,9 +5181,50 @@ async def get_admin_settings(
 
     if not data or not data[0].get('value'):
         # Возвращаем настройки по умолчанию, если в базе ничего нет
-        return AdminSettings().dict()
+        return AdminSettings() # Возвращаем Pydantic-модель
+
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+    # Принудительно парсим данные из БД через модель AdminSettings,
+    # чтобы заполнить недостающие поля (auction_banner_url, auction в slider_order)
+    # значениями по умолчанию.
     
-    return data[0]['value']
+    settings_data = data[0]['value']
+    
+    # Эта логика парсинга boolean-значений скопирована из твоей функции get_admin_settings_async
+    quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False)
+    quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
+
+    challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
+    challenge_rewards_bool = challenge_rewards_raw if isinstance(challenge_rewards_raw, bool) else str(challenge_rewards_raw).lower() == 'true'
+
+    challenges_raw = settings_data.get('challenges_enabled', True)
+    challenges_bool = challenges_raw if isinstance(challenges_raw, bool) else str(challenges_raw).lower() == 'true'
+
+    quests_raw = settings_data.get('quests_enabled', True)
+    quests_bool = quests_raw if isinstance(quests_raw, bool) else str(quests_raw).lower() == 'true'
+
+    checkpoint_raw = settings_data.get('checkpoint_enabled', False)
+    checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
+
+    # Создаем объект AdminSettings.
+    # Он возьмет сохраненные значения, а недостающие (auction_banner_url и auction в slider_order)
+    # возьмет из значений по умолчанию в Pydantic-модели.
+    loaded_settings = AdminSettings(
+        skin_race_enabled=settings_data.get('skin_race_enabled', True),
+        slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
+        challenge_promocodes_enabled=challenge_rewards_bool,
+        quest_promocodes_enabled=quest_rewards_bool,
+        challenges_enabled=challenges_bool,
+        quests_enabled=quests_bool,
+        checkpoint_enabled=checkpoint_bool,
+        menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
+        checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+        auction_enabled=settings_data.get('auction_enabled', False),
+        auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2")
+    )
+    
+    # Возвращаем ПОЛНЫЙ объект, а не сырые данные из БД
+    return loaded_settings
 
 @app.post("/api/v1/admin/settings/update")
 async def update_admin_settings(
