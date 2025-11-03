@@ -1132,16 +1132,29 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
              dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
 
-             // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ ---
-            const sliderOrder = settings.slider_order || ['skin_race', 'cauldron', 'auction']; // <-- ДОБАВЛЕН АУКЦИОН
+             // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ (v2 - БОЛЕЕ НАДЕЖНЫЙ) ---
+            const defaultOrder = ['skin_race', 'cauldron', 'auction'];
+            const loadedOrder = settings.slider_order || defaultOrder;
+            
+            // Гарантируем, что все элементы из defaultOrder присутствуют
+            const orderSet = new Set(loadedOrder);
+            defaultOrder.forEach(item => {
+                if (!orderSet.has(item)) {
+                    loadedOrder.push(item); // Добавляем недостающие в конец
+                }
+            });
+
+            // Фильтруем, чтобы удалить элементы, которых больше нет
+            const finalSliderOrder = loadedOrder.filter(id => defaultOrder.includes(id));
+
             const slideNames = {
                 skin_race: 'Гонка за скинами',
                 cauldron: 'Ивент "Котел"',
-                auction: 'Аукцион' // <-- 4. ДОБАВИТЬ ЭТУ СТРОКУ
+                auction: 'Аукцион'
             };
 
             dom.sliderOrderManager.innerHTML = '';
-            sliderOrder.forEach(slideId => {
+            finalSliderOrder.forEach(slideId => {
                 if (slideNames[slideId]) {
                     const item = document.createElement('div');
                     item.className = 'slider-order-item';
@@ -1151,7 +1164,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     dom.sliderOrderManager.appendChild(item);
                 }
             });
-
+            
             // Drag and Drop логика
             let draggedItem = null;
             dom.sliderOrderManager.addEventListener('dragstart', (e) => {
