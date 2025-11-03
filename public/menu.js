@@ -1286,7 +1286,7 @@ function setupEventListeners() {
                                 // Показываем слайд
                                 auctionSlide.style.display = '';
                                 
-                    €   } else {
+                       } else {
                                 // Если аукцион выключен и мы не админ, скрываем
                                 auctionSlide.style.display = 'none';
  
