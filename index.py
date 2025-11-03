@@ -3046,6 +3046,102 @@ async def trigger_draws(
     except Exception as e:
         logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА в cron-задаче: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/v1/cron/trigger_auctions")
+async def trigger_auctions(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Защита, как в trigger_draws
+    cron_secret = os.getenv("CRON_SECRET")
+    auth_header = request.headers.get("Authorization")
+    if not cron_secret or auth_header != f"Bearer {cron_secret}":
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid secret")
+
+    logging.info("🚀 CRON (Аукцион): Проверка аукционов для завершения...")
+
+    try:
+        # 2. Находим все аукционы, у которых 4-часовой таймер истек
+        now_utc_iso = datetime.now(timezone.utc).isoformat()
+        
+        resp = await supabase.get(
+            "/auctions",
+            params={
+                "is_active": "eq.true",
+                "ended_at": "is.null",
+                "bid_cooldown_ends_at": "not.is.null", # Убедимся, что таймер был запущен
+                "bid_cooldown_ends_at": f"lt.{now_utc_iso}", # 'lt' = less than (меньше чем)
+                "select": "id, title" # Нам нужны только ID и title
+            }
+        )
+        resp.raise_for_status()
+        auctions_to_finish = resp.json()
+
+        if not auctions_to_finish:
+            logging.info("CRON (Аукцион): Нет аукционов для завершения.")
+            return {"message": "No auctions to finish."}
+        
+        logging.info(f"CRON (Аукцион): Найдено {len(auctions_to_finish)} аукцион(ов) для завершения.")
+        
+        results = []
+        
+        # 3. Завершаем каждый аукцион, вызывая нашу SQL-функцию
+        for auction in auctions_to_finish:
+            auction_id = auction['id']
+            logging.info(f"CRON (Аукцион): Завершаем аукцион ID {auction_id}...")
+            
+            # Вызываем "мозг" (SQL-функцию), который атомарно все сделает
+            rpc_resp = await supabase.post(
+                "/rpc/finish_auction",
+                json={"p_auction_id": auction_id}
+            )
+            rpc_resp.raise_for_status()
+            
+            winner_data_list = rpc_resp.json()
+            if not winner_data_list:
+                logging.warning(f"CRON (Аукцион): RPC-функция для {auction_id} вернула пустой ответ.")
+                continue
+
+            winner_data = winner_data_list[0] # RPC возвращает TABLE, берем первую строку
+            
+            # 4. Отправляем уведомления
+            if winner_data.get('winner_id'):
+                winner_id = winner_data['winner_id']
+                winner_name = winner_data['winner_name']
+                auction_title = winner_data['auction_title']
+                winning_bid = winner_data['winning_bid']
+                
+                # Уведомление победителю
+                # (Используем вашу функцию safe_send_message)
+                await safe_send_message(
+                    winner_id,
+                    f"🎉 Поздравляем, {html_decoration.quote(winner_name)}!\n\n"
+                    f"Вы победили в аукционе за лот «{html_decoration.quote(auction_title)}» со ставкой {winning_bid} 🎟️.\n\n"
+                    f"Билеты были списаны с вашего баланса. Администратор скоро свяжется с вами для выдачи приза!"
+                )
+                
+                # Уведомление админу
+                # (Используем ваши переменные ADMIN_NOTIFY_CHAT_ID и safe_send_message)
+                if ADMIN_NOTIFY_CHAT_ID:
+                    await safe_send_message(
+                        ADMIN_NOTIFY_CHAT_ID,
+                        f"🏆 <b>Аукцион завершен!</b>\n\n"
+                        f"<b>Лот:</b> {html_decoration.quote(auction_title)}\n"
+                        f"<b>Победитель:</b> {html_decoration.quote(winner_name)} (ID: <code>{winner_id}</code>)\n"
+                        f"<b>Ставка:</b> {winning_bid} билетов\n\n"
+                        f"Билеты списаны. Пожалуйста, свяжитесь с победителем для выдачи приза."
+                    )
+                results.append(f"Auction {auction_id} finished, winner {winner_id}.")
+            else:
+                # Случай, когда нет победителя
+                logging.info(f"CRON (Аукцион): Аукцион {auction['title']} (ID: {auction_id}) завершен без ставок.")
+                results.append(f"Auction {auction_id} finished, no winner.")
+
+        return {"message": "Auction check completed.", "results": results}
+
+    except Exception as e:
+        logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА в cron-задаче (Аукцион): {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
         
 @app.post("/api/v1/cron/sync_leaderboard")
 async def sync_leaderboard_to_supabase(
