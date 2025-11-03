@@ -1267,24 +1267,30 @@ function setupEventListeners() {
                         const hasData = menuContent.auction_slide_data;
                         const isEnabled = menuContent.auction_enabled;
                         const isAdmin = userData && userData.is_admin;
-                        const shouldShowAuction = (hasData && isEnabled) || (isAdmin && hasData); // Админ видит слайд, только если hasData (лот существует)
-                        console.log(`main() [Аукцион]: ((hasData=${!!hasData} && enabled=${isEnabled}) || (admin=${isAdmin} && hasData=${!!hasData})) = ${shouldShowAuction}`); // ЛОГ
+                        // --- ИЗМЕНЕНИЕ: Админ видит слайд, даже если hasData = null ---
+                       const shouldShowAuction = (hasData && isEnabled) || isAdmin;
+                        console.log(`main() [Аукцион]: ((hasData=${!!hasData} && enabled=${isEnabled}) || admin=${isAdmin}) = ${shouldShowAuction}`); // ЛОГ
                         
                         if (shouldShowAuction) {
                                 
                                 const auctionData = menuContent.auction_slide_data;
                                 const img = document.getElementById('auction-banner-img');
                                 
-                                // Устанавливаем ссылку на страницу аукциона (мы создадим ее позже)
-                                auctionSlide.href = '/auction'; // TODO: Создать /auction
+                                // Устанавливаем ссылку на страницу аукциона
+                                auctionSlide.href = '/auction';
                                 
-                                // Устанавливаем картинку лота (или заглушку)
-                                if (img && auctionData.image_url) {
-                                        img.src = auctionData.image_url;
+                                // --- ИЗМЕНЕНИЕ: Используем URL из настроек ---
+                                if (img && menuContent.auction_banner_url) {
+                                    // 1. Приоритет: URL баннера из настроек
+                                    img.src = menuContent.auction_banner_url;
+                                } else if (img && hasData && auctionData.image_url) {
+                                    // 2. Запасной вариант: URL из самого лота
+                                    img.src = auctionData.image_url;
                                 } else if (img) {
-                                        // Если у лота нет картинки, ставим заглушку
-                                        img.src = 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2'; 
+                                    // 3. Заглушка, если нет ни того, ни другого
+                                    img.src = 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2'; 
                                 }
+                        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                                 
                                 // Показываем слайд
                                 auctionSlide.style.display = '';
