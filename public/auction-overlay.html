@@ -284,19 +284,19 @@
 
         async function loadInitialState() {
             try {
-                // 1. Получаем последний активный аукцион
+                // 1. Получаем последний ВИДИМЫЙ аукцион (неважно, активен он или завершен)
                 const { data: auctionData, error: auctionError } = await supabaseClient
                     .from('auctions')
                     .select('*')
-                    .eq('is_active', true)
-                    .eq('is_visible', true)
-                    .is('ended_at', null)
-                    .order('created_at', { ascending: false })
+                    // .eq('is_active', true)  // <-- УДАЛЕНО
+                    .eq('is_visible', true) // <-- ОСТАВЛЕНО (мы не хотим показывать скрытые)
+                    // .is('ended_at', null)     // <-- УДАЛЕНО
+                    .order('created_at', { ascending: false }) // <-- Берем самый новый
                     .limit(1);
 
                 if (auctionError) throw auctionError;
                 if (!auctionData || auctionData.length === 0) {
-                    console.log("Нет активных аукционов.");
+                    console.log("Нет видимых аукционов.");
                     dom.widget.classList.remove('visible');
                     return;
                 }
@@ -312,11 +312,33 @@
                     .limit(3);
                 
                 if (historyError) throw historyError;
+                
+                // ПУНКТ 1 (от пользователя): Логика топ-3 немного изменилась
+                // Нам нужен топ-3 по сумме, а не по времени
+                const topBidders = [];
+                if (historyData.length > 0) {
+                    // Используем данные из самой карточки аукциона, они самые точные
+                    topBidders.push({
+                        name: auction.current_highest_bidder_name || '...',
+                        amount: auction.current_highest_bid || 0
+                    });
 
-                const topBidders = historyData.map(b => ({
-                    name: b.user ? b.user.full_name : 'Аноним',
-                    amount: b.bid_amount
-                }));
+                    // Добавляем 2-го и 3-го, если они есть
+                    const leaderName = auction.current_highest_bidder_name;
+                    let count = 1;
+                    for (const b of historyData) {
+                        const bidderName = b.user ? b.user.full_name : 'Аноним';
+                        // Добавляем, только если это не лидер (которого мы уже добавили)
+                        // и если у нас меньше 3 записей
+                        if (bidderName !== leaderName && count < 3) {
+                            topBidders.push({
+                                name: bidderName,
+                                amount: b.bid_amount
+                            });
+                            count++;
+                        }
+                    }
+                }
 
                 // 3. Обновляем экран
                 updateDisplay(auction, topBidders);
@@ -325,19 +347,6 @@
                 console.error('Ошибка загрузки начального состояния:', error);
             }
         }
-        
-        try {
-            supabaseClient.channel('auction-triggers-channel')
-                .on('postgres_changes', 
-                    { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
-                    payload => triggerAnimation(payload)
-                ).subscribe((status) => {
-                    if (status === 'SUBSCRIBED') {
-                        console.log('Подключено к Supabase (Auction Triggers). Загрузка...');
-                        loadInitialState();
-                    }
-                });
-        } catch (error) { console.error("Ошибка подключения к Supabase:", error); }
 
     </script>
 </body>
