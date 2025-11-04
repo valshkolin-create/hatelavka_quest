@@ -185,14 +185,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
+            // --- НОВАЯ ЛОГИКА ОТОБРАЖЕНИЯ ИМЕНИ (с приоритетом Twitch) ---
             let leaderOrWinnerHtml = '';
-            if (isEnded && auction.current_highest_bidder_name) {
+            
+            // Функция-хелпер для выбора имени
+            const getDisplayName = (auction) => {
+                if (auction.bidder) {
+                    // 'bidder' - это объект {full_name, twitch_login}, который мы получили из Supabase
+                    return auction.bidder.twitch_login || auction.bidder.full_name;
+                }
+                // Фоллбэк, если bidder null (например, нет ставок)
+                return auction.current_highest_bidder_name; // Это старое поле (TG Name)
+            };
+
+            const displayName = getDisplayName(auction);
+
+            if (isEnded && displayName) {
                 leaderOrWinnerHtml = `
                     <div class="stat-item winner-block" style="margin-bottom: 15px;">
                         <div class="stat-item-label">Победитель</div>
                         <div class="stat-item-value winner-name">
                             <i class="fa-solid fa-trophy"></i>
-                            ${escapeHTML(auction.current_highest_bidder_name)}
+                            ${escapeHTML(displayName)}
                         </div>
                     </div>
                 `;
@@ -200,10 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 leaderOrWinnerHtml = `
                     <div class="stat-item" style="margin-bottom: 15px;">
                         <div class="stat-item-label">${isEnded ? 'Победитель' : 'Лидер'}</div>
-                        <div class="stat-item-value">${escapeHTML(auction.current_highest_bidder_name || (isEnded ? 'Не определен' : 'Нет ставок'))}</div>
+                        <div class="stat-item-value">${escapeHTML(displayName || (isEnded ? 'Не определен' : 'Нет ставок'))}</div>
                     </div>
                 `;
             }
+            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
             card.innerHTML = `
                 ${adminOverlay}
