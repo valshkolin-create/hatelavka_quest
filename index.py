@@ -1882,11 +1882,7 @@ class AuctionUpdateRequest(BaseModel):
 class AuctionDeleteRequest(BaseModel):
     initData: str
     id: int
-    
-class AuctionDeleteRequest(BaseModel):
-    initData: str
-    id: int
-
+# --- Конец Pydantic моделей для Админки Аукциона ---
 
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
 class InitDataRequest(BaseModel): initData: str
