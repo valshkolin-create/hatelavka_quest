@@ -229,6 +229,10 @@ class AdminFreezeStarsRequest(BaseModel):
     initData: str
     user_id: int # <-- ИЗМЕНЕНО с user_id_to_freeze
     days: int
+
+class AdminAuctionFinishRequest(BaseModel):
+    initData: str
+    id: int
     
 
 class AdminSettings(BaseModel):
@@ -1413,6 +1417,73 @@ async def get_auction_history(
 
 
 # --- НОВЫЕ ЭНДПОИНТЫ: АДМИНКА АУКЦИОНА ---
+
+@app.post("/api/v1/admin/auctions/finish_manual")
+async def admin_finish_auction(
+    request_data: AdminAuctionFinishRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) Принудительно завершает аукцион и отправляет уведомления.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    auction_id = request_data.id
+    logging.info(f"АДМИН: Принудительное завершение аукциона ID {auction_id}...")
+    
+    try:
+        # 1. Вызываем RPC-функцию, которая завершает аукцион и возвращает победителя
+        rpc_resp = await supabase.post(
+            "/rpc/finish_auction",
+            json={"p_auction_id": auction_id}
+        )
+        rpc_resp.raise_for_status()
+        
+        winner_data_list = rpc_resp.json()
+        if not winner_data_list:
+            logging.warning(f"АДМИН: RPC-функция для {auction_id} вернула пустой ответ.")
+            return {"message": "Аукцион завершен, победитель не определен (нет ставок)."}
+
+        winner_data = winner_data_list[0]
+        
+        # 2. Проверяем, есть ли победитель, и отправляем уведомления
+        if winner_data.get('winner_id'):
+            winner_id = winner_data['winner_id']
+            winner_name = winner_data['winner_name']
+            auction_title = winner_data['auction_title']
+            winning_bid = winner_data['winning_bid']
+            
+            # Уведомление победителю
+            await safe_send_message(
+                winner_id,
+                f"🎉 Поздравляем, {html_decoration.quote(winner_name)}!\n\n"
+                f"Вы победили в аукционе за лот «{html_decoration.quote(auction_title)}» со ставкой {winning_bid} 🎟️.\n\n"
+                f"Билеты были списаны с вашего баланса. Администратор скоро свяжется с вами для выдачи приза!"
+            )
+            
+            # Уведомление админу
+            if ADMIN_NOTIFY_CHAT_ID:
+                await safe_send_message(
+                    ADMIN_NOTIFY_CHAT_ID,
+                    f"🏆 <b>Аукцион завершен! (Вручную)</b>\n\n"
+                    f"<b>Лот:</b> {html_decoration.quote(auction_title)}\n"
+                    f"<b>Победитель:</b> {html_decoration.quote(winner_name)} (ID: <code>{winner_id}</code>)\n"
+                    f"<b>Ставка:</b> {winning_bid} билетов\n\n"
+                    f"Билеты списаны. Пожалуйста, свяжитесь с победителем для выдачи приза."
+                )
+            return {"message": f"Аукцион {auction_id} завершен, победитель {winner_id}."}
+        else:
+            # Случай, когда нет победителя
+            return {"message": f"Аукцион {auction_id} завершен, победитель не определен."}
+    
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка RPC.")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА в admin_finish_auction: {e}", exc_info=True)
+        raise HTTPException(status_code=500, content={"error": str(e)})
 
 @app.post("/api/v1/admin/auctions/list")
 async def admin_get_auctions(
