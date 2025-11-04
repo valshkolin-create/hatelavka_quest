@@ -60,22 +60,76 @@
         .header-title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-primary); }
         .header-timer { font-size: 20px; font-weight: 700; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; }
         .content-body { display: flex; padding: 15px; gap: 15px; }
-        .skin-container { width: 150px; height: 110px; background: rgba(0,0,0,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+        
+        /* --- ИЗМЕНЕНИЕ 6: Размер картинки --- */
+        .skin-container { 
+            width: 120px; /* Было 150px */
+            height: 90px; /* Было 110px */
+            background: rgba(0,0,0,0.2); 
+            border-radius: 8px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0; 
+            overflow: hidden; 
+        }
         #skin-image { width: 100%; height: 100%; object-fit: contain; }
-        .bidders-container { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; min-width: 0; }
-        .bidder-item { display: flex; align-items: center; gap: 10px; }
-        .bidder-rank { font-size: 18px; font-weight: 900; width: 25px; text-align: right; flex-shrink: 0; color: var(--text-secondary); }
+        
+        /* --- ИЗМЕНЕНИЕ 5: Стили для 5 участников --- */
+        .bidders-container { 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start; /* Было space-around */
+            flex-grow: 1; 
+            min-width: 0; 
+            gap: 4px; /* Добавлен небольшой интервал */
+        }
+        .bidders-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 5px; /* Уменьшен отступ */
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .bidder-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; /* Уменьшен gap */
+        }
+        .bidder-rank { 
+            font-size: 15px; /* Уменьшен */
+            font-weight: 900; 
+            width: 25px; 
+            text-align: right; 
+            flex-shrink: 0; 
+            color: var(--text-secondary); 
+        }
         .bidder-item.rank-1 .bidder-rank { color: var(--gold-color); }
         .bidder-item.rank-2 .bidder-rank { color: #c0c0c0; }
         .bidder-item.rank-3 .bidder-rank { color: #cd7f32; }
-        .bidder-name { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; }
-        .bidder-amount { font-size: 14px; font-weight: 700; color: var(--accent-primary); flex-shrink: 0; }
+        /* Ранги 4 и 5 будут стандартного цвета --text-secondary */
+        .bidder-name { 
+            font-size: 14px; /* Уменьшен */
+            font-weight: 700; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            flex-grow: 1; 
+        }
+        .bidder-amount { 
+            font-size: 13px; /* Уменьшен */
+            font-weight: 700; 
+            color: var(--accent-primary); 
+            flex-shrink: 0; 
+        }
+        /* --- КОНЕЦ ИЗМЕНЕНИЯ 5 --- */
 
         #new-bid-notification { position: absolute; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(45deg, var(--accent-secondary), var(--accent-primary)); color: #000; padding: 15px 30px; border-radius: 10px; font-size: 24px; font-weight: 900; box-shadow: 0 5px 20px rgba(0,0,0,0.5); white-space: nowrap; opacity: 0; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 20; }
         #new-bid-notification.show { opacity: 1; top: 20px; }
         #new-bid-notification.hide { opacity: 0; top: -100px; transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045); }
 
-        /* --- ИЗМЕНЕНИЕ 2: Новые стили для Промо --- */
+        /* --- Стили для Промо (без изменений) --- */
         .promo-overlay {
             position: absolute;
             top: 0; left: 0;
@@ -98,9 +152,8 @@
         }
         .promo-overlay.show { opacity: 1; visibility: visible; transform: translateX(0); }
         
-        /* Новый контейнер для скина */
         .promo-skin-container {
-            width: 120px; /* Размер скина */
+            width: 120px; 
             height: 90px;
             background: rgba(0,0,0,0.2);
             border-radius: 8px;
@@ -113,13 +166,11 @@
             height: 100%;
             object-fit: contain;
         }
-        /* Убран .promo-main-icon */
 
         .promo-content { display: flex; flex-direction: column; text-align: left; }
         .promo-text { font-size: 16px; font-weight: 600; color: var(--text-secondary); line-height: 1.4; }
         .promo-main { font-size: 26px; font-weight: 900; color: var(--gold-color); text-transform: uppercase; letter-spacing: 1px; margin: 4px 0 8px; }
         
-        /* Текст "ПИШИ !lavka" */
         .promo-cta {
             font-size: 22px;
             font-weight: 700;
@@ -128,8 +179,7 @@
             padding: 8px 15px;
             border-radius: 8px;
             display: inline-block;
-            align-self: center; /* <-- ИЗМЕНЕНИЕ 3: Центрирование */
-            /* animation: pulseGlow... (Убрана анимация) */
+            align-self: center; 
         }
     </style>
 </head>
@@ -181,14 +231,14 @@
             title: document.getElementById('auction-title'),
             timer: document.getElementById('auction-timer'),
             skinImage: document.getElementById('skin-image'),
-            promoSkinImage: document.getElementById('promo-skin-image'), // <-- ИЗМЕНЕНИЕ 5: Добавлен скин промо
+            promoSkinImage: document.getElementById('promo-skin-image'), 
             biddersList: document.getElementById('top-bidders-list'),
             notification: document.getElementById('new-bid-notification'),
             notifyName: document.getElementById('bid-notify-name')
         };
 
         let countdownInterval = null;
-        let currentAuctionId = null;
+        let currentAuctionId = null; // null - нет аукциона, 0 - дефолтный, >0 - реальный
         let promoInterval = null;
         let promoTimeout = null;
         
@@ -227,18 +277,26 @@
                 if (promoInterval) clearInterval(promoInterval);
                 promoInterval = setInterval(showPromoAnimation, 70000);
             }
-            if (!auctionData || !auctionData.id) { return; }
-            currentAuctionId = auctionData.id;
+            
+            // --- ИЗМЕНЕНИЕ 4: Убрана проверка auctionData.id ---
+            if (!auctionData) { return; }
+            if (auctionData.id) { // Устанавливаем ID, только если это реальный аукцион
+                currentAuctionId = auctionData.id;
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 4 ---
+
             dom.title.textContent = auctionData.title || "Аукцион";
-            dom.skinImage.src = auctionData.image_url || '';
+            dom.skinImage.src = auctionData.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2';
             startCountdown(auctionData.bid_cooldown_ends_at);
-            dom.biddersList.innerHTML = '';
+            
+            // --- ИЗМЕНЕНИЕ 5: Добавлен заголовок и 5 участников ---
+            let biddersHtml = '<div class="bidders-title">Аукцион</div>';
             if (topBidders.length === 0) {
-                dom.biddersList.innerHTML = '<div style="color: var(--text-secondary);">Ставок пока нет...</div>';
+                biddersHtml += '<div style="color: var(--text-secondary); text-align: center; font-size: 13px; margin-top: 10px;">Ставок пока нет...</div>';
             } else {
-                topBidders.slice(0, 3).forEach((bidder, i) => {
+                topBidders.slice(0, 5).forEach((bidder, i) => { // Было 3
                     const rank = i + 1;
-                    dom.biddersList.innerHTML += `
+                    biddersHtml += `
                         <div class="bidder-item rank-${rank}">
                             <div class="bidder-rank">${rank}.</div>
                             <div class="bidder-name">${bidder.name}</div>
@@ -247,12 +305,17 @@
                     `;
                 });
             }
+            dom.biddersList.innerHTML = biddersHtml;
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 5 ---
+            
             dom.widget.classList.add('visible');
         }
         
         function triggerAnimation(payload) {
             const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
-            if (currentAuctionId === null || currentAuctionId === auction_data.id) {
+            
+            // --- ИЗМЕНЕНИЕ 4: Проверяем null или 0 ---
+            if (currentAuctionId === null || currentAuctionId === 0 || currentAuctionId === auction_data.id) {
                 updateDisplay(auction_data, top_bidders);
                 dom.notifyName.textContent = last_bidder_name;
                 dom.notification.classList.add('show');
@@ -267,13 +330,12 @@
         }
 
         function showPromoAnimation() {
+            // --- ИЗМЕНЕНИЕ 4: Проверка на null (0 - разрешен) ---
             if (!dom.widget.classList.contains('visible') || currentAuctionId === null) {
                 return;
             }
             console.log('Запуск новой промо-анимации...');
             
-            // --- ИЗМЕНЕНИЕ 6: Синхронизируем скин ---
-            // Мы берем URL картинки из основного виджета и копируем в промо-виджет
             dom.promoSkinImage.src = dom.skinImage.src; 
             
             dom.widget.classList.add('promo-active');
@@ -289,7 +351,7 @@
 
         async function loadInitialState() {
             try {
-                // 1. Загружаем ПОСЛЕДНИЙ лот, неважно, видимый он или нет
+                // 1. Загружаем ПОСЛЕДНИЙ лот
                 const { data: auctionData, error: auctionError } = await supabaseClient
                     .from('auctions')
                     .select('*')
@@ -298,10 +360,19 @@
 
                 if (auctionError) throw auctionError;
                 
+                // --- ИЗМЕНЕНИЕ 4: Показываем дефолтный виджет, если аукционов нет ---
                 if (!auctionData || auctionData.length === 0) {
-                    console.log("Нет аукционов для загрузки, виджет остается активным. (loadInitialState)");
+                    console.log("Нет аукционов для загрузки, показываем виджет по умолчанию.");
+                    currentAuctionId = 0; // Устанавливаем dummy ID, чтобы промо работало
+                    updateDisplay({ 
+                        id: 0, 
+                        title: "Аукцион", 
+                        image_url: 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2', // Дефолтная картинка
+                        bid_cooldown_ends_at: null 
+                    }, []);
                     return; 
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЯ 4 ---
 
                 const auction = auctionData[0];
                 console.log("Загружен лот:", auction.title, "(ID:", auction.id, ")");
@@ -309,14 +380,14 @@
                 // 2. Загружаем историю ставок (с Twitch-никами)
                 const { data: historyData, error: historyError } = await supabaseClient
                     .from('auction_bids')
-                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') // Выбираем user_id из bids и full_name/twitch_login из users
+                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') 
                     .eq('auction_id', auction.id)
                     .order('created_at', { ascending: false })
-                    .limit(10); // Берем 10, чтобы найти 3 уникальных
+                    .limit(10); // Берем 10, чтобы найти 5 уникальных
                 
                 if (historyError) throw historyError;
                 
-                // 3. Формируем топ-3 (с приоритетом Twitch-ника)
+                // 3. Формируем топ-5 (с приоритетом Twitch-ника)
                 const topBidders = [];
                 const seenUserIds = new Set(); 
                 
@@ -327,7 +398,7 @@
 
                 if (historyData) {
                     for (const b of historyData) {
-                        if (topBidders.length >= 3) break;
+                        if (topBidders.length >= 5) break; // --- ИЗМЕНЕНИЕ 5: Берем 5 ---
                         const userId = b.user_id;
                         if (userId && !seenUserIds.has(userId)) {
                             topBidders.push({
