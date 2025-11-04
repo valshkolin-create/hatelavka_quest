@@ -1471,6 +1471,8 @@ async def get_auction_history(
 
 # --- НОВЫЕ ЭНДПОИНТЫ: АДМИНКА АУКЦИОНА ---
 
+
+
 @app.post("/api/v1/admin/auctions/finish_manual")
 async def admin_finish_auction(
     request_data: AdminAuctionFinishRequest,
@@ -1551,6 +1553,65 @@ async def admin_get_auctions(
     resp = await supabase.get("/auctions", params={"select": "*", "order": "created_at.desc"})
     resp.raise_for_status()
     return resp.json()
+
+@app.post("/api/v1/admin/auctions/clear_participants")
+async def admin_clear_auction_participants(
+    request_data: AuctionDeleteRequest, # Мы можем повторно использовать эту модель
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) "Сбрасывает" аукцион, создавая его клон и удаляя старый.
+    (Логика 1-в-1 как у "events")
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    old_auction_id = request_data.id
+    logging.info(f"АДМИН: Сброс (клонирование) аукциона ID {old_auction_id}...")
+
+    try:
+        # 1. Получаем данные старого аукциона
+        old_auction_resp = await supabase.get(
+            "/auctions",
+            params={"id": f"eq.{old_auction_id}", "select": "*", "limit": 1}
+        )
+        old_auction_resp.raise_for_status()
+        old_auction_data = old_auction_resp.json()
+        if not old_auction_data:
+            raise HTTPException(status_code=404, detail="Аукцион для сброса не найден.")
+        
+        old_auction = old_auction_data[0]
+
+        # 2. Создаем НОВЫЙ аукцион (клон)
+        new_auction_payload = {
+            "title": old_auction.get("title"),
+            "image_url": old_auction.get("image_url"),
+            "bid_cooldown_hours": old_auction.get("bid_cooldown_hours", 4),
+            # Все остальные поля (is_active, winner_id, etc.) будут по умолчанию (false/null)
+        }
+
+        new_auction_resp = await supabase.post(
+            "/auctions",
+            json=new_auction_payload,
+            headers={"Prefer": "return=representation"}
+        )
+        new_auction_resp.raise_for_status()
+        new_auction = new_auction_resp.json()[0]
+        new_auction_id = new_auction['id']
+        
+        # 3. Удаляем СТАРЫЙ аукцион
+        # (У вас должна быть включена "ON DELETE CASCADE" для 'auction_bids')
+        await supabase.delete(
+            "/auctions",
+            params={"id": f"eq.{old_auction_id}"}
+        )
+        
+        return {"message": f"Аукцион сброшен. Создан новый лот (ID: {new_auction_id})."}
+
+    except Exception as e:
+        logging.error(f"❌ ОШИБКА при сбросе (клонировании) аукциона {old_auction_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сбросе.")
 
 @app.post("/api/v1/admin/auctions/reset")
 async def admin_reset_auction(
