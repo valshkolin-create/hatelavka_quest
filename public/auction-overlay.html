@@ -2,8 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Auction Overlay</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Аукцион</title> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
@@ -18,16 +17,13 @@
             --gold-color: #ffd700;
         }
         
-        /* --- НОВЫЙ КОНТЕЙНЕР-ОБЕРТКА --- */
-        /* Он нужен, чтобы управлять анимацией "шторки" между виджетом и промо */
         .overlay-wrapper {
             position: absolute;
             bottom: 20px;
             left: 20px;
             width: 450px;
-            /* Высота виджета + 2px рамки */
             height: 191px; 
-            overflow: hidden; /* Скрываем все, что уезжает вбок */
+            overflow: hidden;
         }
 
         body {
@@ -39,15 +35,11 @@
         }
         
         .widget-container {
-            /* --- ИЗМЕНЕНИЕ --- */
-            /* Виджет и Промо теперь position: absolute внутри .overlay-wrapper */
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            /* --- КОНЕЦ ИЗМЕНЕНИЯ --- */
-            
             background: var(--bg-color);
             border: 1px solid var(--border-color);
             border-radius: 12px;
@@ -57,236 +49,87 @@
             flex-direction: column;
             overflow: hidden;
             opacity: 0; 
-            
-            /* --- НОВАЯ АНИМАЦИЯ --- */
-            /* Плавный переход для появления и для "шторки" */
             transform: translateX(0);
             transition: opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), 
                         transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         
-        /* Класс для первоначального появления */
-        .widget-container.visible {
-            opacity: 1;
-        }
-        
-        /* --- НОВЫЙ КЛАСС --- */
-        /* Класс для "уезжания" виджета влево во время промо */
-        .widget-container.promo-active {
-            transform: translateX(-100%);
-            opacity: 0;
-        }
-
-
-        .header {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header-title {
-            font-size: 18px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--accent-primary);
-        }
-        .header-timer {
-            font-size: 20px;
-            font-weight: 700;
-            background: rgba(0,0,0,0.2);
-            padding: 5px 10px;
-            border-radius: 6px;
-        }
-
-        .content-body {
-            display: flex;
-            padding: 15px;
-            gap: 15px;
-        }
-        .skin-container {
-            width: 150px;
-            height: 110px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        #skin-image {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .bidders-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            flex-grow: 1;
-            min-width: 0;
-        }
-        .bidder-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .bidder-rank {
-            font-size: 18px;
-            font-weight: 900;
-            width: 25px;
-            text-align: right;
-            flex-shrink: 0;
-            color: var(--text-secondary);
-        }
+        .widget-container.visible { opacity: 1; }
+        .widget-container.promo-active { transform: translateX(-100%); opacity: 0; }
+        .header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .header-title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-primary); }
+        .header-timer { font-size: 20px; font-weight: 700; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; }
+        .content-body { display: flex; padding: 15px; gap: 15px; }
+        .skin-container { width: 150px; height: 110px; background: rgba(0,0,0,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+        #skin-image { width: 100%; height: 100%; object-fit: contain; }
+        .bidders-container { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; min-width: 0; }
+        .bidder-item { display: flex; align-items: center; gap: 10px; }
+        .bidder-rank { font-size: 18px; font-weight: 900; width: 25px; text-align: right; flex-shrink: 0; color: var(--text-secondary); }
         .bidder-item.rank-1 .bidder-rank { color: var(--gold-color); }
         .bidder-item.rank-2 .bidder-rank { color: #c0c0c0; }
         .bidder-item.rank-3 .bidder-rank { color: #cd7f32; }
-        
-        .bidder-name {
-            font-size: 16px;
-            font-weight: 700;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            flex-grow: 1;
-        }
-        .bidder-amount {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--accent-primary);
-            flex-shrink: 0;
-        }
+        .bidder-name { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; }
+        .bidder-amount { font-size: 14px; font-weight: 700; color: var(--accent-primary); flex-shrink: 0; }
 
-        /* Анимация новой ставки */
-        #new-bid-notification {
-            position: absolute;
-            top: -100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(45deg, var(--accent-secondary), var(--accent-primary));
-            color: #000;
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 24px;
-            font-weight: 900;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
-            white-space: nowrap;
-            opacity: 0;
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 20;
-        }
-        #new-bid-notification.show {
-            opacity: 1;
-            top: 20px;
-        }
-        #new-bid-notification.hide {
-            opacity: 0;
-            top: -100px;
-            transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045);
-        }
+        #new-bid-notification { position: absolute; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(45deg, var(--accent-secondary), var(--accent-primary)); color: #000; padding: 15px 30px; border-radius: 10px; font-size: 24px; font-weight: 900; box-shadow: 0 5px 20px rgba(0,0,0,0.5); white-space: nowrap; opacity: 0; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 20; }
+        #new-bid-notification.show { opacity: 1; top: 20px; }
+        #new-bid-notification.hide { opacity: 0; top: -100px; transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045); }
 
-        /* --- СТИЛИ: НОВЫЙ ПРОМО-ОВЕРЛЕЙ --- */
-        
-        /* "Дышащая" подсветка для призыва */
-        @keyframes pulseGlow {
-            0% { 
-                background-color: var(--accent-primary);
-                box-shadow: 0 0 10px var(--accent-primary);
-            }
-            50% { 
-                background-color: #00fff2;
-                box-shadow: 0 0 25px #00fff2;
-            }
-            100% { 
-                background-color: var(--accent-primary);
-                box-shadow: 0 0 10px var(--accent-primary);
-            }
-        }
-        
+        /* --- ИЗМЕНЕНИЕ 2: Новые стили для Промо --- */
         .promo-overlay {
-            /* --- ИЗМЕНЕНИЕ --- */
-            /* Теперь это полноправный блок, а не просто текст поверх */
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            
-            /* Роскошный градиент для фона */
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: linear-gradient(135deg, #1c1a27, #2a243b);
             border: 1px solid var(--accent-secondary);
             border-radius: 12px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.4);
-            
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 20px;
             padding: 20px;
-            box-sizing: border-box; /* Важно для padding */
-            
-            /* --- НОВАЯ АНИМАЦИЯ --- */
-            /* Скрыт по умолчанию (справа) */
+            box-sizing: border-box;
             opacity: 0;
             visibility: hidden;
             transform: translateX(100%);
             transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
             z-index: 10;
         }
+        .promo-overlay.show { opacity: 1; visibility: visible; transform: translateX(0); }
         
-        /* Класс, который "включает" промо-блок */
-        .promo-overlay.show {
-            opacity: 1;
-            visibility: visible;
-            transform: translateX(0);
-        }
-        
-        /* Иконка билета */
-        .promo-main-icon {
-            font-size: 70px;
+        /* Новый контейнер для скина */
+        .promo-skin-container {
+            width: 120px; /* Размер скина */
+            height: 90px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
             flex-shrink: 0;
-            filter: drop-shadow(0 0 10px var(--gold-color));
+            overflow: hidden;
+            border: 1px solid var(--border-color);
         }
+        #promo-skin-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        /* Убран .promo-main-icon */
 
-        .promo-content {
-            display: flex;
-            flex-direction: column;
-            text-align: left;
-        }
-
-        .promo-text {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            line-height: 1.4;
-        }
+        .promo-content { display: flex; flex-direction: column; text-align: left; }
+        .promo-text { font-size: 16px; font-weight: 600; color: var(--text-secondary); line-height: 1.4; }
+        .promo-main { font-size: 26px; font-weight: 900; color: var(--gold-color); text-transform: uppercase; letter-spacing: 1px; margin: 4px 0 8px; }
         
-        .promo-main {
-            font-size: 26px;
-            font-weight: 900;
-            color: var(--gold-color);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 4px 0 8px;
-        }
-        
-        /* Новый призыв к действию */
+        /* Текст "ПИШИ !lavka" */
         .promo-cta {
             font-size: 22px;
             font-weight: 700;
-            color: #000; /* Черный текст на ярком фоне */
+            color: #000;
             background-color: var(--accent-primary);
             padding: 8px 15px;
             border-radius: 8px;
             display: inline-block;
-            align-self: flex-start;
-            
-            /* Применяем "дышащую" анимацию */
-            animation: pulseGlow 2s infinite ease-in-out;
+            align-self: center; /* <-- ИЗМЕНЕНИЕ 3: Центрирование */
+            /* animation: pulseGlow... (Убрана анимация) */
         }
     </style>
 </head>
@@ -313,7 +156,9 @@
         </div>
 
         <div id="promo-overlay" class="promo-overlay">
-            <div class="promo-main-icon">🎟️</div>
+            <div class="promo-skin-container">
+                <img id="promo-skin-image" src="" alt="Promo Skin">
+            </div>
             <div class="promo-content">
                 <div class="promo-text">
                     Участвуй в аукционе!
@@ -324,16 +169,19 @@
             </div>
         </div>
 
-    </div> <script>
+    </div> 
+
+    <script>
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
         const dom = {
             widget: document.getElementById('widget-container'),
-            promoOverlay: document.getElementById('promo-overlay'), // <-- Наш новый промо-блок
+            promoOverlay: document.getElementById('promo-overlay'),
             title: document.getElementById('auction-title'),
             timer: document.getElementById('auction-timer'),
             skinImage: document.getElementById('skin-image'),
+            promoSkinImage: document.getElementById('promo-skin-image'), // <-- ИЗМЕНЕНИЕ 5: Добавлен скин промо
             biddersList: document.getElementById('top-bidders-list'),
             notification: document.getElementById('new-bid-notification'),
             notifyName: document.getElementById('bid-notify-name')
@@ -341,8 +189,6 @@
 
         let countdownInterval = null;
         let currentAuctionId = null;
-        
-        // Переменные для управления новой промо-анимацией
         let promoInterval = null;
         let promoTimeout = null;
         
@@ -373,32 +219,19 @@
         }
 
         function updateDisplay(auctionData, topBidders = []) {
-            
-            // --- НОВАЯ ЛОГИКА ---
-            // Если пришло обновление (ставка), а у нас идет промо,
-            // немедленно прерываем промо и показываем виджет.
             if (dom.promoOverlay.classList.contains('show')) {
                 console.log('Прерывание промо из-за новой ставки/обновления.');
-                clearTimeout(promoTimeout); // Отменяем таймер скрытия промо
+                clearTimeout(promoTimeout); 
                 dom.widget.classList.remove('promo-active');
                 dom.promoOverlay.classList.remove('show');
-                
-                // Перезапускаем интервал промо
                 if (promoInterval) clearInterval(promoInterval);
                 promoInterval = setInterval(showPromoAnimation, 70000);
             }
-            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-
-            if (!auctionData || !auctionData.id) {
-                // Виджет больше не скрывается, он просто не обновляется
-                return;
-            }
-
+            if (!auctionData || !auctionData.id) { return; }
             currentAuctionId = auctionData.id;
             dom.title.textContent = auctionData.title || "Аукцион";
             dom.skinImage.src = auctionData.image_url || '';
             startCountdown(auctionData.bid_cooldown_ends_at);
-            
             dom.biddersList.innerHTML = '';
             if (topBidders.length === 0) {
                 dom.biddersList.innerHTML = '<div style="color: var(--text-secondary);">Ставок пока нет...</div>';
@@ -414,7 +247,6 @@
                     `;
                 });
             }
-            // Показываем виджет (сработает 1 раз при первой загрузке)
             dom.widget.classList.add('visible');
         }
         
@@ -422,8 +254,6 @@
             const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
             if (currentAuctionId === null || currentAuctionId === auction_data.id) {
                 updateDisplay(auction_data, top_bidders);
-                
-                // Анимация уведомления о ставке
                 dom.notifyName.textContent = last_bidder_name;
                 dom.notification.classList.add('show');
                 setTimeout(() => {
@@ -436,90 +266,70 @@
             }
         }
 
-        // --- НОВАЯ ФУНКЦИЯ ПРОМО-АНИМАЦИИ ---
         function showPromoAnimation() {
-            // Не запускаем промо, если виджет еще ни разу не загрузился
             if (!dom.widget.classList.contains('visible') || currentAuctionId === null) {
                 return;
             }
-            
             console.log('Запуск новой промо-анимации...');
             
-            // 1. "Увозим" виджет влево
-            dom.widget.classList.add('promo-active');
-            // 2. "Привозим" промо-блок справа
-            dom.promoOverlay.classList.add('show');
+            // --- ИЗМЕНЕНИЕ 6: Синхронизируем скин ---
+            // Мы берем URL картинки из основного виджета и копируем в промо-виджет
+            dom.promoSkinImage.src = dom.skinImage.src; 
             
-            // 3. Отменяем предыдущий таймер, если он был
+            dom.widget.classList.add('promo-active');
+            dom.promoOverlay.classList.add('show');
             clearTimeout(promoTimeout);
 
-            // 4. Запускаем таймер на 10 секунд, чтобы вернуть все обратно
             promoTimeout = setTimeout(() => {
                 console.log('Завершение промо-анимации.');
                 dom.widget.classList.remove('promo-active');
                 dom.promoOverlay.classList.remove('show');
-            }, 10000); // Показываем промо 10 секунд
+            }, 10000);
         }
 
         async function loadInitialState() {
             try {
-                // --- ИСПРАВЛЕННЫЙ ЗАПРОС (РЕШЕНИЕ ВАШЕЙ ГЛАВНОЙ ПРОБЛЕМЫ) ---
-                // 1. Загружаем ПОСЛЕДНИЙ лот, неважно, видимый он или нет
                 const { data: auctionData, error: auctionError } = await supabaseClient
                     .from('auctions')
                     .select('*')
-                    // .eq('is_visible', true) // <-- ЭТОТ ФИЛЬТР УБРАН
                     .order('created_at', { ascending: false }) 
                     .limit(1);
 
                 if (auctionError) throw auctionError;
-                
-                // --- ИЗМЕНЕНИЕ ЛОГИКИ (РЕШЕНИЕ ВАШЕЙ ГЛАВНОЙ ПРОБЛЕМЫ) ---
-                // Если аукционов нет ВООБЩЕ (даже старых),
-                // мы просто ничего не делаем, виджет не скрываем.
                 if (!auctionData || auctionData.length === 0) {
                     console.log("Нет аукционов для загрузки, виджет остается активным. (loadInitialState)");
-                    // dom.widget.classList.remove('visible'); // <-- ЗАКОММЕНТИРОВАНО
-                    // currentAuctionId = null; // <-- ЗАКОММЕНТИРОВАНО
-                    return; // <-- Просто выходим, виджет не пропадает
+                    return; 
                 }
 
                 const auction = auctionData[0];
                 console.log("Загружен лот:", auction.title, "(ID:", auction.id, ")");
 
-                // 2. Загружаем историю ставок (с Twitch-никами)
                 const { data: historyData, error: historyError } = await supabaseClient
                     .from('auction_bids')
-                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') // Выбираем user_id из bids и full_name/twitch_login из users
+                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)')
                     .eq('auction_id', auction.id)
                     .order('created_at', { ascending: false })
-                    .limit(10); // Берем 10, чтобы найти 3 уникальных
+                    .limit(10); 
                 
                 if (historyError) throw historyError;
                 
-                // 3. Формируем топ-3 (с приоритетом Twitch-ника)
                 const topBidders = [];
-                const seenUserIds = new Set(); // Используем user_id для дедупликации
-                
-                // Функция для выбора имени
+                const seenUserIds = new Set(); 
                 const getDisplayName = (user) => {
                     if (!user) return 'Аноним';
-                    // ПРИОРИТЕТ: Twitch-ник, затем TG-имя
                     return user.twitch_login || user.full_name || 'Аноним';
                 };
 
                 if (historyData) {
                     for (const b of historyData) {
                         if (topBidders.length >= 3) break;
-                        
-                        const userId = b.user_id; // ID из таблицы auction_bids
-                        
+                        const userId = b.user_id;
                         if (userId && !seenUserIds.has(userId)) {
                             topBidders.push({
                                 name: getDisplayName(b.user),
                                 amount: b.bid_amount
                             });
-                            seenUserIds.add(userId); // Добавляем ID в Set
+                            seenUserIds.add(userId);
                         }
                     }
                 }
@@ -531,22 +341,18 @@
             }
         }
 
-        // --- ЛОГИКА REALTIME ---
         try {
-            // 1. Слушаем ТРИГГЕРЫ (Новая ставка)
             supabaseClient.channel('auction-triggers-channel')
                 .on('postgres_changes', 
                     { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
                     payload => triggerAnimation(payload)
                 ).subscribe();
 
-            // 2. Слушаем ОБНОВЛЕНИЯ АУКЦИОНОВ (Завершение, Сброс, Скрытие)
             supabaseClient.channel('auctions-changes-channel')
                 .on('postgres_changes',
                     { event: '*', schema: 'public', table: 'auctions' }, 
                     payload => {
                         console.log('Получено изменение в auctions:', payload);
-                        // Перезагружаем состояние при ЛЮБОМ изменении в таблице
                         loadInitialState();
                     }
                 ).subscribe((status) => {
@@ -558,15 +364,10 @@
 
         } catch (error) { console.error("Ошибка подключения к Supabase:", error); }
 
-        // --- ИНТЕРВАЛЫ ---
-        
-        // 1. Периодическая проверка (каждые 2 мин), на случай если Realtime "отвалится"
         setInterval(loadInitialState, 120000); 
 
-        // 2. Запуск промо-анимации (каждые 70 сек)
-        // Если вы хотите ПОЛНОСТЬЮ отключить промо, просто закомментируйте 2 строки ниже:
         if (promoInterval) clearInterval(promoInterval);
-        promoInterval = setInterval(showPromoAnimation, 70000); // 70,000 мс = 1 мин 10 сек
+        promoInterval = setInterval(showPromoAnimation, 70000); 
     </script>
 </body>
 </html>
