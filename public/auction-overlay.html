@@ -289,6 +289,7 @@
 
         async function loadInitialState() {
             try {
+                // 1. Загружаем ПОСЛЕДНИЙ лот, неважно, видимый он или нет
                 const { data: auctionData, error: auctionError } = await supabaseClient
                     .from('auctions')
                     .select('*')
@@ -296,6 +297,7 @@
                     .limit(1);
 
                 if (auctionError) throw auctionError;
+                
                 if (!auctionData || auctionData.length === 0) {
                     console.log("Нет аукционов для загрузки, виджет остается активным. (loadInitialState)");
                     return; 
@@ -304,17 +306,20 @@
                 const auction = auctionData[0];
                 console.log("Загружен лот:", auction.title, "(ID:", auction.id, ")");
 
+                // 2. Загружаем историю ставок (с Twitch-никами)
                 const { data: historyData, error: historyError } = await supabaseClient
                     .from('auction_bids')
-                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)')
+                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') // Выбираем user_id из bids и full_name/twitch_login из users
                     .eq('auction_id', auction.id)
                     .order('created_at', { ascending: false })
-                    .limit(10); 
+                    .limit(10); // Берем 10, чтобы найти 3 уникальных
                 
                 if (historyError) throw historyError;
                 
+                // 3. Формируем топ-3 (с приоритетом Twitch-ника)
                 const topBidders = [];
                 const seenUserIds = new Set(); 
+                
                 const getDisplayName = (user) => {
                     if (!user) return 'Аноним';
                     return user.twitch_login || user.full_name || 'Аноним';
@@ -341,18 +346,24 @@
             }
         }
 
+        // --- ЭТОТ КОД БЫЛ ОБРЕЗАН ---
+        // --- ВОТ ПОЛНАЯ ВЕРСИЯ ---
+
         try {
+            // 1. Слушаем ТРИГГЕРЫ (Новая ставка)
             supabaseClient.channel('auction-triggers-channel')
                 .on('postgres_changes', 
                     { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
                     payload => triggerAnimation(payload)
                 ).subscribe();
 
+            // 2. Слушаем ОБНОВЛЕНИЯ АУКЦИОНОВ (Завершение, Сброс, Скрытие)
             supabaseClient.channel('auctions-changes-channel')
                 .on('postgres_changes',
                     { event: '*', schema: 'public', table: 'auctions' }, 
                     payload => {
                         console.log('Получено изменение в auctions:', payload);
+                        // Перезагружаем состояние при ЛЮБОМ изменении в таблице
                         loadInitialState();
                     }
                 ).subscribe((status) => {
@@ -364,10 +375,14 @@
 
         } catch (error) { console.error("Ошибка подключения к Supabase:", error); }
 
+        // --- ИНТЕРВАЛЫ ---
+        
+        // 1. Периодическая проверка (каждые 2 мин), на случай если Realtime "отвалится"
         setInterval(loadInitialState, 120000); 
 
+        // 2. Запуск промо-анимации (каждые 70 сек)
         if (promoInterval) clearInterval(promoInterval);
-        promoInterval = setInterval(showPromoAnimation, 70000); 
+        promoInterval = setInterval(showPromoAnimation, 70000); // 70,000 мс = 1 мин 10 сек
     </script>
 </body>
 </html>
