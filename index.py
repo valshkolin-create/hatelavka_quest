@@ -1255,7 +1255,8 @@ async def make_auction_bid(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Принимает ставку от пользователя и вызывает RPC-функцию.
+    Принимает ставку от пользователя, проверяет трейд-ссылку,
+    вызывает RPC-функцию и отправляет триггер для OBS.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -1265,8 +1266,18 @@ async def make_auction_bid(
     user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Пользователь")
 
     try:
-        # Вызываем "мозг", который мы создали на Шаге 1.3
-        await supabase.post(
+        # --- 1. ПРОВЕРКА ТРЕЙД-ССЫЛКИ ---
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "trade_link"})
+        user_resp.raise_for_status()
+        user_data = user_resp.json()
+
+        if not user_data or not user_data[0].get("trade_link"):
+             raise HTTPException(status_code=400, detail="Пожалуйста, укажите вашу трейд-ссылку в профиле для участия.")
+        # --- КОНЕЦ ПРОВЕРКИ ---
+
+        # 2. Вызываем "мозг" (RPC-функцию)
+        # --- ИСПРАВЛЕНИЕ: Добавлен await и raise_for_status ---
+        response = await supabase.post(
             "/rpc/place_auction_bid",
             json={
                 "p_auction_id": request_data.auction_id,
@@ -1275,12 +1286,73 @@ async def make_auction_bid(
                 "p_bid_amount": request_data.bid_amount
             }
         )
+        response.raise_for_status() # Выбросит ошибку, если RPC вернет RAISE
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        # --- 3. ОТПРАВКА ТРИГГЕРА ДЛЯ OBS ---
+        try:
+            # Получаем свежие данные аукциона
+            auction_resp = await supabase.get(
+                "/auctions",
+                params={"id": f"eq.{request_data.auction_id}", "select": "*"},
+                headers={"Prefer": "count=exact"} # Используем count=exact для примера
+            )
+            auction_data = auction_resp.json()[0] if auction_resp.json() else {}
+
+            # Получаем топ-3 ставки
+            history_resp = await supabase.get(
+                "/auction_bids",
+                params={
+                    "auction_id": f"eq.{request_data.auction_id}",
+                    "select": "bid_amount, user:users(full_name)",
+                    "order": "created_at.desc",
+                    "limit": 3
+                }
+            )
+            history_data = history_resp.json()
+            
+            # Формируем топ-3 для OBS
+            top_bidders = []
+            if history_data:
+                # Нам нужен уникальный список по full_name, так как RPC place_auction_bid
+                # уже обновила лидера. Мы должны доверять history_resp.
+                seen_names = set()
+                for bid in history_data:
+                    name = bid.get("user", {}).get("full_name", "Аноним")
+                    if name not in seen_names:
+                        top_bidders.append({"name": name, "amount": bid["bid_amount"]})
+                        seen_names.add(name)
+            
+            # Формируем payload для OBS
+            trigger_payload = {
+                "auction_data": auction_data,
+                "last_bidder_name": user_name, # Имя текущего пользователя
+                "top_bidders": top_bidders # Список топ-3
+            }
+            
+            # Вставляем в новую таблицу (вам нужно будет ее создать)
+            await supabase.post("/auction_triggers", json={"payload": trigger_payload})
+            logging.info(f"✅ Триггер для OBS (Аукцион {request_data.auction_id}) успешно отправлен.")
+
+        except Exception as obs_e:
+            logging.error(f"❌ Не удалось отправить триггер для OBS: {obs_e}", exc_info=True)
+            # Не прерываем основной запрос из-за ошибки OBS
+        # --- КОНЕЦ ТРИГГЕРА OBS ---
+
         return {"message": "Ваша ставка принята!"}
 
     except httpx.HTTPStatusError as e:
         # Если RPC-функция вернула RAISE EXCEPTION (напр. "Ставка слишком мала"),
         # мы перехватим это здесь и отправим на фронтенд.
-        error_details = e.response.json().get("message", "Ошибка базы данных.")
+        # Это решает ваш 7-й пункт (объяснение, что нужно ставить больше).
+        error_details = "Ошибка базы данных."
+        try:
+            error_json = e.response.json()
+            error_details = error_json.get("message", e.response.text)
+        except Exception:
+            error_details = e.response.text
+            
+        logging.warning(f"Ошибка RPC place_auction_bid: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
         logging.error(f"Критическая ошибка при ставке на аукционе: {e}", exc_info=True)
@@ -1321,6 +1393,85 @@ async def get_auction_history(
         logging.error(f"Ошибка при получении истории аукциона {auction_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить историю.")
 
+
+# --- НОВЫЕ ЭНДПОИНТЫ: АДМИНКА АУКЦИОНА ---
+
+@app.post("/api/v1/admin/auctions/list")
+async def admin_get_auctions(
+    request_data: InitDataRequest, # Используем простую модель
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Получает ВСЕ аукционы, включая неактивные."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    resp = await supabase.get("/auctions", params={"select": "*", "order": "created_at.desc"})
+    resp.raise_for_status()
+    return resp.json()
+
+@app.post("/api/v1/admin/auctions/create")
+async def admin_create_auction(
+    request_data: AuctionCreateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Создает новый лот аукциона."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    await supabase.post("/auctions", json={
+        "title": request_data.title,
+        "image_url": request_data.image_url,
+        "bid_cooldown_hours": request_data.bid_cooldown_hours,
+        "is_active": False,
+        "is_visible": False
+    })
+    return {"message": "Лот создан."}
+
+@app.post("/api/v1/admin/auctions/update")
+async def admin_update_auction(
+    request_data: AuctionUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Обновляет лот аукциона (активность, видимость и т.д.)."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # Собираем только те поля, которые были переданы
+    update_data = request_data.dict(exclude={'initData', 'id'}, exclude_unset=True)
+
+    if not update_data:
+         raise HTTPException(status_code=400, detail="Нет данных для обновления.")
+
+    await supabase.patch(
+        "/auctions",
+        params={"id": f"eq.{request_data.id}"},
+        json=update_data
+    )
+    return {"message": "Лот обновлен."}
+
+@app.post("/api/v1/admin/auctions/delete")
+async def admin_delete_auction(
+    request_data: AuctionDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Удаляет лот аукциона."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # В Supabase должна быть настроена связь "ON DELETE CASCADE" 
+    # от 'auctions' к 'auction_bids', чтобы ставки удалились
+    # или 'ON DELETE SET NULL', если вы хотите их хранить.
+    # Этот код предполагает, что каскадное удаление настроено.
+    await supabase.delete(
+        "/auctions",
+        params={"id": f"eq.{request_data.id}"}
+    )
+    return {"message": "Лот и история ставок удалены."}
+# --- КОНЕЦ БЛОКА АДМИНКИ АУКЦИОНА ---
 
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПРИЗОВ ЧЕКПОИНТА ---
 @app.post("/api/v1/admin/checkpoint_rewards/details")
@@ -1727,7 +1878,13 @@ class AuctionUpdateRequest(BaseModel):
     id: int
     is_active: Optional[bool] = None
     is_visible: Optional[bool] = None
+    title: Optional[str] = None
+    image_url: Optional[str] = None
+    bid_cooldown_hours: Optional[int] = None
 
+class AuctionDeleteRequest(BaseModel):
+    initData: str
+    id: int
 class AuctionDeleteRequest(BaseModel):
     initData: str
     id: int
