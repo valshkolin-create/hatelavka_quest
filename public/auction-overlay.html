@@ -37,9 +37,9 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            opacity: 0; /* Скрыт по умолчанию */
+            opacity: 0; 
             transform: translateY(20px);
-            transition: opacity 0.5s ease, transform 0.5s ease;
+            transition: opacity 0.5s ease, transform 0.5s ease, filter 0.5s ease;
         }
         .widget-container.visible {
             opacity: 1;
@@ -156,6 +156,56 @@
             transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045);
         }
 
+        /* --- НОВЫЕ СТИЛИ: Блюр и Промо-оверлей --- */
+        .widget-container.blur {
+            filter: blur(8px) brightness(0.7);
+            transform: translateY(0) scale(0.98);
+            transition: all 0.5s ease;
+        }
+        .promo-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 450px;
+            /* Высота должна совпадать с высотой виджета */
+            height: 190px; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+            z-index: 10;
+            pointer-events: none;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+        }
+        .promo-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .promo-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        .promo-main {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--gold-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 10px 0;
+        }
+        .promo-footer {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+        /* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
+
     </style>
 </head>
 <body>
@@ -178,12 +228,21 @@
         </div>
     </div>
 
+    <div id="promo-overlay" class="promo-overlay">
+        <div class="promo-text">
+            Хочешь участвовать в аукционе?
+            <br>Зарабатывай билеты и участвуй
+        </div>
+        <div class="promo-main">ВХОД БЕСПЛАТНЫЙ</div>
+        <div class="promo-footer">ПИШИ !lavka</div>
+    </div>
     <script>
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
         const dom = {
             widget: document.getElementById('widget-container'),
+            promoOverlay: document.getElementById('promo-overlay'), // <-- ДОБАВЛЕНО
             title: document.getElementById('auction-title'),
             timer: document.getElementById('auction-timer'),
             skinImage: document.getElementById('skin-image'),
@@ -212,9 +271,6 @@
                 if (distance < 0) {
                     clearInterval(countdownInterval);
                     dom.timer.textContent = "00:00:00";
-                    // Можно скрыть виджет, если аукцион закончился
-                    // dom.widget.classList.remove('visible');
-                    // currentAuctionId = null;
                     return;
                 }
 
@@ -235,6 +291,10 @@
                 currentAuctionId = null;
                 return;
             }
+
+            // Если виджет был размыт, убираем размытие при обновлении
+            dom.widget.classList.remove('blur');
+            dom.promoOverlay.classList.remove('show');
 
             currentAuctionId = auctionData.id;
             dom.title.textContent = auctionData.title || "Аукцион";
@@ -263,47 +323,60 @@
         function triggerAnimation(payload) {
             const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
             
-            // Обновляем виджет, только если это тот же аукцион
             if (currentAuctionId === null || currentAuctionId === auction_data.id) {
                 updateDisplay(auction_data, top_bidders);
 
-                // Показываем уведомление
                 dom.notifyName.textContent = last_bidder_name;
                 dom.notification.classList.add('show');
                 
                 setTimeout(() => {
                     dom.notification.classList.remove('show');
                     dom.notification.classList.add('hide');
-                }, 4000); // Показываем 4 секунды
+                }, 4000); 
                 
                 setTimeout(() => {
                     dom.notification.classList.remove('hide');
-                }, 4500); // Сбрасываем
+                }, 4500);
             }
+        }
+
+        // --- НОВАЯ ФУНКЦИЯ ДЛЯ ПРОМО-АНИМАЦИИ ---
+        function showPromoAnimation() {
+            // Не показывать промо, если виджет и так скрыт
+            if (!dom.widget.classList.contains('visible') || currentAuctionId === null) {
+                return;
+            }
+
+            console.log('Запуск промо-анимации...');
+            dom.widget.classList.add('blur');
+            dom.promoOverlay.classList.add('show');
+
+            // Показываем на 10 секунд
+            setTimeout(() => {
+                dom.widget.classList.remove('blur');
+                dom.promoOverlay.classList.remove('show');
+            }, 10000); 
         }
 
         async function loadInitialState() {
             try {
-                // 1. Получаем последний ВИДИМЫЙ аукцион (неважно, активен он или завершен)
                 const { data: auctionData, error: auctionError } = await supabaseClient
                     .from('auctions')
                     .select('*')
-                    // .eq('is_active', true)  // <-- УДАЛЕНО
-                    .eq('is_visible', true) // <-- ОСТАВЛЕНО (мы не хотим показывать скрытые)
-                    // .is('ended_at', null)     // <-- УДАЛЕНО
-                    .order('created_at', { ascending: false }) // <-- Берем самый новый
+                    .eq('is_visible', true) 
+                    .order('created_at', { ascending: false }) 
                     .limit(1);
 
                 if (auctionError) throw auctionError;
                 if (!auctionData || auctionData.length === 0) {
                     console.log("Нет видимых аукционов.");
                     dom.widget.classList.remove('visible');
+                    currentAuctionId = null; // <-- Сбрасываем ID
                     return;
                 }
 
                 const auction = auctionData[0];
 
-                // 2. Получаем историю ставок для этого аукциона
                 const { data: historyData, error: historyError } = await supabaseClient
                     .from('auction_bids')
                     .select('bid_amount, user:users(full_name)')
@@ -313,24 +386,24 @@
                 
                 if (historyError) throw historyError;
                 
-                // ПУНКТ 1 (от пользователя): Логика топ-3 немного изменилась
-                // Нам нужен топ-3 по сумме, а не по времени
                 const topBidders = [];
                 if (historyData.length > 0) {
-                    // Используем данные из самой карточки аукциона, они самые точные
-                    topBidders.push({
-                        name: auction.current_highest_bidder_name || '...',
-                        amount: auction.current_highest_bid || 0
-                    });
-
-                    // Добавляем 2-го и 3-го, если они есть
+                    // Убедимся, что лидер (из данных аукциона) всегда на первом месте
                     const leaderName = auction.current_highest_bidder_name;
-                    let count = 1;
+                    if (leaderName) {
+                        topBidders.push({
+                            name: leaderName,
+                            amount: auction.current_highest_bid || 0
+                        });
+                    }
+
+                    // Добавляем остальных, пропуская лидера
+                    let count = topBidders.length; // Начинаем с 1, если лидер есть
                     for (const b of historyData) {
+                        if (count >= 3) break;
                         const bidderName = b.user ? b.user.full_name : 'Аноним';
-                        // Добавляем, только если это не лидер (которого мы уже добавили)
-                        // и если у нас меньше 3 записей
-                        if (bidderName !== leaderName && count < 3) {
+                        
+                        if (bidderName !== leaderName) {
                             topBidders.push({
                                 name: bidderName,
                                 amount: b.bid_amount
@@ -340,13 +413,50 @@
                     }
                 }
 
-                // 3. Обновляем экран
                 updateDisplay(auction, topBidders);
 
             } catch (error) {
                 console.error('Ошибка загрузки начального состояния:', error);
             }
         }
+
+        // --- ОБНОВЛЕННАЯ ЛОГИКА REALTIME ---
+        try {
+            // 1. Слушаем ТРИГГЕРЫ (Новая ставка)
+            supabaseClient.channel('auction-triggers-channel')
+                .on('postgres_changes', 
+                    { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
+                    payload => triggerAnimation(payload)
+                ).subscribe();
+
+            // 2. Слушаем ОБНОВЛЕНИЯ АУКЦИОНОВ (Завершение, Сброс, Скрытие)
+            supabaseClient.channel('auctions-changes-channel')
+                .on('postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'auctions' },
+                    payload => {
+                        console.log('Обновление аукциона получено:', payload.new);
+                        // Если обновился наш текущий аукцион ИЛИ если он стал невидимым
+                        if (payload.new.id === currentAuctionId || !payload.new.is_visible) {
+                             // Просто перезагружаем все состояние
+                             loadInitialState();
+                        }
+                    }
+                ).subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('Подключено к Supabase (Auction Triggers & Changes). Загрузка...');
+                        loadInitialState();
+                    }
+                });
+
+        } catch (error) { console.error("Ошибка подключения к Supabase:", error); }
+
+        // --- НОВЫЕ ИНТЕРВАЛЫ ---
+        // 1. Периодическая полная перезагрузка (раз в 2 минуты)
+        //    (Спасает, если WebSocket по какой-то причине отвалился)
+        setInterval(loadInitialState, 120000); // 120,000 мс = 2 минуты
+
+        // 2. Показ промо-анимации (раз в 70 секунд)
+        setInterval(showPromoAnimation, 70000); // 70,000 мс = 1 мин 10 сек
 
     </script>
 </body>
