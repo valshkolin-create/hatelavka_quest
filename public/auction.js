@@ -162,10 +162,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const timerId = `timer-${auction.id}`;
             const timerHtml = (auction.bid_cooldown_ends_at && !isEnded)
                 ? `<div class="stat-item-value timer" id="${timerId}">...</div>`
-                : `<div class="stat-item-value">${isEnded ? 'ЗАВЕРШЕН' : '00:00:00'}</div>`; // Показываем "ЗАВЕРШЕН" если ended_at есть
+                : `<div class="stat-item-value">${isEnded ? 'ЗАВЕРШЕН' : '00:00:00'}</div>`;
 
             const isDisabled = isEnded ? 'disabled' : '';
 
+            // --- ОБНОВЛЕННЫЙ ОВЕРЛЕЙ АДМИНА ---
             let adminOverlay = '';
             if (isEditMode) {
                 adminOverlay = `
@@ -173,6 +174,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="card-btn card-edit-btn" data-auction-id="${auction.id}" title="Редактировать">
                             <i class="fa-solid fa-pencil"></i>
                         </button>
+
+                        <button class="card-btn card-reset-btn" data-auction-id="${auction.id}" title="Сбросить лот (удалить ставки)">
+                            <i class="fa-solid fa-arrow-rotate-left"></i>
+                        </button>
+                        
                         <button class="card-btn card-finish-btn" data-auction-id="${auction.id}" title="Завершить вручную">
                             <i class="fa-solid fa-flag-checkered"></i>
                         </button>
@@ -182,11 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
+            // --- КОНЕЦ ОБНОВЛЕНИЯ ОВЕРЛЕЯ ---
 
-            // --- ПУНКТ 1: Логика для "Премиального" Победителя ---
             let leaderOrWinnerHtml = '';
             if (isEnded && auction.current_highest_bidder_name) {
-                // Аукцион ЗАВЕРШЕН и есть победитель
                 leaderOrWinnerHtml = `
                     <div class="stat-item winner-block" style="margin-bottom: 15px;">
                         <div class="stat-item-label">Победитель</div>
@@ -197,7 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             } else {
-                // Аукцион АКТИВЕН или нет ставок
                 leaderOrWinnerHtml = `
                     <div class="stat-item" style="margin-bottom: 15px;">
                         <div class="stat-item-label">${isEnded ? 'Победитель' : 'Лидер'}</div>
@@ -205,7 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-            // --- КОНЕЦ ПУНКТА 1 ---
 
             card.innerHTML = `
                 ${adminOverlay}
@@ -228,7 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     
-                    ${leaderOrWinnerHtml} <div class="event-button-container">
+                    ${leaderOrWinnerHtml} 
+
+                    <div class="event-button-container">
                         <button class="history-button" data-auction-id="${auction.id}">История</button>
                         <button class="event-button bid-button" data-auction-id="${auction.id}" ${isDisabled}>
                             ${isEnded ? 'Завершен' : 'Сделать ставку'}
@@ -257,7 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Модальные окна ---
 
-    // --- ПУНКТ 1: Логика "Добавления" ставки ---
     function showBidModal(auctionId) {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return;
@@ -276,21 +280,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLeader = userData.profile && (auction.current_highest_bidder_name === userData.profile.full_name);
 
         if (isLeader) {
-            // Пользователь - лидер, он хочет "добавить"
             label.textContent = "Добавить к ставке (билеты)";
             dom.bidAmountInput.placeholder = "Например: 10";
             dom.bidAmountInput.min = 1;
-            dom.bidCurrentMinInput.value = currentBid; // Сохраняем его текущую ставку
+            dom.bidCurrentMinInput.value = currentBid; 
         } else {
-            // Пользователь - не лидер, он должен "перебить"
             const minBid = currentBid + 1;
             label.textContent = "Ваша ставка (билеты)";
             dom.bidAmountInput.placeholder = `Больше ${currentBid} 🎟️`;
             dom.bidAmountInput.min = minBid;
-            dom.bidCurrentMinInput.value = minBid; // Сохраняем минимальную ставку
+            dom.bidCurrentMinInput.value = minBid; 
         }
         
-        dom.bidAmountInput.value = ''; // Сбрасываем значение
+        dom.bidAmountInput.value = ''; 
 
         showModal(dom.bidModal);
         dom.bidAmountInput.focus();
@@ -365,7 +367,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', (e) => {
         const target = e.target;
         
-        // (FIX) Клик по кнопке "Закрыть" (крестик) - ПЕРЕМЕЩЕНО ВВЕРХ
         if (target.matches('.modal-close-btn')) {
             hideModal(target.closest('.modal-overlay'));
             return; 
@@ -380,7 +381,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 showEditModal(button.dataset.auctionId);
             }
-            // --- ПУНКТ 2: Обработчик кнопки "Завершить" ---
+            // --- НОВЫЙ ОБРАБОТЧИК КНОПКИ СБРОСА ---
+            else if (button?.matches('.card-reset-btn')) {
+                e.stopPropagation();
+                const auctionId = button.dataset.auctionId;
+                tg.showConfirm('Вы уверены, что хотите сбросить этот лот? Все ставки будут удалены, и лот станет неактивным.', async (ok) => {
+                    if (ok) {
+                        try {
+                            const result = await makeApiRequest('/api/v1/admin/auctions/reset', { id: parseInt(auctionId) });
+                            tg.showAlert(result.message || 'Лот сброшен.');
+                            initialize(); // Перезагружаем список
+                        } catch(e) { /* Ошибка уже показана */ }
+                    }
+                });
+            }
             else if (button?.matches('.card-finish-btn')) {
                 e.stopPropagation();
                 const auctionId = button.dataset.auctionId;
@@ -389,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             const result = await makeApiRequest('/api/v1/admin/auctions/finish_manual', { id: parseInt(auctionId) });
                             tg.showAlert(result.message || 'Аукцион завершен.');
-                            initialize(); // Перезагружаем список
+                            initialize(); 
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
@@ -432,7 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- ПУНКТ 1: Обновленный обработчик формы ставки ---
     dom.bidModalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -440,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const amountInput = parseInt(dom.bidAmountInput.value);
         
         const auction = currentAuctions.find(a => a.id == auctionId);
-        if (!auction) return; // На всякий случай
+        if (!auction) return; 
 
         const isLeader = userData.profile && (auction.current_highest_bidder_name === userData.profile.full_name);
         
@@ -448,15 +461,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let costToUser = 0;
 
         if (isLeader) {
-            // Пользователь "добавляет"
             if (isNaN(amountInput) || amountInput < 1) {
                 tg.showAlert("Сумма добавления должна быть 1 🎟️ или больше.");
                 return;
             }
             finalBidAmount = (auction.current_highest_bid || 0) + amountInput;
-            costToUser = finalBidAmount; // Пользователь должен иметь на балансе *итоговую* сумму
+            costToUser = finalBidAmount; 
         } else {
-            // Пользователь "перебивает"
             const minAmount = parseInt(dom.bidCurrentMinInput.value);
             finalBidAmount = amountInput;
             if (isNaN(finalBidAmount) || finalBidAmount < minAmount) {
@@ -466,7 +477,6 @@ document.addEventListener('DOMContentLoaded', () => {
             costToUser = finalBidAmount;
         }
 
-        // Общая проверка баланса
         if (costToUser > (userData.tickets || 0)) {
             tg.showAlert('У вас недостаточно билетов для этой ставки.');
             return;
@@ -475,21 +485,18 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await makeApiRequest('/api/v1/auctions/bid', {
                 auction_id: auctionId,
-                bid_amount: finalBidAmount // Отправляем *итоговую* сумму
+                bid_amount: finalBidAmount 
             });
             
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
-            initialize(); // Обновляем данные
+            initialize(); 
 
         } catch (e) {
             console.error(e);
-            // Ошибка уже показана в makeApiRequest, просто перезагружаем
             initialize();
         }
     });
-    
-    // --- НОВЫЕ ОБРАБОТЧИКИ ДЛЯ АДМИНКИ ---
     
     dom.editBtn.addEventListener('click', () => {
         isEditMode = !isEditMode;
