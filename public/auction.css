@@ -565,3 +565,23 @@ body.browser-view {
     color: var(--text-primary);
     margin: 0;
 }
+
+/* --- ПУНКТ 1: Стили для "Премиального" победителя --- */
+.winner-block {
+    /* Используем var(--winner-color) из вашего :root */
+    background-color: var(--winner-color);
+    background: linear-gradient(135deg, var(--winner-color), #ffb700);
+}
+.winner-block .stat-item-label {
+    color: rgba(0,0,0,0.7);
+    font-weight: 600;
+}
+.winner-block .stat-item-value.winner-name {
+    color: #000;
+    font-size: 18px;
+    font-weight: 700;
+}
+.winner-name i {
+    margin-right: 5px;
+    opacity: 0.8;
+}
