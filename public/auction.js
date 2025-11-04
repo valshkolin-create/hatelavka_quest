@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const options = {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store' // <-- ИСПРАВЛЕНИЕ: Отключаем кэш
             };
             
             if (method.toUpperCase() !== 'GET') {
@@ -74,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
 
             if (!response.ok) {
-                // Пытаемся получить 'detail' или 'message' из ответа
                 const errorMsg = result.detail || result.message || 'Произошла ошибка';
                 throw new Error(errorMsg);
             }
@@ -90,7 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function makePublicGetRequest(url) {
         dom.loader.classList.remove('hidden');
         try {
-            const response = await fetch(url);
+            // vvv ИСПРАВЛЕНИЕ: Отключаем кэш vvv
+            const response = await fetch(url, { cache: 'no-store' }); 
             const result = await response.json();
             if (!response.ok) {
                 throw new Error(result.detail || 'Произошла ошибка');
@@ -166,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isDisabled = isEnded ? 'disabled' : '';
 
-            // --- ОБНОВЛЕННЫЙ ОВЕРЛЕЙ АДМИНА ---
             let adminOverlay = '';
             if (isEditMode) {
                 adminOverlay = `
@@ -174,11 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="card-btn card-edit-btn" data-auction-id="${auction.id}" title="Редактировать">
                             <i class="fa-solid fa-pencil"></i>
                         </button>
-
                         <button class="card-btn card-reset-btn" data-auction-id="${auction.id}" title="Сбросить лот (удалить ставки)">
                             <i class="fa-solid fa-arrow-rotate-left"></i>
                         </button>
-                        
                         <button class="card-btn card-finish-btn" data-auction-id="${auction.id}" title="Завершить вручную">
                             <i class="fa-solid fa-flag-checkered"></i>
                         </button>
@@ -188,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-            // --- КОНЕЦ ОБНОВЛЕНИЯ ОВЕРЛЕЯ ---
 
             let leaderOrWinnerHtml = '';
             if (isEnded && auction.current_highest_bidder_name) {
@@ -381,7 +378,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 showEditModal(button.dataset.auctionId);
             }
-            // --- НОВЫЙ ОБРАБОТЧИК КНОПКИ СБРОСА ---
             else if (button?.matches('.card-reset-btn')) {
                 e.stopPropagation();
                 const auctionId = button.dataset.auctionId;
@@ -390,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             const result = await makeApiRequest('/api/v1/admin/auctions/reset', { id: parseInt(auctionId) });
                             tg.showAlert(result.message || 'Лот сброшен.');
-                            initialize(); // Перезагружаем список
+                            initialize(); 
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
