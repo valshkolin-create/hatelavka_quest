@@ -1323,15 +1323,6 @@ async def get_event_winners_details_for_admin(
         raise HTTPException(status_code=500, detail="Не удалось получить детали победителей.")
 # --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
 
-Конечно. Вот полные, исправленные версии всех четырех функций из вашего файла index (31).py.
-
-Главное изменение — во всех функциях добавлен twitch_login, и логика теперь отдает ему приоритет перед full_name (именем из Telegram).
-
-/api/v1/auctions/bid
-Эта функция исправлена, чтобы в триггер для OBS (auction_triggers) отправлялся twitch_login (если он есть) как для last_bidder_name, так и для top_bidders.
-
-Python
-
 @app.post("/api/v1/auctions/bid")
 async def make_auction_bid(
     request_data: AuctionBidRequest,
