@@ -487,37 +487,40 @@
                 const auction = auctionData[0];
                 console.log("Загружен лот:", auction.title, "(ID:", auction.id, ")");
 
-                // 2. Загружаем историю ставок
+                // 2. Загружаем историю ставок (с Twitch-никами)
                 const { data: historyData, error: historyError } = await supabaseClient
                     .from('auction_bids')
-                    .select('bid_amount, user:users(full_name)')
+                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') // Выбираем user_id из bids и full_name/twitch_login из users
                     .eq('auction_id', auction.id)
                     .order('created_at', { ascending: false })
-                    .limit(3);
+                    .limit(10); // Берем 10, чтобы найти 3 уникальных
                 
                 if (historyError) throw historyError;
                 
-                // 3. Формируем топ-3 (с учетом лидера из `auctions`)
+                // 3. Формируем топ-3 (с приоритетом Twitch-ника)
                 const topBidders = [];
-                const leaderName = auction.current_highest_bidder_name;
-
-                if (leaderName) {
-                    topBidders.push({
-                        name: leaderName,
-                        amount: auction.current_highest_bid || 0
-                    });
-                }
+                const seenUserIds = new Set(); // Используем user_id для дедупликации
                 
-                let count = topBidders.length; 
-                for (const b of historyData) {
-                    if (count >= 3) break;
-                    const bidderName = b.user ? b.user.full_name : 'Аноним';
-                    if (bidderName !== leaderName) { // Не добавляем лидера дважды
-                        topBidders.push({
-                            name: bidderName,
-                            amount: b.bid_amount
-                        });
-                        count++;
+                // Функция для выбора имени
+                const getDisplayName = (user) => {
+                    if (!user) return 'Аноним';
+                    // ПРИОРИТЕТ: Twitch-ник, затем TG-имя
+                    return user.twitch_login || user.full_name || 'Аноним';
+                };
+
+                if (historyData) {
+                    for (const b of historyData) {
+                        if (topBidders.length >= 3) break;
+                        
+                        const userId = b.user_id; // ID из таблицы auction_bids
+                        
+                        if (userId && !seenUserIds.has(userId)) {
+                            topBidders.push({
+                                name: getDisplayName(b.user),
+                                amount: b.bid_amount
+                            });
+                            seenUserIds.add(userId); // Добавляем ID в Set
+                        }
                     }
                 }
                 
