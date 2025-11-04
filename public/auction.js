@@ -340,6 +340,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.addEventListener('click', (e) => {
         const target = e.target;
+        
+        // --- ИСПРАВЛЕНИЕ: ЛОГИКА ЗАКРЫТИЯ ПЕРЕМЕЩЕНА ВВЕРХ ---
+        // Клик по кнопке "Закрыть" (крестик)
+        if (target.matches('.modal-close-btn')) {
+            hideModal(target.closest('.modal-overlay'));
+            return; // Закрыли модалку, выходим
+        }
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
         const button = target.closest('button');
         const card = target.closest('.create-auction-card');
 
@@ -380,11 +389,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (button?.matches('.history-button')) {
             showHistoryModal(button.dataset.auctionId);
         }
-
-        // Клик по кнопке "Закрыть" (крестик)
-        if (target.matches('.modal-close-btn')) {
-            hideModal(target.closest('.modal-overlay'));
-        }
+        
+        // (Логика закрытия крестиком была здесь, но теперь она вверху)
     });
 
     // Клик по фону модалки
