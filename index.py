@@ -1212,7 +1212,7 @@ async def get_event_winners_details_for_admin(
     """
     (Админ) Возвращает ПОЛНЫЙ список победителей (из Розыгрышей и Аукционов)
     и их трейд-ссылки для модального окна.
-    (Версия 2: Приоритет Twitch-ника)
+    (Версия 3: Исправлен приоритет Twitch-ника)
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
@@ -1262,7 +1262,6 @@ async def get_event_winners_details_for_admin(
                 "users",
                 params={
                     "telegram_id": f"in.({','.join(map(str, winner_ids_to_fetch))})",
-                    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
                     "select": "telegram_id, trade_link, full_name, twitch_login"
                 }
             )
@@ -1271,7 +1270,7 @@ async def get_event_winners_details_for_admin(
                 user['telegram_id']: {
                     "trade_link": user.get('trade_link', 'Не указана'),
                     "full_name": user.get('full_name', 'Неизвестно'),
-                    "twitch_login": user.get('twitch_login') # <-- ДОБАВЛЕНО
+                    "twitch_login": user.get('twitch_login')
                 } for user in users_resp.json()
             }
 
@@ -1281,11 +1280,11 @@ async def get_event_winners_details_for_admin(
         for event in pending_events_winners:
             user_details = users_data.get(event["winner_id"], {})
             
-            # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-            # Приоритет: Твич-ник > Имя из JSON > Имя из `users` (Telegram)
+            # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
+            # Приоритет: 1. Twitch-ник, 2. Текущее TG-имя, 3. Историческое TG-имя
             display_name = user_details.get("twitch_login") or \
-                           event.get("winner_name") or \
                            user_details.get("full_name") or \
+                           event.get("winner_name") or \
                            "Неизвестно"
             
             winners_details.append({
@@ -1300,11 +1299,11 @@ async def get_event_winners_details_for_admin(
         for auction in pending_auction_winners:
             user_details = users_data.get(auction["winner_id"], {})
             
-            # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-            # Приоритет: Твич-ник > Имя из `auctions` (Telegram) > Имя из `users` (Telegram)
+            # --- ИСПРАВЛЕННАЯ ЛОГИКА ---
+            # Приоритет: 1. Twitch-ник, 2. Текущее TG-имя, 3. Историческое TG-имя
             display_name = user_details.get("twitch_login") or \
-                           auction.get("current_highest_bidder_name") or \
                            user_details.get("full_name") or \
+                           auction.get("current_highest_bidder_name") or \
                            "Неизвестно"
                            
             winners_details.append({
