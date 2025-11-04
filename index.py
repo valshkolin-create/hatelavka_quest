@@ -1205,69 +1205,104 @@ async def handle_twitch_webhook(
     
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ ---
 @app.post("/api/v1/admin/events/winners/details")
-async def get_event_winners_details_for_admin( # Новое имя функции
-    request_data: InitDataRequest, # Используем простую модель
+@app.post("/api/v1/admin/events/winners/details")
+async def get_event_winners_details_for_admin(
+    request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Возвращает ПОЛНЫЙ список победителей и их трейд-ссылки для модального окна."""
+    """
+    (Админ) Возвращает ПОЛНЫЙ список победителей (из Розыгрышей и Аукционов)
+    и их трейд-ссылки для модального окна.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Получаем контент страницы ивентов
+        winners_details = []
+        winner_ids_to_fetch = set()
+        
+        # --- 1. Получаем победителей из старых РОЗЫГРЫШЕЙ (JSON) ---
         content_resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.events", "select": "content", "limit": 1}
         )
         content_resp.raise_for_status()
         content_data = content_resp.json()
-        if not content_data:
-            return [] # Возвращаем пустой список, если контента нет
+        
+        pending_events_winners = []
+        if content_data:
+            content = content_data[0].get('content', {})
+            events = content.get("events", [])
+            pending_events_winners = [
+                event for event in events
+                if 'winner_id' in event and not event.get('prize_sent_confirmed', False)
+            ]
+            for event in pending_events_winners:
+                winner_ids_to_fetch.add(event['winner_id'])
 
-        content = content_data[0].get('content', {})
-        events = content.get("events", [])
-
-        # Фильтруем только те ивенты, где есть победитель и приз НЕ подтвержден
-        pending_winners_events = [
-            event for event in events
-            if 'winner_id' in event and not event.get('prize_sent_confirmed', False)
-        ]
-
-        if not pending_winners_events:
-            return [] # Возвращаем пустой список, если нет ожидающих
-
-        # Собираем ID победителей для запроса трейд-ссылок
-        winner_ids = {event['winner_id'] for event in pending_winners_events}
-
-        users_resp = await supabase.get(
-            "users",
+        # --- 2. Получаем победителей из АУКЦИОНОВ (Таблица) ---
+        auctions_resp = await supabase.get(
+            "/auctions",
             params={
-                "telegram_id": f"in.({','.join(map(str, winner_ids))})",
-                "select": "telegram_id,trade_link"
+                "prize_sent_confirmed": "eq.false",
+                "winner_id": "not.is.null",
+                "select": "id, title, winner_id, current_highest_bidder_name"
             }
         )
-        users_resp.raise_for_status()
-        users_data = {user['telegram_id']: user.get('trade_link', 'Не указана') for user in users_resp.json()}
+        auctions_resp.raise_for_status()
+        pending_auction_winners = auctions_resp.json()
+        for auction in pending_auction_winners:
+            winner_ids_to_fetch.add(auction['winner_id'])
 
-        # Формируем финальный список для фронтенда
-        winners_details = []
-        for event in pending_winners_events:
+        # --- 3. Получаем Трейд-ссылки для ВСЕХ победителей ---
+        users_data = {}
+        if winner_ids_to_fetch:
+            users_resp = await supabase.get(
+                "users",
+                params={
+                    "telegram_id": f"in.({','.join(map(str, winner_ids_to_fetch))})",
+                    "select": "telegram_id, trade_link, full_name"
+                }
+            )
+            users_resp.raise_for_status()
+            users_data = {
+                user['telegram_id']: {
+                    "trade_link": user.get('trade_link', 'Не указана'),
+                    "full_name": user.get('full_name', 'Неизвестно')
+                } for user in users_resp.json()
+            }
+
+        # --- 4. Форматируем и объединяем списки ---
+        
+        # Победители Розыгрышей
+        for event in pending_events_winners:
+            user_details = users_data.get(event["winner_id"], {})
             winners_details.append({
-                "event_id": event.get("id"), # Важно вернуть ID для кнопки подтверждения
-                "winner_name": event.get("winner_name", "Неизвестно"),
-                "prize_title": event.get("title", "Без названия"),
-                "trade_link": users_data.get(event["winner_id"], "Не указана"),
-                "prize_sent_confirmed": event.get("prize_sent_confirmed", False) # Возвращаем статус подтверждения
+                "event_id": event.get("id"),
+                "winner_name": event.get("winner_name", user_details.get("full_name", "Неизвестно")),
+                "prize_title": f"[Розыгрыш] {event.get('title', 'Без названия')}",
+                "trade_link": user_details.get("trade_link", "Не указана"),
+                "prize_sent_confirmed": event.get("prize_sent_confirmed", False)
+            })
+            
+        # Победители Аукционов
+        for auction in pending_auction_winners:
+            user_details = users_data.get(auction["winner_id"], {})
+            winners_details.append({
+                "event_id": auction.get("id"),
+                "winner_name": auction.get("current_highest_bidder_name", user_details.get("full_name", "Неизвестно")),
+                "prize_title": f"[Аукцион] {auction.get('title', 'Без названия')}",
+                "trade_link": user_details.get("trade_link", "Не указана"),
+                "prize_sent_confirmed": auction.get("prize_sent_confirmed", False)
             })
 
-        # Сортируем (опционально, например, по ID ивента)
+        # Сортируем (опционально)
         winners_details.sort(key=lambda x: x.get('event_id', 0))
-
         return winners_details
 
     except Exception as e:
-        logging.error(f"Ошибка при получении деталей победителей: {e}", exc_info=True)
+        logging.error(f"Ошибка при получении деталей победителей (объединенно): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить детали победителей.")
 # --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
 
@@ -5388,44 +5423,68 @@ async def confirm_event_prize_sent(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Обрабатывает нажатие кнопки 'Подтвердить отправление' в админ-панели.
-    Устанавливает флаг prize_sent_confirmed в true для конкретного ивента.
+    (Админ) Подтверждает отправку приза.
+    Сначала проверяет таблицу Аукционов, затем - JSON Розыгрышей.
     """
-    # 1. Проверяем, что запрос пришел от администратора
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Получаем текущий JSON-контент страницы ивентов
-    content_resp = await supabase.get("/pages_content", params={"page_name": "eq.events", "select": "content", "limit": 1})
-    content_resp.raise_for_status()
-    page_data = content_resp.json()
-    if not page_data:
-        raise HTTPException(status_code=404, detail="Контент для страницы ивентов не найден.")
-    
-    content = page_data[0]['content']
-    
-    # 3. Находим нужный ивент в списке и обновляем его
-    event_found = False
-    for event in content.get("events", []):
-        # Ищем ивент по его уникальному ID
-        if event.get("id") == request_data.event_id:
-            event["prize_sent_confirmed"] = True
-            event_found = True
-            logging.info(f"Приз для ивента ID {request_data.event_id} помечен как отправленный.")
-            break
+    prize_id = request_data.event_id
 
-    if not event_found:
-         raise HTTPException(status_code=404, detail=f"Ивент с ID {request_data.event_id} не найден в списке.")
+    try:
+        # --- 1. Пытаемся обновить АУКЦИОН ---
+        # Мы используем 'count=exact' (в supabase-py v1 это был 'count'), 
+        # чтобы узнать, была ли строка обновлена.
+        # В httpx это возвращается в заголовке 'content-range'
+        update_resp = await supabase.patch(
+            "/auctions",
+            params={"id": f"eq.{prize_id}", "prize_sent_confirmed": "eq.false"},
+            json={"prize_sent_confirmed": True},
+            headers={"Prefer": "return=representation,count=exact"}
+        )
+        
+        # Проверяем, удалось ли обновить строку в 'auctions'
+        if update_resp.status_code == 200 and update_resp.json():
+            logging.info(f"Приз (Аукцион) ID {prize_id} помечен как отправленный.")
+            return {"message": "Отправка приза (Аукцион) успешно подтверждена."}
 
-    # 4. Сохраняем обновленный JSON-контент обратно в базу данных
-    await supabase.patch(
-        "/pages_content",
-        params={"page_name": "eq.events"},
-        json={"content": content}
-    )
+        # --- 2. Если не аукцион, пытаемся обновить РОЗЫГРЫШ (старая логика) ---
+        content_resp = await supabase.get("/pages_content", params={"page_name": "eq.events", "select": "content", "limit": 1})
+        content_resp.raise_for_status()
+        page_data = content_resp.json()
+        
+        if not page_data:
+            raise HTTPException(status_code=404, detail="Контент для страницы ивентов не найден.")
+        
+        content = page_data[0]['content']
+        event_found = False
+        
+        for event in content.get("events", []):
+            if event.get("id") == prize_id:
+                if event.get('prize_sent_confirmed', False) == True:
+                     raise HTTPException(status_code=400, detail="Этот приз уже был подтвержден.")
+                     
+                event["prize_sent_confirmed"] = True
+                event_found = True
+                break
 
-    return {"message": "Отправка приза успешно подтверждена."}
+        if not event_found:
+             raise HTTPException(status_code=404, detail=f"Запись с ID {prize_id} не найдена ни в Аукционах, ни в Розыгрышах.")
+
+        # Сохраняем обновленный JSON
+        await supabase.patch(
+            "/pages_content",
+            params={"page_name": "eq.events"},
+            json={"content": content}
+        )
+        
+        logging.info(f"Приз (Розыгрыш) ID {prize_id} помечен как отправленный.")
+        return {"message": "Отправка приза (Розыгрыш) успешно подтверждена."}
+
+    except Exception as e:
+        logging.error(f"Ошибка при подтверждении приза {prize_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Не удалось подтвердить приз: {str(e)}")
 
 # --- НОВЫЙ ЭНДПОИНТ: Отмена квеста ---
 @app.post("/api/v1/quests/cancel")
