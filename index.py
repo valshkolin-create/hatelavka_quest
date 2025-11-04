@@ -1878,13 +1878,11 @@ class AuctionUpdateRequest(BaseModel):
     id: int
     is_active: Optional[bool] = None
     is_visible: Optional[bool] = None
-    title: Optional[str] = None
-    image_url: Optional[str] = None
-    bid_cooldown_hours: Optional[int] = None
 
 class AuctionDeleteRequest(BaseModel):
     initData: str
     id: int
+    
 class AuctionDeleteRequest(BaseModel):
     initData: str
     id: int
