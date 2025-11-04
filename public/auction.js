@@ -157,16 +157,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!auction.is_active) card.classList.add('admin-inactive');
             }
 
+            const isEnded = !!auction.ended_at;
 
             const timerId = `timer-${auction.id}`;
-            const timerHtml = auction.bid_cooldown_ends_at
+            const timerHtml = (auction.bid_cooldown_ends_at && !isEnded)
                 ? `<div class="stat-item-value timer" id="${timerId}">...</div>`
-                : `<div class="stat-item-value">00:00:00</div>`;
+                : `<div class="stat-item-value">${isEnded ? 'ЗАВЕРШЕН' : '00:00:00'}</div>`; // Показываем "ЗАВЕРШЕН" если ended_at есть
 
-            const isEnded = !!auction.ended_at;
             const isDisabled = isEnded ? 'disabled' : '';
 
-            // --- ПУНКТ 2: Оверлей для админа (добавлена кнопка "Завершить") ---
             let adminOverlay = '';
             if (isEditMode) {
                 adminOverlay = `
@@ -183,6 +182,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
+
+            // --- ПУНКТ 1: Логика для "Премиального" Победителя ---
+            let leaderOrWinnerHtml = '';
+            if (isEnded && auction.current_highest_bidder_name) {
+                // Аукцион ЗАВЕРШЕН и есть победитель
+                leaderOrWinnerHtml = `
+                    <div class="stat-item winner-block" style="margin-bottom: 15px;">
+                        <div class="stat-item-label">Победитель</div>
+                        <div class="stat-item-value winner-name">
+                            <i class="fa-solid fa-trophy"></i>
+                            ${escapeHTML(auction.current_highest_bidder_name)}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Аукцион АКТИВЕН или нет ставок
+                leaderOrWinnerHtml = `
+                    <div class="stat-item" style="margin-bottom: 15px;">
+                        <div class="stat-item-label">${isEnded ? 'Победитель' : 'Лидер'}</div>
+                        <div class="stat-item-value">${escapeHTML(auction.current_highest_bidder_name || (isEnded ? 'Не определен' : 'Нет ставок'))}</div>
+                    </div>
+                `;
+            }
+            // --- КОНЕЦ ПУНКТА 1 ---
 
             card.innerHTML = `
                 ${adminOverlay}
@@ -205,12 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     
-                    <div class="stat-item" style="margin-bottom: 15px;">
-                        <div class="stat-item-label">Лидер</div>
-                        <div class="stat-item-value">${escapeHTML(auction.current_highest_bidder_name || 'Нет ставок')}</div>
-                    </div>
-
-                    <div class="event-button-container">
+                    ${leaderOrWinnerHtml} <div class="event-button-container">
                         <button class="history-button" data-auction-id="${auction.id}">История</button>
                         <button class="event-button bid-button" data-auction-id="${auction.id}" ${isDisabled}>
                             ${isEnded ? 'Завершен' : 'Сделать ставку'}
