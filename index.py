@@ -1534,6 +1534,53 @@ async def admin_get_auctions(
     resp.raise_for_status()
     return resp.json()
 
+@app.post("/api/v1/admin/auctions/reset")
+async def admin_reset_auction(
+    request_data: AuctionDeleteRequest, # Мы можем повторно использовать эту модель
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) Сбрасывает аукцион к начальному состоянию и удаляет все ставки.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    auction_id = request_data.id
+    logging.info(f"АДМИН: Сброс аукциона ID {auction_id}...")
+
+    try:
+        # 1. Удаляем все ставки, связанные с этим аукционом
+        # (Убедитесь, что у вашей service_role есть права на DELETE в auction_bids)
+        await supabase.delete(
+            "/auction_bids",
+            params={"auction_id": f"eq.{auction_id}"}
+        )
+
+        # 2. Сбрасываем состояние самого аукциона
+        reset_payload = {
+            "current_highest_bid": None,
+            "current_highest_bidder_name": None,
+            "current_highest_bidder_id": None,
+            "winner_id": None,
+            "ended_at": None,
+            "bid_cooldown_ends_at": None,
+            "prize_sent_confirmed": False,
+            "is_active": False # Лот также становится неактивным
+        }
+        
+        await supabase.patch(
+            "/auctions",
+            params={"id": f"eq.{auction_id}"},
+            json=reset_payload
+        )
+        
+        return {"message": "Аукцион сброшен. Все ставки удалены, лот деактивирован."}
+
+    except Exception as e:
+        logging.error(f"❌ ОШИБКА при сбросе аукциона {auction_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сбросе.")
+
 @app.post("/api/v1/admin/auctions/create")
 async def admin_create_auction(
     request_data: AuctionCreateRequest,
