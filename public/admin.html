@@ -621,25 +621,6 @@
                 <div style="width: 60px;"></div>
             </div>
 
-           <div id="view-admin-auctions" class="view hidden">
-        <div class="page-header">
-            <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-            <h1 class="page-header-title">Аукционы</h1>
-            <div style="width: 60px;"></div>
-        </div>
-
-        <div class="quest-card">
-            <form id="create-auction-form" class="admin-form">
-                <label>Название лота</label>
-                <input type="text" name="title" required placeholder="Напр: AWP | Dragon Lore">
-                <label>URL изображения</label>
-                <input type="text" name="image_url" placeholder="https://...">
-                <label>Таймер перехвата (часы)</label>
-                <input type="number" name="bid_cooldown_hours" value="4" required min="1">
-                <button type="submit">Создать лот</button>
-            </form>
-        </div>
-
             <div class="tabs-container" id="cauldron-tabs">
                 <button class="tab-button active" data-tab="cauldron-settings">Настройки</button>
                 <button class="tab-button" data-tab="cauldron-rewards-1">Награды Ур. 1</button>
@@ -781,7 +762,27 @@
                             <p style="text-align: center; color: var(--text-color-muted);">Здесь будет список участников...</p>
                         </div>
                     </div>
-                </div>
+                </div> 
+              
+              <div id="view-admin-auctions" class="view hidden">
+        <div class="page-header">
+            <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+            <h1 class="page-header-title">Аукционы</h1>
+            <div style="width: 60px;"></div>
+        </div>
+
+        <div class="quest-card">
+            <form id="create-auction-form" class="admin-form">
+                <label>Название лота</label>
+                <input type="text" name="title" required placeholder="Напр: AWP | Dragon Lore">
+                <label>URL изображения</label>
+                <input type="text" name="image_url" placeholder="https://...">
+                <label>Таймер перехвата (часы)</label>
+                <input type="number" name="bid_cooldown_hours" value="4" required min="1">
+                <button type="submit">Создать лот</button>
+            </form>
+        </div>
+
 
                 <div class="quest-card" style="margin-top: 20px;">
                     <button type="submit" class="admin-action-btn approve" style="width: 100%;">Сохранить все настройки</button>
