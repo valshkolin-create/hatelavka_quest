@@ -239,141 +239,227 @@
 
     <script>
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
         const dom = {
-            title: document.getElementById('event-title'),
-            progressBar: document.getElementById('progress-bar-fill'),
-            progressText: document.getElementById('progress-text'),
-            cauldronImage: document.getElementById('cauldron-image'),
-            infoWidget: document.getElementById('info-widget'),
-            ghostAnimation: document.getElementById('ghost-animation'),
-            flyingFlask: document.getElementById('flying-flask'),
-            promoText: document.getElementById('promo-text'),
-            prizeImageContainer: document.getElementById('prize-image-container'),
-            prizeImage: document.getElementById('prize-image'),
-            contributorOverlay: document.getElementById('contributor-overlay'),
-            contributorName: document.getElementById('contributor-name')
+            widget: document.getElementById('widget-container'),
+            promoOverlay: document.getElementById('promo-overlay'),
+            title: document.getElementById('auction-title'),
+            timer: document.getElementById('auction-timer'),
+            skinImage: document.getElementById('skin-image'),
+            biddersList: document.getElementById('top-bidders-list'),
+            notification: document.getElementById('new-bid-notification'),
+            notifyName: document.getElementById('bid-notify-name')
         };
 
-        let isAnimating = false;
-        let currentEventData = {};
+        let countdownInterval = null;
+        let currentAuctionId = null;
+        let promoInterval = null; // <-- Для управления промо
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        function getCurrentLevel(eventData) {
-            const { goals = {}, current_progress = 0 } = eventData;
-            if (goals.level_2 && current_progress >= goals.level_2) return 3;
-            if (goals.level_1 && current_progress >= goals.level_1) return 2;
-            return 1;
+        function startCountdown(expiresAt) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (!expiresAt) {
+                dom.timer.textContent = "00:00:00";
+                return;
+            }
+
+            const endTime = new Date(expiresAt).getTime();
+            
+            const updateTimer = () => {
+                const now = new Date().getTime();
+                const distance = endTime - now;
+
+                if (distance < 0) {
+                    clearInterval(countdownInterval);
+                    dom.timer.textContent = "00:00:00";
+                    return;
+                }
+
+                const h = Math.floor(distance / 3600000);
+                const m = Math.floor((distance % 3600000) / 60000);
+                const s = Math.floor((distance % 60000) / 1000);
+                
+                dom.timer.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+            
+            countdownInterval = setInterval(updateTimer, 1000);
+            updateTimer();
         }
-        
-        function updateDisplay(eventData) {
-            if (!eventData) return;
-            currentEventData = eventData;
-            
-            const currentLevel = getCurrentLevel(eventData);
-            dom.title.textContent = eventData.title || "Ведьминский Котел";
 
-            const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] || eventData.cauldron_image_url || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
-            if (dom.cauldronImage.src !== cauldronUrl) dom.cauldronImage.src = cauldronUrl;
+        function updateDisplay(auctionData, topBidders = []) {
+            if (!auctionData || !auctionData.id) {
+                dom.widget.classList.remove('visible');
+                currentAuctionId = null;
+                return;
+            }
 
-            const { goals = {}, current_progress = 0 } = eventData;
-            let currentGoal = 1;
-            if (currentLevel === 1) { currentGoal = goals.level_1 || 1; }
-            else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; }
-            else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; }
+            // Если виджет был размыт, убираем размытие при обновлении
+            if (dom.widget.classList.contains('blur')) {
+                dom.widget.classList.remove('blur');
+                dom.promoOverlay.classList.remove('show');
+                // Перезапускаем таймер промо, т.к. ставка сбила анимацию
+                if (promoInterval) clearInterval(promoInterval);
+                promoInterval = setInterval(showPromoAnimation, 70000);
+            }
+
+
+            currentAuctionId = auctionData.id;
+            dom.title.textContent = auctionData.title || "Аукцион";
+            dom.skinImage.src = auctionData.image_url || '';
+            startCountdown(auctionData.bid_cooldown_ends_at);
             
-            const percentage = (currentGoal > 0) ? Math.min((current_progress / currentGoal) * 100, 100) : 0;
+            dom.biddersList.innerHTML = '';
+            if (topBidders.length === 0) {
+                dom.biddersList.innerHTML = '<div style="color: var(--text-secondary);">Ставок пока нет...</div>';
+            } else {
+                topBidders.slice(0, 3).forEach((bidder, i) => {
+                    const rank = i + 1;
+                    dom.biddersList.innerHTML += `
+                        <div class="bidder-item rank-${rank}">
+                            <div class="bidder-rank">${rank}.</div>
+                            <div class="bidder-name">${bidder.name}</div>
+                            <div class="bidder-amount">${bidder.amount} 🎟️</div>
+                        </div>
+                    `;
+                });
+            }
             
-            dom.progressBar.style.width = `${percentage}%`;
-            dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
+            dom.widget.classList.add('visible');
         }
         
         function triggerAnimation(payload) {
-            if (isAnimating) return;
-            isAnimating = true;
-            const { event_data, last_contributor } = payload.new.payload;
+            const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
             
-            updateDisplay(event_data);
-            
-            if (last_contributor && last_contributor.name) {
-                dom.contributorName.innerHTML = `${last_contributor.name} <span>+${last_contributor.amount}</span>`;
-                dom.contributorOverlay.classList.add('show');
-                dom.infoWidget.classList.add('blur-effect');
-                dom.ghostAnimation.classList.add('blur-effect');
+            if (currentAuctionId === null || currentAuctionId === auction_data.id) {
+                updateDisplay(auction_data, top_bidders);
+
+                dom.notifyName.textContent = last_bidder_name;
+                dom.notification.classList.add('show');
+                
+                setTimeout(() => {
+                    dom.notification.classList.remove('show');
+                    dom.notification.classList.add('hide');
+                }, 4000); 
+                
+                setTimeout(() => {
+                    dom.notification.classList.remove('hide');
+                }, 4500);
             }
-            
-            dom.flyingFlask.classList.add('animate');
-            dom.cauldronImage.classList.add('pulse');
+        }
+
+        function showPromoAnimation() {
+            if (!dom.widget.classList.contains('visible') || currentAuctionId === null) {
+                return;
+            }
+
+            console.log('Запуск промо-анимации...');
+            dom.widget.classList.add('blur');
+            dom.promoOverlay.classList.add('show');
 
             setTimeout(() => {
-                if (last_contributor && last_contributor.name) {
-                    dom.contributorOverlay.classList.remove('show');
-                    dom.infoWidget.classList.remove('blur-effect');
-                    dom.ghostAnimation.classList.remove('blur-effect');
-                }
-                
-                dom.flyingFlask.classList.remove('animate');
-                dom.cauldronImage.classList.remove('pulse');
-
-                isAnimating = false;
-            }, 4500);
+                dom.widget.classList.remove('blur');
+                dom.promoOverlay.classList.remove('show');
+            }, 10000); 
         }
 
         async function loadInitialState() {
-            const { data, error } = await supabaseClient.from('pages_content').select('content').eq('page_name', 'cauldron_event').single();
-            if (error) { console.error('Error loading initial state:', error); return; }
-            if (data && data.content) updateDisplay(data.content);
-        }
-        
-        function showPromoAnimation() {
-            if (!currentEventData.levels) return;
+            try {
+                // (Этот код остался без изменений, как в прошлый раз)
+                const { data: auctionData, error: auctionError } = await supabaseClient
+                    .from('auctions')
+                    .select('*')
+                    .eq('is_visible', true) 
+                    .order('created_at', { ascending: false }) 
+                    .limit(1);
 
-            const currentLevel = getCurrentLevel(currentEventData);
-            const levelConfig = currentEventData.levels[`level_${currentLevel}`] || {};
-            const prizes = levelConfig.top_places || [];
+                if (auctionError) throw auctionError;
+                if (!auctionData || auctionData.length === 0) {
+                    console.log("Нет видимых аукционов.");
+                    dom.widget.classList.remove('visible');
+                    currentAuctionId = null; 
+                    return;
+                }
 
-            let prizeName = '', prizeImageUrl = '';
-            if (prizes.length > 0) {
-                const randomPrize = prizes[Math.floor(Math.random() * prizes.length)];
-                prizeName = randomPrize.name;
-                prizeImageUrl = randomPrize.image_url;
+                const auction = auctionData[0];
+
+                const { data: historyData, error: historyError } = await supabaseClient
+                    .from('auction_bids')
+                    .select('bid_amount, user:users(full_name)')
+                    .eq('auction_id', auction.id)
+                    .order('created_at', { ascending: false })
+                    .limit(3);
+                
+                if (historyError) throw historyError;
+                
+                const topBidders = [];
+                if (historyData.length > 0) {
+                    const leaderName = auction.current_highest_bidder_name;
+                    if (leaderName) {
+                        topBidders.push({
+                            name: leaderName,
+                            amount: auction.current_highest_bid || 0
+                        });
+                    }
+                    let count = topBidders.length; 
+                    for (const b of historyData) {
+                        if (count >= 3) break;
+                        const bidderName = b.user ? b.user.full_name : 'Аноним';
+                        if (bidderName !== leaderName) {
+                            topBidders.push({
+                                name: bidderName,
+                                amount: b.bid_amount
+                            });
+                            count++;
+                        }
+                    }
+                }
+                updateDisplay(auction, topBidders);
+
+            } catch (error) {
+                console.error('Ошибка загрузки начального состояния:', error);
             }
-
-            dom.promoText.innerHTML = `
-                Участвуй в ивенте: <span>!lavka</span>
-                <div class="subtitle">Попробуй выиграть: <span class="prize-name">${prizeName || 'Главный приз!'}</span></div>
-            `;
-            
-            if (prizeImageUrl) {
-                dom.prizeImage.src = prizeImageUrl;
-            }
-            
-            dom.promoText.classList.add('animate');
-            dom.prizeImageContainer.classList.add('animate');
-
-            // ИЗМЕНЕНИЕ: Таймер на 30 секунд
-            setTimeout(() => {
-                dom.promoText.classList.remove('animate');
-                dom.prizeImageContainer.classList.remove('animate');
-            }, 30000); 
         }
 
         try {
-            supabaseClient.channel('cauldron-triggers-channel')
+            // 1. Слушаем ТРИГГЕРЫ (Новая ставка)
+            supabaseClient.channel('auction-triggers-channel')
                 .on('postgres_changes', 
-                    { event: 'INSERT', schema: 'public', table: 'cauldron_triggers' },
+                    { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
                     payload => triggerAnimation(payload)
+                ).subscribe();
+
+            // 2. Слушаем ОБНОВЛЕНИЯ АУКЦИОНОВ (Завершение, Сброс, Скрытие)
+            supabaseClient.channel('auctions-changes-channel')
+                .on('postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'auctions' },
+                    payload => {
+                        console.log('Обновление аукциона получено:', payload.new);
+                        // Если обновился наш текущий аукцион ИЛИ если он стал невидимым/завершенным
+                        if (payload.new.id === currentAuctionId || !payload.new.is_visible || payload.new.ended_at) {
+                             loadInitialState();
+                        }
+                    }
                 ).subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
+                        console.log('Подключено к Supabase (Auction Triggers & Changes). Загрузка...');
                         loadInitialState();
                     }
                 });
-        } catch (error) { console.error("Failed to connect to Supabase:", error); }
 
-        // ИЗМЕНЕНИЕ: Интервал ~3 минуты (180 секунд + 2 секунды буфер)
-        setInterval(showPromoAnimation, 182000);
-        
+        } catch (error) { console.error("Ошибка подключения к Supabase:", error); }
+
+        // --- ИНТЕРВАЛЫ ---
+        // 1. (РЕШЕНИЕ ПРОБЛЕМЫ 1)
+        //    Периодическая полная перезагрузка (раз в 2 минуты)
+        //    Это гарантирует, что оверлей "проснется" и получит актуальные
+        //    данные, даже если WebSocket по какой-то причине отвалился.
+        setInterval(loadInitialState, 120000); // 120,000 мс = 2 минуты
+
+        // 2. (РЕШЕНИЕ ПРОБЛЕМЫ 2)
+        //    Показ промо-анимации (раз в 70 секунд)
+        if (promoInterval) clearInterval(promoInterval); // Очищаем старый на всякий случай
+        promoInterval = setInterval(showPromoAnimation, 70000); // 70,000 мс = 1 мин 10 сек
     </script>
 </body>
 </html>
