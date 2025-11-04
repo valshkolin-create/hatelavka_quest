@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Auction Overlay</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: rgba(28, 26, 39, 0.8);
+            --border-color: #3c3852;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a09cb8;
+            --accent-primary: #00f2ea;
+            --accent-secondary: #d433ff;
+            --gold-color: #ffd700;
+        }
+        body {
+            background-color: transparent;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            margin: 0;
+            color: var(--text-primary);
+        }
+        .widget-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 450px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            opacity: 0; /* Скрыт по умолчанию */
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .widget-container.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .header {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-title {
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+        }
+        .header-timer {
+            font-size: 20px;
+            font-weight: 700;
+            background: rgba(0,0,0,0.2);
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+
+        .content-body {
+            display: flex;
+            padding: 15px;
+            gap: 15px;
+        }
+        .skin-container {
+            width: 150px;
+            height: 110px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        #skin-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .bidders-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            flex-grow: 1;
+            min-width: 0;
+        }
+        .bidder-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bidder-rank {
+            font-size: 18px;
+            font-weight: 900;
+            width: 25px;
+            text-align: right;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+        }
+        .bidder-item.rank-1 .bidder-rank { color: var(--gold-color); }
+        .bidder-item.rank-2 .bidder-rank { color: #c0c0c0; }
+        .bidder-item.rank-3 .bidder-rank { color: #cd7f32; }
+        
+        .bidder-name {
+            font-size: 16px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-grow: 1;
+        }
+        .bidder-amount {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent-primary);
+            flex-shrink: 0;
+        }
+
+        /* Анимация новой ставки */
+        #new-bid-notification {
+            position: absolute;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(45deg, var(--accent-secondary), var(--accent-primary));
+            color: #000;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: 900;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            white-space: nowrap;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #new-bid-notification.show {
+            opacity: 1;
+            top: 20px;
+        }
+        #new-bid-notification.hide {
+            opacity: 0;
+            top: -100px;
+            transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="new-bid-notification">
+        Новая ставка от <span id="bid-notify-name">...</span>!
+    </div>
+
+    <div id="widget-container" class="widget-container">
+        <div class="header">
+            <div class="header-title" id="auction-title">Аукцион</div>
+            <div class="header-timer" id="auction-timer">00:00:00</div>
+        </div>
+        <div class="content-body">
+            <div class="skin-container">
+                <img id="skin-image" src="" alt="Skin">
+            </div>
+            <div class="bidders-container" id="top-bidders-list">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
+
+        const dom = {
+            widget: document.getElementById('widget-container'),
+            title: document.getElementById('auction-title'),
+            timer: document.getElementById('auction-timer'),
+            skinImage: document.getElementById('skin-image'),
+            biddersList: document.getElementById('top-bidders-list'),
+            notification: document.getElementById('new-bid-notification'),
+            notifyName: document.getElementById('bid-notify-name')
+        };
+
+        let countdownInterval = null;
+        let currentAuctionId = null;
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function startCountdown(expiresAt) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (!expiresAt) {
+                dom.timer.textContent = "00:00:00";
+                return;
+            }
+
+            const endTime = new Date(expiresAt).getTime();
+            
+            const updateTimer = () => {
+                const now = new Date().getTime();
+                const distance = endTime - now;
+
+                if (distance < 0) {
+                    clearInterval(countdownInterval);
+                    dom.timer.textContent = "00:00:00";
+                    // Можно скрыть виджет, если аукцион закончился
+                    // dom.widget.classList.remove('visible');
+                    // currentAuctionId = null;
+                    return;
+                }
+
+                const h = Math.floor(distance / 3600000);
+                const m = Math.floor((distance % 3600000) / 60000);
+                const s = Math.floor((distance % 60000) / 1000);
+                
+                dom.timer.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+            
+            countdownInterval = setInterval(updateTimer, 1000);
+            updateTimer();
+        }
+
+        function updateDisplay(auctionData, topBidders = []) {
+            if (!auctionData || !auctionData.id) {
+                dom.widget.classList.remove('visible');
+                currentAuctionId = null;
+                return;
+            }
+
+            currentAuctionId = auctionData.id;
+            dom.title.textContent = auctionData.title || "Аукцион";
+            dom.skinImage.src = auctionData.image_url || '';
+            startCountdown(auctionData.bid_cooldown_ends_at);
+            
+            dom.biddersList.innerHTML = '';
+            if (topBidders.length === 0) {
+                dom.biddersList.innerHTML = '<div style="color: var(--text-secondary);">Ставок пока нет...</div>';
+            } else {
+                topBidders.slice(0, 3).forEach((bidder, i) => {
+                    const rank = i + 1;
+                    dom.biddersList.innerHTML += `
+                        <div class="bidder-item rank-${rank}">
+                            <div class="bidder-rank">${rank}.</div>
+                            <div class="bidder-name">${bidder.name}</div>
+                            <div class="bidder-amount">${bidder.amount} 🎟️</div>
+                        </div>
+                    `;
+                });
+            }
+            
+            dom.widget.classList.add('visible');
+        }
+        
+        function triggerAnimation(payload) {
+            const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
+            
+            // Обновляем виджет, только если это тот же аукцион
+            if (currentAuctionId === null || currentAuctionId === auction_data.id) {
+                updateDisplay(auction_data, top_bidders);
+
+                // Показываем уведомление
+                dom.notifyName.textContent = last_bidder_name;
+                dom.notification.classList.add('show');
+                
+                setTimeout(() => {
+                    dom.notification.classList.remove('show');
+                    dom.notification.classList.add('hide');
+                }, 4000); // Показываем 4 секунды
+                
+                setTimeout(() => {
+                    dom.notification.classList.remove('hide');
+                }, 4500); // Сбрасываем
+            }
+        }
+
+        async function loadInitialState() {
+            try {
+                // 1. Получаем последний активный аукцион
+                const { data: auctionData, error: auctionError } = await supabaseClient
+                    .from('auctions')
+                    .select('*')
+                    .eq('is_active', true)
+                    .eq('is_visible', true)
+                    .is('ended_at', null)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (auctionError) throw auctionError;
+                if (!auctionData || auctionData.length === 0) {
+                    console.log("Нет активных аукционов.");
+                    dom.widget.classList.remove('visible');
+                    return;
+                }
+
+                const auction = auctionData[0];
+
+                // 2. Получаем историю ставок для этого аукциона
+                const { data: historyData, error: historyError } = await supabaseClient
+                    .from('auction_bids')
+                    .select('bid_amount, user:users(full_name)')
+                    .eq('auction_id', auction.id)
+                    .order('created_at', { ascending: false })
+                    .limit(3);
+                
+                if (historyError) throw historyError;
+
+                const topBidders = historyData.map(b => ({
+                    name: b.user ? b.user.full_name : 'Аноним',
+                    amount: b.bid_amount
+                }));
+
+                // 3. Обновляем экран
+                updateDisplay(auction, topBidders);
+
+            } catch (error) {
+                console.error('Ошибка загрузки начального состояния:', error);
+            }
+        }
+        
+        try {
+            supabaseClient.channel('auction-triggers-channel')
+                .on('postgres_changes', 
+                    { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
+                    payload => triggerAnimation(payload)
+                ).subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('Подключено к Supabase (Auction Triggers). Загрузка...');
+                        loadInitialState();
+                    }
+                });
+        } catch (error) { console.error("Ошибка подключения к Supabase:", error); }
+
+    </script>
+</body>
+</html>
