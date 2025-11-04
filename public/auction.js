@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
         historyModalTitle: document.getElementById('bids-history-modal-title'),
         historyList: document.getElementById('bids-history-list'),
 
-        // --- НОВЫЕ DOM ЭЛЕМЕНТЫ ДЛЯ АДМИНКИ ---
         adminControls: document.getElementById('admin-controls'),
         editBtn: document.getElementById('edit-btn'),
         
@@ -59,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const options = {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                cache: 'no-store' // <-- ИСПРАВЛЕНИЕ: Отключаем кэш
+                cache: 'no-store' // Отключаем кэш
             };
             
             if (method.toUpperCase() !== 'GET') {
@@ -90,8 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function makePublicGetRequest(url) {
         dom.loader.classList.remove('hidden');
         try {
-            // vvv ИСПРАВЛЕНИЕ: Отключаем кэш vvv
-            const response = await fetch(url, { cache: 'no-store' }); 
+            const response = await fetch(url, { cache: 'no-store' }); // Отключаем кэш
             const result = await response.json();
             if (!response.ok) {
                 throw new Error(result.detail || 'Произошла ошибка');
@@ -174,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="card-btn card-edit-btn" data-auction-id="${auction.id}" title="Редактировать">
                             <i class="fa-solid fa-pencil"></i>
                         </button>
-                        <button class="card-btn card-reset-btn" data-auction-id="${auction.id}" title="Сбросить лот (удалить ставки)">
+                        <button class="card-btn card-reset-btn" data-auction-id="${auction.id}" title="Сбросить лот (клонировать)">
                             <i class="fa-solid fa-arrow-rotate-left"></i>
                         </button>
                         <button class="card-btn card-finish-btn" data-auction-id="${auction.id}" title="Завершить вручную">
@@ -378,19 +376,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 showEditModal(button.dataset.auctionId);
             }
+            
+            // --- ИСПРАВЛЕНИЕ: ВЫЗОВ .../clear_participants ---
             else if (button?.matches('.card-reset-btn')) {
                 e.stopPropagation();
                 const auctionId = button.dataset.auctionId;
-                tg.showConfirm('Вы уверены, что хотите сбросить этот лот? Все ставки будут удалены, и лот станет неактивным.', async (ok) => {
+                tg.showConfirm('Вы уверены, что хотите сбросить этот лот? Старый лот и все ставки будут удалены, а вместо него появится клон (как в Розыгрышах).', async (ok) => {
                     if (ok) {
                         try {
-                            const result = await makeApiRequest('/api/v1/admin/auctions/reset', { id: parseInt(auctionId) });
-                            tg.showAlert(result.message || 'Лот сброшен.');
-                            initialize(); 
+                            const result = await makeApiRequest('/api/v1/admin/auctions/clear_participants', { id: parseInt(auctionId) });
+                            tg.showAlert(result.message || 'Лот сброшен и пересоздан.');
+                            initialize(); // Перезагружаем список
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
             }
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            
             else if (button?.matches('.card-finish-btn')) {
                 e.stopPropagation();
                 const auctionId = button.dataset.auctionId;
