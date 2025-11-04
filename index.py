@@ -109,6 +109,8 @@ class AuctionCreateRequest(BaseModel):
     title: str
     image_url: Optional[str] = None
     bid_cooldown_hours: int = 4
+    is_active: Optional[bool] = False   # <-- ДОБАВЛЕНО
+    is_visible: Optional[bool] = False  # <-- ДОБАВЛЕНО
 
 class AuctionUpdateRequest(BaseModel):
     initData: str
@@ -1453,14 +1455,13 @@ async def get_auction_history(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Возвращает 10 последних ставок для лота, объединяя с именами пользователей. (ИСПРАВЛЕНО)
+    Возвращает 10 последних ставок для лота, объединяя с именами пользователей. (ИСПРАВЛЕНО v2)
     """
     try:
         resp = await supabase.get(
             "/auction_bids",
             params={
                 "auction_id": f"eq.{auction_id}",
-                # --- ИСПРАВЛЕНИЕ 1: Добавляем twitch_login ---
                 "select": "bid_amount, created_at, user:users(full_name, twitch_login)", 
                 "order": "created_at.desc", # Новые сверху
                 "limit": 10
@@ -1468,29 +1469,22 @@ async def get_auction_history(
         )
         resp.raise_for_status()
 
-        # Преобразуем данные для удобства JS
+        # --- ИЗМЕНЕНИЕ 3: Возвращаем объект user как есть ---
         history = []
         for bid in resp.json():
-            user_data = bid.get("user")
-            # --- ИСПРАВЛЕНИЕ 2: Приоритет Twitch-ника ---
-            if user_data:
-                user_name = user_data.get("twitch_login") or user_data.get("full_name") or "Аноним"
-            else:
-                user_name = "Аноним"
-            
             history.append({
                 "bid_amount": bid["bid_amount"],
                 "created_at": bid["created_at"],
-                "user_name": user_name
+                "user": bid.get("user") # JS сам разберет этот объект
             })
-        # --- КОНЕЦ ИСПРАВЛЕНИЯ 2 ---
 
         return history
+        # --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
 
     except Exception as e:
         logging.error(f"Ошибка при получении истории аукциона {auction_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить историю.")
-
+        
 # --- НОВЫЕ ЭНДПОИНТЫ: АДМИНКА АУКЦИОНА ---
 
 
@@ -1696,8 +1690,8 @@ async def admin_create_auction(
         "title": request_data.title,
         "image_url": request_data.image_url,
         "bid_cooldown_hours": request_data.bid_cooldown_hours,
-        "is_active": False,
-        "is_visible": False
+        "is_active": request_data.is_active,   # <-- ИЗМЕНЕНО
+        "is_visible": request_data.is_visible  # <-- ИЗМЕНЕНО
     })
     return {"message": "Лот создан."}
 
