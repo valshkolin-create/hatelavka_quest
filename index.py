@@ -103,6 +103,24 @@ class EventParticipantsRequest(BaseModel):
     initData: str
     event_id: int
 
+# --- Pydantic модели для Админки Аукциона ---
+class AuctionCreateRequest(BaseModel):
+    initData: str
+    title: str
+    image_url: Optional[str] = None
+    bid_cooldown_hours: int = 4
+
+class AuctionUpdateRequest(BaseModel):
+    initData: str
+    id: int
+    is_active: Optional[bool] = None
+    is_visible: Optional[bool] = None
+
+class AuctionDeleteRequest(BaseModel):
+    initData: str
+    id: int
+# --- Конец Pydantic моделей для Админки Аукциона ---
+
 # --- NEW Pydantic Models for Sort Order Update ---
 class CategorySortOrderUpdateRequest(BaseModel):
     initData: str
@@ -1863,26 +1881,6 @@ async def twitch_oauth_callback(
     response.headers['Location'] = redirect_url
     response.delete_cookie("twitch_oauth_init_data", path="/", samesite="None", secure=True)
     return response
-
-# --- Pydantic модели ---
-
-# --- Pydantic модели для Админки Аукциона ---
-class AuctionCreateRequest(BaseModel):
-    initData: str
-    title: str
-    image_url: Optional[str] = None
-    bid_cooldown_hours: int = 4
-
-class AuctionUpdateRequest(BaseModel):
-    initData: str
-    id: int
-    is_active: Optional[bool] = None
-    is_visible: Optional[bool] = None
-
-class AuctionDeleteRequest(BaseModel):
-    initData: str
-    id: int
-# --- Конец Pydantic моделей для Админки Аукциона ---
 
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
 class InitDataRequest(BaseModel): initData: str
