@@ -1,4 +1,4 @@
-/* auction.css (скопировано из events (10).html) */
+/* auction.css */
 :root {
   --background-main: #100e19;
   --surface-primary: #1c1a27;
@@ -9,6 +9,7 @@
   --accent-primary: #00f2ea;
   --accent-secondary: #d433ff;
   --danger-color: #ff4d4d;
+  --success-color: #34c759; /* Для кнопки "Завершить" */
   --winner-color: #ffd700;
   --card-default-border: #d433ff;
   --card-default-bg: #2a2738;
@@ -38,6 +39,25 @@ body.browser-view {
   margin: 0 auto;
 }
 
+/* ПУНКТ 3: Стили для кнопки "ГЛАВНАЯ" */
+.header-back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 5px 0 15px;
+    transition: color 0.2s ease;
+}
+.header-back-button:hover {
+    color: var(--text-primary);
+}
+.header-back-button i {
+    font-size: 12px;
+}
+
 .page-title {
     font-size: 20px;
     font-weight: 700;
@@ -62,12 +82,11 @@ body.browser-view {
 
 .auctions-container {
   display: grid;
-  grid-template-columns: 1fr; /* Один лот на строку для аукциона */
+  grid-template-columns: 1fr; 
   gap: 15px;
   margin-bottom: 25px;
 }
 
-/* Стили для карточки лота */
 .auction-card {
   background-color: var(--surface-primary);
   border: 1px solid var(--border-color);
@@ -75,7 +94,7 @@ body.browser-view {
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden; /* Чтобы таймер не вылезал */
+  overflow: hidden; 
 }
 
 .card-display-area {
@@ -100,7 +119,7 @@ body.browser-view {
 
 .event-image-container {
   width: 100%;
-  padding-top: 60%; /* Менее вытянутое изображение */
+  padding-top: 60%; 
   position: relative;
   z-index: 3;
 }
@@ -116,7 +135,7 @@ body.browser-view {
 
 .card-info-area {
   padding: 15px;
-  text-align: left; /* Выравниваем по левому краю */
+  text-align: left; 
   display: flex;
   flex-direction: column;
   flex-grow: 1;
@@ -129,7 +148,6 @@ body.browser-view {
   margin: 0 0 15px;
 }
 
-/* Стили для блока с таймером и ставкой */
 .auction-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -160,17 +178,16 @@ body.browser-view {
     font-weight: 700;
 }
 
-/* Стили для кнопок */
 .event-button-container {
   display: flex;
-  flex-direction: row; /* Кнопки в ряд */
+  flex-direction: row; 
   gap: 8px;
   margin-top: auto;
 }
 
 .event-button,
 .history-button {
-  flex: 1; /* Растягиваем на половину */
+  flex: 1; 
   padding: 10px;
   font-size: 13px;
   font-weight: 600;
@@ -280,7 +297,6 @@ body.browser-view {
   margin: 0;
 }
 
-/* Стили модальных окон (скопированы) */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -301,7 +317,8 @@ body.browser-view {
   padding: 0;
   border-radius: 14px;
   width: 90%;
-  max-width: 400px;
+  /* ПУНКТ 4: УМЕНЬШЕНИЕ ШИРИНЫ ОКНА */
+  max-width: 340px; /* Было 400px */
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
   display: flex;
   flex-direction: column;
@@ -371,7 +388,6 @@ body.browser-view {
   margin-bottom: -10px;
 }
 
-/* Стили для истории ставок */
 #bids-history-list {
   list-style-type: none;
   padding: 0;
@@ -404,7 +420,7 @@ body.browser-view {
   color: var(--accent-primary);
   padding-left: 10px;
 }
-.participant-rank { /* Используем для даты */
+.participant-rank { 
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
@@ -412,7 +428,6 @@ body.browser-view {
   text-align: left;
 }
 
-/* Анимация */
 .loader-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); z-index: 300; display: flex;
@@ -423,9 +438,6 @@ body.browser-view {
     border-top-color: var(--accent-primary); border-radius: 50%;
     animation: spin 1s linear infinite;
 }
-
-/* --- ДОБАВЬТЕ ЭТО В КОНЕЦ ВАШЕГО ФАЙЛА auction.css --- 
-*/
 
 /* Стили для админки */
 .admin-controls {
@@ -509,6 +521,10 @@ body.browser-view {
 .card-edit-btn {
     background-color: #007aff;
 }
+/* ПУНКТ 2: Стили для кнопки "Завершить" */
+.card-finish-btn {
+    background-color: var(--success-color);
+}
 .card-delete-btn {
     background-color: var(--danger-color);
 }
@@ -531,7 +547,6 @@ body.browser-view {
     color: var(--accent-primary);
 }
 
-/* Стили для чекбоксов в модалке */
 .checkbox-container {
     display: flex;
     align-items: center;
