@@ -185,27 +185,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
-            // --- НОВАЯ ЛОГИКА ОТОБРАЖЕНИЯ ИМЕНИ (с приоритетом Twitch) ---
+            // --- ИЗМЕНЕНИЕ 3: ЛОГИКА ОТОБРАЖЕНИЯ ИМЕНИ И ИКОНКИ ---
             let leaderOrWinnerHtml = '';
             
-            // Функция-хелпер для выбора имени
-            const getDisplayName = (auction) => {
-                if (auction.bidder) {
-                    // 'bidder' - это объект {full_name, twitch_login}, который мы получили из Supabase
-                    return auction.bidder.twitch_login || auction.bidder.full_name;
+            // Определяем имя и иконку
+            let displayName = 'Нет ставок';
+            let iconHtml = '';
+            
+            if (isEnded && !auction.bidder && !auction.current_highest_bidder_name) {
+                displayName = 'Не определен';
+            } else if (auction.bidder) {
+                // 'bidder' - это объект {full_name, twitch_login}, который мы получили из Supabase
+                if (auction.bidder.twitch_login) {
+                    displayName = auction.bidder.twitch_login;
+                    iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
+                } else {
+                    displayName = auction.bidder.full_name || 'Аноним';
+                    iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
-                // Фоллбэк, если bidder null (например, нет ставок)
-                return auction.current_highest_bidder_name; // Это старое поле (TG Name)
-            };
+            } else if (auction.current_highest_bidder_name) {
+                // Фоллбэк на старое поле (только TG имя, без twitch)
+                displayName = auction.current_highest_bidder_name;
+                iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
+            }
 
-            const displayName = getDisplayName(auction);
-
-            if (isEnded && displayName) {
+            if (isEnded && (auction.bidder || auction.current_highest_bidder_name)) {
                 leaderOrWinnerHtml = `
                     <div class="stat-item winner-block" style="margin-bottom: 15px;">
                         <div class="stat-item-label">Победитель</div>
                         <div class="stat-item-value winner-name">
                             <i class="fa-solid fa-trophy"></i>
+                            ${iconHtml}
                             ${escapeHTML(displayName)}
                         </div>
                     </div>
@@ -214,11 +224,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 leaderOrWinnerHtml = `
                     <div class="stat-item" style="margin-bottom: 15px;">
                         <div class="stat-item-label">${isEnded ? 'Победитель' : 'Лидер'}</div>
-                        <div class="stat-item-value">${escapeHTML(displayName || (isEnded ? 'Не определен' : 'Нет ставок'))}</div>
+                        <div class="stat-item-value">
+                            ${iconHtml}
+                            ${escapeHTML(displayName)}
+                        </div>
                     </div>
                 `;
             }
-            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
 
             card.innerHTML = `
                 ${adminOverlay}
@@ -287,7 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const label = dom.bidModal.querySelector('label');
         const currentBid = auction.current_highest_bid || 0;
-        const isLeader = userData.profile && (auction.current_highest_bidder_name === userData.profile.full_name);
+        
+        // --- ИЗМЕНЕНИЕ 3: Проверка лидера по ID, а не по имени ---
+        // (Предполагаем, что в userData.profile есть telegram_id)
+        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
 
         if (isLeader) {
             label.textContent = "Добавить к ставке (билеты)";
@@ -324,16 +340,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // --- ИЗМЕНЕНИЕ 3: Логика иконок в истории ---
             dom.historyList.innerHTML = history.slice(0, 10).map(bid => {
                 const date = new Date(bid.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                
+                let displayName = 'Аноним';
+                let iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
+                
+                if (bid.user) {
+                    if (bid.user.twitch_login) {
+                        displayName = bid.user.twitch_login;
+                        iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
+                    } else if (bid.user.full_name) {
+                        displayName = bid.user.full_name;
+                    }
+                }
+
                 return `
                     <li class="participant-item">
                         <span class="participant-rank">${date}</span>
-                        <span class="participant-name">${escapeHTML(bid.user_name || '...')}</span>
+                        <span class="participant-name">
+                            ${iconHtml}
+                            ${escapeHTML(displayName)}
+                        </span>
                         <span class="participant-tickets">${bid.bid_amount} 🎟️</span>
                     </li>
                 `;
             }).join('');
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
 
         } catch (e) {
             dom.historyList.innerHTML = '<li><i>Не удалось загрузить историю.</i></li>';
@@ -357,6 +391,10 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.editModalForm.reset(); 
             dom.editAuctionId.value = '';
             dom.editAuctionCooldown.value = 4; 
+            // --- ИЗМЕНЕНИЕ 2: Устанавливаем чекбоксы по умолчанию при создании ---
+            // (Хотя форма и так должна быть сброшена, это для надежности)
+            dom.editAuctionActive.checked = false;
+            dom.editAuctionVisible.checked = false;
         }
         showModal(dom.editModal);
     }
@@ -468,7 +506,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return; 
 
-        const isLeader = userData.profile && (auction.current_highest_bidder_name === userData.profile.full_name);
+        // --- ИЗМЕНЕНИЕ 3: Проверка лидера по ID ---
+        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
         
         let finalBidAmount = 0;
         let costToUser = 0;
@@ -537,12 +576,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_visible: dom.editAuctionVisible.checked
             };
         } else {
+            // --- ИЗМЕНЕНИЕ 2: Добавляем is_active и is_visible в payload ---
             url = '/api/v1/admin/auctions/create';
             payload = {
                 title: dom.editAuctionTitle.value,
                 image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value)
+                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
+                is_active: dom.editAuctionActive.checked,
+                is_visible: dom.editAuctionVisible.checked
             };
+            // --- КОНЕЦ ИЗМЕНЕНИЯ 2 ---
         }
         
         try {
@@ -564,6 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let auctionsData = [];
             if (userData.is_admin) {
                 dom.adminControls.style.display = 'block';
+                // --- ИЗМЕНЕНИЕ 3: Убедимся, что вызываем POST ---
                 auctionsData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST');
             } else {
                 auctionsData = await makePublicGetRequest('/api/v1/auctions/list');
