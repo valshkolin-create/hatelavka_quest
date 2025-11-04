@@ -61,17 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
             };
             
-            // Добавляем initData
-            // (GET-запросы в этом приложении тоже ожидают initData в теле, 
-            // но fetch() API не позволяет тело в GET. 
-            // Поэтому мы используем POST для 'user/me' и 'admin/auctions/list')
             if (method.toUpperCase() !== 'GET') {
                  options.body = JSON.stringify({ ...body, initData: tg.initData });
             }
 
             const response = await fetch(url, options);
             
-            // Для 204 No Content (например, при удалении)
             if (response.status === 204) {
                  return { success: true }; 
             }
@@ -79,7 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
 
             if (!response.ok) {
-                throw new Error(result.detail || 'Произошла ошибка');
+                // Пытаемся получить 'detail' или 'message' из ответа
+                const errorMsg = result.detail || result.message || 'Произошла ошибка';
+                throw new Error(errorMsg);
             }
             return result;
         } catch (e) {
@@ -90,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // Функция для GET-запросов без тела (для публичной истории)
     async function makePublicGetRequest(url) {
         dom.loader.classList.remove('hidden');
         try {
@@ -148,14 +144,13 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Активных аукционов пока нет.</p>';
         }
 
-        currentAuctions = auctions; // Сохраняем в кэш
+        currentAuctions = auctions; 
 
         auctions.forEach(auction => {
             const card = document.createElement('div');
             card.className = 'auction-card';
             card.id = `auction-card-${auction.id}`;
             
-            // Админ-классы для стилизации
             if (isEditMode) {
                 card.classList.add('admin-card');
                 if (!auction.is_visible) card.classList.add('admin-hidden');
@@ -171,13 +166,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const isEnded = !!auction.ended_at;
             const isDisabled = isEnded ? 'disabled' : '';
 
-            // --- НОВЫЙ БЛОК: Оверлей для админа ---
+            // --- ПУНКТ 2: Оверлей для админа (добавлена кнопка "Завершить") ---
             let adminOverlay = '';
             if (isEditMode) {
                 adminOverlay = `
                     <div class="edit-overlay">
                         <button class="card-btn card-edit-btn" data-auction-id="${auction.id}" title="Редактировать">
                             <i class="fa-solid fa-pencil"></i>
+                        </button>
+                        <button class="card-btn card-finish-btn" data-auction-id="${auction.id}" title="Завершить вручную">
+                            <i class="fa-solid fa-flag-checkered"></i>
                         </button>
                         <button class="card-btn card-delete-btn" data-auction-id="${auction.id}" title="Удалить">
                             <i class="fa-solid fa-trash"></i>
@@ -223,17 +221,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             dom.auctionsList.appendChild(card);
 
-            // Запускаем таймер для этой карточки, если он есть
             if (auction.bid_cooldown_ends_at && !isEnded) {
                 const timerElement = document.getElementById(timerId);
                 startCountdown(timerElement, auction.bid_cooldown_ends_at, `auction-${auction.id}`, () => {
-                    // Когда таймер истек, перезагружаем данные
                     initialize(); 
                 });
             }
         });
         
-        // --- НОВЫЙ БЛОК: Кнопка "Создать" для админа ---
         if (isEditMode) {
             const createCard = document.createElement('div');
             createCard.className = 'auction-card create-auction-card';
@@ -244,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Модальные окна ---
 
+    // --- ПУНКТ 1: Логика "Добавления" ставки ---
     function showBidModal(auctionId) {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return;
@@ -257,10 +253,25 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.userBalanceDisplay.textContent = userData.tickets || 0;
         dom.bidAuctionIdInput.value = auction.id;
         
-        const minBid = (auction.current_highest_bid || 0) + 1;
-        dom.bidCurrentMinInput.value = minBid;
-        dom.bidAmountInput.placeholder = `Больше ${auction.current_highest_bid} 🎟️`;
-        dom.bidAmountInput.min = minBid;
+        const label = dom.bidModal.querySelector('label');
+        const currentBid = auction.current_highest_bid || 0;
+        const isLeader = userData.profile && (auction.current_highest_bidder_name === userData.profile.full_name);
+
+        if (isLeader) {
+            // Пользователь - лидер, он хочет "добавить"
+            label.textContent = "Добавить к ставке (билеты)";
+            dom.bidAmountInput.placeholder = "Например: 10";
+            dom.bidAmountInput.min = 1;
+            dom.bidCurrentMinInput.value = currentBid; // Сохраняем его текущую ставку
+        } else {
+            // Пользователь - не лидер, он должен "перебить"
+            const minBid = currentBid + 1;
+            label.textContent = "Ваша ставка (билеты)";
+            dom.bidAmountInput.placeholder = `Больше ${currentBid} 🎟️`;
+            dom.bidAmountInput.min = minBid;
+            dom.bidCurrentMinInput.value = minBid; // Сохраняем минимальную ставку
+        }
+        
         dom.bidAmountInput.value = ''; // Сбрасываем значение
 
         showModal(dom.bidModal);
@@ -276,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showModal(dom.historyModal);
         
         try {
-            // Используем новый GET-запрос без тела
             const history = await makePublicGetRequest(`/api/v1/auctions/history/${auctionId}`);
             
             if (!history || history.length === 0) {
@@ -284,7 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Рендерим историю (например, последние 10 ставок)
             dom.historyList.innerHTML = history.slice(0, 10).map(bid => {
                 const date = new Date(bid.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' });
                 return `
@@ -301,10 +310,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- НОВАЯ ФУНКЦИЯ: Модальное окно админа ---
     function showEditModal(auctionId = null) {
         if (auctionId) {
-            // Редактирование
             const auction = currentAuctions.find(a => a.id == auctionId);
             if (!auction) return;
             
@@ -316,11 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.editAuctionActive.checked = auction.is_active;
             dom.editAuctionVisible.checked = auction.is_visible;
         } else {
-            // Создание
             dom.editModalTitle.textContent = 'Создать лот';
-            dom.editModalForm.reset(); // Сбрасываем форму
+            dom.editModalForm.reset(); 
             dom.editAuctionId.value = '';
-            dom.editAuctionCooldown.value = 4; // Значение по умолчанию
+            dom.editAuctionCooldown.value = 4; 
         }
         showModal(dom.editModal);
     }
@@ -341,13 +347,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', (e) => {
         const target = e.target;
         
-        // --- ИСПРАВЛЕНИЕ: ЛОГИКА ЗАКРЫТИЯ ПЕРЕМЕЩЕНА ВВЕРХ ---
-        // Клик по кнопке "Закрыть" (крестик)
+        // (FIX) Клик по кнопке "Закрыть" (крестик) - ПЕРЕМЕЩЕНО ВВЕРХ
         if (target.matches('.modal-close-btn')) {
             hideModal(target.closest('.modal-overlay'));
-            return; // Закрыли модалку, выходим
+            return; 
         }
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         const button = target.closest('button');
         const card = target.closest('.create-auction-card');
@@ -358,6 +362,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 showEditModal(button.dataset.auctionId);
             }
+            // --- ПУНКТ 2: Обработчик кнопки "Завершить" ---
+            else if (button?.matches('.card-finish-btn')) {
+                e.stopPropagation();
+                const auctionId = button.dataset.auctionId;
+                tg.showConfirm('Вы уверены, что хотите завершить этот аукцион? Билеты будут списаны, уведомления отправлены.', async (ok) => {
+                    if (ok) {
+                        try {
+                            const result = await makeApiRequest('/api/v1/admin/auctions/finish_manual', { id: parseInt(auctionId) });
+                            tg.showAlert(result.message || 'Аукцион завершен.');
+                            initialize(); // Перезагружаем список
+                        } catch(e) { /* Ошибка уже показана */ }
+                    }
+                });
+            }
             else if (button?.matches('.card-delete-btn')) {
                 e.stopPropagation();
                 const auctionId = button.dataset.auctionId;
@@ -366,34 +384,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             await makeApiRequest('/api/v1/admin/auctions/delete', { id: parseInt(auctionId) });
                             tg.showAlert('Лот удален.');
-                            initialize(); // Перезагружаем список
+                            initialize(); 
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
             }
             else if (card) {
-                // Клик по карточке "Создать"
                 showEditModal(null);
             }
-            return; // В режиме редактирования не даем нажимать обычные кнопки
+            return; 
         }
 
         // --- Логика для Пользователя ---
 
-        // Клик по кнопке "Сделать ставку"
         if (button?.matches('.bid-button')) {
             showBidModal(button.dataset.auctionId);
         }
 
-        // Клик по кнопке "История"
         if (button?.matches('.history-button')) {
             showHistoryModal(button.dataset.auctionId);
         }
-        
-        // (Логика закрытия крестиком была здесь, но теперь она вверху)
     });
 
-    // Клик по фону модалки
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
@@ -402,19 +414,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Отправка формы ставки
+    // --- ПУНКТ 1: Обновленный обработчик формы ставки ---
     dom.bidModalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
         const auctionId = parseInt(dom.bidAuctionIdInput.value);
-        const amount = parseInt(dom.bidAmountInput.value);
-        const minAmount = parseInt(dom.bidCurrentMinInput.value);
+        const amountInput = parseInt(dom.bidAmountInput.value);
+        
+        const auction = currentAuctions.find(a => a.id == auctionId);
+        if (!auction) return; // На всякий случай
 
-        if (isNaN(amount) || amount < minAmount) {
-            tg.showAlert(`Ваша ставка должна быть ${minAmount} 🎟️ или больше.`);
-            return;
+        const isLeader = userData.profile && (auction.current_highest_bidder_name === userData.profile.full_name);
+        
+        let finalBidAmount = 0;
+        let costToUser = 0;
+
+        if (isLeader) {
+            // Пользователь "добавляет"
+            if (isNaN(amountInput) || amountInput < 1) {
+                tg.showAlert("Сумма добавления должна быть 1 🎟️ или больше.");
+                return;
+            }
+            finalBidAmount = (auction.current_highest_bid || 0) + amountInput;
+            costToUser = finalBidAmount; // Пользователь должен иметь на балансе *итоговую* сумму
+        } else {
+            // Пользователь "перебивает"
+            const minAmount = parseInt(dom.bidCurrentMinInput.value);
+            finalBidAmount = amountInput;
+            if (isNaN(finalBidAmount) || finalBidAmount < minAmount) {
+                tg.showAlert(`Ваша ставка должна быть ${minAmount} 🎟️ или больше.`);
+                return;
+            }
+            costToUser = finalBidAmount;
         }
 
-        if (amount > (userData.tickets || 0)) {
+        // Общая проверка баланса
+        if (costToUser > (userData.tickets || 0)) {
             tg.showAlert('У вас недостаточно билетов для этой ставки.');
             return;
         }
@@ -422,35 +457,30 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await makeApiRequest('/api/v1/auctions/bid', {
                 auction_id: auctionId,
-                bid_amount: amount
+                bid_amount: finalBidAmount // Отправляем *итоговую* сумму
             });
             
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
-            
-            // Обновляем данные на странице
-            initialize(); 
+            initialize(); // Обновляем данные
 
         } catch (e) {
-            // Ошибка (н.п., "Ставка перебита") уже будет показана в makeApiRequest
             console.error(e);
-            // Перезагружаем, чтобы увидеть актуальную мин. ставку
+            // Ошибка уже показана в makeApiRequest, просто перезагружаем
             initialize();
         }
     });
     
     // --- НОВЫЕ ОБРАБОТЧИКИ ДЛЯ АДМИНКИ ---
     
-    // Кнопка "Редактировать"
     dom.editBtn.addEventListener('click', () => {
         isEditMode = !isEditMode;
         document.body.classList.toggle('edit-mode');
         dom.editBtn.textContent = isEditMode ? 'Закончить' : 'Редактировать';
         dom.editBtn.classList.toggle('active', isEditMode);
-        renderPage(currentAuctions); // Перерисовываем страницу с оверлеями
+        renderPage(currentAuctions); 
     });
 
-    // Форма Редактирования/Создания
     dom.editModalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const auctionId = dom.editAuctionId.value ? parseInt(dom.editAuctionId.value) : null;
@@ -459,7 +489,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let payload = {};
 
         if (auctionId) {
-            // Обновление
             url = '/api/v1/admin/auctions/update';
             payload = {
                 id: auctionId,
@@ -470,13 +499,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_visible: dom.editAuctionVisible.checked
             };
         } else {
-            // Создание
             url = '/api/v1/admin/auctions/create';
             payload = {
                 title: dom.editAuctionTitle.value,
                 image_url: dom.editAuctionImage.value,
                 bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value)
-                // is_active и is_visible по умолчанию false на сервере
             };
         }
         
@@ -484,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await makeApiRequest(url, payload);
             tg.showAlert(auctionId ? 'Лот обновлен' : 'Лот создан');
             hideModal(dom.editModal);
-            initialize(); // Перезагружаем
+            initialize(); 
         } catch(e) { /* Ошибка уже показана */ }
     });
 
@@ -494,16 +521,13 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initialize() {
         dom.loader.classList.remove('hidden');
         try {
-            // Загружаем данные пользователя (всегда)
             userData = await makeApiRequest('/api/v1/user/me', {}, 'POST');
             
             let auctionsData = [];
             if (userData.is_admin) {
-                // Админ-запрос
                 dom.adminControls.style.display = 'block';
                 auctionsData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST');
             } else {
-                // Публичный запрос
                 auctionsData = await makePublicGetRequest('/api/v1/auctions/list');
             }
             
