@@ -1205,7 +1205,6 @@ async def handle_twitch_webhook(
     
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ ---
 @app.post("/api/v1/admin/events/winners/details")
-@app.post("/api/v1/admin/events/winners/details")
 async def get_event_winners_details_for_admin(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -1213,6 +1212,7 @@ async def get_event_winners_details_for_admin(
     """
     (Админ) Возвращает ПОЛНЫЙ список победителей (из Розыгрышей и Аукционов)
     и их трейд-ссылки для модального окна.
+    (Версия 2: Приоритет Twitch-ника)
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
@@ -1255,21 +1255,23 @@ async def get_event_winners_details_for_admin(
         for auction in pending_auction_winners:
             winner_ids_to_fetch.add(auction['winner_id'])
 
-        # --- 3. Получаем Трейд-ссылки для ВСЕХ победителей ---
+        # --- 3. Получаем Трейд-ссылки и ТВИЧ-НИКИ для ВСЕХ победителей ---
         users_data = {}
         if winner_ids_to_fetch:
             users_resp = await supabase.get(
                 "users",
                 params={
                     "telegram_id": f"in.({','.join(map(str, winner_ids_to_fetch))})",
-                    "select": "telegram_id, trade_link, full_name"
+                    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                    "select": "telegram_id, trade_link, full_name, twitch_login"
                 }
             )
             users_resp.raise_for_status()
             users_data = {
                 user['telegram_id']: {
                     "trade_link": user.get('trade_link', 'Не указана'),
-                    "full_name": user.get('full_name', 'Неизвестно')
+                    "full_name": user.get('full_name', 'Неизвестно'),
+                    "twitch_login": user.get('twitch_login') # <-- ДОБАВЛЕНО
                 } for user in users_resp.json()
             }
 
@@ -1278,9 +1280,17 @@ async def get_event_winners_details_for_admin(
         # Победители Розыгрышей
         for event in pending_events_winners:
             user_details = users_data.get(event["winner_id"], {})
+            
+            # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+            # Приоритет: Твич-ник > Имя из JSON > Имя из `users` (Telegram)
+            display_name = user_details.get("twitch_login") or \
+                           event.get("winner_name") or \
+                           user_details.get("full_name") or \
+                           "Неизвестно"
+            
             winners_details.append({
                 "event_id": event.get("id"),
-                "winner_name": event.get("winner_name", user_details.get("full_name", "Неизвестно")),
+                "winner_name": display_name, # <-- ИСПОЛЬЗУЕМ НОВОЕ ИМЯ
                 "prize_title": f"[Розыгрыш] {event.get('title', 'Без названия')}",
                 "trade_link": user_details.get("trade_link", "Не указана"),
                 "prize_sent_confirmed": event.get("prize_sent_confirmed", False)
@@ -1289,9 +1299,17 @@ async def get_event_winners_details_for_admin(
         # Победители Аукционов
         for auction in pending_auction_winners:
             user_details = users_data.get(auction["winner_id"], {})
+            
+            # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+            # Приоритет: Твич-ник > Имя из `auctions` (Telegram) > Имя из `users` (Telegram)
+            display_name = user_details.get("twitch_login") or \
+                           auction.get("current_highest_bidder_name") or \
+                           user_details.get("full_name") or \
+                           "Неизвестно"
+                           
             winners_details.append({
                 "event_id": auction.get("id"),
-                "winner_name": auction.get("current_highest_bidder_name", user_details.get("full_name", "Неизвестно")),
+                "winner_name": display_name, # <-- ИСПОЛЬЗУЕМ НОВОЕ ИМЯ
                 "prize_title": f"[Аукцион] {auction.get('title', 'Без названия')}",
                 "trade_link": user_details.get("trade_link", "Не указана"),
                 "prize_sent_confirmed": auction.get("prize_sent_confirmed", False)
