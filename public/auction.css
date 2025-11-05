@@ -1,38 +1,54 @@
 /* auction.css */
+
+/* ⬇️ ИЗМЕНЕНИЕ 1: Новая цветовая палитра ⬇️
+*/
 :root {
-  --background-main: #100e19;
-  --surface-primary: #1c1a27;
-  --surface-secondary: #2a2738;
-  --border-color: #3c3852;
+  --background-main: #111111;     /* Темный фон */
+  --surface-primary: #1C1C1C;     /* Фон карточек */
+  --surface-secondary: #2C2C2C;   /* Фон доп. элементов */
+  --border-color: #333333;       /* Цвет рамок */
   --text-primary: #f0f0f5;
-  --text-secondary: #a09cb8;
-  --accent-primary: #00f2ea;
-  --accent-secondary: #d433ff;
+  --text-secondary: #AAAAAA;     /* Более нейтральный серый */
+  --accent-primary: #FFD700;     /* Золотой/желтый как главный акцент */
+  --accent-secondary: #FF9500;   /* Оранжевый для акцентов (из --warning-color) */
   --danger-color: #ff4d4d;
-  --success-color: #34c759; /* Для кнопки "Завершить" */
-  --warning-color: #ff9500; /* Для кнопки "Сбросить" */
-  --winner-color: #ffd700;
-  --card-default-border: #d433ff;
-  --card-default-bg: #2a2738;
+  --success-color: #34c759;
+  --warning-color: #ff9500;
+  --winner-color: #ffd700;       /* Цвет победителя - золотой */
+  --card-default-border: #FFD700; /* Бордюр карточки - золотой */
+  --card-default-bg: #222222;     /* Фон под картинкой (нейтральный) */
   --card-default-dots: rgba(240, 240, 245, 0.1);
 }
+/* ⬆️ ИЗМЕНЕНИЕ 1: Конец ⬆️
+*/
 
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ⬇️ ИЗМЕНЕНИЕ 2: Фон и базовый цвет ⬇️
+*/
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--background-main);
+  background-color: var(--background-main); /* Изменено */
   color: var(--text-primary);
   margin: 0;
-  padding: 10px 10px 80px; /* Уменьшено */
+  padding: 10px 10px 80px;
   overflow-x: hidden;
+  
+  /* --- ДОБАВЛЕНЫ СТИЛИ ФОНА --- */
+  background-image: url('https://i.postimg.cc/Dyks29xc/fon-variant1.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  /* --------------------------- */
 }
+/* ⬆️ ИЗМЕНЕНИЕ 2: Конец ⬆️
+*/
 
 body.browser-view {
-  padding-bottom: 10px; /* Уменьшено */
+  padding-bottom: 10px;
 }
 
 .container {
@@ -43,10 +59,10 @@ body.browser-view {
 .header-back-button {
     display: flex;
     align-items: center;
-    gap: 6px; /* Уменьшено */
+    gap: 6px;
     color: var(--text-secondary);
     text-decoration: none;
-    font-size: 12px; /* Уменьшено */
+    font-size: 12px;
     font-weight: 600;
     margin: 5px 0 15px;
     transition: color 0.2s ease;
@@ -55,21 +71,38 @@ body.browser-view {
     color: var(--text-primary);
 }
 .header-back-button i {
-    font-size: 10px; /* Уменьшено */
+    font-size: 10px;
 }
 
+/* ⬇️ ИЗМЕНЕНИЕ 3: Стили для нового заголовка ⬇️
+*/
+.page-header {
+    text-align: center;
+    margin: 10px 0 20px;
+}
+.page-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-primary); /* Желтый */
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
 .page-title {
-    font-size: 18px; /* Уменьшено */
+    font-size: 24px; /* Увеличено */
     font-weight: 700;
     text-align: center;
-    margin: 10px 0 15px; /* Уменьшено */
+    margin: 4px 0 15px; /* Скорректировано */
+    color: var(--text-primary); /* Белый */
 }
+/* ⬆️ ИЗМЕНЕНИЕ 3: Конец ⬆️
+*/
 
 .loader-spinner {
   width: 20px;
   height: 20px;
   border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: var(--accent-primary);
+  border-top-color: var(--accent-primary); /* Автоматически станет желтым */
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -83,14 +116,14 @@ body.browser-view {
 .auctions-container {
   display: grid;
   grid-template-columns: 1fr; 
-  gap: 12px; /* Уменьшено */
-  margin-bottom: 20px; /* Уменьшено */
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .auction-card {
   background-color: var(--surface-primary);
   border: 1px solid var(--border-color);
-  border-radius: 10px; /* Уменьшено */
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -99,11 +132,11 @@ body.browser-view {
 
 .card-display-area {
   position: relative;
-  border-radius: 9px 9px 0 0; /* Уменьшено */
+  border-radius: 9px 9px 0 0;
   overflow: hidden;
-  padding: 8px; /* Уменьшено */
+  padding: 8px;
   padding-bottom: 0;
-  background-color: var(--card-default-bg);
+  background-color: var(--card-default-bg); /* Изменено */
 }
 
 .card-display-area::before {
@@ -113,7 +146,7 @@ body.browser-view {
   left: 0;
   right: 0;
   height: 4px;
-  background: var(--accent-primary);
+  background: var(--accent-primary); /* Автоматически станет желтым */
   z-index: 4;
 }
 
@@ -134,7 +167,7 @@ body.browser-view {
 }
 
 .card-info-area {
-  padding: 12px; /* Уменьшено */
+  padding: 12px;
   text-align: left; 
   display: flex;
   flex-direction: column;
@@ -142,48 +175,46 @@ body.browser-view {
 }
 
 .event-title {
-  font-size: 16px; /* Уменьшено */
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 12px; /* Уменьшено */
+  margin: 0 0 12px;
 }
 
 .auction-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px; /* Уменьшено */
-    margin-bottom: 12px; /* Уменьшено */
+    gap: 8px;
+    margin-bottom: 12px;
 }
 .stat-item {
     background-color: var(--surface-secondary);
-    border-radius: 6px; /* Уменьшено */
-    padding: 8px; /* Уменьшено */
+    border-radius: 6px;
+    padding: 8px;
 }
 .stat-item-label {
-    font-size: 10px; /* Уменьшено */
+    font-size: 10px;
     color: var(--text-secondary);
     text-transform: uppercase;
     margin-bottom: 4px;
 }
 .stat-item-value {
-    font-size: 14px; /* Уменьшено */
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    /* --- НОВОЕ: Для иконок --- */
     display: flex;
     align-items: center;
 }
 .stat-item-value.timer {
-    color: var(--accent-primary);
+    color: var(--accent-primary); /* Автоматически станет желтым */
     font-weight: 700;
 }
 
-/* --- НОВЫЕ СТИЛИ ДЛЯ ИКОНОК --- */
 .twitch-icon {
-    color: #9146FF;
+    color: #9146FF; /* Оставим цвет Twitch */
     margin-right: 6px;
     font-size: 0.9em; 
 }
@@ -192,11 +223,9 @@ body.browser-view {
     margin-right: 6px;
     font-size: 0.9em;
 }
-/* ------------------------------- */
 
-/* Стили для "Премиального" победителя */
 .winner-block {
-    background-color: var(--winner-color);
+    background-color: var(--winner-color); /* Автоматически станет желтым */
     background: linear-gradient(135deg, var(--winner-color), #ffb700);
 }
 .winner-block .stat-item-label {
@@ -205,14 +234,13 @@ body.browser-view {
 }
 .winner-block .stat-item-value.winner-name {
     color: #000;
-    font-size: 15px; /* Уменьшено */
+    font-size: 15px;
     font-weight: 700;
 }
 .winner-name i {
     margin-right: 5px;
     opacity: 0.8;
 }
-/* --- НОВЫЕ СТИЛИ ДЛЯ ИКОНОК В БЛОКЕ ПОБЕДИТЕЛЯ --- */
 .winner-block .winner-name .fa-brands,
 .winner-block .winner-name .fa-solid {
     color: #000;
@@ -220,10 +248,9 @@ body.browser-view {
     margin-right: 6px;
 }
 .winner-block .winner-name .fa-trophy {
-    opacity: 1; /* Оставляем трофей ярким */
+    opacity: 1;
     color: #000;
 }
-/* ------------------------------------------- */
 
 .event-button-container {
   display: flex;
@@ -235,18 +262,18 @@ body.browser-view {
 .event-button,
 .history-button {
   flex: 1; 
-  padding: 9px; /* Уменьшено */
-  font-size: 12px; /* Уменьшено */
+  padding: 9px;
+  font-size: 12px;
   font-weight: 600;
   border: none;
-  border-radius: 6px; /* Уменьшено */
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .event-button {
-  background-color: var(--accent-primary);
-  color: #000;
+  background-color: var(--accent-primary); /* Автоматически станет желтым */
+  color: #000; /* Черный текст на желтом */
 }
 .event-button:disabled {
   background: var(--surface-secondary);
@@ -262,12 +289,16 @@ body.browser-view {
 .app-footer {
   display: flex;
   justify-content: space-around;
-  background-color: rgba(28, 26, 39, 0.8);
+  /* ⬇️ ИЗМЕНЕНИЕ 4: Фон футера ⬇️
+  */
+  background-color: rgba(17, 17, 17, 0.8); /* Сделаем фон темнее, как в :root */
+  /* ⬆️ ИЗМЕНЕНИЕ 4: Конец ⬆️
+  */
   backdrop-filter: blur(15px);
   border-top: 1px solid var(--border-color);
   width: 100%;
-  padding-top: 6px; /* Уменьшено */
-  padding-bottom: calc(6px + env(safe-area-inset-bottom)); /* Уменьшено */
+  padding-top: 6px;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom));
   position: fixed;
   bottom: 0;
   left: 0;
@@ -278,17 +309,17 @@ body.browser-view {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px; /* Уменьшено */
+  gap: 2px;
   color: var(--text-secondary);
-  font-size: 10px; /* Уменьшено */
+  font-size: 10px;
   text-decoration: none;
   flex: 1;
 }
 
 .footer-item .icon-wrapper {
-  font-size: 22px; /* Уменьшено */
-  width: 28px; /* Уменьшено */
-  height: 28px; /* Уменьшено */
+  font-size: 22px;
+  width: 28px;
+  height: 28px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -296,7 +327,7 @@ body.browser-view {
 
 .footer-item.active span,
 .footer-item.active .icon-wrapper {
-  color: var(--accent-primary);
+  color: var(--accent-primary); /* Автоматически станет желтым */
   font-weight: 600;
 }
 
@@ -307,22 +338,22 @@ body.browser-view {
 .info-blocks-container {
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Уменьшено */
+  gap: 12px;
 }
 
 .info-block {
   background-color: var(--surface-primary);
   border: 1px solid var(--border-color);
-  padding: 15px; /* Уменьшено */
-  border-radius: 10px; /* Уменьшено */
+  padding: 15px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
-  gap: 12px; /* Уменьшено */
+  gap: 12px;
 }
 
 .info-icon {
-  font-size: 20px; /* Уменьшено */
-  color: var(--accent-primary);
+  font-size: 20px;
+  color: var(--accent-primary); /* Автоматически станет желтым */
   flex-shrink: 0;
 }
 
@@ -333,12 +364,12 @@ body.browser-view {
 .info-title {
   color: var(--text-primary);
   margin: 0 0 5px;
-  font-size: 14px; /* Уменьшено */
+  font-size: 14px;
   font-weight: 600;
 }
 
 .info-description {
-  font-size: 12px; /* Уменьшено */
+  font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
@@ -362,7 +393,7 @@ body.browser-view {
   background-color: var(--surface-primary);
   border: 1px solid var(--border-color);
   padding: 0;
-  border-radius: 12px; /* Уменьшено */
+  border-radius: 12px;
   width: 90%;
   max-width: 340px; 
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
@@ -373,7 +404,7 @@ body.browser-view {
 }
 
 .modal-header {
-  padding: 12px 15px; /* Уменьшено */
+  padding: 12px 15px;
   user-select: none;
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -398,7 +429,7 @@ body.browser-view {
 
 .modal-body {
   overflow-y: auto;
-  padding: 15px; /* Уменьшено */
+  padding: 15px;
 }
 
 .modal-form {
@@ -409,27 +440,27 @@ body.browser-view {
 
 .modal-form input {
   width: 100%;
-  padding: 10px; /* Уменьшено */
+  padding: 10px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
   background-color: var(--surface-secondary);
   color: var(--text-primary);
-  font-size: 14px; /* Уменьшено */
+  font-size: 14px;
 }
 
 .modal-form button {
-  background: var(--accent-primary);
+  background: var(--accent-primary); /* Автоматически станет желтым */
   border: none;
-  padding: 10px; /* Уменьшено */
+  padding: 10px;
   border-radius: 10px;
-  color: #000;
-  font-size: 14px; /* Уменьшено */
+  color: #000; /* Черный текст */
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .modal-form label {
-  font-size: 13px; /* Уменьшено */
+  font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: -10px;
 }
@@ -444,14 +475,14 @@ body.browser-view {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px; /* Уменьшено */
+  padding: 8px;
   border-bottom: 1px solid var(--border-color);
 }
 .participant-item:last-child {
   border-bottom: none;
 }
 .participant-name {
-  font-size: 13px; /* Уменьшено */
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
   flex-grow: 1;
@@ -459,18 +490,17 @@ body.browser-view {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* --- НОВОЕ: Для иконок --- */
   display: flex;
   align-items: center;
 }
 .participant-tickets {
-  font-size: 13px; /* Уменьшено */
+  font-size: 13px;
   font-weight: 600;
-  color: var(--accent-primary);
+  color: var(--accent-primary); /* Автоматически станет желтым */
   padding-left: 10px;
 }
 .participant-rank { 
-  font-size: 11px; /* Уменьшено */
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-secondary);
   min-width: 50px;
@@ -484,11 +514,13 @@ body.browser-view {
 }
 .spinner {
     width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3);
-    border-top-color: var(--accent-primary); border-radius: 50%;
+    border-top-color: var(--accent-primary); /* Автоматически станет желтым */
+    border-radius: 50%;
     animation: spin 1s linear infinite;
 }
 
-/* Стили для админки */
+/* ⬇️ ИЗМЕНЕНИЕ 5: Стили админки ⬇️
+*/
 .admin-controls {
     position: fixed;
     bottom: calc(60px + env(safe-area-inset-bottom) + 15px);
@@ -498,20 +530,23 @@ body.browser-view {
 }
 
 .admin-controls button {
-    background: linear-gradient(90deg, var(--accent-secondary), #ff70ab);
-    color: white;
-    padding: 8px 16px; /* Уменьшено */
+    background: var(--accent-primary); /* Желтый */
+    color: #000; /* Черный текст */
+    padding: 8px 16px;
     border-radius: 20px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     border: none;
-    font-size: 13px; /* Уменьшено */
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, background-color 0.2s ease;
 }
 .admin-controls button.active {
-    background: #007aff;
+    background: #007aff; /* Оставим синий для режима "Активно" */
+    color: white;
 }
+/* ⬆️ ИЗМЕНЕНИЕ 5: Конец ⬆️
+*/
 
 .admin-controls button:hover {
     transform: scale(1.05);
@@ -519,7 +554,7 @@ body.browser-view {
 
 .auction-card.admin-card {
     position: relative;
-    border: 1px dashed var(--accent-secondary);
+    border: 1px dashed var(--accent-secondary); /* Оранжевый */
 }
 .auction-card.admin-hidden {
     border-style: dashed;
@@ -573,9 +608,8 @@ body.browser-view {
 .card-finish-btn {
     background-color: var(--success-color);
 }
-/* НОВЫЙ СТИЛЬ ДЛЯ КНОПКИ СБРОСА */
 .card-reset-btn {
-    background-color: var(--warning-color); /* Оранжевый */
+    background-color: var(--warning-color); /* Автоматически станет оранжевым */
 }
 .card-delete-btn {
     background-color: var(--danger-color);
@@ -595,8 +629,8 @@ body.browser-view {
     gap: 10px;
 }
 .create-auction-card:hover {
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
+    border-color: var(--accent-primary); /* Желтый */
+    color: var(--accent-primary); /* Желтый */
 }
 
 .checkbox-container {
@@ -610,7 +644,7 @@ body.browser-view {
 .checkbox-container input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    accent-color: var(--accent-primary);
+    accent-color: var(--accent-primary); /* Желтый */
 }
 .checkbox-container label {
     font-size: 15px;
