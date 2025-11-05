@@ -134,9 +134,7 @@ body.browser-view {
   padding-top: 60%; 
   position: relative;
   z-index: 3;
-  background-image: 
-    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
-    url('https://i.postimg.cc/sDGrJ8z6/fon-variant2.png');
+  background-color: #000; /* Ставим чистый черный фон */
   background-size: cover;
   background-position: center;
   border-radius: 8px;
