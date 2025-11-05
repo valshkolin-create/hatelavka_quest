@@ -134,18 +134,34 @@ body.browser-view {
   padding-top: 60%; 
   position: relative;
   z-index: 3;
-  
-  /* ⬇️ ИЗМЕНЕНИЕ: Текстура затемнена через 'linear-gradient' ⬇️ */
   background-image: 
-    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), /* 40% затемнение */
+    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
     url('https://i.postimg.cc/sDGrJ8z6/fon-variant2.png');
-  /* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
-  
   background-size: cover;
   background-position: center;
   border-radius: 8px;
   overflow: hidden;
 }
+
+/* ⬇️ ИЗМЕНЕНИЕ: Оверлей с шумом поверх скина ⬇️ */
+.event-image-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Используем готовую tile-текстуру шума */
+    background-image: url('https://i.postimg.cc/zBfMGdk5/a23995549ce7536fb62487905bbd28e0.jpg');
+    background-size: 100px; /* Размер тайла */
+    background-repeat: repeat;
+    opacity: 0.05; /* Едва заметный шум */
+    pointer-events: none; /* Не мешает parallax-эффекту */
+    mix-blend-mode: overlay; /* Хорошо смешивает шум с картинкой */
+    border-radius: 8px; /* Повторяем скругление контейнера */
+}
+/* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
+
 
 .event-image {
   position: absolute;
@@ -155,6 +171,9 @@ body.browser-view {
   height: 100%;
   object-fit: contain;
   transition: transform 0.1s ease-out;
+  /* ⬇️ ИЗМЕНЕНИЕ: Добавляем "резкость" ⬇️ */
+  filter: contrast(115%); 
+  /* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 }
 
 .card-info-area {
