@@ -1455,34 +1455,33 @@ async def get_auction_history(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Возвращает 10 последних ставок для лота, объединяя с именами пользователей. (ИСПРАВЛЕНО v2)
+    (ИСПРАВЛЕНО) Возвращает 10 ЛУЧШИХ УНИКАЛЬНЫХ ставок (лидерборд) для лота,
+    используя RPC-функцию get_auction_leaderboard.
     """
     try:
-        resp = await supabase.get(
-            "/auction_bids",
-            params={
-                "auction_id": f"eq.{auction_id}",
-                "select": "bid_amount, created_at, user:users(full_name, twitch_login)", 
-                "order": "created_at.desc", # Новые сверху
-                "limit": 10
-            }
+        # 1. Вызываем "умную" RPC-функцию, которая делает всю работу
+        resp = await supabase.post(
+            "/rpc/get_auction_leaderboard",
+            json={"p_auction_id": auction_id}
         )
         resp.raise_for_status()
+        
+        leaderboard_data = resp.json()
+        
+        # 2. Форматируем ответ в {bid_amount, user},
+        #    который ожидает наш обновленный JavaScript
+        formatted_leaderboard = [
+            {
+                "bid_amount": item.get("highest_bid"),
+                "user": item.get("user_info") 
+            }
+            for item in leaderboard_data
+        ]
 
-        # --- ИЗМЕНЕНИЕ 3: Возвращаем объект user как есть ---
-        history = []
-        for bid in resp.json():
-            history.append({
-                "bid_amount": bid["bid_amount"],
-                "created_at": bid["created_at"],
-                "user": bid.get("user") # JS сам разберет этот объект
-            })
-
-        return history
-        # --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
+        return formatted_leaderboard
 
     except Exception as e:
-        logging.error(f"Ошибка при получении истории аукциона {auction_id}: {e}", exc_info=True)
+        logging.error(f"Ошибка при получении истории аукциона (RPC) {auction_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить историю.")
         
 # --- НОВЫЕ ЭНДПОИНТЫ: АДМИНКА АУКЦИОНА ---
