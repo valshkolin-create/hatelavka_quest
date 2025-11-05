@@ -50,12 +50,73 @@
     </div>
   
     <div id="bid-modal" class="modal-overlay hidden">
-         </div>
-    <div id="bids-history-modal" class="modal-overlay hidden">
-         </div>
-    <div id="auction-edit-modal" class="modal-overlay hidden">
-         </div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="bid-modal-title" style="margin: 0;">Сделать ставку</h3>
+                <button type="button" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 14px; color: var(--text-secondary);">
+                    Ваш баланс: <strong id="user-balance-display" style="color: var(--text-primary);">0</strong> 🎟️
+                </p>
+                <form id="bid-modal-form" class="modal-form">
+                    <input type="hidden" id="bid-auction-id-input">
+                    <input type="hidden" id="bid-current-min-input"> 
+                    <label>Ваша ставка (билеты)</label>
+                    <input type="number" id="bid-amount-input" required min="1" placeholder="Больше чем...">
+                    <button type="submit">Подтвердить</button>
+                </form>
+            </div>
+        </div>
+    </div>
 
+    <div id="bids-history-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="bids-history-modal-title" style="margin: 0;">История ставок</h3>
+                <button type="button" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <ul id="bids-history-list">
+                    </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="auction-edit-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="auction-edit-modal-title" style="margin: 0;">Редактировать лот</h3>
+                <button type="button" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="auction-edit-form" class="modal-form">
+                    <input type="hidden" id="auction-id-input">
+                    
+                    <label>Название лота</label>
+                    <input type="text" id="auction-title-input" required>
+                    
+                    <label>URL картинки</label>
+                    <input type="text" id="auction-image-input" placeholder="https://...">
+                    
+                    <label>Кулдаун (часы)</label>
+                    <input type="number" id="auction-cooldown-input" value="4" min="1" required>
+                    
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="auction-active-input">
+                        <label for="auction-active-input">Активен (запускает таймер)</label>
+                    </div>
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="auction-visible-input">
+                        <label for="auction-visible-input">Виден пользователям</label>
+                    </div>
+
+                    <button type="submit">Сохранить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+  
     <div id="admin-controls" class="admin-controls" style="display: none;">
         <div class="admin-toggle-switch">
             <input type="checkbox" id="edit-mode-toggle">
