@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     displayName = auction.bidder.twitch_login;
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
                 } else {
-                    displayName = auction.bidder.full_name || 'Аноним';
+                    displayName = auction.bidder.full_name || 'ㅤ';
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
