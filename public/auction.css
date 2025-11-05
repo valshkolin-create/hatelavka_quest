@@ -223,6 +223,33 @@ body.browser-view {
     font-weight: 700;
 }
 
+/* ⬇️ ⬇️ ⬇️ НОВЫЙ БЛОК СТИЛЕЙ ⬇️ ⬇️ ⬇️ */
+.my-bid-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 15px; /* Отступ до кнопок */
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.my-bid-stats .stat-item {
+    background-color: rgba(0, 0, 0, 0.1); 
+}
+
+/* Ваша ставка/место подсвечиваются оранжевым */
+.my-bid-stats .stat-item-value {
+     color: var(--accent-secondary); 
+     font-weight: 700;
+}
+
+/* Если вы лидер, ваше место подсвечивается как таймер (золотым) */
+.my-bid-stats .stat-item-value.timer {
+    color: var(--accent-primary);
+}
+/* ⬆️ ⬆️ ⬆️ КОНЕЦ НОВОГО БЛОКА ⬆️ ⬆️ ⬆️ */
+
+
 .twitch-icon {
     color: #9146FF;
     margin-right: 6px;
