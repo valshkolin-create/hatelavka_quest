@@ -215,7 +215,10 @@
         #promo-image {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            /* 1. Уменьшаем, чтобы поместилась */
+            object-fit: contain; 
+            /* 2. Добавляем черный фон для полей */
+            background-color: #000; 
         }
     </style>
 </head>
