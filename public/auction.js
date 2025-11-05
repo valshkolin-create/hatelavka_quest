@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isEnded && (auction.bidder || auction.current_highest_bidder_name)) {
                 leaderOrWinnerHtml = `
-                    <div class="stat-item winner-block" style="margin-bottom: 12px;"> {/* ⬅️ ИЗМЕНЕНИЕ 1: 15px -> 12px */}
+                    <div class="stat-item winner-block" style="margin-bottom: 12px;">
                         <div class="stat-item-label">Победитель</div>
                         <div class="stat-item-value winner-name">
                             <i class="fa-solid fa-trophy"></i>
@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else {
                 leaderOrWinnerHtml = `
-                    <div class="stat-item" style="margin-bottom: 12px;"> {/* ⬅️ ИЗМЕНЕНИЕ 1: 15px -> 12px */}
+                    <div class="stat-item" style="margin-bottom: 12px;">
                         <div class="stat-item-label">${isEnded ? 'Победитель' : 'Лидер'}</div>
                         <div class="stat-item-value">
                             ${iconHtml}
@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     ${leaderOrWinnerHtml} 
 
-                    ${myBidHtml} {/* ⬅️ ⬅️ ⬅️ ИЗМЕНЕНИЕ 3: ВСТАВЛЕН БЛОК "ВАША СТАВКА" */}
+                    ${myBidHtml}
 
                     <div class="event-button-container">
                         <button class="history-button" data-auction-id="${auction.id}">Топ по ставкам</button>
