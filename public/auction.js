@@ -187,17 +187,17 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 
             // ⬇️ ЛОГИКА ОТОБРАЖЕНИЯ ЛИДЕРА (ВКЛЮЧАЯ TWITCH) ⬇️
-            // (Этот код уже был в твоем файле, он корректен)
+            // (Этот код УЖЕ корректно показывает Twitch-ник в приоритете)
             //
             let leaderOrWinnerHtml = '';
             
             let displayName = 'Нет ставок';
             let iconHtml = '';
             
+            // 'bidder' - это объект {full_name, twitch_login}, который приходит от RPC
             if (isEnded && !auction.bidder && !auction.current_highest_bidder_name) {
                 displayName = 'Не определен';
             } else if (auction.bidder) {
-                // 'bidder' - это объект {full_name, twitch_login}
                 if (auction.bidder.twitch_login) {
                     displayName = auction.bidder.twitch_login;
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
@@ -206,14 +206,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
-                // Фоллбэк на старое поле
+                // Фоллбэк на старое поле, если 'bidder' по какой-то причине null
                 displayName = auction.current_highest_bidder_name;
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
 
             if (isEnded && (auction.bidder || auction.current_highest_bidder_name)) {
                 leaderOrWinnerHtml = `
-                    <div class="stat-item winner-block" style="margin-bottom: 15px;">
+                    <div class="stat-item winner-block" style="margin-bottom: 12px;"> {/* ⬅️ ИЗМЕНЕНИЕ 1: 15px -> 12px */}
                         <div class="stat-item-label">Победитель</div>
                         <div class="stat-item-value winner-name">
                             <i class="fa-solid fa-trophy"></i>
@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else {
                 leaderOrWinnerHtml = `
-                    <div class="stat-item" style="margin-bottom: 15px;">
+                    <div class="stat-item" style="margin-bottom: 12px;"> {/* ⬅️ ИЗМЕНЕНИЕ 1: 15px -> 12px */}
                         <div class="stat-item-label">${isEnded ? 'Победитель' : 'Лидер'}</div>
                         <div class="stat-item-value">
                             ${iconHtml}
@@ -235,6 +235,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             //
             // ⬆️ КОНЕЦ ЛОГИКИ ОТОБРАЖЕНИЯ ЛИДЕРА ⬆️
+            //
+
+            //
+            // ⬇️ ⬇️ ⬇️ ИЗМЕНЕНИЕ 2: НОВЫЙ БЛОК "ВАША СТАВКА" ⬇️ ⬇️ ⬇️
+            //
+            let myBidHtml = '';
+            const isUserBanned = userData.profile && userData.profile.is_banned;
+            
+            // Эти поля (user_bid_amount, user_bid_rank) теперь приходят
+            // от API в объекте `auction` благодаря новой RPC-функции.
+            if (!isEnded && !isUserBanned && auction.user_bid_amount > 0 && auction.user_bid_rank > 0) {
+                
+                // Проверяем, является ли пользователь лидером
+                const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+
+                myBidHtml = `
+                    <div class="my-bid-stats">
+                        <div class="stat-item">
+                            <div class="stat-item-label">Ваша ставка</div>
+                            <div class="stat-item-value">${auction.user_bid_amount} 🎟️</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-item-label">Ваше место</div>
+                            <div class="stat-item-value ${isLeader ? 'timer' : ''}">
+                                ${isLeader ? '<i class="fa-solid fa-crown" style="font-size: 0.8em; margin-right: 5px;"></i>' : ''}
+                                #${auction.user_bid_rank}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            //
+            // ⬆️ ⬆️ ⬆️ КОНЕЦ НОВОГО БЛОКА ⬆️ ⬆️ ⬆️
             //
 
             card.innerHTML = `
@@ -259,6 +292,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     
                     ${leaderOrWinnerHtml} 
+
+                    ${myBidHtml} {/* ⬅️ ⬅️ ⬅️ ИЗМЕНЕНИЕ 3: ВСТАВЛЕН БЛОК "ВАША СТАВКА" */}
 
                     <div class="event-button-container">
                         <button class="history-button" data-auction-id="${auction.id}">Топ по ставкам</button>
@@ -637,7 +672,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dom.adminControls) dom.adminControls.style.display = 'block';
                 auctionsData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', false);
             } else {
-                auctionsData = await makePublicGetRequest('/api/v1/auctions/list', false);
+                //
+                // ⬇️ ⬇️ ⬇️ ИЗМЕНЕНИЕ 4: Заменяем GET на POST (makeApiRequest) ⬇️ ⬇️ ⬇️
+                //
+                // Старый код:
+                // auctionsData = await makePublicGetRequest('/api/v1/auctions/list', false);
+                //
+                // Новый код (отправляет initData, чтобы бэкенд мог найти ранг):
+                auctionsData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
+                //
+                // ⬆️ ⬆️ ⬆️ КОНЕЦ ИЗМЕНЕНИЯ 4 ⬆️ ⬆️ ⬆️
+                //
             }
             
             renderPage(auctionsData || []);
