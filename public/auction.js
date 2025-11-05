@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${leaderOrWinnerHtml} 
 
                     <div class="event-button-container">
-                        <button class="history-button" data-auction-id="${auction.id}">История</button>
+                        <button class="history-button" data-auction-id="${auction.id}">Топ по ставкам</button>
                         <button class="event-button bid-button" data-auction-id="${auction.id}" ${isDisabled}>
                             ${isEnded ? 'Завершен' : 'Сделать ставку'}
                         </button>
