@@ -32,7 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
         historyList: document.getElementById('bids-history-list'),
 
         adminControls: document.getElementById('admin-controls'),
-        editBtn: document.getElementById('edit-btn'),
+        // ⬇️ ИЗМЕНЕНИЕ: 'editBtn' заменен на 'editToggle' ⬇️
+        editToggle: document.getElementById('edit-mode-toggle'), 
+        // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
         
         editModal: document.getElementById('auction-edit-modal'),
         editModalTitle: document.getElementById('auction-edit-modal-title'),
@@ -52,16 +54,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
 
-    // 
-    // ⬇️ ИЗМЕНЕНИЕ 1: Решение проблемы "бесконечной загрузки" ⬇️
-    //
-    async function makeApiRequest(url, body = {}, method = 'POST', showLoader = true) { // <--- Добавлен параметр showLoader
-        if (showLoader) dom.loader.classList.remove('hidden'); // <--- Добавлена проверка
+    async function makeApiRequest(url, body = {}, method = 'POST', showLoader = true) {
+        if (showLoader) dom.loader.classList.remove('hidden');
         try {
             const options = {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                cache: 'no-store' // Отключаем кэш
+                cache: 'no-store'
             };
             
             if (method.toUpperCase() !== 'GET') {
@@ -85,14 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert(e.message);
             throw e;
         } finally {
-            if (showLoader) dom.loader.classList.add('hidden'); // <--- Добавлена проверка
+            if (showLoader) dom.loader.classList.add('hidden');
         }
     }
     
-    async function makePublicGetRequest(url, showLoader = true) { // <--- Добавлен параметр showLoader
-        if (showLoader) dom.loader.classList.remove('hidden'); // <--- Добавлена проверка
+    async function makePublicGetRequest(url, showLoader = true) {
+        if (showLoader) dom.loader.classList.remove('hidden');
         try {
-            const response = await fetch(url, { cache: 'no-store' }); // Отключаем кэш
+            const response = await fetch(url, { cache: 'no-store' });
             const result = await response.json();
             if (!response.ok) {
                 throw new Error(result.detail || 'Произошла ошибка');
@@ -102,12 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert(e.message);
             throw e;
         } finally {
-            if (showLoader) dom.loader.classList.add('hidden'); // <--- Добавлена проверка
+            if (showLoader) dom.loader.classList.add('hidden');
         }
     }
-    //
-    // ⬆️ ИЗМЕНЕНИЕ 1: Конец ⬆️
-    //
 
 
     function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
@@ -193,14 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let leaderOrWinnerHtml = '';
             
-            // Определяем имя и иконку
             let displayName = 'Нет ставок';
             let iconHtml = '';
             
             if (isEnded && !auction.bidder && !auction.current_highest_bidder_name) {
                 displayName = 'Не определен';
             } else if (auction.bidder) {
-                // 'bidder' - это объект {full_name, twitch_login}, который мы получили из Supabase
                 if (auction.bidder.twitch_login) {
                     displayName = auction.bidder.twitch_login;
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
@@ -209,7 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
-                // Фоллбэк на старое поле (только TG имя, без twitch)
                 displayName = auction.current_highest_bidder_name;
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
@@ -274,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (auction.bid_cooldown_ends_at && !isEnded) {
                 const timerElement = document.getElementById(timerId);
                 startCountdown(timerElement, auction.bid_cooldown_ends_at, `auction-${auction.id}`, () => {
-                    initialize(false); // <--- Передаем false, чтобы не было двойного лоадера
+                    initialize(false); 
                 });
             }
         });
@@ -286,6 +279,42 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.auctionsList.appendChild(createCard);
         }
     }
+
+    //
+    // ⬇️ НОВАЯ ФУНКЦИЯ: Parallax-эффект ⬇️
+    //
+    function initializeParallax() {
+        // Находим все контейнеры изображений, которые мы хотим анимировать
+        const cards = document.querySelectorAll('.event-image-container');
+        
+        cards.forEach(card => {
+            const image = card.querySelector('.event-image');
+            if (!image) return;
+
+            // Добавляем слушатель движения мыши
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                // Находим позицию курсора относительно центра элемента
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+
+                // Вычисляем угол наклона (максимум 8 градусов)
+                const rotateX = (y / (rect.height / 2)) * -8;
+                const rotateY = (x / (rect.width / 2)) * 8;
+
+                // Применяем 3D-трансформацию к самому изображению
+                image.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)`;
+            });
+
+            // Когда мышь уходит, сбрасываем эффект
+            card.addEventListener('mouseleave', () => {
+                image.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale(1)';
+            });
+        });
+    }
+    //
+    // ⬆️ НОВАЯ ФУНКЦИЯ: Конец ⬆️
+    //
 
     // --- Модальные окна ---
 
@@ -335,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showModal(dom.historyModal);
         
         try {
-            // Используем showLoader = false, т.к. модальное окно уже открыто
             const history = await makePublicGetRequest(`/api/v1/auctions/history/${auctionId}`, false); 
             
             if (!history || history.length === 0) {
@@ -406,7 +434,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hideModal(modal) {
         modal.classList.add('hidden');
-        if (userData.is_admin) dom.adminControls.style.display = 'block';
+        if (userData.is_admin && dom.adminControls) { // Добавлена проверка на dom.adminControls
+            dom.adminControls.style.display = 'block';
+        }
     }
 
     // --- Обработчики событий ---
@@ -437,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             const result = await makeApiRequest('/api/v1/admin/auctions/clear_participants', { id: parseInt(auctionId) });
                             tg.showAlert(result.message || 'Лот сброшен и пересоздан.');
-                            initialize(true); // Перезагружаем список (с лоадером)
+                            initialize(true);
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
@@ -531,7 +561,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
-            // Используем лоадер по умолчанию (true)
             await makeApiRequest('/api/v1/auctions/bid', {
                 auction_id: auctionId,
                 bid_amount: finalBidAmount 
@@ -539,21 +568,23 @@ document.addEventListener('DOMContentLoaded', () => {
             
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
-            initialize(false); // Перезагружаем без главного лоадера, т.к. makeApiRequest свой показал
+            initialize(false); 
 
         } catch (e) {
             console.error(e);
-            initialize(false); // Перезагружаем на случай ошибки
+            initialize(false);
         }
     });
     
-    dom.editBtn.addEventListener('click', () => {
-        isEditMode = !isEditMode;
-        document.body.classList.toggle('edit-mode');
-        dom.editBtn.textContent = isEditMode ? 'Закончить' : 'Редактировать';
-        dom.editBtn.classList.toggle('active', isEditMode);
-        renderPage(currentAuctions); 
-    });
+    // ⬇️ ИЗМЕНЕНИЕ: Обработчик для нового 'editToggle' ⬇️
+    if (dom.editToggle) {
+        dom.editToggle.addEventListener('change', () => {
+            isEditMode = dom.editToggle.checked;
+            renderPage(currentAuctions); // Перерисовываем страницу с админ-элементами или без них
+            initializeParallax(); // Повторно применяем Parallax к новым карточкам
+        });
+    }
+    // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
 
     dom.editModalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -584,25 +615,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
-            await makeApiRequest(url, payload); // Показываем лоадер
+            await makeApiRequest(url, payload);
             tg.showAlert(auctionId ? 'Лот обновлен' : 'Лот создан');
             hideModal(dom.editModal);
-            initialize(false); // Обновляем список без главного лоадера
+            initialize(false); 
         } catch(e) { /* Ошибка уже показана */ }
     });
 
 
     // --- Инициализация ---
 
-    //
-    // ⬇️ ИЗМЕНЕНИЕ 2: Главная функция инициализации теперь управляет лоадером ⬇️
-    //
-    async function initialize(showMainLoader = true) { // <--- Добавлен параметр
+    async function initialize(showMainLoader = true) {
         if (showMainLoader) {
-            dom.loader.classList.remove('hidden'); // Показываем главный лоадер
+            dom.loader.classList.remove('hidden');
         }
         try {
-            // Передаем 'false', чтобы эти вызовы НЕ управляли загрузчиком
             userData = await makeApiRequest('/api/v1/user/me', {}, 'POST', false);
             
             let auctionsData = [];
@@ -614,6 +641,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             renderPage(auctionsData || []);
+            
+            // ⬇️ ИЗМЕНЕНИЕ: Вызываем Parallax после отрисовки ⬇️
+            initializeParallax();
+            // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
 
         } catch (e) {
             console.error("Критическая ошибка при загрузке страницы", e);
@@ -622,13 +653,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } finally {
             if (showMainLoader) {
-                dom.loader.classList.add('hidden'); // Прячем главный лоадер
+                dom.loader.classList.add('hidden');
             }
         }
     }
-    //
-    // ⬆️ ИЗМЕНЕНИЕ 2: Конец ⬆️
-    //
 
-    initialize(true); // Первый запуск с главным лоадером
+    initialize(true);
 });
