@@ -44,8 +44,8 @@
             position: absolute;
             bottom: 0;
             left: 0;
-            width: 450px;
-            height: 191px; 
+            width: 600px;
+            height: 240px; 
             /* Фон темнее (почти черный) + стекло */
             background-color: rgba(18, 18, 18, 0.85); 
             backdrop-filter: blur(15px);
@@ -68,12 +68,12 @@
         .header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
         .header-title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-primary); }
         .header-timer { font-size: 20px; font-weight: 700; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; }
-        .content-body { display: flex; padding: 15px; gap: 15px; }
+        .content-body { display: flex; padding: 20px; gap: 20px; }
         
         /* Редизайн скина (Текстура, Шум, Резкость) */
         .skin-container { 
-            width: 120px;
-            height: 90px;
+            width: 200px;
+            height: 150px;
             background-image: 
                 linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
                 url('https://i.postimg.cc/sDGrJ8z6/fon-variant2.png');
@@ -116,25 +116,25 @@
             justify-content: flex-start;
             flex-grow: 1; 
             min-width: 0; 
-            gap: 4px;
+            gap: 8px; /* <-- ИЗМЕНЕНО С 4px */
         }
         .bidders-title {
-            font-size: 14px;
+            font-size: 16px; /* <-- ИЗМЕНЕНО С 14px */
             font-weight: 700;
             color: var(--text-secondary);
-            margin-bottom: 5px;
+            margin-bottom: 8px; /* <-- ИЗМЕНЕНО С 5px */
             text-align: center;
             text-transform: uppercase;
         }
         .bidder-item { 
             display: flex; 
             align-items: center; 
-            gap: 8px;
+            gap: 10px; /* <-- ИЗМЕНЕНО С 8px */
         }
         .bidder-rank { 
-            font-size: 15px;
+            font-size: 18px; /* <-- ИЗМЕНЕНО С 15px */
             font-weight: 900; 
-            width: 25px; 
+            width: 30px; /* <-- ИЗМЕНЕНО С 25px */
             text-align: right; 
             flex-shrink: 0; 
             color: var(--text-secondary);
@@ -145,7 +145,7 @@
 
         /* Стили для иконок Twitch */
         .bidder-name { 
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 700; 
             white-space: nowrap; 
             overflow: hidden; 
@@ -162,7 +162,7 @@
         .user-icon { color: var(--text-secondary); }
 
         .bidder-amount { 
-            font-size: 13px;
+            font-size: 16px;
             font-weight: 700; 
             color: var(--accent-primary);
             flex-shrink: 0; 
@@ -245,7 +245,7 @@
         </div>
 
         <div id="promo-overlay" class="promo-overlay">
-            <img id="promo-image" src="https://i.postimg.cc/Pr4dJ7WT/aukcion-obs.png" alt="Promo">
+            <img id="promo-image" src="https://i.postimg.cc/0QQWscYC/600h240.png" alt="Promo">
         </div>
 
     </div> 
