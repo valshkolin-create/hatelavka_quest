@@ -32,9 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         historyList: document.getElementById('bids-history-list'),
 
         adminControls: document.getElementById('admin-controls'),
-        // ⬇️ ИЗМЕНЕНИЕ: 'editBtn' заменен на 'editToggle' ⬇️
         editToggle: document.getElementById('edit-mode-toggle'), 
-        // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
         
         editModal: document.getElementById('auction-edit-modal'),
         editModalTitle: document.getElementById('auction-edit-modal-title'),
@@ -126,9 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const h = Math.floor(distance / 3600000); // Часы
-            const m = Math.floor((distance % 3600000) / 60000); // Минуты
-            const s = Math.floor((distance % 60000) / 1000); // Секунды
+            const h = Math.floor(distance / 3600000);
+            const m = Math.floor((distance % 3600000) / 60000);
+            const s = Math.floor((distance % 60000) / 1000);
             
             timerElement.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         };
@@ -281,29 +279,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     //
-    // ⬇️ НОВАЯ ФУНКЦИЯ: Parallax-эффект ⬇️
+    // ⬇️ ИЗМЕНЕНИЕ: Parallax-эффект (только влево-вправо) ⬇️
     //
     function initializeParallax() {
-        // Находим все контейнеры изображений, которые мы хотим анимировать
         const cards = document.querySelectorAll('.event-image-container');
         
         cards.forEach(card => {
             const image = card.querySelector('.event-image');
             if (!image) return;
 
-            // Добавляем слушатель движения мыши
             card.addEventListener('mousemove', (e) => {
                 const rect = card.getBoundingClientRect();
-                // Находим позицию курсора относительно центра элемента
+                // Находим позицию курсора по X
                 const x = e.clientX - rect.left - rect.width / 2;
-                const y = e.clientY - rect.top - rect.height / 2;
-
-                // Вычисляем угол наклона (максимум 8 градусов)
-                const rotateX = (y / (rect.height / 2)) * -8;
+                
+                // Вычисляем угол наклона (максимум 8 градусов) только для Y
                 const rotateY = (x / (rect.width / 2)) * 8;
 
-                // Применяем 3D-трансформацию к самому изображению
-                image.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)`;
+                // Применяем 3D-трансформацию (rotateX теперь 0)
+                image.style.transform = `perspective(1000px) rotateX(0deg) rotateY(${rotateY}deg) scale(1.05)`;
             });
 
             // Когда мышь уходит, сбрасываем эффект
@@ -313,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     //
-    // ⬆️ НОВАЯ ФУНКЦИЯ: Конец ⬆️
+    // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
     //
 
     // --- Модальные окна ---
@@ -434,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hideModal(modal) {
         modal.classList.add('hidden');
-        if (userData.is_admin && dom.adminControls) { // Добавлена проверка на dom.adminControls
+        if (userData.is_admin && dom.adminControls) {
             dom.adminControls.style.display = 'block';
         }
     }
@@ -452,7 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = target.closest('button');
         const card = target.closest('.create-auction-card');
 
-        // --- Логика для Админа ---
         if (isEditMode) {
             if (button?.matches('.card-edit-btn')) {
                 e.stopPropagation();
@@ -576,15 +569,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // ⬇️ ИЗМЕНЕНИЕ: Обработчик для нового 'editToggle' ⬇️
     if (dom.editToggle) {
         dom.editToggle.addEventListener('change', () => {
             isEditMode = dom.editToggle.checked;
-            renderPage(currentAuctions); // Перерисовываем страницу с админ-элементами или без них
-            initializeParallax(); // Повторно применяем Parallax к новым карточкам
+            renderPage(currentAuctions);
+            initializeParallax(); // Повторно применяем Parallax
         });
     }
-    // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
 
     dom.editModalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -642,9 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             renderPage(auctionsData || []);
             
-            // ⬇️ ИЗМЕНЕНИЕ: Вызываем Parallax после отрисовки ⬇️
             initializeParallax();
-            // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
 
         } catch (e) {
             console.error("Критическая ошибка при загрузке страницы", e);
