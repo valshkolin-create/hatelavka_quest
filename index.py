@@ -1556,20 +1556,6 @@ async def admin_finish_auction(
         logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА в admin_finish_auction: {e}", exc_info=True)
         raise HTTPException(status_code=500, content={"error": str(e)})
 
-@app.post("/api/v1/admin/auctions/list")
-async def admin_get_auctions(
-    request_data: InitDataRequest, # Используем простую модель
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """(Админ) Получает ВСЕ аукционы, включая неактивные."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    resp = await supabase.get("/auctions", params={"select": "*", "order": "created_at.desc"})
-    resp.raise_for_status()
-    return resp.json()
-
 @app.post("/api/v1/admin/auctions/clear_participants")
 async def admin_clear_auction_participants(
     request_data: AuctionDeleteRequest, # Мы можем повторно использовать эту модель
@@ -1675,69 +1661,6 @@ async def admin_reset_auction(
     except Exception as e:
         logging.error(f"❌ ОШИБКА при сбросе аукциона {auction_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сбросе.")
-
-@app.post("/api/v1/admin/auctions/create")
-async def admin_create_auction(
-    request_data: AuctionCreateRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """(Админ) Создает новый лот аукциона."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    await supabase.post("/auctions", json={
-        "title": request_data.title,
-        "image_url": request_data.image_url,
-        "bid_cooldown_hours": request_data.bid_cooldown_hours,
-        "is_active": request_data.is_active,   # <-- ИЗМЕНЕНО
-        "is_visible": request_data.is_visible  # <-- ИЗМЕНЕНО
-    })
-    return {"message": "Лот создан."}
-
-@app.post("/api/v1/admin/auctions/update")
-async def admin_update_auction(
-    request_data: AuctionUpdateRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """(Админ) Обновляет лот аукциона (активность, видимость и т.д.)."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    # Собираем только те поля, которые были переданы
-    update_data = request_data.dict(exclude={'initData', 'id'}, exclude_unset=True)
-
-    if not update_data:
-         raise HTTPException(status_code=400, detail="Нет данных для обновления.")
-
-    await supabase.patch(
-        "/auctions",
-        params={"id": f"eq.{request_data.id}"},
-        json=update_data
-    )
-    return {"message": "Лот обновлен."}
-
-@app.post("/api/v1/admin/auctions/delete")
-async def admin_delete_auction(
-    request_data: AuctionDeleteRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """(Админ) Удаляет лот аукциона."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    # В Supabase должна быть настроена связь "ON DELETE CASCADE" 
-    # от 'auctions' к 'auction_bids', чтобы ставки удалились
-    # или 'ON DELETE SET NULL', если вы хотите их хранить.
-    # Этот код предполагает, что каскадное удаление настроено.
-    await supabase.delete(
-        "/auctions",
-        params={"id": f"eq.{request_data.id}"}
-    )
-    return {"message": "Лот и история ставок удалены."}
-# --- КОНЕЦ БЛОКА АДМИНКИ АУКЦИОНА ---
 
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПРИЗОВ ЧЕКПОИНТА ---
 @app.post("/api/v1/admin/checkpoint_rewards/details")
@@ -1894,26 +1817,38 @@ async def get_pending_counts(
         raise HTTPException(status_code=500, detail="Не удалось получить счетчики.")
 # --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
 
-@app.get("/api/v1/auctions/list")
-async def get_auctions_list(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+@app.post("/api/v1/auctions/list") # <-- ИЗМЕНЕНО: GET на POST
+async def get_auctions_list_for_user(
+    request_data: InitDataRequest, # <-- ИЗМЕНЕНО: Принимаем initData
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     """
-    Возвращает список всех АКТИВНЫХ (незавершенных) аукционов. (ИСПРАВЛЕНО)
+    (ИСПРАВЛЕНО) Возвращает список активных аукционов,
+    включая данные о ставке и ранге ТЕКУЩЕГО пользователя.
     """
+    # 1. Валидация пользователя
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        # Если пользователь гость (или невалидный initData), p_user_id будет null
+        user_id = None
+    else:
+        user_id = user_info["id"]
+
     try:
-        resp = await supabase.get(
-            "/auctions",
-            params={
-                "is_active": "eq.true",
-                "ended_at": "is.null", # Добавим проверку, что он не завершен
-                # --- ИСПРАВЛЕНИЕ: Добавляем join для получения имени лидера ---
-                "select": "*, bidder:current_highest_bidder_id(full_name, twitch_login)",
-                "order": "created_at.desc" # Новые сверху
-            }
+        # 2. Вызов "умной" RPC-функции
+        rpc_params = {"p_user_id": user_id}
+        
+        resp = await supabase.post(
+            "/rpc/get_public_auctions_for_user", # <-- ИЗМЕНЕНО: Новая RPC
+            json=rpc_params
         )
         resp.raise_for_status()
+        
+        # 3. RPC вернет готовый JSON-массив
         return resp.json()
+        
     except Exception as e:
-        logging.error(f"Ошибка при получении списка аукционов: {e}", exc_info=True)
+        logging.error(f"Ошибка при получении списка аукционов для user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить лоты.")
 
 
@@ -3378,55 +3313,34 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
         logging.error(f"Критическая ошибка при получении награды за квест для user {user_id}, quest {quest_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить награду.")
 
-@app.get("/api/v1/admin/auctions/list")
-async def admin_get_auctions(
-    request: Request,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """(Админ) Получает ВСЕ аукционы, включая неактивные."""
-    # Проверка админа (можете вынести в отдельную зависимость)
-    initData = request.headers.get("X-Init-Data") # Предполагаем, что JS шлет его в хедерах
-    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-         # JS будет использовать makeApiRequest, который шлет initData в теле
-         # Этот GET-запрос должен вызываться через makeApiRequest(..., 'GET')
-         # Давайте переделаем JS-вызов...
-         # ...
-         # А, стоп, makeApiRequest в admin (18).js не шлет тело в GET.
-         # Проще переделать этот эндпоинт на POST.
-         # 
-         # ... Ладно, в admin (18).js (loadAdminAuctions) я указал 'GET'. 
-         # Исправим это в JS.
-
-         # --- ИСПРАВЛЕНИЕ ---
-         # В admin (18).js, функция loadAdminAuctions, 
-         # измените 'GET' на 'POST' (или 'GET', но без тела).
-         # Давайте предположим, что JS вызовет 'POST' без тела, но с initData.
-
-         # ...
-         # Давайте сделаем проще. Я исправлю JS.
-         # В admin (18).js, в loadAdminAuctions, 
-         # измените `makeApiRequest(..., 'GET', true)` 
-         # на `makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', true)`
-         #
-         # А Python-код будет POST:
-
-         pass # Код будет ниже
-
 @app.post("/api/v1/admin/auctions/list") 
 async def admin_get_auctions(
     request_data: InitDataRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Получает ВСЕ аукционы, включая неактивные. (ИСПРАВЛЕНО)"""
+    """(Админ) Получает ВСЕ аукционы, включая данные о ставке админа. (ИСПРАВЛЕНО)"""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    # Мы знаем ID админа, который запрашивает
+    admin_user_id = user_info["id"]
 
-    # --- ИСПРАВЛЕНИЕ: Добавляем join для получения имени лидера ---
-    resp = await supabase.get("/auctions", params={"select": "*, bidder:current_highest_bidder_id(full_name, twitch_login)", "order": "created_at.desc"})
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        # Вызов "умной" RPC-функции для админов
+        rpc_params = {"p_user_id": admin_user_id}
+        
+        resp = await supabase.post(
+            "/rpc/get_admin_auctions_for_user", # <-- ИЗМЕНЕНО: Новая RPC
+            json=rpc_params
+        )
+        resp.raise_for_status()
+        
+        return resp.json()
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении админ-списка аукционов для admin {admin_user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить лоты.")
 
 @app.post("/api/v1/admin/auctions/create")
 async def admin_create_auction(
