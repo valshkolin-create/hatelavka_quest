@@ -1,51 +1,40 @@
 /* auction.css */
 
-/* ⬇️ ИЗМЕНЕНИЕ 1: Новая цветовая палитра ⬇️
-*/
 :root {
-  --background-main: #111111;     /* Темный фон */
-  --surface-primary: #1C1C1C;     /* Фон карточек */
-  --surface-secondary: #2C2C2C;   /* Фон доп. элементов */
-  --border-color: #333333;       /* Цвет рамок */
+  --background-main: #111111;
+  --surface-primary: #1C1C1C;     /* Оригинальный цвет для справки */
+  --surface-secondary: #2C2C2C;   /* Оригинальный цвет для справки */
+  --border-color: #333333;
   --text-primary: #f0f0f5;
-  --text-secondary: #AAAAAA;     /* Более нейтральный серый */
-  --accent-primary: #FFD700;     /* Золотой/желтый как главный акцент */
-  --accent-secondary: #FF9500;   /* Оранжевый для акцентов (из --warning-color) */
+  --text-secondary: #AAAAAA;
+  --accent-primary: #FFD700;
+  --accent-secondary: #FF9500;
   --danger-color: #ff4d4d;
   --success-color: #34c759;
   --warning-color: #ff9500;
-  --winner-color: #ffd700;       /* Цвет победителя - золотой */
-  --card-default-border: #FFD700; /* Бордюр карточки - золотой */
-  --card-default-bg: #222222;     /* Фон под картинкой (нейтральный) */
+  --winner-color: #ffd700;
+  --card-default-border: #FFD700;
+  --card-default-bg: #222222;
   --card-default-dots: rgba(240, 240, 245, 0.1);
 }
-/* ⬆️ ИЗМЕНЕНИЕ 1: Конец ⬆️
-*/
 
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ⬇️ ИЗМЕНЕНИЕ 2: Фон и базовый цвет ⬇️
-*/
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--background-main); /* Изменено */
+  background-color: var(--background-main);
   color: var(--text-primary);
   margin: 0;
   padding: 10px 10px 80px;
   overflow-x: hidden;
-  
-  /* --- ДОБАВЛЕНЫ СТИЛИ ФОНА --- */
   background-image: url('https://i.postimg.cc/Dyks29xc/fon-variant1.png');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
-  /* --------------------------- */
 }
-/* ⬆️ ИЗМЕНЕНИЕ 2: Конец ⬆️
-*/
 
 body.browser-view {
   padding-bottom: 10px;
@@ -74,35 +63,25 @@ body.browser-view {
     font-size: 10px;
 }
 
-/* ⬇️ ИЗМЕНЕНИЕ 3: Стили для нового заголовка ⬇️
-*/
+/* ⬇️ ИЗМЕНЕНИЕ: Стили для подзаголовка удалены ⬇️ */
 .page-header {
     text-align: center;
     margin: 10px 0 20px;
 }
-.page-subtitle {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent-primary); /* Желтый */
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
 .page-title {
-    font-size: 24px; /* Увеличено */
+    font-size: 24px;
     font-weight: 700;
     text-align: center;
-    margin: 4px 0 15px; /* Скорректировано */
-    color: var(--text-primary); /* Белый */
+    margin: 4px 0 15px;
+    color: var(--text-primary);
 }
-/* ⬆️ ИЗМЕНЕНИЕ 3: Конец ⬆️
-*/
+/* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 
 .loader-spinner {
   width: 20px;
   height: 20px;
   border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: var(--accent-primary); /* Автоматически станет желтым */
+  border-top-color: var(--accent-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -120,8 +99,12 @@ body.browser-view {
   margin-bottom: 20px;
 }
 
+/* ⬇️ ИЗМЕНЕНИЕ: Эффект "Жидкого стекла" ⬇️ */
 .auction-card {
-  background-color: var(--surface-primary);
+  /* Был --surface-primary (#1C1C1C) */
+  background-color: rgba(28, 28, 28, 0.75); /* Полупрозрачный фон */
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px); /* Для Safari */
   border: 1px solid var(--border-color);
   border-radius: 10px;
   display: flex;
@@ -129,6 +112,7 @@ body.browser-view {
   position: relative;
   overflow: hidden; 
 }
+/* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 
 .card-display-area {
   position: relative;
@@ -136,7 +120,8 @@ body.browser-view {
   overflow: hidden;
   padding: 8px;
   padding-bottom: 0;
-  background-color: var(--card-default-bg); /* Изменено */
+  /* Был --card-default-bg, стал прозрачным, чтобы был виден блюр */
+  background-color: transparent; 
 }
 
 .card-display-area::before {
@@ -146,16 +131,24 @@ body.browser-view {
   left: 0;
   right: 0;
   height: 4px;
-  background: var(--accent-primary); /* Автоматически станет желтым */
+  background: var(--accent-primary);
   z-index: 4;
 }
 
+/* ⬇️ ИЗМЕНЕНИЕ: Текстура под скином ⬇️ */
 .event-image-container {
   width: 100%;
   padding-top: 60%; 
   position: relative;
   z-index: 3;
+  /* Новая текстура как фон */
+  background-image: url('https://i.postimg.cc/sDGrJ8z6/fon-variant2.png');
+  background-size: cover;
+  background-position: center;
+  border-radius: 8px; /* Небольшое скругление для фона */
+  overflow: hidden; /* Чтобы parallax-изображение не вылезало */
 }
+/* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 
 .event-image {
   position: absolute;
@@ -164,6 +157,9 @@ body.browser-view {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  /* ⬇️ ИЗМЕНЕНИЕ: CSS для Parallax ⬇️ */
+  transition: transform 0.1s ease-out; /* Плавный сброс при mouse-leave */
+  /* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 }
 
 .card-info-area {
@@ -188,7 +184,8 @@ body.browser-view {
     margin-bottom: 12px;
 }
 .stat-item {
-    background-color: var(--surface-secondary);
+    /* Был --surface-secondary (#2C2C2C) */
+    background-color: rgba(0, 0, 0, 0.2); /* Полупрозрачный для "стекла" */
     border-radius: 6px;
     padding: 8px;
 }
@@ -209,12 +206,12 @@ body.browser-view {
     align-items: center;
 }
 .stat-item-value.timer {
-    color: var(--accent-primary); /* Автоматически станет желтым */
+    color: var(--accent-primary);
     font-weight: 700;
 }
 
 .twitch-icon {
-    color: #9146FF; /* Оставим цвет Twitch */
+    color: #9146FF;
     margin-right: 6px;
     font-size: 0.9em; 
 }
@@ -225,7 +222,7 @@ body.browser-view {
 }
 
 .winner-block {
-    background-color: var(--winner-color); /* Автоматически станет желтым */
+    background-color: var(--winner-color);
     background: linear-gradient(135deg, var(--winner-color), #ffb700);
 }
 .winner-block .stat-item-label {
@@ -272,8 +269,8 @@ body.browser-view {
 }
 
 .event-button {
-  background-color: var(--accent-primary); /* Автоматически станет желтым */
-  color: #000; /* Черный текст на желтом */
+  background-color: var(--accent-primary);
+  color: #000;
 }
 .event-button:disabled {
   background: var(--surface-secondary);
@@ -282,19 +279,20 @@ body.browser-view {
 }
 
 .history-button {
-  background-color: var(--surface-secondary);
+  /* Был --surface-secondary */
+  background-color: rgba(0, 0, 0, 0.2); /* Полупрозрачный для "стекла" */
   color: var(--text-primary);
+}
+.history-button:hover {
+  background-color: rgba(0, 0, 0, 0.4);
 }
 
 .app-footer {
   display: flex;
   justify-content: space-around;
-  /* ⬇️ ИЗМЕНЕНИЕ 4: Фон футера ⬇️
-  */
-  background-color: rgba(17, 17, 17, 0.8); /* Сделаем фон темнее, как в :root */
-  /* ⬆️ ИЗМЕНЕНИЕ 4: Конец ⬆️
-  */
+  background-color: rgba(17, 17, 17, 0.8);
   backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border-top: 1px solid var(--border-color);
   width: 100%;
   padding-top: 6px;
@@ -327,7 +325,7 @@ body.browser-view {
 
 .footer-item.active span,
 .footer-item.active .icon-wrapper {
-  color: var(--accent-primary); /* Автоматически станет желтым */
+  color: var(--accent-primary);
   font-weight: 600;
 }
 
@@ -341,8 +339,12 @@ body.browser-view {
   gap: 12px;
 }
 
+/* ⬇️ ИЗМЕНЕНИЕ: Эффект "Жидкого стекла" ⬇️ */
 .info-block {
-  background-color: var(--surface-primary);
+  /* Был --surface-primary */
+  background-color: rgba(28, 28, 28, 0.75); /* Полупрозрачный фон */
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px); /* Для Safari */
   border: 1px solid var(--border-color);
   padding: 15px;
   border-radius: 10px;
@@ -350,10 +352,11 @@ body.browser-view {
   align-items: center;
   gap: 12px;
 }
+/* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 
 .info-icon {
   font-size: 20px;
-  color: var(--accent-primary); /* Автоматически станет желтым */
+  color: var(--accent-primary);
   flex-shrink: 0;
 }
 
@@ -375,138 +378,58 @@ body.browser-view {
   margin: 0;
 }
 
+/* ... Стили модальных окон (без изменений) ... */
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.7);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(5px);
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7); z-index: 200; display: flex;
+  align-items: center; justify-content: center; backdrop-filter: blur(5px);
 }
-
 .modal-content {
-  background-color: var(--surface-primary);
-  border: 1px solid var(--border-color);
-  padding: 0;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 340px; 
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  max-height: 85vh;
-  position: relative;
+  background-color: var(--surface-primary); border: 1px solid var(--border-color);
+  padding: 0; border-radius: 12px; width: 90%; max-width: 340px; 
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: flex;
+  flex-direction: column; max-height: 85vh; position: relative;
 }
-
 .modal-header {
-  padding: 12px 15px;
-  user-select: none;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 12px 15px; user-select: none; border-bottom: 1px solid var(--border-color);
+  display: flex; justify-content: space-between; align-items: center;
 }
-
-.modal-header h3 {
-  margin: 0;
-  flex-grow: 1;
-}
-
+.modal-header h3 { margin: 0; flex-grow: 1; }
 .modal-close-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
+  background: none; border: none; color: var(--text-secondary);
+  font-size: 24px; cursor: pointer; padding: 0; line-height: 1;
 }
-
-.modal-body {
-  overflow-y: auto;
-  padding: 15px;
-}
-
-.modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
+.modal-body { overflow-y: auto; padding: 15px; }
+.modal-form { display: flex; flex-direction: column; gap: 15px; }
 .modal-form input {
-  width: 100%;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background-color: var(--surface-secondary);
-  color: var(--text-primary);
-  font-size: 14px;
+  width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);
+  background-color: var(--surface-secondary); color: var(--text-primary); font-size: 14px;
 }
-
 .modal-form button {
-  background: var(--accent-primary); /* Автоматически станет желтым */
-  border: none;
-  padding: 10px;
-  border-radius: 10px;
-  color: #000; /* Черный текст */
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+  background: var(--accent-primary); border: none; padding: 10px; border-radius: 10px;
+  color: #000; font-size: 14px; font-weight: 600; cursor: pointer;
 }
-
 .modal-form label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: -10px;
+  font-size: 13px; color: var(--text-secondary); margin-bottom: -10px;
 }
-
-#bids-history-list {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-}
-
+#bids-history-list { list-style-type: none; padding: 0; margin: 0; }
 .participant-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  border-bottom: 1px solid var(--border-color);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px; border-bottom: 1px solid var(--border-color);
 }
-.participant-item:last-child {
-  border-bottom: none;
-}
+.participant-item:last-child { border-bottom: none; }
 .participant-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  flex-grow: 1;
-  padding-left: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
+  font-size: 13px; font-weight: 500; color: var(--text-primary);
+  flex-grow: 1; padding-left: 10px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;
 }
 .participant-tickets {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent-primary); /* Автоматически станет желтым */
-  padding-left: 10px;
+  font-size: 13px; font-weight: 600; color: var(--accent-primary); padding-left: 10px;
 }
 .participant-rank { 
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  min-width: 50px;
-  text-align: left;
+  font-size: 11px; font-weight: 500; color: var(--text-secondary);
+  min-width: 50px; text-align: left;
 }
-
 .loader-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); z-index: 300; display: flex;
@@ -514,13 +437,13 @@ body.browser-view {
 }
 .spinner {
     width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3);
-    border-top-color: var(--accent-primary); /* Автоматически станет желтым */
-    border-radius: 50%;
+    border-top-color: var(--accent-primary); border-radius: 50%;
     animation: spin 1s linear infinite;
 }
+/* ... Конец стилей модальных окон ... */
 
-/* ⬇️ ИЗМЕНЕНИЕ 5: Стили админки ⬇️
-*/
+
+/* ⬇️ ИЗМЕНЕНИЕ: Стили для нового переключателя ⬇️ */
 .admin-controls {
     position: fixed;
     bottom: calc(60px + env(safe-area-inset-bottom) + 15px);
@@ -529,32 +452,45 @@ body.browser-view {
     z-index: 1000;
 }
 
-.admin-controls button {
-    background: var(--accent-primary); /* Желтый */
-    color: #000; /* Черный текст */
-    padding: 8px 16px;
-    border-radius: 20px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    border: none;
+.admin-toggle-switch {
+    position: relative;
     font-size: 13px;
     font-weight: 600;
+}
+.admin-toggle-switch input[type="checkbox"] {
+    display: none; /* Прячем настоящий чекбокс */
+}
+.admin-toggle-switch label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--surface-secondary); /* Темно-серый */
+    color: var(--text-secondary); /* Светло-серый текст */
+    padding: 8px 16px;
+    border-radius: 20px;
     cursor: pointer;
-    transition: transform 0.2s ease, background-color 0.2s ease;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
-.admin-controls button.active {
-    background: #007aff; /* Оставим синий для режима "Активно" */
-    color: white;
+.admin-toggle-switch label .toggle-icon {
+    transition: all 0.2s ease;
 }
-/* ⬆️ ИЗМЕНЕНИЕ 5: Конец ⬆️
-*/
+/* Когда ВЫБРАН (Активный режим ред.) */
+.admin-toggle-switch input[type="checkbox"]:checked + label {
+    background-color: var(--accent-primary); /* Желтый */
+    color: #000; /* Черный текст */
+    border-color: var(--accent-primary);
+}
+.admin-toggle-switch input[type="checkbox"]:checked + label .toggle-icon {
+    transform: scale(1.1); /* Маленький эффект "pop" */
+}
+/* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 
-.admin-controls button:hover {
-    transform: scale(1.05);
-}
 
 .auction-card.admin-card {
     position: relative;
-    border: 1px dashed var(--accent-secondary); /* Оранжевый */
+    border: 1px dashed var(--accent-secondary);
 }
 .auction-card.admin-hidden {
     border-style: dashed;
@@ -579,12 +515,17 @@ body.browser-view {
     justify-content: center;
     align-items: center;
     z-index: 5;
-    opacity: 0;
+    opacity: 0; /* По умолчанию скрыт */
+    pointer-events: none; /* Не кликабельный, когда скрыт */
     transition: opacity 0.2s ease;
 }
-.auction-card.admin-card:hover .edit-overlay {
-    opacity: 1;
+/* ⬇️ ИЗМЕНЕНИЕ: Оверлей виден сразу, без hover ⬇️ */
+.auction-card.admin-card .edit-overlay {
+    opacity: 1; /* Показываем, если есть класс admin-card */
+    pointer-events: all; /* Делаем кликабельным */
 }
+/* .auction-card.admin-card:hover .edit-overlay <-- СТАРЫЙ :hover УДАЛЕН */
+/* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 
 .card-btn {
     border: none;
@@ -609,7 +550,7 @@ body.browser-view {
     background-color: var(--success-color);
 }
 .card-reset-btn {
-    background-color: var(--warning-color); /* Автоматически станет оранжевым */
+    background-color: var(--warning-color);
 }
 .card-delete-btn {
     background-color: var(--danger-color);
@@ -622,15 +563,21 @@ body.browser-view {
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    background: transparent;
+    background: transparent; /* Чтоб был виден фон страницы */
     color: var(--text-secondary);
     min-height: 200px;
     font-size: 18px;
     gap: 10px;
+    
+    /* ⬇️ ИЗМЕНЕНИЕ: Добавляем эффект "стекла" ⬇️ */
+    background-color: rgba(28, 28, 28, 0.75);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    /* ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️ */
 }
 .create-auction-card:hover {
-    border-color: var(--accent-primary); /* Желтый */
-    color: var(--accent-primary); /* Желтый */
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .checkbox-container {
@@ -644,7 +591,7 @@ body.browser-view {
 .checkbox-container input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    accent-color: var(--accent-primary); /* Желтый */
+    accent-color: var(--accent-primary);
 }
 .checkbox-container label {
     font-size: 15px;
