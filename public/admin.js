@@ -1301,25 +1301,24 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
     }
 
 // --- НОВАЯ ФУНКЦИЯ ЗАГРУЗКИ ОЖИДАЮЩИХ ДЕЙСТВИЙ ---
+    // --- ⬇️⬇️⬇️ ЭТО ИЗМЕНЕННАЯ ФУНКЦИЯ ⬇️⬇️⬇️ ---
     async function loadPendingActions() {
         try {
-            // Запрашиваем СГРУППИРОВАННЫЕ данные
-            const [groupedSubmissions, groupedEventPrizes, groupedCheckpointPrizes] = await Promise.all([
-                makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true), // Теперь возвращает группы квестов
-                makeApiRequest('/api/v1/admin/events/winners', {}, 'POST', true), // Теперь возвращает [{ type: ..., count: N }]
-                makeApiRequest('/api/v1/admin/checkpoint_rewards', {}, 'POST', true) // Теперь возвращает [{ type: ..., count: N }]
+            // Запрашиваем ВСЕ данные одновременно
+            const [groupedSubmissions, allEventPrizes, allCheckpointPrizes] = await Promise.all([
+                makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),      // Для вкладки "Проверки" (сетка иконок)
+                makeApiRequest('/api/v1/admin/events/winners/details', {}, 'POST', true), // Для вкладки "Розыгрыши" (сразу список)
+                makeApiRequest('/api/v1/admin/checkpoint_rewards/details', {}, 'POST', true) // Для вкладки "Чекпоинт" (сразу список)
             ]);
             
-            // --- Код обновления индикаторов вкладок (скопирован из switchView) ---
+            // --- 1. Обновление индикаторов вкладок ---
             try {
-                // Находим кнопки вкладок (табов)
                 const eventPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]');
                 const checkpointPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]');
                 
-                // Функция для обновления текста кнопки
                 const updateTabText = (tabElement, baseText, hasData) => {
-                    if (!tabElement) return; // Если кнопка не найдена
-                    const cleanText = baseText || tabElement.textContent.trim().replace(' ❓', '');
+                    if (!tabElement) return;
+                    const cleanText = baseText || tabElement.textContent.trim().replace(/<i.*<\/i>/, '').trim(); // Убираем старые иконки
                     if (!baseText) {
                         tabElement.dataset.baseText = cleanText;
                     }
@@ -1330,33 +1329,35 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     }
                 };
                 
-                // Обновляем вкладку "Розыгрыши"
-                updateTabText(
-                    eventPrizesTab, 
-                    eventPrizesTab ? eventPrizesTab.dataset.baseText : null,
-                    groupedEventPrizes && groupedEventPrizes.length > 0
-                );
-
-                // Обновляем вкладку "Чекпоинт"
-                updateTabText(
-                    checkpointPrizesTab,
-                    checkpointPrizesTab ? checkpointPrizesTab.dataset.baseText : null,
-                    groupedCheckpointPrizes && groupedCheckpointPrizes.length > 0
-                );
+                updateTabText(eventPrizesTab, eventPrizesTab ? eventPrizesTab.dataset.baseText : null, allEventPrizes && allEventPrizes.length > 0);
+                updateTabText(checkpointPrizesTab, checkpointPrizesTab ? checkpointPrizesTab.dataset.baseText : null, allCheckpointPrizes && allCheckpointPrizes.length > 0);
 
             } catch (e) {
                 console.error("Ошибка при обновлении индикаторов вкладок:", e);
             }
-            // --- Конец кода обновления индикаторов ---
 
-            // Вызываем функцию рендеринга сетки для каждой вкладки
+            // --- 2. Рендеринг вкладок ---
+
+            // Вкладка "Проверки" (submissions): Использует старую логику сетки иконок
             renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
-            renderGroupedItemsGrid('tab-content-event-prizes', groupedEventPrizes);
-            renderGroupedItemsGrid('tab-content-checkpoint-prizes', groupedCheckpointPrizes);
+            
+            // Вкладка "Розыгрыши" (event-prizes): Рендерим сразу список победителей
+            // Нам больше не нужна сетка иконок, мы используем функцию renderWinners
+            const eventPrizesContainer = document.getElementById('tab-content-event-prizes');
+            if (eventPrizesContainer) {
+                // Передаем данные в renderWinners, но указываем контейнер вкладки как цель
+                renderWinners(allEventPrizes, eventPrizesContainer);
+            }
+
+            // Вкладка "Чекпоинт" (checkpoint-prizes): Рендерим сразу список наград
+            const checkpointPrizesContainer = document.getElementById('tab-content-checkpoint-prizes');
+            if (checkpointPrizesContainer) {
+                // Передаем данные в renderCheckpointPrizes, указывая контейнер вкладки
+                renderCheckpointPrizes(allCheckpointPrizes, checkpointPrizesContainer);
+            }
         
         } catch (e) {
             console.error("Не удалось загрузить ожидающие действия:", e);
-            // Безопасно пытаемся отобразить ошибку на всех вкладках
             const subContent = document.getElementById('tab-content-submissions');
             const eventContent = document.getElementById('tab-content-event-prizes');
             const cpContent = document.getElementById('tab-content-checkpoint-prizes');
@@ -1366,6 +1367,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             if(cpContent) cpContent.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
         }
     }
+    // --- ⬆️⬆️⬆️ КОНЕЦ ИЗМЕНЕННОЙ ФУНКЦИИ ⬆️⬆️⬆️ ---
     // --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
     
     async function loadAdminGrantLog() {
