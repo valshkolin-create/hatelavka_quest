@@ -5365,16 +5365,23 @@ async def save_trade_link(
     return {"message": "Трейд-ссылка успешно сохранена!"}
 
 @app.post("/api/v1/admin/events/winners")
-async def get_pending_event_prizes_grouped( # Переименовали функцию
+async def get_pending_event_prizes_grouped(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает сгруппированные данные для иконок невыданных призов розыгрышей."""
+    """
+    (Админ) Возвращает ОБЪЕДИНЕННЫЙ подсчет невыданных призов
+    (из Розыгрышей и Аукционов) для иконки в админ-панели.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
+        event_prize_count = 0
+        auction_prize_count = 0
+
+        # --- 1. Считаем призы из старых РОЗЫГРЫШЕЙ (JSON) ---
         content_resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.events", "select": "content", "limit": 1}
@@ -5382,27 +5389,43 @@ async def get_pending_event_prizes_grouped( # Переименовали фун�
         content_resp.raise_for_status()
         content_data = content_resp.json()
 
-        count = 0
         if content_data:
             content = content_data[0].get('content', {})
             events = content.get("events", [])
-            count = sum(1 for event in events if 'winner_id' in event and not event.get('prize_sent_confirmed', False))
+            event_prize_count = sum(1 for event in events if 'winner_id' in event and not event.get('prize_sent_confirmed', False))
 
-        # Возвращаем массив с одним элементом, если есть что выдать
-        if count > 0:
+        # --- 2. Считаем призы из АУКЦИОНОВ (Таблица) ---
+        # (Используем headers={"Prefer": "count=exact"} для подсчета)
+        auctions_resp = await supabase.get(
+            "/auctions",
+            params={
+                "prize_sent_confirmed": "eq.false",
+                "winner_id": "not.is.null",
+                "select": "id" # Нам нужны только ID для подсчета
+            },
+            headers={"Prefer": "count=exact"}
+        )
+        auctions_resp.raise_for_status()
+        # 'content-range' -> '0-4/5' or '*/0'
+        auction_prize_count = int(auctions_resp.headers.get('content-range', '0').split('/')[-1])
+
+        # --- 3. Суммируем ---
+        total_count = event_prize_count + auction_prize_count
+
+        if total_count > 0:
             return [{
-                "type": "event_prizes",
+                "type": "event_prizes", # Оставляем старый тип, чтобы frontend (JS) его понял
                 "title": "Розыгрыши",
-                "icon_class": "fa-solid fa-trophy", # Иконка FontAwesome
-                "pending_count": count
+                "icon_class": "fa-solid fa-trophy",
+                "pending_count": total_count # Возвращаем общую сумму
             }]
         else:
             return [] # Пустой массив, если выдавать нечего
 
     except Exception as e:
-        logging.error(f"Ошибка при группировке призов розыгрышей: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось сгруппировать призы розыгрышей.")
-
+        logging.error(f"Ошибка при группировке призов (Розыгрыши + Аукционы): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сгруппировать призы.")
+        
 @app.post("/api/v1/admin/events/clear_participants")
 async def clear_event_participants(
     request_data: EventClearRequest,
