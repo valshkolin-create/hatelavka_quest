@@ -397,24 +397,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return;
 
-        dom.historyModalTitle.textContent = `История: ${escapeHTML(auction.title)}`;
-        dom.historyList.innerHTML = '<li><i>Загрузка истории...</i></li>';
+        dom.historyModalTitle.textContent = `Топ 10: ${escapeHTML(auction.title)}`; // Изменил заголовок
+        dom.historyList.innerHTML = '<li><i>Загрузка топа...</i></li>';
         showModal(dom.historyModal);
         
         try {
-            const history = await makePublicGetRequest(`/api/v1/auctions/history/${auctionId}`, false); 
+            // 1. Вызываем наш обновленный бэкенд
+            const leaderboard = await makePublicGetRequest(`/api/v1/auctions/history/${auctionId}`, false); 
             
-            if (!history || history.length === 0) {
+            if (!leaderboard || leaderboard.length === 0) {
                 dom.historyList.innerHTML = '<li><i>Ставок еще не было.</i></li>';
                 return;
             }
 
-            dom.historyList.innerHTML = history.slice(0, 10).map(bid => {
-                const date = new Date(bid.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            // 2. Рендерим лидерборд, а не историю
+            dom.historyList.innerHTML = leaderboard.map((bid, index) => {
+                const rank = index + 1; // Место в топе
                 
                 let displayName = 'Аноним';
                 let iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 
+                // Данные пользователя теперь в bid.user
                 if (bid.user) {
                     if (bid.user.twitch_login) {
                         displayName = bid.user.twitch_login;
@@ -424,9 +427,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                // 3. Вместо даты показываем ранг
                 return `
                     <li class="participant-item">
-                        <span class="participant-rank">${date}</span>
+                        <span class="participant-rank"><b>#${rank}</b></span>
                         <span class="participant-name">
                             ${iconHtml}
                             ${escapeHTML(displayName)}
@@ -437,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('');
 
         } catch (e) {
-            dom.historyList.innerHTML = '<li><i>Не удалось загрузить историю.</i></li>';
+            dom.historyList.innerHTML = '<li><i>Не удалось загрузить топ.</i></li>';
         }
     }
 
