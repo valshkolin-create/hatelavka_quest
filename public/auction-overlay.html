@@ -9,19 +9,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
-        /* ⬇️ ИЗМЕНЕНИЕ 1: Новая цветовая палитра и дизайн ⬇️ */
+        /* ⬇️ ИЗМЕНЕНИЕ 1: Новая цветовая палитра ⬇️ */
         :root {
           --background-main: #111111;
           --surface-primary: #1C1C1C;
-          --border-color: #333333;
+          --surface-secondary: #2C2C2C;
+          --border-color: #333333; /* Был #3c3852 */
           --text-primary: #f0f0f5;
-          --text-secondary: #AAAAAA;
-          --accent-primary: #FFD700;
-          --accent-secondary: #FF9500;
+          --text-secondary: #AAAAAA; /* Был #a09cb8 */
+          --accent-primary: #FFD700;  /* Был #00f2ea */
+          --accent-secondary: #FF9500; /* Был #d433ff */
           --gold-color: #ffd700;
         }
         
-        /* ⬇️ ИЗМЕНЕНИЕ 2: Новые размеры обертки ⬇️ */
+        /* ⬇️ ИЗМЕНЕНИЕ 2: Размер обертки под промо-картинку ⬇️ */
         .overlay-wrapper {
             position: absolute;
             bottom: 20px;
@@ -39,14 +40,15 @@
             color: var(--text-primary);
         }
         
-        /* ⬇️ ИЗМЕНЕНИЕ 3: Эффект "Жидкого стекла" ⬇️ */
+        /* ⬇️ ИЗМЕНЕНИЕ 3: Редизайн виджета (Стекло + Темный фон) ⬇️ */
         .widget-container {
             position: absolute;
-            top: 0;
+            bottom: 0; /* Виджет будет внизу обертки */
             left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(28, 28, 28, 0.75);
+            width: 450px;  /* Сохраняем старый размер виджета */
+            height: 191px; 
+            /* Фон темнее на 20% */
+            background-color: rgba(18, 18, 18, 0.85); /* Был --bg-color */
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border: 1px solid var(--border-color);
@@ -56,112 +58,45 @@
             flex-direction: column;
             overflow: hidden;
             opacity: 0; 
-            transform: scale(0.95);
-            transition: opacity 0.5s ease, transform 0.5s ease;
-        }
-        .widget-container.visible { 
-            opacity: 1; 
-            transform: scale(1);
+            transform: translateX(0);
+            transition: opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                        transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         
-        /* ⬇️ ИЗМЕНЕНИЕ 4: Новый HTML-макет (Header + Body) ⬇️ */
-        .header { 
-            padding: 12px 20px; 
-            border-bottom: 1px solid var(--border-color); 
-            text-align: center;
-        }
-        .header-title { 
-            font-size: 24px; 
-            font-weight: 900; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            color: var(--text-primary); /* Белый */
-        }
+        .widget-container.visible { opacity: 1; }
+        .widget-container.promo-active { transform: translateX(-100%); opacity: 0; }
         
-        .content-body { 
-            display: flex; 
-            padding: 20px; 
-            gap: 15px; 
-            align-items: center;
-            justify-content: space-between;
-            flex-grow: 1;
-        }
-
-        .stat-column {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            flex-basis: 150px;
-            height: 100%;
-            background: rgba(0,0,0,0.2);
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .stat-label {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }
-        .stat-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--accent-primary); /* Желтый */
-            white-space: nowrap;
-        }
-        .stat-sub-value {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-top: 5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 140px;
-            /* Для иконок */
-            display: flex;
-            align-items: center;
-        }
-        .stat-sub-value i {
-            margin-right: 6px;
-            font-size: 0.9em;
-        }
-        .twitch-icon { color: #9146FF; }
-        .user-icon { color: var(--text-secondary); }
-
-
-        .skin-column {
-            flex-grow: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-        }
+        .header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .header-title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-primary); } /* <-- Авто-желтый */
+        .header-timer { font-size: 20px; font-weight: 700; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; }
+        .content-body { display: flex; padding: 15px; gap: 15px; }
         
-        /* ⬇️ ИЗМЕНЕНИЕ 5: Текстура, затемнение, шум ⬇️ */
-        .skin-image-container {
-            width: 100%;
-            max-width: 250px; /* Ограничим ширину скина */
-            height: 100%;
-            position: relative;
+        /* ⬇️ ИЗМЕНЕНИЕ 4: Редизайн скина (Текстура, Шум, Резкость) ⬇️ */
+        .skin-container { 
+            width: 120px;
+            height: 90px;
+            /* Желтая текстура + затемнение */
             background-image: 
-                linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), /* 40% затемнение */
-                url('https://i.postimg.cc/sDGrJ8z6/fon-variant2.png'); /* Желтая текстура */
+                linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
+                url('https://i.postimg.cc/sDGrJ8z6/fon-variant2.png');
             background-size: cover;
             background-position: center;
             border-radius: 8px; 
-            overflow: hidden;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0; 
+            overflow: hidden; 
+            position: relative; /* Для шума */
         }
 
-        /* ⬇️ ИЗМЕНЕНИЕ 6: Рабочая ссылка на шум ⬇️ */
-        .skin-image-container::after {
+        /* Рабочий шум (твоя ссылка была 404) */
+        .skin-container::after {
             content: '';
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background-image: url('https://i.imgur.com/gYy63vX.png'); /* Рабочая ссылка на tile-noise */
+            background-image: url('https://i.imgur.com/gYy63vX.png');
             background-size: 100px;
             background-repeat: repeat;
             opacity: 0.05;
@@ -169,23 +104,81 @@
             mix-blend-mode: overlay;
             border-radius: 8px;
         }
-        /* --- КОНЕЦ ИЗМЕНЕНИЯ 6 --- */
 
-        .skin-image { 
+        #skin-image { 
             width: 100%; 
             height: 100%; 
             object-fit: contain; 
             filter: contrast(115%); /* Резкость */
         }
-        /* --- КОНЕЦ ИЗМЕНЕНИЙ CSS --- */
+        /* --- КОНЕЦ ИЗМЕНЕНИЯ 4 --- */
 
-        /* Уведомление о ставке */
+        .bidders-container { 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start;
+            flex-grow: 1; 
+            min-width: 0; 
+            gap: 4px;
+        }
+        .bidders-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-secondary); /* <-- Авто-серый */
+            margin-bottom: 5px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .bidder-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px;
+        }
+        .bidder-rank { 
+            font-size: 15px;
+            font-weight: 900; 
+            width: 25px; 
+            text-align: right; 
+            flex-shrink: 0; 
+            color: var(--text-secondary); /* <-- Авто-серый */
+        }
+        .bidder-item.rank-1 .bidder-rank { color: var(--gold-color); }
+        .bidder-item.rank-2 .bidder-rank { color: #c0c0c0; }
+        .bidder-item.rank-3 .bidder-rank { color: #cd7f32; }
+
+        /* ⬇️ ИЗМЕНЕНИЕ 5: Стили для иконок Twitch ⬇️ */
+        .bidder-name { 
+            font-size: 14px;
+            font-weight: 700; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            flex-grow: 1; 
+            /* Добавлено */
+            display: flex;
+            align-items: center;
+        }
+        .bidder-name i {
+            margin-right: 5px;
+            font-size: 0.9em;
+        }
+        .twitch-icon { color: #9146FF; }
+        .user-icon { color: var(--text-secondary); }
+        /* --- КОНЕЦ ИЗМЕНЕНИЯ 5 --- */
+
+        .bidder-amount { 
+            font-size: 13px;
+            font-weight: 700; 
+            color: var(--accent-primary); /* <-- Авто-желтый */
+            flex-shrink: 0; 
+        }
+
         #new-bid-notification { 
             position: absolute; 
             top: -100px; 
             left: 50%; 
             transform: translateX(-50%); 
-            background: linear-gradient(45deg, var(--accent-secondary), var(--accent-primary)); 
+            background: linear-gradient(45deg, var(--accent-secondary), var(--accent-primary)); /* <-- Авто-желтый/оранж */
             color: #000; 
             padding: 15px 30px; 
             border-radius: 10px; 
@@ -200,6 +193,38 @@
         #new-bid-notification.show { opacity: 1; top: 20px; }
         #new-bid-notification.hide { opacity: 0; top: -100px; transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045); }
 
+        /* ⬇️ ИЗМЕНЕНИЕ 6: Блок промо - это просто картинка ⬇️ */
+        .promo-overlay {
+            position: absolute;
+            top: 0; 
+            left: 0;
+            width: 600px; /* Размер как у картинки */
+            height: 240px;
+            background: transparent; /* Без фона */
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            overflow: hidden; /* Скрываем углы картинки */
+            
+            /* Старая логика анимации */
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(100%);
+            transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 10;
+        }
+        .promo-overlay.show { 
+            opacity: 1; 
+            visibility: visible; 
+            transform: translateX(0); 
+        }
+        
+        #promo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* --- КОНЕЦ ИЗМЕНЕНИЯ 6 --- */
+
     </style>
 </head>
 <body>
@@ -213,37 +238,26 @@
         <div id="widget-container" class="widget-container">
             <div class="header">
                 <div class="header-title" id="auction-title">Аукцион</div>
+                <div class="header-timer" id="auction-timer">00:00:00</div>
             </div>
             <div class="content-body">
-                <div class="stat-column">
-                    <div class="stat-label">Последняя ставка</div>
-                    <div class="stat-value" id="last-bid-amount">0 🎟️</div>
-                    <div class="stat-sub-value" id="last-bidder-name">
-                        <i class="fa-solid fa-user user-icon"></i>Нет ставок
-                    </div>
+                <div class="skin-container">
+                    <img id="skin-image" src="" alt="Skin">
                 </div>
-                
-                <div class="skin-column">
-                    <div class="skin-image-container">
-                        <img class="skin-image" id="skin-image" src="" alt="Skin">
+                <div class="bidders-container" id="top-bidders-list">
                     </div>
-                </div>
-                
-                <div class="stat-column">
-                    <div class="stat-label">До конца</div>
-                    <div class="stat-value" id="auction-timer">00:00:00</div>
-                    <div class="stat-sub-value" id="auction-status-text">
-                        Ожидание
-                    </div>
-                </div>
             </div>
+        </div>
+
+        <div id="promo-overlay" class="promo-overlay">
+            <img id="promo-image" src="https://i.postimg.cc/Pr4dJ7WT/aukcion-obs.png" alt="Promo">
         </div>
         </div> 
 
     <script>
         /*
         ============================================================
-        ⬇️ ИЗМЕНЕНИЕ 8: JAVASCRIPT ПОЛНОСТЬЮ ПЕРЕРАБОТАН ⬇️
+        ⬇️ ИЗМЕНЕНИЕ 8: JAVASCRIPT С НОВОЙ ЛОГИКОЙ ПРОМО ⬇️
         ============================================================
         */
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
@@ -251,67 +265,50 @@
 
         const dom = {
             widget: document.getElementById('widget-container'),
+            promoOverlay: document.getElementById('promo-overlay'),
             title: document.getElementById('auction-title'),
             timer: document.getElementById('auction-timer'),
-            statusText: document.getElementById('auction-status-text'),
             skinImage: document.getElementById('skin-image'),
-            bidAmount: document.getElementById('last-bid-amount'),
-            bidderName: document.getElementById('last-bidder-name'),
+            // promoSkinImage: (больше не нужен)
+            biddersList: document.getElementById('top-bidders-list'),
             notification: document.getElementById('new-bid-notification'),
             notifyName: document.getElementById('bid-notify-name')
         };
 
         let countdownInterval = null;
-        let currentAuctionId = null; 
+        let currentAuctionId = null; // null - нет аукциона, 0 - дефолтный, >0 - реальный
+        let promoInterval = null;
+        let promoTimeout = null;
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Вспомогательная функция для выбора имени ---
-        function getDisplayName(auction) {
-            // Приоритет: Twitch-ник, затем TG-имя, затем фоллбэк
-            if (auction.bidder && auction.bidder.twitch_login) {
-                return auction.bidder.twitch_login;
-            }
-            if (auction.current_highest_bidder_name) {
-                return auction.current_highest_bidder_name;
-            }
-            return 'Нет ставок';
+        // --- Вспомогательные функции (с Twitch-логикой) ---
+        function getDisplayName(user) {
+            if (!user) return 'Аноним';
+            return user.twitch_login || user.full_name || 'Аноним';
         };
-
-        // --- Вспомогательная функция для иконки ---
-        function getDisplayIcon(auction) {
-            if (auction.bidder && auction.bidder.twitch_login) {
-                return '<i class="fa-brands fa-twitch twitch-icon"></i>';
-            }
-            if (auction.current_highest_bid) { // Если есть ставка, но нет твича
-                 return '<i class="fa-solid fa-user user-icon"></i>';
-            }
-            return ''; // Нет ставки - нет иконки
+        function getDisplayIcon(user) {
+            if (!user) return '<i class="fa-solid fa-user user-icon"></i>';
+            if (user.twitch_login) return '<i class="fa-brands fa-twitch twitch-icon"></i>';
+            return '<i class="fa-solid fa-user user-icon"></i>';
         }
+        // ---
 
         function startCountdown(expiresAt) {
             if (countdownInterval) clearInterval(countdownInterval);
-            
             if (!expiresAt) {
                 dom.timer.textContent = "00:00:00";
-                dom.statusText.textContent = "Ожидание";
                 return;
             }
-
             const endTime = new Date(expiresAt).getTime();
-            
             const updateTimer = () => {
                 const now = new Date().getTime();
                 const distance = endTime - now;
-                
                 if (distance < 0) {
                     clearInterval(countdownInterval);
                     dom.timer.textContent = "00:00:00";
-                    dom.statusText.textContent = "Завершен"; // Или "Завершается..."
                     return;
                 }
-                
-                dom.statusText.textContent = "Идет"; // Ставка сделана
                 const h = Math.floor(distance / 3600000);
                 const m = Math.floor((distance % 3600000) / 60000);
                 const s = Math.floor((distance % 60000) / 1000);
@@ -321,43 +318,69 @@
             updateTimer();
         }
 
-        function updateDisplay(auctionData) {
-            if (!auctionData) { 
-                // Аукцион не найден или закончился -> Прячем виджет
-                dom.widget.classList.remove('visible');
-                currentAuctionId = null;
-                if (countdownInterval) clearInterval(countdownInterval);
-                return; 
+        function updateDisplay(auctionData, topBidders = []) {
+            // Если идет промо, ПРЕРЫВАЕМ его, т.к. пришли новые данные
+            if (dom.promoOverlay.classList.contains('show')) {
+                console.log('Прерывание промо из-за новой ставки/обновления.');
+                clearTimeout(promoTimeout); 
+                dom.widget.classList.remove('promo-active');
+                dom.promoOverlay.classList.remove('show');
             }
             
+            if (!auctionData) { 
+                // Если данных нет (аукцион не найден), прячем виджет
+                dom.widget.classList.remove('visible');
+                currentAuctionId = null;
+                return;
+            }
+            
+            // Устанавливаем ID (0 для дефолта, >0 для реального)
             currentAuctionId = auctionData.id;
 
-            // Обновляем все поля
             dom.title.textContent = auctionData.title || "Аукцион";
-            const imageUrl = auctionData.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2';
-            if (dom.skinImage.src !== imageUrl) dom.skinImage.src = imageUrl;
-            
-            dom.bidAmount.textContent = `${auctionData.current_highest_bid || 0} 🎟️`;
-            dom.bidderName.innerHTML = `${getDisplayIcon(auctionData)} ${getDisplayName(auctionData)}`;
-            
+            dom.skinImage.src = auctionData.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2';
             startCountdown(auctionData.bid_cooldown_ends_at);
             
-            // Показываем виджет
+            let biddersHtml = '<div class="bidders-title">Аукцион</div>';
+            if (topBidders.length === 0) {
+                biddersHtml += '<div style="color: var(--text-secondary); text-align: center; font-size: 13px; margin-top: 10px;">Ставок пока нет...</div>';
+            } else {
+                topBidders.slice(0, 5).forEach((bidder, i) => {
+                    const rank = i + 1;
+                    biddersHtml += `
+                        <div class="bidder-item rank-${rank}">
+                            <div class="bidder-rank">${rank}.</div>
+                            <div class="bidder-name">
+                                ${bidder.icon} ${bidder.name}
+                            </div>
+                            <div class="bidder-amount">${bidder.amount} 🎟️</div>
+                        </div>
+                    `;
+                });
+            }
+            dom.biddersList.innerHTML = biddersHtml;
+            
             dom.widget.classList.add('visible');
         }
         
         function triggerAnimation(payload) {
-            const { auction_data, last_bidder_name } = payload.new.payload;
+            const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
             
-            // Проверяем, относится ли триггер к текущему аукциону
             if (currentAuctionId === null || currentAuctionId === 0 || currentAuctionId === auction_data.id) {
                 
-                // Обновляем дисплей (аукционные данные из триггера)
-                // Нам нужно добавить в 'auction_data' данные о 'bidder' (twitch_login)
-                // Триггер в Python должен это присылать!
-                // *Предполагаем, что Python-триггер теперь присылает 'auction_data.bidder'*
-                updateDisplay(auction_data);
+                // Форматируем top_bidders (которые приходят как {name, amount})
+                // в {name, amount, icon}
+                const formattedBidders = top_bidders.map(b => ({
+                    ...b,
+                    // Пытаемся угадать иконку по имени (т.к. полной инфо нет в триггере)
+                    icon: b.name === last_bidder_name ? getDisplayIcon({ twitch_login: "temp" }) : getDisplayIcon({ full_name: "temp" })
+                }));
+
+                updateDisplay(auction_data, formattedBidders);
                 
+                // ❗️ ВАЖНО: Новая ставка пришла. Переключаем промо на 5-минутный интервал.
+                startPromoController(true); // true = есть ставки
+
                 // Показываем уведомление
                 dom.notifyName.textContent = last_bidder_name;
                 dom.notification.classList.add('show');
@@ -371,12 +394,65 @@
             }
         }
 
+        // Анимация показа/скрытия промо
+        function showPromoAnimation() {
+            // Не показываем промо, если виджет еще не загружен
+            if (!dom.widget.classList.contains('visible')) return;
+            
+            console.log('Запуск новой промо-анимации...');
+            
+            dom.widget.classList.add('promo-active'); // Прячем виджет
+            dom.promoOverlay.classList.add('show');   // Показываем промо
+            clearTimeout(promoTimeout);
+
+            // Промо длится 10 секунд
+            promoTimeout = setTimeout(() => {
+                console.log('Завершение промо-анимации.');
+                dom.widget.classList.remove('promo-active'); // Показываем виджет
+                dom.promoOverlay.classList.remove('show');   // Прячем промо
+            }, 10000); // 10 секунд
+        }
+
+        /** * ⬇️ ИЗМЕНЕНИЕ 9: Новая функция управления промо ⬇️
+         * Управляет интервалами показа промо.
+         * @param {boolean} hasBids - Есть ли ставки на текущем аукционе.
+         */
+        function startPromoController(hasBids) {
+            if (promoInterval) clearInterval(promoInterval); // Сбрасываем старый таймер
+            
+            if (hasBids) {
+                // СТАВКИ ЕСТЬ: Запускаем промо раз в 5 минут
+                const FIVE_MINUTES = 300000; 
+                console.log(`Промо-контроллер: Ставки есть. Запуск каждые 5 минут.`);
+                promoInterval = setInterval(showPromoAnimation, FIVE_MINUTES);
+            } else {
+                // СТАВОК НЕТ: Запускаем промо непрерывно (10 сек показ + 5 сек пауза)
+                const CONTINUOUS_CYCLE = 15000; 
+                console.log(`Промо-контроллер: Ставок нет. Запуск каждые 15 секунд.`);
+                
+                const continuousPromoLoop = () => {
+                    // Проверяем, не появились ли ставки (на всякий случай)
+                    if (currentAuctionId > 0) {
+                         // Ставка пришла, пока мы ждали - останавливаем цикл
+                         // (triggerAnimation() должен был уже запустить новый таймер)
+                         if (promoInterval) clearInterval(promoInterval);
+                         return;
+                    }
+                    showPromoAnimation();
+                };
+                
+                promoInterval = setInterval(continuousPromoLoop, CONTINUOUS_CYCLE);
+                showPromoAnimation(); // Запускаем сразу
+            }
+        }
+
         async function loadInitialState() {
             try {
                 // 1. Ищем АКТИВНЫЙ, ВИДИМЫЙ, НЕЗАВЕРШЕННЫЙ аукцион
                 const { data: auctionData, error: auctionError } = await supabaseClient
                     .from('auctions')
-                    .select('*, bidder:current_highest_bidder_id(full_name, twitch_login)') // <-- ВАЖНЫЙ JOIN
+                    // ⬇️ ВАЖНЫЙ JOIN для Twitch-ников ⬇️
+                    .select('*, bidder:current_highest_bidder_id(full_name, twitch_login)')
                     .eq('is_active', true)
                     .eq('is_visible', true)
                     .is('ended_at', null)
@@ -386,19 +462,52 @@
                 if (auctionError) throw auctionError;
                 
                 if (!auctionData || auctionData.length === 0) {
-                    // ❗️ Это твоя ошибка: "Нет активных аукционов"
-                    // Если RLS исправлен, эта ошибка исчезнет.
-                    // Если RLS не исправлен, эта ошибка ОСТАНЕТСЯ.
-                    console.log("Нет активных аукционов для загрузки. Виджет будет скрыт.");
+                    // АУКЦИОНОВ НЕТ
+                    console.log("Нет активных аукционов для загрузки.");
                     updateDisplay(null); // Прячем виджет
+                    startPromoController(false); // Запускаем промо "без ставок" (которое не запустится, т.к. виджет скрыт)
                     return; 
                 }
 
+                // АУКЦИОН НАЙДЕН
                 const auction = auctionData[0];
                 console.log("Загружен лот:", auction.title, "(ID:", auction.id, ")");
+
+                // 2. Загружаем историю ставок
+                const { data: historyData, error: historyError } = await supabaseClient
+                    .from('auction_bids')
+                    .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') 
+                    .eq('auction_id', auction.id)
+                    .order('created_at', { ascending: false })
+                    .limit(10); 
                 
-                // 2. Отображаем виджет
-                updateDisplay(auction);
+                if (historyError) throw historyError;
+                
+                // 3. Формируем топ-5 (с Twitch-никами)
+                const topBidders = [];
+                const seenUserIds = new Set(); 
+                
+                if (historyData) {
+                    for (const b of historyData) {
+                        if (topBidders.length >= 5) break;
+                        const userId = b.user_id;
+                        if (userId && !seenUserIds.has(userId)) {
+                            topBidders.push({
+                                name: getDisplayName(b.user), // Используем Twitch-ник
+                                amount: b.bid_amount,
+                                icon: getDisplayIcon(b.user) // Добавляем иконку
+                            });
+                            seenUserIds.add(userId);
+                        }
+                    }
+                }
+                
+                // 4. Отображаем виджет
+                updateDisplay(auction, topBidders);
+                
+                // 5. Запускаем правильный контроллер промо
+                const hasBids = topBidders.length > 0;
+                startPromoController(hasBids); // ❗️ Вот твоя логика
 
             } catch (error) {
                 console.error('Ошибка загрузки начального состояния:', error);
@@ -408,20 +517,17 @@
 
         // --- Запуск ---
         try {
-            // 1. Слушаем ТРИГГЕРЫ (Новая ставка)
             supabaseClient.channel('auction-triggers-channel')
                 .on('postgres_changes', 
                     { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
                     payload => triggerAnimation(payload)
                 ).subscribe();
 
-            // 2. Слушаем ОБНОВЛЕНИЯ АУКЦИОНОВ (Завершение, Сброс, Скрытие)
             supabaseClient.channel('auctions-changes-channel')
                 .on('postgres_changes',
                     { event: '*', schema: 'public', table: 'auctions' }, 
                     payload => {
                         console.log('Получено изменение в auctions, перезагрузка:', payload);
-                        // Перезагружаем состояние при ЛЮБОМ изменении в таблице
                         loadInitialState();
                     }
                 ).subscribe((status) => {
@@ -433,8 +539,12 @@
 
         } catch (error) { console.error("Ошибка подключения к Supabase:", error); }
 
-        // Периодическая проверка (каждые 2 мин), на случай если Realtime "отвалится"
+        // Периодическая проверка (каждые 2 мин)
         setInterval(loadInitialState, 120000); 
+        
+        /* * Старый setInterval(showPromoAnimation, 70000) УДАЛЕН.
+         * Теперь этим управляет startPromoController().
+        */
 
         /* ============================================================
         ⬆️ ИЗМЕНЕНИЕ 8: КОНЕЦ БЛОКА JAVASCRIPT ⬆️
