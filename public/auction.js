@@ -52,8 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
 
-    async function makeApiRequest(url, body = {}, method = 'POST') {
-        dom.loader.classList.remove('hidden');
+    // 
+    // ⬇️ ИЗМЕНЕНИЕ 1: Решение проблемы "бесконечной загрузки" ⬇️
+    //
+    async function makeApiRequest(url, body = {}, method = 'POST', showLoader = true) { // <--- Добавлен параметр showLoader
+        if (showLoader) dom.loader.classList.remove('hidden'); // <--- Добавлена проверка
         try {
             const options = {
                 method: method,
@@ -82,12 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert(e.message);
             throw e;
         } finally {
-            dom.loader.classList.add('hidden');
+            if (showLoader) dom.loader.classList.add('hidden'); // <--- Добавлена проверка
         }
     }
     
-    async function makePublicGetRequest(url) {
-        dom.loader.classList.remove('hidden');
+    async function makePublicGetRequest(url, showLoader = true) { // <--- Добавлен параметр showLoader
+        if (showLoader) dom.loader.classList.remove('hidden'); // <--- Добавлена проверка
         try {
             const response = await fetch(url, { cache: 'no-store' }); // Отключаем кэш
             const result = await response.json();
@@ -99,9 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert(e.message);
             throw e;
         } finally {
-            dom.loader.classList.add('hidden');
+            if (showLoader) dom.loader.classList.add('hidden'); // <--- Добавлена проверка
         }
     }
+    //
+    // ⬆️ ИЗМЕНЕНИЕ 1: Конец ⬆️
+    //
 
 
     function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
@@ -184,8 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-
-            // --- ИЗМЕНЕНИЕ 3: ЛОГИКА ОТОБРАЖЕНИЯ ИМЕНИ И ИКОНКИ ---
+            
             let leaderOrWinnerHtml = '';
             
             // Определяем имя и иконку
@@ -231,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
 
             card.innerHTML = `
                 ${adminOverlay}
@@ -270,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (auction.bid_cooldown_ends_at && !isEnded) {
                 const timerElement = document.getElementById(timerId);
                 startCountdown(timerElement, auction.bid_cooldown_ends_at, `auction-${auction.id}`, () => {
-                    initialize(); 
+                    initialize(false); // <--- Передаем false, чтобы не было двойного лоадера
                 });
             }
         });
@@ -301,8 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = dom.bidModal.querySelector('label');
         const currentBid = auction.current_highest_bid || 0;
         
-        // --- ИЗМЕНЕНИЕ 3: Проверка лидера по ID, а не по имени ---
-        // (Предполагаем, что в userData.profile есть telegram_id)
         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
 
         if (isLeader) {
@@ -333,14 +335,14 @@ document.addEventListener('DOMContentLoaded', () => {
         showModal(dom.historyModal);
         
         try {
-            const history = await makePublicGetRequest(`/api/v1/auctions/history/${auctionId}`);
+            // Используем showLoader = false, т.к. модальное окно уже открыто
+            const history = await makePublicGetRequest(`/api/v1/auctions/history/${auctionId}`, false); 
             
             if (!history || history.length === 0) {
                 dom.historyList.innerHTML = '<li><i>Ставок еще не было.</i></li>';
                 return;
             }
 
-            // --- ИЗМЕНЕНИЕ 3: Логика иконок в истории ---
             dom.historyList.innerHTML = history.slice(0, 10).map(bid => {
                 const date = new Date(bid.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' });
                 
@@ -367,7 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </li>
                 `;
             }).join('');
-            // --- КОНЕЦ ИЗМЕНЕНИЯ 3 ---
 
         } catch (e) {
             dom.historyList.innerHTML = '<li><i>Не удалось загрузить историю.</i></li>';
@@ -391,8 +392,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.editModalForm.reset(); 
             dom.editAuctionId.value = '';
             dom.editAuctionCooldown.value = 4; 
-            // --- ИЗМЕНЕНИЕ 2: Устанавливаем чекбоксы по умолчанию при создании ---
-            // (Хотя форма и так должна быть сброшена, это для надежности)
             dom.editAuctionActive.checked = false;
             dom.editAuctionVisible.checked = false;
         }
@@ -430,7 +429,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showEditModal(button.dataset.auctionId);
             }
             
-            // --- ИСПРАВЛЕНИЕ: ВЫЗОВ .../clear_participants ---
             else if (button?.matches('.card-reset-btn')) {
                 e.stopPropagation();
                 const auctionId = button.dataset.auctionId;
@@ -439,12 +437,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             const result = await makeApiRequest('/api/v1/admin/auctions/clear_participants', { id: parseInt(auctionId) });
                             tg.showAlert(result.message || 'Лот сброшен и пересоздан.');
-                            initialize(); // Перезагружаем список
+                            initialize(true); // Перезагружаем список (с лоадером)
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
             }
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
             
             else if (button?.matches('.card-finish-btn')) {
                 e.stopPropagation();
@@ -454,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             const result = await makeApiRequest('/api/v1/admin/auctions/finish_manual', { id: parseInt(auctionId) });
                             tg.showAlert(result.message || 'Аукцион завершен.');
-                            initialize(); 
+                            initialize(true); 
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
@@ -467,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             await makeApiRequest('/api/v1/admin/auctions/delete', { id: parseInt(auctionId) });
                             tg.showAlert('Лот удален.');
-                            initialize(); 
+                            initialize(true); 
                         } catch(e) { /* Ошибка уже показана */ }
                     }
                 });
@@ -506,7 +503,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return; 
 
-        // --- ИЗМЕНЕНИЕ 3: Проверка лидера по ID ---
         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
         
         let finalBidAmount = 0;
@@ -535,6 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
+            // Используем лоадер по умолчанию (true)
             await makeApiRequest('/api/v1/auctions/bid', {
                 auction_id: auctionId,
                 bid_amount: finalBidAmount 
@@ -542,11 +539,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
-            initialize(); 
+            initialize(false); // Перезагружаем без главного лоадера, т.к. makeApiRequest свой показал
 
         } catch (e) {
             console.error(e);
-            initialize();
+            initialize(false); // Перезагружаем на случай ошибки
         }
     });
     
@@ -576,7 +573,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_visible: dom.editAuctionVisible.checked
             };
         } else {
-            // --- ИЗМЕНЕНИЕ 2: Добавляем is_active и is_visible в payload ---
             url = '/api/v1/admin/auctions/create';
             payload = {
                 title: dom.editAuctionTitle.value,
@@ -585,43 +581,54 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_active: dom.editAuctionActive.checked,
                 is_visible: dom.editAuctionVisible.checked
             };
-            // --- КОНЕЦ ИЗМЕНЕНИЯ 2 ---
         }
         
         try {
-            await makeApiRequest(url, payload);
+            await makeApiRequest(url, payload); // Показываем лоадер
             tg.showAlert(auctionId ? 'Лот обновлен' : 'Лот создан');
             hideModal(dom.editModal);
-            initialize(); 
+            initialize(false); // Обновляем список без главного лоадера
         } catch(e) { /* Ошибка уже показана */ }
     });
 
 
     // --- Инициализация ---
 
-    async function initialize() {
-        dom.loader.classList.remove('hidden');
+    //
+    // ⬇️ ИЗМЕНЕНИЕ 2: Главная функция инициализации теперь управляет лоадером ⬇️
+    //
+    async function initialize(showMainLoader = true) { // <--- Добавлен параметр
+        if (showMainLoader) {
+            dom.loader.classList.remove('hidden'); // Показываем главный лоадер
+        }
         try {
-            userData = await makeApiRequest('/api/v1/user/me', {}, 'POST');
+            // Передаем 'false', чтобы эти вызовы НЕ управляли загрузчиком
+            userData = await makeApiRequest('/api/v1/user/me', {}, 'POST', false);
             
             let auctionsData = [];
             if (userData.is_admin) {
-                dom.adminControls.style.display = 'block';
-                // --- ИЗМЕНЕНИЕ 3: Убедимся, что вызываем POST ---
-                auctionsData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST');
+                if (dom.adminControls) dom.adminControls.style.display = 'block';
+                auctionsData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', false);
             } else {
-                auctionsData = await makePublicGetRequest('/api/v1/auctions/list');
+                auctionsData = await makePublicGetRequest('/api/v1/auctions/list', false);
             }
             
             renderPage(auctionsData || []);
 
         } catch (e) {
             console.error("Критическая ошибка при загрузке страницы", e);
-            dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Не удалось загрузить аукционы.</p>';
+            if (dom.auctionsList) {
+                dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Не удалось загрузить аукционы.</p>';
+            }
         } finally {
-            dom.loader.classList.add('hidden');
+            if (showMainLoader) {
+                dom.loader.classList.add('hidden'); // Прячем главный лоадер
+            }
         }
     }
+    //
+    // ⬆️ ИЗМЕНЕНИЕ 2: Конец ⬆️
+    //
 
-    initialize();
+    initialize(true); // Первый запуск с главным лоадером
 });
