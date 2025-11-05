@@ -398,45 +398,42 @@
         }
 
         /**
-         * Управляет интервалами показа промо.
+         * ❗️ ИСПРАВЛЕННАЯ ВЕРСИЯ ❗️
+         * Управляет, что показывать: Промо или Аукцион.
          * @param {boolean} hasBids - Есть ли ставки на текущем аукционе.
          */
         function startPromoController(hasBids) {
+            
+            // 1. Всегда останавливаем все старые таймеры (на всякий случай).
             if (promoInterval) clearInterval(promoInterval);
+            if (promoTimeout) clearTimeout(promoTimeout);
             
             if (hasBids) {
-                // СТАВКИ ЕСТЬ: Запускаем промо раз в 5 минут
-                const FIVE_MINUTES = 300000; 
-                console.log(`Промо-контроллер: Ставки есть. Запуск каждые 5 минут.`);
-                promoInterval = setInterval(showPromoAnimation, FIVE_MINUTES);
+                // --- СТАВКИ ЕСТЬ ---
+                // Показываем виджет аукциона, прячем промо.
                 
-                // Сразу прячем промо, если оно было (т.к. пришла ставка)
-                clearTimeout(promoTimeout);
-                dom.widget.classList.remove('promo-active');
-                dom.promoOverlay.classList.remove('show');
+                console.log(`Промо-контроллер: Ставки есть. Показываем аукцион.`);
+                
+                // 1. Возвращаем виджет в нормальное состояние (показываем)
+                dom.widget.classList.remove('promo-active'); 
+                
+                // 2. Прячем промо-оверлей
+                dom.promoOverlay.classList.remove('show'); 
+                
             } else {
-                // СТАВОК НЕТ: Запускаем промо непрерывно (10 сек показ + 5 сек пауза)
-                const CONTINUOUS_CYCLE = 15000; 
-                console.log(`Промо-контроллер: Ставок нет. Запуск каждые 15 секунд.`);
+                // --- СТАВОК НЕТ ---
+                // Показываем промо-картинку СТАТИЧНО.
                 
-                const continuousPromoLoop = () => {
-                    // Проверяем, не появился ли ID аукциона (т.е. ставка)
-                    if (currentAuctionId > 0 && dom.widget.classList.contains('visible')) {
-                        // Эта проверка может быть избыточной, т.к. triggerAnimation 
-                        // должен был уже сбросить таймер, но она для надежности.
-                        const auctionBid = parseInt(dom.bidAmount.textContent) || 0;
-                        if (auctionBid > 0) {
-                             console.log("Обнаружена ставка, остановка непрерывного промо.");
-                             if (promoInterval) clearInterval(promoInterval);
-                             startPromoController(true); // Переключаемся на 5-минутный
-                             return;
-                        }
-                    }
-                    showPromoAnimation();
-                };
+                console.log(`Промо-контроллер: Ставок нет. Показываем промо-картинку.`);
                 
-                promoInterval = setInterval(continuousPromoLoop, CONTINUOUS_CYCLE);
-                showPromoAnimation(); // Запускаем сразу
+                // 1. Прячем виджет (он уезжает)
+                dom.widget.classList.add('promo-active'); 
+                
+                // 2. Показываем промо-оверлей (он приезжает)
+                dom.promoOverlay.classList.add('show');
+                
+                // 3. (ВАЖНО) Мы НЕ запускаем никаких setInterval или setTimeout.
+                //    Промо-картинка просто остается на экране, пока не придет ставка.
             }
         }
 
