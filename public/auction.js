@@ -185,6 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
             
+            // 
+            // ⬇️ ЛОГИКА ОТОБРАЖЕНИЯ ЛИДЕРА (ВКЛЮЧАЯ TWITCH) ⬇️
+            // (Этот код уже был в твоем файле, он корректен)
+            //
             let leaderOrWinnerHtml = '';
             
             let displayName = 'Нет ставок';
@@ -193,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isEnded && !auction.bidder && !auction.current_highest_bidder_name) {
                 displayName = 'Не определен';
             } else if (auction.bidder) {
+                // 'bidder' - это объект {full_name, twitch_login}
                 if (auction.bidder.twitch_login) {
                     displayName = auction.bidder.twitch_login;
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
@@ -201,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
+                // Фоллбэк на старое поле
                 displayName = auction.current_highest_bidder_name;
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
@@ -227,6 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
+            //
+            // ⬆️ КОНЕЦ ЛОГИКИ ОТОБРАЖЕНИЯ ЛИДЕРА ⬆️
+            //
 
             card.innerHTML = `
                 ${adminOverlay}
