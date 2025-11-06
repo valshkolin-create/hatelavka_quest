@@ -157,12 +157,9 @@ try {
             if (index >= visibleSlides.length) index = 0;
             if (index < 0) index = visibleSlides.length - 1;
 
-            // Находим реальный индекс слайда в DOM, чтобы правильно рассчитать смещение
-            const targetSlide = visibleSlides[index];
-            const realIndex = Array.from(allSlides).indexOf(targetSlide);
-            
             // --- 9. ЛОГ: Внутри showSlide ---
-            console.log(`[showSlide] Целевой realIndex в DOM: ${realIndex}`);
+            // Нам не нужен realIndex, мы используем 'index' (порядковый номер видимого слайда)
+            console.log(`[showSlide] Целевой index в visibleSlides: ${index}`);
             // ---
 
             if (!wrapper || !dots[index]) {
@@ -173,9 +170,9 @@ try {
             }
             
             // --- 11. ЛОГ: Внутри showSlide (действие) ---
-            console.log(`[showSlide] Применяем transform: translateX(-${realIndex * 100}%)`);
+            console.log(`[showSlide] Применяем transform: translateX(-${index * 100}%)`);
             // ---
-            wrapper.style.transform = `translateX(-${realIndex * 100}%)`;
+            wrapper.style.transform = `translateX(-${index * 100}%)`;
             dots.forEach(dot => dot.classList.remove('active'));
             dots[index].classList.add('active');
             currentSlideIndex = index;
