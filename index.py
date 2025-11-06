@@ -3229,6 +3229,9 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 
 @app.post("/api/v1/promocode")
 async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали Depends
+    # Предполагаем, что глобальный объект 'supabase' уже определен как AsyncClient
+    # и 'logging', 'HTTPException', 'datetime', 'timezone' импортированы.
+    
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -3238,18 +3241,18 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
 
     try:
         # --- 1. Проверяем прогресс квеста ---
-        # ИЗМЕНЕНИЕ: Используем глобальный supabase
-        progress_response = supabase.table("user_quest_progress").select("current_progress").eq("user_id", user_id).eq("quest_id", quest_id).is_("claimed_at", None).execute()
+        progress_response = await supabase.table("user_quest_progress").select("current_progress").eq("user_id", user_id).eq("quest_id", quest_id).is_("claimed_at", None).execute()
         progress_data = progress_response.data
 
         if not progress_data:
+            # Предыдущий запрос завершился, или квест не начинался
+            logging.warning("Ошибка при получении награды (HTTPException): Награда уже была получена или квест не был начат.")
             raise HTTPException(status_code=400, detail="Награда уже была получена или квест не был начат.")
 
         user_progress = progress_data[0].get("current_progress", 0)
 
         # --- Получаем детали квеста ---
-        # ИЗМЕНЕНИЕ: Используем глобальный supabase
-        quest_response = supabase.table("quests").select("target_value").eq("id", quest_id).execute()
+        quest_response = await supabase.table("quests").select("target_value").eq("id", quest_id).execute()
         quest_data = quest_response.data
 
         if not quest_data:
@@ -3261,66 +3264,67 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
             raise HTTPException(status_code=400, detail="Задание еще не выполнено.")
 
         # --- 2. Начисляем билеты ---
-        # ИЗМЕНЕНИЕ: Используем новую вспомогательную функцию с глобальным клиентом
         ticket_reward = await get_ticket_reward_amount_global("automatic_quest_claim")
         if ticket_reward > 0:
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-             supabase.rpc(
+            # Используем await для асинхронного вызова
+            await supabase.rpc(
                  "increment_tickets",
                  {"p_user_id": user_id, "p_amount": ticket_reward}
              ).execute()
 
         # --- 3. Получаем настройки админ-панели ---
-        # ИЗМЕНЕНИЕ: Используем новую вспомогательную функцию с глобальным клиентом
         admin_settings = await get_admin_settings_async_global()
 
         # --- 4. Проверяем, включена ли выдача промокодов ---
         if not admin_settings.quest_promocodes_enabled:
             # Если промокоды выключены, просто завершаем квест
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-            supabase.table("user_quest_progress").update(
+            await supabase.table("user_quest_progress").update(
                 {"claimed_at": datetime.now(timezone.utc).isoformat()}
             ).eq("user_id", user_id).eq("quest_id", quest_id).execute()
 
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-            supabase.table("users").update(
+            await supabase.table("users").update(
                 {"active_quest_id": None, "active_quest_end_date": None, "quest_progress": 0}
-            ).eq("telegram_id", user_id).eq("active_quest_id", quest_id).execute() # Добавил eq active_quest_id для безопасности
+            ).eq("telegram_id", user_id).eq("active_quest_id", quest_id).execute()
 
             return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов).", "tickets_only": True, "tickets_awarded": ticket_reward}
         else:
-            # Если промокоды включены, выдаем их
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-            rpc_response = supabase.rpc(
+            # Если промокоды включены, выдаем их через RPC
+            rpc_response = await supabase.rpc(
                  "award_reward_and_get_promocode",
                  { "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
-            ).execute()
+             ).execute()
 
-            # --- 
-            # --- ⬇️⬇️ ВОТ ИСПРАВЛЕНИЕ ⬇️⬇️ ---
-            # ---
+            # --- ИСПРАВЛЕННЫЙ БЛОК ОБРАБОТКИ ОТВЕТА ---
             
-            # ШАГ 1: Проверяем, вернула ли SQL-функция ошибку
+            # ШАГ 1: Проверяем, вернула ли SQL-функция ошибку (RAISE EXCEPTION)
+            # Если SQL-функция бросает исключение, rpc_response.error будет содержать его детали.
             if rpc_response.error:
-                # Если да, логируем ее и отправляем пользователю
-                logging.error(f"RPC Error in get_promocode: {rpc_response.error.message}")
+                error_msg = rpc_response.error.get('message', 'Неизвестная ошибка RPC')
+                logging.error(f"RPC Error in get_promocode: {error_msg}")
                 # Мы берем сообщение ИЗ БАЗЫ ДАННЫХ (наше кастомное) и отправляем его
-                raise HTTPException(status_code=400, detail=rpc_response.error.message)
+                raise HTTPException(status_code=400, detail=error_msg)
 
-            # ШАГ 2: Если ошибки нет, продолжаем как обычно
-            promocode_data = rpc_response.data 
-            
-            # --- ⬆️⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️⬆️ ---
-            
-            if isinstance(promocode_data, str): 
-                 promocode_obj = {"code": promocode_data} 
+            # ШАГ 2: Извлекаем данные (промокод)
+            # RPC с RETURN text возвращает список: ["КОД"]
+            if rpc_response.data and isinstance(rpc_response.data, list) and len(rpc_response.data) > 0:
+                promocode = rpc_response.data[0]
+                
+                # Форматирование ответа
+                promocode_obj = {"code": promocode}
+                return { 
+                    "message": "Квест выполнен! Ваша награда добавлена в профиль.", 
+                    "promocode": promocode_obj,
+                    "tickets_awarded": ticket_reward 
+                }
             else:
-                 promocode_obj = promocode_data
-
-            return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_obj }
+                # Если 200 OK, но данных нет (крайне маловероятно)
+                logging.error("RPC вернул успешный статус, но пустые данные.")
+                raise HTTPException(status_code=500, detail="Не удалось получить промокод.")
+            
+            # --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
 
     except HTTPException as e:
-        # Этот блок теперь поймает нашу ошибку с кастомным сообщением
+        # Этот блок теперь поймает нашу ошибку с кастомным сообщением (400)
         logging.warning(f"Ошибка при получении награды (HTTPException): {e.detail}")
         raise e # Пробрасываем ее дальше
     except Exception as e:
