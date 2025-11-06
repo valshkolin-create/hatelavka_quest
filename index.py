@@ -4518,48 +4518,51 @@ async def close_expired_challenge(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Находит и принудительно закрывает АКТИВНЫЙ ('pending') челлендж пользователя,
-    НЕ устанавливая кулдаун. (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+    (ИСПРАВЛЕНИЕ v3)
+    Принудительно закрывает (устанавливает 'expired') ЛЮБОЙ НЕЗАБРАННЫЙ челлендж
+    (в статусе 'pending' ИЛИ 'completed'), у которого ВЫШЛО ВРЕМЯ.
+    Это чинит баг, когда 'recalculate' ставит 'completed', но время истекает.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Доступ запрещен")
     
     telegram_id = user_info["id"]
-    logging.info(f"--- [close_expired] Пользователь {telegram_id} пытается закрыть челлендж. ---")
+    logging.info(f"--- [close_expired v3] Пользователь {telegram_id} пытается закрыть истекший челлендж. ---")
 
     try:
-        # ИЗМЕНЕНИЕ: Мы убираем проверку expires_at.
-        # Фронтенд уже решил, что челлендж истек, и мы ему доверяем.
-        # Нам просто нужно найти ЛЮБОЙ 'pending' челлендж этого пользователя и закрыть его.
+        # 1. Мы должны найти ЛЮБОЙ челлендж, который мешает взять новый.
+        #    Это 'pending' ИЛИ 'completed' (если его не забрали).
+        # 2. Мы должны убедиться, что он ДЕЙСТВИТЕЛЬНО истек.
         
-        # Мы запрашиваем 'count=exact', чтобы узнать, сколько строк было обновлено.
-        patch_resp_pending = await supabase.patch(
+        now_utc = datetime.now(timezone.utc).isoformat()
+
+        patch_resp = await supabase.patch(
             "/user_challenges",
             params={
                 "user_id": f"eq.{telegram_id}",
-                "status": "eq.pending" # Ищем ТОЛЬКО 'pending'
+                "status": "in.(pending,completed)", # Ищем 'pending' ИЛИ 'completed'
+                "claimed_at": "is.null",         # Который еще не забрали
+                "expires_at": f"lt.{now_utc}"      # И который ДЕЙСТВИТЕЛЬНО истек
             },
             json={"status": "expired"}, # Принудительно ставим 'expired'
-            headers={"Prefer": "count=exact"} # Попросим Supabase посчитать строки
+            headers={"Prefer": "count=exact"}
         )
         
-        # Узнаем, сколько строк было обновлено, из заголовка content-range
-        updated_count_str = patch_resp_pending.headers.get('content-range', '*/0').split('/')[-1]
+        updated_count_str = patch_resp.headers.get('content-range', '*/0').split('/')[-1]
         updated_count = int(updated_count_str) if updated_count_str.isdigit() else 0
 
         if updated_count > 0:
-            logging.info(f"[close_expired] УСПЕХ: Найден и закрыт {updated_count} 'pending' челлендж для {telegram_id}.")
-            return {"message": "Активный 'pending' челлендж успешно закрыт."}
+            logging.info(f"[close_expired v3] УСПЕХ: Найден и закрыт (как 'expired') {updated_count} челлендж для {telegram_id}.")
+            return {"message": "Истекший челлендж успешно закрыт."}
         else:
-            # Если 0 'pending' было обновлено, значит, твоя новая функция в Supabase
-            # УЖЕ поменяла статус на 'expired'.
-            # Это НЕ ошибка. Мы просто сообщаем, что работа уже сделана.
-            logging.warning(f"[close_expired] ВНИМАНИЕ: Не найдено 'pending' челленджей для {telegram_id}. Вероятно, он уже был 'expired'.")
-            return {"message": "Истёкший челлендж уже был закрыт (или не найден)."}
+            # Если 0 строк обновлено, значит, он УЖЕ 'expired' или не найден.
+            # В любом случае, это не ошибка.
+            logging.warning(f"[close_expired v3] ВНИМАНИЕ: Не найдено 'pending' или 'completed' истекших челленджей для {telegram_id}. Вероятно, он уже был 'expired'.")
+            return {"message": "Челлендж уже был закрыт (или не найден)."}
 
     except Exception as e:
-        logging.error(f"Критическая ошибка в /close_expired для {telegram_id}: {e}", exc_info=True)
+        logging.error(f"Критическая ошибка в /close_expired (v3) для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось закрыть челлендж.")
     
 @app.post("/api/v1/user/challenge")
