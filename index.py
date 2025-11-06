@@ -36,6 +36,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
 from aiogram.utils.markdown import html_decoration
+from postgrest.exceptions import PostgrestAPIError
 
 sleep_cache = {
     "is_sleeping": False,
@@ -3209,22 +3210,75 @@ async def get_twitch_reward_purchases(
         logging.error(f"Критическая ошибка при получении покупок (RPC): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
 
-async def get_ticket_reward_amount_global(action_type: str) -> int:
-    """Получает количество билетов для награды из таблицы reward_rules, используя глобальный клиент."""
-    try:
-        # Используем глобальный клиент supabase
-        response = supabase.table("reward_rules").select("ticket_amount").eq("action_type", action_type).limit(1).execute()
-        data = response.data
-        if data and 'ticket_amount' in data[0]:
-            return data[0]['ticket_amount']
+async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
+    """Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
+    now = time.time()
+    # Проверяем, есть ли валидный кэш
+    if admin_settings_cache["settings"] and (now - admin_settings_cache["last_checked"] < ADMIN_SETTINGS_CACHE_DURATION):
+        # logging.info("⚙️ Используем кэшированные настройки админа (глобальный).") # Раскомментируй для отладки
+        return admin_settings_cache["settings"]
 
-        logging.warning(f"Правило награды для '{action_type}' не найдено (глобальный). Используется 1.")
-        return 1
+    logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД (глобальный клиент)...")
+    try:
+        # --- ИЗМЕНЕНИЕ: Добавлен await ---
+        response = await supabase.table("settings").select("value").eq("key", "admin_controls").execute()
+        # ---------------------------------
+
+        data = response.data # Данные теперь в response.data
+
+        if data and data[0].get('value'):
+            settings_data = data[0]['value']
+            # --- Логика парсинга boolean значений (остается без изменений) ---
+            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False)
+            quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
+
+            challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
+            challenge_rewards_bool = challenge_rewards_raw if isinstance(challenge_rewards_raw, bool) else str(challenge_rewards_raw).lower() == 'true'
+
+            challenges_raw = settings_data.get('challenges_enabled', True)
+            challenges_bool = challenges_raw if isinstance(challenges_raw, bool) else str(challenges_raw).lower() == 'true'
+
+            quests_raw = settings_data.get('quests_enabled', True)
+            quests_bool = quests_raw if isinstance(quests_raw, bool) else str(quests_raw).lower() == 'true'
+
+            checkpoint_raw = settings_data.get('checkpoint_enabled', False)
+            checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
+            # --- Конец логики парсинга ---
+
+            # Создаем объект настроек
+            loaded_settings = AdminSettings(
+                skin_race_enabled=settings_data.get('skin_race_enabled', True),
+                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
+                challenge_promocodes_enabled=challenge_rewards_bool,
+                quest_promocodes_enabled=quest_rewards_bool,
+                challenges_enabled=challenges_bool,
+                quests_enabled=quests_bool,
+                checkpoint_enabled=checkpoint_bool,
+                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+                auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2") # <-- ДОБАВЛЕНО
+            )
+
+            # Сохраняем в кэш
+            admin_settings_cache["settings"] = loaded_settings
+            admin_settings_cache["last_checked"] = now
+            logging.info("✅ Настройки админа загружены и закэшированы (глобальный).")
+            return loaded_settings
+        else:
+            logging.warning("Настройки 'admin_controls' не найдены в БД (глобальный), используем дефолтные и кэшируем их.")
+            # Если в базе нет, кэшируем дефолтные
+            default_settings = AdminSettings()
+            admin_settings_cache["settings"] = default_settings
+            admin_settings_cache["last_checked"] = now
+            return default_settings
 
     except Exception as e:
-        logging.error(f"Ошибка при получении правила награды для '{action_type}' (глобальный): {e}. Используется 1.")
-        return 1
-# --- КОНЕЦ НОВОЙ ВСПОМОГАТЕЛЬНОЙ ФУНКЦИИ ---
+        logging.error(f"Не удалось получить admin_settings (глобальный клиент): {e}", exc_info=True)
+        # Возвращаем дефолтные настройки и НЕ кэшируем при ошибке
+        admin_settings_cache["settings"] = None
+        admin_settings_cache["last_checked"] = 0
+        return AdminSettings()
 
 
 @app.post("/api/v1/promocode")
@@ -3238,8 +3292,8 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
 
     try:
         # --- 1. Проверяем прогресс квеста ---
-        # ИЗМЕНЕНИЕ: Используем глобальный supabase
-        progress_response = supabase.table("user_quest_progress").select("current_progress").eq("user_id", user_id).eq("quest_id", quest_id).is_("claimed_at", None).execute()
+        # ИЗМЕНЕНИЕ: Добавлен await
+        progress_response = await supabase.table("user_quest_progress").select("current_progress").eq("user_id", user_id).eq("quest_id", quest_id).is_("claimed_at", None).execute()
         progress_data = progress_response.data
 
         if not progress_data:
@@ -3248,8 +3302,8 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
         user_progress = progress_data[0].get("current_progress", 0)
 
         # --- Получаем детали квеста ---
-        # ИЗМЕНЕНИЕ: Используем глобальный supabase
-        quest_response = supabase.table("quests").select("target_value").eq("id", quest_id).execute()
+        # ИЗМЕНЕНИЕ: Добавлен await
+        quest_response = await supabase.table("quests").select("target_value").eq("id", quest_id).execute()
         quest_data = quest_response.data
 
         if not quest_data:
@@ -3264,8 +3318,8 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
         # ИЗМЕНЕНИЕ: Используем новую вспомогательную функцию с глобальным клиентом
         ticket_reward = await get_ticket_reward_amount_global("automatic_quest_claim")
         if ticket_reward > 0:
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-             supabase.rpc(
+            # ИЗМЕНЕНИЕ: Добавлен await
+             await supabase.rpc(
                  "increment_tickets",
                  {"p_user_id": user_id, "p_amount": ticket_reward}
              ).execute()
@@ -3277,47 +3331,51 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
         # --- 4. Проверяем, включена ли выдача промокодов ---
         if not admin_settings.quest_promocodes_enabled:
             # Если промокоды выключены, просто завершаем квест
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-            supabase.table("user_quest_progress").update(
+            # ИЗМЕНЕНИЕ: Добавлен await
+            await supabase.table("user_quest_progress").update(
                 {"claimed_at": datetime.now(timezone.utc).isoformat()}
             ).eq("user_id", user_id).eq("quest_id", quest_id).execute()
 
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-            supabase.table("users").update(
+            # ИЗМЕНЕНИЕ: Добавлен await
+            await supabase.table("users").update(
                 {"active_quest_id": None, "active_quest_end_date": None, "quest_progress": 0}
             ).eq("telegram_id", user_id).eq("active_quest_id", quest_id).execute() # Добавил eq active_quest_id для безопасности
 
             return {"message": f"Квест выполнен! Вам начислено {ticket_reward} билет(а/ов).", "tickets_only": True, "tickets_awarded": ticket_reward}
         else:
             # Если промокоды включены, выдаем их
-            # ИЗМЕНЕНИЕ: Используем глобальный supabase
-            rpc_response = supabase.rpc(
-                 "award_reward_and_get_promocode",
-                 { "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
-            ).execute()
-
-            # --- 
-            # --- ⬇️⬇️ ВОТ ИСПРАВЛЕНИЕ ⬇️⬇️ ---
-            # ---
-            
-            # ШАГ 1: Проверяем, вернула ли SQL-функция ошибку
-            if rpc_response.error:
-                # Если да, логируем ее и отправляем пользователю
-                logging.error(f"RPC Error in get_promocode: {rpc_response.error.message}")
+            # ИЗМЕНЕНИЕ: Добавлен await и блок try...except
+            try:
+                rpc_response = await supabase.rpc(
+                     "award_reward_and_get_promocode",
+                     { "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
+                ).execute()
+    
+                # --- 
+                # --- ⬇️⬇️ ВОТ ИСПРАВЛЕНИЕ ⬇️⬇️ ---
+                # ---
+                
+                # ШАГ 1: Блок "if rpc_response.error:" ПОЛНОСТЬЮ УДАЛЕН.
+                # Он не нужен в v2 и вызывает ошибку AttributeError.
+                
+                # ШАГ 2: Если ошибки нет, просто получаем данные.
+                promocode_data = rpc_response.data 
+                
+                # --- ⬆️⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️⬆️ ---
+                
+                if isinstance(promocode_data, str): 
+                     promocode_obj = {"code": promocode_data} 
+                else:
+                     promocode_obj = promocode_data
+    
+                return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_obj }
+                
+            except PostgrestAPIError as e: # ИЗМЕНЕНИЕ: Ловим PostgrestAPIError
+                # Этот блок выполнится, если SQL-функция вернет RAISE EXCEPTION
+                # (например, "Свободные промокоды... закончились.")
+                logging.error(f"RPC Error in get_promocode: {e.message}")
                 # Мы берем сообщение ИЗ БАЗЫ ДАННЫХ (наше кастомное) и отправляем его
-                raise HTTPException(status_code=400, detail=rpc_response.error.message)
-
-            # ШАГ 2: Если ошибки нет, продолжаем как обычно
-            promocode_data = rpc_response.data 
-            
-            # --- ⬆️⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️⬆️ ---
-            
-            if isinstance(promocode_data, str): 
-                 promocode_obj = {"code": promocode_data} 
-            else:
-                 promocode_obj = promocode_data
-
-            return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_obj }
+                raise HTTPException(status_code=400, detail=e.message)
 
     except HTTPException as e:
         # Этот блок теперь поймает нашу ошибку с кастомным сообщением
