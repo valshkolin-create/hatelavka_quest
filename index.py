@@ -2314,18 +2314,15 @@ async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.A
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
     now = time.time()
-    # Проверяем, есть ли валидный кэш
     if admin_settings_cache["settings"] and (now - admin_settings_cache["last_checked"] < ADMIN_SETTINGS_CACHE_DURATION):
-        # logging.info("⚙️ Используем кэшированные настройки админа (глобальный).") # Раскомментируй для отладки
         return admin_settings_cache["settings"]
 
     logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД (глобальный клиент)...")
     try:
         # --- ИЗМЕНЕНИЕ: Добавлен await ---
         response = await supabase.table("settings").select("value").eq("key", "admin_controls").execute()
-        # ---------------------------------
 
-        data = response.data # Данные теперь в response.data
+        data = response.data 
 
         if data and data[0].get('value'):
             settings_data = data[0]['value']
@@ -2346,7 +2343,6 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
             checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
             # --- Конец логики парсинга ---
 
-            # Создаем объект настроек
             loaded_settings = AdminSettings(
                 skin_race_enabled=settings_data.get('skin_race_enabled', True),
                 slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
@@ -2357,18 +2353,16 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
                 checkpoint_enabled=checkpoint_bool,
                 menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
-                auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
-                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2") # <-- ДОБАВЛЕНО
+                auction_enabled=settings_data.get('auction_enabled', False), 
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2")
             )
 
-            # Сохраняем в кэш
             admin_settings_cache["settings"] = loaded_settings
             admin_settings_cache["last_checked"] = now
             logging.info("✅ Настройки админа загружены и закэшированы (глобальный).")
             return loaded_settings
         else:
             logging.warning("Настройки 'admin_controls' не найдены в БД (глобальный), используем дефолтные и кэшируем их.")
-            # Если в базе нет, кэшируем дефолтные
             default_settings = AdminSettings()
             admin_settings_cache["settings"] = default_settings
             admin_settings_cache["last_checked"] = now
@@ -2376,7 +2370,6 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
 
     except Exception as e:
         logging.error(f"Не удалось получить admin_settings (глобальный клиент): {e}", exc_info=True)
-        # Возвращаем дефолтные настройки и НЕ кэшируем при ошибке
         admin_settings_cache["settings"] = None
         admin_settings_cache["last_checked"] = 0
         return AdminSettings()
@@ -2391,82 +2384,64 @@ async def get_current_user_data(request_data: InitDataRequest): # <<< Убрал
     telegram_id = user_info["id"]
 
     try:
-        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .rpc().execute() без await ---
-        response = supabase.rpc(
+        # --- ИЗМЕНЕНИЕ: Добавлен await ---
+        response = await supabase.rpc(
             "get_user_dashboard_data",
             {"p_telegram_id": telegram_id}
         ).execute()
-        # raise_for_status() не нужен, execute() выбросит исключение при ошибке API
-        data = response.data # Данные теперь в response.data
+        data = response.data 
 
-        # Если профиль пустой, создаем его
-        # Проверяем data перед доступом к .get()
         if not data or not data.get('profile'):
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
 
-            # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().insert().execute() без await ---
-            insert_response = supabase.table("users").insert(
+            # --- ИЗМЕНЕНИЕ: Добавлен await ---
+            insert_response = await supabase.table("users").insert(
                  {"telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg},
-                 # Используем upsert вместо resolution=merge-duplicates для большей надежности
-                 # (если вдруг пользователь создастся между двумя вызовами rpc)
-                 # count='exact' # Можно добавить count, если нужно знать, была ли вставка
-                 returning='minimal' # Нам не нужны возвращаемые данные
+                 returning='minimal'
             ).execute()
-            # Проверка ошибок вставки (опционально, execute выбросит исключение)
-            # if insert_response.error: ...
 
-            # Повторно запрашиваем данные после создания
-            # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .rpc().execute() без await ---
-            response = supabase.rpc(
+            # --- ИЗМЕНЕНИЕ: Добавлен await ---
+            response = await supabase.rpc(
                 "get_user_dashboard_data",
                 {"p_telegram_id": telegram_id}
             ).execute()
             data = response.data
 
-        # --- Проверка на случай, если data все еще пустые после попытки создания ---
         if not data:
              logging.error(f"Не удалось получить или создать данные для пользователя {telegram_id}")
              raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
 
-        # Собираем основной ответ (проверяем наличие 'profile' перед доступом)
         final_response = data.get('profile', {})
-        if not final_response: # Если профиль пуст даже после создания, возвращаем ошибку
+        if not final_response:
              logging.error(f"RPC get_user_dashboard_data вернула пустой профиль для {telegram_id} после создания.")
-             # Можно вернуть пустой объект или ошибку, в зависимости от логики фронтенда
              raise HTTPException(status_code=500, detail="Ошибка получения данных профиля.")
 
-        final_response['challenge'] = data.get('challenge') # .get() безопасен
-        final_response['event_participations'] = data.get('event_participations', {}) # .get() с default безопасен
+        final_response['challenge'] = data.get('challenge')
+        final_response['event_participations'] = data.get('event_participations', {})
 
-        # Проверяем, является ли пользователь админом
         is_admin = telegram_id in ADMIN_IDS
         final_response['is_admin'] = is_admin
 
-        # --- Логика для админа, если RPC не вернула билеты ---
         if is_admin and 'tickets' not in final_response:
             logging.warning(f"RPC не вернула баланс билетов для админа {telegram_id}. Делаю доп. запрос...")
-            # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
-            user_details_resp = supabase.table("users").select("tickets").eq("telegram_id", telegram_id).execute()
+            # --- ИЗМЕНЕНИЕ: Добавлен await ---
+            user_details_resp = await supabase.table("users").select("tickets").eq("telegram_id", telegram_id).execute()
 
-            # Данные в user_details_resp.data (это список)
             if user_details_resp.data:
                 final_response['tickets'] = user_details_resp.data[0].get('tickets', 0)
             else:
-                 # Если админ не найден (маловероятно), оставляем tickets=0 или логируем ошибку
                  final_response['tickets'] = 0
                  logging.error(f"Не удалось найти админа {telegram_id} в таблице users для получения билетов.")
 
-        # --- ИЗМЕНЕНИЕ: Вызываем вспомогательную функцию, адаптированную под глобальный клиент ---
-        # Убедись, что такая функция существует и использует глобальный supabase
         admin_settings = await get_admin_settings_async_global()
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
         final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
 
         return JSONResponse(content=final_response)
 
-    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
-    #     logging.error(f"Ошибка Supabase API в /api/v1/user/me: {e}", exc_info=True)
-    #     raise HTTPException(status_code=getattr(e, 'status_code', 500), detail=str(e))
+    except PostgrestAPIError as e: # Ловим ошибки Supabase
+        logging.error(f"Ошибка Supabase API в /api/v1/user/me: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e.message))
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/user/me для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
@@ -2901,14 +2876,12 @@ async def get_cauldron_status(): # <<< Убрали request и Depends
         # --- ИЗМЕНЕНИЕ: Добавлен await ---
         response = await supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
         
-        data = response.data # Данные в response.data (это список)
+        data = response.data
 
-        # Если запись не найдена или content пустой
         if not data or not data[0].get('content'):
             logging.warning("Контент для 'cauldron_event' не найден в pages_content.")
-            return {"is_visible_to_users": False} # Возвращаем статус по умолчанию
+            return {"is_visible_to_users": False} 
 
-        # Просто возвращаем содержимое поля content
         return data[0]['content']
 
     except PostgrestAPIError as e: # Ловим ошибки Supabase
@@ -2916,7 +2889,6 @@ async def get_cauldron_status(): # <<< Убрали request и Depends
          return {"is_visible_to_users": False}
     except Exception as e:
         logging.error(f"Критическая ошибка при получении статуса котла: {e}", exc_info=True)
-        # Возвращаем статус по умолчанию при любой другой ошибке
         return {"is_visible_to_users": False}
         
 @app.get("/api/v1/events/cauldron/leaderboard")
