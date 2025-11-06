@@ -3296,26 +3296,39 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
                  { "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
             ).execute()
 
-            promocode_data = rpc_response.data
-            # RPC возвращает сам промокод строкой, а не JSON объект
-            # Поэтому нужно убедиться, что фронтенд ожидает именно строку или адаптировать ответ
-            if isinstance(promocode_data, str): # Проверка, что вернулась строка
-                 # Адаптируем ответ под старый формат, если нужно
-                 promocode_obj = {"code": promocode_data} # Пример, если фронтенд ждет объект
+            # --- 
+            # --- ⬇️⬇️ ВОТ ИСПРАВЛЕНИЕ ⬇️⬇️ ---
+            # ---
+            
+            # ШАГ 1: Проверяем, вернула ли SQL-функция ошибку
+            if rpc_response.error:
+                # Если да, логируем ее и отправляем пользователю
+                logging.error(f"RPC Error in get_promocode: {rpc_response.error.message}")
+                # Мы берем сообщение ИЗ БАЗЫ ДАННЫХ (наше кастомное) и отправляем его
+                raise HTTPException(status_code=400, detail=rpc_response.error.message)
+
+            # ШАГ 2: Если ошибки нет, продолжаем как обычно
+            promocode_data = rpc_response.data 
+            
+            # --- ⬆️⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️⬆️ ---
+            
+            if isinstance(promocode_data, str): 
+                 promocode_obj = {"code": promocode_data} 
             else:
-                 # Если RPC возвращает JSON или что-то другое, используем как есть
                  promocode_obj = promocode_data
 
             return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_obj }
 
-    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
-    #     error_details = getattr(e, 'message', str(e))
-    #     logging.error(f"Ошибка Supabase API при получении награды за квест: {error_details}", exc_info=True)
-    #     raise HTTPException(status_code=getattr(e, 'status_code', 400), detail=error_details)
+    except HTTPException as e:
+        # Этот блок теперь поймает нашу ошибку с кастомным сообщением
+        logging.warning(f"Ошибка при получении награды (HTTPException): {e.detail}")
+        raise e # Пробрасываем ее дальше
     except Exception as e:
+        # Этот блок поймает все остальное
         logging.error(f"Критическая ошибка при получении награды за квест для user {user_id}, quest {quest_id}: {e}", exc_info=True)
+        # И вернет наше общее сообщение
         raise HTTPException(status_code=500, detail="Не удалось получить награду.")
-
+        
 @app.post("/api/v1/admin/auctions/list") 
 async def admin_get_auctions(
     request_data: InitDataRequest, 
