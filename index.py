@@ -4329,7 +4329,7 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
         admin_settings = await get_admin_settings_async_global()
 
         # --- 4. Проверяем, включена ли выдача промокодов ---
-        if not admin_settings.quest_promoco_enabled:
+        if not admin_settings.quest_promocodes_enabled: # <-- ✅ ПРАВИЛЬНО
             # Если промокоды выключены, просто завершаем квест
             supabase.table("user_quest_progress").update(
                 {"claimed_at": datetime.now(timezone.utc).isoformat()}
