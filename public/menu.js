@@ -1201,13 +1201,7 @@ function setupEventListeners() {
                     }
                 }
                 // --- КОНЕЦ НОВОГО КОДА ---
-
-                if (menuContent.checkpoint_banner_url) {
-                    const checkpointBannerImg = document.getElementById('checkpoint-banner-img');
-                    if (checkpointBannerImg) {
-                        checkpointBannerImg.src = menuContent.checkpoint_banner_url;
-                    }
-                }
+  
             }
             // --- Логика для баннера ивента "Котел" (ИСПРАВЛЕНО ДЛЯ АДМИНА) ---
             try {
@@ -1311,7 +1305,32 @@ function setupEventListeners() {
                 }
             }
             // --- ↑↑↑ КОНЕЦ НОВОГО КОДА (ШАГ 3.3) ↑↑↑ ---
-        
+        // --- Логика для баннера "Чекпоинт" ---
+        try {
+            // Ищем по data-event, так как он теперь в слайдере
+            const checkpointSlide = document.querySelector('.slide[data-event="checkpoint"]'); 
+            if (checkpointSlide) {
+                // menuContent уже содержит checkpoint_enabled из /api/v1/content/menu
+                const shouldShowCheckpoint = menuContent.checkpoint_enabled || (userData && userData.is_admin);
+                console.log(`main() [Чекпоинт]: (enabled=${menuContent.checkpoint_enabled} || admin=${userData.is_admin}) = ${shouldShowCheckpoint}`); // ЛОГ
+
+                if (shouldShowCheckpoint) {
+                    checkpointSlide.style.display = ''; // Показываем
+                    const checkpointBannerImg = document.getElementById('checkpoint-banner-img');
+                    if (checkpointBannerImg && menuContent.checkpoint_banner_url) {
+                        checkpointBannerImg.src = menuContent.checkpoint_banner_url;
+                    }
+                } else {
+                    checkpointSlide.style.display = 'none'; // Скрываем
+                }
+            } else {
+                console.log("main() [Чекпоинт]: Слайд Чекпоинта не найден в HTML."); // ЛОГ
+            }
+        } catch (e) {
+            console.error("main() [Чекпоинт]: Ошибка настройки слайда Чекпоинта", e); // ЛОГ
+            const checkpointSlide = document.querySelector('.slide[data-event="checkpoint"]');
+            if (checkpointSlide) checkpointSlide.style.display = 'none'; // Скрываем при ошибке
+        }
             // ВЫЗОВ ФУНКЦИИ СЛАЙДЕРА (ПРАВИЛЬНОЕ МЕСТО)
             console.log("main(): Вся логика показа слайдов отработала. Запускаем setupSlider() через 0мс..."); // ЛОГ
             setTimeout(() => {
