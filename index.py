@@ -4597,29 +4597,26 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
                 }
             )
 
-    # --- 1. Проверяем, есть ли уже активный (не истёкший) челлендж ---
+    # --- 1. Проверяем, есть ли уже активный ('pending') челлендж ---
+    # 
+    # !!! ИЗМЕНЕНИЕ ЗДЕСЬ !!!
+    # Мы больше не проверяем expires_at. Эта функция теперь
+    # просто возвращает 'pending' челлендж, если он есть.
+    # Логика закрытия (expired) перенесена ИСКЛЮЧИТЕЛЬНО
+    # в эндпоинт /close_expired
+    #
     pending_resp = await supabase.get(
         "/user_challenges",
         params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "*,challenges(*)"}
     )
     pending_challenges = pending_resp.json()
     if pending_challenges:
-        current_challenge = pending_challenges[0]
-        expires_at_str = current_challenge.get("expires_at")
-        if expires_at_str:
-            expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
-            if expires_at < datetime.now(timezone.utc):
-                # Если челлендж истёк, помечаем его и продолжаем, чтобы выдать новый
-                await supabase.patch(
-                    "/user_challenges",
-                    params={"id": f"eq.{current_challenge['id']}"},
-                    json={"status": "expired"}
-                )
-            else:
-                # Если челлендж активен, возвращаем его
-                return current_challenge
+        # Если челлендж активен, возвращаем его
+        return pending_challenges[0]
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-    # --- 2. Логика назначения нового челленджа ---
+
+    # --- 2. Логика назначения нового челленджа (остается без изменений) ---
     user_resp = await supabase.get(
         "/users",
         params={"telegram_id": f"eq.{telegram_id}", "select": "*", "limit": 1}
