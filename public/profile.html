@@ -514,7 +514,6 @@ try {
         rewardsList: document.getElementById('rewards-list'),
         settingsList: document.getElementById('settings-list'),
         deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
-        completedChallengesCount: document.getElementById('completed-challenges-count'),
         notificationArea: document.getElementById('notification-area'),
         // Окно Trade Link
         customPopupOverlay: document.getElementById('custom-popup-overlay'),
@@ -628,7 +627,6 @@ try {
         }
         dom.settingsList.appendChild(twitchCard);
 
-        dom.completedChallengesCount.textContent = userData.completed_challenges || 0;
     }
 
     function renderRewards(rewards) {
