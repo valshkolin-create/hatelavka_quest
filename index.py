@@ -6738,8 +6738,8 @@ async def delete_roulette_prize(
     return {"message": "Приз удален."}
 
 # --- HTML routes ---
-# @app.get('/favicon.ico', include_in_schema=False)
-# async def favicon(): return Response(status_code=204)
+ @app.get('/favicon.ico', include_in_schema=False)
+ async def favicon(): return Response(status_code=204)
 # @app.get("/menu")
 # async def menu_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/menu.html")
 # @app.get("/leaderboard")
