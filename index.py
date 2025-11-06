@@ -4329,7 +4329,11 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
         admin_settings = await get_admin_settings_async_global()
 
         # --- 4. Проверяем, включена ли выдача промокодов ---
-        if not admin_settings.quest_promocodes_enabled: # <-- ✅ ПРАВИЛЬНО
+        
+        # V--- ✅✅✅ ВОТ ЗДЕСЬ ИСПРАВЛЕНИЕ ✅✅✅ ---V
+        if not admin_settings.quest_promocodes_enabled:
+        # A--- ✅✅✅ ВОТ ЗДЕСЬ ИСПРАВЛЕНИЕ ✅✅✅ ---A
+
             # Если промокоды выключены, просто завершаем квест
             supabase.table("user_quest_progress").update(
                 {"claimed_at": datetime.now(timezone.utc).isoformat()}
@@ -4347,14 +4351,11 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
                  { "p_user_id": user_id, "p_source_type": "quest", "p_source_id": quest_id }
              ).execute()
 
-            # --- ИСПРАВЛЕННЫЙ БЛОК ОБРАБОТКИ ОТВЕТА ---
+            # --- БЛОК ОБРАБОТКИ ОТВЕТА ---
             
-            # V--- ИСПРАВЛЕНИЕ: БЛОК 'if rpc_response.error:' ПОЛНОСТЬЮ УДАЛЕН ---
-            # Если RPC вернет ошибку (RAISE EXCEPTION),
-            # ее поймает внешний блок 'except Exception as e:'.
+            # (Проверка 'if rpc_response.error:' удалена)
 
             # ШАГ 2: Извлекаем данные (промокод)
-            # RPC с RETURN text возвращает список: ["КОД"]
             if rpc_response.data and isinstance(rpc_response.data, list) and len(rpc_response.data) > 0:
                 promocode = rpc_response.data[0]
                 
@@ -4366,31 +4367,20 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
                     "tickets_awarded": ticket_reward 
                 }
             else:
-                # Если 200 OK, но данных нет (крайне маловероятно)
                 logging.error("RPC вернул успешный статус, но пустые данные.")
                 raise HTTPException(status_code=500, detail="Не удалось получить промокод.")
             
-            # --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
-
     except HTTPException as e:
-        # Этот блок теперь поймает нашу ошибку с кастомным сообщением (400)
         logging.warning(f"Ошибка при получении награды (HTTPException): {e.detail}")
-        raise e # Пробрасываем ее дальше
-
-    # --- VVV ЭТОТ БЛОК ТЕПЕРЬ БУДЕТ ЛОВИТЬ РЕАЛЬНЫЕ ОШИБКИ RPC VVV ---
-    except Exception as e:
-        # Этот блок поймает все остальное (включая ошибки RPC)
+        raise e 
         
-        # --- ДОБАВИМ ЛОГИРОВАНИЕ ОШИБОК RPC ---
-        # Если это ошибка от Supabase, у нее будет атрибут 'message'
+    except Exception as e:
         error_message = getattr(e, 'message', str(e))
         logging.error(f"Критическая ошибка (или RPC Exception) при получении награды за квест для user {user_id}, quest {quest_id}: {error_message}", exc_info=True)
         
-        # Попытаемся вернуть пользователю ошибку из базы данных
         if "Недостаточно промокодов" in error_message or "Награда уже получена" in error_message:
              raise HTTPException(status_code=400, detail=error_message)
 
-        # И вернет наше общее сообщение
         raise HTTPException(status_code=500, detail="Не удалось получить награду.")
     
 # --- Пользовательские эндпоинты ---
