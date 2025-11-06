@@ -199,6 +199,10 @@ class CheckpointUpdateRequest(BaseModel):
     initData: str
     content: CheckpointContent
 
+class CheckpointInfoUpdateRequest(BaseModel):
+    initData: str
+    content: str # Это будет HTML-строка из редактора
+
 class CheckpointClaimRequest(BaseModel):
     initData: str
     level: int
@@ -4100,47 +4104,7 @@ async def get_pending_submissions(request_data: InitDataRequest, supabase: httpx
     response = await supabase.post("/rpc/get_pending_submissions_with_details")
     return response.json()
 
-# --- НОВАЯ ИСПРАВЛЕННАЯ ФУНКЦИЯ-ПОМОЩНИК ---
-async def award_reward_and_notify(
-    user_id: int, 
-    quest_title: str, 
-    promocode: dict
-):
-    """
-    Эта функция выполняется в фоне и создает свои собственные подключения.
-    """
-    # Создаем собственное, свежее подключение к Supabase
-    async with httpx.AsyncClient(
-        base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1",
-        headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY'), "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_ROLE_KEY')}"},
-        timeout=30.0
-    ) as supabase:
-        # 1. Начисляем тикет
-        try:
-            await supabase.post(
-                "/rpc/increment_tickets",
-                json={"p_user_id": user_id, "p_amount": 1}
-            )
-            logging.info(f"ФОНОВАЯ ЗАДАЧА: Начислен 1 тикет пользователю {user_id}.")
-        except Exception as e:
-            logging.error(f"ФОНОВАЯ ОШИБКА: Не удалось начислить тикет: {e}")
 
-    # Используем глобальный объект bot для отправки сообщения
-    # 2. Отправляем уведомление
-    try:
-        promo_code = promocode['code']
-        activation_url = f"https://t.me/HATElavka_bot?start={promo_code}"
-        notification_text = (
-            f"<b>Твоя награда за квест «{quest_title}»!</b>\n\n"
-            f"Воспользуйся промокодом в @HATElavka_bot для пополнения звёзд.\n\n"
-            f"Твой промокод:\n<code>{promo_code}</code>\n\n"
-            f"<i>Нажми на код, чтобы скопировать.</i>"
-        )
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)]])
-        await bot.send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-        logging.info(f"ФОНОВАЯ ЗАДАЧА: Уведомление отправлено пользователю {user_id}.")
-    except Exception as e:
-        logging.error(f"ФОНОВАЯ ОШИБКА: Не удалось отправить уведомление о промокоде: {e}")
 
 
 # --- ОБНОВЛЕННАЯ ОСНОВНАЯ ФУНКЦИЯ ---
@@ -5749,6 +5713,56 @@ async def claim_checkpoint_reward(
         logging.error(f"Critical error in /api/v1/checkpoint/claim: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error.")
 
+@app.get("/api/v1/checkpoint/info")
+async def get_checkpoint_info(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Отдает JSON с контентом для инфо-модалки 'Чекпоинт'."""
+    try:
+        # Мы ищем запись, где page_name == 'checkpoint_info'
+        resp = await supabase.get(
+            "/pages_content",
+            params={"page_name": "eq.checkpoint_info", "select": "content", "limit": 1}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # Фронтенд (checkpoint.html) ожидает получить объект {"content": "..."}
+        if not data or not data[0].get('content'):
+            return {"content": ""} # Возвращаем пустой объект, если в базе ничего нет
+        
+        # Возвращаем {"content": "..."} из базы
+        return data[0]['content']
+        
+    except Exception as e:
+        logging.error(f"Ошибка при получении checkpoint/info: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось загрузить информацию.")
+
+@app.post("/api/v1/admin/checkpoint/info/update")
+async def update_checkpoint_info(
+    request_data: CheckpointInfoUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Обновляет HTML-контент для инфо-модалки 'Чекпоинт'."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    
+    try:
+        # Фронтенд присылает HTML-строку. Мы заворачиваем ее в объект,
+        # чтобы GET-эндпоинт мог ее правильно прочитать.
+        content_to_save = {"content": request_data.content}
+        
+        # Используем upsert: обновляем запись 'checkpoint_info' или создаем ее,
+        # если она еще не существует.
+        await supabase.post(
+            "/pages_content",
+            json={"page_name": "checkpoint_info", "content": content_to_save},
+            headers={"Prefer": "resolution=merge-duplicates"} # 'merge-duplicates' = ON CONFLICT DO UPDATE
+        )
+        return {"message": "Информация успешно обновлена."}
+    except Exception as e:
+        logging.error(f"Ошибка при обновлении checkpoint/info: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось сохранить информацию.")
+
 @app.post("/api/v1/admin/settings")
 async def get_admin_settings(
     request_data: InitDataRequest,
@@ -6759,28 +6773,3 @@ def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]
         updated_quests.append(updated_quest)
         
     return updated_quests
-
-def fill_missing_challenge_data(challenges: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Дополняет отсутствующие поля в данных челленджей значениями по умолчанию.
-
-    Args:
-        challenges: Список словарей с данными челленджей.
-
-    Returns:
-        Обновленный список словарей с заполненными данными.
-    """
-    default_values = {
-        "description": "Описание отсутствует",
-        "condition_type": "telegram_messages",
-        "target_value": 0,
-        "duration_days": 7,
-        "reward_amount": 0
-    }
-
-    updated_challenges = []
-    for challenge in challenges:
-        updated_challenge = {**default_values, **challenge}
-        updated_challenges.append(updated_challenge)
-    
-    return updated_challenges
