@@ -1159,7 +1159,8 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             const slideNames = {
                 skin_race: 'Гонка за скинами',
                 cauldron: 'Ивент "Котел"',
-                auction: 'Аукцион'
+                auction: 'Аукцион',
+                checkpoint: 'Марафон Чекпоинт'
             };
 
             dom.sliderOrderManager.innerHTML = '';
