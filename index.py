@@ -1963,21 +1963,18 @@ async def get_public_quests(request_data: InitDataRequest):
     telegram_id = user_info.get("id") if user_info else None
 
     if not telegram_id:
-        # Если нет ID пользователя (например, невалидный initData), возвращаем пустой список
         return []
 
     try:
-        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Убираем await перед вызовом ---
-        response = supabase.rpc(
+        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Добавлен await ---
+        response = await supabase.rpc(
             "get_available_quests_for_user",
             {"p_telegram_id": telegram_id}
-        ).execute() # execute() вызывается без await
+        ).execute()
 
         # Данные теперь находятся в response.data
         available_quests_raw = response.data
 
-        # SQL функция возвращает '[]'::json (пустой JSON массив) или null, если ничего не найдено.
-        # Обрабатываем оба случая.
         if available_quests_raw is None or not isinstance(available_quests_raw, list):
             available_quests = []
         else:
@@ -1988,18 +1985,18 @@ async def get_public_quests(request_data: InitDataRequest):
         if isinstance(available_quests, list):
             for quest_data in available_quests:
                 if isinstance(quest_data, dict):
-                    quest_data['is_completed'] = False # Добавляем поле как в оригинальной функции
+                    quest_data['is_completed'] = False
                     processed_quests.append(quest_data)
                 else:
                     logging.warning(f"Неожиданный формат данных квеста: {quest_data}")
         else:
              logging.warning(f"RPC вернула не список: {available_quests}")
 
-
-        # --- Сохраняем логику заполнения недостающих данных ---
-        # Убедись, что функция fill_missing_quest_data определена где-то в твоем коде
         return fill_missing_quest_data(processed_quests)
 
+    except PostgrestAPIError as e: # Ловим ошибки Supabase
+        logging.error(f"Ошибка Supabase API в /api/v1/quests/list: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e.message))
     except Exception as e:
         # Используем exc_info=True для получения полного traceback в логах
         logging.error(f"Ошибка при вызове RPC get_available_quests_for_user для {telegram_id}: {e}", exc_info=True)
@@ -2324,9 +2321,9 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
 
     logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД (глобальный клиент)...")
     try:
-        # --- ИЗМЕНЕНИЕ: Используем глобальный клиент supabase и новый синтаксис ---
-        response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
-        # execute() вызывается без await
+        # --- ИЗМЕНЕНИЕ: Добавлен await ---
+        response = await supabase.table("settings").select("value").eq("key", "admin_controls").execute()
+        # ---------------------------------
 
         data = response.data # Данные теперь в response.data
 
@@ -2901,10 +2898,9 @@ async def get_quest_details(request_data: QuestDetailsRequest, supabase: httpx.A
 async def get_cauldron_status(): # <<< Убрали request и Depends
     """Отдает текущее состояние ивента 'Котел', используя глобальный клиент."""
     try:
-        # --- ИЗМЕНЕНИЕ: Используем глобальный supabase и .table().select().execute() без await ---
-        response = supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
-        # execute() вызывается без await
-
+        # --- ИЗМЕНЕНИЕ: Добавлен await ---
+        response = await supabase.table("pages_content").select("content").eq("page_name", "cauldron_event").limit(1).execute()
+        
         data = response.data # Данные в response.data (это список)
 
         # Если запись не найдена или content пустой
@@ -2915,10 +2911,9 @@ async def get_cauldron_status(): # <<< Убрали request и Depends
         # Просто возвращаем содержимое поля content
         return data[0]['content']
 
-    # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
-    #     logging.error(f"Ошибка Supabase API в /events/cauldron/status: {e}", exc_info=True)
-    #     # Возвращаем статус по умолчанию при ошибке базы данных
-    #     return {"is_visible_to_users": False}
+    except PostgrestAPIError as e: # Ловим ошибки Supabase
+         logging.error(f"Ошибка Supabase API в /events/cauldron/status: {e}", exc_info=True)
+         return {"is_visible_to_users": False}
     except Exception as e:
         logging.error(f"Критическая ошибка при получении статуса котла: {e}", exc_info=True)
         # Возвращаем статус по умолчанию при любой другой ошибке
@@ -3209,6 +3204,24 @@ async def get_twitch_reward_purchases(
     except Exception as e:
         logging.error(f"Критическая ошибка при получении покупок (RPC): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
+
+async def get_ticket_reward_amount_global(action_type: str) -> int:
+    """Получает количество билетов для награды из таблицы reward_rules, используя глобальный клиент."""
+    try:
+        # Используем глобальный клиент supabase
+        # --- ИЗМЕНЕНИЕ: Добавлен await ---
+        response = await supabase.table("reward_rules").select("ticket_amount").eq("action_type", action_type).limit(1).execute()
+        data = response.data
+        if data and 'ticket_amount' in data[0]:
+            return data[0]['ticket_amount']
+
+        logging.warning(f"Правило награды для '{action_type}' не найдено (глобальный). Используется 1.")
+        return 1
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении правила награды для '{action_type}' (глобальный): {e}. Используется 1.")
+        return 1
+# --- КОНЕЦ НОВОЙ ВСПОМОГАТЕЛЬНОЙ ФУНКЦИИ ---
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
