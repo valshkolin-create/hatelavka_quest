@@ -4518,28 +4518,48 @@ async def close_expired_challenge(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Находит и закрывает истёкший челлендж пользователя, НЕ устанавливая кулдаун.
+    Находит и принудительно закрывает АКТИВНЫЙ ('pending') челлендж пользователя,
+    НЕ устанавливая кулдаун. (ИСПРАВЛЕННАЯ ВЕРСИЯ)
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Доступ запрещен")
     
     telegram_id = user_info["id"]
+    logging.info(f"--- [close_expired] Пользователь {telegram_id} пытается закрыть челлендж. ---")
 
     try:
-        # Находим и обновляем статус только для истёкших челленджей
-        await supabase.patch(
+        # ИЗМЕНЕНИЕ: Мы убираем проверку expires_at.
+        # Фронтенд уже решил, что челлендж истек, и мы ему доверяем.
+        # Нам просто нужно найти ЛЮБОЙ 'pending' челлендж этого пользователя и закрыть его.
+        
+        # Мы запрашиваем 'count=exact', чтобы узнать, сколько строк было обновлено.
+        patch_resp_pending = await supabase.patch(
             "/user_challenges",
             params={
                 "user_id": f"eq.{telegram_id}",
-                "status": "eq.pending",
-                "expires_at": f"lt.{datetime.now(timezone.utc).isoformat()}" # lt = less than
+                "status": "eq.pending" # Ищем ТОЛЬКО 'pending'
             },
-            json={"status": "expired"}
+            json={"status": "expired"}, # Принудительно ставим 'expired'
+            headers={"Prefer": "count=exact"} # Попросим Supabase посчитать строки
         )
-        return {"message": "Истёкший челлендж закрыт."}
+        
+        # Узнаем, сколько строк было обновлено, из заголовка content-range
+        updated_count_str = patch_resp_pending.headers.get('content-range', '*/0').split('/')[-1]
+        updated_count = int(updated_count_str) if updated_count_str.isdigit() else 0
+
+        if updated_count > 0:
+            logging.info(f"[close_expired] УСПЕХ: Найден и закрыт {updated_count} 'pending' челлендж для {telegram_id}.")
+            return {"message": "Активный 'pending' челлендж успешно закрыт."}
+        else:
+            # Если 0 'pending' было обновлено, значит, твоя новая функция в Supabase
+            # УЖЕ поменяла статус на 'expired'.
+            # Это НЕ ошибка. Мы просто сообщаем, что работа уже сделана.
+            logging.warning(f"[close_expired] ВНИМАНИЕ: Не найдено 'pending' челленджей для {telegram_id}. Вероятно, он уже был 'expired'.")
+            return {"message": "Истёкший челлендж уже был закрыт (или не найден)."}
+
     except Exception as e:
-        logging.error(f"Ошибка при закрытии истёкшего челленджa для {telegram_id}: {e}")
+        logging.error(f"Критическая ошибка в /close_expired для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось закрыть челлендж.")
     
 @app.post("/api/v1/user/challenge")
