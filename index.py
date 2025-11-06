@@ -243,7 +243,7 @@ class AdminAuctionFinishRequest(BaseModel):
 
 class AdminSettings(BaseModel):
     skin_race_enabled: bool = True
-    slider_order: List[str] = Field(default_factory=lambda: ["skin_race", "cauldron", "auction"]) # <-- ДОБАВЛЕН АУКЦИОН
+    slider_order: List[str] = Field(default_factory=lambda: ["skin_race", "cauldron", "auction", "checkpoint"])
     challenge_promocodes_enabled: bool = True
     quest_promocodes_enabled: bool = True
     challenges_enabled: bool = True
@@ -6059,10 +6059,11 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
         "auction_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2", # <-- ДОБАВЛЕНО
         "skin_race_enabled": True,
-        "slider_order": ["skin_race", "cauldron", "auction"], # <-- ДОБАВЛЕН АУКЦИОН
+        "slider_order": ["skin_race", "cauldron", "auction", "checkpoint"],
         "auction_enabled": False, 
-        "auction_slide_data": None
-    }
+        "auction_slide_data": None,
+        "checkpoint_enabled": False 
+}
     
     is_admin = False
     admin_id = "Non-Admin"
@@ -6096,6 +6097,8 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
              loaded_order.append("cauldron")
         if "auction" not in loaded_order:
              loaded_order.append("auction")
+        if "checkpoint" not in loaded_order:
+             loaded_order.append("checkpoint")
 
         response_data = {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
@@ -6103,7 +6106,8 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
             "auction_banner_url": settings.get("auction_banner_url", defaults["auction_banner_url"]), # <-- ДОБАВЛЕНО
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
             "slider_order": loaded_order, # <-- ИСПРАВЛЕНО
-            "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"])
+            "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"]),
+            "checkpoint_enabled": settings.get("checkpoint_enabled", defaults["checkpoint_enabled"])
         }
         
         # --- КОРРЕКТНАЯ ЛОГИКА АУКЦИОНА С ЛОГАМИ ---
