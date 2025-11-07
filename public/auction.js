@@ -476,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.editModalTitle.textContent = 'Создать лот';
         dom.editModalForm.reset(); 
         dom.editAuctionId.value = '';
-        // dom.editAuctionCooldown.value = 4; // <-- УЖЕ НЕ НУЖНО
+        dom.editAuctionCooldown.value = 24; // <-- УЖЕ НЕ НУЖНО
         dom.editAuctionSnipeMinutes.value = 5; // <-- ДОБАВЬ
         dom.editAuctionActive.checked = false;
         dom.editAuctionVisible.checked = false;
@@ -656,6 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
             id: auctionId,
             title: dom.editAuctionTitle.value,
             image_url: dom.editAuctionImage.value,
+            bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
             main_end_date: new Date(dom.editAuctionMainEndDate.value).toISOString(), // <-- ИЗМЕНЕНИЕ
             snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value), // <-- ИЗМЕНЕНИЕ
             is_active: dom.editAuctionActive.checked,
@@ -666,6 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
         payload = {
             title: dom.editAuctionTitle.value,
             image_url: dom.editAuctionImage.value,
+            bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
             main_end_date: new Date(dom.editAuctionMainEndDate.value).toISOString(), // <-- ИЗМЕНЕНИЕ
             snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value), // <-- ИЗМЕНЕНИЕ
             is_active: dom.editAuctionActive.checked,
