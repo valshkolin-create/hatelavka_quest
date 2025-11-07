@@ -3273,12 +3273,13 @@ async def admin_create_auction(
     await supabase.post("/auctions", json={
         "title": request_data.title,
         "image_url": request_data.image_url,
-        "main_end_date": request_data.main_end_date,
-        "bid_cooldown_ends_at": request_data.main_end_date, # <-- ВАЖНО
+        "bid_cooldown_hours": duration_hours, # Сохраняем длительность
         "snipe_guard_minutes": request_data.snipe_guard_minutes,
+        # "main_end_date": end_time.isoformat(), # <-- УДАЛИЛИ ЭТУ СТРОКУ
+        "bid_cooldown_ends_at": end_time.isoformat(), # (!!!) И bid_cooldown_ends_at
         "is_active": request_data.is_active,
         "is_visible": request_data.is_visible
-    })
+        })
     return {"message": "Лот создан."}
 
 @app.post("/api/v1/admin/auctions/update")
@@ -3290,12 +3291,21 @@ async def admin_update_auction(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # Собираем все, что пришло от админа
+    # Собираем все, что пришло от админа (например, title, image_url, is_active...)
     update_data = request_data.dict(exclude={'initData', 'id'}, exclude_unset=True)
 
-    # Если админ поменял основной таймер, мы должны сбросить и "анти-снайп" таймер
-    if 'main_end_date' in update_data:
-        update_data['bid_cooldown_ends_at'] = update_data['main_end_date']
+    # (!!!) ВОТ ПРАВИЛЬНАЯ ЛОГИКА (!!!)
+    # Если админ поменял длительность в ЧАСАХ...
+    if 'bid_cooldown_hours' in update_data:
+        # ...мы берем эти часы
+        duration_hours = update_data['bid_cooldown_hours']
+        
+        # ...и СБРАСЫВАЕМ таймер на (СЕЙЧАС + новая длительность)
+        end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
+        
+        # ...обновляя ТОЛЬКО bid_cooldown_ends_at.
+        update_data['bid_cooldown_ends_at'] = end_time.isoformat()
+    # (!!!) КОНЕЦ ИСПРАВЛЕНИЯ (!!!)
 
     await supabase.patch(
         "/auctions",
