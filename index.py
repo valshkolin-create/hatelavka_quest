@@ -3275,15 +3275,15 @@ async def admin_create_auction(
     end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
 
     await supabase.post("/auctions", json={
-        "title": request_data.title,
-        "image_url": request_data.image_url,
-        "bid_cooldown_hours": duration_hours, # Сохраняем длительность
-        "snipe_guard_minutes": request_data.snipe_guard_minutes,
-        "main_end_date": end_time.isoformat(), # (!!!) ЗАПОЛНЯЕМ main_end_date
-        "bid_cooldown_ends_at": end_time.isoformat(), # (!!!) И bid_cooldown_ends_at
-        "is_active": request_data.is_active,
-        "is_visible": request_data.is_visible
-    })
+            "title": request_data.title,
+            "image_url": request_data.image_url,
+            "bid_cooldown_hours": duration_hours, # Сохраняем длительность
+            "snipe_guard_minutes": request_data.snipe_guard_minutes,
+            # "main_end_date": end_time.isoformat(), # <-- УДАЛИЛИ ЭТУ СТРОКУ
+            "bid_cooldown_ends_at": end_time.isoformat(), # (!!!) И bid_cooldown_ends_at
+            "is_active": request_data.is_active,
+            "is_visible": request_data.is_visible
+        })
     # (!!!) КОНЕЦ ИЗМЕНЕНИЯ (!!!)
     return {"message": "Лот создан."}
 
@@ -3300,14 +3300,14 @@ async def admin_update_auction(
     update_data = request_data.dict(exclude={'initData', 'id'}, exclude_unset=True)
 
     # (!!!) НАЧАЛО ИЗМЕНЕНИЯ (!!!)
-    # Если админ поменял длительность, мы СБРАСЫВАЕМ таймеры
-    if 'bid_cooldown_hours' in update_data:
-        duration_hours = update_data['bid_cooldown_hours']
-        # Сбрасываем таймер на (СЕЙЧАС + новая длительность)
-        end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
-        update_data['main_end_date'] = end_time.isoformat()
-        update_data['bid_cooldown_ends_at'] = end_time.isoformat()
-    # (!!!) КОНЕЦ ИЗМЕНЕНИЯ (!!!)
+        # Если админ поменял длительность, мы СБРАСЫВАЕМ таймеры
+        if 'bid_cooldown_hours' in update_data:
+            duration_hours = update_data['bid_cooldown_hours']
+            # Сбрасываем таймер на (СЕЙЧАС + новая длительность)
+            end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
+            # update_data['main_end_date'] = end_time.isoformat() # <-- УДАЛИЛИ ЭТУ СТРОКУ
+            update_data['bid_cooldown_ends_at'] = end_time.isoformat()
+        # (!!!) КОНЕЦ ИЗМЕНЕНИЯ (!!!)
 
     await supabase.patch(
         "/auctions",
