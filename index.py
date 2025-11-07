@@ -108,7 +108,8 @@ class AuctionCreateRequest(BaseModel):
     initData: str
     title: str
     image_url: Optional[str] = None
-    main_end_date: str # Принимаем как ISO-строку
+    # main_end_date: str # <-- УБИРАЕМ ЭТУ СТРОКУ
+    bid_cooldown_hours: Optional[int] = 4 # <-- ДОБАВЛЯЕМ ЭТУ СТРОКУ (по умолчанию 4 часа)
     snipe_guard_minutes: int = 5
     is_active: Optional[bool] = False
     is_visible: Optional[bool] = False
@@ -118,7 +119,8 @@ class AuctionUpdateRequest(BaseModel):
     id: int
     title: Optional[str] = None # Добавляем все поля
     image_url: Optional[str] = None
-    main_end_date: Optional[str] = None
+    # main_end_date: Optional[str] = None # <-- УБИРАЕМ ЭТУ СТРОКУ
+    bid_cooldown_hours: Optional[int] = None # <-- ДОБАВЛЯЕМ ЭТУ СТРОКУ
     snipe_guard_minutes: Optional[int] = None
     is_active: Optional[bool] = None
     is_visible: Optional[bool] = None
@@ -3269,14 +3271,23 @@ async def admin_create_auction(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+    # 1. Получаем длительность из запроса
+    #    (Теперь это поле есть в Pydantic модели)
+    duration_hours = request_data.bid_cooldown_hours
+
+    # 2. Вычисляем время окончания на основе ДАТЫ СОЗДАНИЯ
+    end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
     # При создании, устанавливаем оба таймера на одно и то же время
     await supabase.post("/auctions", json={
         "title": request_data.title,
         "image_url": request_data.image_url,
-        "bid_cooldown_hours": duration_hours, # Сохраняем длительность
+        "bid_cooldown_hours": duration_hours, # <-- ТЕПЕРЬ ОПРЕДЕЛЕНО
         "snipe_guard_minutes": request_data.snipe_guard_minutes,
-        # "main_end_date": end_time.isoformat(), # <-- УДАЛИЛИ ЭТУ СТРОКУ
-        "bid_cooldown_ends_at": end_time.isoformat(), # (!!!) И bid_cooldown_ends_at
+        # "main_end_date": end_time.isoformat(), # <-- ЭТО ПО-ПРЕЖНЕМУ НЕ НУЖНО
+        "bid_cooldown_ends_at": end_time.isoformat(), # <-- ТЕПЕРЬ ОПРЕДЕЛЕНО
         "is_active": request_data.is_active,
         "is_visible": request_data.is_visible
         })
