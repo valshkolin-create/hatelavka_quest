@@ -167,7 +167,7 @@ body.browser-view {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover; /* <--- ИЗМЕНЕНИЕ */
   transition: transform 0.1s ease-out;
   /* ⬇️ ИЗМЕНЕНИЕ: Добавляем "резкость" ⬇️ */
   filter: contrast(115%); 
@@ -622,4 +622,37 @@ body.browser-view {
     font-size: 15px;
     color: var(--text-primary);
     margin: 0;
+}
+/* НОВЫЕ СТИЛИ ДЛЯ ВЫРАВНИВАНИЯ */
+.new-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    /* Забираем отступы у дочерних элементов */
+    margin-bottom: 20px; 
+    padding: 5px 0;
+}
+
+/* ИЗМЕНЯЕМ СТАРЫЕ СТИЛИ */
+.header-back-button {
+    margin: 0; /* Убираем старые отступы */
+    position: relative; 
+    z-index: 2; /* Кнопка должна быть поверх заголовка */
+}
+
+.page-header {
+    margin: 0; /* Убираем старые отступы */
+    /* Абсолютное центрирование */
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    z-index: 1; /* Заголовок под кнопкой */
+}
+
+.page-title {
+    margin: 0; /* Убираем старые отступы */
 }
