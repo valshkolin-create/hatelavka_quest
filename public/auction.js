@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
         
         let finalBidAmount = 0;
-        let costToUser = 0;
+        let costToUser = 0; // СКОЛЬКО РЕАЛЬНО СПИШЕТСЯ СЕЙЧАС
 
         if (isLeader) {
             if (isNaN(amountInput) || amountInput < 1) {
@@ -585,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             finalBidAmount = (auction.current_highest_bid || 0) + amountInput;
-            costToUser = finalBidAmount; 
+            costToUser = amountInput; // <--- ИЗМЕНЕНИЕ: Стоимость = только то, что докидываем
         } else {
             const minAmount = parseInt(dom.bidCurrentMinInput.value);
             finalBidAmount = amountInput;
@@ -593,13 +593,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 tg.showAlert(`Ваша ставка должна быть ${minAmount} 🎟️ или больше.`);
                 return;
             }
-            costToUser = finalBidAmount;
+            costToUser = finalBidAmount; // <--- ПРАВИЛЬНО: Стоимость = полная ставка
         }
 
         if (costToUser > (userData.tickets || 0)) {
-            tg.showAlert('У вас недостаточно билетов для этой ставки.');
+            // <--- ИЗМЕНЕНИЕ: Улучшенный текст
+            tg.showAlert('У вас недостаточно билетов для этой ставки/добавления.'); 
             return;
         }
+        
+        try {
+            // Отправляем ПОЛНУЮ новую ставку. Бэкенд сам разберется, сколько списать.
+            await makeApiRequest('/api/v1/auctions/bid', {
+                auction_id: auctionId,
+                bid_amount: finalBidAmount 
+            });
         
         try {
             await makeApiRequest('/api/v1/auctions/bid', {
