@@ -442,12 +442,11 @@
                 // 1. Ищем АКТИВНЫЙ, ВИДИМЫЙ, НЕЗАВЕРШЕННЫЙ аукцион
                 const { data: auctionData, error: auctionError } = await supabaseClient
                     .from('auctions')
-                    .select('*, bidder:current_highest_bidder_id(full_name, twitch_login)') // JOIN для Twitch
-                    .eq('is_active', true)
-                    .eq('is_visible', true)
-                    .is('ended_at', null)
-                    .order('created_at', { ascending: false }) 
-                    .limit(1);
+                    .select('*, bidder:current_highest_bidder_id(full_name, twitch_login)')
+                    .eq('is_visible', true) // 1. Лот должен быть видим
+                    .order('is_active', { ascending: false }) // 2. Сначала активные (true)
+                    .order('created_at', { ascending: false }) // 3. Потом самые новые
+                    .limit(1); // Берем первый попавшийся
 
                 if (auctionError) throw auctionError;
                 
