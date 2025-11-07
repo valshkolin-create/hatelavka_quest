@@ -101,8 +101,11 @@
                     <label>URL картинки</label>
                     <input type="text" id="auction-image-input" placeholder="https://...">
                     
-                    <label>Кулдаун (часы)</label>
-                    <input type="number" id="auction-cooldown-input" value="4" min="1" required>
+                    <label>Дата окончания (основной таймер)</label>
+                    <input type="datetime-local" id="auction-main-end-date-input" required>
+                    
+                    <label>Доп.минуты (после ставки)</label>
+                    <input type="number" id="auction-snipe-minutes-input" value="5" min="1" required>
                     
                     <div class="checkbox-container">
                         <input type="checkbox" id="auction-active-input">
