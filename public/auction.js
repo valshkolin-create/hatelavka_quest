@@ -41,8 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editAuctionTitle: document.getElementById('auction-title-input'),
         editAuctionImage: document.getElementById('auction-image-input'),
         editAuctionCooldown: document.getElementById('auction-cooldown-input'),
-        editAuctionMainEndDate: document.getElementById('auction-main-end-date-input'), // <-- ДОБАВЬ
-        editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'), // <-- ДОБАВЬ
+        editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'), // <-- ДОБАВЬ ЭТО
         editAuctionActive: document.getElementById('auction-active-input'),
         editAuctionVisible: document.getElementById('auction-visible-input')
     };
@@ -452,23 +451,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const auction = currentAuctions.find(a => a.id == auctionId);
             if (!auction) return;
             
-            dom.editModalTitle.textContent = 'Редактировать лот';
-            dom.editAuctionId.value = auction.id;
-            dom.editAuctionTitle.value = auction.title;
-            dom.editAuctionImage.value = auction.image_url;
-            // --- ИЗМЕНЕНИЕ ---
-        // Форматируем дату для <input type="datetime-local">
-        // Он ожидает "YYYY-MM-DDTHH:mm"
-        if (auction.main_end_date) {
-            const d = new Date(auction.main_end_date);
-            // Корректируем часовой пояс для локального отображения
-            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-            dom.editAuctionMainEndDate.value = d.toISOString().slice(0, 16);
-        } else {
-            dom.editAuctionMainEndDate.value = '';
-        }
+        dom.editModalTitle.textContent = 'Редактировать лот';
+        dom.editAuctionId.value = auction.id;
+        dom.editAuctionTitle.value = auction.title;
+        dom.editAuctionImage.value = auction.image_url;
+        dom.editAuctionImage.value = auction.image_url;
+            
+            // --- ИЗМЕНЕНИЕ (на "часы") ---
+        dom.editAuctionCooldown.value = auction.bid_cooldown_hours;
         dom.editAuctionSnipeMinutes.value = auction.snipe_guard_minutes || 5;
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         dom.editAuctionActive.checked = auction.is_active;
         dom.editAuctionVisible.checked = auction.is_visible;
@@ -476,8 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.editModalTitle.textContent = 'Создать лот';
         dom.editModalForm.reset(); 
         dom.editAuctionId.value = '';
-        dom.editAuctionCooldown.value = 24; // <-- УЖЕ НЕ НУЖНО
-        dom.editAuctionSnipeMinutes.value = 5; // <-- ДОБАВЬ
+        dom.editAuctionCooldown.value = 24; // <-- Устанавливаем "часы" по умолч.
+        dom.editAuctionSnipeMinutes.value = 5;
         dom.editAuctionActive.checked = false;
         dom.editAuctionVisible.checked = false;
     }
@@ -657,8 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title: dom.editAuctionTitle.value,
             image_url: dom.editAuctionImage.value,
             bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
-            main_end_date: new Date(dom.editAuctionMainEndDate.value).toISOString(), // <-- ИЗМЕНЕНИЕ
-            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value), // <-- ИЗМЕНЕНИЕ
+            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
             is_active: dom.editAuctionActive.checked,
             is_visible: dom.editAuctionVisible.checked
         };
@@ -668,8 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title: dom.editAuctionTitle.value,
             image_url: dom.editAuctionImage.value,
             bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
-            main_end_date: new Date(dom.editAuctionMainEndDate.value).toISOString(), // <-- ИЗМЕНЕНИЕ
-            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value), // <-- ИЗМЕНЕНИЕ
+            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
             is_active: dom.editAuctionActive.checked,
             is_visible: dom.editAuctionVisible.checked
         };
