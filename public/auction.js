@@ -41,6 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
         editAuctionTitle: document.getElementById('auction-title-input'),
         editAuctionImage: document.getElementById('auction-image-input'),
         editAuctionCooldown: document.getElementById('auction-cooldown-input'),
+        editAuctionMainEndDate: document.getElementById('auction-main-end-date-input'), // <-- ДОБАВЬ
+        editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'), // <-- ДОБАВЬ
         editAuctionActive: document.getElementById('auction-active-input'),
         editAuctionVisible: document.getElementById('auction-visible-input')
     };
@@ -454,19 +456,33 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.editAuctionId.value = auction.id;
             dom.editAuctionTitle.value = auction.title;
             dom.editAuctionImage.value = auction.image_url;
-            dom.editAuctionCooldown.value = auction.bid_cooldown_hours;
-            dom.editAuctionActive.checked = auction.is_active;
-            dom.editAuctionVisible.checked = auction.is_visible;
+            // --- ИЗМЕНЕНИЕ ---
+        // Форматируем дату для <input type="datetime-local">
+        // Он ожидает "YYYY-MM-DDTHH:mm"
+        if (auction.main_end_date) {
+            const d = new Date(auction.main_end_date);
+            // Корректируем часовой пояс для локального отображения
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            dom.editAuctionMainEndDate.value = d.toISOString().slice(0, 16);
         } else {
-            dom.editModalTitle.textContent = 'Создать лот';
-            dom.editModalForm.reset(); 
-            dom.editAuctionId.value = '';
-            dom.editAuctionCooldown.value = 4; 
-            dom.editAuctionActive.checked = false;
-            dom.editAuctionVisible.checked = false;
+            dom.editAuctionMainEndDate.value = '';
         }
-        showModal(dom.editModal);
+        dom.editAuctionSnipeMinutes.value = auction.snipe_guard_minutes || 5;
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        dom.editAuctionActive.checked = auction.is_active;
+        dom.editAuctionVisible.checked = auction.is_visible;
+    } else {
+        dom.editModalTitle.textContent = 'Создать лот';
+        dom.editModalForm.reset(); 
+        dom.editAuctionId.value = '';
+        // dom.editAuctionCooldown.value = 4; // <-- УЖЕ НЕ НУЖНО
+        dom.editAuctionSnipeMinutes.value = 5; // <-- ДОБАВЬ
+        dom.editAuctionActive.checked = false;
+        dom.editAuctionVisible.checked = false;
     }
+    showModal(dom.editModal);
+}
 
 
     function showModal(modal) {
@@ -635,25 +651,27 @@ document.addEventListener('DOMContentLoaded', () => {
         let payload = {};
 
         if (auctionId) {
-            url = '/api/v1/admin/auctions/update';
-            payload = {
-                id: auctionId,
-                title: dom.editAuctionTitle.value,
-                image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
-                is_active: dom.editAuctionActive.checked,
-                is_visible: dom.editAuctionVisible.checked
-            };
-        } else {
-            url = '/api/v1/admin/auctions/create';
-            payload = {
-                title: dom.editAuctionTitle.value,
-                image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
-                is_active: dom.editAuctionActive.checked,
-                is_visible: dom.editAuctionVisible.checked
-            };
-        }
+        url = '/api/v1/admin/auctions/update';
+        payload = {
+            id: auctionId,
+            title: dom.editAuctionTitle.value,
+            image_url: dom.editAuctionImage.value,
+            main_end_date: new Date(dom.editAuctionMainEndDate.value).toISOString(), // <-- ИЗМЕНЕНИЕ
+            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value), // <-- ИЗМЕНЕНИЕ
+            is_active: dom.editAuctionActive.checked,
+            is_visible: dom.editAuctionVisible.checked
+        };
+    } else {
+        url = '/api/v1/admin/auctions/create';
+        payload = {
+            title: dom.editAuctionTitle.value,
+            image_url: dom.editAuctionImage.value,
+            main_end_date: new Date(dom.editAuctionMainEndDate.value).toISOString(), // <-- ИЗМЕНЕНИЕ
+            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value), // <-- ИЗМЕНЕНИЕ
+            is_active: dom.editAuctionActive.checked,
+            is_visible: dom.editAuctionVisible.checked
+        };
+    }
         
         try {
             await makeApiRequest(url, payload);
