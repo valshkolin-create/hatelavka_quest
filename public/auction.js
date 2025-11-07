@@ -608,12 +608,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 auction_id: auctionId,
                 bid_amount: finalBidAmount 
             });
-        
-        try {
-            await makeApiRequest('/api/v1/auctions/bid', {
-                auction_id: auctionId,
-                bid_amount: finalBidAmount 
-            });
             
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
