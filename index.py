@@ -3271,26 +3271,43 @@ async def admin_create_auction(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-    # 1. Получаем длительность из запроса
-    #    (Теперь это поле есть в Pydantic модели)
     duration_hours = request_data.bid_cooldown_hours
-
-    # 2. Вычисляем время окончания на основе ДАТЫ СОЗДАНИЯ
     end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-    # При создании, устанавливаем оба таймера на одно и то же время
-    await supabase.post("/auctions", json={
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+    
+    # 1. Формируем JSON для отправки
+    payload = {
         "title": request_data.title,
         "image_url": request_data.image_url,
-        "bid_cooldown_hours": duration_hours, # <-- ТЕПЕРЬ ОПРЕДЕЛЕНО
+        "bid_cooldown_hours": duration_hours,
         "snipe_guard_minutes": request_data.snipe_guard_minutes,
-        # "main_end_date": end_time.isoformat(), # <-- ЭТО ПО-ПРЕЖНЕМУ НЕ НУЖНО
-        "bid_cooldown_ends_at": end_time.isoformat(), # <-- ТЕПЕРЬ ОПРЕДЕЛЕНО
+        "bid_cooldown_ends_at": end_time.isoformat(),
         "is_active": request_data.is_active,
         "is_visible": request_data.is_visible
-        })
+    }
+
+    try:
+        # 2. Отправляем запрос и СОХРАНЯЕМ ответ в переменную
+        response = await supabase.post("/auctions", json=payload)
+        
+        # 3. ПРОВЕРЯЕМ ответ. Если была ошибка (4xx или 5xx), эта строка "выбросит" исключение
+        response.raise_for_status() 
+        
+    except httpx.HTTPStatusError as e:
+        # 4. Если raise_for_status() поймал ошибку, логируем ее и возвращаем клиенту
+        error_details = e.response.json().get("message", e.response.text)
+        logging.error(f"❌ ОШИБКА SUPABASE при создании лота: {error_details}")
+        logging.error(f"❌ Payload, который не понравился Supabase: {payload}")
+        raise HTTPException(status_code=400, detail=f"Ошибка Supabase: {error_details}")
+    except Exception as e:
+        # 5. Ловим любые другие непредвиденные ошибки
+        logging.error(f"❌ Неизвестная ошибка при создании лота: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+    
+    # Эта строка выполнится, ТОЛЬКО если response.raise_for_status() прошел успешно
     return {"message": "Лот создан."}
 
 @app.post("/api/v1/admin/auctions/update")
