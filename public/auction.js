@@ -585,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             finalBidAmount = (auction.current_highest_bid || 0) + amountInput;
-            costToUser = amountInput; // <--- ИЗМЕНЕНИЕ: Стоимость = только то, что докидываем
+            costToUser = finalBidAmount; // <--- 1. ВЕРНУЛИ КАК БЫЛО
         } else {
             const minAmount = parseInt(dom.bidCurrentMinInput.value);
             finalBidAmount = amountInput;
@@ -593,12 +593,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 tg.showAlert(`Ваша ставка должна быть ${minAmount} 🎟️ или больше.`);
                 return;
             }
-            costToUser = finalBidAmount; // <--- ПРАВИЛЬНО: Стоимость = полная ставка
+            costToUser = finalBidAmount; 
         }
 
         if (costToUser > (userData.tickets || 0)) {
-            // <--- ИЗМЕНЕНИЕ: Улучшенный текст
-            tg.showAlert('У вас недостаточно билетов для этой ставки/добавления.'); 
+            // <--- 2. ВЕРНУЛИ СТАРЫЙ ТЕКСТ
+            tg.showAlert('У вас недостаточно билетов для этой ставки.'); 
             return;
         }
         
