@@ -108,18 +108,18 @@ class AuctionCreateRequest(BaseModel):
     initData: str
     title: str
     image_url: Optional[str] = None
-    bid_cooldown_hours: int = 24 # Старое поле, которое мы переиспользовали
-    snipe_guard_minutes: int = 5 # <-- НОВОЕ ПОЛЕ
+    main_end_date: str # Принимаем как ISO-строку
+    snipe_guard_minutes: int = 5
     is_active: Optional[bool] = False
     is_visible: Optional[bool] = False
 
 class AuctionUpdateRequest(BaseModel):
     initData: str
     id: int
-    title: Optional[str] = None
+    title: Optional[str] = None # Добавляем все поля
     image_url: Optional[str] = None
-    bid_cooldown_hours: Optional[int] = None # <-- ДОБАВЬ
-    snipe_guard_minutes: Optional[int] = None # <-- ДОБАВЬ
+    main_end_date: Optional[str] = None
+    snipe_guard_minutes: Optional[int] = None
     is_active: Optional[bool] = None
     is_visible: Optional[bool] = None
 
@@ -3269,22 +3269,16 @@ async def admin_create_auction(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # (!!!) НАЧАЛО ИЗМЕНЕНИЯ (!!!)
-    # Рассчитываем время окончания
-    duration_hours = request_data.bid_cooldown_hours
-    end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
-
+    # При создании, устанавливаем оба таймера на одно и то же время
     await supabase.post("/auctions", json={
-            "title": request_data.title,
-            "image_url": request_data.image_url,
-            "bid_cooldown_hours": duration_hours, # Сохраняем длительность
-            "snipe_guard_minutes": request_data.snipe_guard_minutes,
-            # "main_end_date": end_time.isoformat(), # <-- УДАЛИЛИ ЭТУ СТРОКУ
-            "bid_cooldown_ends_at": end_time.isoformat(), # (!!!) И bid_cooldown_ends_at
-            "is_active": request_data.is_active,
-            "is_visible": request_data.is_visible
-        })
-    # (!!!) КОНЕЦ ИЗМЕНЕНИЯ (!!!)
+        "title": request_data.title,
+        "image_url": request_data.image_url,
+        "main_end_date": request_data.main_end_date,
+        "bid_cooldown_ends_at": request_data.main_end_date, # <-- ВАЖНО
+        "snipe_guard_minutes": request_data.snipe_guard_minutes,
+        "is_active": request_data.is_active,
+        "is_visible": request_data.is_visible
+    })
     return {"message": "Лот создан."}
 
 @app.post("/api/v1/admin/auctions/update")
@@ -3299,15 +3293,9 @@ async def admin_update_auction(
     # Собираем все, что пришло от админа
     update_data = request_data.dict(exclude={'initData', 'id'}, exclude_unset=True)
 
-    # (!!!) НАЧАЛО ИЗМЕНЕНИЯ (!!!)
-        # Если админ поменял длительность, мы СБРАСЫВАЕМ таймеры
-        if 'bid_cooldown_hours' in update_data:
-            duration_hours = update_data['bid_cooldown_hours']
-            # Сбрасываем таймер на (СЕЙЧАС + новая длительность)
-            end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
-            # update_data['main_end_date'] = end_time.isoformat() # <-- УДАЛИЛИ ЭТУ СТРОКУ
-            update_data['bid_cooldown_ends_at'] = end_time.isoformat()
-        # (!!!) КОНЕЦ ИЗМЕНЕНИЯ (!!!)
+    # Если админ поменял основной таймер, мы должны сбросить и "анти-снайп" таймер
+    if 'main_end_date' in update_data:
+        update_data['bid_cooldown_ends_at'] = update_data['main_end_date']
 
     await supabase.patch(
         "/auctions",
