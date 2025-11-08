@@ -313,7 +313,7 @@ class TwitchRewardUpdateRequest(BaseModel):
     condition_type: Optional[str] = None
     target_value: Optional[int] = None
     # Новые поля для Админа 6971
-    reward_type: Optional[str] = None      # 'promocode' или 'tickets'
+    reward_type: Optional[str] = None      # 'promocode', 'tickets' ИЛИ 'none'
     reward_amount: Optional[int] = None    # Количество для нового типа
     sort_order: Optional[int] = None       # Порядковый номер
 
