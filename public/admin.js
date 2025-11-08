@@ -2925,31 +2925,45 @@ function updateSleepButton(status) {
                 const purchaseId = issuePromoBtn.dataset.purchaseId;
                 if (!purchaseId) return;
 
-                issuePromoBtn.disabled = true; // Блокируем кнопку
-                issuePromoBtn.innerHTML = '<i>Выдача...</i>';
+                // --- 👇👇👇 ВОТ ИЗМЕНЕНИЕ: ДОБАВЛЕНО ПОДТВЕРЖДЕНИЕ 👇👇👇 ---
+                tg.showConfirm('Вы уверены, что хотите выдать эту награду?', async (ok) => {
+                    if (!ok) return; // Пользователь нажал "Отмена"
 
-                try {
-                    const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', {
-                        purchase_id: parseInt(purchaseId)
-                    });
-                    
-                    tg.showAlert(result.message); // Показываем "Награда... отправлена"
+                    // --- (Остальная логика, которая была раньше) ---
+                    issuePromoBtn.disabled = true; // Блокируем кнопку
+                    issuePromoBtn.innerHTML = '<i>Выдача...</i>';
+                    let hasError = false; // Флаг для отслеживания ошибки
 
-                    // 1. Удаляем карточку из модалки
-                    const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                    if (itemDiv) itemDiv.remove();
+                    try {
+                        const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', {
+                            purchase_id: parseInt(purchaseId)
+                        });
+                        
+                        tg.showAlert(result.message); // Показываем "Награда... отправлена"
 
-                    // 2. Обновляем бейдж на главной странице
-                    updateTwitchBadgeCount();
+                        // 1. Удаляем карточку из модалки
+                        const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                        if (itemDiv) itemDiv.remove();
 
-                } catch (e) {
-                    console.error('Ошибка при выдаче промокода:', e);
-                    tg.showAlert(`Ошибка: ${e.message}`); // Показываем ошибку (н.п., "Условие не выполнено")
-                } finally {
-                    // Возвращаем кнопку (на случай, если она не удалилась)
-                    issuePromoBtn.disabled = false;
-                    issuePromoBtn.innerHTML = 'Выдать промокод';
-                }
+                        // 2. Обновляем бейдж на главной странице
+                        updateTwitchBadgeCount();
+
+                    } catch (e) {
+                        hasError = true; // Ставим флаг, что была ошибка
+                        console.error('Ошибка при выдаче промокода:', e);
+                        tg.showAlert(`Ошибка: ${e.message}`); // Показываем ошибку (н.п., "Условие не выполнено")
+                    } finally {
+                        // Возвращаем кнопку, ТОЛЬКО если была ошибка И карточка еще на месте
+                        if (hasError && document.getElementById(`purchase-item-${purchaseId}`)) {
+                            issuePromoBtn.disabled = false;
+                            issuePromoBtn.innerHTML = 'Выдать промокод';
+                        }
+                        // (Если ошибки не было, кнопка удаляется вместе с карточкой)
+                    }
+                    // --- (Конец логики, которая была раньше) ---
+
+                }); // --- 👆👆👆 КОНЕЦ БЛОКА ПОДТВЕРЖДЕНИЯ 👆👆👆 ---
+
                 return; // Важно, чтобы не сработали другие обработчики
             }
             // --- КОНЕЦ НОВОГО КОДА ---
