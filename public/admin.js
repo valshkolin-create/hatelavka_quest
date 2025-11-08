@@ -1425,13 +1425,28 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             legacyWrapper.style.display = 'none';
             adminWrapper.style.display = 'block';
             
-            form.elements['reward_type'].value = reward.reward_type || 'promocode';
-            // Берем новое значение, если нет - старое, если нет - 10
+            // --- НАЧАЛО ИЗМЕНЕНИЯ ---
+            const rewardType = reward.reward_type || 'promocode';
+            form.elements['reward_type'].value = rewardType;
             form.elements['reward_amount'].value = reward.reward_amount ?? (reward.promocode_amount ?? 10); 
             
-            // Убираем required со старого поля, ставим на новое
+            // Находим инпут и лейбл для "Количество"
+            const rewardAmountInput = document.getElementById('reward-amount-input');
+            const rewardAmountLabel = rewardAmountInput ? rewardAmountInput.previousElementSibling : null; 
+            const isNone = rewardType === 'none'; // Проверяем новый тип
+
+            // Прячем/показываем поле "Количество"
+            if (rewardAmountInput) {
+                rewardAmountInput.required = !isNone;
+                rewardAmountInput.style.display = isNone ? 'none' : 'block';
+            }
+            if (rewardAmountLabel && rewardAmountLabel.tagName === 'LABEL') {
+                rewardAmountLabel.style.display = isNone ? 'none' : 'block';
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+            // Убираем required со старого поля, ставим на новое (с учетом 'none')
             form.elements['promocode_amount'].required = false;
-            form.elements['reward_amount'].required = true;
 
             // Заполняем новое поле сортировки
             form.elements['sort_order'].value = reward.sort_order ?? '';
@@ -1446,7 +1461,9 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             
             // Ставим required на старое поле, убираем с нового
             form.elements['promocode_amount'].required = true;
-            form.elements['reward_amount'].required = false;
+            if (form.elements['reward_amount']) { // Проверяем наличие
+                form.elements['reward_amount'].required = false;
+            }
         }
 
         form.elements['condition_type'].value = reward.condition_type || "";
@@ -1490,6 +1507,14 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         try {
             const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
             let { purchases, reward_settings } = data;
+            
+            // --- НАЧАЛО ИЗМЕНЕНИЯ (Логика №1) ---
+            // Определяем, нужно ли показывать кнопку.
+            // По умолчанию 'promocode', если тип не задан.
+            const rewardType = (reward_settings && reward_settings.reward_type) ? reward_settings.reward_type : 'promocode';
+            const showIssueButton = rewardType !== 'none';
+            // --- КОНЕЦ ИЗМЕНЕНИЯ (Логика №1) ---
+
 
             if (!purchases || purchases.length === 0) {
                 body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
@@ -1555,9 +1580,18 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                         <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
                         <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                 } else if (p.status === 'Привязан') {
+
+                    // --- НАЧАЛО ИЗМЕНЕНИЯ (Логика №2) ---
+                    // Здесь мы используем 'showIssueButton'
+                    const issueButtonHtml = showIssueButton
+                        ? `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}" ${isLocked ? 'disabled' : ''}>Выдать промокод</button>`
+                        : `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Выдача не требуется</div>`;
+
                     actionButtonsHtml = `
-                        <button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}" ${isLocked ? 'disabled' : ''}>Выдать промокод</button>
+                        ${issueButtonHtml}
                         <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ (Логика №2) ---
+
                 } else {
                     actionButtonsHtml = `
                         <div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Ожидает привязки</div>
@@ -1598,45 +1632,6 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
         }
     }
-
-// --- НАЧАЛО НОВОГО КОДА ---
-    function updateTwitchBadgeCount() {
-        try {
-            // 1. Находим модалку и ее кнопку "обновить", чтобы получить ID награды
-            const refreshBtn = document.getElementById('refresh-purchases-btn');
-            const rewardId = refreshBtn.dataset.rewardId; // Мы сохранили ID на кнопке
-            
-            if (!rewardId) {
-                console.warn("updateTwitchBadgeCount: не удалось найти rewardId на refresh-btn.");
-                return;
-            }
-
-            // 2. Находим иконку этой награды на ГЛАВНОЙ странице
-            const iconToUpdate = document.querySelector(`#view-admin-twitch-rewards .admin-icon-button[data-reward-id="${rewardId}"]`);
-            if (!iconToUpdate) {
-                console.warn(`updateTwitchBadgeCount: не удалось найти иконку для reward_id ${rewardId}`);
-                return;
-            }
-
-            // 3. Находим ее бейдж
-            const badge = iconToUpdate.querySelector('.notification-badge');
-            if (!badge || badge.classList.contains('hidden')) {
-                // Бейджа нет или он уже 0, делать нечего
-                return;
-            }
-
-            // 4. Уменьшаем счетчик
-            let count = parseInt(badge.textContent || '1') - 1;
-            badge.textContent = count;
-            badge.classList.toggle('hidden', count <= 0);
-            
-            console.log(`Twitch badge ${rewardId} updated to ${count}`);
-
-        } catch (e) {
-            console.error("Ошибка при обновлении бейджа Twitch:", e);
-        }
-    }
-    // --- КОНЕЦ НОВОГО КОДА ---
     
 function renderRoulettePrizes(prizes) {
         dom.roulettePrizesList.innerHTML = '';
@@ -2111,7 +2106,29 @@ function updateSleepButton(status) {
                 }
             });
         }
-
+        
+        // --- 👇👇👇 ВОТ НОВЫЙ БЛОК (Логика №3) 👇👇👇 ---
+        // Динамически прячем поле "Количество" при выборе
+        const rewardTypeSelect = document.getElementById('reward-type-select');
+        if (rewardTypeSelect) {
+            rewardTypeSelect.addEventListener('change', () => {
+                const rewardAmountInput = document.getElementById('reward-amount-input');
+                // Ищем <label> перед инпутом
+                const rewardAmountLabel = rewardAmountInput ? rewardAmountInput.previousElementSibling : null;
+                
+                const isNone = rewardTypeSelect.value === 'none';
+                
+                if (rewardAmountInput) {
+                    rewardAmountInput.required = !isNone;
+                    rewardAmountInput.style.display = isNone ? 'none' : 'block';
+                }
+                if (rewardAmountLabel && rewardAmountLabel.tagName === 'LABEL') {
+                    rewardAmountLabel.style.display = isNone ? 'none' : 'block';
+                }
+            });
+        }
+        // --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА 👆👆👆 ---
+      
         const twitchRewardSettingsForm = document.getElementById('twitch-reward-settings-form');
         if(twitchRewardSettingsForm) {
             twitchRewardSettingsForm.addEventListener('submit', async (e) => {
@@ -2130,7 +2147,18 @@ function updateSleepButton(status) {
                 if (hasAdminAccess) {
                     // Админ 6971 сохраняет новые поля
                     payload.reward_type = form.elements['reward_type'].value;
-                    payload.reward_amount = parseInt(form.elements['reward_amount'].value);
+
+                    // --- 👇👇👇 ВОТ ИЗМЕНЕНИЕ (Логика №4) 👇👇👇 ---
+                    // Сохраняем 0, если тип "none"
+                    if (payload.reward_type === 'none') {
+                        payload.reward_amount = 0;
+                    } else {
+                        // Иначе берем значение из инпута (или 10 по умолчанию)
+                        const amountVal = form.elements['reward_amount'].value;
+                        payload.reward_amount = (amountVal && !isNaN(parseInt(amountVal))) ? parseInt(amountVal) : 10;
+                    }
+                    // --- 👆👆👆 КОНЕЦ ИЗМЕНЕНИЯ 👆👆👆 ---
+                    
                     // Также обновляем старое поле, чтобы модераторы видели актуальное
                     payload.promocode_amount = payload.reward_amount;
                     
