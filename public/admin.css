@@ -656,3 +656,77 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 .submission-actions {
     flex-wrap: wrap; /* Разрешить перенос кнопок */
 }
+Отлично.
+
+💻 Шаг 4.5: Добавляем CSS-стили для новой страницы
+Теперь добавим стили, чтобы твоя новая страница в админке выглядела красиво.
+
+Открой admin.css.
+
+Прокрути файл в самый конец.
+
+Вставь туда этот новый CSS-код.
+
+Код для admin.css (вставить в самый конец):
+
+CSS
+
+/* --- СТИЛИ ДЛЯ "НЕДЕЛЬНОГО ЗАБЕГА" --- */
+
+/* Стили для карточек задач в списке */
+.weekly-goal-card {
+    background-color: var(--surface-glass-bg);
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.weekly-goal-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.weekly-goal-title {
+    font-weight: 600;
+    font-size: 15px;
+    flex-grow: 1;
+}
+
+.weekly-goal-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.weekly-goal-details {
+    width: 100%;
+    font-size: 13px;
+    color: var(--text-color-muted);
+    line-height: 1.5;
+}
+
+.weekly-goal-details strong {
+    color: var(--text-color);
+}
+
+/* Стили для полей ввода в формах */
+#weekly-goal-super-prize-value-wrapper.hidden,
+#weekly-goal-task-reward-value-wrapper.hidden {
+    display: none;
+}
+
+#weekly-goals-settings-form h3,
+#weekly-goals-create-task-form h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--divider-glass-color);
+}
+/* --- КОНЕЦ СТИЛЕЙ "НЕДЕЛЬНОГО ЗАБЕГА" --- */
