@@ -112,8 +112,9 @@ try {
         // --- ↓↓↓ НОВЫЙ КОД ↓↓↓ ---
         viewAdminAuctions: document.getElementById('view-admin-auctions'),
         createAuctionForm: document.getElementById('create-auction-form'),
-        adminAuctionsList: document.getElementById('admin-auctions-list')
+        adminAuctionsList: document.getElementById('admin-auctions-list'),
         // --- ↑↑↑ КОНЕЦ НОВОГО КОДА ↑↑↑
+        settingWeeklyGoalsEnabled: document.getElementById('setting-weekly-goals-enabled')
         
     };
 
@@ -1137,6 +1138,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              dom.settingQuestRewardsEnabled.checked = settings.quest_promocodes_enabled;
              dom.settingChallengeRewardsEnabled.checked = settings.challenge_promocodes_enabled;
              dom.settingCheckpointEnabled.checked = settings.checkpoint_enabled;
+             dom.settingWeeklyGoalsEnabled.checked = settings.weekly_goals_enabled;
              dom.settingMenuBannerUrl.value = settings.menu_banner_url || '';
              dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
              dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
@@ -1815,6 +1817,7 @@ if (dom.adminAuctionsList) {
     });
 }
 // --- ↑↑↑ КОНЕЦ НОВОГО КОДА ДЛЯ АУКЦИОНОВ ↑↑↑
+    
     
     // --- MODIFIED function: renderQuests ---
     function renderQuests(quests, categories) {
@@ -2558,7 +2561,8 @@ function updateSleepButton(status) {
                     checkpoint_enabled: dom.settingCheckpointEnabled.checked,
                     menu_banner_url: dom.settingMenuBannerUrl.value.trim(),
                     checkpoint_banner_url: dom.settingCheckpointBannerUrl.value.trim(),
-                    auction_banner_url: dom.settingAuctionBannerUrl.value.trim() // <-- ДОБАВЛЕНО
+                    auction_banner_url: dom.settingAuctionBannerUrl.value.trim(), // <-- ДОБАВЛЕНО
+                    weekly_goals_enabled: dom.settingWeeklyGoalsEnabled.checked
                 };
                 await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
                 tg.showAlert('Настройки сохранены!');
