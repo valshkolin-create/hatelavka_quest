@@ -797,6 +797,96 @@
                 </form>
             </div>
         </div>
+      <div class="quest-card">
+                <form id="create-auction-form" class="admin-form">
+                    </form>
+            </div>
+        </div>
+        <div id="view-admin-weekly-goals" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Недельный Забег</h1>
+                <div style="width: 60px;"></div>
+            </div>
+
+            <div class="quest-card">
+                <form id="weekly-goals-settings-form" class="admin-form">
+                    <h3 style="margin: 0 0 10px;">Настройки Недели</h3>
+                    
+                    <div class="setting-item" style="padding: 0; border: none;">
+                        <span class="setting-label">✅ Система "Забег" включена</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="is_enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <label for="weekly-goal-week-id">ID Текущей Недели (для сброса)</label>
+                    <input type="text" name="week_id" id="weekly-goal-week-id" placeholder="2025-W46">
+                    <p style="font-size: 12px; color: var(--text-color-muted); margin: -10px 0 10px;">
+                        При изменении этого ID, прогресс всех пользователей сбросится, и начнется новая неделя.
+                    </p>
+
+                    <label for="weekly-goal-super-prize-type">Тип Суперприза</label>
+                    <select name="super_prize_type" id="weekly-goal-super-prize-type">
+                        <option value="none">Нет приза</option>
+                        <option value="tickets">Билеты</option>
+                        <option value="promocode_batch">Промокод (из пачки)</option>
+                    </select>
+
+                    <div id="weekly-goal-super-prize-value-wrapper" class="hidden">
+                        <label for="weekly-goal-super-prize-value">Кол-во (билеты) / Номинал (промокод)</label>
+                        <input type="number" name="super_prize_value" id="weekly-goal-super-prize-value" placeholder="0">
+                    </div>
+
+                    <label for="weekly-goal-super-prize-desc">Описание Суперприза (видит юзер)</label>
+                    <input type="text" name="super_prize_description" id="weekly-goal-super-prize-desc" placeholder="Главный приз!">
+
+                    <button type="submit" class="admin-action-btn approve" style="margin-top: 10px;">Сохранить Настройки</button>
+                </form>
+            </div>
+
+            <div class="quest-card" style="margin-top: 20px;">
+                <form id="weekly-goals-create-task-form" class="admin-form">
+                    <h3 style="margin: 0 0 10px;">Новая Задача</h3>
+                    
+                    <label for="weekly-goal-task-title">Название (видит юзер)</label>
+                    <input type="text" name="title" id="weekly-goal-task-title" required placeholder="Выполнить 3 челленджа">
+
+                    <label for="weekly-goal-task-type">Тип Задачи (для триггера)</label>
+                    <select name="task_type" id="weekly-goal-task-type" required>
+                        <option value="">-- Выберите тип --</option>
+                        <option value="manual_quest_complete">Выполнить ручное задание</option>
+                        <option value="wizebot_challenge_complete">Выполнить Wizebot-челлендж</option>
+                        <option value="auction_bid">Сделать ставку на аукционе</option>
+                        <option value="twitch_purchase">Купить награду Twitch</option>
+                        <option value="cauldron_contribution">Внести вклад в "Котел"</option>
+                    </select>
+
+                    <label for="weekly-goal-task-target">Цель (сколько раз)</label>
+                    <input type="number" name="target_value" id="weekly-goal-task-target" value="1" min="1" required>
+                    
+                    <label for="weekly-goal-task-reward-type">Опциональная Награда (за эту задачу)</label>
+                    <select name="reward_type" id="weekly-goal-task-reward-type">
+                        <option value="none">Нет награды</option>
+                        <option value="tickets">Билеты</option>
+                    </select>
+                    
+                    <div id="weekly-goal-task-reward-value-wrapper" class="hidden">
+                        <label for="weekly-goal-task-reward-value">Кол-во билетов</label>
+                        <input type="number" name="reward_value" id="weekly-goal-task-reward-value" placeholder="0">
+                    </div>
+                    
+                    <label for="weekly-goal-task-sort-order">Порядок (#)</label>
+                    <input type="number" name="sort_order" id="weekly-goal-task-sort-order" value="0">
+                    
+                    <button type="submit">Добавить Задачу</button>
+                </form>
+            </div>
+
+            <div id="weekly-goals-list" class="quests-container" style="margin-top: 20px;">
+                </div>
+        </div>
         </main>
     
     <div id="password-prompt-overlay" class="modal-overlay hidden">
