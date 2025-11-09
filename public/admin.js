@@ -114,7 +114,18 @@ try {
         createAuctionForm: document.getElementById('create-auction-form'),
         adminAuctionsList: document.getElementById('admin-auctions-list'),
         // --- ↑↑↑ КОНЕЦ НОВОГО КОДА ↑↑↑
-        settingWeeklyGoalsEnabled: document.getElementById('setting-weekly-goals-enabled')
+        settingWeeklyGoalsEnabled: document.getElementById('setting-weekly-goals-enabled'),
+        // Элементы "Недельного Забега"
+        weeklyGoalsSettingsForm: document.getElementById('weekly-goals-settings-form'),
+        weeklyGoalSuperPrizeType: document.getElementById('weekly-goal-super-prize-type'),
+        weeklyGoalSuperPrizeValueWrapper: document.getElementById('weekly-goal-super-prize-value-wrapper'),
+        
+        weeklyGoalsCreateTaskForm: document.getElementById('weekly-goals-create-task-form'),
+        weeklyGoalTaskRewardType: document.getElementById('weekly-goal-task-reward-type'),
+        weeklyGoalTaskRewardValueWrapper: document.getElementById('weekly-goal-task-reward-value-wrapper'),
+        
+        weeklyGoalsList: document.getElementById('weekly-goals-list')
+        // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
         
     };
 
@@ -566,7 +577,15 @@ const showLoader = () => {
                  case 'view-admin-auctions': {
                 await loadAdminAuctions();
                 break;
-            }   
+            }
+                // --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
+                case 'view-admin-weekly-goals': {
+                    // (Отступ 16 пробелов)
+                    // Мы напишем эту функцию в следующем шаге
+                    await loadWeeklyGoalsData(); 
+                    break;
+                }
+                    
                 // --- ДОБАВЬТЕ ЭТОТ БЛОК ---
                 default: {
                     console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
@@ -3927,3 +3946,263 @@ async function main() {
     console.error(`Критическая ошибка на старте: ${e.message}`);
     alert(`Критическая ошибка: ${e.message}`);
 }
+async function loadWeeklyGoalsData() {
+    showLoader();
+    try {
+        // 1. Получаем настройки (включена ли, ID недели, суперприз)
+        const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+        
+        // 2. Получаем список созданных задач
+        const goals = await makeApiRequest('/api/v1/admin/weekly_goals/list', {}, 'GET', true);
+        
+        // 3. Отображаем настройки
+        if (dom.weeklyGoalsSettingsForm) {
+            dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked = settings.weekly_goals_enabled || false;
+            dom.weeklyGoalsSettingsForm.elements['week_id'].value = settings.weekly_run_settings?.week_id || '';
+            dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value = settings.weekly_run_settings?.super_prize_type || 'none';
+            dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value = settings.weekly_run_settings?.super_prize_value || 0;
+            dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value = settings.weekly_run_settings?.super_prize_description || '';
+            
+            // Показываем/скрываем поле "Кол-во" для суперприза
+            const prizeType = dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value;
+            dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', prizeType === 'none');
+        }
+        
+        // 4. Отображаем список задач
+        renderWeeklyGoalsList(goals);
+        
+    } catch (e) {
+        tg.showAlert(`Ошибка загрузки данных: ${e.message}`);
+    } finally {
+        hideLoader();
+    }
+}
+
+/**
+ * ОТРИСОВКА: Рендерит список созданных задач
+ */
+function renderWeeklyGoalsList(goals) {
+    if (!dom.weeklyGoalsList) return;
+    dom.weeklyGoalsList.innerHTML = '';
+    
+    if (!goals || goals.length === 0) {
+        dom.weeklyGoalsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Задач на эту неделю еще нет.</p>';
+        return;
+    }
+    
+    // Сортируем по sort_order
+    goals.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    
+    goals.forEach(goal => {
+        const card = document.createElement('div');
+        card.className = 'quest-card weekly-goal-card';
+        card.innerHTML = `
+            <div class="weekly-goal-header">
+                <span class="weekly-goal-title">${escapeHTML(goal.title)}</span>
+                <div class="weekly-goal-actions">
+                    <button class="admin-edit-quest-btn edit-weekly-goal-btn" data-goal-id="${goal.id}">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="admin-delete-quest-btn delete-weekly-goal-btn" data-goal-id="${goal.id}">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="weekly-goal-details">
+                <p style="margin: 0;"><strong>Тип:</strong> ${escapeHTML(goal.task_type)}</p>
+                <p style="margin: 4px 0;"><strong>Цель:</strong> ${goal.target_value} раз(а)</p>
+                <p style="margin: 4px 0;"><strong>Награда:</strong> ${goal.reward_type === 'tickets' ? `${goal.reward_value} билетов` : 'Нет'}</p>
+                <p style="margin: 4px 0 0;"><strong>Порядок:</strong> ${goal.sort_order || 0}</p>
+            </div>
+        `;
+        dom.weeklyGoalsList.appendChild(card);
+    });
+}
+
+/**
+ * API-Функции (для вызова из обработчиков)
+ */
+// API: Загрузка списка задач
+async function api_loadWeeklyGoals() {
+    return makeApiRequest('/api/v1/admin/weekly_goals/list', {}, 'GET', true);
+}
+// API: Создание задачи
+async function api_createWeeklyGoal(data) {
+    return makeApiRequest('/api/v1/admin/weekly_goals/create', data);
+}
+// API: Удаление задачи
+async function api_deleteWeeklyGoal(goalId) {
+    return makeApiRequest('/api/v1/admin/weekly_goals/delete', { goal_id: goalId });
+}
+// API: Сохранение настроек суперприза
+async function api_saveWeeklyGoalSettings(settingsData) {
+    return makeApiRequest('/api/v1/admin/weekly_goals/settings/update', settingsData);
+}
+// API: Получение одной задачи для редактирования
+async function api_getWeeklyGoalDetails(goalId) {
+    // Этот API-эндпоинт мы не создавали в index.py,
+    // поэтому просто "прочитаем" его из списка (для простоты)
+    const goals = await api_loadWeeklyGoals();
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) throw new Error('Задача не найдена');
+    return goal;
+}
+// API: Обновление задачи
+async function api_updateWeeklyGoal(data) {
+    return makeApiRequest('/api/v1/admin/weekly_goals/update', data);
+}
+
+
+/**
+ * ОБРАБОТЧИКИ: Подключаем кнопки
+ */
+
+// 1. Показать/скрыть поле "Кол-во" для СУПЕРПРИЗА
+if (dom.weeklyGoalSuperPrizeType) {
+    dom.weeklyGoalSuperPrizeType.addEventListener('change', (e) => {
+        const type = e.target.value;
+        dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', type === 'none');
+    });
+}
+
+// 2. Показать/скрыть поле "Кол-во" для ОПЦИОНАЛЬНОЙ НАГРАДЫ
+if (dom.weeklyGoalTaskRewardType) {
+    dom.weeklyGoalTaskRewardType.addEventListener('change', (e) => {
+        const type = e.target.value;
+        dom.weeklyGoalTaskRewardValueWrapper.classList.toggle('hidden', type === 'none');
+    });
+}
+
+// 3. Сохранение НАСТРОЕК (Суперприз и Вкл/Выкл)
+if (dom.weeklyGoalsSettingsForm) {
+    dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Сначала сохраняем общие настройки (Вкл/Выкл)
+        const isEnabled = dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked;
+        try {
+            await makeApiRequest('/api/v1/admin/settings/update', { 
+                settings: { weekly_goals_enabled: isEnabled } 
+            });
+            
+            // Затем сохраняем настройки самого "Забега" (Суперприз, ID недели)
+            const settingsData = {
+                week_id: dom.weeklyGoalsSettingsForm.elements['week_id'].value.trim(),
+                super_prize_type: dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value,
+                super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
+                super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
+            };
+            
+            await api_saveWeeklyGoalSettings(settingsData);
+            
+            tg.showAlert('Настройки "Недельного Забега" сохранены!');
+            
+        } catch (err) {
+            tg.showAlert(`Ошибка сохранения: ${err.message}`);
+        }
+    });
+}
+
+// 4. Создание или Редактирование ЗАДАЧИ
+if (dom.weeklyGoalsCreateTaskForm) {
+    dom.weeklyGoalsCreateTaskForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const goalId = form.dataset.editingGoalId; // Проверяем, в режиме ли мы редактирования
+        
+        const data = {
+            title: form.elements['title'].value.trim(),
+            task_type: form.elements['task_type'].value,
+            target_value: parseInt(form.elements['target_value'].value, 10) || 1,
+            reward_type: form.elements['reward_type'].value,
+            reward_value: parseInt(form.elements['reward_value'].value, 10) || 0,
+            sort_order: parseInt(form.elements['sort_order'].value, 10) || 0
+        };
+
+        try {
+            if (goalId) {
+                // РЕЖИМ РЕДАКТИРОВАНИЯ
+                await api_updateWeeklyGoal({ ...data, goal_id: goalId });
+                tg.showAlert('Задача обновлена!');
+            } else {
+                // РЕЖИМ СОЗДАНИЯ
+                await api_createWeeklyGoal(data);
+                tg.showPopup({ message: 'Задача создана!' });
+            }
+            
+            // Сбрасываем форму и обновляем список
+            form.reset();
+            form.dataset.editingGoalId = '';
+            form.querySelector('h3').textContent = 'Новая Задача';
+            form.querySelector('button[type="submit"]').textContent = 'Добавить Задачу';
+            dom.weeklyGoalTaskRewardValueWrapper.classList.add('hidden'); // Скрываем поле "Кол-во"
+            
+            const goals = await api_loadWeeklyGoals();
+            renderWeeklyGoalsList(goals);
+            
+        } catch (err) {
+            tg.showAlert(`Ошибка: ${err.message}`);
+        }
+    });
+}
+
+// 5. Обработка кнопок "Редактировать" / "Удалить" в списке
+if (dom.weeklyGoalsList) {
+    dom.weeklyGoalsList.addEventListener('click', async (e) => {
+        const deleteBtn = e.target.closest('.delete-weekly-goal-btn');
+        const editBtn = e.target.closest('.edit-weekly-goal-btn');
+        
+        if (deleteBtn) {
+            // УДАЛЕНИЕ
+            const goalId = deleteBtn.dataset.goalId;
+            tg.showConfirm('Удалить эту задачу?', async (ok) => {
+                if (ok) {
+                    try {
+                        await api_deleteWeeklyGoal(goalId);
+                        tg.showPopup({ message: 'Задача удалена' });
+                        const goals = await api_loadWeeklyGoals();
+                        renderWeeklyGoalsList(goals);
+                    } catch (err) {
+                        tg.showAlert(`Ошибка удаления: ${err.message}`);
+                    }
+                }
+            });
+            
+        } else if (editBtn) {
+            // РЕДАКТИРОВАНИЕ
+            const goalId = editBtn.dataset.goalId;
+            try {
+                showLoader();
+                const goal = await api_getWeeklyGoalDetails(goalId);
+                const form = dom.weeklyGoalsCreateTaskForm;
+                
+                // Заполняем форму
+                form.elements['title'].value = goal.title;
+                form.elements['task_type'].value = goal.task_type;
+                form.elements['target_value'].value = goal.target_value;
+                form.elements['reward_type'].value = goal.reward_type;
+                form.elements['reward_value'].value = goal.reward_value || 0;
+                form.elements['sort_order'].value = goal.sort_order || 0;
+                
+                // Показываем/скрываем поле "Кол-во"
+                dom.weeklyGoalTaskRewardValueWrapper.classList.toggle('hidden', goal.reward_type === 'none');
+                
+                // Меняем режим формы
+                form.dataset.editingGoalId = goalId;
+                form.querySelector('h3').textContent = 'Редактирование Задачи';
+                form.querySelector('button[type="submit"]').textContent = 'Сохранить Изменения';
+                
+                // Скроллим к форме
+                form.scrollIntoView({ behavior: 'smooth' });
+                form.elements['title'].focus();
+                
+            } catch (err) {
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                hideLoader();
+            }
+        }
+    });
+}
+
+// --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
