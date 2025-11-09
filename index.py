@@ -260,7 +260,6 @@ class AdminSettings(BaseModel):
     checkpoint_banner_url: Optional[str] = "https://i.postimg.cc/6p39wgzJ/1200-324.png"
     auction_enabled: bool = False # <-- ДОБАВЛЕНО
     auction_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2" # <-- ДОБАВЛЕНО
-    weekly_goals_enabled: bool = False # (Отступ 8 пробелов)
     
 class AdminSettingsUpdateRequest(BaseModel):
     initData: str
@@ -399,15 +398,6 @@ class EventUpdateRequest(BaseModel):
 class EventDeleteRequest(BaseModel):
     initData: str
     event_id: int
-
-# --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЕ МОДЕЛИ 🔽 ---
-class WeeklyGoalClaimTaskRequest(BaseModel):
-    initData: str
-    goal_id: str # UUID задачи
-
-class WeeklyGoalClaimSuperPrizeRequest(BaseModel):
-    initData: str
-# --- 🔼 КОНЕЦ НОВЫХ МОДЕЛЕЙ 🔼 ---
 
 class ConnectionManager:
     def __init__(self):
@@ -710,7 +700,6 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
                 auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
                 auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2") # <-- ДОБАВЛЕНО
-                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False) # (Отступ 16 пробелов)
             )
 
             # Сохраняем в кэш
@@ -2379,7 +2368,6 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
                 auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
                 auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2") # <-- ДОБАВЛЕНО
-                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False) # (Отступ 16 пробелов)
             )
 
             # Сохраняем в кэш
@@ -5833,7 +5821,6 @@ async def get_admin_settings(
         checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
         auction_enabled=settings_data.get('auction_enabled', False),
         auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2")
-        weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False) # (Отступ 16 пробелов)
     )
     
     # Возвращаем ПОЛНЫЙ объект, а не сырые данные из БД
@@ -6145,110 +6132,6 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
     except Exception as e:
         logging.error(f"[content/menu] КРИТИЧЕСКАЯ ОШИБКА в get_menu_content: {e}", exc_info=True)
         return defaults
-
-# --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЕ ЭНДПОИНТЫ 🔽 ---
-
-@app.post("/api/v1/user/weekly_goals")
-async def get_user_weekly_goals(
-    request_data: InitDataRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """
-    (ПОЛЬЗОВАТЕЛЬ) Возвращает список недельных задач, прогресс
-    и статус главного приза.
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
-        raise HTTPException(status_code=401, detail="Доступ запрещен.")
-    
-    telegram_id = user_info["id"]
-
-    try:
-        # 1. Проверяем, включена ли система ВООБЩЕ
-        admin_settings = await get_admin_settings_async(supabase)
-        if not admin_settings.weekly_goals_enabled:
-            return {"system_enabled": False, "goals": []}
-
-        # 2. Вызываем RPC-функцию, которая соберет все данные
-        response = await supabase.post(
-            "/rpc/get_user_weekly_goals_status",
-            json={"p_user_id": telegram_id}
-        )
-        response.raise_for_status()
-        
-        # RPC вернет готовый JSON
-        data = response.json()
-        data["system_enabled"] = True
-        return data
-
-    except Exception as e:
-        logging.error(f"Ошибка в get_user_weekly_goals: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось загрузить недельные задачи.")
-
-
-@app.post("/api/v1/user/weekly_goals/claim_task")
-async def claim_weekly_task_reward(
-    request_data: WeeklyGoalClaimTaskRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """
-    (ПОЛЬЗОВАТЕЛЬ) Забирает опциональную награду за 1 выполненную задачу.
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
-        raise HTTPException(status_code=401, detail="Доступ запрещен.")
-
-    try:
-        response = await supabase.post(
-            "/rpc/claim_weekly_goal_task_reward",
-            json={
-                "p_user_id": user_info["id"],
-                "p_goal_id": request_data.goal_id
-            }
-        )
-        response.raise_for_status()
-        
-        # RPC вернет, например: {"message": "Начислено 5 билетов!", "new_ticket_balance": 105}
-        return response.json()
-
-    except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Не удалось забрать награду.")
-        raise HTTPException(status_code=400, detail=error_details)
-    except Exception as e:
-        logging.error(f"Ошибка в claim_weekly_task_reward: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-
-
-@app.post("/api/v1/user/weekly_goals/claim_super_prize")
-async def claim_weekly_super_prize(
-    request_data: WeeklyGoalClaimSuperPrizeRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """
-    (ПОЛЬЗОВАТЕЛЬ) Забирает ГЛАВНЫЙ ПРИЗ за выполнение ВСЕХ задач.
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
-        raise HTTPException(status_code=401, detail="Доступ запрещен.")
-
-    try:
-        response = await supabase.post(
-            "/rpc/claim_weekly_super_prize",
-            json={"p_user_id": user_info["id"]}
-        )
-        response.raise_for_status()
-        
-        # RPC вернет, например: {"message": "Суперприз 'ПРОМО123' добавлен в ваш профиль!"}
-        return response.json()
-
-    except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Не удалось забрать суперприз.")
-        raise HTTPException(status_code=400, detail=error_details)
-    except Exception as e:
-        logging.error(f"Ошибка в claim_weekly_super_prize: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-
-# --- 🔼 КОНЕЦ НОВЫХ ЭНДПОИНТОВ 🔼 ---
 
 @app.post("/api/v1/admin/manual_rewards")
 async def get_manual_rewards(
