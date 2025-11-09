@@ -409,6 +409,40 @@ class WeeklyGoalClaimTaskRequest(BaseModel):
 
 class WeeklyGoalClaimSuperPrizeRequest(BaseModel):
     initData: str
+
+# --- Модели для Админки "Забега" (v3) ---
+class WeeklyGoalBase(BaseModel):
+    title: str
+    task_type: str
+    target_value: int = 1
+    reward_type: str = 'none'
+    reward_value: int = 0
+    sort_order: int = 0
+    # 🔽 v3: Добавляем необязательные поля 🔽
+    target_entity_id: Optional[int] = None
+    target_entity_name: Optional[str] = None
+
+class WeeklyGoalCreateRequest(WeeklyGoalBase):
+    initData: str
+
+class WeeklyGoalUpdateRequest(WeeklyGoalBase):
+    initData: str
+    goal_id: str # UUID
+
+class WeeklyGoalDeleteRequest(BaseModel):
+    initData: str
+    goal_id: str # UUID
+
+class WeeklyRunSettings(BaseModel):
+    week_id: str
+    super_prize_type: str = 'none'
+    super_prize_value: int = 0
+    super_prize_description: str = 'Главный приз недели!'
+
+class WeeklyRunSettingsUpdateRequest(BaseModel):
+    initData: str
+    # 🔽 v3: Модель настроек теперь отдельная 🔽
+    settings: WeeklyRunSettings
 # --- 🔼 КОНЕЦ НОВЫХ МОДЕЛЕЙ 🔼 ---
 
 class ConnectionManager:
@@ -5784,63 +5818,83 @@ async def get_admin_settings(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Получает текущие настройки админ-панели (С ПАРСИНГОМ И ДЕФОЛТАМИ)."""
+    """
+    (v3) Получает ВСЕ настройки: 
+    1. Общие (admin_controls)
+    2. Недельного забега (weekly_run_settings)
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
-    resp.raise_for_status()
-    data = resp.json()
+    # --- 🔽 НОВЫЙ КОД (v3) 🔽 ---
+    try:
+        # 1. Запрашиваем ОБЕ настройки одновременно
+        admin_controls_resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
+        weekly_run_resp = await supabase.get("/weekly_run_settings", params={"id": "eq.1", "select": "*"})
+        
+        admin_controls_resp.raise_for_status()
+        weekly_run_resp.raise_for_status()
+        
+        admin_data = admin_controls_resp.json()
+        weekly_data = weekly_run_resp.json()
 
-    if not data or not data[0].get('value'):
-        # Возвращаем настройки по умолчанию, если в базе ничего нет
-        return AdminSettings() # Возвращаем Pydantic-модель
+        # 2. Парсим 'admin_controls' (старая логика)
+        if not admin_data or not admin_data[0].get('value'):
+            loaded_settings = AdminSettings() # Дефолтные
+        else:
+            settings_data = admin_data[0]['value']
+            
+            # (Логика парсинга boolean-значений)
+            quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False)
+            quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
 
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-    # Принудительно парсим данные из БД через модель AdminSettings,
-    # чтобы заполнить недостающие поля (auction_banner_url, auction в slider_order)
-    # значениями по умолчанию.
-    
-    settings_data = data[0]['value']
-    
-    # Эта логика парсинга boolean-значений скопирована из твоей функции get_admin_settings_async
-    quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False)
-    quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
+            challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
+            challenge_rewards_bool = challenge_rewards_raw if isinstance(challenge_rewards_raw, bool) else str(challenge_rewards_raw).lower() == 'true'
 
-    challenge_rewards_raw = settings_data.get('challenge_promocodes_enabled', True)
-    challenge_rewards_bool = challenge_rewards_raw if isinstance(challenge_rewards_raw, bool) else str(challenge_rewards_raw).lower() == 'true'
+            challenges_raw = settings_data.get('challenges_enabled', True)
+            challenges_bool = challenges_raw if isinstance(challenges_raw, bool) else str(challenges_raw).lower() == 'true'
 
-    challenges_raw = settings_data.get('challenges_enabled', True)
-    challenges_bool = challenges_raw if isinstance(challenges_raw, bool) else str(challenges_raw).lower() == 'true'
+            quests_raw = settings_data.get('quests_enabled', True)
+            quests_bool = quests_raw if isinstance(quests_raw, bool) else str(quests_raw).lower() == 'true'
 
-    quests_raw = settings_data.get('quests_enabled', True)
-    quests_bool = quests_raw if isinstance(quests_raw, bool) else str(quests_raw).lower() == 'true'
+            checkpoint_raw = settings_data.get('checkpoint_enabled', False)
+            checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
 
-    checkpoint_raw = settings_data.get('checkpoint_enabled', False)
-    checkpoint_bool = checkpoint_raw if isinstance(checkpoint_raw, bool) else str(checkpoint_raw).lower() == 'true'
+            loaded_settings = AdminSettings(
+                skin_race_enabled=settings_data.get('skin_race_enabled', True),
+                slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
+                challenge_promocodes_enabled=challenge_rewards_bool,
+                quest_promocodes_enabled=quest_rewards_bool,
+                challenges_enabled=challenges_bool,
+                quests_enabled=quests_bool,
+                checkpoint_enabled=checkpoint_bool,
+                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+                auction_enabled=settings_data.get('auction_enabled', False),
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
+                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
+            )
+        
+        # 3. Парсим 'weekly_run_settings'
+        if not weekly_data:
+            # Если в базе нет строки (id=1), возвращаем дефолт
+            weekly_run_settings = WeeklyRunSettings(week_id="").dict()
+        else:
+            weekly_run_settings = weekly_data[0] # Берем первую строку
 
-    # Создаем объект AdminSettings.
-    # Он возьмет сохраненные значения, а недостающие (auction_banner_url и auction в slider_order)
-    # возьмет из значений по умолчанию в Pydantic-модели.
-    loaded_settings = AdminSettings(
-        skin_race_enabled=settings_data.get('skin_race_enabled', True),
-        slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
-        challenge_promocodes_enabled=challenge_rewards_bool,
-        quest_promocodes_enabled=quest_rewards_bool,
-        challenges_enabled=challenges_bool,
-        quests_enabled=quests_bool,
-        checkpoint_enabled=checkpoint_bool,
-        menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
-        checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
-        auction_enabled=settings_data.get('auction_enabled', False),
-        auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
-        weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)        
-    )
-    
-    # Возвращаем ПОЛНЫЙ объект, а не сырые данные из БД
-    return loaded_settings
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+        # 4. Объединяем и возвращаем
+        # Превращаем Pydantic модель в словарь
+        final_settings = loaded_settings.dict()
+        # Добавляем настройки "Забега" в отдельное поле
+        final_settings['weekly_run_settings'] = weekly_run_settings
+        
+        return final_settings
+
+    except Exception as e:
+        logging.error(f"Ошибка в get_admin_settings (v3): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить настройки админки.")
+    # --- 🔼 КОНЕЦ НОВОГО КОДА (v3) 🔼 ---
 
 @app.post("/api/v1/admin/settings/update")
 async def update_admin_settings(
@@ -5858,6 +5912,116 @@ async def update_admin_settings(
         headers={"Prefer": "resolution=merge-duplicates"}
     )
     return {"message": "Настройки успешно сохранены."}
+
+@app.post("/api/v1/admin/weekly_goals/settings/update")
+async def update_weekly_run_settings(
+    request_data: WeeklyRunSettingsUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ v3) Обновляет настройки "Недельного Забега" (суперприз, week_id)"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Обновляем строку, где id = 1
+        await supabase.patch(
+            "/weekly_run_settings",
+            params={"id": "eq.1"},
+            json=request_data.settings.dict()
+        )
+        return {"message": "Настройки забега сохранены."}
+    except Exception as e:
+        logging.error(f"Ошибка в update_weekly_run_settings: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сохранить настройки забега.")
+
+
+@app.get("/api/v1/admin/weekly_goals/list")
+async def get_weekly_goals_list(
+    request: Request, # Используем GET, initData не нужен для чтения
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ v3) Получает список всех созданных задач (weekly_goals)"""
+    # Тут можно добавить проверку админа, если нужно, но для списка это некритично
+    
+    try:
+        resp = await supabase.get(
+            "/weekly_goals",
+            params={"select": "*", "order": "sort_order.asc"}
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        logging.error(f"Ошибка в get_weekly_goals_list: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить список задач.")
+
+
+@app.post("/api/v1/admin/weekly_goals/create")
+async def create_weekly_goal(
+    request_data: WeeklyGoalCreateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ v3) Создает новую задачу в "Недельном Забеге" """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Pydantic v3: `target_entity_id` и `target_entity_name` уже в модели
+        goal_data = request_data.dict(exclude={'initData'})
+        
+        await supabase.post("/weekly_goals", json=goal_data)
+        return {"message": "Задача создана."}
+    except Exception as e:
+        logging.error(f"Ошибка в create_weekly_goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось создать задачу.")
+
+
+@app.post("/api/v1/admin/weekly_goals/update")
+async def update_weekly_goal(
+    request_data: WeeklyGoalUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ v3) Обновляет существующую задачу в "Недельном Забеге" """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        goal_id = request_data.goal_id
+        # Pydantic v3: `target_entity_id` и `target_entity_name` уже в модели
+        goal_data = request_data.dict(exclude={'initData', 'goal_id'})
+        
+        await supabase.patch(
+            "/weekly_goals",
+            params={"id": f"eq.{goal_id}"},
+            json=goal_data
+        )
+        return {"message": "Задача обновлена."}
+    except Exception as e:
+        logging.error(f"Ошибка в update_weekly_goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось обновить задачу.")
+
+
+@app.post("/api/v1/admin/weekly_goals/delete")
+async def delete_weekly_goal(
+    request_data: WeeklyGoalDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ v3) Удаляет задачу (ON DELETE CASCADE удалит прогресс)"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        await supabase.delete(
+            "/weekly_goals",
+            params={"id": f"eq.{request_data.goal_id}"}
+        )
+        return {"message": "Задача удалена."}
+    except Exception as e:
+        logging.error(f"Ошибка в delete_weekly_goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось удалить задачу.")
 
 @app.post("/api/v1/admin/users/grant-checkpoint-stars")
 async def grant_checkpoint_stars_to_user(
