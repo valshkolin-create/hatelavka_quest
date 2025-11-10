@@ -56,6 +56,7 @@ try {
         tutorialNextBtn: document.getElementById('tutorial-next-btn'),
         tutorialSkipBtn: document.getElementById('tutorial-skip-btn'),
         startTutorialBtn: document.getElementById('start-tutorial-btn'),
+        weeklyGoalsContainer: document.getElementById('weekly-goals-container-placeholder') // (Отступ 8 пробелов)
     };
 
     let currentQuestId = null;
@@ -827,6 +828,103 @@ function renderChallenge(challengeData, isGuest) {
         });
     }
     // --- КОНЕЦ ОБНОВЛЕННОЙ ВЕРСИИ ---
+    function renderWeeklyGoals(data) {
+        const container = dom.weeklyGoalsContainer;
+        if (!container) return;
+
+        // Если система выключена или нет данных, прячем контейнер
+        if (!data || !data.system_enabled || !data.goals || data.goals.length === 0) {
+            container.innerHTML = '';
+            container.classList.add('hidden');
+            return;
+        }
+        
+        container.classList.remove('hidden');
+        
+        // 1. Рендерим Задачи
+        const goalsHtml = data.goals.map(goal => {
+            const progress = goal.current_progress || 0;
+            const target = goal.target_value || 1;
+            const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
+            const isCompleted = goal.is_complete || false;
+            
+            let buttonHtml = '';
+            if (goal.reward_type === 'tickets' && goal.reward_value > 0) {
+                if (goal.small_reward_claimed) {
+                    buttonHtml = `<button class="weekly-goal-reward-btn claimed" disabled>Получено</button>`;
+                } else if (isCompleted) {
+                    buttonHtml = `<button class="weekly-goal-reward-btn claim-task-reward-btn" data-goal-id="${goal.id}">Забрать (+${goal.reward_value})</button>`;
+                } else {
+                    buttonHtml = `<button class="weekly-goal-reward-btn" disabled>+${goal.reward_value} 🎟️</button>`;
+                }
+            }
+            
+            // (v3) Иконка в зависимости от типа задачи
+            let iconClass = 'fa-solid fa-star'; // По умолчанию
+            if (goal.task_type === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
+            else if (goal.task_type === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
+            else if (goal.task_type === 'auction_bid') iconClass = 'fa-solid fa-gavel';
+            else if (goal.task_type === 'cauldron_contribution') iconClass = 'fa-solid fa-hat-wizard';
+            else if (goal.task_type.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
+
+            return `
+                <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
+                    <div class="weekly-goal-icon">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <div class="weekly-goal-info">
+                        <h3 class="weekly-goal-title">${escapeHTML(goal.title)}</h3>
+                        <div class="weekly-goal-progress-bar">
+                            <div class="weekly-goal-progress-fill" style="width: ${percent}%;"></div>
+                        </div>
+                    </div>
+                    ${buttonHtml}
+                </div>
+            `;
+        }).join('');
+
+        // 2. Рендерим Суперприз
+        let superPrizeHtml = '';
+        if (data.total_goals > 0) {
+            const prizeInfo = data.super_prize_info;
+            let prizeText = '...';
+            if (prizeInfo.super_prize_type === 'tickets') {
+                prizeText = `${prizeInfo.super_prize_value} 🎟️`;
+            } else if (prizeInfo.super_prize_type === 'promocode_batch') {
+                prizeText = `Промокод на ${prizeInfo.super_prize_value} ⭐`;
+            }
+            
+            let prizeButtonHtml = '';
+            if (data.super_prize_claimed) {
+                prizeButtonHtml = `<button class="claim-reward-button" disabled>Суперприз получен!</button>`;
+            } else if (data.super_prize_ready_to_claim) {
+                prizeButtonHtml = `<button id="claim-super-prize-btn" class="claim-reward-button">Забрать Суперприз!</button>`;
+            } else {
+                prizeButtonHtml = `<button class="claim-reward-button" disabled>Выполните все задания</button>`;
+            }
+
+            superPrizeHtml = `
+                <div class="weekly-super-prize-card">
+                    <h2 class="quest-title">${escapeHTML(prizeInfo.super_prize_description || 'Главный приз')}</h2>
+                    <p class="quest-subtitle">Награда: ${prizeText}</p>
+                    ${prizeButtonHtml}
+                </div>
+            `;
+        }
+
+        // 3. Собираем всё вместе
+        container.innerHTML = `
+            <div class="weekly-goals-container">
+                <div class="weekly-goals-header">
+                    <h2>Недельный Забег</h2>
+                    <span class="weekly-goals-progress-text">${data.completed_goals} / ${data.total_goals}</span>
+                </div>
+                ${goalsHtml}
+                ${superPrizeHtml}
+            </div>
+        `;
+    }
+    // --- 🔼 КОНЕЦ НОВОЙ ФУНКЦИИ 🔼 ---
     
     async function refreshDataSilently() {
         try {
@@ -1012,6 +1110,58 @@ function setupEventListeners() {
         dom.tutorialNextBtn.onclick = tutorialNextHandler;
         dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
         document.body.addEventListener('click', async (event) => {
+            // (v3) Обработка кнопок "Недельного Забега"
+            const claimTaskBtn = event.target.closest('.claim-task-reward-btn');
+            const claimSuperBtn = event.target.closest('#claim-super-prize-btn');
+
+            if (claimTaskBtn) {
+                claimTaskBtn.disabled = true;
+                claimTaskBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                try {
+                    const result = await makeApiRequest('/api/v1/user/weekly_goals/claim_task', {
+                        goal_id: claimTaskBtn.dataset.goalId
+                    });
+                    tg.showPopup({ message: result.message });
+                    // Обновляем баланс
+                    if (result.new_ticket_balance !== undefined) {
+                        document.getElementById('ticketStats').textContent = result.new_ticket_balance;
+                    }
+                    // Меняем кнопку на "Получено"
+                    claimTaskBtn.textContent = 'Получено';
+                    claimTaskBtn.classList.add('claimed');
+                } catch (e) {
+                    tg.showAlert(`Ошибка: ${e.message}`);
+                    claimTaskBtn.disabled = false;
+                    claimTaskBtn.innerHTML = `Забрать (+${claimTaskBtn.dataset.rewardValue || '...'})`;
+                }
+                return; // Останавливаем выполнение
+            }
+
+            if (claimSuperBtn) {
+                claimSuperBtn.disabled = true;
+                claimSuperBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                try {
+                    const result = await makeApiRequest('/api/v1/user/weekly_goals/claim_super_prize', {});
+                    // Показываем стандартную модалку (для промокода или билетов)
+                    if (result.promocode) {
+                        showRewardClaimedModal();
+                    } else if (result.new_ticket_balance !== undefined) {
+                        document.getElementById('ticketStats').textContent = result.new_ticket_balance;
+                        showTicketsClaimedModal();
+                    } else {
+                        tg.showAlert(result.message);
+                    }
+                    // Меняем кнопку на "Получено"
+                    claimSuperBtn.textContent = 'Суперприз получен!';
+                    claimSuperBtn.classList.add('claimed');
+                } catch (e) {
+                    tg.showAlert(`Ошибка: ${e.message}`);
+                    claimSuperBtn.disabled = false;
+                    claimSuperBtn.innerHTML = 'Забрать Суперприз!';
+                }
+                return; // Останавливаем выполнение
+            }
+            // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
             const target = event.target.closest('button');
             if (!target) return;
             if (target.id === 'get-challenge-btn') {
@@ -1135,6 +1285,12 @@ function setupEventListeners() {
                     'X-Init-Data': Telegram.WebApp.initData
                 }
             }).then(res => res.json());
+            const weeklyGoalsPromise = makeApiRequest("/api/v1/user/weekly_goals", {}, 'POST', true)
+                .catch(e => {
+                    console.error("Не удалось загрузить Недельный Забег:", e.message);
+                    return null; // Не ломаем приложение, если забег упал
+                });
+            // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
             const day = new Date().getDay();
             const questButton = dom.questChooseBtn;
             if (day === 0 || day === 1) { 
@@ -1163,7 +1319,8 @@ function setupEventListeners() {
             }
             document.getElementById('ticketStats').textContent = userData.tickets || 0;
             console.log("main(): Ожидаем ответ от /api/v1/content/menu..."); // ЛОГ
-            const menuContent = await menuContentPromise;
+            const [menuContent, weeklyGoalsData] = await Promise.all([menuContentPromise, weeklyGoalsPromise]);
+            renderWeeklyGoals(weeklyGoalsData); // (v3) Отрисовываем "Забег"
             console.log("main(): ПОЛУЧЕН menuContent:", JSON.stringify(menuContent)); // ЛОГ
 
             if (menuContent) {
