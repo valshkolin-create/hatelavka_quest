@@ -414,6 +414,7 @@ class WeeklyGoalClaimSuperPrizeRequest(BaseModel):
 # --- Модели для Админки "Забега" (v3) ---
 class WeeklyGoalBase(BaseModel):
     title: str
+    description: Optional[str] = None # <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
     task_type: str
     target_value: int = 1
     reward_type: str = 'none'
