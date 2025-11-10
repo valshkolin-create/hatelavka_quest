@@ -2075,6 +2075,478 @@ function updateSleepButton(status) {
             targetElement.innerHTML += cardHtml;
         });
     }
+    async function loadWeeklyGoalsData() {
+    showLoader();
+    try {
+        // 1. Запрашиваем ВСЕ данные одновременно
+        const [settings, goals, adminQuests, twitchRewards] = await Promise.all([
+            makeApiRequest('/api/v1/admin/settings', {}, 'POST', true),
+            api_loadWeeklyGoals(),
+            makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: 'quest' }, 'POST', true),
+            makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true)
+        ]);
+        
+        // 2. Кэшируем списки для "Выборщика"
+        adminQuestsCache = adminQuests || [];
+        adminTwitchRewardsCache = twitchRewards || [];
+
+        // 3. Отображаем настройки
+        if (dom.weeklyGoalsSettingsForm) {
+            dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked = settings.weekly_goals_enabled || false;
+            dom.weeklyGoalsSettingsForm.elements['week_id'].value = settings.weekly_run_settings?.week_id || '';
+            dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value = settings.weekly_run_settings?.super_prize_type || 'none';
+            dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value = settings.weekly_run_settings?.super_prize_value || 0;
+            dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value = settings.weekly_run_settings?.super_prize_description || '';
+            
+            // Показываем/скрываем поле "Кол-во" для суперприза
+            const prizeType = dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value;
+            dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', prizeType === 'none');
+        }
+        
+        // 4. Отображаем список задач
+        renderWeeklyGoalsList(goals);
+        
+    } catch (e) {
+        tg.showAlert(`Ошибка загрузки данных "Забега": ${e.message}`);
+    } finally {
+        hideLoader();
+    }
+}
+
+/**
+ * (v3) ОТРИСОВКА: Рендерит список созданных задач
+ */
+function renderWeeklyGoalsList(goals) {
+    if (!dom.weeklyGoalsList) return;
+    dom.weeklyGoalsList.innerHTML = '';
+    
+    if (!goals || goals.length === 0) {
+        dom.weeklyGoalsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Задач на эту неделю еще нет.</p>';
+        return;
+    }
+    
+    // Сортируем по sort_order
+    goals.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    
+    goals.forEach(goal => {
+        const card = document.createElement('div');
+        card.className = 'quest-card weekly-goal-card';
+        
+        // (v3) Форматируем "Цель"
+        let targetText = '';
+        if (goal.target_entity_id) {
+            targetText = ` (ID: ${goal.target_entity_id})`;
+        } else if (goal.target_entity_name) {
+            targetText = ` (Имя: ${escapeHTML(goal.target_entity_name)})`;
+        }
+
+        card.innerHTML = `
+            <div class="weekly-goal-header">
+                <span class="weekly-goal-title">${escapeHTML(goal.title)}</span>
+                <div class="weekly-goal-actions">
+                    <button class="admin-edit-quest-btn edit-weekly-goal-btn" data-goal-id="${goal.id}">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="admin-delete-quest-btn delete-weekly-goal-btn" data-goal-id="${goal.id}">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="weekly-goal-details">
+                <p style="margin: 0;"><strong>Тип:</strong> ${escapeHTML(goal.task_type)}${targetText}</p>
+                <p style="margin: 4px 0;"><strong>Цель:</strong> ${goal.target_value} раз(а)</p>
+                <p style="margin: 4px 0;"><strong>Награда:</strong> ${goal.reward_type === 'tickets' ? `${goal.reward_value} билетов` : 'Нет'}</p>
+                <p style="margin: 4px 0 0;"><strong>Порядок:</strong> ${goal.sort_order || 0}</p>
+            </div>
+        `;
+        dom.weeklyGoalsList.appendChild(card);
+    });
+}
+
+/**
+ * (v3) API-Функции (для вызова из обработчиков)
+ */
+async function api_loadWeeklyGoals() {
+    return makeApiRequest('/api/v1/admin/weekly_goals/list', {}, 'GET', true);
+}
+async function api_createWeeklyGoal(data) {
+    return makeApiRequest('/api/v1/admin/weekly_goals/create', data);
+}
+async function api_deleteWeeklyGoal(goalId) {
+    return makeApiRequest('/api/v1/admin/weekly_goals/delete', { goal_id: goalId });
+}
+async function api_saveWeeklyGoalSettings(settingsData) {
+    // Используем эндпоинт v3
+    return makeApiRequest('/api/v1/admin/weekly_goals/settings/update', { settings: settingsData });
+}
+async function api_getWeeklyGoalDetails(goalId) {
+    // В v3 мы "читаем" из кэша (adminQuestsCache), а не делаем API-запрос
+    const goals = await api_loadWeeklyGoals();
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) throw new Error('Задача не найдена');
+    return goal;
+}
+async function api_updateWeeklyGoal(data) {
+    return makeApiRequest('/api/v1/admin/weekly_goals/update', data);
+}
+
+/**
+ * (v3) Сбрасывает форму "Новая Задача" в исходное состояние
+ */
+function resetWeeklyGoalForm() {
+    const form = dom.weeklyGoalsCreateTaskForm;
+    if (!form) return;
+    
+    form.reset();
+    form.dataset.editingGoalId = '';
+    
+    // Сбрасываем v3-поля
+    dom.weeklyGoalTargetEntityId.value = '';
+    dom.weeklyGoalTargetEntityName.value = '';
+    
+    form.querySelector('h3').textContent = 'Новая Задача';
+    form.querySelector('button[type="submit"]').textContent = 'Добавить Задачу';
+    
+    // Прячем все опциональные блоки
+    dom.weeklyGoalTaskRewardValueWrapper.classList.add('hidden');
+    dom.weeklyGoalEntityPickerWrapper.classList.add('hidden');
+    
+    // Прячем кнопку "Отмена"
+    dom.weeklyGoalCancelEditBtn.classList.add('hidden');
+}
+
+/**
+ * (v3) Открывает модальное окно для выбора сущности (Квеста, Награды, Челленджа)
+ */
+function openEntityPickerModal(taskType) {
+    let title = 'Выберите...';
+    let dataList = [];
+    
+    // 1. Готовим данные в зависимости от task_type
+    if (taskType === 'manual_quest_complete') {
+        title = 'Выберите ручное задание';
+        dataList = adminQuestsCache.map(q => ({
+            id: q.id,
+            name: q.title
+        }));
+        
+    } else if (taskType === 'twitch_purchase') {
+        title = 'Выберите награду Twitch';
+        dataList = adminTwitchRewardsCache.map(r => ({
+            id: r.id,
+            name: r.title
+        }));
+        
+    } else if (taskType === 'wizebot_challenge_complete') {
+        title = 'Выберите Wizebot-челлендж';
+        // (Мы не кэшируем челленджи, можно их загрузить при необходимости,
+        // но пока оставим пустым, т.к. ты их не кэшировал)
+        // dataList = ... 
+        
+        // Пока просто оставим заглушку
+        dom.weeklyGoalEntitySelectList.innerHTML = '<p style="text-align: center;">Выбор челленджей пока не поддерживается.</p>';
+        dom.weeklyGoalEntitySelectTitle.textContent = title;
+        dom.weeklyGoalEntitySelectModal.classList.remove('hidden');
+        return;
+    }
+    
+    // 2. Рендерим список
+    if (!dataList || dataList.length === 0) {
+        dom.weeklyGoalEntitySelectList.innerHTML = `<p style="text-align: center;">Список (для ${taskType}) пуст.</p>`;
+    } else {
+        dom.weeklyGoalEntitySelectList.innerHTML = dataList.map(item => `
+            <div class="submission-item" 
+                 data-entity-id="${item.id}" 
+                 data-entity-name="${escapeHTML(item.name)}"
+                 style="cursor: pointer;">
+                <p>${escapeHTML(item.name)}</p>
+                <small>ID: ${item.id}</small>
+            </div>
+        `).join('');
+    }
+    
+    // 3. Показываем модалку
+    dom.weeklyGoalEntitySelectTitle.textContent = title;
+    dom.weeklyGoalEntitySelectModal.classList.remove('hidden');
+}
+
+
+/**
+ * (v3) ОБРАБОТЧИКИ: Подключаем кнопки
+ */
+
+// 1. Показать/скрыть поле "Кол-во" для СУПЕРПРИЗА
+if (dom.weeklyGoalSuperPrizeType) {
+    dom.weeklyGoalSuperPrizeType.addEventListener('change', (e) => {
+        const type = e.target.value;
+        dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', type === 'none');
+    });
+}
+
+// 2. Показать/скрыть поле "Кол-во" для ОПЦИОНАЛЬНОЙ НАГРАДЫ
+if (dom.weeklyGoalTaskRewardType) {
+    dom.weeklyGoalTaskRewardType.addEventListener('change', (e) => {
+        const type = e.target.value;
+        dom.weeklyGoalTaskRewardValueWrapper.classList.toggle('hidden', type === 'none');
+    });
+}
+
+// 3. (v3) Показать/скрыть "Выборщик" (Picker) при смене ТИПА ЗАДАЧИ
+if (dom.weeklyGoalTaskTypeSelect) {
+    dom.weeklyGoalTaskTypeSelect.addEventListener('change', (e) => {
+        const taskType = e.target.value;
+        
+        // Задачи, требующие выбора (Q1, Q3)
+        const needsPicker = [
+            'manual_quest_complete',
+            'twitch_purchase',
+            'wizebot_challenge_complete'
+        ];
+        
+        // Задачи, требующие ввода цели (статистика)
+        const needsTargetInput = taskType.startsWith('stat_');
+
+        if (needsPicker.includes(taskType)) {
+            // Показываем "Выборщик"
+            dom.weeklyGoalEntityPickerWrapper.classList.remove('hidden');
+            
+            // Сбрасываем старый выбор
+            dom.weeklyGoalTargetEntityId.value = '';
+            dom.weeklyGoalTargetEntityName.value = '';
+            dom.weeklyGoalEntityDisplay.classList.remove('selected');
+            dom.weeklyGoalEntityDisplay.querySelector('span').textContent = 'Ничего не выбрано';
+            
+            // Меняем текст кнопки
+            if (taskType === 'manual_quest_complete') {
+                dom.weeklyGoalSelectEntityBtn.textContent = 'Выбрать ручное задание...';
+            } else if (taskType === 'twitch_purchase') {
+                dom.weeklyGoalSelectEntityBtn.textContent = 'Выбрать награду Twitch...';
+            } else if (taskType === 'wizebot_challenge_complete') {
+                dom.weeklyGoalSelectEntityBtn.textContent = 'Выбрать Wizebot-челлендж...';
+            }
+            
+        } else if (needsTargetInput) {
+            // (Q2) Это пассивная задача (статистика)
+            dom.weeklyGoalEntityPickerWrapper.classList.add('hidden');
+            // Убедимся, что ID/Имя сброшены
+            dom.weeklyGoalTargetEntityId.value = '';
+            dom.weeklyGoalTargetEntityName.value = '';
+            
+        } else {
+            // Это простая задача (ставка, котел)
+            dom.weeklyGoalEntityPickerWrapper.classList.add('hidden');
+            dom.weeklyGoalTargetEntityId.value = '';
+            dom.weeklyGoalTargetEntityName.value = '';
+        }
+    });
+}
+
+// 4. (v3) Клик по кнопке "Выбрать..." (открывает модалку)
+if (dom.weeklyGoalSelectEntityBtn) {
+    dom.weeklyGoalSelectEntityBtn.addEventListener('click', () => {
+        const taskType = dom.weeklyGoalTaskTypeSelect.value;
+        openEntityPickerModal(taskType);
+    });
+}
+
+// 5. (v3) Клик по элементу в модальном окне "Выборщика"
+if (dom.weeklyGoalEntitySelectList) {
+    dom.weeklyGoalEntitySelectList.addEventListener('click', (e) => {
+        const item = e.target.closest('.submission-item');
+        if (!item) return;
+        
+        const entityId = item.dataset.entityId;
+        const entityName = item.dataset.entityName;
+        const taskType = dom.weeklyGoalTaskTypeSelect.value;
+        
+        // 1. Заполняем скрытые поля
+        dom.weeklyGoalTargetEntityId.value = entityId;
+        dom.weeklyGoalTargetEntityName.value = entityName;
+        
+        // 2. Обновляем дисплей
+        dom.weeklyGoalEntityDisplay.classList.add('selected');
+        let displayText = '';
+        if (taskType === 'twitch_purchase') {
+            displayText = `[ИМЯ] ${entityName}`; // (Q3) Используем Имя
+        } else {
+            displayText = `[ID: ${entityId}] ${entityName}`; // (Q1) Используем ID
+        }
+        dom.weeklyGoalEntityDisplay.querySelector('span').textContent = displayText;
+        
+        // 3. Закрываем модалку
+        dom.weeklyGoalEntitySelectModal.classList.add('hidden');
+    });
+}
+
+
+// 6. Сохранение НАСТРОЕК (Суперприз и Вкл/Выкл)
+if (dom.weeklyGoalsSettingsForm) {
+    dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Сначала сохраняем общие настройки (Вкл/Выкл)
+        const isEnabled = dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked;
+        try {
+            await makeApiRequest('/api/v1/admin/settings/update', { 
+                // v3: Мы сохраняем ТОЛЬКО 'weekly_goals_enabled'
+                settings: { weekly_goals_enabled: isEnabled } 
+            });
+            
+            // Затем сохраняем настройки самого "Забега" (Суперприз, ID недели)
+            const settingsData = {
+                week_id: dom.weeklyGoalsSettingsForm.elements['week_id'].value.trim(),
+                super_prize_type: dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value,
+                super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
+                super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
+            };
+            
+            // Используем эндпоинт v3
+            await api_saveWeeklyGoalSettings(settingsData);
+            
+            tg.showAlert('Настройки "Недельного Забега" сохранены!');
+            
+        } catch (err) {
+            tg.showAlert(`Ошибка сохранения: ${err.message}`);
+        }
+    });
+}
+
+// 7. Создание или Редактирование ЗАДАЧИ
+if (dom.weeklyGoalsCreateTaskForm) {
+    dom.weeklyGoalsCreateTaskForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const goalId = form.dataset.editingGoalId; // Проверяем, в режиме ли мы редактирования
+        
+        const data = {
+            title: form.elements['title'].value.trim(),
+            task_type: form.elements['task_type'].value,
+            target_value: parseInt(form.elements['target_value'].value, 10) || 1,
+            reward_type: form.elements['reward_type'].value,
+            reward_value: parseInt(form.elements['reward_value'].value, 10) || 0,
+            sort_order: parseInt(form.elements['sort_order'].value, 10) || 0,
+            
+            // 🔽 v3: Добавляем ID и Имя 🔽
+            target_entity_id: form.elements['target_entity_id'].value ? parseInt(form.elements['target_entity_id'].value, 10) : null,
+            target_entity_name: form.elements['target_entity_name'].value || null
+        };
+        
+        // (v3) Валидация: если это стат-задача, ID/Имя должны быть NULL
+        if (data.task_type.startsWith('stat_')) {
+            data.target_entity_id = null;
+            data.target_entity_name = null;
+        }
+
+        try {
+            if (goalId) {
+                // РЕЖИМ РЕДАКТИРОВАНИЯ
+                await api_updateWeeklyGoal({ ...data, goal_id: goalId });
+                tg.showAlert('Задача обновлена!');
+            } else {
+                // РЕЖИМ СОЗДАНИЯ
+                await api_createWeeklyGoal(data);
+                tg.showPopup({ message: 'Задача создана!' });
+            }
+            
+            // Сбрасываем форму (v3)
+            resetWeeklyGoalForm();
+            
+            const goals = await api_loadWeeklyGoals();
+            renderWeeklyGoalsList(goals);
+            
+        } catch (err) {
+            tg.showAlert(`Ошибка: ${err.message}`);
+        }
+    });
+}
+
+// 8. (v3) Кнопка "Отмена" (сброс формы)
+if (dom.weeklyGoalCancelEditBtn) {
+    dom.weeklyGoalCancelEditBtn.addEventListener('click', () => {
+        resetWeeklyGoalForm();
+    });
+}
+
+// 9. Обработка кнопок "Редактировать" / "Удалить" в списке
+if (dom.weeklyGoalsList) {
+    dom.weeklyGoalsList.addEventListener('click', async (e) => {
+        const deleteBtn = e.target.closest('.delete-weekly-goal-btn');
+        const editBtn = e.target.closest('.edit-weekly-goal-btn');
+        
+        if (deleteBtn) {
+            // УДАЛЕНИЕ
+            const goalId = deleteBtn.dataset.goalId;
+            tg.showConfirm('Удалить эту задачу?', async (ok) => {
+                if (ok) {
+                    try {
+                        await api_deleteWeeklyGoal(goalId);
+                        tg.showPopup({ message: 'Задача удалена' });
+                        const goals = await api_loadWeeklyGoals();
+                        renderWeeklyGoalsList(goals);
+                    } catch (err) {
+                        tg.showAlert(`Ошибка удаления: ${err.message}`);
+                    }
+                }
+            });
+            
+        } else if (editBtn) {
+            // РЕДАКТИРОВАНИЕ
+            const goalId = editBtn.dataset.goalId;
+            try {
+                showLoader();
+                const goal = await api_getWeeklyGoalDetails(goalId);
+                const form = dom.weeklyGoalsCreateTaskForm;
+                
+                // Заполняем форму
+                form.elements['title'].value = goal.title;
+                form.elements['task_type'].value = goal.task_type;
+                form.elements['target_value'].value = goal.target_value;
+                form.elements['reward_type'].value = goal.reward_type;
+                form.elements['reward_value'].value = goal.reward_value || 0;
+                form.elements['sort_order'].value = goal.sort_order || 0;
+                
+                // (v3) Заполняем ID и Имя
+                form.elements['target_entity_id'].value = goal.target_entity_id || '';
+                form.elements['target_entity_name'].value = goal.target_entity_name || '';
+                
+                // (v3) Показываем/скрываем нужные поля
+                // 1. Поле "Кол-во" (награда)
+                dom.weeklyGoalTaskRewardValueWrapper.classList.toggle('hidden', goal.reward_type === 'none');
+                
+                // 2. "Выборщик"
+                const needsPicker = ['manual_quest_complete', 'twitch_purchase', 'wizebot_challenge_complete'].includes(goal.task_type);
+                dom.weeklyGoalEntityPickerWrapper.classList.toggle('hidden', !needsPicker);
+                
+                if (needsPicker) {
+                    // Обновляем дисплей "Выборщика"
+                    dom.weeklyGoalEntityDisplay.classList.add('selected');
+                    let displayText = '';
+                    if (goal.task_type === 'twitch_purchase') {
+                        displayText = `[ИМЯ] ${goal.target_entity_name || '???'}`;
+                    } else {
+                        displayText = `[ID: ${goal.target_entity_id || '???'}] ${goal.title}`; // (Тут можно улучшить, но пока так)
+                    }
+                    dom.weeklyGoalEntityDisplay.querySelector('span').textContent = displayText;
+                }
+                
+                // Меняем режим формы
+                form.dataset.editingGoalId = goalId;
+                form.querySelector('h3').textContent = 'Редактирование Задачи';
+                form.querySelector('button[type="submit"]').textContent = 'Сохранить Изменения';
+                dom.weeklyGoalCancelEditBtn.classList.remove('hidden'); // Показываем кнопку "Отмена"
+                
+                // Скроллим к форме
+                form.scrollIntoView({ behavior: 'smooth' });
+                form.elements['title'].focus();
+                
+            } catch (err) {
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                hideLoader();
+            }
+        }
+    });
+}
     
     function setupEventListeners() {
         if(document.getElementById('refresh-purchases-btn')) {
@@ -3962,476 +4434,4 @@ async function main() {
 } catch (e) {
     console.error(`Критическая ошибка на старте: ${e.message}`);
     alert(`Критическая ошибка: ${e.message}`);
-}
-async function loadWeeklyGoalsData() {
-    showLoader();
-    try {
-        // 1. Запрашиваем ВСЕ данные одновременно
-        const [settings, goals, adminQuests, twitchRewards] = await Promise.all([
-            makeApiRequest('/api/v1/admin/settings', {}, 'POST', true),
-            api_loadWeeklyGoals(),
-            makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: 'quest' }, 'POST', true),
-            makeApiRequest('/api/v1/admin/twitch_rewards/list', {}, 'GET', true)
-        ]);
-        
-        // 2. Кэшируем списки для "Выборщика"
-        adminQuestsCache = adminQuests || [];
-        adminTwitchRewardsCache = twitchRewards || [];
-
-        // 3. Отображаем настройки
-        if (dom.weeklyGoalsSettingsForm) {
-            dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked = settings.weekly_goals_enabled || false;
-            dom.weeklyGoalsSettingsForm.elements['week_id'].value = settings.weekly_run_settings?.week_id || '';
-            dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value = settings.weekly_run_settings?.super_prize_type || 'none';
-            dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value = settings.weekly_run_settings?.super_prize_value || 0;
-            dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value = settings.weekly_run_settings?.super_prize_description || '';
-            
-            // Показываем/скрываем поле "Кол-во" для суперприза
-            const prizeType = dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value;
-            dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', prizeType === 'none');
-        }
-        
-        // 4. Отображаем список задач
-        renderWeeklyGoalsList(goals);
-        
-    } catch (e) {
-        tg.showAlert(`Ошибка загрузки данных "Забега": ${e.message}`);
-    } finally {
-        hideLoader();
-    }
-}
-
-/**
- * (v3) ОТРИСОВКА: Рендерит список созданных задач
- */
-function renderWeeklyGoalsList(goals) {
-    if (!dom.weeklyGoalsList) return;
-    dom.weeklyGoalsList.innerHTML = '';
-    
-    if (!goals || goals.length === 0) {
-        dom.weeklyGoalsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Задач на эту неделю еще нет.</p>';
-        return;
-    }
-    
-    // Сортируем по sort_order
-    goals.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-    
-    goals.forEach(goal => {
-        const card = document.createElement('div');
-        card.className = 'quest-card weekly-goal-card';
-        
-        // (v3) Форматируем "Цель"
-        let targetText = '';
-        if (goal.target_entity_id) {
-            targetText = ` (ID: ${goal.target_entity_id})`;
-        } else if (goal.target_entity_name) {
-            targetText = ` (Имя: ${escapeHTML(goal.target_entity_name)})`;
-        }
-
-        card.innerHTML = `
-            <div class="weekly-goal-header">
-                <span class="weekly-goal-title">${escapeHTML(goal.title)}</span>
-                <div class="weekly-goal-actions">
-                    <button class="admin-edit-quest-btn edit-weekly-goal-btn" data-goal-id="${goal.id}">
-                        <i class="fa-solid fa-pen"></i>
-                    </button>
-                    <button class="admin-delete-quest-btn delete-weekly-goal-btn" data-goal-id="${goal.id}">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="weekly-goal-details">
-                <p style="margin: 0;"><strong>Тип:</strong> ${escapeHTML(goal.task_type)}${targetText}</p>
-                <p style="margin: 4px 0;"><strong>Цель:</strong> ${goal.target_value} раз(а)</p>
-                <p style="margin: 4px 0;"><strong>Награда:</strong> ${goal.reward_type === 'tickets' ? `${goal.reward_value} билетов` : 'Нет'}</p>
-                <p style="margin: 4px 0 0;"><strong>Порядок:</strong> ${goal.sort_order || 0}</p>
-            </div>
-        `;
-        dom.weeklyGoalsList.appendChild(card);
-    });
-}
-
-/**
- * (v3) API-Функции (для вызова из обработчиков)
- */
-async function api_loadWeeklyGoals() {
-    return makeApiRequest('/api/v1/admin/weekly_goals/list', {}, 'GET', true);
-}
-async function api_createWeeklyGoal(data) {
-    return makeApiRequest('/api/v1/admin/weekly_goals/create', data);
-}
-async function api_deleteWeeklyGoal(goalId) {
-    return makeApiRequest('/api/v1/admin/weekly_goals/delete', { goal_id: goalId });
-}
-async function api_saveWeeklyGoalSettings(settingsData) {
-    // Используем эндпоинт v3
-    return makeApiRequest('/api/v1/admin/weekly_goals/settings/update', { settings: settingsData });
-}
-async function api_getWeeklyGoalDetails(goalId) {
-    // В v3 мы "читаем" из кэша (adminQuestsCache), а не делаем API-запрос
-    const goals = await api_loadWeeklyGoals();
-    const goal = goals.find(g => g.id === goalId);
-    if (!goal) throw new Error('Задача не найдена');
-    return goal;
-}
-async function api_updateWeeklyGoal(data) {
-    return makeApiRequest('/api/v1/admin/weekly_goals/update', data);
-}
-
-/**
- * (v3) Сбрасывает форму "Новая Задача" в исходное состояние
- */
-function resetWeeklyGoalForm() {
-    const form = dom.weeklyGoalsCreateTaskForm;
-    if (!form) return;
-    
-    form.reset();
-    form.dataset.editingGoalId = '';
-    
-    // Сбрасываем v3-поля
-    dom.weeklyGoalTargetEntityId.value = '';
-    dom.weeklyGoalTargetEntityName.value = '';
-    
-    form.querySelector('h3').textContent = 'Новая Задача';
-    form.querySelector('button[type="submit"]').textContent = 'Добавить Задачу';
-    
-    // Прячем все опциональные блоки
-    dom.weeklyGoalTaskRewardValueWrapper.classList.add('hidden');
-    dom.weeklyGoalEntityPickerWrapper.classList.add('hidden');
-    
-    // Прячем кнопку "Отмена"
-    dom.weeklyGoalCancelEditBtn.classList.add('hidden');
-}
-
-/**
- * (v3) Открывает модальное окно для выбора сущности (Квеста, Награды, Челленджа)
- */
-function openEntityPickerModal(taskType) {
-    let title = 'Выберите...';
-    let dataList = [];
-    
-    // 1. Готовим данные в зависимости от task_type
-    if (taskType === 'manual_quest_complete') {
-        title = 'Выберите ручное задание';
-        dataList = adminQuestsCache.map(q => ({
-            id: q.id,
-            name: q.title
-        }));
-        
-    } else if (taskType === 'twitch_purchase') {
-        title = 'Выберите награду Twitch';
-        dataList = adminTwitchRewardsCache.map(r => ({
-            id: r.id,
-            name: r.title
-        }));
-        
-    } else if (taskType === 'wizebot_challenge_complete') {
-        title = 'Выберите Wizebot-челлендж';
-        // (Мы не кэшируем челленджи, можно их загрузить при необходимости,
-        // но пока оставим пустым, т.к. ты их не кэшировал)
-        // dataList = ... 
-        
-        // Пока просто оставим заглушку
-        dom.weeklyGoalEntitySelectList.innerHTML = '<p style="text-align: center;">Выбор челленджей пока не поддерживается.</p>';
-        dom.weeklyGoalEntitySelectTitle.textContent = title;
-        dom.weeklyGoalEntitySelectModal.classList.remove('hidden');
-        return;
-    }
-    
-    // 2. Рендерим список
-    if (!dataList || dataList.length === 0) {
-        dom.weeklyGoalEntitySelectList.innerHTML = `<p style="text-align: center;">Список (для ${taskType}) пуст.</p>`;
-    } else {
-        dom.weeklyGoalEntitySelectList.innerHTML = dataList.map(item => `
-            <div class="submission-item" 
-                 data-entity-id="${item.id}" 
-                 data-entity-name="${escapeHTML(item.name)}"
-                 style="cursor: pointer;">
-                <p>${escapeHTML(item.name)}</p>
-                <small>ID: ${item.id}</small>
-            </div>
-        `).join('');
-    }
-    
-    // 3. Показываем модалку
-    dom.weeklyGoalEntitySelectTitle.textContent = title;
-    dom.weeklyGoalEntitySelectModal.classList.remove('hidden');
-}
-
-
-/**
- * (v3) ОБРАБОТЧИКИ: Подключаем кнопки
- */
-
-// 1. Показать/скрыть поле "Кол-во" для СУПЕРПРИЗА
-if (dom.weeklyGoalSuperPrizeType) {
-    dom.weeklyGoalSuperPrizeType.addEventListener('change', (e) => {
-        const type = e.target.value;
-        dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', type === 'none');
-    });
-}
-
-// 2. Показать/скрыть поле "Кол-во" для ОПЦИОНАЛЬНОЙ НАГРАДЫ
-if (dom.weeklyGoalTaskRewardType) {
-    dom.weeklyGoalTaskRewardType.addEventListener('change', (e) => {
-        const type = e.target.value;
-        dom.weeklyGoalTaskRewardValueWrapper.classList.toggle('hidden', type === 'none');
-    });
-}
-
-// 3. (v3) Показать/скрыть "Выборщик" (Picker) при смене ТИПА ЗАДАЧИ
-if (dom.weeklyGoalTaskTypeSelect) {
-    dom.weeklyGoalTaskTypeSelect.addEventListener('change', (e) => {
-        const taskType = e.target.value;
-        
-        // Задачи, требующие выбора (Q1, Q3)
-        const needsPicker = [
-            'manual_quest_complete',
-            'twitch_purchase',
-            'wizebot_challenge_complete'
-        ];
-        
-        // Задачи, требующие ввода цели (статистика)
-        const needsTargetInput = taskType.startsWith('stat_');
-
-        if (needsPicker.includes(taskType)) {
-            // Показываем "Выборщик"
-            dom.weeklyGoalEntityPickerWrapper.classList.remove('hidden');
-            
-            // Сбрасываем старый выбор
-            dom.weeklyGoalTargetEntityId.value = '';
-            dom.weeklyGoalTargetEntityName.value = '';
-            dom.weeklyGoalEntityDisplay.classList.remove('selected');
-            dom.weeklyGoalEntityDisplay.querySelector('span').textContent = 'Ничего не выбрано';
-            
-            // Меняем текст кнопки
-            if (taskType === 'manual_quest_complete') {
-                dom.weeklyGoalSelectEntityBtn.textContent = 'Выбрать ручное задание...';
-            } else if (taskType === 'twitch_purchase') {
-                dom.weeklyGoalSelectEntityBtn.textContent = 'Выбрать награду Twitch...';
-            } else if (taskType === 'wizebot_challenge_complete') {
-                dom.weeklyGoalSelectEntityBtn.textContent = 'Выбрать Wizebot-челлендж...';
-            }
-            
-        } else if (needsTargetInput) {
-            // (Q2) Это пассивная задача (статистика)
-            dom.weeklyGoalEntityPickerWrapper.classList.add('hidden');
-            // Убедимся, что ID/Имя сброшены
-            dom.weeklyGoalTargetEntityId.value = '';
-            dom.weeklyGoalTargetEntityName.value = '';
-            
-        } else {
-            // Это простая задача (ставка, котел)
-            dom.weeklyGoalEntityPickerWrapper.classList.add('hidden');
-            dom.weeklyGoalTargetEntityId.value = '';
-            dom.weeklyGoalTargetEntityName.value = '';
-        }
-    });
-}
-
-// 4. (v3) Клик по кнопке "Выбрать..." (открывает модалку)
-if (dom.weeklyGoalSelectEntityBtn) {
-    dom.weeklyGoalSelectEntityBtn.addEventListener('click', () => {
-        const taskType = dom.weeklyGoalTaskTypeSelect.value;
-        openEntityPickerModal(taskType);
-    });
-}
-
-// 5. (v3) Клик по элементу в модальном окне "Выборщика"
-if (dom.weeklyGoalEntitySelectList) {
-    dom.weeklyGoalEntitySelectList.addEventListener('click', (e) => {
-        const item = e.target.closest('.submission-item');
-        if (!item) return;
-        
-        const entityId = item.dataset.entityId;
-        const entityName = item.dataset.entityName;
-        const taskType = dom.weeklyGoalTaskTypeSelect.value;
-        
-        // 1. Заполняем скрытые поля
-        dom.weeklyGoalTargetEntityId.value = entityId;
-        dom.weeklyGoalTargetEntityName.value = entityName;
-        
-        // 2. Обновляем дисплей
-        dom.weeklyGoalEntityDisplay.classList.add('selected');
-        let displayText = '';
-        if (taskType === 'twitch_purchase') {
-            displayText = `[ИМЯ] ${entityName}`; // (Q3) Используем Имя
-        } else {
-            displayText = `[ID: ${entityId}] ${entityName}`; // (Q1) Используем ID
-        }
-        dom.weeklyGoalEntityDisplay.querySelector('span').textContent = displayText;
-        
-        // 3. Закрываем модалку
-        dom.weeklyGoalEntitySelectModal.classList.add('hidden');
-    });
-}
-
-
-// 6. Сохранение НАСТРОЕК (Суперприз и Вкл/Выкл)
-if (dom.weeklyGoalsSettingsForm) {
-    dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        // Сначала сохраняем общие настройки (Вкл/Выкл)
-        const isEnabled = dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked;
-        try {
-            await makeApiRequest('/api/v1/admin/settings/update', { 
-                // v3: Мы сохраняем ТОЛЬКО 'weekly_goals_enabled'
-                settings: { weekly_goals_enabled: isEnabled } 
-            });
-            
-            // Затем сохраняем настройки самого "Забега" (Суперприз, ID недели)
-            const settingsData = {
-                week_id: dom.weeklyGoalsSettingsForm.elements['week_id'].value.trim(),
-                super_prize_type: dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value,
-                super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
-                super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
-            };
-            
-            // Используем эндпоинт v3
-            await api_saveWeeklyGoalSettings(settingsData);
-            
-            tg.showAlert('Настройки "Недельного Забега" сохранены!');
-            
-        } catch (err) {
-            tg.showAlert(`Ошибка сохранения: ${err.message}`);
-        }
-    });
-}
-
-// 7. Создание или Редактирование ЗАДАЧИ
-if (dom.weeklyGoalsCreateTaskForm) {
-    dom.weeklyGoalsCreateTaskForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const goalId = form.dataset.editingGoalId; // Проверяем, в режиме ли мы редактирования
-        
-        const data = {
-            title: form.elements['title'].value.trim(),
-            task_type: form.elements['task_type'].value,
-            target_value: parseInt(form.elements['target_value'].value, 10) || 1,
-            reward_type: form.elements['reward_type'].value,
-            reward_value: parseInt(form.elements['reward_value'].value, 10) || 0,
-            sort_order: parseInt(form.elements['sort_order'].value, 10) || 0,
-            
-            // 🔽 v3: Добавляем ID и Имя 🔽
-            target_entity_id: form.elements['target_entity_id'].value ? parseInt(form.elements['target_entity_id'].value, 10) : null,
-            target_entity_name: form.elements['target_entity_name'].value || null
-        };
-        
-        // (v3) Валидация: если это стат-задача, ID/Имя должны быть NULL
-        if (data.task_type.startsWith('stat_')) {
-            data.target_entity_id = null;
-            data.target_entity_name = null;
-        }
-
-        try {
-            if (goalId) {
-                // РЕЖИМ РЕДАКТИРОВАНИЯ
-                await api_updateWeeklyGoal({ ...data, goal_id: goalId });
-                tg.showAlert('Задача обновлена!');
-            } else {
-                // РЕЖИМ СОЗДАНИЯ
-                await api_createWeeklyGoal(data);
-                tg.showPopup({ message: 'Задача создана!' });
-            }
-            
-            // Сбрасываем форму (v3)
-            resetWeeklyGoalForm();
-            
-            const goals = await api_loadWeeklyGoals();
-            renderWeeklyGoalsList(goals);
-            
-        } catch (err) {
-            tg.showAlert(`Ошибка: ${err.message}`);
-        }
-    });
-}
-
-// 8. (v3) Кнопка "Отмена" (сброс формы)
-if (dom.weeklyGoalCancelEditBtn) {
-    dom.weeklyGoalCancelEditBtn.addEventListener('click', () => {
-        resetWeeklyGoalForm();
-    });
-}
-
-// 9. Обработка кнопок "Редактировать" / "Удалить" в списке
-if (dom.weeklyGoalsList) {
-    dom.weeklyGoalsList.addEventListener('click', async (e) => {
-        const deleteBtn = e.target.closest('.delete-weekly-goal-btn');
-        const editBtn = e.target.closest('.edit-weekly-goal-btn');
-        
-        if (deleteBtn) {
-            // УДАЛЕНИЕ
-            const goalId = deleteBtn.dataset.goalId;
-            tg.showConfirm('Удалить эту задачу?', async (ok) => {
-                if (ok) {
-                    try {
-                        await api_deleteWeeklyGoal(goalId);
-                        tg.showPopup({ message: 'Задача удалена' });
-                        const goals = await api_loadWeeklyGoals();
-                        renderWeeklyGoalsList(goals);
-                    } catch (err) {
-                        tg.showAlert(`Ошибка удаления: ${err.message}`);
-                    }
-                }
-            });
-            
-        } else if (editBtn) {
-            // РЕДАКТИРОВАНИЕ
-            const goalId = editBtn.dataset.goalId;
-            try {
-                showLoader();
-                const goal = await api_getWeeklyGoalDetails(goalId);
-                const form = dom.weeklyGoalsCreateTaskForm;
-                
-                // Заполняем форму
-                form.elements['title'].value = goal.title;
-                form.elements['task_type'].value = goal.task_type;
-                form.elements['target_value'].value = goal.target_value;
-                form.elements['reward_type'].value = goal.reward_type;
-                form.elements['reward_value'].value = goal.reward_value || 0;
-                form.elements['sort_order'].value = goal.sort_order || 0;
-                
-                // (v3) Заполняем ID и Имя
-                form.elements['target_entity_id'].value = goal.target_entity_id || '';
-                form.elements['target_entity_name'].value = goal.target_entity_name || '';
-                
-                // (v3) Показываем/скрываем нужные поля
-                // 1. Поле "Кол-во" (награда)
-                dom.weeklyGoalTaskRewardValueWrapper.classList.toggle('hidden', goal.reward_type === 'none');
-                
-                // 2. "Выборщик"
-                const needsPicker = ['manual_quest_complete', 'twitch_purchase', 'wizebot_challenge_complete'].includes(goal.task_type);
-                dom.weeklyGoalEntityPickerWrapper.classList.toggle('hidden', !needsPicker);
-                
-                if (needsPicker) {
-                    // Обновляем дисплей "Выборщика"
-                    dom.weeklyGoalEntityDisplay.classList.add('selected');
-                    let displayText = '';
-                    if (goal.task_type === 'twitch_purchase') {
-                        displayText = `[ИМЯ] ${goal.target_entity_name || '???'}`;
-                    } else {
-                        displayText = `[ID: ${goal.target_entity_id || '???'}] ${goal.title}`; // (Тут можно улучшить, но пока так)
-                    }
-                    dom.weeklyGoalEntityDisplay.querySelector('span').textContent = displayText;
-                }
-                
-                // Меняем режим формы
-                form.dataset.editingGoalId = goalId;
-                form.querySelector('h3').textContent = 'Редактирование Задачи';
-                form.querySelector('button[type="submit"]').textContent = 'Сохранить Изменения';
-                dom.weeklyGoalCancelEditBtn.classList.remove('hidden'); // Показываем кнопку "Отмена"
-                
-                // Скроллим к форме
-                form.scrollIntoView({ behavior: 'smooth' });
-                form.elements['title'].focus();
-                
-            } catch (err) {
-                tg.showAlert(`Ошибка: ${err.message}`);
-            } finally {
-                hideLoader();
-            }
-        }
-    });
 }
