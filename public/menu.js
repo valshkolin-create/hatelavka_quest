@@ -56,7 +56,8 @@ try {
         tutorialNextBtn: document.getElementById('tutorial-next-btn'),
         tutorialSkipBtn: document.getElementById('tutorial-skip-btn'),
         startTutorialBtn: document.getElementById('start-tutorial-btn'),
-        weeklyGoalsContainer: document.getElementById('weekly-goals-container-placeholder') // (Отступ 8 пробелов)
+        weeklyGoalsContainer: document.getElementById('weekly-goals-container-placeholder'), // (Отступ 8 пробелов)
+        weeklyGoalsAccordion: document.getElementById('weekly-goals-accordion') // <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
     };
 
     let currentQuestId = null;
@@ -1096,6 +1097,15 @@ async function startQuestRoulette() {
     }
 
 function setupEventListeners() {
+    // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
+    // Сохраняем состояние аккордеона при его открытии/закрытии
+    if (dom.weeklyGoalsAccordion) {
+        // 'toggle' срабатывает после того, как состояние (open) изменилось
+        dom.weeklyGoalsAccordion.addEventListener('toggle', (event) => {
+            localStorage.setItem('weeklyAccordionOpen', event.target.open);
+        });
+    }
+    // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---   
         document.getElementById('nav-dashboard').addEventListener('click', async (e) => { 
             e.preventDefault(); 
             switchView('view-dashboard');
@@ -1376,6 +1386,13 @@ function setupEventListeners() {
             console.log("main(): Ожидаем ответ от /api/v1/content/menu..."); // ЛОГ
             const [menuContent, weeklyGoalsData] = await Promise.all([menuContentPromise, weeklyGoalsPromise]);
             renderWeeklyGoals(weeklyGoalsData); // (v3) Отрисовываем "Забег"
+            // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
+            // Проверяем localStorage, чтобы восстановить состояние аккордеона
+            if (dom.weeklyGoalsAccordion) {
+                if (localStorage.getItem('weeklyAccordionOpen') === 'true') {
+                    dom.weeklyGoalsAccordion.open = true;
+                }
+            }
             // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
             if (menuContent && menuContent.weekly_goals_banner_url) {
                 const weeklyBannerImg = document.getElementById('weekly-goals-banner-img');
