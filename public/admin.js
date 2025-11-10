@@ -2158,6 +2158,7 @@ function renderWeeklyGoalsList(goals) {
             </div>
             <div class="weekly-goal-details">
                 <p style="margin: 0;"><strong>Тип:</strong> ${escapeHTML(goal.task_type)}${targetText}</p>
+                <p style="margin: 4px 0;"><strong>Прим:</strong> ${escapeHTML(goal.description || 'Нет')}</p>
                 <p style="margin: 4px 0;"><strong>Цель:</strong> ${goal.target_value} раз(а)</p>
                 <p style="margin: 4px 0;"><strong>Награда:</strong> ${goal.reward_type === 'tickets' ? `${goal.reward_value} билетов` : 'Нет'}</p>
                 <p style="margin: 4px 0 0;"><strong>Порядок:</strong> ${goal.sort_order || 0}</p>
@@ -2202,6 +2203,7 @@ function resetWeeklyGoalForm() {
     if (!form) return;
     
     form.reset();
+    form.elements['description'].value = ''; // <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
     form.dataset.editingGoalId = '';
     
     // Сбрасываем v3-поля
@@ -2424,6 +2426,7 @@ if (dom.weeklyGoalsCreateTaskForm) {
         
         const data = {
             title: form.elements['title'].value.trim(),
+            description: form.elements['description'].value.trim(), // <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
             task_type: form.elements['task_type'].value,
             target_value: parseInt(form.elements['target_value'].value, 10) || 1,
             reward_type: form.elements['reward_type'].value,
@@ -2503,6 +2506,7 @@ if (dom.weeklyGoalsList) {
                 
                 // Заполняем форму
                 form.elements['title'].value = goal.title;
+                form.elements['description'].value = goal.description || ''; // <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
                 form.elements['task_type'].value = goal.task_type;
                 form.elements['target_value'].value = goal.target_value;
                 form.elements['reward_type'].value = goal.reward_type;
