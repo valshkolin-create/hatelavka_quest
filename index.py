@@ -6321,7 +6321,7 @@ async def get_user_weekly_goals(
 ):
     """
     (ПОЛЬЗОВАТЕЛЬ) Возвращает список недельных задач, прогресс
-    и статус главного приза.
+    и статус главного приза. (v2: Добавлен обход для админа)
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -6329,11 +6329,19 @@ async def get_user_weekly_goals(
     
     telegram_id = user_info["id"]
 
+    # --- 🔽 НОВЫЙ КОД: ПРОВЕРКА АДМИНА 🔽 ---
+    is_admin = telegram_id in ADMIN_IDS
+    # --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
+
     try:
-        # 1. Проверяем, включена ли система ВООБЩЕ
+        # 1. Проверяем, включена ли система
         admin_settings = await get_admin_settings_async(supabase)
-        if not admin_settings.weekly_goals_enabled:
-            return {"system_enabled": False, "goals": []}
+        
+        # --- 🔽 ИЗМЕНЕННАЯ ЛОГИКА 🔽 ---
+        # Прячем, только если (система выключена И пользователь НЕ админ)
+        if not admin_settings.weekly_goals_enabled and not is_admin:
+            return {"system_enabled": False, "goals": []} # <-- Теперь это SOFT STOP
+        # --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
 
         # 2. Вызываем RPC-функцию, которая соберет все данные
         response = await supabase.post(
@@ -6342,9 +6350,12 @@ async def get_user_weekly_goals(
         )
         response.raise_for_status()
         
-        # RPC вернет готовый JSON
+        # RPC вернет готовый JSON (он может быть пуст, если week_id не совпали)
         data = response.json()
-        data["system_enabled"] = True
+        
+        # (v3) Передаем в data, включена ли система
+        # (Клиентский код `menu (2).js` уже умеет это обрабатывать)
+        data["system_enabled"] = admin_settings.weekly_goals_enabled
         return data
 
     except Exception as e:
