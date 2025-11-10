@@ -3592,7 +3592,7 @@ if (dom.weeklyGoalsList) {
                     editPrizeModal.classList.remove('hidden');
                 }
 
-} else if (actionButton.matches('.admin-edit-quest-btn') /* REMOVED: && !actionButton.matches('.sort-quest-btn') */ && !actionButton.matches('.edit-category-btn')) {
+} else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.edit-category-btn') && !actionButton.matches('.edit-weekly-goal-btn')) {
                  const idStr = actionButton.dataset.id;
                  // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
                  console.log("[DEBUG] Raw data-id from button:", idStr, "(type:", typeof idStr, ")");
