@@ -1235,25 +1235,6 @@ function setupEventListeners() {
                 }
                 return; // Останавливаем выполнение
             }
-            // --- 🔽 ВОТ ЭТОТ КОД МЫ ПРОПУСТИЛИ 🔽 ---
-            const navLink = event.target.closest('.weekly-goal-nav-link');
-            if (navLink) {
-                event.preventDefault(); // Запрещаем стандартный переход по #
-                const navTarget = navLink.dataset.nav;
-                
-                if (navTarget === 'view-quests') {
-                    // Переключаем вкладку на "Задания"
-                    document.getElementById('nav-quests').click();
-                } else if (navTarget.startsWith('http')) {
-                    // Внешняя ссылка (Twitch)
-                    Telegram.WebApp.openLink(navTarget);
-                } else if (navTarget.startsWith('/')) {
-                    // Внутренняя ссылка (Аукцион, Котел)
-                    window.location.href = navTarget;
-                }
-                return; // Останавливаем выполнение
-            }
-            // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
             const target = event.target.closest('button');
             if (!target) return;
             if (target.id === 'get-challenge-btn') {
