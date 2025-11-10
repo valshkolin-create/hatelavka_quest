@@ -4198,6 +4198,34 @@ async def update_submission_status(
             response.raise_for_status() # Проверяем, что RPC выполнилась успешно
             promo_code = response.text.strip('"') # Получаем промокод из ответа RPC
 
+            # --- 🔽🔽🔽 ВОТ ЭТОТ БЛОК НУЖНО ДОБАВИТЬ 🔽🔽🔽 ---
+            # 3. Вызываем триггер для "Недельного Забега"
+            try:
+                # Нам нужен ID ручного квеста, за который дали награду
+                submission_details_resp = await supabase.get(
+                    "/quest_submissions",
+                    params={"id": f"eq.{submission_id}", "select": "quest_id"}
+                )
+                submission_details = submission_details_resp.json()
+                
+                if submission_details:
+                    manual_quest_id = submission_details[0].get('quest_id')
+                    await supabase.post(
+                        "/rpc/increment_weekly_goal_progress",
+                        json={
+                            "p_user_id": user_to_notify,
+                            "p_task_type": "manual_quest_complete",
+                            "p_entity_id": manual_quest_id # Передаем ID квеста
+                        }
+                    )
+                    logging.info(f"Триггер 'manual_quest_complete' (ID: {manual_quest_id}) для 'Забега' вызван для user {user_to_notify}.")
+                else:
+                    logging.warning(f"Не удалось найти quest_id для submission {submission_id}, триггер 'Забега' не вызван.")
+            except Exception as trigger_e:
+                logging.error(f"Ошибка при вызове триггера 'Забега': {trigger_e}", exc_info=True)
+                # Не прерываем основной процесс из-за ошибки в забеге
+            # --- 🔼🔼🔼 КОНЕЦ НОВОГО БЛОКА 🔼🔼🔼 ---
+
             # 3. Отправляем уведомление пользователю о билетах и промокоде
             background_tasks.add_task(
                 send_approval_notification, # Используем твою функцию уведомления
