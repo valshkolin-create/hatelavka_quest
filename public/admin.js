@@ -66,6 +66,8 @@ try {
         settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
         settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
         settingAuctionBannerUrl: document.getElementById('setting-auction-banner-url'), // <-- 1. ДОБАВИТЬ ЭТУ СТРОКУ
+        settingAuctionBannerUrl: document.getElementById('setting-auction-banner-url'), // <-- 1. ДОБАВИТЬ ЭТУ СТРОКУ
+        settingWeeklyGoalsBannerUrl: document.getElementById('setting-weekly-goals-banner-url'), // <-- 🔽 ДОБАВИТЬ ЭТУ СТРОКУ
         saveSettingsBtn: document.getElementById('save-settings-btn'),
         settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
         settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
@@ -1177,6 +1179,8 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              dom.settingWeeklyGoalsEnabled.checked = settings.weekly_goals_enabled;
              dom.settingMenuBannerUrl.value = settings.menu_banner_url || '';
              dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
+            dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
+             dom.settingWeeklyGoalsBannerUrl.value = settings.weekly_goals_banner_url || ''; // <-- 🔽 ДОБАВИТЬ ЭТУ СТРОКУ
              dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
 
              // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ (v2 - БОЛЕЕ НАДЕЖНЫЙ) ---
@@ -3069,6 +3073,8 @@ if (dom.weeklyGoalsList) {
                     checkpoint_enabled: dom.settingCheckpointEnabled.checked,
                     menu_banner_url: dom.settingMenuBannerUrl.value.trim(),
                     checkpoint_banner_url: dom.settingCheckpointBannerUrl.value.trim(),
+                    auction_banner_url: dom.settingAuctionBannerUrl.value.trim(), // <-- ДОБАВЛЕНО
+                    weekly_goals_banner_url: dom.settingWeeklyGoalsBannerUrl.value.trim(), // <-- 🔽 ДОБАВИТЬ ЭТУ СТРОКУ
                     auction_banner_url: dom.settingAuctionBannerUrl.value.trim(), // <-- ДОБАВЛЕНО
                     weekly_goals_enabled: dom.settingWeeklyGoalsEnabled.checked
                 };
