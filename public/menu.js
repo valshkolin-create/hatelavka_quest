@@ -871,20 +871,37 @@ function renderChallenge(challengeData, isGuest) {
             
             // (v3) Иконка в зависимости от типа задачи
             let iconClass = 'fa-solid fa-star'; // По умолчанию
-            
-            // --- 
-            // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ОШИБКИ "startsWith" ЗДЕСЬ ---
-            // --- 
-            const taskType = goal.task_type || ''; // Гарантируем, что taskType - это строка
-
+            const taskType = goal.task_type || ''; 
             if (taskType === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
             else if (taskType === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
             else if (taskType === 'auction_bid') iconClass = 'fa-solid fa-gavel';
             else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-hat-wizard';
             else if (taskType.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
-            // ---
-            // --- КОНЕЦ ГЛАВНОГО ИСПРАВЛЕНИЯ ---
-            // ---
+
+            // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
+            let navLinkHtml = '';
+            const taskInfoMap = {
+                'manual_quest_complete': { text: 'Ручное задание', nav: 'view-quests' },
+                'twitch_purchase': { text: 'Награда Twitch', nav: 'https://www.twitch.tv/hatelove_ttv' },
+                'auction_bid': { text: 'Аукцион', nav: '/auction' },
+                'cauldron_contribution': { text: 'Ивент "Котел"', nav: '/halloween' },
+                'stat_twitch_messages_week': { text: 'Статистика Twitch', nav: null },
+                'stat_twitch_uptime_week': { text: 'Статистика Twitch', nav: null },
+                'stat_telegram_messages_week': { text: 'Статистика TG', nav: null }
+            };
+            
+            const info = taskInfoMap[taskType];
+            
+            if (info && info.nav) {
+                // Это ссылка
+                const isExternal = info.nav.startsWith('http');
+                const icon = isExternal ? '<i class="fa-solid fa-arrow-up-right-from-square"></i>' : '';
+                navLinkHtml = `<a href="#" class="weekly-goal-nav-link" data-nav="${info.nav}">${info.text} ${icon}</a>`;
+            } else if (info) {
+                // Это просто текст
+                navLinkHtml = `<span class="weekly-goal-nav-link text-only">${info.text}</span>`;
+            }
+            // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
 
             return `
                 <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
@@ -896,7 +913,7 @@ function renderChallenge(challengeData, isGuest) {
                         <div class="weekly-goal-progress-bar">
                             <div class="weekly-goal-progress-fill" style="width: ${percent}%;"></div>
                         </div>
-                    </div>
+                        ${navLinkHtml} </div>
                     ${buttonHtml}
                 </div>
             `;
@@ -1181,6 +1198,25 @@ function setupEventListeners() {
                 return; // Останавливаем выполнение
             }
             // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+            // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
+            const navLink = event.target.closest('.weekly-goal-nav-link');
+            if (navLink) {
+                event.preventDefault(); // Запрещаем стандартный переход по #
+                const navTarget = navLink.dataset.nav;
+                
+                if (navTarget === 'view-quests') {
+                    // Переключаем вкладку на "Задания"
+                    document.getElementById('nav-quests').click();
+                } else if (navTarget.startsWith('http')) {
+                    // Внешняя ссылка (Twitch)
+                    Telegram.WebApp.openLink(navTarget);
+                } else if (navTarget.startsWith('/')) {
+                    // Внутренняя ссылка (Аукцион, Котел)
+                    window.location.href = navTarget;
+                }
+                return; // Останавливаем выполнение
+            }
+            // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
             const target = event.target.closest('button');
             if (!target) return;
             if (target.id === 'get-challenge-btn') {
