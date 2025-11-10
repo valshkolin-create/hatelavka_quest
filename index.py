@@ -4225,9 +4225,7 @@ async def update_submission_status(
                     # --- Теперь этот лог будет правдивым ---
                     logging.info(f"--- [update_submission_status] УСПЕХ: Триг-"
                     f"гер 'manual_quest_complete' (ID: {manual_quest_id}) вызван для user {user_to_notify}. ---")
-                else:
-                    logging.warning(f"--- [update_submission_status] НЕ НАЙДЕН quest_id для submission {submission_id}, триггер 'Забега' не вызван. ---")
-            except Exception as trigger_e:
+        except Exception as trigger_e:
                 logging.error(f"--- [update_submission_status] ОШИБКА при вызове триггера 'Забега': {trigger_e} ---", exc_info=True)
             # --- 🔼🔼🔼 КОНЕЦ БЛОКА С ЛОГАМИ 🔼🔼🔼 ---
 
