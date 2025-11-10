@@ -671,7 +671,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 
 CSS
 
-/* --- СТИЛИ ДЛЯ "НЕДЕЛЬНОГО ЗАБЕГА" --- */
+/* --- СТИЛИ ДЛЯ "НЕДЕЛЬНОГО ЗАБЕГА" (v3) --- */
 
 /* Стили для карточек задач в списке */
 .weekly-goal-card {
@@ -696,6 +696,7 @@ CSS
     font-weight: 600;
     font-size: 15px;
     flex-grow: 1;
+    word-break: break-word; /* Перенос длинных названий */
 }
 
 .weekly-goal-actions {
@@ -717,7 +718,8 @@ CSS
 
 /* Стили для полей ввода в формах */
 #weekly-goal-super-prize-value-wrapper.hidden,
-#weekly-goal-task-reward-value-wrapper.hidden {
+#weekly-goal-task-reward-value-wrapper.hidden,
+#weekly-goal-entity-picker-wrapper.hidden {
     display: none;
 }
 
@@ -728,5 +730,42 @@ CSS
     font-size: 18px;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--divider-glass-color);
+}
+
+/* Стили для "Выборщика" (v3) */
+.entity-picker-display {
+    background-color: rgba(0,0,0,0.3);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-color-muted);
+    border: 1px solid #555;
+}
+.entity-picker-display span {
+    font-style: italic;
+}
+.entity-picker-display.selected span {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Стили для модального окна выбора (v3) */
+#weekly-goal-entity-select-list .submission-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+#weekly-goal-entity-select-list .submission-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+#weekly-goal-entity-select-list p {
+    margin: 0;
+    font-weight: 500;
+}
+#weekly-goal-entity-select-list small {
+    font-size: 12px;
+    color: var(--text-color-muted);
+    margin-top: 2px;
+    display: block;
 }
 /* --- КОНЕЦ СТИЛЕЙ "НЕДЕЛЬНОГО ЗАБЕГА" --- */
