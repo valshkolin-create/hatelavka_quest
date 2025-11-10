@@ -256,10 +256,10 @@ class AdminSettings(BaseModel):
     challenges_enabled: bool = True
     quests_enabled: bool = True
     checkpoint_enabled: bool = False
-    menu_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"
-    checkpoint_banner_url: Optional[str] = "https://i.postimg.cc/6p39wgzJ/1200-324.png"
+    menu_banner_url: Optional[str] = "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png"
+    checkpoint_banner_url: Optional[str] = "https://i.postimg.cc/9046s7W0/cekpoint.png"
     auction_enabled: bool = False # <-- ДОБАВЛЕНО
-    auction_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2" # <-- ДОБАВЛЕНО
+    auction_banner_url: Optional[str] = "https://i.postimg.cc/6qpWq0dW/aukcion.png" # <-- ДОБАВЛЕНО
     weekly_goals_banner_url: Optional[str] = "https://i.postimg.cc/T1j6hQGP/1200-324.png"
     # --- 🔽 ВОТ ЭТУ СТРОКУ НУЖНО ДОБАВИТЬ 🔽 ---
     weekly_goals_enabled: bool = False # (Отступ 8 пробелов)
@@ -744,10 +744,10 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
                 challenges_enabled=challenges_bool,
                 quests_enabled=quests_bool,
                 checkpoint_enabled=checkpoint_bool,
-                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
-                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png"),
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/9046s7W0/cekpoint.png"),
                 auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
-                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"), # <-- ДОБАВЛЕНО
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), # <-- ДОБАВЛЕНО
                 weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), # <-- 🔽 ДОБАВИТЬ
                 weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
             )
@@ -2414,10 +2414,10 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
                 challenges_enabled=challenges_bool,
                 quests_enabled=quests_bool,
                 checkpoint_enabled=checkpoint_bool,
-                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
-                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png"),
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/9046s7W0/cekpoint.png"),
                 auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
-                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"), # <-- ДОБАВЛЕНО
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), # <-- ДОБАВЛЕНО
                 weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), # <-- 🔽 ДОБАВИТЬ
                 weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
             )
@@ -5900,10 +5900,10 @@ async def get_admin_settings(
                 challenges_enabled=challenges_bool,
                 quests_enabled=quests_bool,
                 checkpoint_enabled=checkpoint_bool,
-                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
-                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
+                menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png"),
+                checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/9046s7W0/cekpoint.png"),
                 auction_enabled=settings_data.get('auction_enabled', False),
-                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"),
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"),
                 weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
             )
         
@@ -6254,9 +6254,9 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
     logging.info("--- 1. ЗАПУСК /api/v1/content/menu ---")
     
     defaults = {
-        "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
-        "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
-        "auction_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2", # <-- ДОБАВЛЕНО
+        "menu_banner_url": "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png",
+        "checkpoint_banner_url": "https://i.postimg.cc/9046s7W0/cekpoint.png",
+        "auction_banner_url": "https://i.postimg.cc/6qpWq0dW/aukcion.png", # <-- ДОБАВЛЕНО
         "weekly_goals_banner_url": "https://i.postimg.cc/T1j6hQGP/1200-324.png", # <-- 🔽 ДОБАВИТЬ
         "skin_race_enabled": True,
         "slider_order": ["skin_race", "cauldron", "auction", "checkpoint"],
