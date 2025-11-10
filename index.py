@@ -260,6 +260,7 @@ class AdminSettings(BaseModel):
     checkpoint_banner_url: Optional[str] = "https://i.postimg.cc/6p39wgzJ/1200-324.png"
     auction_enabled: bool = False # <-- ДОБАВЛЕНО
     auction_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2" # <-- ДОБАВЛЕНО
+    weekly_goals_banner_url: Optional[str] = "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"
     # --- 🔽 ВОТ ЭТУ СТРОКУ НУЖНО ДОБАВИТЬ 🔽 ---
     weekly_goals_enabled: bool = False # (Отступ 8 пробелов)
     
@@ -746,6 +747,7 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
                 auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
                 auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"), # <-- ДОБАВЛЕНО
+                weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"), # <-- 🔽 ДОБАВИТЬ
                 weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
             )
 
@@ -2415,6 +2417,7 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/6p39wgzJ/1200-324.png"),
                 auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
                 auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"), # <-- ДОБАВЛЕНО
+                weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/d0r554hc/1200-600.png?v=2"), # <-- 🔽 ДОБАВИТЬ
                 weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
             )
 
@@ -6226,6 +6229,7 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         "menu_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2",
         "checkpoint_banner_url": "https://i.postimg.cc/6p39wgzJ/1200-324.png",
         "auction_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2", # <-- ДОБАВЛЕНО
+        "weekly_goals_banner_url": "https://i.postimg.cc/d0r554hc/1200-600.png?v=2", # <-- 🔽 ДОБАВИТЬ
         "skin_race_enabled": True,
         "slider_order": ["skin_race", "cauldron", "auction", "checkpoint"],
         "auction_enabled": False, 
@@ -6272,6 +6276,7 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
             "auction_banner_url": settings.get("auction_banner_url", defaults["auction_banner_url"]), # <-- ДОБАВЛЕНО
+            "weekly_goals_banner_url": settings.get("weekly_goals_banner_url", defaults["weekly_goals_banner_url"]), # <-- 🔽 ДОБАВИТЬ
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
             "slider_order": loaded_order, # <-- ИСПРАВЛЕНО
             "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"]),
