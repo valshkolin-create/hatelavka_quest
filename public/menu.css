@@ -381,7 +381,7 @@
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border-radius: 12px;
-    padding: 15px;
+    padding: 12px; /* Уменьшено */
     margin-top: 15px;
 }
 
@@ -389,14 +389,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px; /* Уменьшено */
 }
 
 .weekly-goals-header h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 16px; /* Уменьшено */
     font-weight: 600;
-    color: var(--quest-icon-color); /* Желтый, как у квестов */
+    color: var(--quest-icon-color);
 }
 
 .weekly-goals-progress-text {
@@ -408,27 +408,27 @@
 .weekly-goal-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 0;
+    gap: 10px; /* Уменьшено */
+    padding: 8px 0; /* Уменьшено */
     border-bottom: 1px solid var(--divider-glass-color);
 }
 .weekly-goal-item:last-child {
     border-bottom: none;
-    padding-bottom: 5px; /* Уменьшаем отступ у последнего */
+    padding-bottom: 0; /* Уменьшено */
 }
 .weekly-goal-item:first-child {
-    padding-top: 5px; /* Уменьшаем отступ у первого */
+    padding-top: 4px; /* Уменьшено */
 }
 
 .weekly-goal-icon {
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
+    width: 32px; /* Уменьшено */
+    height: 32px; /* Уменьшено */
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    font-size: 18px;
+    font-size: 14px; /* Уменьшено */
     border: 2px solid var(--divider-glass-color);
     color: var(--text-color-muted);
     transition: all 0.3s ease;
@@ -436,17 +436,24 @@
 
 .weekly-goal-info {
     flex-grow: 1;
-    min-width: 0; /* Для работы text-overflow */
+    min-width: 0; 
 }
 
 .weekly-goal-title {
-    font-size: 14px;
+    font-size: 13px; /* Уменьшено (для 2 строк) */
     font-weight: 600;
     color: var(--text-color);
-    white-space: nowrap;
+    /* Убираем white-space: nowrap, чтобы текст мог переноситься */
+    white-space: normal; 
     overflow: hidden;
     text-overflow: ellipsis;
     margin: 0 0 2px;
+    /* Ограничиваем 2 строками */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3; /* (13px * 1.3 = ~17px) */
+    min-height: 26px; /* Высота для 2 строк */
 }
 
 .weekly-goal-progress-bar {
@@ -466,10 +473,10 @@
 
 .weekly-goal-reward-btn {
     flex-shrink: 0;
-    padding: 8px 12px;
+    padding: 6px 10px; /* Уменьшено */
     border: none;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 11px; /* Уменьшено */
     font-weight: 600;
     cursor: pointer;
     background: var(--action-color);
@@ -502,8 +509,8 @@
 .weekly-super-prize-card {
     background-color: rgba(0,0,0,0.2);
     border-radius: 8px;
-    padding: 12px;
-    margin-top: 15px;
+    padding: 10px; /* Уменьшено */
+    margin-top: 10px; /* Уменьшено */
     text-align: center;
 }
 .weekly-super-prize-card .quest-title {
@@ -516,4 +523,25 @@
     color: var(--text-color-muted);
     margin: 0 0 12px;
 }
-/* --- КОНЕЦ СТИЛЕЙ "НЕДЕЛЬНОГО ЗАБЕГА" --- */
+
+/* --- 🔽 НОВЫЕ СТИЛИ ДЛЯ КНОПКИ-ССЫЛКИ 🔽 --- */
+.weekly-goal-nav-link {
+    display: inline-block;
+    margin-top: 6px; /* Отступ от прогресс-бара */
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--action-color); /* Синий, как ссылка */
+    text-decoration: none;
+    background-color: rgba(0, 122, 255, 0.15); /* Фон */
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+.weekly-goal-nav-link i {
+    font-size: 0.8em; /* Иконка "внешней ссылки" чуть меньше */
+    margin-left: 2px;
+}
+.weekly-goal-nav-link.text-only {
+    color: var(--text-color-muted);
+    background-color: rgba(118, 118, 128, 0.15);
+}
+/* --- 🔼 КОНЕЦ СТИЛЕЙ "НЕДЕЛЬНОГО ЗАБЕГА" 🔼 --- */
