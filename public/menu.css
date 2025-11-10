@@ -545,3 +545,39 @@
     background-color: rgba(118, 118, 128, 0.15);
 }
 /* --- 🔼 КОНЕЦ СТИЛЕЙ "НЕДЕЛЬНОГО ЗАБЕГА" 🔼 --- */
+/* --- СТИЛИ ДЛЯ АККОРДЕОНА С КАРТИНКОЙ --- */
+.image-accordion {
+    margin-top: 15px; /* Отступ сверху, как у .weekly-goals-container */
+}
+
+.image-accordion-summary {
+    list-style: none; /* Убираем стандартную стрелку/маркер */
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    outline: none; /* Убираем синюю рамку при клике */
+}
+.image-accordion-summary::-webkit-details-marker {
+    display: none; /* Убираем стрелку в Chrome/Safari */
+}
+
+.image-accordion-summary img {
+    width: 100%;
+    display: block;
+    border-radius: 12px; /* Закругляем углы картинки */
+    transition: border-radius 0.2s ease-in-out;
+}
+
+/* Когда аккордеон открыт, убираем закругление у нижних углов картинки */
+.image-accordion[open] .image-accordion-summary img {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Убираем отступ сверху у контейнера, чтобы он "прилип" к картинке */
+.image-accordion .weekly-goals-container {
+    margin-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
