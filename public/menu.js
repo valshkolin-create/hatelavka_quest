@@ -858,7 +858,7 @@ function renderChallenge(challengeData, isGuest) {
             const target = goal.target_value || 1;
             const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
             const isCompleted = goal.is_complete || false;
-            
+
             let buttonHtml = '';
             if (goal.reward_type === 'tickets' && goal.reward_value > 0) {
                 if (goal.small_reward_claimed) {
@@ -869,7 +869,7 @@ function renderChallenge(challengeData, isGuest) {
                     buttonHtml = `<button class="weekly-goal-reward-btn" disabled>+${goal.reward_value} 🎟️</button>`;
                 }
             }
-            
+
             // (v3) Иконка в зависимости от типа задачи
             let iconClass = 'fa-solid fa-star'; // По умолчанию
             const taskType = goal.task_type || ''; 
@@ -879,30 +879,39 @@ function renderChallenge(challengeData, isGuest) {
             else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-hat-wizard';
             else if (taskType.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
 
-            // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
+            // --- 🔽 ОБНОВЛЕННАЯ ЛОГИКА (ШАГ 5) 🔽 ---
+
+            // 1. Формируем Примечание (Description)
+            let descriptionHtml = '';
+            if (goal.description) {
+                descriptionHtml = `<p class="weekly-goal-description">${escapeHTML(goal.description)}</p>`;
+            }
+
+            // 2. Формируем Кнопку "Перейти" (Nav Link)
             let navLinkHtml = '';
             const taskInfoMap = {
                 'manual_quest_complete': { text: 'Ручное задание', nav: 'view-quests' },
                 'twitch_purchase': { text: 'Награда Twitch', nav: 'https://www.twitch.tv/hatelove_ttv' },
                 'auction_bid': { text: 'Аукцион', nav: '/auction' },
                 'cauldron_contribution': { text: 'Ивент "Котел"', nav: '/halloween' },
+                // У 'stat_' задач нет 'nav', поэтому кнопка не появится
                 'stat_twitch_messages_week': { text: 'Статистика Twitch', nav: null },
                 'stat_twitch_uptime_week': { text: 'Статистика Twitch', nav: null },
                 'stat_telegram_messages_week': { text: 'Статистика TG', nav: null }
             };
-            
+
             const info = taskInfoMap[taskType];
-            
+
             if (info && info.nav) {
                 // Это ссылка
                 const isExternal = info.nav.startsWith('http');
                 const icon = isExternal ? '<i class="fa-solid fa-arrow-up-right-from-square"></i>' : '';
                 navLinkHtml = `<a href="#" class="weekly-goal-nav-link" data-nav="${info.nav}">${info.text} ${icon}</a>`;
-            } else if (info) {
-                // Это просто текст
-                navLinkHtml = `<span class="weekly-goal-nav-link text-only">${info.text}</span>`;
+            } else if (info && !descriptionHtml) {
+                // Если Примечания нет, показываем тип задачи (напр. "Статистика Twitch")
+                descriptionHtml = `<p class="weekly-goal-description">${info.text}</p>`;
             }
-            // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
+            // --- 🔼 КОНЕЦ ОБНОВЛЕННОЙ ЛОГИКИ 🔼 ---
 
             return `
                 <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
@@ -914,12 +923,12 @@ function renderChallenge(challengeData, isGuest) {
                         <div class="weekly-goal-progress-bar">
                             <div class="weekly-goal-progress-fill" style="width: ${percent}%;"></div>
                         </div>
-                        ${navLinkHtml} </div>
+                        ${descriptionHtml} ${navLinkHtml}   </div>
                     ${buttonHtml}
                 </div>
             `;
         }).join('');
-
+        
         // 2. Рендерим Суперприз
         let superPrizeHtml = '';
         if (data.total_goals > 0) {
@@ -1209,6 +1218,24 @@ function setupEventListeners() {
             }
             // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
             // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
+            const navLink = event.target.closest('.weekly-goal-nav-link');
+            if (navLink) {
+                event.preventDefault(); // Запрещаем стандартный переход по #
+                const navTarget = navLink.dataset.nav;
+                
+                if (navTarget === 'view-quests') {
+                    // Переключаем вкладку на "Задания"
+                    document.getElementById('nav-quests').click();
+                } else if (navTarget.startsWith('http')) {
+                    // Внешняя ссылка (Twitch)
+                    Telegram.WebApp.openLink(navTarget);
+                } else if (navTarget.startsWith('/')) {
+                    // Внутренняя ссылка (Аукцион, Котел)
+                    window.location.href = navTarget;
+                }
+                return; // Останавливаем выполнение
+            }
+            // --- 🔽 ВОТ ЭТОТ КОД МЫ ПРОПУСТИЛИ 🔽 ---
             const navLink = event.target.closest('.weekly-goal-nav-link');
             if (navLink) {
                 event.preventDefault(); // Запрещаем стандартный переход по #
