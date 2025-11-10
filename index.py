@@ -6397,6 +6397,7 @@ async def get_user_weekly_goals(
         raise HTTPException(status_code=500, detail="Не удалось загрузить недельные задачи.")
 
 
+# (Найди эту функцию в index (1).py и ЗАМЕНИ ее)
 @app.post("/api/v1/user/weekly_goals/claim_task")
 async def claim_weekly_task_reward(
     request_data: WeeklyGoalClaimTaskRequest,
@@ -6404,29 +6405,48 @@ async def claim_weekly_task_reward(
 ):
     """
     (ПОЛЬЗОВАТЕЛЬ) Забирает опциональную награду за 1 выполненную задачу.
+    (ВЕРСИЯ С ЛОГАМИ)
     """
+    logging.info("--- [claim_weekly_task_reward] ЗАПУСК ---")
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    
     if not user_info or "id" not in user_info:
+        logging.error("--- [claim_weekly_task_reward] ОШИБКА: user_info не прошел проверку.")
         raise HTTPException(status_code=401, detail="Доступ запрещен.")
+
+    # --- 🔽🔽🔽 НОВЫЕ ЛОГИ 🔽🔽🔽 ---
+    user_id_val = user_info["id"]
+    goal_id_val = request_data.goal_id
+    
+    logging.info(f"--- [claim_weekly_task_reward] User ID: {user_id_val} (Тип: {type(user_id_val)})")
+    logging.info(f"--- [claim_weekly_task_reward] Goal ID: {goal_id_val} (Тип: {type(goal_id_val)})")
+    
+    if not user_id_val or user_id_val == "":
+        logging.critical("--- [claim_weekly_task_reward] КРИТИЧЕСКАЯ ОШИБКА: user_id_val ПУСТОЙ! ('') ---")
+        raise HTTPException(status_code=400, detail="Ошибка ID пользователя: получен пустой ID.")
+    # --- 🔼🔼🔼 КОНЕЦ НОВЫХ ЛОГОВ 🔼🔼🔼 ---
 
     try:
         response = await supabase.post(
             "/rpc/claim_weekly_goal_task_reward",
             json={
-                "p_user_id": user_info["id"],
-                "p_goal_id": request_data.goal_id
+                "p_user_id": user_id_val,
+                "p_goal_id": goal_id_val
             }
         )
         response.raise_for_status()
         
-        # RPC вернет, например: {"message": "Начислено 5 билетов!", "new_ticket_balance": 105}
+        logging.info("--- [claim_weekly_task_reward] УСПЕХ: RPC выполнена. ---")
         return response.json()
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Не удалось забрать награду.")
+        # --- 🔽🔽🔽 НОВЫЙ ЛОГ 🔽🔽🔽 ---
+        logging.error(f"--- [claim_weekly_task_reward] ОШИБКА RPC: {error_details} ---")
+        # --- 🔼🔼🔼 КОНЕЦ НОВОГО ЛОГА 🔼🔼🔼 ---
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
-        logging.error(f"Ошибка в claim_weekly_task_reward: {e}", exc_info=True)
+        logging.error(f"--- [claim_weekly_task_reward] КРИТИЧЕСКАЯ ОШИБКА: {e} ---", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 
