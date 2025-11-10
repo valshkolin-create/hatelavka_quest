@@ -800,7 +800,7 @@
         <div id="view-admin-weekly-goals" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Недельный Забег</h1>
+                <h1 class="page-header-title">Недельные задания</h1>
                 <div style="width: 60px;"></div>
             </div>
 
@@ -809,7 +809,7 @@
                     <h3 style="margin: 0 0 10px;">Настройки Недели</h3>
                     
                     <div class="setting-item" style="padding: 0; border: none;">
-                        <span class="setting-label">✅ Система "Забег" включена</span>
+                        <span class="setting-label">✅ Система "недельных заданий" включена</span>
                         <label class="toggle-switch">
                             <input type="checkbox" name="is_enabled">
                             <span class="toggle-slider"></span>
@@ -826,11 +826,11 @@
                     <select name="super_prize_type" id="weekly-goal-super-prize-type">
                         <option value="none">Нет приза</option>
                         <option value="tickets">Билеты</option>
-                        <option value="promocode_batch">Промокод (из пачки)</option>
+                        <option value="promocode_batch">Промокод (звезды)</option>
                     </select>
 
                     <div id="weekly-goal-super-prize-value-wrapper" class="hidden">
-                        <label for="weekly-goal-super-prize-value">Кол-во (билеты) / Номинал (промокод)</label>
+                        <label for="weekly-goal-super-prize-value">Кол-во (билеты) / Звезды (промокод)</label>
                         <input type="number" name="super_prize_value" id="weekly-goal-super-prize-value" placeholder="0">
                     </div>
 
@@ -843,7 +843,7 @@
 
             <div class="quest-card" style="margin-top: 20px;">
                 <form id="weekly-goals-create-task-form" class="admin-form">
-                    <h3 style="margin: 0 0 10px;">Новая Задача</h3>
+                    <input type="hidden" name="goal_id" value=""> <h3 style="margin: 0 0 10px;">Новая Задача</h3>
                     
                     <label for="weekly-goal-task-title">Название (видит юзер)</label>
                     <input type="text" name="title" id="weekly-goal-task-title" required placeholder="Выполнить 3 челленджа">
@@ -851,13 +851,27 @@
                     <label for="weekly-goal-task-type">Тип Задачи (для триггера)</label>
                     <select name="task_type" id="weekly-goal-task-type" required>
                         <option value="">-- Выберите тип --</option>
-                        <option value="manual_quest_complete">Выполнить ручное задание</option>
-                        <option value="wizebot_challenge_complete">Выполнить Wizebot-челлендж</option>
-                        <option value="auction_bid">Сделать ставку на аукционе</option>
-                        <option value="twitch_purchase">Купить награду Twitch</option>
-                        <option value="cauldron_contribution">Внести вклад в "Котел"</option>
+                        <option value="manual_quest_complete">✅ 1. Ручное задание (Выбрать...)</option>
+                        <option value="twitch_purchase">🛍️ 2. Покупка Twitch (Выбрать...)</option>
+                        <option value="wizebot_challenge_complete">🏆 3. Wizebot Челлендж (Выбрать...)</option>
+                        <option value="auction_bid">🔨 4. Ставка на Аукционе (Любая)</option>
+                        <option value="cauldron_contribution">🍲 5. Вклад в "Котел" (Любой)</option>
+                        <option value="stat_twitch_messages_week">📈 (Пассивно) Сообщения Twitch (Неделя)</option>
+                        <option value="stat_twitch_uptime_week">📈 (Пассивно) Время Twitch (Неделя)</option>
+                        <option value="stat_telegram_messages_week">📈 (Пассивно) Сообщения TG (Неделя)</option>
                     </select>
 
+                    <div id="weekly-goal-entity-picker-wrapper" class="admin-form hidden" style="gap: 5px; margin-top: -10px; margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                        <label id="weekly-goal-entity-picker-label">Выбрано:</label>
+                        <input type="hidden" name="target_entity_id" id="weekly-goal-target-entity-id">
+                        <input type="hidden" name="target_entity_name" id="weekly-goal-target-entity-name">
+                        
+                        <div id="weekly-goal-entity-display" class="entity-picker-display">
+                            <span>Ничего не выбрано</span>
+                        </div>
+                        <button type="button" id="weekly-goal-select-entity-btn" class="admin-menu-button" style="background-color: #555;">Выбрать...</button>
+                    </div>
+                    
                     <label for="weekly-goal-task-target">Цель (сколько раз)</label>
                     <input type="number" name="target_value" id="weekly-goal-task-target" value="1" min="1" required>
                     
@@ -876,6 +890,7 @@
                     <input type="number" name="sort_order" id="weekly-goal-task-sort-order" value="0">
                     
                     <button type="submit">Добавить Задачу</button>
+                    <button type="button" id="weekly-goal-cancel-edit-btn" class="admin-action-btn reject hidden" style="margin-top: -5px;">Отмена (сбросить форму)</button>
                 </form>
             </div>
 
@@ -883,7 +898,21 @@
                 </div>
         </div>
         </main>
-    
+  
+    <div id="weekly-goal-entity-select-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="weekly-goal-entity-select-title" class="modal-title">Выберите сущность</h2>
+                <button class="modal-close-btn" data-close-modal="weekly-goal-entity-select-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="weekly-goal-entity-select-list">
+                    <i>Загрузка...</i>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="password-prompt-overlay" class="modal-overlay hidden">
         <div class="prompt-modal">
             <h3>Введите пароль</h3>
