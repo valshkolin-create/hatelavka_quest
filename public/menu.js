@@ -1376,6 +1376,14 @@ function setupEventListeners() {
             console.log("main(): Ожидаем ответ от /api/v1/content/menu..."); // ЛОГ
             const [menuContent, weeklyGoalsData] = await Promise.all([menuContentPromise, weeklyGoalsPromise]);
             renderWeeklyGoals(weeklyGoalsData); // (v3) Отрисовываем "Забег"
+            // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
+            if (menuContent && menuContent.weekly_goals_banner_url) {
+                const weeklyBannerImg = document.getElementById('weekly-goals-banner-img');
+                if (weeklyBannerImg) {
+                    weeklyBannerImg.src = menuContent.weekly_goals_banner_url;
+                        }
+                    }
+            // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
             console.log("main(): ПОЛУЧЕН menuContent:", JSON.stringify(menuContent)); // ЛОГ
 
             if (menuContent) {
