@@ -952,7 +952,7 @@ function renderChallenge(challengeData, isGuest) {
         container.innerHTML = `
             <div class="weekly-goals-container">
                 <div class="weekly-goals-header">
-                    <h2>Недельный Забег</h2>
+                    <h2>Недельные испытания</h2>
                     <span class="weekly-goals-progress-text">${data.completed_goals} / ${data.total_goals}</span>
                 </div>
                 ${goalsHtml}
