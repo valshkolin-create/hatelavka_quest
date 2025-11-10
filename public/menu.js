@@ -861,6 +861,7 @@ function renderChallenge(challengeData, isGuest) {
             
             // (v3) Иконка в зависимости от типа задачи
             let iconClass = 'fa-solid fa-star'; // По умолчанию
+            const taskType = goal.task_type || ''; // <-- ВОТ ЭТО ИСПРАВЛЕНИЕ
             if (goal.task_type === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
             else if (goal.task_type === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
             else if (goal.task_type === 'auction_bid') iconClass = 'fa-solid fa-gavel';
