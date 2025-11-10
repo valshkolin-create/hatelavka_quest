@@ -832,12 +832,22 @@ function renderChallenge(challengeData, isGuest) {
         const container = dom.weeklyGoalsContainer;
         if (!container) return;
 
-        // Если система выключена или нет данных, прячем контейнер
-        if (!data || !data.system_enabled || !data.goals || data.goals.length === 0) {
+        // --- ИЗМЕНЕНИЕ: Добавляем проверку на админа ---
+        // userData - это глобальная переменная, установленная в main()
+        const isAdmin = userData && userData.is_admin;
+        
+        // Показываем блок, если:
+        // 1. Система включена (для всех)
+        // 2. Пользователь - админ (видит, даже если выключено)
+        const shouldShow = data && data.system_enabled;
+        
+        // Если нет данных ИЛИ (система выключена И пользователь НЕ админ) ИЛИ нет задач
+        if (!data || (!shouldShow && !isAdmin) || !data.goals || data.goals.length === 0) {
             container.innerHTML = '';
             container.classList.add('hidden');
             return;
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         
         container.classList.remove('hidden');
         
@@ -861,12 +871,20 @@ function renderChallenge(challengeData, isGuest) {
             
             // (v3) Иконка в зависимости от типа задачи
             let iconClass = 'fa-solid fa-star'; // По умолчанию
-            const taskType = goal.task_type || ''; // <-- ВОТ ЭТО ИСПРАВЛЕНИЕ
+            
+            // --- 
+            // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ОШИБКИ "startsWith" ЗДЕСЬ ---
+            // --- 
+            const taskType = goal.task_type || ''; // Гарантируем, что taskType - это строка
+
             if (taskType === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
             else if (taskType === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
             else if (taskType === 'auction_bid') iconClass = 'fa-solid fa-gavel';
             else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-hat-wizard';
             else if (taskType.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
+            // ---
+            // --- КОНЕЦ ГЛАВНОГО ИСПРАВЛЕНИЯ ---
+            // ---
 
             return `
                 <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
