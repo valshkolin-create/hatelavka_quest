@@ -4210,17 +4210,21 @@ async def update_submission_status(
                     logging.info(f"--- [update_submission_status] Найден manual_quest_id: {manual_quest_id} (Тип: {type(manual_quest_id)}) ---")
                     
                     if manual_quest_id is None or manual_quest_id == "":
-                         logging.error(f"--- [update_submission_status] ОШИБКА: manual_quest_id ПУСТОЙ. Триггер не будет вызван. ---")
-                    else:
-                        await supabase.post(
-                            "/rpc/increment_weekly_goal_progress",
-                            json={
-                                "p_user_id": user_to_notify,
-                                "p_task_type": "manual_quest_complete",
-                                "p_entity_id": manual_quest_id
-                            }
-                        )
-                        logging.info(f"--- [update_submission_status] УСПЕХ: Триггер 'manual_quest_complete' (ID: {manual_quest_id}) вызван для user {user_to_notify}. ---")
+                     logging.error(f"--- [update_submission_status] ОШИБКА: manual_quest_id ПУСТОЙ. Триггер не будет вызван. ---")
+                else:
+                    # --- ИСПРАВЛЕНИЕ 3: Добавляем проверку ответа ---
+                    response = await supabase.post(
+                        "/rpc/increment_weekly_goal_progress",
+                        json={
+                            "p_user_id": user_to_notify,
+                            "p_task_type": "manual_quest_complete",
+                            "p_entity_id": manual_quest_id
+                        }
+                    )
+                    response.raise_for_status() # <-- Эта строка вызовет ошибку, если RPC упадет
+                    # --- Теперь этот лог будет правдивым ---
+                    logging.info(f"--- [update_submission_status] УСПЕХ: Триг-"
+                    f"гер 'manual_quest_complete' (ID: {manual_quest_id}) вызван для user {user_to_notify}. ---")
                 else:
                     logging.warning(f"--- [update_submission_status] НЕ НАЙДЕН quest_id для submission {submission_id}, триггер 'Забега' не вызван. ---")
             except Exception as trigger_e:
