@@ -50,6 +50,11 @@
     .challenge-card .quest-title { font-size: 14px; margin-bottom: 5px; }
     .challenge-card .quest-subtitle { font-size: 12px; margin-bottom: 8px; }
     .challenge-card .claim-reward-button { font-size: 13px; padding: 9px; margin-top: 8px; }
+/* 🔽 ВОТ ЭТОТ БЛОК НУЖНО ДОБАВИТЬ 🔽 */
+    #challenge-container {
+        margin-top: 15px; /* Отступ от "Недельного Забега" */
+    }
+/* 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 */
     .challenge-timer {
         font-size: 11px;
         font-weight: 500;
@@ -573,6 +578,22 @@
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
 }
+
+/* --- 🔽 НОВЫЙ СТИЛЬ ДЛЯ ПРИМЕЧАНИЯ 🔽 --- */
+.weekly-goal-description {
+    font-size: 11px;
+    color: var(--text-color-muted);
+    line-height: 1.3;
+    margin-top: 5px; /* Отступ от прогресс-бара */
+
+    /* Ограничиваем 2 строками (как title) */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+/* --- 🔼 КОНЕЦ НОВОГО СТИЛЯ 🔼 --- */
 
 /* Убираем отступ сверху у контейнера, чтобы он "прилип" к картинке */
 .image-accordion .weekly-goals-container {
