@@ -862,11 +862,11 @@ function renderChallenge(challengeData, isGuest) {
             // (v3) Иконка в зависимости от типа задачи
             let iconClass = 'fa-solid fa-star'; // По умолчанию
             const taskType = goal.task_type || ''; // <-- ВОТ ЭТО ИСПРАВЛЕНИЕ
-            if (goal.task_type === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
-            else if (goal.task_type === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
-            else if (goal.task_type === 'auction_bid') iconClass = 'fa-solid fa-gavel';
-            else if (goal.task_type === 'cauldron_contribution') iconClass = 'fa-solid fa-hat-wizard';
-            else if (goal.task_type.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
+            if (taskType === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
+            else if (taskType === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
+            else if (taskType === 'auction_bid') iconClass = 'fa-solid fa-gavel';
+            else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-hat-wizard';
+            else if (taskType.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
 
             return `
                 <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
