@@ -1213,6 +1213,20 @@ async def handle_twitch_webhook(
                         "rewarded_at": datetime.now(timezone.utc).isoformat(), # Сразу помечаем выданным
                         "viewed_by_admin": True # Сразу помечаем просмотренным
                     })
+                    # --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
+                    try:
+                        logging.info(f"--- [Webhook] Запуск триггера 'Забега' для user: {telegram_id}, task: 'twitch_purchase', entity_id: {reward_settings['id']} ---")
+                        await supabase.post(
+                            "/rpc/increment_weekly_goal_progress",
+                            json={
+                                "p_user_id": telegram_id,
+                                "p_task_type": "twitch_purchase",
+                                "p_entity_id": reward_settings["id"] # ID награды Twitch
+                            }
+                        )
+                    except Exception as trigger_e:
+                        logging.error(f"--- [Webhook] ОШИБКА триггера 'Забега' (tickets): {trigger_e} ---", exc_info=True)
+                    # --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
 
                     if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
                         notification_text = (
@@ -1244,6 +1258,22 @@ async def handle_twitch_webhook(
                 "user_input": user_input,
                 "viewed_by_admin": False # <-- ВАЖНО: Новая заявка
             })
+            # --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
+            if telegram_id: # Только если пользователь привязан
+                try:
+                    logging.info(f"--- [Webhook] Запуск триггера 'Забега' для user: {telegram_id}, task: 'twitch_purchase', entity_id: {reward_settings['id']} ---")
+                    await supabase.post(
+                        "/rpc/increment_weekly_goal_progress",
+                        json={
+                            "p_user_id": telegram_id,
+                            "p_task_type": "twitch_purchase",
+                            "p_entity_id": reward_settings["id"] # ID награды Twitch
+                        }
+                    )
+                except Exception as trigger_e:
+                    logging.error(f"--- [Webhook] ОШИБКА триггера 'Забега' (promocode): {trigger_e} ---", exc_info=True)
+            # --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+            
 
             if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
                 notification_text = (
