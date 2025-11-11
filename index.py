@@ -1108,6 +1108,23 @@ async def handle_twitch_webhook(
                         "user_id": user_record.get("telegram_id") if user_record else None # Добавлено
                     }
                     await supabase.post("/twitch_reward_purchases", json=purchase_payload)
+                    
+                    # --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
+                    if telegram_id: # (telegram_id был определен ранее, но для безопасности проверим)
+                        try:
+                            logging.info(f"--- [Webhook_Roulette] Запуск триггера 'Забега' для user: {telegram_id}, task: 'twitch_purchase', entity_id: {reward_settings[0]['id']} ---")
+                            await supabase.post(
+                                "/rpc/increment_weekly_goal_progress",
+                                json={
+                                    "p_user_id": telegram_id,
+                                    "p_task_type": "twitch_purchase",
+                                    "p_entity_id": reward_settings[0]["id"] # ID награды Twitch (рулетки)
+                                }
+                            )
+                        except Exception as trigger_e:
+                            logging.error(f"--- [Webhook_Roulette] ОШИБКА триггера 'Забега': {trigger_e} ---", exc_info=True)
+                    # --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+                    
 
                     # (Логика уведомления админа о рулетке)
                     if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
