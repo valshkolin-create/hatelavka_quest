@@ -2390,26 +2390,65 @@ if (dom.weeklyGoalsSettingsForm) {
     dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Сначала сохраняем общие настройки (Вкл/Выкл)
-        const isEnabled = dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked;
+        // --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+        
+        // 1. Собираем ВСЕ ГЛОБАЛЬНЫЕ настройки, как в saveSettingsBtn
+        //    Мы читаем значения из DOM-элементов, которые находятся на
+        //    (в данный момент скрытой) странице "Настройки".
+        const newSliderOrder = Array.from(dom.sliderOrderManager.querySelectorAll('.slider-order-item'))
+                                     .map(item => item.dataset.slideId);
+
+        const globalSettingsPayload = {
+            // Сначала берем все настройки с главной страницы настроек
+            skin_race_enabled: dom.settingSkinRaceEnabled.checked,
+            slider_order: newSliderOrder, 
+            auction_enabled: dom.settingAuctionEnabled.checked,
+            quests_enabled: dom.settingQuestsEnabled.checked,
+            challenges_enabled: dom.settingChallengesEnabled.checked,
+            quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
+            challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked,
+            checkpoint_enabled: dom.settingCheckpointEnabled.checked,
+            
+            // ...включая все URL
+            menu_banner_url: dom.settingMenuBannerUrl.value.trim(),
+            checkpoint_banner_url: dom.settingCheckpointBannerUrl.value.trim(),
+            auction_banner_url: dom.settingAuctionBannerUrl.value.trim(),
+            weekly_goals_banner_url: dom.settingWeeklyGoalsBannerUrl.value.trim(),
+
+            // А ЗАТЕМ ПЕРЕЗАПИСЫВАЕМ 'weekly_goals_enabled' значением
+            // с ТЕКУЩЕЙ страницы (страницы "Недельного Забега")
+            weekly_goals_enabled: dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked
+        };
+
+        // 2. Собираем СПЕЦИАЛЬНЫЕ настройки "Забега"
+        const weeklySettingsData = {
+            week_id: dom.weeklyGoalsSettingsForm.elements['week_id'].value.trim(),
+            super_prize_type: dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value,
+            super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
+            super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
+        };
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
         try {
+            // --- ИЗМЕНЕННЫЙ БЛОК TRY ---
+            
+            // 3. Отправляем ДВА запроса
+            
+            // Запрос 1: Сохраняем ГЛОБАЛЬНЫЕ настройки (включая все URL и все переключатели)
             await makeApiRequest('/api/v1/admin/settings/update', { 
-                // v3: Мы сохраняем ТОЛЬКО 'weekly_goals_enabled'
-                settings: { weekly_goals_enabled: isEnabled } 
+                settings: globalSettingsPayload 
             });
             
-            // Затем сохраняем настройки самого "Забега" (Суперприз, ID недели)
-            const settingsData = {
-                week_id: dom.weeklyGoalsSettingsForm.elements['week_id'].value.trim(),
-                super_prize_type: dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value,
-                super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
-                super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
-            };
-            
-            // Используем эндпоинт v3
-            await api_saveWeeklyGoalSettings(settingsData);
+            // Запрос 2: Сохраняем СПЕЦИАЛЬНЫЕ настройки "Забега" (Суперприз, ID недели)
+            await api_saveWeeklyGoalSettings(weeklySettingsData);
             
             tg.showAlert('Настройки "Недельного Забега" сохранены!');
+            
+            // 4. (Важно!) Синхронизируем переключатель на главной стр. настроек
+            //    чтобы, если мы перейдем туда, он был в том же положении.
+            dom.settingWeeklyGoalsEnabled.checked = globalSettingsPayload.weekly_goals_enabled;
+
+            // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
             
         } catch (err) {
             tg.showAlert(`Ошибка сохранения: ${err.message}`);
