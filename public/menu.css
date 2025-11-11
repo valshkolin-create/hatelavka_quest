@@ -316,12 +316,16 @@
         right: 10px;
     }
     .slider-dots {
-        position: absolute;
-        bottom: 5px;
-        left: 50%;
-        transform: translateX(-50%);
+        /* position: absolute; (Удалено) */
+        /* bottom: 5px; (Удалено) */
+        /* left: 50%; (Удалено) */
+        /* transform: translateX(-50%); (Удалено) */
+        position: relative; /* Добавлено для надежности */
         display: flex;
         gap: 6px;
+        justify-content: center; /* Добавлено для центрирования */
+        padding-top: 8px;        /* Добавлено: отступ от картинки сверху */
+        padding-bottom: 8px;     /* Добавлено: отступ снизу до края */
     }
     .dot {
         width: 12px;
