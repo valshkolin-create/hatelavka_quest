@@ -2108,7 +2108,8 @@ function updateSleepButton(status) {
         }
         
         // 4. Отображаем список задач
-        renderWeeklyGoalsList(goals);
+        // ❗️❗️❗️ ИЗМЕНЕНИЕ ЗДЕСЬ ❗️❗️❗️
+        renderWeeklyGoalsList(goals, settings.weekly_goals_enabled);
         
     } catch (e) {
         tg.showAlert(`Ошибка загрузки данных "Забега": ${e.message}`);
@@ -2120,7 +2121,7 @@ function updateSleepButton(status) {
 /**
  * (v3) ОТРИСОВКА: Рендерит список созданных задач
  */
-function renderWeeklyGoalsList(goals) {
+function renderWeeklyGoalsList(goals, is_system_enabled) { // ❗️❗️❗️ ИЗМЕНЕНИЕ ЗДЕСЬ ❗️❗️❗️
     if (!dom.weeklyGoalsList) return;
     dom.weeklyGoalsList.innerHTML = '';
     
@@ -2136,6 +2137,17 @@ function renderWeeklyGoalsList(goals) {
         const card = document.createElement('div');
         card.className = 'quest-card weekly-goal-card';
         
+        // 🔽🔽🔽 НОВЫЙ БЛОК ДЛЯ СТАТУСА 🔽🔽🔽
+        let statusHtml = '';
+        if (goal.is_active && is_system_enabled) {
+            statusHtml = '<span class="quest-status-badge status-active">Активна</span>';
+        } else if (goal.is_active && !is_system_enabled) {
+            statusHtml = '<span class="quest-status-badge" style="background-color: #555;">Вкл (Система выкл)</span>';
+        } else {
+            statusHtml = '<span class="quest-status-badge status-inactive">Выключена</span>';
+        }
+        // 🔼🔼🔼 КОНЕЦ НОВОГО БЛОКА 🔼🔼🔼
+
         // (v3) Форматируем "Цель"
         let targetText = '';
         if (goal.target_entity_id) {
@@ -2147,7 +2159,7 @@ function renderWeeklyGoalsList(goals) {
         card.innerHTML = `
             <div class="weekly-goal-header">
                 <span class="weekly-goal-title">${escapeHTML(goal.title)}</span>
-                <div class="weekly-goal-actions">
+                ${statusHtml} <div class="weekly-goal-actions">
                     <button class="admin-edit-quest-btn edit-weekly-goal-btn" data-goal-id="${goal.id}">
                         <i class="fa-solid fa-pen"></i>
                     </button>
@@ -2460,6 +2472,7 @@ if (dom.weeklyGoalsCreateTaskForm) {
             reward_type: form.elements['reward_type'].value,
             reward_value: parseInt(form.elements['reward_value'].value, 10) || 0,
             sort_order: parseInt(form.elements['sort_order'].value, 10) || 0,
+            is_active: form.elements['is_active'].checked, // 👈 ❗️❗️❗️ ДОБАВЬ ЭТУ СТРОКУ ❗️❗️❗️
             
             // 🔽 v3: Добавляем ID и Имя 🔽
             target_entity_id: form.elements['target_entity_id'].value ? parseInt(form.elements['target_entity_id'].value, 10) : null,
@@ -2540,6 +2553,7 @@ if (dom.weeklyGoalsList) {
                 form.elements['reward_type'].value = goal.reward_type;
                 form.elements['reward_value'].value = goal.reward_value || 0;
                 form.elements['sort_order'].value = goal.sort_order || 0;
+                form.elements['is_active'].checked = goal.is_active;
                 
                 // (v3) Заполняем ID и Имя
                 form.elements['target_entity_id'].value = goal.target_entity_id || '';
