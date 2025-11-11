@@ -1136,43 +1136,53 @@ function setupEventListeners() {
             const manualQuests = await makeApiRequest("/api/v1/quests/manual");
             renderManualQuests(manualQuests); 
 
-            // --- 🔽 НОВЫЙ КОД ДЛЯ ПОДСВЕТКИ 🔽 ---
+            // --- 🔽 НОВЫЙ КОД ДЛЯ ПОДСВЕТКИ (v2 - БОЛЕЕ НАДЕЖНЫЙ) 🔽 ---
             try {
                 const questIdToHighlight = localStorage.getItem('highlightQuestId');
                 if (questIdToHighlight) {
-                    // Сразу удаляем, чтобы не срабатывало повторно
                     localStorage.removeItem('highlightQuestId'); 
                     
-                    // Даем JS время на отрисовку (renderManualQuests)
+                    // 1. Ждем, пока DOM обновится после renderManualQuests
                     setTimeout(() => {
-                        // Ищем кнопку "Выполнить" с нужным ID
+                        console.log(`[Highlight] Ищем квест с ID: ${questIdToHighlight}`);
+                        
                         const targetButton = document.querySelector(`.perform-quest-button[data-id="${questIdToHighlight}"]`);
                         if (!targetButton) {
-                            console.warn('Highlight: Quest button not found for ID:', questIdToHighlight);
+                            console.warn('[Highlight] Кнопка квеста не найдена. Либо ID неверный, либо квест уже выполнен и не отображается.');
                             return;
                         }
 
+                        console.log("[Highlight] Кнопка найдена!", targetButton);
                         const questCard = targetButton.closest('.quest-card');
                         const accordion = targetButton.closest('.quest-category-accordion');
 
                         if (accordion) {
-                            // Открываем аккордеон
+                            console.log("[Highlight] Найден аккордеон. Открываем...");
+                            // 2. Открываем аккордеон
                             accordion.open = true;
-                        }
+                            
+                            // 3. ЖДЕМ АНИМАЦИЮ открытия аккордеона
+                            setTimeout(() => {
+                                console.log("[Highlight] Прокручиваем к карточке (внутри аккордеона).");
+                                if (questCard) {
+                                    questCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    questCard.classList.add('tutorial-highlight'); 
+                                    setTimeout(() => {
+                                        questCard.classList.remove('tutorial-highlight');
+                                    }, 2500);
+                                }
+                            }, 150); // 150мс на анимацию
 
-                        if (questCard) {
-                            // Прокручиваем к карточке
+                        } else if (questCard) {
+                            // Если квест не в аккордеоне (напр. "Без категории")
+                            console.log("[Highlight] Аккордеон не найден. Прокручиваем к карточке.");
                             questCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            
-                            // Используем класс подсветки из твоего туториала
                             questCard.classList.add('tutorial-highlight'); 
-                            
-                            // Удаляем подсветку через 2.5 секунды
                             setTimeout(() => {
                                 questCard.classList.remove('tutorial-highlight');
                             }, 2500);
                         }
-                    }, 200); // 200мс задержка на отрисовку
+                    }, 200); // 200мс на рендер
                 }
             } catch (err) {
                 console.error('Highlighting error:', err);
