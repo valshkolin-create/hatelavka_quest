@@ -1176,7 +1176,9 @@ function setupEventListeners() {
                     const result = await makeApiRequest('/api/v1/user/weekly_goals/claim_task', {
                         goal_id: claimTaskBtn.dataset.goalId
                     });
-                    tg.showPopup({ message: result.message });
+                    // tg.showPopup({ message: result.message }); // <--- УБИРАЕМ СТАРОЕ УВЕДОМЛЕНИЕ
+                    showTicketsClaimedModal(); // <--- ВСТАВЛЯЕМ ВЫЗОВ МОДАЛКИ
+                    
                     // Обновляем баланс
                     if (result.new_ticket_balance !== undefined) {
                         document.getElementById('ticketStats').textContent = result.new_ticket_balance;
