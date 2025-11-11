@@ -890,10 +890,10 @@ function renderChallenge(challengeData, isGuest) {
             // 2. Формируем Кнопку "Перейти" (Nav Link)
             let navLinkHtml = '';
             const taskInfoMap = {
-                'manual_quest_complete': { text: 'Ручное задание', nav: 'view-quests' },
+                'manual_quest_complete': { text: 'Перейти к заполнению ручного задания', nav: 'view-quests' },
                 'twitch_purchase': { text: 'Награда Twitch', nav: 'https://www.twitch.tv/hatelove_ttv' },
-                'auction_bid': { text: 'Аукцион', nav: '/auction' },
-                'cauldron_contribution': { text: 'Ивент "Котел"', nav: '/halloween' },
+                'auction_bid': { text: 'Перейти в аукцион', nav: '/auction' },
+                'cauldron_contribution': { text: 'Перейти в ивент', nav: '/halloween' },
                 // У 'stat_' задач нет 'nav', поэтому кнопка не появится
                 'stat_twitch_messages_week': { text: 'Статистика Twitch', nav: null },
                 'stat_twitch_uptime_week': { text: 'Статистика Twitch', nav: null },
@@ -903,10 +903,20 @@ function renderChallenge(challengeData, isGuest) {
             const info = taskInfoMap[taskType];
 
             if (info && info.nav) {
+                // --- 🔽 НОВОЕ ИЗМЕНЕНИЕ ЗДЕСЬ 🔽 ---
+                // Если это ручное задание и у него есть ID, добавляем этот ID в кнопку
+                const highlightId = (taskType === 'manual_quest_complete' && goal.target_entity_id) 
+                                    ? `data-highlight-quest-id="${goal.target_entity_id}"` 
+                                    : '';
+                // --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
+
                 // Это ссылка
                 const isExternal = info.nav.startsWith('http');
                 const icon = isExternal ? '<i class="fa-solid fa-arrow-up-right-from-square"></i>' : '';
-                navLinkHtml = `<a href="#" class="weekly-goal-nav-link" data-nav="${info.nav}">${info.text} ${icon}</a>`;
+                
+                // --- 🔽 ДОБАВЛЯЕМ ${highlightId} В ССЫЛКУ 🔽 ---
+                navLinkHtml = `<a href="#" class="weekly-goal-nav-link" data-nav="${info.nav}" ${highlightId}>${info.text} ${icon}</a>`;
+                
             } else if (info && !descriptionHtml) {
                 // Если Примечания нет, показываем тип задачи (напр. "Статистика Twitch")
                 descriptionHtml = `<p class="weekly-goal-description">${info.text}</p>`;
@@ -1124,7 +1134,50 @@ function setupEventListeners() {
             e.preventDefault(); 
             switchView('view-quests');
             const manualQuests = await makeApiRequest("/api/v1/quests/manual");
-            renderManualQuests(manualQuests); // <<< УБРАЛИ ВТОРОЙ АРГУМЕНТ
+            renderManualQuests(manualQuests); 
+
+            // --- 🔽 НОВЫЙ КОД ДЛЯ ПОДСВЕТКИ 🔽 ---
+            try {
+                const questIdToHighlight = localStorage.getItem('highlightQuestId');
+                if (questIdToHighlight) {
+                    // Сразу удаляем, чтобы не срабатывало повторно
+                    localStorage.removeItem('highlightQuestId'); 
+                    
+                    // Даем JS время на отрисовку (renderManualQuests)
+                    setTimeout(() => {
+                        // Ищем кнопку "Выполнить" с нужным ID
+                        const targetButton = document.querySelector(`.perform-quest-button[data-id="${questIdToHighlight}"]`);
+                        if (!targetButton) {
+                            console.warn('Highlight: Quest button not found for ID:', questIdToHighlight);
+                            return;
+                        }
+
+                        const questCard = targetButton.closest('.quest-card');
+                        const accordion = targetButton.closest('.quest-category-accordion');
+
+                        if (accordion) {
+                            // Открываем аккордеон
+                            accordion.open = true;
+                        }
+
+                        if (questCard) {
+                            // Прокручиваем к карточке
+                            questCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            // Используем класс подсветки из твоего туториала
+                            questCard.classList.add('tutorial-highlight'); 
+                            
+                            // Удаляем подсветку через 2.5 секунды
+                            setTimeout(() => {
+                                questCard.classList.remove('tutorial-highlight');
+                            }, 2500);
+                        }
+                    }, 200); // 200мс задержка на отрисовку
+                }
+            } catch (err) {
+                console.error('Highlighting error:', err);
+            }
+            // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
         });
         dom.promptCancel.addEventListener('click', hideCustomPrompt);
         dom.promptConfirm.addEventListener('click', async () => {
@@ -1237,6 +1290,14 @@ function setupEventListeners() {
                 const navTarget = navLink.dataset.nav;
                 
                 if (navTarget === 'view-quests') {
+                    // --- 🔽 НОВОЕ ИЗМЕНЕНИЕ ЗДЕСЬ 🔽 ---
+                    const questIdToHighlight = navLink.dataset.highlightQuestId;
+                    if (questIdToHighlight) {
+                        // Сохраняем ID, чтобы вкладка "Задания" могла его прочитать
+                        localStorage.setItem('highlightQuestId', questIdToHighlight);
+                    }
+                    // --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
+
                     // Переключаем вкладку на "Задания"
                     document.getElementById('nav-quests').click();
                 } else if (navTarget.startsWith('http')) {
