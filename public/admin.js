@@ -2468,6 +2468,7 @@ if (dom.weeklyGoalsCreateTaskForm) {
             title: form.elements['title'].value.trim(),
             description: form.elements['description'].value.trim(), // <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
             task_type: form.elements['task_type'].value,
+            week_id: document.getElementById('weekly-goal-week-id').value.trim(),
             target_value: parseInt(form.elements['target_value'].value, 10) || 1,
             reward_type: form.elements['reward_type'].value,
             reward_value: parseInt(form.elements['reward_value'].value, 10) || 0,
@@ -2549,6 +2550,7 @@ if (dom.weeklyGoalsList) {
                 form.elements['title'].value = goal.title;
                 form.elements['description'].value = goal.description || ''; // <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
                 form.elements['task_type'].value = goal.task_type;
+                form.elements['week_id_hidden_for_edit'].value = document.getElementById('weekly-goal-week-id').value.trim();
                 form.elements['target_value'].value = goal.target_value;
                 form.elements['reward_type'].value = goal.reward_type;
                 form.elements['reward_value'].value = goal.reward_value || 0;
