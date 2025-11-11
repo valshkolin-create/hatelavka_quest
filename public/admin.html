@@ -847,7 +847,10 @@
 
             <div class="quest-card" style="margin-top: 20px;">
                 <form id="weekly-goals-create-task-form" class="admin-form">
-                    <input type="hidden" name="goal_id" value=""> <h3 style="margin: 0 0 10px;">Новая Задача</h3>
+                    <input type="hidden" name="goal_id" value="">
+                    
+                    <input type="hidden" name="week_id_hidden_for_edit" id="week_id_hidden_for_edit" value="">
+                    <h3 style="margin: 0 0 10px;">Новая Задача</h3>
                     
                     <label for="weekly-goal-task-title">Название (видит юзер)</label>
                     <input type="text" name="title" id="weekly-goal-task-title" required placeholder="Выполнить 3 челленджа">
