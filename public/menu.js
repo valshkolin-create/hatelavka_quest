@@ -1199,15 +1199,26 @@ function setupEventListeners() {
                 claimSuperBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                 try {
                     const result = await makeApiRequest('/api/v1/user/weekly_goals/claim_super_prize', {});
-                    // Показываем стандартную модалку (для промокода или билетов)
+                    
+                    // --- НАЧАЛО ИЗМЕНЕНИЯ ---
+
+                    // Показываем модалку "Отправлено в профиль" в ЛЮБОМ успешном случае
                     if (result.promocode) {
+                        // Случай 1: Получен промокод
                         showRewardClaimedModal();
                     } else if (result.new_ticket_balance !== undefined) {
+                        // Случай 2: Получены билеты
+                        // Просто обновляем баланс (пользователь увидит его на главной)
                         document.getElementById('ticketStats').textContent = result.new_ticket_balance;
-                        showTicketsClaimedModal();
+                        // И ПОКАЗЫВАЕМ ТУ ЖЕ МОДАЛКУ, ЧТО И ДЛЯ ПРОМОКОДА
+                        showRewardClaimedModal(); 
                     } else {
+                        // Случай 3: Другое сообщение (например, "уже получено")
                         tg.showAlert(result.message);
                     }
+                    
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
                     // Меняем кнопку на "Получено"
                     claimSuperBtn.textContent = 'Суперприз получен!';
                     claimSuperBtn.classList.add('claimed');
