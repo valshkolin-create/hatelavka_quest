@@ -1610,11 +1610,28 @@ async def admin_finish_auction(
             return {"message": f"Аукцион {auction_id} завершен, победитель не определен."}
     
     except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Ошибка RPC.")
-        raise HTTPException(status_code=400, detail=error_details)
-    except Exception as e:
-        logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА в admin_finish_auction: {e}", exc_info=True)
-        raise HTTPException(status_code=500, content={"error": str(e)})
+        # По умолчанию ставим общее сообщение
+        error_details = "Не удалось забрать награду." 
+        try:
+            # Пытаемся достать детальную ошибку из Supabase
+            error_details = e.response.json().get("message", "Не удалось забрать награду.")
+        except Exception:
+            pass # Если не получилось, оставляем сообщение по умолчанию
+        
+        # Логируем ПОЛНУЮ ошибку, чтобы вы ее видели
+        logging.error(f"--- [claim_weekly_task_reward] ОШИБКА RPC: {error_details} ---")
+        
+        # --- 🔽🔽🔽 ВОТ ИСПРАВЛЕНИЕ 🔽🔽🔽 ---
+        # Проверяем, является ли это той самой ошибкой
+        if "invalid input syntax for type integer" in error_details:
+            # Если да, заменяем ее на понятное сообщение для пользователя
+            user_friendly_error = "Ошибка данных задачи (неверное кол-во награды). Свяжитесь с админом."
+            logging.error(f"--- [claim_weekly_task_reward] Перехвачена ошибка integer. Отправка клиенту: {user_friendly_error} ---")
+            raise HTTPException(status_code=400, detail=user_friendly_error)
+        else:
+            # Если это другая ошибка (например, "Награда уже получена"), показываем ее
+            raise HTTPException(status_code=400, detail=error_details)
+    # --- 🔼🔼🔼 КОНЕЦ ИСПРАВЛЕНИЯ 🔼🔼🔼 ---
 
 @app.post("/api/v1/admin/auctions/clear_participants")
 async def admin_clear_auction_participants(
