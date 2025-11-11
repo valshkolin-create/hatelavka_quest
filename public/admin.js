@@ -2182,7 +2182,7 @@ async function api_deleteWeeklyGoal(goalId) {
 }
 async function api_saveWeeklyGoalSettings(settingsData) {
     // Используем эндпоинт v3
-    return makeApiRequest('/api/v1/admin/weekly_goals/settings/update', { settings: settingsData });
+    return makeApiRequest('/api/v1/admin/weekly_goals/settings/update', { settings: settingsData }, 'POST', true);
 }
 async function api_getWeeklyGoalDetails(goalId) {
     // В v3 мы "читаем" из кэша (adminQuestsCache), а не делаем API-запрос
@@ -2390,68 +2390,57 @@ if (dom.weeklyGoalsSettingsForm) {
     dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+        // --- НАЧАЛО НОВОГО ИСПРАВЛЕНИЯ (v2) ---
         
-        // 1. Собираем ВСЕ ГЛОБАЛЬНЫЕ настройки, как в saveSettingsBtn
-        //    Мы читаем значения из DOM-элементов, которые находятся на
-        //    (в данный момент скрытой) странице "Настройки".
-        const newSliderOrder = Array.from(dom.sliderOrderManager.querySelectorAll('.slider-order-item'))
-                                     .map(item => item.dataset.slideId);
-
-        const globalSettingsPayload = {
-            // Сначала берем все настройки с главной страницы настроек
-            skin_race_enabled: dom.settingSkinRaceEnabled.checked,
-            slider_order: newSliderOrder, 
-            auction_enabled: dom.settingAuctionEnabled.checked,
-            quests_enabled: dom.settingQuestsEnabled.checked,
-            challenges_enabled: dom.settingChallengesEnabled.checked,
-            quest_promocodes_enabled: dom.settingQuestRewardsEnabled.checked,
-            challenge_promocodes_enabled: dom.settingChallengeRewardsEnabled.checked,
-            checkpoint_enabled: dom.settingCheckpointEnabled.checked,
-            
-            // ...включая все URL
-            menu_banner_url: dom.settingMenuBannerUrl.value.trim(),
-            checkpoint_banner_url: dom.settingCheckpointBannerUrl.value.trim(),
-            auction_banner_url: dom.settingAuctionBannerUrl.value.trim(),
-            weekly_goals_banner_url: dom.settingWeeklyGoalsBannerUrl.value.trim(),
-
-            // А ЗАТЕМ ПЕРЕЗАПИСЫВАЕМ 'weekly_goals_enabled' значением
-            // с ТЕКУЩЕЙ страницы (страницы "Недельного Забега")
-            weekly_goals_enabled: dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked
-        };
-
-        // 2. Собираем СПЕЦИАЛЬНЫЕ настройки "Забега"
+        // 1. Собираем СПЕЦИАЛЬНЫЕ настройки "Забега" (ID недели, Суперприз)
         const weeklySettingsData = {
             week_id: dom.weeklyGoalsSettingsForm.elements['week_id'].value.trim(),
             super_prize_type: dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value,
             super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
             super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
         };
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        // 2. Получаем ОДНО значение, которое мы меняем (Вкл/Выкл "Забег")
+        const isEnabled = dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked;
 
         try {
-            // --- ИЗМЕНЕННЫЙ БЛОК TRY ---
+            // Показываем лоадер НА ВСЮ ОПЕРАЦИЮ
+            showLoader();
+
+            // 3. Загружаем ТЕКУЩИЕ глобальные настройки с сервера
+            // (Запрос идет "тихо", т.к. лоадер уже показан)
+            const currentGlobalSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
             
-            // 3. Отправляем ДВА запроса
+            // 4. Модифицируем в них ТОЛЬКО ОДНО поле
+            currentGlobalSettings.weekly_goals_enabled = isEnabled;
+
+            // 5. Отправляем ДВА запроса
             
-            // Запрос 1: Сохраняем ГЛОБАЛЬНЫЕ настройки (включая все URL и все переключатели)
+            // Запрос 1: Сохраняем ОБНОВЛЕННЫЕ ГЛОБАЛЬНЫЕ настройки
+            // (currentGlobalSettings теперь содержит все старые URL и состояния + 1 новое)
             await makeApiRequest('/api/v1/admin/settings/update', { 
-                settings: globalSettingsPayload 
-            });
+                settings: currentGlobalSettings 
+            }, 'POST', true); // true = "тихо"
             
             // Запрос 2: Сохраняем СПЕЦИАЛЬНЫЕ настройки "Забега" (Суперприз, ID недели)
-            await api_saveWeeklyGoalSettings(weeklySettingsData);
+            // (Эта функция теперь тоже "тихая" после Части 1)
+            await api_saveWeeklyGoalSettings(weeklySettingsData); 
             
             tg.showAlert('Настройки "Недельного Забега" сохранены!');
             
-            // 4. (Важно!) Синхронизируем переключатель на главной стр. настроек
-            //    чтобы, если мы перейдем туда, он был в том же положении.
-            dom.settingWeeklyGoalsEnabled.checked = globalSettingsPayload.weekly_goals_enabled;
-
-            // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
+            // 6. (Важно!) Синхронизируем переключатель на главной стр. настроек
+            //    (на случай, если она была загружена до этого)
+            if (dom.settingWeeklyGoalsEnabled) { // Проверяем, что элемент существует
+                dom.settingWeeklyGoalsEnabled.checked = isEnabled;
+            }
+            
+            // --- КОНЕЦ НОВОГО ИСПРАВЛЕНИЯ (v2) ---
             
         } catch (err) {
             tg.showAlert(`Ошибка сохранения: ${err.message}`);
+        } finally {
+            // Прячем лоадер в любом случае
+            hideLoader();
         }
     });
 }
