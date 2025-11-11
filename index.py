@@ -420,6 +420,7 @@ class WeeklyGoalBase(BaseModel):
     reward_type: str = 'none'
     reward_value: int = 0
     sort_order: int = 0
+    is_active: bool = True #
     # 🔽 v3: Добавляем необязательные поля 🔽
     target_entity_id: Optional[int] = None
     target_entity_name: Optional[str] = None
