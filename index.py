@@ -421,6 +421,7 @@ class WeeklyGoalBase(BaseModel):
     reward_value: int = 0
     sort_order: int = 0
     is_active: bool = True #
+    week_id: Optional[str] = None #
     # 🔽 v3: Добавляем необязательные поля 🔽
     target_entity_id: Optional[int] = None
     target_entity_name: Optional[str] = None
