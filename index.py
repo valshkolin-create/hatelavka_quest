@@ -1010,7 +1010,7 @@ async def handle_twitch_webhook(
             reward_title = reward_data.get("title", "Unknown Reward")
             user_input = event_data.get("user_input")
 
-            user_resp = await supabase.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, full_name, trade_link"})
+            user_resp = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_login}", "select": "telegram_id, full_name, trade_link", "limit": 1})
             user_data = user_resp.json()
             user_record = user_data[0] if user_data else None
             user_id = user_record.get("telegram_id") if user_record else None
