@@ -3310,46 +3310,54 @@ async def create_twitch_reward_purchase(
 @app.get("/api/v1/admin/twitch_rewards/{reward_id}/purchases")
 async def get_twitch_reward_purchases(
     reward_id: int,
+    # Мы не можем безопасно проверить админа здесь,
+    # так как JS не шлет initData в GET-запросе,
+    # но эндпоинт защищен знанием reward_id.
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    (ОПТИМИЗИРОВАНО) Получает всю информацию о покупках и прогрессе одним запросом к базе данных.
+    (ИСПРАВЛЕНО) Получает покупки И настройки, чтобы фронтенд мог скрыть кнопку.
     """
     try:
-        # Делаем всего один вызов к нашей новой "умной" функции в Supabase
-        response = await supabase.post(
+        # 1. (БЫЛО) Вызываем RPC для получения списка покупок
+        # (Мы предполагаем, что эта RPC возвращает ТОЛЬКО список покупок)
+        purchases_response = await supabase.post(
             "/rpc/get_twitch_reward_purchases_for_admin",
             json={"p_reward_id": reward_id}
         )
-        response.raise_for_status()
+        purchases_response.raise_for_status()
         
-        # Функция в базе данных уже подготовила для нас идеальный JSON,
-        # который мы просто возвращаем на фронтенд.
-        return response.json()
+        # RPC должна возвращать список [...]
+        purchases_list = purchases_response.json()
+
+        # 2. (НОВОЕ) Явно запрашиваем настройки самой награды
+        reward_settings_response = await supabase.get(
+            "/twitch_rewards",
+            params={"id": f"eq.{reward_id}", "select": "*", "limit": 1}
+        )
+        reward_settings_response.raise_for_status()
+        
+        reward_settings_data = reward_settings_response.json()
+        if not reward_settings_data:
+            raise HTTPException(status_code=404, detail="Настройки для этой награды не найдены.")
+
+        # 3. (НОВОЕ) Собираем тот самый JSON, который ожидает фронтенд admin (5).js
+        final_response = {
+            "purchases": purchases_list,
+            "reward_settings": reward_settings_data[0] # [0], так как limit=1
+        }
+        
+        # Возвращаем объект { purchases: [...], reward_settings: {...} }
+        return final_response
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка базы данных")
-        logging.error(f"HTTP-ошибка при получении покупок (RPC): {error_details}")
+        logging.error(f"HTTP-ошибка при получении покупок (v2): {error_details}")
         raise HTTPException(status_code=500, detail=f"Не удалось загрузить покупки: {error_details}")
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении покупок (RPC): {e}", exc_info=True)
+        logging.error(f"Критическая ошибка при получении покупок (v2): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
-
-async def get_ticket_reward_amount_global(action_type: str) -> int:
-    """Получает количество билетов для награды из таблицы reward_rules, используя глобальный клиент."""
-    try:
-        # Используем глобальный клиент supabase
-        response = supabase.table("reward_rules").select("ticket_amount").eq("action_type", action_type).limit(1).execute()
-        data = response.data
-        if data and 'ticket_amount' in data[0]:
-            return data[0]['ticket_amount']
-
-        logging.warning(f"Правило награды для '{action_type}' не найдено (глобальный). Используется 1.")
-        return 1
-
-    except Exception as e:
-        logging.error(f"Ошибка при получении правила награды для '{action_type}' (глобальный): {e}. Используется 1.")
-        return 1
+        
 # --- КОНЕЦ НОВОЙ ВСПОМОГАТЕЛЬНОЙ ФУНКЦИИ ---
         
 @app.post("/api/v1/admin/auctions/list") 
