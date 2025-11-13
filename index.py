@@ -1169,50 +1169,50 @@ async def handle_twitch_webhook(
                 # Код просто "проваливается" в следующий раздел
             
             # --- КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ ---
+# --- 🔽🔽🔽 ВЕСЬ БЛОК НИЖЕ СДВИНУТ ВПРАВО (ДОБАВЛЕН ОТСТУП) 🔽🔽🔽 ---
+                # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (Новая логика с типами)
+                logging.info(f"Обычная награда (не рулетка) '{reward_title}' от {twitch_login}.")
 
+                # 3.1. Получаем полные настройки награды из нашей таблицы
+                reward_settings_resp = await supabase.get(
+                    "/twitch_rewards", 
+                    params={"title": f"eq.{reward_title}", "select": "*"}
+                )
+                reward_settings_list = reward_settings_resp.json()
+                
+                # 3.2. Если награды нет в базе, создаем ее с настройками по умолчанию
+                if not reward_settings_list:
+                    logging.info(f"Создание новой награды '{reward_title}' в базе.")
+                    # Новые награды получают sort_order = NULL и окажутся в конце
+                    reward_settings_list = (await supabase.post(
+                        "/twitch_rewards", 
+                        json={
+                            "title": reward_title, 
+                            "is_active": True, 
+                            "notify_admin": True,
+                            "reward_type": "promocode", # По умолчанию - промокод
+                            "reward_amount": 10,         # По умолчанию - 10
+                            "promocode_amount": 10       # Дублируем в старое поле
+                        }, 
+                        headers={"Prefer": "return=representation"}
+                    )).json()
+                
+                reward_settings = reward_settings_list[0]
 
-            # 3. ОБРАБОТКА ВСЕХ ОСТАЛЬНЫХ НАГРАД (Новая логика с типами)
-            logging.info(f"Обычная награда (не рулетка) '{reward_title}' от {twitch_login}.")
+                if not reward_settings["is_active"]:
+                    logging.info(f"Награда '{reward_title}' отключена админом. Игнорируем.")
+                    return {"status": "ok", "detail": "Эта награда отключена админом."}
 
-            # 3.1. Получаем полные настройки награды из нашей таблицы
-            reward_settings_resp = await supabase.get(
-                "/twitch_rewards", 
-                params={"title": f"eq.{reward_title}", "select": "*"}
-            )
-            reward_settings_list = reward_settings_resp.json()
-            
-            # 3.2. Если награды нет в базе, создаем ее с настройками по умолчанию
-            if not reward_settings_list:
-                logging.info(f"Создание новой награды '{reward_title}' в базе.")
-                # Новые награды получают sort_order = NULL и окажутся в конце
-                reward_settings_list = (await supabase.post(
-                    "/twitch_rewards", 
-                    json={
-                        "title": reward_title, 
-                        "is_active": True, 
-                        "notify_admin": True,
-                        "reward_type": "promocode", # По умолчанию - промокод
-                        "reward_amount": 10,         # По умолчанию - 10
-                        "promocode_amount": 10       # Дублируем в старое поле
-                    }, 
-                    headers={"Prefer": "return=representation"}
-                )).json()
-            
-            reward_settings = reward_settings_list[0]
-
-            if not reward_settings["is_active"]:
-                logging.info(f"Награда '{reward_title}' отключена админом. Игнорируем.")
-                return {"status": "ok", "detail": "Эта награда отключена админом."}
-
-            # 3.3. Определяем пользователя
-            telegram_id = user_record.get("telegram_id") if user_record else None
-            user_display_name = user_record.get("full_name", twitch_login) if user_record else twitch_login
-            user_status = "Привязан" if user_record else "Не привязан"
-            
-            # 3.4. Определяем тип награды
-            reward_type = reward_settings.get("reward_type", "promocode")
-            # Используем новое поле amount, если оно есть, иначе старое
-            reward_amount = reward_settings.get("reward_amount") if reward_settings.get("reward_amount") is not None else reward_settings.get("promocode_amount", 10)
+                # 3.3. Определяем пользователя
+                telegram_id = user_record.get("telegram_id") if user_record else None
+                user_display_name = user_record.get("full_name", twitch_login) if user_record else twitch_login
+                user_status = "Привязан" if user_record else "Не привязан"
+                
+                # 3.4. Определяем тип награды
+                reward_type = reward_settings.get("reward_type", "promocode")
+                # Используем новое поле amount, если оно есть, иначе старое
+                reward_amount = reward_settings.get("reward_amount") if reward_settings.get("reward_amount") is not None else reward_settings.get("promocode_amount", 10)
+            # --- 🔼🔼🔼 КОНЕЦ СДВИНУТОГО БЛОКА 🔼🔼🔼 ---
 
             # 3.5. Выполняем действие в зависимости от типа награды
             if reward_type == "tickets" and telegram_id:
