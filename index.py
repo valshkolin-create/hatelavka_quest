@@ -3219,33 +3219,33 @@ async def update_twitch_reward(
 
     reward_id = request_data.id
     
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ (v3) ---
+   # --- НАЧАЛО ИСПРАВЛЕНИЯ (v4) ---
     
     # 1. Получаем все поля, которые прислал фронтенд
-    #    (JS присылает 'reward_amount', 'promocode_amount', 'reward_type' и 'sort_order')
     update_data = request_data.dict(exclude={'initData', 'id'})
+    supabase_payload = update_data.copy()
+
+    # 2. Определяем ОДНО правильное значение (то, что ввел админ)
+    #    JS отправляет 'reward_amount' (из нового поля) и 'promocode_amount' (из старого).
     
-    # 2. Создаем payload для Supabase
-    supabase_payload = update_data.copy() # Копируем все данные
+    definitive_amount = 10 # Значение по умолчанию
+    
+    # Сначала проверяем 'reward_amount' (приоритет у нового поля)
+    if supabase_payload.get('reward_amount') is not None:
+         definitive_amount = supabase_payload['reward_amount']
+    # Если его нет, проверяем 'promocode_amount' (для модераторов)
+    elif supabase_payload.get('promocode_amount') is not None:
+         definitive_amount = supabase_payload['promocode_amount']
 
-    # 3. 'reward_type' УЖЕ имеет правильное имя ('reward_type'), его трогать не нужно.
-    #    Мой предыдущий совет переименовать его в 'reward_action_type' был неверным.
+    # 3. Если тип награды "none", принудительно ставим 0
+    if supabase_payload.get('reward_type') == 'none':
+         definitive_amount = 0
 
-    # 4. Переименовываем 'reward_amount' -> 'promocode_amount'
-    #    и удаляем 'reward_amount', так как его нет в таблице.
-    if 'reward_amount' in supabase_payload:
-        # Ваш JS-код (с моим исправлением) отправляет оба поля,
-        # но мы гарантируем, что 'promocode_amount' получит значение,
-        # а 'reward_amount' будет удалено.
-        supabase_payload['promocode_amount'] = supabase_payload.pop('reward_amount')
-
-    # 5. Проверяем not null для 'promocode_amount'
-    #    (На случай, если JS прислал null, а в базе 'not null default 10')
-    if 'promocode_amount' not in supabase_payload or supabase_payload['promocode_amount'] is None:
-        logging.warning("promocode_amount is None, устанавливаем default 10")
-        supabase_payload['promocode_amount'] = 10 # Устанавливаем default
-
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+    # 4. Устанавливаем ОБЕ колонки в базе данных на это значение
+    supabase_payload['reward_amount'] = definitive_amount
+    supabase_payload['promocode_amount'] = definitive_amount
+    
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ (v4) ---
 
     if not supabase_payload:
         raise HTTPException(status_code=400, detail="Нет полей для обновления")
