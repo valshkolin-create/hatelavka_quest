@@ -3582,6 +3582,8 @@ if (dom.weeklyGoalsList) {
                 const purchaseId = issuePromoBtn.dataset.purchaseId;
                 if (!purchaseId) return;
 
+                
+
                 // --- 👇👇👇 ВОТ ИЗМЕНЕНИЕ: ДОБАВЛЕНО ПОДТВЕРЖДЕНИЕ 👇👇👇 ---
                 tg.showConfirm('Вы уверены, что хотите выдать эту награду?', async (ok) => {
                     if (!ok) return; // Пользователь нажал "Отмена"
@@ -3624,6 +3626,52 @@ if (dom.weeklyGoalsList) {
                 return; // Важно, чтобы не сработали другие обработчики
             }
             // --- КОНЕЦ НОВОГО КОДА ---
+
+            // --- ↓↓↓ ВСТАВЬ НОВЫЙ БЛОК СЮДА ↓↓↓ ---
+        // --- НАЧАЛО НОВОГО КОДА: Обработчик кнопки "Выдать билеты" ---
+        const issueTicketsBtn = target.closest('.issue-tickets-btn');
+        if (issueTicketsBtn) {
+            const purchaseId = issueTicketsBtn.dataset.purchaseId;
+            const amount = issueTicketsBtn.dataset.amount || 0;
+            if (!purchaseId) return;
+
+            // 1. Спрашиваем подтверждение
+            tg.showConfirm(`Вы уверены, что хотите выдать ${amount} 🎟️ билетов?`, async (ok) => {
+                if (!ok) return; // Пользователь нажал "Отмена"
+
+                issueTicketsBtn.disabled = true;
+                issueTicketsBtn.innerHTML = '<i>Выдача...</i>';
+                let hasError = false;
+
+                try {
+                    // 2. Вызываем НОВЫЙ эндпоинт
+                    const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_tickets', {
+                        purchase_id: parseInt(purchaseId)
+                    });
+
+                    tg.showAlert(result.message); // Показываем "Награда (X билетов) успешно отправлена"
+
+                    // 3. Удаляем карточку из модалки
+                    const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                    if (itemDiv) itemDiv.remove();
+
+                    // 4. Обновляем бейдж
+                    updateTwitchBadgeCount();
+
+                } catch (e) {
+                    hasError = true;
+                    console.error('Ошибка при выдаче билетов:', e);
+                    tg.showAlert(`Ошибка: ${e.message}`);
+                } finally {
+                    // Возвращаем кнопку, только если была ошибка
+                    if (hasError && document.getElementById(`purchase-item-${purchaseId}`)) {
+                        issueTicketsBtn.disabled = false;
+                        issueTicketsBtn.innerHTML = `Выдать ${amount} 🎟️`;
+                    }
+                }
+            });
+
+            return; // Важно, чтобы не сработали другие обработчики
             
             const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
             if (checkBtn) {
