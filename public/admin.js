@@ -1554,14 +1554,15 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         const viewedPurchases = new Set(JSON.parse(localStorage.getItem('viewed_purchases') || '[]'));
 
         try {
-            // --- НАЧАЛО ИЗМЕНЕНИЯ (Логика №1 - v2) ---
-            // Определяем тип награды и количество
-            const rewardType = (reward_settings && reward_settings.reward_type) ? reward_settings.reward_type : 'promocode';
+        // [НАЧАЛО ИСПРАВЛЕНИЯ]
+        // 1. СНАЧАЛА получаем данные
+        const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
+        let { purchases, reward_settings } = data;
 
-            // (Используем reward_amount, если оно есть, иначе promocode_amount)
-            const rewardAmount = reward_settings.reward_amount ?? (reward_settings.promocode_amount ?? 0);
-
-            // --- КОНЕЦ ИЗМЕНЕНИЯ (Логика №1 - v2) ---
+        // 2. ТЕПЕРЬ используем reward_settings (вместо "Логика №1 - v2")
+        const rewardType = (reward_settings && reward_settings.reward_type) ? reward_settings.reward_type : 'promocode';
+        const rewardAmount = reward_settings.reward_amount ?? (reward_settings.promocode_amount ?? 0);
+        // [КОНЕЦ ИСПРАВЛЕНИЯ]
 
             if (!purchases || purchases.length === 0) {
                 body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
