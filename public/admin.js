@@ -141,8 +141,13 @@ try {
         // (v3) Модальное окно "Выборщика"
         weeklyGoalEntitySelectModal: document.getElementById('weekly-goal-entity-select-modal'),
         weeklyGoalEntitySelectTitle: document.getElementById('weekly-goal-entity-select-title'),
-        weeklyGoalEntitySelectList: document.getElementById('weekly-goal-entity-select-list')
+        weeklyGoalEntitySelectList: document.getElementById('weekly-goal-entity-select-list'),
         // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+        // --- 🔽 НОВЫЙ КОД 🔽 ---
+        adminResetUserWeeklyProgressForm: document.getElementById('admin-reset-user-weekly-progress-form'),
+        adminResetUserWeeklyProgressUserName: document.getElementById('admin-reset-user-weekly-progress-user-name'),
+        adminResetUserWeeklyProgressSearchBtn: document.getElementById('admin-reset-user-weekly-progress-search-btn')
+        // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
         
     };
 
@@ -582,7 +587,8 @@ const showLoader = () => {
                     [
                         dom.grantCheckpointStarsForm, dom.grantTicketsForm,
                         dom.freezeCheckpointStarsForm, dom.freezeTicketsForm,
-                        dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm
+                        dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm,
+                        dom.adminResetUserWeeklyProgressForm // <-- 🔽 ДОБАВЬТЕ ЭТУ СТРОКУ 🔽
                     ].forEach(form => form?.classList.add('hidden'));
                     selectedAdminUser = null; // Сбрасываем выбранного юзера
                     
@@ -2669,7 +2675,52 @@ if (dom.weeklyGoalsList) {
                 }
             });
         }
-        
+        // --- 🔽 НОВЫЙ КОД ДЛЯ СБРОСА ПРОГРЕССА 1 ЮЗЕРА 🔽 ---
+    if (dom.adminResetUserWeeklyProgressSearchBtn) {
+        // 1. Клик по кнопке "Найти пользователя"
+        dom.adminResetUserWeeklyProgressSearchBtn.addEventListener('click', () => {
+            dom.adminResetUserWeeklyProgressForm.classList.add('hidden'); // Прячем форму
+            openAdminUserSearchModal('Сбросить "Забег" для...', (user) => {
+                // Коллбэк после выбора пользователя
+                dom.adminResetUserWeeklyProgressForm.elements['user_id_to_reset_weekly'].value = user.id;
+                dom.adminResetUserWeeklyProgressUserName.textContent = `${user.name} (ID: ${user.id})`;
+                dom.adminResetUserWeeklyProgressForm.classList.remove('hidden'); // Показываем форму
+            });
+        });
+    }
+
+    if (dom.adminResetUserWeeklyProgressForm) {
+        // 2. Отправка самой формы (после выбора пользователя)
+        dom.adminResetUserWeeklyProgressForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const userId = parseInt(form.elements['user_id_to_reset_weekly'].value);
+            const userName = dom.adminResetUserWeeklyProgressUserName.textContent;
+
+            if (!userId) {
+                tg.showAlert('Пользователь не выбран.');
+                return;
+            }
+
+            tg.showConfirm(`Точно сбросить ВЕСЬ прогресс "Забега" для ${userName}?`, async (ok) => {
+                if (ok) {
+                    try {
+                        // Вызываем новый эндпоинт, который мы создадим в Python
+                        const result = await makeApiRequest('/api/v1/admin/weekly_goals/clear_user_progress', {
+                            user_id_to_clear: userId
+                        });
+                        tg.showAlert(result.message);
+                        form.reset();
+                        form.classList.add('hidden');
+                        selectedAdminUser = null; // Сброс
+                    } catch (err) {
+                        tg.showAlert(`Ошибка: ${err.message}`);
+                    }
+                }
+            });
+        });
+    }
+    // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
         // --- 👇👇👇 ВОТ НОВЫЙ БЛОК (Логика №3) 👇👇👇 ---
         // Динамически прячем поле "Количество" при выборе
         const rewardTypeSelect = document.getElementById('reward-type-select');
