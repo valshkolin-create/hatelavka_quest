@@ -1215,6 +1215,8 @@ async def handle_twitch_webhook(
                 
                 # 3.4. Определяем тип награды
                 reward_type = reward_settings.get("reward_type", "promocode")
+                # Используем новое поле amount, если оно есть, иначе старое
+                reward_amount = reward_settings.get("reward_amount") if reward_settings.get("reward_amount") is not None else reward_settings.get("promocode_amount", 10)
                 # [НАЧАЛО ЗАМЕНЫ]
                 # 3.5. Мы убрали автоматическую выдачу билетов.
                 # Все типы (promocode, tickets, none) теперь идут в ручную обработку.
