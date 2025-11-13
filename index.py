@@ -709,19 +709,22 @@ async def track_message(message: types.Message, supabase: httpx.AsyncClient = De
         # Этот блок должен быть на том же уровне, что и 'try'
         logging.error(f"Ошибка в handle_user_message для user_id={user.id}: {e}", exc_info=True)
 
-async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings:
-    """Вспомогательная функция для получения настроек админки (с кэшированием)."""
+async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
+    """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
     now = time.time()
     # Проверяем, есть ли валидный кэш
     if admin_settings_cache["settings"] and (now - admin_settings_cache["last_checked"] < ADMIN_SETTINGS_CACHE_DURATION):
-        # logging.info("⚙️ Используем кэшированные настройки админа.") # Раскомментируй для отладки
+        # logging.info("⚙️ Используем кэшированные настройки админа (глобальный).") # Раскомментируй для отладки
         return admin_settings_cache["settings"]
 
-    logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД...")
+    logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД (глобальный клиент)...")
     try:
-        resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
-        resp.raise_for_status()
-        data = resp.json()
+        # --- ИЗМЕНЕНИЕ: Используем глобальный клиент supabase и новый синтаксис ---
+        response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
+        # execute() вызывается без await
+
+        data = response.data # Данные теперь в response.data
+
         if data and data[0].get('value'):
             settings_data = data[0]['value']
             # --- Логика парсинга boolean значений (остается без изменений) ---
@@ -752,49 +755,48 @@ async def get_admin_settings_async(supabase: httpx.AsyncClient) -> AdminSettings
                 checkpoint_enabled=checkpoint_bool,
                 menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png"),
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/9046s7W0/cekpoint.png"),
-                auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
-                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), # <-- ДОБАВЛЕНО
-                weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), # <-- 🔽 ДОБАВИТЬ
+                auction_enabled=settings_data.get('auction_enabled', False), 
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), 
+                weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), 
                 weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
             )
 
             # Сохраняем в кэш
             admin_settings_cache["settings"] = loaded_settings
             admin_settings_cache["last_checked"] = now
-            logging.info("✅ Настройки админа загружены и закэшированы.")
+            logging.info("✅ Настройки админа загружены и закэшированы (глобальный).")
             return loaded_settings
         else:
-            logging.warning("Настройки 'admin_controls' не найдены в БД, используем дефолтные и кэшируем их.")
-            # Если в базе нет, кэшируем дефолтные, чтобы не запрашивать постоянно
+            logging.warning("Настройки 'admin_controls' не найдены в БД (глобальный), используем дефолтные и кэшируем их.")
+            # Если в базе нет, кэшируем дефолтные
             default_settings = AdminSettings()
             admin_settings_cache["settings"] = default_settings
             admin_settings_cache["last_checked"] = now
             return default_settings
 
     except Exception as e:
-        logging.error(f"Не удалось получить admin_settings, используются значения по умолчанию: {e}")
-        # Возвращаем дефолтные настройки и НЕ кэшируем при ошибке, чтобы попробовать снова позже
-        admin_settings_cache["settings"] = None # Сбрасываем кэш при ошибке
+        logging.error(f"Не удалось получить admin_settings (глобальный клиент): {e}", exc_info=True)
+        # Возвращаем дефолтные настройки и НЕ кэшируем при ошибке
+        admin_settings_cache["settings"] = None
         admin_settings_cache["last_checked"] = 0
         return AdminSettings()
-# --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ---
-async def get_ticket_reward_amount(action_type: str, supabase: httpx.AsyncClient) -> int:
-    """Получает количество билетов для награды из таблицы reward_rules."""
+
+
+async def get_ticket_reward_amount_global(action_type: str) -> int:
+    """(Глобальная) Получает количество билетов для награды из таблицы reward_rules."""
     try:
-        resp = await supabase.get(
-            "/reward_rules",
-            params={"action_type": f"eq.{action_type}", "select": "ticket_amount", "limit": 1}
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ 'supabase'
+        resp = supabase.table("reward_rules").select("ticket_amount").eq("action_type", action_type).limit(1).execute()
+        
+        data = resp.data # Используем .data
         if data and 'ticket_amount' in data[0]:
             return data[0]['ticket_amount']
         
-        logging.warning(f"Правило награды для '{action_type}' не найдено в таблице reward_rules. Используется значение по умолчанию: 1.")
+        logging.warning(f"(Global) Правило награды для '{action_type}' не найдено в таблице reward_rules. Используется значение по умолчанию: 1.")
         return 1
         
     except Exception as e:
-        logging.error(f"Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
+        logging.error(f"(Global) Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
         return 1
 
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
