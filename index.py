@@ -3310,27 +3310,29 @@ async def create_twitch_reward_purchase(
 @app.get("/api/v1/admin/twitch_rewards/{reward_id}/purchases")
 async def get_twitch_reward_purchases(
     reward_id: int,
-    # Мы не можем безопасно проверить админа здесь,
-    # так как JS не шлет initData в GET-запросе,
-    # но эндпоинт защищен знанием reward_id.
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    (ИСПРАВЛЕНО) Получает покупки И настройки, чтобы фронтенд мог скрыть кнопку.
+    (ИСПРАВЛЕНО v2) Получает покупки И принудительно обновляет настройки.
     """
     try:
-        # 1. (БЫЛО) Вызываем RPC для получения списка покупок
-        # (Мы предполагаем, что эта RPC возвращает ТОЛЬКО список покупок)
+        # 1. (КАК РАНЬШЕ) Вызываем RPC, которая возвращает {"purchases": [...], "reward_settings": {...}}
         purchases_response = await supabase.post(
             "/rpc/get_twitch_reward_purchases_for_admin",
             json={"p_reward_id": reward_id}
         )
         purchases_response.raise_for_status()
         
-        # RPC должна возвращать список [...]
-        purchases_list = purchases_response.json()
+        # rpc_data - это {"purchases": [...], "reward_settings": {...}}
+        rpc_data = purchases_response.json()
+        
+        # (Новая проверка) Если RPC вернула массив, а не объект (на всякий случай)
+        if isinstance(rpc_data, list):
+             logging.warning("RPC (get_twitch_reward_purchases_for_admin) вернула массив, а не объект.")
+             # Создаем объект, который ожидает JS
+             rpc_data = {"purchases": rpc_data, "reward_settings": {}}
 
-        # 2. (НОВОЕ) Явно запрашиваем настройки самой награды
+        # 2. (КАК В ПРОШЛОМ ФИКСЕ) Снова запрашиваем настройки
         reward_settings_response = await supabase.get(
             "/twitch_rewards",
             params={"id": f"eq.{reward_id}", "select": "*", "limit": 1}
@@ -3340,23 +3342,25 @@ async def get_twitch_reward_purchases(
         reward_settings_data = reward_settings_response.json()
         if not reward_settings_data:
             raise HTTPException(status_code=404, detail="Настройки для этой награды не найдены.")
-
-        # 3. (НОВОЕ) Собираем тот самый JSON, который ожидает фронтенд admin (5).js
-        final_response = {
-            "purchases": purchases_list,
-            "reward_settings": reward_settings_data[0] # [0], так как limit=1
-        }
         
-        # Возвращаем объект { purchases: [...], reward_settings: {...} }
-        return final_response
+        # 3. (НОВЫЙ ФИКС) Принудительно заменяем настройки в rpc_data
+        # Мы берем свежие, полные настройки (fresh_settings)
+        fresh_settings = reward_settings_data[0]
+        # ...и заменяем ими те настройки, что вернула RPC.
+        rpc_data["reward_settings"] = fresh_settings
+        
+        # 4. Возвращаем исправленный объект {"purchases": [...], "reward_settings": {... (свежие)} }
+        return rpc_data
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка базы данных")
-        logging.error(f"HTTP-ошибка при получении покупок (v2): {error_details}")
+        logging.error(f"HTTP-ошибка при получении покупок (v2 fix): {error_details}")
         raise HTTPException(status_code=500, detail=f"Не удалось загрузить покупки: {error_details}")
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении покупок (v2): {e}", exc_info=True)
+        logging.error(f"Критическая ошибка при получении покупок (v2 fix): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
+
+# 🔼🔼🔼 КОНЕЦ БЛОКА ДЛЯ ЗАМЕНЫ 🔼🔼🔼
         
 # --- КОНЕЦ НОВОЙ ВСПОМОГАТЕЛЬНОЙ ФУНКЦИИ ---
         
