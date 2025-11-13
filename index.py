@@ -1214,61 +1214,24 @@ async def handle_twitch_webhook(
                 # Используем новое поле amount, если оно есть, иначе старое
                 reward_amount = reward_settings.get("reward_amount") if reward_settings.get("reward_amount") is not None else reward_settings.get("promocode_amount", 10)
 
-                # 3.5. Выполняем действие в зависимости от типа награды
-                if reward_type == "tickets" and telegram_id:
-                    # --- АВТОМАТИЧЕСКАЯ ВЫДАЧА БИЛЕТОВ ---
-                    try:
-                        await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": reward_amount})
-                        logging.info(f"✅ Пользователю {telegram_id} ({twitch_login}) АВТОМАТИЧЕСКИ начислено {reward_amount} билетов.")
-                        
-                        # Создаем лог покупки (сразу как "выданный")
-                        await supabase.post("/twitch_reward_purchases", json={
-                            "reward_id": reward_settings["id"], "user_id": telegram_id,
-                            "username": user_display_name, "twitch_login": twitch_login,
-                            "trade_link": user_record.get("trade_link"), "status": user_status,
-                            "user_input": user_input,
-                            "rewarded_at": datetime.now(timezone.utc).isoformat(), # Сразу помечаем выданным
-                            "viewed_by_admin": True # Сразу помечаем просмотренным
-                        })
-                        # --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
-                        try:
-                            logging.info(f"--- [Webhook] Запуск триггера 'Забега' для user: {telegram_id}, task: 'twitch_purchase', entity_id: {reward_settings['id']} ---")
-                            await supabase.post(
-                                "/rpc/increment_weekly_goal_progress",
-                                json={
-                                    "p_user_id": telegram_id,
-                                    "p_task_type": "twitch_purchase",
-                                    "p_entity_id": reward_settings["id"] # ID награды Twitch
-                                }
-                            )
-                        except Exception as trigger_e:
-                            logging.error(f"--- [Webhook] ОШИБКА триггера 'Забега' (tickets): {trigger_e} ---", exc_info=True)
-                        # --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+                # --- РУЧНАЯ ВЫДАЧА (Промокод, Билеты или 'только лог') ---
 
-                        if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
-                            notification_text = (
-                                f"🎟️ <b>Авто-награда Twitch!</b>\n\n"
-                                f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
-                                f"<b>Награда:</b> «{html_decoration.quote(reward_title)}»\n"
-                                f"✅ <b>Автоматически начислено: {reward_amount} билетов.</b>"
-                            )
-                            background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
-                        
-                        return {"status": "ok", "detail": "Билеты начислены."}
+            # 3.6. (Мы УБРАЛИ 'if reward_type == "none": return', чтобы 'none' тоже логировался)
 
-                    except Exception as e:
-                        logging.error(f"❌ Не удалось начислить билеты за Twitch награду пользователю {telegram_id}: {e}")
-                        # Проваливаемся в "ручной режим" (промокод), если выдача билетов не удалась
-                        pass
-                
-                # --- РУЧНАЯ ВЫДАЧА (Промокод или Билеты для не-авторизованного) ---
+            # 3.7. Создаем лог для 'promocode', 'tickets' или 'none'
+            log_message = ""
+            if reward_type == "promocode":
                 log_message = "Создан лог на выдачу ПРОМОКОДА."
-                if reward_type == "tickets":
-                     log_message = f"Создан лог на РУЧНУЮ выдачу {reward_amount} билетов (пользователь не привязан)."
+            elif reward_type == "tickets":
+                log_message = f"Создан лог на РУЧНУЮ выдачу {reward_amount} билетов."
+            elif reward_type == "none":
+                # Лог 'Только лог' (тип 'none') ТЕПЕРЬ СОЗДАЕТСЯ
+                log_message = f"Создан лог 'Только лог' (тип 'none'). Награда: {reward_settings.get('title')}"
 
-                logging.info(log_message)
+            logging.info(log_message)
 
-                await supabase.post("/twitch_reward_purchases", json={
+            # Этот 'await' теперь выполняется для ВСЕХ типов, включая 'none'
+            await supabase.post("/twitch_reward_purchases", json={
                     "reward_id": reward_settings["id"], "user_id": telegram_id,
                     "username": user_display_name, "twitch_login": twitch_login,
                     "trade_link": user_record.get("trade_link"), "status": user_status,
