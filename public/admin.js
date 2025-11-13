@@ -143,6 +143,7 @@ try {
         weeklyGoalEntitySelectTitle: document.getElementById('weekly-goal-entity-select-title'),
         weeklyGoalEntitySelectList: document.getElementById('weekly-goal-entity-select-list'),
         // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+        adminClearAllWeeklyProgressBtn: document.getElementById('admin-clear-all-weekly-progress-btn'),
         // --- 🔽 НОВЫЙ КОД 🔽 ---
         adminResetUserWeeklyProgressForm: document.getElementById('admin-reset-user-weekly-progress-form'),
         adminResetUserWeeklyProgressUserName: document.getElementById('admin-reset-user-weekly-progress-user-name'),
@@ -2721,6 +2722,28 @@ if (dom.weeklyGoalsList) {
         });
     }
     // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
+        // --- 🔽🔽🔽 ВСТАВЬ НЕДОСТАЮЩИЙ БЛОК СЮДА 🔽🔽🔽 ---
+    if (dom.adminClearAllWeeklyProgressBtn) {
+        dom.adminClearAllWeeklyProgressBtn.addEventListener('click', () => {
+            tg.showConfirm('ВНИМАНИЕ! Это действие необратимо. Вы уверены, что хотите УДАЛИТЬ ВЕСЬ ПРОГРЕСС "Забега" для ВСЕХ пользователей? (Таблица user_weekly_progress будет очищена)', async (ok) => {
+                if (ok) {
+                    try {
+                        // Вызываем эндпоинт, который УЖЕ ЕСТЬ в index (3).py
+                        const result = await makeApiRequest('/api/v1/admin/weekly_goals/clear_all_progress');
+                        tg.showAlert(result.message);
+                        
+                        // Попробуем обновить данные на лету, если мы на той же странице
+                        if(document.getElementById('view-admin-weekly-goals').classList.contains('hidden') === false) {
+                           await loadWeeklyGoalsData(); 
+                        }
+                    } catch (err) {
+                        tg.showAlert(`Ошибка очистки: ${err.message}`);
+                    }
+                }
+            });
+        });
+    }
+    // --- 🔼🔼🔼 КОНЕЦ НОВОГО БЛОКА 🔼🔼🔼 ---
         // --- 👇👇👇 ВОТ НОВЫЙ БЛОК (Логика №3) 👇👇👇 ---
         // Динамически прячем поле "Количество" при выборе
         const rewardTypeSelect = document.getElementById('reward-type-select');
