@@ -4684,7 +4684,7 @@ async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: 
     telegram_id = user_info["id"]
 
     # --- Проверка настроек админа ---
-    admin_settings = await get_admin_settings_async(supabase)
+    admin_settings = await get_admin_settings_async_global() # <-- ИСПРАВЛЕНО
     if not admin_settings.challenges_enabled:
         return JSONResponse(
             status_code=403,
