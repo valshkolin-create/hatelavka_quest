@@ -6121,6 +6121,55 @@ async def delete_weekly_goal(
         logging.error(f"Ошибка в delete_weekly_goal: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось удалить задачу.")
 
+# --- 🔽🔽🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ ЭНДПОИНТ 🔽🔽🔽 ---
+@app.post("/api/v1/admin/weekly_goals/clear_all_progress")
+async def clear_all_weekly_progress(
+    request_data: InitDataRequest, # Используем существующую модель
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) ВНИМАНИЕ: Удаляет ВЕСЬ прогресс "Забега" для ВСЕХ пользователей."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Вызываем RPC, которую мы создадим на Шаге 4
+        await supabase.post("/rpc/admin_clear_all_weekly_progress", json={})
+        return {"message": "Весь прогресс 'Недельного Забега' был успешно сброшен."}
+    except Exception as e:
+        logging.error(f"Ошибка в clear_all_weekly_progress: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось очистить прогресс.")
+# --- 🔼🔼🔼 КОНЕЦ НОВОГО ЭНДПОИНТА 🔼🔼🔼 ---
+
+# --- 🔽🔽🔽 ВСТАВЬТЕ НОВЫЙ ЭНДПОИНТ СЮДА 🔽🔽🔽 ---
+class AdminClearUserWeeklyProgressRequest(BaseModel):
+    initData: str
+    user_id_to_clear: int
+
+@app.post("/api/v1/admin/weekly_goals/clear_user_progress")
+async def clear_user_weekly_progress(
+    request_data: AdminClearUserWeeklyProgressRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Удаляет ВЕСЬ прогресс "Забега" для ОДНОГО пользователя."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    user_id_to_clear = request_data.user_id_to_clear
+
+    try:
+        # Вызываем RPC, которую мы создадим на Шаге 4
+        await supabase.post(
+            "/rpc/admin_clear_user_weekly_progress", 
+            json={"p_user_id": user_id_to_clear}
+        )
+        return {"message": f"Прогресс 'Забега' для пользователя {user_id_to_clear} был успешно сброшен."}
+    except Exception as e:
+        logging.error(f"Ошибка в clear_user_weekly_progress (user: {user_id_to_clear}): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось очистить прогресс пользователя.")
+# --- 🔼🔼🔼 КОНЕЦ НОВОГО ЭНДПОИНТА 🔼🔼🔼 ---
+
 @app.post("/api/v1/admin/users/grant-checkpoint-stars")
 async def grant_checkpoint_stars_to_user(
     request_data: AdminGrantCheckpointStarsRequest,
