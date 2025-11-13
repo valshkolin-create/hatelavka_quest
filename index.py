@@ -325,6 +325,10 @@ class TwitchRewardIssueRequest(BaseModel):
     initData: str
     purchase_id: int
 
+class TwitchRewardIssueTicketsRequest(BaseModel):
+    initData: str
+    purchase_id: int
+
 class TwitchRewardDeleteRequest(BaseModel):
     initData: str
     reward_id: int
@@ -1211,34 +1215,31 @@ async def handle_twitch_webhook(
                 
                 # 3.4. Определяем тип награды
                 reward_type = reward_settings.get("reward_type", "promocode")
-                # Используем новое поле amount, если оно есть, иначе старое
-                reward_amount = reward_settings.get("reward_amount") if reward_settings.get("reward_amount") is not None else reward_settings.get("promocode_amount", 10)
+                # [НАЧАЛО ЗАМЕНЫ]
+                # 3.5. Мы убрали автоматическую выдачу билетов.
+                # Все типы (promocode, tickets, none) теперь идут в ручную обработку.
 
-                # --- РУЧНАЯ ВЫДАЧА (Промокод, Билеты или 'только лог') ---
+                # 3.6. Создаем лог для 'promocode', 'tickets' или 'none'
+                log_message = ""
+                if reward_type == "promocode":
+                    log_message = "Создан лог на выдачу ПРОМОКОДА."
+                elif reward_type == "tickets":
+                    log_message = f"Создан лог на РУЧНУЮ выдачу {reward_amount} билетов."
+                elif reward_type == "none":
+                    log_message = f"Создан лог 'Только лог' (тип 'none'). Награда: {reward_settings.get('title')}"
 
-            # 3.6. (Мы УБРАЛИ 'if reward_type == "none": return', чтобы 'none' тоже логировался)
+                logging.info(log_message)
 
-            # 3.7. Создаем лог для 'promocode', 'tickets' или 'none'
-            log_message = ""
-            if reward_type == "promocode":
-                log_message = "Создан лог на выдачу ПРОМОКОДА."
-            elif reward_type == "tickets":
-                log_message = f"Создан лог на РУЧНУЮ выдачу {reward_amount} билетов."
-            elif reward_type == "none":
-                # Лог 'Только лог' (тип 'none') ТЕПЕРЬ СОЗДАЕТСЯ
-                log_message = f"Создан лог 'Только лог' (тип 'none'). Награда: {reward_settings.get('title')}"
-
-            logging.info(log_message)
-
-            # Этот 'await' теперь выполняется для ВСЕХ типов, включая 'none'
-            await supabase.post("/twitch_reward_purchases", json={
+                # 3.7. Этот 'await' теперь выполняется для ВСЕХ типов, включая 'none'
+                await supabase.post("/twitch_reward_purchases", json={
                     "reward_id": reward_settings["id"], "user_id": telegram_id,
                     "username": user_display_name, "twitch_login": twitch_login,
                     "trade_link": user_record.get("trade_link"), "status": user_status,
                     "user_input": user_input,
                     "viewed_by_admin": False # <-- ВАЖНО: Новая заявка
                 })
-                # --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
+                
+                # 3.8. Вызываем триггер "Забега" (он был в обоих блоках, мы его объединили)
                 if telegram_id: # Только если пользователь привязан
                     try:
                         logging.info(f"--- [Webhook] Запуск триггера 'Забега' для user: {telegram_id}, task: 'twitch_purchase', entity_id: {reward_settings['id']} ---")
@@ -1251,10 +1252,30 @@ async def handle_twitch_webhook(
                             }
                         )
                     except Exception as trigger_e:
-                        logging.error(f"--- [Webhook] ОШИБКА триггера 'Забега' (promocode): {trigger_e} ---", exc_info=True)
-                # --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+                        logging.error(f"--- [Webhook] ОШИБКА триггера 'Забега' (Тип: {reward_type}): {trigger_e} ---", exc_info=True)
                 
+                # 3.9. Отправляем уведомление админу (объединенная логика)
+                if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
+                    notification_text = (
+                        f"🔔 <b>Новая заявка Twitch!</b>\n\n"
+                        f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
+                        f"<b>Награда:</b> «{html_decoration.quote(reward_title)}»\n"
+                        f"<b>Статус:</b> {user_status}"
+                    )
+                    # Кастомизируем сообщение в зависимости от типа
+                    if reward_type == "tickets":
+                        notification_text += f"\n<b>Запрос на:</b> {reward_amount} билетов (ручная выдача)"
+                    elif reward_type == "promocode":
+                        notification_text += f"\n<b>Запрос на:</b> Промокод ({reward_amount} звёзд)"
+                    elif reward_type == "none":
+                        notification_text += f"\n<b>Тип:</b> Только лог (выдача не требуется)"
 
+                    if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
+                    notification_text += "\n\nЗаявка ждет в админ-панели 'TWITCH награды'."
+                    background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
+
+                return {"status": "ok", "detail": "Заявка на награду создана."}
+                # [КОНЕЦ ЗАМЕНЫ]
                 if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
                     notification_text = (
                         f"🔔 <b>Новая заявка Twitch!</b>\n\n"
@@ -6962,6 +6983,63 @@ async def issue_twitch_reward_promocode(
         raise HTTPException(status_code=400, detail=error_details)
     except Exception as e:
         logging.error(f"Ошибка при выдаче промокода за Twitch награду: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось выдать награду.")
+
+@app.post("/api/v1/admin/twitch_rewards/issue_tickets")
+async def issue_twitch_reward_tickets(
+    request_data: TwitchRewardIssueTicketsRequest,
+    background_tasks: BackgroundTasks,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Вручную выдает БИЛЕТЫ за покупку на Twitch."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    purchase_id = request_data.purchase_id
+
+    try:
+        # 1. Вызываем RPC-функцию, которая делает всю работу
+        #    (начисляет билеты, помечает заявку, возвращает данные)
+        rpc_response = await supabase.post(
+            "/rpc/issue_tickets_for_twitch_purchase",
+            json={"p_purchase_id": purchase_id}
+        )
+        rpc_response.raise_for_status()
+
+        result = rpc_response.json()
+
+        # Проверяем, что RPC-функция вернула данные (она должна вернуть массив)
+        if not result:
+            raise HTTPException(status_code=404, detail="Не удалось обработать заявку. Данные не найдены.")
+
+        reward_data = result[0]
+        user_id_to_notify = reward_data.get("user_id")
+        reward_amount = reward_data.get("reward_amount")
+        reward_title = reward_data.get("reward_title")
+
+        if not all([user_id_to_notify, reward_title]) or reward_amount is None:
+            raise HTTPException(status_code=404, detail="Не удалось получить все данные для отправки уведомления.")
+
+        # 2. Отправляем уведомление пользователю в фоне
+        notification_text = (
+            f"<b>🎉 Ваша награда за «{html_decoration.quote(reward_title)}»!</b>\n\n"
+            f"Вам начислено: <b>{reward_amount} билетов</b> 🎟️\n\n"
+            f"Награда уже на вашем балансе."
+        )
+
+        # (Мы не добавляем кнопку "Удалить", т.к. билеты не хранятся в списке пользователя)
+        keyboard = None
+
+        background_tasks.add_task(safe_send_message, user_id_to_notify, text=notification_text, reply_markup=keyboard)
+
+        return {"message": f"Награда ({reward_amount} билетов) успешно отправлена пользователю."}
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Ошибка базы данных.")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Ошибка при выдаче билетов за Twitch награду: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выдать награду.")
 
 # 2. ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ send_approval_notification НА ЭТУ:
