@@ -769,3 +769,9 @@ CSS
     display: block;
 }
 /* --- КОНЕЦ СТИЛЕЙ "НЕДЕЛЬНОГО ЗАБЕГА" --- */
+/* --- Стили для кнопки "Выдать билеты" --- */
+.purchase-actions .issue-tickets-btn {
+  background-color: var(--action-color); /* Синий цвет */
+  font-size: 13px;
+  padding: 8px;
+}
