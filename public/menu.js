@@ -842,15 +842,26 @@ function renderChallenge(challengeData, isGuest) {
         // 2. Пользователь - админ (видит, даже если выключено)
         const shouldShow = data && data.system_enabled;
         
+        // --- 🔽🔽🔽 НАЧАЛО ИСПРАВЛЕНИЯ 🔽🔽🔽 ---
+        
+        // Находим сам <details> (аккордеон)
+        const accordionElement = dom.weeklyGoalsAccordion; 
+        if (!accordionElement) {
+            console.error("renderWeeklyGoals: Элемент <details> 'weekly-goals-accordion' не найден!");
+            return; 
+        }
+
         // Если нет данных ИЛИ (система выключена И пользователь НЕ админ) ИЛИ нет задач
         if (!data || (!shouldShow && !isAdmin) || !data.goals || data.goals.length === 0) {
-            container.innerHTML = '';
-            container.classList.add('hidden');
+            container.innerHTML = ''; // Очищаем содержимое
+            accordionElement.classList.add('hidden'); // ПРЯЧЕМ ВЕСЬ АККОРДЕОН
             return;
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         
-        container.classList.remove('hidden');
+        // Если мы дошли сюда, мы должны ПОКАЗАТЬ аккордеон
+        accordionElement.classList.remove('hidden'); // ПОКАЗЫВАЕМ ВЕСЬ АККОРДЕОН
+        
+        // --- 🔼🔼🔼 КОНЕЦ ИСПРАВЛЕНИЯ 🔼🔼🔼 ---
         
         // 1. Рендерим Задачи
         const goalsHtml = data.goals.map(goal => {
@@ -980,7 +991,6 @@ function renderChallenge(challengeData, isGuest) {
             </div>
         `;
     }
-    // --- 🔼 КОНЕЦ НОВОЙ ФУНКЦИИ 🔼 ---
     
     async function refreshDataSilently() {
         try {
