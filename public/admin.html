@@ -338,22 +338,6 @@
              <div class="quest-card" style="margin-top: 20px;">
                 <div class="settings-group">
                     <h3>Опасно</h3>
-                  <div class="admin-form" style="padding-bottom: 15px; border-bottom: 1px solid var(--divider-glass-color);">
-                        <label>Сбросить прогресс "Забега" для 1 пользователя</label>
-                        <p style="font-size: 12px; color: var(--text-color-muted); margin: -10px 0 10px;">
-                            Удаляет прогресс (0/0) только для выбранного пользователя.
-                        </p>
-                        <form id="admin-reset-user-weekly-progress-form" class="hidden admin-sub-form" style="padding-top: 0; margin-top: 0; border-top: none;">
-                            <p>Для: <strong id="admin-reset-user-weekly-progress-user-name">...</strong></p>
-                            <input type="hidden" name="user_id_to_reset_weekly">
-                            <button type="submit" class="admin-action-btn reject" style="width: 100%;">
-                                Подтвердить сброс
-                            </button>
-                        </form>
-                        <button id="admin-reset-user-weekly-progress-search-btn" type="button" class="admin-menu-button">
-                            <i class="fa-solid fa-search"></i> Найти пользователя
-                        </button>
-                    </div>
                     <div class="admin-form" style="gap: 10px;">
                         <button id="reset-all-quests-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить квесты у всех</button>
                         <button id="reset-all-checkpoint-progress-btn" class="admin-action-btn reject" style="width: 100%;">Сбросить награды Чекпоинта у всех</button>
@@ -859,7 +843,39 @@
 
                     <button type="submit" class="admin-action-btn approve" style="margin-top: 10px;">Сохранить Настройки</button>
                 </form>
-            </div>
+            </div> 
+          <div class="quest-card" style="margin-top: 20px;">
+    <div class="user-management-section">
+        <h3 style="color: var(--danger-color);"><i class="fa-solid fa-broom"></i> Опасная зона</h3>
+
+        <div class="admin-form" style="padding-bottom: 15px; border-bottom: 1px solid var(--divider-glass-color);">
+            <label>Сбросить прогресс "Забега" для 1 пользователя</label>
+            <p style="font-size: 12px; color: var(--text-color-muted); margin: -10px 0 10px;">
+                Удаляет прогресс (0/0) только для выбранного пользователя.
+            </p>
+            <form id="admin-reset-user-weekly-progress-form" class="hidden admin-sub-form" style="padding-top: 0; margin-top: 0; border-top: none;">
+                <p>Для: <strong id="admin-reset-user-weekly-progress-user-name">...</strong></p>
+                <input type="hidden" name="user_id_to_reset_weekly">
+                <button type="submit" class="admin-action-btn reject" style="width: 100%;">
+                    Подтвердить сброс
+                </button>
+            </form>
+            <button id="admin-reset-user-weekly-progress-search-btn" type="button" class="admin-menu-button">
+                <i class="fa-solid fa-search"></i> Найти пользователя
+            </button>
+        </div>
+
+        <div class="admin-form" style="gap: 10px; margin-top: 15px;">
+            <label>Сбросить весь прогресс "Забега"</label>
+            <p style="font-size: 12px; color: var(--text-color-muted); margin: -10px 0 10px;">
+                Удаляет ВЕСЬ прогресс (таблицу `user_weekly_progress`) для ВСЕХ пользователей.
+            </p>
+            <button id="admin-clear-all-weekly-progress-btn" type="button" class="admin-action-btn reject" style="width: 100%;">
+                Очистить ВЕСЬ прогресс забега
+            </button>
+        </div>
+    </div>
+</div>
 
             <div class="quest-card" style="margin-top: 20px;">
                 <form id="weekly-goals-create-task-form" class="admin-form">
