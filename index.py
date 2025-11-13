@@ -3878,7 +3878,7 @@ async def claim_challenge(
     try:
         logging.info(f"🔹 Пользователь {current_user_id} запрашивает награду за челлендж {challenge_id}")
 
-        admin_settings = await get_admin_settings_async(supabase)
+        admin_settings = await get_admin_settings_async_global() # <-- ИСПРАВЛЕНО
 
         promocode_text = None # Переменная для промокода
         message = "" # Переменная для сообщения
