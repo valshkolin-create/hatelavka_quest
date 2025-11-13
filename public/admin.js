@@ -3672,6 +3672,7 @@ if (dom.weeklyGoalsList) {
             });
 
             return; // Важно, чтобы не сработали другие обработчики
+        }
             
             const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
             if (checkBtn) {
