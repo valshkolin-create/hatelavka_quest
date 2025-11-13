@@ -1669,7 +1669,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                         } else {
                             // 3. Тип 'none' (Только лог)
                             issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
-                                <i class="fa-solid fa-file-invoice"></i> Только лог (выдача не требуется)
+                                <i class="fa-solid fa-file-invoice"></i> Выдача монеток/билетов не требуется
                             </div>`;
                         }
                     
