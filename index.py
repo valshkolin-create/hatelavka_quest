@@ -6134,7 +6134,8 @@ async def clear_all_weekly_progress(
 
     try:
         # Вызываем RPC, которую мы создадим на Шаге 4
-        await supabase.post("/rpc/admin_clear_all_weekly_progress", json={})
+        response = await supabase.post("/rpc/admin_clear_all_weekly_progress", json={})
+        response.raise_for_status() # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
         return {"message": "Весь прогресс 'Недельного Забега' был успешно сброшен."}
     except Exception as e:
         logging.error(f"Ошибка в clear_all_weekly_progress: {e}", exc_info=True)
@@ -6160,10 +6161,11 @@ async def clear_user_weekly_progress(
 
     try:
         # Вызываем RPC, которую мы создадим на Шаге 4
-        await supabase.post(
+        response = await supabase.post(
             "/rpc/admin_clear_user_weekly_progress", 
             json={"p_user_id": user_id_to_clear}
         )
+        response.raise_for_status() # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
         return {"message": f"Прогресс 'Забега' для пользователя {user_id_to_clear} был успешно сброшен."}
     except Exception as e:
         logging.error(f"Ошибка в clear_user_weekly_progress (user: {user_id_to_clear}): {e}", exc_info=True)
