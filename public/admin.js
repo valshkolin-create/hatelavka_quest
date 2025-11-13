@@ -1623,48 +1623,64 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 const tradeLinkHtml = p.trade_link ? `<p>Трейд: <a href="${p.trade_link}" target="_blank" rel="noopener noreferrer" style="color: var(--action-color);">Открыть</a></p>` : '';
 
                 let actionButtonsHtml;
+
                 if (p.rewarded_at) {
+                    // --- БЛОК 1: Награда УЖЕ выдана ---
+                    // Показываем "Награда выдана" и кнопку удаления
                     actionButtonsHtml = `
                         <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
                         <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
-                let issueButtonHtml = '';
+                
+                } else {
+                    // --- БЛОК 2: Награда ЕЩЕ НЕ выдана ---
+                    // Логика показа кнопок "Выдать" или "Ожидает привязки"
+                    
+                    let issueButtonHtml = '';
 
-                    if (rewardType === 'tickets') {
-                        // 1. Кнопка "Выдать билеты" (синяя)
-                        issueButtonHtml = `<button 
-                            class="admin-action-btn issue-tickets-btn" 
-                            data-purchase-id="${p.id}" 
-                            data-amount="${rewardAmount}"
-                            ${isLocked ? 'disabled' : ''}>
-                            Выдать ${rewardAmount} 🎟️
-                        </button>`;
-                    } else if (rewardType === 'promocode') {
-                        // 2. Кнопка "Выдать промокод" (оранжевая)
-                        issueButtonHtml = `<button 
-                            class="admin-action-btn issue-promo-btn" 
-                            data-purchase-id="${p.id}" 
-                            data-amount="${rewardAmount}"
-                            ${isLocked ? 'disabled' : ''}>
-                            Выдать ${rewardAmount} ⭐
-                        </button>`;
+                    // Проверяем, привязан ли пользователь. 
+                    // Если нет (status !== 'Привязан'), показываем "Ожидает привязки".
+                    if (p.status !== 'Привязан') {
+                        
+                        issueButtonHtml = `
+                            <div class="rewarded-info" style="flex-grow: 1; color: var(--warning-color);">
+                                <i class="fa-solid fa-link-slash"></i> Ожидает привязки
+                            </div>`;
+                    
                     } else {
-                        // 3. Тип 'none' (Только лог)
-                        issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
-                            <i class="fa-solid fa-file-invoice"></i> Только лог (выдача не требуется)
-                        </div>`;
-                    }
+                        // Пользователь привязан, показываем кнопки в зависимости от типа награды
+                        if (rewardType === 'tickets') {
+                            // 1. Кнопка "Выдать билеты" (синяя)
+                            issueButtonHtml = `<button 
+                                class="admin-action-btn issue-tickets-btn" 
+                                data-purchase-id="${p.id}" 
+                                data-amount="${rewardAmount}"
+                                ${isLocked ? 'disabled' : ''}>
+                                Выдать ${rewardAmount} 🎟️
+                            </button>`;
+                        } else if (rewardType === 'promocode') {
+                            // 2. Кнопка "Выдать промокод" (оранжевая)
+                            issueButtonHtml = `<button 
+                                class="admin-action-btn issue-promo-btn" 
+                                data-purchase-id="${p.id}" 
+                                data-amount="${rewardAmount}"
+                                ${isLocked ? 'disabled' : ''}>
+                                Выдать ${rewardAmount} ⭐
+                            </button>`;
+                        } else {
+                            // 3. Тип 'none' (Только лог)
+                            issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
+                                <i class="fa-solid fa-file-invoice"></i> Только лог (выдача не требуется)
+                            </div>`;
+                        }
+                    
+                    } // Конец `else` от `if (p.status !== 'Привязан')`
 
+                    // Собираем финальный HTML для кнопок
                     actionButtonsHtml = `
                         ${issueButtonHtml}
                         <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ (Логика №2) ---
-
-                } else {
-                    actionButtonsHtml = `
-                        <div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Ожидает привязки</div>
-                        <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                 }
-
+                
                 const lockedOverlayHtml = isLocked ? `
                     <div class="locked-overlay">
                         <span class="locked-overlay-text">
