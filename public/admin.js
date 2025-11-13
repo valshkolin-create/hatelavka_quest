@@ -1634,7 +1634,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     // Здесь мы используем 'showIssueButton'
                     const issueButtonHtml = showIssueButton
                         ? `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}" ${isLocked ? 'disabled' : ''}>Выдать промокод</button>`
-                        : `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Выдача не требуется</div>`;
+                        : `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Выдача промокодов/билетов не требуется</div>`;
 
                     actionButtonsHtml = `
                         ${issueButtonHtml}
