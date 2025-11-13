@@ -1554,16 +1554,14 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         const viewedPurchases = new Set(JSON.parse(localStorage.getItem('viewed_purchases') || '[]'));
 
         try {
-            const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
-            let { purchases, reward_settings } = data;
-            
-            // --- НАЧАЛО ИЗМЕНЕНИЯ (Логика №1) ---
-            // Определяем, нужно ли показывать кнопку.
-            // По умолчанию 'promocode', если тип не задан.
+            // --- НАЧАЛО ИЗМЕНЕНИЯ (Логика №1 - v2) ---
+            // Определяем тип награды и количество
             const rewardType = (reward_settings && reward_settings.reward_type) ? reward_settings.reward_type : 'promocode';
-            const showIssueButton = rewardType !== 'none';
-            // --- КОНЕЦ ИЗМЕНЕНИЯ (Логика №1) ---
 
+            // (Используем reward_amount, если оно есть, иначе promocode_amount)
+            const rewardAmount = reward_settings.reward_amount ?? (reward_settings.promocode_amount ?? 0);
+
+            // --- КОНЕЦ ИЗМЕНЕНИЯ (Логика №1 - v2) ---
 
             if (!purchases || purchases.length === 0) {
                 body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
@@ -1628,13 +1626,32 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     actionButtonsHtml = `
                         <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
                         <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
-                } else if (p.status === 'Привязан') {
+                let issueButtonHtml = '';
 
-                    // --- НАЧАЛО ИЗМЕНЕНИЯ (Логика №2) ---
-                    // Здесь мы используем 'showIssueButton'
-                    const issueButtonHtml = showIssueButton
-                        ? `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}" ${isLocked ? 'disabled' : ''}>Выдать промокод</button>`
-                        : `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Выдача промокодов/билетов не требуется</div>`;
+                    if (rewardType === 'tickets') {
+                        // 1. Кнопка "Выдать билеты" (синяя)
+                        issueButtonHtml = `<button 
+                            class="admin-action-btn issue-tickets-btn" 
+                            data-purchase-id="${p.id}" 
+                            data-amount="${rewardAmount}"
+                            ${isLocked ? 'disabled' : ''}>
+                            Выдать ${rewardAmount} 🎟️
+                        </button>`;
+                    } else if (rewardType === 'promocode') {
+                        // 2. Кнопка "Выдать промокод" (оранжевая)
+                        issueButtonHtml = `<button 
+                            class="admin-action-btn issue-promo-btn" 
+                            data-purchase-id="${p.id}" 
+                            data-amount="${rewardAmount}"
+                            ${isLocked ? 'disabled' : ''}>
+                            Выдать ${rewardAmount} ⭐
+                        </button>`;
+                    } else {
+                        // 3. Тип 'none' (Только лог)
+                        issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
+                            <i class="fa-solid fa-file-invoice"></i> Только лог (выдача не требуется)
+                        </div>`;
+                    }
 
                     actionButtonsHtml = `
                         ${issueButtonHtml}
