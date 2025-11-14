@@ -1683,7 +1683,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                             </button>`;
                         } else {
                             issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
-                                <i class="fa-solid fa-file-invoice"></i> Выдача не требуется
+                                <i class="fa-solid fa-file-invoice"></i> Выдача промокодов/билетов не требуется
                             </div>`;
                         }
                     } 
