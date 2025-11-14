@@ -3573,8 +3573,14 @@ if (dom.weeklyGoalsList) {
                         } catch (e) {
                             console.error('Ошибка при удалении покупки:', e);
                             tg.showAlert(`Ошибка при удалении: ${e.message}`);
+                            deletePurchaseBtn.disabled = false;
                         }
                     }
+                    // --- 👇 ДОБАВЬ ЭТОТ БЛОК 'else' 👇 ---
+                    else {
+                        deletePurchaseBtn.disabled = false;
+                    }
+                    // --- 👆 КОНЕЦ 👆 ---
                 });
                 return;
             }
@@ -3618,7 +3624,12 @@ if (dom.weeklyGoalsList) {
             issuePromoBtn.disabled = true;
             
             tg.showConfirm(confirmMessage, async (ok) => {
-                if (!ok) return; 
+                // --- 👇 ИЗМЕНИ ЭТОТ БЛОК 'if' 👇 ---
+                if (!ok) {
+                    issuePromoBtn.disabled = false; // Включаем обратно
+                    return; // Выходим
+                }
+                // --- 👆 КОНЕЦ 👆 -- 
 
                 issuePromoBtn.disabled = true; 
                 issuePromoBtn.innerHTML = '<i>Выдача...</i>';
@@ -3675,7 +3686,12 @@ if (dom.weeklyGoalsList) {
         issueTicketsBtn.disabled = true;
         
         tg.showConfirm(confirmMessage, async (ok) => {
-            if (!ok) return; 
+            // --- 👇 ИЗМЕНИ ЭТОТ БЛОК 'if' 👇 ---
+            if (!ok) {
+                issueTicketsBtn.disabled = false; // Включаем обратно
+                return; // Выходим
+            }
+            // --- 👆 КОНЕЦ 👆 ---
 
             issueTicketsBtn.disabled = true;
             issueTicketsBtn.innerHTML = '<i>Выдача...</i>';
