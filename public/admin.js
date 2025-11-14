@@ -159,6 +159,21 @@ try {
     let hasAdminAccess = false; // Станет true после ввода пароля 6971
     const ADMIN_PASSWORD = '6971'; // Пароль для админ-функций
     let currentCauldronData = {};
+    // --- 🔽 ДОБАВЬТЕ ЭТОТ ОБЪЕКТ 🔽 ---
+    const CONDITION_TO_COLUMN = {
+        // Twitch
+        "twitch_messages_session": "daily_message_count",
+        "twitch_messages_week": "weekly_message_count",
+        "twitch_messages_month": "monthly_message_count",
+        "twitch_uptime_session": "daily_uptime_minutes",
+        "twitch_uptime_week": "weekly_uptime_minutes",
+        "twitch_uptime_month": "monthly_uptime_minutes",
+        // Telegram (на всякий случай)
+        "telegram_messages_session": "telegram_daily_message_count",
+        "telegram_messages_week": "telegram_weekly_message_count",
+        "telegram_messages_month": "telegram_monthly_message_count",
+    };
+    // --- 🔼 КОНЕЦ ОБЪЕКТА 🔼 ---
     let orderChanged = false;
     // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОИСКА ---
     let adminUserSearchDebounceTimer; // Таймер для задержки поиска
@@ -1521,6 +1536,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         modal.classList.remove('hidden');
     }
 
+    // --- 🔽 ВСТАВЬТЕ ЭТОТ КОД ВМЕСТО СТАРОЙ openTwitchPurchases 🔽 ---
     async function openTwitchPurchases(rewardId, rewardTitle) {
         const modal = document.getElementById('twitch-purchases-modal');
         const body = document.getElementById('twitch-purchases-body');
@@ -1542,7 +1558,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         deleteAllBtn.dataset.rewardId = rewardId;
 
         titleEl.textContent = `Покупки: ${rewardTitle}`;
-        body.innerHTML = '<i>Загрузка покупок и проверка прогресса...</i>';
+        body.innerHTML = '<i>Загрузка покупок...</i>';
         modal.classList.remove('hidden');
 
         const makeLinksClickable = (text) => {
@@ -1554,15 +1570,11 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
         const viewedPurchases = new Set(JSON.parse(localStorage.getItem('viewed_purchases') || '[]'));
 
         try {
-        // [НАЧАЛО ИСПРАВЛЕНИЯ]
-        // 1. СНАЧАЛА получаем данные
-        const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
-        let { purchases, reward_settings } = data;
-
-        // 2. ТЕПЕРЬ используем reward_settings (вместо "Логика №1 - v2")
-        const rewardType = (reward_settings && reward_settings.reward_type) ? reward_settings.reward_type : 'promocode';
-        const rewardAmount = reward_settings.reward_amount ?? (reward_settings.promocode_amount ?? 0);
-        // [КОНЕЦ ИСПРАВЛЕНИЯ]
+            // 1. Получаем данные (покупки + настройки)
+            // Бэкенд (после Этапа 1) теперь возвращает 'snapshot_...' в каждой покупке
+            // и 'reward_type' / 'reward_amount' в настройках.
+            const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
+            let { purchases, reward_settings } = data;
 
             if (!purchases || purchases.length === 0) {
                 body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
@@ -1571,35 +1583,49 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             }
             deleteAllBtn.classList.remove('hidden');
 
-            const targetValue = reward_settings.target_value;
+            // 2. Определяем настройки награды
+            const rewardType = (reward_settings && reward_settings.reward_type) ? reward_settings.reward_type : 'promocode';
+            const rewardAmount = reward_settings.reward_amount ?? (reward_settings.promocode_amount ?? 0);
+            const targetValue = reward_settings.target_value || 0;
             const conditionType = reward_settings.condition_type || '';
-            const period = conditionType.split('_').pop();
 
-            if (targetValue > 0) {
-                const progressPromises = purchases.map(p => {
-                    if (p.status === 'Привязан' && p.twitch_login) {
-                        return makeApiRequest(
-                            '/api/v1/admin/wizebot/check_user',
-                            { twitch_username: p.twitch_login, period },
-                            'POST',
-                            true
-                        ).then(stats => {
-                            p.progress_value = (stats && stats.found) ? stats.messages : 0;
-                        }).catch(err => {
-                            console.error(`Ошибка Wizebot для ${p.twitch_login}:`, err);
-                            p.progress_value = 0;
-                        });
-                    }
-                    return Promise.resolve();
-                });
-                await Promise.all(progressPromises);
-            }
-
-
+            // 3. Рендерим список
             body.innerHTML = purchases.map(p => {
                 const date = new Date(p.created_at).toLocaleString('ru-RU');
-                const progress = p.progress_value === null || typeof p.progress_value === 'undefined' ? 0 : p.progress_value;
-                const isLocked = targetValue > 0 && progress < targetValue;
+
+                // --- 🔽 НОВАЯ ЛОГИКА ОТОБРАЖЕНИЯ ПРОГРЕССА 🔽 ---
+                let progressHtml = '';
+                let warningHtml = '';
+                let isConditionMet = true; // По умолчанию считаем, что выполнено (если targetValue = 0)
+
+                if (targetValue > 0 && conditionType) {
+                    // 1. Находим нужную колонку из "снимка"
+                    const base_column_name = CONDITION_TO_COLUMN[conditionType]; // e.g., "daily_message_count"
+                    
+                    // 2. Преобразуем в ключ снимка
+                    // (e.g., "daily_message_count" -> "snapshot_daily_messages")
+                    const snapshot_key = 'snapshot_' + (base_column_name || '').replace('_count', '_messages').replace('_minutes', '_uptime'); 
+                    
+                    const snapshot_progress = p[snapshot_key] || 0;
+                    isConditionMet = snapshot_progress >= targetValue;
+
+                    const progressClass = isConditionMet ? 'progress-good' : 'progress-bad';
+                    
+                    // 3. HTML для прогресса
+                    progressHtml = `
+                        <p class="purchase-progress ${progressClass}">
+                            Прогресс (на момент покупки): <strong>${snapshot_progress} / ${targetValue}</strong>
+                        </p>`;
+                    
+                    // 4. HTML для предупреждения
+                    if (!isConditionMet) {
+                        warningHtml = `
+                        <p class="purchase-warning">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Условие не выполнено!
+                        </p>`;
+                    }
+                }
+                // --- 🔼 КОНЕЦ НОВОЙ ЛОГИКИ 🔼 ---
 
                 const isViewed = viewedPurchases.has(p.id);
                 const viewedStatusClass = isViewed ? 'status-viewed' : 'status-not-viewed';
@@ -1626,77 +1652,53 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
 
                 if (p.rewarded_at) {
                     // --- БЛОК 1: Награда УЖЕ выдана ---
-                    // Показываем "Награда выдана" и кнопку удаления
                     actionButtonsHtml = `
                         <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
                         <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                 
                 } else {
                     // --- БЛОК 2: Награда ЕЩЕ НЕ выдана ---
-                    // Логика показа кнопок "Выдать" или "Ожидает привязки"
-                    
                     let issueButtonHtml = '';
 
-                    // Проверяем, привязан ли пользователь. 
-                    // Если нет (status !== 'Привязан'), показываем "Ожидает привязки".
                     if (p.status !== 'Привязан') {
-                        
                         issueButtonHtml = `
                             <div class="rewarded-info" style="flex-grow: 1; color: var(--warning-color);">
                                 <i class="fa-solid fa-link-slash"></i> Ожидает привязки
                             </div>`;
-                    
                     } else {
-                        // Пользователь привязан, показываем кнопки в зависимости от типа награды
+                        // Кнопки теперь всегда активны
                         if (rewardType === 'tickets') {
-                            // 1. Кнопка "Выдать билеты" (синяя)
                             issueButtonHtml = `<button 
                                 class="admin-action-btn issue-tickets-btn" 
                                 data-purchase-id="${p.id}" 
-                                data-amount="${rewardAmount}"
-                                ${isLocked ? 'disabled' : ''}>
+                                data-amount="${rewardAmount}">
                                 Выдать ${rewardAmount} 🎟️
                             </button>`;
                         } else if (rewardType === 'promocode') {
-                            // 2. Кнопка "Выдать промокод" (оранжевая)
                             issueButtonHtml = `<button 
                                 class="admin-action-btn issue-promo-btn" 
                                 data-purchase-id="${p.id}" 
-                                data-amount="${rewardAmount}"
-                                ${isLocked ? 'disabled' : ''}>
+                                data-amount="${rewardAmount}">
                                 Выдать ${rewardAmount} ⭐
                             </button>`;
                         } else {
-                            // 3. Тип 'none' (Только лог)
                             issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
-                                <i class="fa-solid fa-file-invoice"></i> Выдача монеток/билетов не требуется
+                                <i class="fa-solid fa-file-invoice"></i> Выдача не требуется
                             </div>`;
                         }
-                    
-                    } // Конец `else` от `if (p.status !== 'Привязан')`
+                    } 
 
-                    // Собираем финальный HTML для кнопок
                     actionButtonsHtml = `
                         ${issueButtonHtml}
                         <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                 }
-                
-                const lockedOverlayHtml = isLocked ? `
-                    <div class="locked-overlay">
-                        <span class="locked-overlay-text">
-                            Условие не выполнено<br>
-                            Прогресс: ${progress} / ${targetValue}
-                        </span>
-                    </div>
-                ` : '';
 
                 const telegramNameDisplay = p.status === 'Привязан'
                     ? `<span style="color: var(--text-color-muted); font-weight: normal; margin-left: 5px;">(${p.username || '...'})</span>`
                     : `<span style="color: var(--warning-color); font-weight: normal; margin-left: 5px;">(Не привязан)</span>`;
 
                 return `
-                <div class="purchase-item ${isLocked ? 'is-locked' : ''}" id="purchase-item-${p.id}" data-purchase-id="${p.id}">
-                    ${lockedOverlayHtml}
+                <div class="purchase-item" id="purchase-item-${p.id}" data-purchase-id="${p.id}" data-condition-met="${isConditionMet}">
                     <div class="purchase-item-header">
                         <strong>${p.twitch_login || '???'}${telegramNameDisplay}</strong>
                         <span class="purchase-status-badge purchase-status-${p.status.replace(' ', '.')}">${p.status}</span>
@@ -1704,6 +1706,8 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     <p>Дата: ${date}</p>
                     ${viewStatusHtml}
                     ${tradeLinkHtml}
+                    ${progressHtml} 
+                    ${warningHtml} 
                     ${rouletteWinHtml}
                     ${userInputHtml}
                     <div class="purchase-actions">${actionButtonsHtml}</div>
@@ -1715,6 +1719,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
         }
     }
+// --- 🔼 КОНЕЦ БЛОКА ДЛЯ ЗАМЕНЫ 🔼 ---
     
 function renderRoulettePrizes(prizes) {
         dom.roulettePrizesList.innerHTML = '';
@@ -3593,103 +3598,110 @@ if (dom.weeklyGoalsList) {
                 return;
             }
 
-            // --- НАЧАЛО НОВОГО КОДА: Обработчик кнопки "Выдать промокод" ---
-            const issuePromoBtn = target.closest('.issue-promo-btn');
-            if (issuePromoBtn) {
-                const purchaseId = issuePromoBtn.dataset.purchaseId;
-                if (!purchaseId) return;
-
-                
-
-                // --- 👇👇👇 ВОТ ИЗМЕНЕНИЕ: ДОБАВЛЕНО ПОДТВЕРЖДЕНИЕ 👇👇👇 ---
-                tg.showConfirm('Вы уверены, что хотите выдать эту награду?', async (ok) => {
-                    if (!ok) return; // Пользователь нажал "Отмена"
-
-                    // --- (Остальная логика, которая была раньше) ---
-                    issuePromoBtn.disabled = true; // Блокируем кнопку
-                    issuePromoBtn.innerHTML = '<i>Выдача...</i>';
-                    let hasError = false; // Флаг для отслеживания ошибки
-
-                    try {
-                        const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', {
-                            purchase_id: parseInt(purchaseId)
-                        });
-                        
-                        tg.showAlert(result.message); // Показываем "Награда... отправлена"
-
-                        // 1. Удаляем карточку из модалки
-                        const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                        if (itemDiv) itemDiv.remove();
-
-                        // 2. Обновляем бейдж на главной странице
-                        updateTwitchBadgeCount();
-
-                    } catch (e) {
-                        hasError = true; // Ставим флаг, что была ошибка
-                        console.error('Ошибка при выдаче промокода:', e);
-                        tg.showAlert(`Ошибка: ${e.message}`); // Показываем ошибку (н.п., "Условие не выполнено")
-                    } finally {
-                        // Возвращаем кнопку, ТОЛЬКО если была ошибка И карточка еще на месте
-                        if (hasError && document.getElementById(`purchase-item-${purchaseId}`)) {
-                            issuePromoBtn.disabled = false;
-                            issuePromoBtn.innerHTML = 'Выдать промокод';
-                        }
-                        // (Если ошибки не было, кнопка удаляется вместе с карточкой)
-                    }
-                    // --- (Конец логики, которая была раньше) ---
-
-                }); // --- 👆👆👆 КОНЕЦ БЛОКА ПОДТВЕРЖДЕНИЯ 👆👆👆 ---
-
-                return; // Важно, чтобы не сработали другие обработчики
-            }
-            // --- КОНЕЦ НОВОГО КОДА ---
-
-            // --- ↓↓↓ ВСТАВЬ НОВЫЙ БЛОК СЮДА ↓↓↓ ---
-        // --- НАЧАЛО НОВОГО КОДА: Обработчик кнопки "Выдать билеты" ---
-        const issueTicketsBtn = target.closest('.issue-tickets-btn');
-        if (issueTicketsBtn) {
-            const purchaseId = issueTicketsBtn.dataset.purchaseId;
-            const amount = issueTicketsBtn.dataset.amount || 0;
+            // --- 🔽 НАЧАЛО НОВОГО БЛОКА (issue-promo-btn) 🔽 ---
+        const issuePromoBtn = target.closest('.issue-promo-btn');
+        if (issuePromoBtn) {
+            const purchaseId = issuePromoBtn.dataset.purchaseId;
             if (!purchaseId) return;
 
-            // 1. Спрашиваем подтверждение
-            tg.showConfirm(`Вы уверены, что хотите выдать ${amount} 🎟️ билетов?`, async (ok) => {
-                if (!ok) return; // Пользователь нажал "Отмена"
+            const purchaseItem = issuePromoBtn.closest('.purchase-item');
+            // Считываем, было ли выполнено условие, из data-атрибута
+            const isConditionMet = purchaseItem.dataset.conditionMet === 'true';
 
-                issueTicketsBtn.disabled = true;
-                issueTicketsBtn.innerHTML = '<i>Выдача...</i>';
-                let hasError = false;
+            let confirmMessage = 'Вы уверены, что хотите выдать эту награду?';
+            if (!isConditionMet) {
+                confirmMessage = "ВНИМАНИЕ: Условие не выполнено! Вы уверены, что хотите выдать награду вручную?";
+            }
+
+            tg.showConfirm(confirmMessage, async (ok) => {
+                if (!ok) return; 
+
+                issuePromoBtn.disabled = true; 
+                issuePromoBtn.innerHTML = '<i>Выдача...</i>';
+                let hasError = false; 
 
                 try {
-                    // 2. Вызываем НОВЫЙ эндпоинт
-                    const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_tickets', {
+                    // Вызываем бэкенд, который (после Этапа 2.2) больше не проверяет Wizebot
+                    const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', {
                         purchase_id: parseInt(purchaseId)
                     });
 
-                    tg.showAlert(result.message); // Показываем "Награда (X билетов) успешно отправлена"
+                    tg.showAlert(result.message); 
 
-                    // 3. Удаляем карточку из модалки
                     const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
                     if (itemDiv) itemDiv.remove();
 
-                    // 4. Обновляем бейдж
-                    updateTwitchBadgeCount();
+                    // updateTwitchBadgeCount(); // (Мы удалили эту функцию, можно вернуть, если нужна)
 
                 } catch (e) {
-                    hasError = true;
-                    console.error('Ошибка при выдаче билетов:', e);
-                    tg.showAlert(`Ошибка: ${e.message}`);
+                    hasError = true; 
+                    console.error('Ошибка при выдаче промокода:', e);
+                    tg.showAlert(`Ошибка: ${e.message}`); 
                 } finally {
-                    // Возвращаем кнопку, только если была ошибка
                     if (hasError && document.getElementById(`purchase-item-${purchaseId}`)) {
-                        issueTicketsBtn.disabled = false;
-                        issueTicketsBtn.innerHTML = `Выдать ${amount} 🎟️`;
+                        issuePromoBtn.disabled = false;
+                        // Восстанавливаем текст кнопки (у вас может быть иконка звезды)
+                        const amount = issuePromoBtn.dataset.amount || 0;
+                        issuePromoBtn.innerHTML = `Выдать ${amount} ⭐`; 
                     }
                 }
-            });
+            }); 
 
-            return; // Важно, чтобы не сработали другие обработчики
+            return; 
         }
+// --- 🔼 КОНЕЦ НОВОГО БЛОКА (issue-promo-btn) 🔼 ---
+
+            // --- ↓↓↓ ВСТАВЬ НОВЫЙ БЛОК СЮДА ↓↓↓ ---
+        // --- 🔽 НАЧАЛО НОВОГО БЛОКА (issue-tickets-btn) 🔽 ---
+    const issueTicketsBtn = target.closest('.issue-tickets-btn');
+    if (issueTicketsBtn) {
+        const purchaseId = issueTicketsBtn.dataset.purchaseId;
+        const amount = issueTicketsBtn.dataset.amount || 0;
+        if (!purchaseId) return;
+
+        const purchaseItem = issueTicketsBtn.closest('.purchase-item');
+        // Считываем, было ли выполнено условие, из data-атрибута
+        const isConditionMet = purchaseItem.dataset.conditionMet === 'true';
+
+        let confirmMessage = `Вы уверены, что хотите выдать ${amount} 🎟️ билетов?`;
+        if (!isConditionMet) {
+            confirmMessage = `ВНИМАНИЕ: Условие не выполнено! Вы уверены, что хотите выдать ${amount} 🎟️ билетов вручную?`;
+        }
+
+        tg.showConfirm(confirmMessage, async (ok) => {
+            if (!ok) return; 
+
+            issueTicketsBtn.disabled = true;
+            issueTicketsBtn.innerHTML = '<i>Выдача...</i>';
+            let hasError = false;
+
+            try {
+                const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_tickets', {
+                    purchase_id: parseInt(purchaseId)
+                });
+
+                tg.showAlert(result.message); 
+
+                const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                if (itemDiv) itemDiv.remove();
+
+                // updateTwitchBadgeCount(); // (Мы удалили эту функцию, можно вернуть, если нужна)
+
+            } catch (e) {
+                hasError = true;
+                console.error('Ошибка при выдаче билетов:', e);
+                tg.showAlert(`Ошибка: ${e.message}`);
+            } finally {
+                if (hasError && document.getElementById(`purchase-item-${purchaseId}`)) {
+                    issueTicketsBtn.disabled = false;
+                    issueTicketsBtn.innerHTML = `Выдать ${amount} 🎟️`;
+                }
+            }
+        });
+
+        return;
+    }
+// --- 🔼 КОНЕЦ НОВОГО БЛОКА (issue-tickets-btn) 🔼 ---
             
             const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
             if (checkBtn) {
