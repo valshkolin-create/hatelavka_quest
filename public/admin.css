@@ -775,3 +775,55 @@ CSS
   font-size: 13px;
   padding: 8px;
 }
+/* --- Стили для прогресса и предупреждений Twitch (Этап 3) --- */
+
+/* Убираем старую блокировку */
+.purchase-item.is-locked .purchase-user-input,
+.purchase-item.is-locked .issue-promo-btn,
+.purchase-item.is-locked .issue-tickets-btn {
+    filter: none; /* Убираем блюр */
+    pointer-events: auto; /* Делаем кликабельным */
+    opacity: 1; /* Убираем прозрачность */
+}
+.locked-overlay {
+    display: none; /* Полностью прячем оверлей */
+}
+
+/* Стили для нового блока прогресса */
+.purchase-progress {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-color);
+    margin-top: 8px !important;
+    margin-bottom: 4px !important;
+    background-color: rgba(0,0,0,0.2);
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+.purchase-progress strong {
+    font-weight: 700;
+}
+.purchase-progress.progress-good strong {
+    color: var(--primary-color); /* Зеленый */
+}
+.purchase-progress.progress-bad strong {
+    color: var(--warning-color); /* Оранжевый */
+}
+
+/* Стили для нового предупреждения */
+.purchase-warning {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--warning-color);
+    margin: 8px 0 0 !important;
+    padding: 8px 10px;
+    background-color: rgba(255, 149, 0, 0.1);
+    border: 1px solid rgba(255, 149, 0, 0.3);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.purchase-warning i {
+    font-size: 16px;
+}
