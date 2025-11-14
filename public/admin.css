@@ -300,33 +300,6 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 .purchase-item {
     position: relative; /* Обязательно для позиционирования оверлея */
 }
-.purchase-item.is-locked .purchase-user-input,
-.purchase-item.is-locked .issue-promo-btn {
-    filter: blur(4px);
-    pointer-events: none;
-    opacity: 0.5;
-}
-.locked-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6);
-    border-radius: 12px; /* Если у родителя есть рамка */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 10px;
-    z-index: 2;
-    backdrop-filter: blur(2px);
-}
-.locked-overlay-text {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--warning-color);
-}
 #refresh-purchases-btn {
     background: none;
     border: none;
