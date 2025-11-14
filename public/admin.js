@@ -1604,7 +1604,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                     
                     // 2. Преобразуем в ключ снимка
                     // (e.g., "daily_message_count" -> "snapshot_daily_messages")
-                    const snapshot_key = 'snapshot_' + (base_column_name || '').replace('_count', '_messages').replace('_minutes', '_uptime'); 
+                    const snapshot_key = 'snapshot_' + (base_column_name || '').replace('_count', '_messages').replace('_minutes', '');
                     
                     const snapshot_progress = p[snapshot_key] || 0;
                     isConditionMet = snapshot_progress >= targetValue;
