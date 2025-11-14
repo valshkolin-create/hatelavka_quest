@@ -3556,6 +3556,7 @@ if (dom.weeklyGoalsList) {
 
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
+                deletePurchaseBtn.disabled = true;
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
                 tg.showConfirm('Вы уверены, что хотите удалить эту покупку? Действие необратимо.', async (ok) => {
                     if (ok) {
@@ -3612,7 +3613,9 @@ if (dom.weeklyGoalsList) {
             if (!isConditionMet) {
                 confirmMessage = "ВНИМАНИЕ: Условие не выполнено! Вы уверены, что хотите выдать награду вручную?";
             }
-
+            
+            issuePromoBtn.disabled = true;
+            
             tg.showConfirm(confirmMessage, async (ok) => {
                 if (!ok) return; 
 
@@ -3667,7 +3670,9 @@ if (dom.weeklyGoalsList) {
         if (!isConditionMet) {
             confirmMessage = `ВНИМАНИЕ: Условие не выполнено! Вы уверены, что хотите выдать ${amount} 🎟️ билетов вручную?`;
         }
-
+        
+        issueTicketsBtn.disabled = true;
+        
         tg.showConfirm(confirmMessage, async (ok) => {
             if (!ok) return; 
 
