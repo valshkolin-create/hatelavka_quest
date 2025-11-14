@@ -3873,6 +3873,7 @@ if (dom.weeklyGoalsList) {
             // --- 👇 ИЗМЕНЕНИЕ 4: Возвращаем эту строку к оригиналу 👇 ---
             } else if (actionButton.matches('.admin-action-btn')) {
             // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 4 👆 ---
+                actionButton.disabled = true;
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
                 const id = actionButton.dataset.id; // Получаем ID
@@ -4026,6 +4027,9 @@ if (dom.weeklyGoalsList) {
                 } catch (e) {
                     console.error('Ошибка при обработке действия:', e);
                     tg.showAlert(`Ошибка: ${e.message}`);
+                    if(actionButton) {
+                        actionButton.disabled = false;
+                    }
                 }
                 // --- 👆👆👆 КОНЕЦ ИСПРАВЛЕНИЯ ---
                 
