@@ -3581,6 +3581,7 @@ if (dom.weeklyGoalsList) {
 
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
+                deleteAllBtn.disabled = true; // Немедленно отключаем кнопку
                 const rewardId = parseInt(deleteAllBtn.dataset.rewardId);
                 if (!rewardId) return;
 
