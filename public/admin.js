@@ -2447,7 +2447,8 @@ if (dom.weeklyGoalEntitySelectList) {
 if (dom.weeklyGoalsSettingsForm) {
     dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+        console.log('[DEBUG] "Сохранить Настройки" (Недельный Забег) - КЛИК');
+
         // --- НАЧАЛО НОВОГО ИСПРАВЛЕНИЯ (v2) ---
         
         // 1. Собираем СПЕЦИАЛЬНЫЕ настройки "Забега" (ID недели, Суперприз)
@@ -2457,47 +2458,61 @@ if (dom.weeklyGoalsSettingsForm) {
             super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
             super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
         };
+        console.log('[DEBUG] 1. Собраны данные Недельного Забега (SuperPrize, WeekID):', weeklySettingsData);
 
         // 2. Получаем ОДНО значение, которое мы меняем (Вкл/Выкл "Забег")
         const isEnabled = dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked;
+        console.log('[DEBUG] 2. Собраны данные Глобального Переключателя (isEnabled):', isEnabled);
 
         try {
             // Показываем лоадер НА ВСЮ ОПЕРАЦИЮ
+            console.log('[DEBUG] 3. Показываем Loader...');
             showLoader();
 
             // 3. Загружаем ТЕКУЩИЕ глобальные настройки с сервера
             // (Запрос идет "тихо", т.к. лоадер уже показан)
+            console.log('[DEBUG] 4. Запрашиваем /api/v1/admin/settings (GET)...');
             const currentGlobalSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+            console.log('[DEBUG] 5. Получены Глобальные Настройки:', currentGlobalSettings);
             
             // 4. Модифицируем в них ТОЛЬКО ОДНО поле
             currentGlobalSettings.weekly_goals_enabled = isEnabled;
+            console.log('[DEBUG] 6. Модифицированы Глобальные Настройки (установлено weekly_goals_enabled).');
 
             // 5. Отправляем ДВА запроса
             
             // Запрос 1: Сохраняем ОБНОВЛЕННЫЕ ГЛОБАЛЬНЫЕ настройки
             // (currentGlobalSettings теперь содержит все старые URL и состояния + 1 новое)
+            console.log('[DEBUG] 7. Отправляем /api/v1/admin/settings/update (POST) с Глобальными Настройками...');
             await makeApiRequest('/api/v1/admin/settings/update', { 
                 settings: currentGlobalSettings 
             }, 'POST', true); // true = "тихо"
+            console.log('[DEBUG] 8. /api/v1/admin/settings/update - УСПЕХ.');
             
             // Запрос 2: Сохраняем СПЕЦИАЛЬНЫЕ настройки "Забега" (Суперприз, ID недели)
             // (Эта функция теперь тоже "тихая" после Части 1)
+            console.log('[DEBUG] 9. Отправляем /api/v1/admin/weekly_goals/settings/update (POST) с Настройками Забега...');
             await api_saveWeeklyGoalSettings(weeklySettingsData); 
+            console.log('[DEBUG] 10. /api/v1/admin/weekly_goals/settings/update - УСПЕХ.');
             
             tg.showAlert('Настройки "Недельного Забега" сохранены!');
+            console.log('[DEBUG] 11. Показан Alert.');
             
             // 6. (Важно!) Синхронизируем переключатель на главной стр. настроек
             //    (на случай, если она была загружена до этого)
             if (dom.settingWeeklyGoalsEnabled) { // Проверяем, что элемент существует
                 dom.settingWeeklyGoalsEnabled.checked = isEnabled;
+                console.log('[DEBUG] 12. Синхронизирован главный переключатель (settingWeeklyGoalsEnabled).');
             }
             
             // --- КОНЕЦ НОВОГО ИСПРАВЛЕНИЯ (v2) ---
             
         } catch (err) {
+            console.error('[DEBUG] ОШИБКА в блоке try:', err);
             tg.showAlert(`Ошибка сохранения: ${err.message}`);
         } finally {
             // Прячем лоадер в любом случае
+            console.log('[DEBUG] 13. Блок finally, прячем Loader.');
             hideLoader();
         }
     });
@@ -4183,7 +4198,36 @@ if (dom.weeklyGoalsList) {
                 const result = await makeApiRequest('/api/v1/admin/promocodes', body);
                 tg.showAlert(result.message);
                 e.target.reset();
+            }); 
+            // --- 🔽 НОВЫЙ КОД: Генератор ID недели 🔽 ---
+        const generateWeekIdBtn = document.getElementById('generate-new-week-id-btn');
+        if (generateWeekIdBtn) {
+            generateWeekIdBtn.addEventListener('click', () => {
+                const weekIdInput = document.getElementById('weekly-goal-week-id');
+                if (weekIdInput) {
+                    try {
+                        // Функция для получения номера недели
+                        const getWeekNumber = (d) => {
+                            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+                            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+                            return weekNo;
+                        };
+                        const now = new Date();
+                        const year = now.getUTCFullYear();
+                        const week = getWeekNumber(now);
+                        weekIdInput.value = `${year}-W${week}`;
+                        tg.showPopup({message: 'Сгенерирован новый ID недели!'});
+                    } catch (e) {
+                        console.error("Failed to generate week ID:", e);
+                        tg.showAlert('Не удалось сгенерировать ID.');
+                    }
+                }
             });
+        }
+        // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
+            
         }
 
 /**
