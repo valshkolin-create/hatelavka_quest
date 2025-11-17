@@ -2275,8 +2275,9 @@ function resetWeeklyGoalForm() {
     dom.weeklyGoalTargetEntityId.value = '';
     dom.weeklyGoalTargetEntityName.value = '';
     
-    form.querySelector('h3').textContent = 'Новая Задача';
-    form.querySelector('button[type="submit"]').textContent = 'Добавить Задачу';
+    // Обновляем текст кнопки "Добавить Задачу"
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = 'Добавить Задачу';
     
     // Прячем все опциональные блоки
     dom.weeklyGoalTaskRewardValueWrapper.classList.add('hidden');
@@ -2654,9 +2655,23 @@ if (dom.weeklyGoalsList) {
                 
                 // Меняем режим формы
                 form.dataset.editingGoalId = goalId;
-                form.querySelector('h3').textContent = 'Редактирование Задачи';
-                form.querySelector('button[type="submit"]').textContent = 'Сохранить Изменения';
+                
+                // --- 🔽 ИЗМЕНЕННЫЙ БЛОК 🔽 ---
+                // 1. Меняем заголовок в шапке МОДАЛЬНОГО ОКНА
+                const modalTitle = document.getElementById('admin-create-goal-modal-title');
+                if (modalTitle) modalTitle.textContent = 'Редактирование Задачи';
+                
+                // 2. Меняем текст кнопки
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) submitBtn.textContent = 'Сохранить Изменения';
+                
                 dom.weeklyGoalCancelEditBtn.classList.remove('hidden'); // Показываем кнопку "Отмена"
+                
+                // 3. Показываем модальное окно для редактирования
+                if (dom.adminCreateGoalModal) {
+                    dom.adminCreateGoalModal.classList.remove('hidden');
+                }
+                // --- 🔼 КОНЕЦ ИЗМЕНЕНИЙ 🔼 ---
                 
                 // Скроллим к форме
                 form.scrollIntoView({ behavior: 'smooth' });
