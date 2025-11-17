@@ -2339,6 +2339,7 @@ function openEntityPickerModal(taskType) {
     
     // 3. Показываем модалку
     dom.weeklyGoalEntitySelectTitle.textContent = title;
+    dom.weeklyGoalEntitySelectModal.style.zIndex = '1001';
     dom.weeklyGoalEntitySelectModal.classList.remove('hidden');
 }
 
@@ -2446,6 +2447,7 @@ if (dom.weeklyGoalEntitySelectList) {
         dom.weeklyGoalEntityDisplay.querySelector('span').textContent = displayText;
         
         // 3. Закрываем модалку
+        dom.weeklyGoalEntitySelectModal.style.zIndex = ''; // <-- ИСПРАВЛЕНИЕ: Сбрасываем z-index
         dom.weeklyGoalEntitySelectModal.classList.add('hidden');
     });
 }
@@ -3105,9 +3107,11 @@ if (dom.weeklyGoalsList) {
             const modalId = closeButton.dataset.closeModal;
             const modal = document.getElementById(modalId);
             if (modal) {
+                modal.style.zIndex = ''; // <-- ИСПРАВЛЕНИЕ 1: Сбрасываем z-index
                 modal.classList.add('hidden');
             }
-        } else if (target.classList.contains('modal-overlay') && target.id !== 'admin-create-goal-modal') { // <-- ВОТ ИЗМЕНЕНИЕ
+        } else if (target.classList.contains('modal-overlay') && target.id !== 'admin-create-goal-modal') {
+             target.style.zIndex = ''; // <-- ИСПРАВЛЕНИЕ 2: Сбрасываем z-index
              target.classList.add('hidden'); // Закрытие по клику на фон
         }
     });
