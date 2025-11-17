@@ -642,3 +642,34 @@
     color: var(--text-color);
     text-shadow: 0 0 3px rgba(0,0,0,0.5); /* Тень для читаемости */
 }
+/* --- ФИКС: Привязка кнопки к прогресс-бару --- */
+
+/* 1. Создаем flex-контейнер для строки "Прогресс + Кнопка" */
+.weekly-goal-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Отступ между прогресс-баром и кнопкой */
+    margin-top: 5px; /* Небольшой отступ от заголовка */
+}
+
+/* 2. Заставляем прогресс-бар занять все доступное место */
+.weekly-goal-progress-row .weekly-goal-progress-bar {
+    flex-grow: 1; /* Прогресс-бар растягивается */
+    min-width: 0; /* Позволяет ему сжиматься */
+}
+
+/* 3. Заставляем кнопку не растягиваться */
+.weekly-goal-progress-row .weekly-goal-reward-btn {
+    flex-shrink: 0; /* Кнопка не сжимается */
+}
+
+/* 4. Говорим .weekly-goal-info, чтобы он занимал все место */
+.weekly-goal-info {
+    flex-grow: 1;
+    min-width: 0; /* Позволяет ему сжиматься */
+}
+
+/* 5. Выравниваем иконку и .info-блок по верху (а не по центру) */
+.weekly-goal-item {
+    align-items: flex-start;
+}
