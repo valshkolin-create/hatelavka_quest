@@ -815,10 +815,3 @@ CSS
     line-height: 1.4;
 }
 
-/* Адаптивность для мобильных */
-@media (max-width: 768px) {
-    .admin-grid-2-col {
-        grid-template-columns: 1fr; /* Одна колонка на маленьких экранах */
-        gap: 15px; /* Уменьшим отступ */
-    }
-}
