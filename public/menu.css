@@ -441,7 +441,7 @@
     border: 2px solid var(--divider-glass-color);
     color: var(--text-color-muted);
     transition: all 0.3s ease;
-    margin-top: -4px; /* <-- ДОБАВЬ ЭТУ СТРОКУ */
+    margin-top: -6px; /* <-- ДОБАВЬ ЭТУ СТРОКУ */
 }
 
 .weekly-goal-info {
