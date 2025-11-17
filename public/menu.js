@@ -928,25 +928,26 @@ function renderChallenge(challengeData, isGuest) {
         // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         return `
-            <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
-                <div class="weekly-goal-icon">
-                    <i class="${iconClass}"></i>
-                </div>
-                <div class="weekly-goal-info">
-                    <h3 class="weekly-goal-title">${escapeHTML(goal.title)}</h3>
-                    
-                    <div class="weekly-goal-progress-bar">
-                        <div class="weekly-goal-progress-fill" style="width: ${percent}%;"></div>
-                        <div class="weekly-goal-progress-content">
-                            <span class="weekly-goal-progress-text">${percentText}</span>
-                        </div>
+                <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
+                    <div class="weekly-goal-icon">
+                        <i class="${iconClass}"></i>
                     </div>
-                    ${descriptionHtml} ${navLinkHtml}
-                </div>
-                ${buttonHtml}
-            </div>
-        `;
-    }).join('');
+                    <div class="weekly-goal-info">
+                        <h3 class="weekly-goal-title">${escapeHTML(goal.title)}</h3>
+                        
+                        <div class="weekly-goal-progress-row">
+                            <div class="weekly-goal-progress-bar">
+                                <div class="weekly-goal-progress-fill" style="width: ${percent}%;"></div>
+                                <div class="weekly-goal-progress-content">
+                                    <span class="weekly-goal-progress-text">${percentText}</span>
+                                </div>
+                            </div>
+                            ${buttonHtml} </div>
+                        ${descriptionHtml} ${navLinkHtml}
+                    </div>
+                    </div>
+            `;
+        }).join('');
     
     // 2. Рендерим Суперприз (без изменений)
     let superPrizeHtml = '';
