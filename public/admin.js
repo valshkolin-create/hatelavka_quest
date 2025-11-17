@@ -3107,7 +3107,7 @@ if (dom.weeklyGoalsList) {
             if (modal) {
                 modal.classList.add('hidden');
             }
-        } else if (target.classList.contains('modal-overlay')) {
+        } else if (target.classList.contains('modal-overlay') && target.id !== 'admin-create-goal-modal') { // <-- ВОТ ИЗМЕНЕНИЕ
              target.classList.add('hidden'); // Закрытие по клику на фон
         }
     });
