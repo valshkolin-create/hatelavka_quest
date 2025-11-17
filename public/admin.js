@@ -150,8 +150,12 @@ try {
         // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
         adminResetUserWeeklyProgressForm: document.getElementById('admin-reset-user-weekly-progress-form'),
         adminResetUserWeeklyProgressUserName: document.getElementById('admin-reset-user-weekly-progress-user-name'),
-        adminResetUserWeeklyProgressSearchBtn: document.getElementById('admin-reset-user-weekly-progress-search-btn')
+        adminResetUserWeeklyProgressSearchBtn: document.getElementById('admin-reset-user-weekly-progress-search-btn'),
         // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
+        // --- 🔽 ДОБАВЬ ЭТИ ДВЕ СТРОКИ 🔽 ---
+        adminCreateGoalModal: document.getElementById('admin-create-goal-modal'),
+        openCreateGoalModalBtn: document.getElementById('open-create-goal-modal-btn')
+        // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
         
     };
 
@@ -2758,6 +2762,7 @@ if (dom.weeklyGoalsList) {
         dom.adminResetUserWeeklyProgressForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = e.target;
+            const btn = form.querySelector('button[type="submit"]'); // <-- ДОБАВЛЕНО
             const userId = parseInt(form.elements['user_id_to_reset_weekly'].value);
             const userName = dom.adminResetUserWeeklyProgressUserName.textContent;
 
@@ -2768,8 +2773,10 @@ if (dom.weeklyGoalsList) {
 
             tg.showConfirm(`Точно сбросить ВЕСЬ прогресс "Забега" для ${userName}?`, async (ok) => {
                 if (ok) {
+                    btn.disabled = true; // <-- ДОБАВЛЕНО
+                    btn.textContent = 'Сброс...'; // <-- ДОБАВЛЕНО
                     try {
-                        // Вызываем новый эндпоинт, который мы создадим в Python
+                        // Вызываем новый эндпоинт
                         const result = await makeApiRequest('/api/v1/admin/weekly_goals/clear_user_progress', {
                             user_id_to_clear: userId
                         });
@@ -2779,6 +2786,9 @@ if (dom.weeklyGoalsList) {
                         selectedAdminUser = null; // Сброс
                     } catch (err) {
                         tg.showAlert(`Ошибка: ${err.message}`);
+                    } finally {
+                        btn.disabled = false; // <-- ДОБАВЛЕНО
+                        btn.textContent = 'Подтвердить сброс'; // <-- ДОБАВЛЕНО
                     }
                 }
             });
@@ -2787,20 +2797,25 @@ if (dom.weeklyGoalsList) {
     // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
         // --- 🔽🔽🔽 ВСТАВЬ НЕДОСТАЮЩИЙ БЛОК СЮДА 🔽🔽🔽 ---
     if (dom.adminClearAllWeeklyProgressBtn) {
-        dom.adminClearAllWeeklyProgressBtn.addEventListener('click', () => {
-            tg.showConfirm('ВНИМАНИЕ! Это действие необратимо. Вы уверены, что хотите УДАЛИТЬ ВЕСЬ ПРОГРЕСС "Забега" для ВСЕХ пользователей? (Таблица user_weekly_progress будет очищена)', async (ok) => {
+        dom.adminClearAllWeeklyProgressBtn.addEventListener('click', (e) => { // Добавили (e)
+            const btn = e.currentTarget; // <-- ДОБАВЛЕНО
+            tg.showConfirm('ВНИМАНИЕ! Это действие необратимо. ...', async (ok) => {
                 if (ok) {
+                    btn.disabled = true; // <-- ДОБАВЛЕНО
+                    btn.textContent = 'Очистка...'; // <-- ДОБАВЛЕНО (Опционально)
                     try {
-                        // Вызываем эндпоинт, который УЖЕ ЕСТЬ в index (3).py
+                        // (тут твой код вызова makeApiRequest)
                         const result = await makeApiRequest('/api/v1/admin/weekly_goals/clear_all_progress');
                         tg.showAlert(result.message);
                         
-                        // Попробуем обновить данные на лету, если мы на той же странице
                         if(document.getElementById('view-admin-weekly-goals').classList.contains('hidden') === false) {
                            await loadWeeklyGoalsData(); 
                         }
                     } catch (err) {
                         tg.showAlert(`Ошибка очистки: ${err.message}`);
+                    } finally {
+                        btn.disabled = false; // <-- ДОБАВЛЕНО
+                        btn.textContent = 'Очистить ВЕСЬ прогресс забега'; // <-- ДОБАВЛЕНО
                     }
                 }
             });
@@ -4235,7 +4250,21 @@ if (dom.weeklyGoalsList) {
                 }
             });
         }
-        // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
+        // --- 🔽 ДОБАВЬ ЭТОТ БЛОК ДЛЯ НОВОГО МОДАЛЬНОГО ОКНА 🔽 ---
+        if (dom.openCreateGoalModalBtn) {
+            dom.openCreateGoalModalBtn.addEventListener('click', () => {
+                // Сбрасываем форму в режим "Создания" каждый раз при открытии
+                resetWeeklyGoalForm(); 
+                // Обновляем заголовок, т.к. resetWeeklyGoalForm его тоже сбрасывает
+                const modalTitle = document.getElementById('admin-create-goal-modal-title');
+                if (modalTitle) modalTitle.textContent = 'Новая Задача';
+                
+                // Показываем модальное окно
+                if (dom.adminCreateGoalModal) {
+                    dom.adminCreateGoalModal.classList.remove('hidden');
+                }
+            });
+        }
             
         }
 
