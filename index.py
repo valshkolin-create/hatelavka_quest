@@ -6105,7 +6105,7 @@ async def clear_all_weekly_progress(
 
     try:
         # Вызываем RPC, которую мы создадим на Шаге 4
-        response = await supabase.post("/rpc/admin_clear_all_weekly_progress", json={})
+        response = await supabase.post("/rpc/admin_clear_all_weekly_progress")
         response.raise_for_status() # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
         return {"message": "Весь прогресс 'Недельного Забега' был успешно сброшен."}
     except Exception as e:
