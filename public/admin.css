@@ -800,3 +800,25 @@ CSS
 .purchase-warning i {
     font-size: 16px;
 }
+/* --- СТИЛИ ДЛЯ 2-КОЛОНОЧНОЙ СЕТКИ В АДМИНКЕ --- */
+.admin-grid-2-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Две колонки одинаковой ширины */
+    gap: 20px; /* Отступ между колонками */
+}
+
+/* Описание/подсказка в форме */
+.form-hint {
+    font-size: 12px; 
+    color: var(--text-color-muted); 
+    margin: -10px 0 10px;
+    line-height: 1.4;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .admin-grid-2-col {
+        grid-template-columns: 1fr; /* Одна колонка на маленьких экранах */
+        gap: 15px; /* Уменьшим отступ */
+    }
+}
