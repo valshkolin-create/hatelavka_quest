@@ -6098,26 +6098,68 @@ async def clear_all_weekly_progress(
     request_data: InitDataRequest, # Используем существующую модель
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) ВНИМАНИЕ: Удаляет ВЕСЬ прогресс "Забега" для ВСЕХ пользователей."""
+    """
+    (Админ) ВНИМАНИЕ:
+    1. Переносит все АКТИВНЫЕ задачи (is_active=true) на ID недели из настроек.
+    2. Удаляет ВЕСЬ прогресс "Забега" для ВСЕХ пользователей.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # --- ИЗМЕНЕНИЕ: ВЫПОЛНЯЕМ ЗАПРОС НАПРЯМУЮ, В ОБХОД RPC ---
-        logging.info("Выполняем прямой DELETE запрос к 'user_weekly_progress'...")
-        response = await supabase.delete(
-            "/user_weekly_progress",
-            params={"user_id": "gt.0"} # Удаляем все строки, где user_id > 0 (т.е. все)
+        # --- НОВЫЙ БЛОК: ШАГ 1 ---
+        # Получаем ID недели, который админ сохранил в настройках
+        logging.info("Шаг 1: Получение нового ID недели из 'weekly_run_settings'...")
+        settings_resp = await supabase.get(
+            "/weekly_run_settings",
+            params={"id": "eq.1", "select": "week_id"}
         )
-        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+        settings_resp.raise_for_status()
+        settings_data = settings_resp.json()
+        
+        if not settings_data or not settings_data[0].get("week_id"):
+            logging.error("Не удалось получить 'week_id' из 'weekly_run_settings'. ID недели не установлен в настройках.")
+            raise HTTPException(status_code=400, detail="Ошибка: Сначала сгенерируйте и сохраните новый 'ID Текущей Недели' в настройках.")
+        
+        new_week_id = settings_data[0]["week_id"]
+        logging.info(f"Шаг 1: Успех. Новый ID недели: {new_week_id}")
+        
+        # --- НОВЫЙ БЛОК: ШАГ 2 ---
+        # Обновляем все АКТИВНЫЕ задачи (is_active = true), присваивая им новый ID недели
+        logging.info(f"Шаг 2: Обновление 'week_id' на '{new_week_id}' для всех активных (is_active=true) задач в 'weekly_goals'...")
+        update_resp = await supabase.patch(
+            "/weekly_goals",
+            params={"is_active": "eq.true"}, # Находим все активные
+            json={"week_id": new_week_id}     # Устанавливаем им новый ID
+        )
+        update_resp.raise_for_status()
+        logging.info("Шаг 2: Успех. Активные задачи перенесены на новую неделю.")
 
-        response.raise_for_status() 
-        return {"message": "Весь прогресс 'Недельного Забега' был успешно сброшен."}
+        # --- СТАРЫЙ БЛОК: ШАГ 3 (Без изменений) ---
+        # Удаляем ВЕСЬ старый прогресс
+        logging.info("Шаг 3: Выполняем прямой DELETE запрос к 'user_weekly_progress' (сброс)...")
+        delete_resp = await supabase.delete(
+            "/user_weekly_progress",
+            params={"user_id": "gt.0"} # Удаляем все строки
+        )
+        delete_resp.raise_for_status()
+        logging.info("Шаг 3: Успех. Весь старый прогресс 'Забега' сброшен.")
+        
+        return {"message": f"Успешно! Все активные задачи перенесены на неделю '{new_week_id}' и весь старый прогресс сброшен."}
+    
     except Exception as e:
-        logging.error(f"Ошибка в clear_all_weekly_progress: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось очистить прогресс.")
-# --- 🔼🔼🔼 КОНЕЦ НОВОГО ЭНДПОИНТА 🔼🔼🔼 ---
+        # Логируем ошибку, но также смотрим, не пришла ли она от Supabase
+        error_detail = str(e)
+        if isinstance(e, httpx.HTTPStatusError):
+            try:
+                error_detail = e.response.json().get("message", str(e))
+            except:
+                pass # Оставляем str(e)
+                
+        logging.error(f"Ошибка в clear_all_weekly_progress: {error_detail}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Не удалось очистить прогресс: {error_detail}")
+# --- 🔼🔼🔼 КОНЕЦ НОВОГО ЭНДПОИНТА 🔼🔼🔼
 
 # --- 🔽🔽🔽 ВСТАВЬТЕ НОВЫЙ ЭНДПОИНТ СЮДА 🔽🔽🔽 ---
 class AdminClearUserWeeklyProgressRequest(BaseModel):
