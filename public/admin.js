@@ -2520,8 +2520,6 @@ if (dom.weeklyGoalsSettingsForm) {
             hideLoader();
         }
     });
-}
-
 // [НАЧАЛО] ВСТАВЬ ЭТОТ БЛОК 'else'
 } else { 
      console.error('[DEBUG] setupEventListeners() - КРИТИЧЕСКАЯ ОШИБКА: Элемент dom.weeklyGoalsSettingsForm (id: "weekly-goals-settings-form") НЕ НАЙДЕН. Кнопка работать не будет.');
