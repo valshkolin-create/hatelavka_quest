@@ -605,4 +605,40 @@
     border-top-left-radius: 0;
     border-top-right-radius: 0;
 }
+/* --- СТИЛИ ДЛЯ ПРОЦЕНТОВ В ПРОГРЕСС-БАРЕ --- */
 
+.weekly-goal-progress-bar {
+    /* Увеличиваем высоту, как у челленджа */
+    height: 24px;
+    border-radius: 12px;
+    /* Добавляем position: relative, чтобы текст был внутри */
+    position: relative;
+}
+
+.weekly-goal-progress-fill {
+    /* Меняем радиус, чтобы соответствовать 24px */
+    border-radius: 12px;
+}
+
+/* Стили для контейнера текста (как в .progress-content) */
+.weekly-goal-progress-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 8px;
+    box-sizing: border-box;
+    z-index: 1;
+}
+
+/* Стили для самого текста (как в .progress-text) */
+.weekly-goal-progress-text {
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-color);
+    text-shadow: 0 0 3px rgba(0,0,0,0.5); /* Тень для читаемости */
+}
