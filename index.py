@@ -6104,9 +6104,15 @@ async def clear_all_weekly_progress(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Вызываем RPC, которую мы создадим на Шаге 4
-        response = await supabase.post("/rpc/admin_clear_all_weekly_progress")
-        response.raise_for_status() # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+        # --- ИЗМЕНЕНИЕ: ВЫПОЛНЯЕМ ЗАПРОС НАПРЯМУЮ, В ОБХОД RPC ---
+        logging.info("Выполняем прямой DELETE запрос к 'user_weekly_progress'...")
+        response = await supabase.delete(
+            "/user_weekly_progress",
+            params={"user_id": "gt.0"} # Удаляем все строки, где user_id > 0 (т.е. все)
+        )
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        response.raise_for_status() 
         return {"message": "Весь прогресс 'Недельного Забега' был успешно сброшен."}
     except Exception as e:
         logging.error(f"Ошибка в clear_all_weekly_progress: {e}", exc_info=True)
@@ -6131,12 +6137,15 @@ async def clear_user_weekly_progress(
     user_id_to_clear = request_data.user_id_to_clear
 
     try:
-        # Вызываем RPC, которую мы создадим на Шаге 4
-        response = await supabase.post(
-            "/rpc/admin_clear_user_weekly_progress", 
-            json={"p_user_id": user_id_to_clear}
+        # --- ИЗМЕНЕНИЕ: ВЫПОЛНЯЕМ ЗАПРОС НАПРЯМУЮ, В ОБХОД RPC ---
+        logging.info(f"Выполняем прямой DELETE запрос к 'user_weekly_progress' для user_id {user_id_to_clear}...")
+        response = await supabase.delete(
+            "/user_weekly_progress",
+            params={"user_id": f"eq.{user_id_to_clear}"} # Удаляем строки только для этого user_id
         )
-        response.raise_for_status() # <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        response.raise_for_status()
         return {"message": f"Прогресс 'Забега' для пользователя {user_id_to_clear} был успешно сброшен."}
     except Exception as e:
         logging.error(f"Ошибка в clear_user_weekly_progress (user: {user_id_to_clear}): {e}", exc_info=True)
