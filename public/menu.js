@@ -684,6 +684,7 @@ function renderChallenge(challengeData, isGuest) {
         const progress = userData.active_quest_progress || 0;
         const target = activeQuest.target_value || 1;
         const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
+        const percentText = `${Math.floor(percent)}%`; // <-- ДОБАВЛЕНО
         const isCompleted = progress >= target;
         const isTwitchQuest = activeQuest.quest_type && activeQuest.quest_type.includes('twitch');
         const twitchNotice = isTwitchQuest ? createTwitchNoticeHtml() : '';
@@ -905,15 +906,32 @@ function renderChallenge(challengeData, isGuest) {
                 'twitch_purchase': { text: 'Награда Twitch', nav: 'https://www.twitch.tv/hatelove_ttv' },
                 'auction_bid': { text: 'Перейти в аукцион', nav: '/auction' },
                 'cauldron_contribution': { text: 'Перейти в ивент', nav: '/halloween' },
-                // У 'stat_' задач нет 'nav', поэтому кнопка не появится
+                'wizebot_challenge_complete': { text: 'Wizebot Челлендж (в профиле)', nav: null }, // <-- ДОБАВЛЕНО
                 'stat_twitch_messages_week': { text: 'Статистика Twitch', nav: null },
                 'stat_twitch_uptime_week': { text: 'Статистика Twitch', nav: null },
                 'stat_telegram_messages_week': { text: 'Статистика TG', nav: null }
             };
 
             const info = taskInfoMap[taskType];
-
-            if (info && info.nav) {
+            
+            // --- ИСПРАВЛЕННАЯ ЛОГИКА ССЫЛОК ---
+            if (info) {
+                if (info.nav) {
+                    // Это КНОПКА-ССЫЛКА
+                    const isExternal = info.nav.startsWith('http');
+                    const icon = isExternal ? '<i class="fa-solid fa-arrow-up-right-from-square"></i>' : '';
+                    const highlightId = (taskType === 'manual_quest_complete' && goal.target_entity_id) 
+                                        ? `data-highlight-quest-id="${goal.target_entity_id}"` 
+                                        : '';
+                    
+                    navLinkHtml = `<a href="#" class="weekly-goal-nav-link" data-nav="${info.nav}" ${highlightId}>${info.text} ${icon}</a>`;
+                
+                } else if (!descriptionHtml) {
+                    // Это просто ТЕКСТ (если нет описания)
+                    navLinkHtml = `<span class="weekly-goal-nav-link text-only">${info.text}</span>`;
+                }
+            }
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                 // --- 🔽 НОВОЕ ИЗМЕНЕНИЕ ЗДЕСЬ 🔽 ---
                 // Если это ручное задание и у него есть ID, добавляем этот ID в кнопку
                 const highlightId = (taskType === 'manual_quest_complete' && goal.target_entity_id) 
@@ -941,10 +959,15 @@ function renderChallenge(challengeData, isGuest) {
                     </div>
                     <div class="weekly-goal-info">
                         <h3 class="weekly-goal-title">${escapeHTML(goal.title)}</h3>
+                        
                         <div class="weekly-goal-progress-bar">
                             <div class="weekly-goal-progress-fill" style="width: ${percent}%;"></div>
+                            <div class="weekly-goal-progress-content">
+                                <span class="weekly-goal-progress-text">${percentText}</span>
+                            </div>
                         </div>
-                        ${descriptionHtml} ${navLinkHtml}   </div>
+                        ${descriptionHtml} ${navLinkHtml}
+                    </div>
                     ${buttonHtml}
                 </div>
             `;
