@@ -6127,11 +6127,11 @@ async def clear_all_weekly_progress(
         
         # --- НОВЫЙ БЛОК: ШАГ 2 ---
         # Обновляем все АКТИВНЫЕ задачи (is_active = true), присваивая им новый ID недели
-        logging.info(f"Шаг 2: Обновление 'week_id' на '{new_week_id}' для всех активных (is_active=true) задач в 'weekly_goals'...")
+        logging.info(f"Шаг 2: Обновление 'week_id' на '{new_week_id}' для ВСЕХ задач в 'weekly_goals'...")
         update_resp = await supabase.patch(
             "/weekly_goals",
-            params={"is_active": "eq.true"}, # Находим все активные
-            json={"week_id": new_week_id}     # Устанавливаем им новый ID
+            params={"id": "gt.0"},          # Находим ВСЕ задачи (id > 0)
+            json={"week_id": new_week_id}   # Устанавливаем им новый ID
         )
         update_resp.raise_for_status()
         logging.info("Шаг 2: Успех. Активные задачи перенесены на новую неделю.")
