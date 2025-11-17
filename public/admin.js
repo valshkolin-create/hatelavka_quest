@@ -145,6 +145,9 @@ try {
         // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
         adminClearAllWeeklyProgressBtn: document.getElementById('admin-clear-all-weekly-progress-btn'),
         // --- 🔽 НОВЫЙ КОД 🔽 ---
+        // --- 🔽 ДОБАВЬ ЭТУ СТРОКУ 🔽 ---
+        saveWeeklySettingsBtn: document.getElementById('save-weekly-settings-btn'),
+        // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
         adminResetUserWeeklyProgressForm: document.getElementById('admin-reset-user-weekly-progress-form'),
         adminResetUserWeeklyProgressUserName: document.getElementById('admin-reset-user-weekly-progress-user-name'),
         adminResetUserWeeklyProgressSearchBtn: document.getElementById('admin-reset-user-weekly-progress-search-btn')
@@ -2444,28 +2447,31 @@ if (dom.weeklyGoalEntitySelectList) {
 
 
 // 6. Сохранение НАСТРОЕК (Суперприз и Вкл/Выкл)
-if (dom.weeklyGoalsSettingsForm) {
-    // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
-    console.log('[DEBUG] setupEventListeners() - Элемент dom.weeklyGoalsSettingsForm НАЙДЕН. Привязываем "submit"...');
-    // [КОНЕЦ] ВСТАВЬ ЭТОТ ЛОГ
-
-    dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        console.log('[DEBUG] "Сохранить Настройки" (Недельные испытания) - КЛИК'); // Этот лог у тебя уже был
-
-        // --- НАЧАЛО НОВОГО ИСПРАВЛЕНИЯ (v2) ---
+if (dom.saveWeeklySettingsBtn) {
+    console.log('[DEBUG] setupEventListeners() - Кнопка dom.saveWeeklySettingsBtn НАЙДЕНА. Привязываем "click"...');
+    
+    dom.saveWeeklySettingsBtn.addEventListener('click', async () => {
+        console.log('[DEBUG] "Сохранить Настройки" (Недельный Забег) - КЛИК');
         
+        // Вручную находим форму, так как 'e.target' - это кнопка
+        const form = dom.weeklyGoalsSettingsForm; 
+        if (!form) {
+            console.error('[DEBUG] Кнопка нажата, но форма weeklyGoalsSettingsForm не найдена!');
+            tg.showAlert('Критическая ошибка: Форма настроек не найдена.');
+            return;
+        }
+
         // 1. Собираем СПЕЦИАЛЬНЫЕ настройки "Забега" (ID недели, Суперприз)
         const weeklySettingsData = {
-            week_id: dom.weeklyGoalsSettingsForm.elements['week_id'].value.trim(),
-            super_prize_type: dom.weeklyGoalsSettingsForm.elements['super_prize_type'].value,
-            super_prize_value: parseInt(dom.weeklyGoalsSettingsForm.elements['super_prize_value'].value, 10) || 0,
-            super_prize_description: dom.weeklyGoalsSettingsForm.elements['super_prize_description'].value.trim()
+            week_id: form.elements['week_id'].value.trim(),
+            super_prize_type: form.elements['super_prize_type'].value,
+            super_prize_value: parseInt(form.elements['super_prize_value'].value, 10) || 0,
+            super_prize_description: form.elements['super_prize_description'].value.trim()
         };
         console.log('[DEBUG] 1. Собраны данные Недельного Забега (SuperPrize, WeekID):', weeklySettingsData);
 
         // 2. Получаем ОДНО значение, которое мы меняем (Вкл/Выкл "Забег")
-        const isEnabled = dom.weeklyGoalsSettingsForm.elements['is_enabled'].checked;
+        const isEnabled = form.elements['is_enabled'].checked;
         console.log('[DEBUG] 2. Собраны данные Глобального Переключателя (isEnabled):', isEnabled);
 
         try {
@@ -2474,8 +2480,7 @@ if (dom.weeklyGoalsSettingsForm) {
             showLoader();
 
             // 3. Загружаем ТЕКУЩИЕ глобальные настройки с сервера
-            // (Запрос идет "тихо", т.к. лоадер уже показан)
-            console.log('[DEBUG] 4. Запрашиваем /api/v1/admin/settings (GET)...');
+            console.log('[DEBUG] 4. Запрашиваем /api/v1/admin/settings (POST)...');
             const currentGlobalSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
             console.log('[DEBUG] 5. Получены Глобальные Настройки:', currentGlobalSettings);
             
@@ -2486,7 +2491,6 @@ if (dom.weeklyGoalsSettingsForm) {
             // 5. Отправляем ДВА запроса
             
             // Запрос 1: Сохраняем ОБНОВЛЕННЫЕ ГЛОБАЛЬНЫЕ настройки
-            // (currentGlobalSettings теперь содержит все старые URL и состояния + 1 новое)
             console.log('[DEBUG] 7. Отправляем /api/v1/admin/settings/update (POST) с Глобальными Настройками...');
             await makeApiRequest('/api/v1/admin/settings/update', { 
                 settings: currentGlobalSettings 
@@ -2494,7 +2498,6 @@ if (dom.weeklyGoalsSettingsForm) {
             console.log('[DEBUG] 8. /api/v1/admin/settings/update - УСПЕХ.');
             
             // Запрос 2: Сохраняем СПЕЦИАЛЬНЫЕ настройки "Забега" (Суперприз, ID недели)
-            // (Эта функция теперь тоже "тихая" после Части 1)
             console.log('[DEBUG] 9. Отправляем /api/v1/admin/weekly_goals/settings/update (POST) с Настройками Забега...');
             await api_saveWeeklyGoalSettings(weeklySettingsData); 
             console.log('[DEBUG] 10. /api/v1/admin/weekly_goals/settings/update - УСПЕХ.');
@@ -2503,13 +2506,10 @@ if (dom.weeklyGoalsSettingsForm) {
             console.log('[DEBUG] 11. Показан Alert.');
             
             // 6. (Важно!) Синхронизируем переключатель на главной стр. настроек
-            //    (на случай, если она была загружена до этого)
             if (dom.settingWeeklyGoalsEnabled) { // Проверяем, что элемент существует
                 dom.settingWeeklyGoalsEnabled.checked = isEnabled;
                 console.log('[DEBUG] 12. Синхронизирован главный переключатель (settingWeeklyGoalsEnabled).');
             }
-            
-            // --- КОНЕЦ НОВОГО ИСПРАВЛЕНИЯ (v2) ---
             
         } catch (err) {
             console.error('[DEBUG] ОШИБКА в блоке try:', err);
@@ -2520,11 +2520,9 @@ if (dom.weeklyGoalsSettingsForm) {
             hideLoader();
         }
     });
-// [НАЧАЛО] ВСТАВЬ ЭТОТ БЛОК 'else'
 } else { 
-     console.error('[DEBUG] setupEventListeners() - КРИТИЧЕСКАЯ ОШИБКА: Элемент dom.weeklyGoalsSettingsForm (id: "weekly-goals-settings-form") НЕ НАЙДЕН. Кнопка работать не будет.');
-} 
-// [КОНЕЦ] ВСТАВЬ ЭТОТ БЛОК
+     console.error('[DEBUG] setupEventListeners() - КРИТИЧЕСКАЯ ОШИБКА: Элемент dom.saveWeeklySettingsBtn (id: "save-weekly-settings-btn") НЕ НАЙДЕН. Кнопка работать не будет.');
+}
 
 // 7. Создание или Редактирование ЗАДАЧИ
 if (dom.weeklyGoalsCreateTaskForm) {
