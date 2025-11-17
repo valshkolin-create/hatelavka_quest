@@ -2445,9 +2445,13 @@ if (dom.weeklyGoalEntitySelectList) {
 
 // 6. Сохранение НАСТРОЕК (Суперприз и Вкл/Выкл)
 if (dom.weeklyGoalsSettingsForm) {
+    // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
+    console.log('[DEBUG] setupEventListeners() - Элемент dom.weeklyGoalsSettingsForm НАЙДЕН. Привязываем "submit"...');
+    // [КОНЕЦ] ВСТАВЬ ЭТОТ ЛОГ
+
     dom.weeklyGoalsSettingsForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        console.log('[DEBUG] "Сохранить Настройки" (Недельный Забег) - КЛИК');
+        console.log('[DEBUG] "Сохранить Настройки" (Недельные испытания) - КЛИК'); // Этот лог у тебя уже был
 
         // --- НАЧАЛО НОВОГО ИСПРАВЛЕНИЯ (v2) ---
         
@@ -2517,6 +2521,12 @@ if (dom.weeklyGoalsSettingsForm) {
         }
     });
 }
+
+// [НАЧАЛО] ВСТАВЬ ЭТОТ БЛОК 'else'
+} else { 
+     console.error('[DEBUG] setupEventListeners() - КРИТИЧЕСКАЯ ОШИБКА: Элемент dom.weeklyGoalsSettingsForm (id: "weekly-goals-settings-form") НЕ НАЙДЕН. Кнопка работать не будет.');
+} 
+// [КОНЕЦ] ВСТАВЬ ЭТОТ БЛОК
 
 // 7. Создание или Редактирование ЗАДАЧИ
 if (dom.weeklyGoalsCreateTaskForm) {
@@ -2662,6 +2672,9 @@ if (dom.weeklyGoalsList) {
 }
     
     function setupEventListeners() {
+        // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
+        console.log('[DEBUG] setupEventListeners() - ФУНКЦИЯ ЗАПУЩЕНА. Начинаем привязку...');
+        // [КОНЕЦ] ВСТАВЬ ЭТОТ ЛОГ
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
