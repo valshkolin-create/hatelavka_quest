@@ -896,16 +896,19 @@ function renderChallenge(challengeData, isGuest) {
 
         // --- 🎯 ИСПРАВЛЕНИЕ ДЛЯ ГОЛА 1 (Кнопки) И ФИКС СИНТАКСИСА ---
         let navLinkHtml = '';
-        const taskInfoMap = {
-            'manual_quest_complete': { text: 'Перейти к заполнению ручного задания', nav: 'view-quests' },
-            'twitch_purchase': { text: 'Награда Twitch', nav: 'https://www.twitch.tv/hatelove_ttv' },
-            'auction_bid': { text: 'Перейти в аукцион', nav: '/auction' },
-            'cauldron_contribution': { text: 'Перейти в ивент', nav: '/halloween' },
-            'wizebot_challenge_complete': { text: 'Wizebot Челлендж (в профиле)', nav: null },
-            'stat_twitch_messages_week': { text: 'Статистика Twitch', nav: null },
-            'stat_twitch_uptime_week': { text: 'Статистика Twitch', nav: null },
-            'stat_telegram_messages_week': { text: 'Статистика TG', nav: null }
-        };
+            const taskInfoMap = {
+                'manual_quest_complete': { text: 'Перейти к заполнению ручного задания', nav: 'view-quests' },
+                'twitch_purchase': { text: 'Награда Twitch', nav: 'https://www.twitch.tv/hatelove_ttv' },
+                'auction_bid': { text: 'Перейти в аукцион', nav: '/auction' },
+                'cauldron_contribution': { text: 'Перейти в ивент', nav: '/halloween' },
+                'wizebot_challenge_complete': { text: 'Wizebot Челлендж (в профиле)', nav: null },
+                
+                // --- 🎯 ИЗМЕНЕНИЯ ЗДЕСЬ ---
+                'stat_twitch_messages_week': { text: 'Перейти на канал', nav: 'https://www.twitch.tv/hatelove_ttv' },
+                'stat_twitch_uptime_week': { text: 'Перейти на канал', nav: 'https://www.twitch.tv/hatelove_ttv' },
+                'stat_telegram_messages_week': { text: 'Перейти на канал', nav: 'https://t.me/hatelovettv' }
+                // --- -------------------- ---
+            };
 
         const info = taskInfoMap[taskType];
         
