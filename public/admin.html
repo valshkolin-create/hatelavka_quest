@@ -800,7 +800,8 @@
                     <button type="submit">Создать лот</button>
                 </form>
             </div>
-        </div>   
+        </div>
+      
         <div id="view-admin-weekly-goals" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
@@ -808,146 +809,78 @@
                 <div style="width: 60px;"></div>
             </div>
 
-            <div class="quest-card">
-                <form id="weekly-goals-settings-form" class="admin-form">
-                    <h3 style="margin: 0 0 10px;">Настройки Недели</h3>
-                    
-                    <div class="setting-item" style="padding: 0; border: none;">
-                        <span class="setting-label">✅ Система "недельных заданий" включена</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" name="is_enabled">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <label for="weekly-goal-week-id">ID Текущей Недели (для сброса)</label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" name="week_id" id="weekly-goal-week-id" placeholder="2025-W46" style="flex-grow: 1;">
-                        <button type="button" id="generate-new-week-id-btn" class="admin-menu-button" style="width: auto; padding: 10px 14px; flex-shrink: 0; background-color: #555;">
-                            <i class="fa-solid fa-rotate-right"></i> Новая
-                        </button>
-                    </div>
-                    <p style="font-size: 12px; color: var(--text-color-muted); margin: -5px 0 10px; line-height: 1.5;">
-                        <b>Как начать новую неделю:</b><br>
-                        1. Нажмите "Новая" <i class="fa-solid fa-rotate-right"></i>, чтобы получить ID (напр. 2025-W47).<br>
-                        2. Нажмите "Сохранить Настройки" ниже.<br>
-                        3. (Важно) Перейдите в "Опасную зону" и нажмите "Очистить ВЕСЬ прогресс забега".
-                    </p>
-
-                    <label for="weekly-goal-super-prize-type">Тип Суперприза</label>
-                    <select name="super_prize_type" id="weekly-goal-super-prize-type">
-                        <option value="none">Нет приза</option>
-                        <option value="tickets">Билеты</option>
-                        <option value="promocode_batch">Промокод (звезды)</option>
-                    </select>
-
-                    <div id="weekly-goal-super-prize-value-wrapper" class="hidden">
-                        <label for="weekly-goal-super-prize-value">Кол-во (билеты) / Звезды (промокод)</label>
-                        <input type="number" name="super_prize_value" id="weekly-goal-super-prize-value" placeholder="0">
-                    </div>
-
-                    <label for="weekly-goal-super-prize-desc">Описание Суперприза (видит юзер)</label>
-                    <input type="text" name="super_prize_description" id="weekly-goal-super-prize-desc" placeholder="Главный приз!">
-
-                    <button type="button" id="save-weekly-settings-btn" class="admin-action-btn approve" style="margin-top: 10px;">Сохранить Настройки</button>
-                </form>
-            </div>
-          <div class="quest-card" style="margin-top: 20px;">
-    <div class="user-management-section">
-        <h3 style="color: var(--danger-color);"><i class="fa-solid fa-broom"></i> Опасная зона</h3>
-
-        <div class="admin-form" style="padding-bottom: 15px; border-bottom: 1px solid var(--divider-glass-color);">
-            <label>Сбросить прогресс "Забега" для 1 пользователя</label>
-            <p style="font-size: 12px; color: var(--text-color-muted); margin: -10px 0 10px;">
-                Удаляет прогресс (0/0) только для выбранного пользователя.
-            </p>
-            <form id="admin-reset-user-weekly-progress-form" class="hidden admin-sub-form" style="padding-top: 0; margin-top: 0; border-top: none;">
-                <p>Для: <strong id="admin-reset-user-weekly-progress-user-name">...</strong></p>
-                <input type="hidden" name="user_id_to_reset_weekly">
-                <button type="submit" class="admin-action-btn reject" style="width: 100%;">
-                    Подтвердить сброс
-                </button>
-            </form>
-            <button id="admin-reset-user-weekly-progress-search-btn" type="button" class="admin-menu-button">
-                <i class="fa-solid fa-search"></i> Найти пользователя
-            </button>
-        </div>
-
-        <div class="admin-form" style="gap: 10px; margin-top: 15px;">
-            <label>Сбросить весь прогресс "Забега"</label>
-            <p style="font-size: 12px; color: var(--text-color-muted); margin: -10px 0 10px;">
-                Удаляет ВЕСЬ прогресс (таблицу `user_weekly_progress`) для ВСЕХ пользователей.
-            </p>
-            <button id="admin-clear-all-weekly-progress-btn" type="button" class="admin-action-btn reject" style="width: 100%;">
-                Очистить ВЕСЬ прогресс забега
-            </button>
-        </div>
-    </div>
-</div>
-
-            <div class="quest-card" style="margin-top: 20px;">
-                <form id="weekly-goals-create-task-form" class="admin-form">
-                    <input type="hidden" name="goal_id" value="">
-                    
-                    <input type="hidden" name="week_id_hidden_for_edit" id="week_id_hidden_for_edit" value="">
-                    <h3 style="margin: 0 0 10px;">Новая Задача</h3>
-                    
-                    <label for="weekly-goal-task-title">Название (видит юзер)</label>
-                    <input type="text" name="title" id="weekly-goal-task-title" required placeholder="Выполнить 3 челленджа">
-                    <label for="weekly-goal-task-description">Примечание (подзаголовок, необязательно)</label>
-                    <textarea name="description" id="weekly-goal-task-description" rows="2" placeholder="Например: Нужно перейти в раздел Задания и выполнить..."></textarea>
-
-                    <label for="weekly-goal-task-type">Тип Задачи (для триггера)</label>
-                    <select name="task_type" id="weekly-goal-task-type" required>
-                        <option value="">-- Выберите тип --</option>
-                        <option value="manual_quest_complete">✅ 1. Ручное задание (Выбрать...)</option>
-                        <option value="twitch_purchase">🛍️ 2. Покупка Twitch (Выбрать...)</option>
-                        <option value="wizebot_challenge_complete">🏆 3. Wizebot Челлендж (Выбрать...)</option>
-                        <option value="auction_bid">🔨 4. Ставка на Аукционе (Любая)</option>
-                        <option value="cauldron_contribution">🍲 5. Вклад в "Котел" (Любой)</option>
-                        <option value="stat_twitch_messages_week">📈 (Пассивно) Сообщения Twitch (Неделя)</option>
-                        <option value="stat_twitch_uptime_week">📈 (Пассивно) Время Twitch (Неделя)</option>
-                        <option value="stat_telegram_messages_week">📈 (Пассивно) Сообщения TG (Неделя)</option>
-                    </select>
-
-                    <div id="weekly-goal-entity-picker-wrapper" class="admin-form hidden" style="gap: 5px; margin-top: -10px; margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                        <label id="weekly-goal-entity-picker-label">Выбрано:</label>
-                        <input type="hidden" name="target_entity_id" id="weekly-goal-target-entity-id">
-                        <input type="hidden" name="target_entity_name" id="weekly-goal-target-entity-name">
+            <div class="admin-grid-2-col">
+                <div class="quest-card">
+                    <form id="weekly-goals-settings-form" class="admin-form">
+                        <h3 style="margin: 0 0 10px;">Настройки Недели</h3>
                         
-                        <div id="weekly-goal-entity-display" class="entity-picker-display">
-                            <span>Ничего не выбрано</span>
+                        <div class="setting-item" style="padding: 0; border: none;">
+                            <span class="setting-label">✅ Система включена</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="is_enabled">
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
-                        <button type="button" id="weekly-goal-select-entity-btn" class="admin-menu-button" style="background-color: #555;">Выбрать...</button>
+
+                        <label for="weekly-goal-week-id">ID Текущей Недели</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" name="week_id" id="weekly-goal-week-id" placeholder="2025-W46" style="flex-grow: 1;">
+                            <button type="button" id="generate-new-week-id-btn" class="admin-menu-button" style="width: auto; padding: 10px 14px; flex-shrink: 0; background-color: #555;">
+                                <i class="fa-solid fa-rotate-right"></i> Новая
+                            </button>
+                        </div>
+                        
+                        <label for="weekly-goal-super-prize-type">Тип Суперприза</label>
+                        <select name="super_prize_type" id="weekly-goal-super-prize-type">
+                            <option value="none">Нет приза</option>
+                            <option value="tickets">Билеты</option>
+                            <option value="promocode_batch">Промокод (звезды)</option>
+                        </select>
+
+                        <div id="weekly-goal-super-prize-value-wrapper" class="hidden">
+                            <label>Кол-во / Звезды</label>
+                            <input type="number" name="super_prize_value" id="weekly-goal-super-prize-value" placeholder="0">
+                        </div>
+
+                        <label for="weekly-goal-super-prize-desc">Описание Суперприза</label>
+                        <input type="text" name="super_prize_description" id="weekly-goal-super-prize-desc" placeholder="Главный приз!">
+
+                        <button type="button" id="save-weekly-settings-btn" class="admin-action-btn approve" style="margin-top: 10px;">Сохранить Настройки</button>
+                    </form>
+                </div> 
+
+                <div class="quest-card">
+                    <div class="user-management-section">
+                        <h3 style="color: var(--danger-color); margin: 0 0 15px; padding-bottom: 10px; border-bottom: 1px solid var(--divider-glass-color);"><i class="fa-solid fa-broom"></i> Опасная зона</h3>
+
+                        <div class="admin-form" style="padding-bottom: 15px; border-bottom: 1px solid var(--divider-glass-color);">
+                            <label>Сброс для 1 пользователя</label>
+                            <p class="form-hint">Удаляет прогресс (0/0) только для выбранного пользователя.</p>
+                            <form id="admin-reset-user-weekly-progress-form" class="hidden admin-sub-form" style="padding-top: 0; margin-top: 0; border-top: none;">
+                                <p>Для: <strong id="admin-reset-user-weekly-progress-user-name">...</strong></p>
+                                <input type="hidden" name="user_id_to_reset_weekly">
+                                <button type="submit" class="admin-action-btn reject" style="width: 100%;">
+                                    Подтвердить сброс
+                                </button>
+                            </form>
+                            <button id="admin-reset-user-weekly-progress-search-btn" type="button" class="admin-menu-button">
+                                <i class="fa-solid fa-search"></i> Найти пользователя
+                            </button>
+                        </div>
+
+                        <div class="admin-form" style="gap: 10px; margin-top: 15px;">
+                            <label>Сброс для ВСЕХ (Новая неделя)</label>
+                            <p class="form-hint">Переносит активные задачи на новый ID недели и очищает ВЕСЬ прогресс.</p>
+                            <button id="admin-clear-all-weekly-progress-btn" type="button" class="admin-action-btn reject" style="width: 100%;">
+                                Очистить ВЕСЬ прогресс забега
+                            </button>
+                        </div>
                     </div>
-                    
-                    <label for="weekly-goal-task-target">Цель (сколько раз)</label>
-                    <input type="number" name="target_value" id="weekly-goal-task-target" value="1" min="1" required>
-                    
-                    <label for="weekly-goal-task-reward-type">Опциональная Награда (за эту задачу)</label>
-                    <select name="reward_type" id="weekly-goal-task-reward-type">
-                        <option value="none">Нет награды</option>
-                        <option value="tickets">Билеты</option>
-                    </select>
-                    
-                    <div id="weekly-goal-task-reward-value-wrapper" class="hidden">
-                        <label for="weekly-goal-task-reward-value">Кол-во билетов</label>
-                        <input type="number" name="reward_value" id="weekly-goal-task-reward-value" placeholder="0">
-                    </div>
-                    
-                    <label for="weekly-goal-task-sort-order">Порядок (#)</label>
-                    <input type="number" name="sort_order" id="weekly-goal-task-sort-order" value="0">
-                  <div class="setting-item" style="padding: 10px 0 0; border: none;">
-                        <span class="setting-label">✅ Задача Активна</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" name="is_active" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    
-                    <button type="submit">Добавить Задачу</button>
-                    <button type="button" id="weekly-goal-cancel-edit-btn" class="admin-action-btn reject hidden" style="margin-top: -5px;">Отмена (сбросить форму)</button>
-                </form>
+                </div>
+            </div> <div class="quest-card" style="margin-top: 20px;">
+                <button id="open-create-goal-modal-btn" class="admin-action-btn" style="background-color: var(--action-color); width: 100%;">
+                    <i class="fa-solid fa-plus"></i> Создать Новую Задачу
+                </button>
             </div>
 
             <div id="weekly-goals-list" class="quests-container" style="margin-top: 20px;">
@@ -1156,7 +1089,81 @@
         </div>
     </div>
     <div id="admin-promocode-select-modal" class="modal-overlay hidden">
-          </div>  
+          </div> 
+  
+    <div id="admin-create-goal-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="admin-create-goal-modal-title" class="modal-title">Новая Задача</h2>
+                <button class="modal-close-btn" data-close-modal="admin-create-goal-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="weekly-goals-create-task-form" class="admin-form">
+                    <input type="hidden" name="goal_id" value="">
+                    <input type="hidden" name="week_id_hidden_for_edit" id="week_id_hidden_for_edit" value="">
+                    
+                    <label for="weekly-goal-task-title">Название (видит юзер)</label>
+                    <input type="text" name="title" id="weekly-goal-task-title" required placeholder="Выполнить 3 челленджа">
+                    
+                    <label for="weekly-goal-task-description">Примечание (подзаголовок, необязательно)</label>
+                    <textarea name="description" id="weekly-goal-task-description" rows="2" placeholder="Например: Нужно перейти в раздел Задания..."></textarea>
+
+                    <label for="weekly-goal-task-type">Тип Задачи (для триггера)</label>
+                    <select name="task_type" id="weekly-goal-task-type" required>
+                        <option value="">-- Выберите тип --</option>
+                        <option value="manual_quest_complete">✅ 1. Ручное задание (Выбрать...)</option>
+                        <option value="twitch_purchase">🛍️ 2. Покупка Twitch (Выбрать...)</option>
+                        <option value="wizebot_challenge_complete">🏆 3. Wizebot Челлендж (Выбрать...)</option>
+                        <option value="auction_bid">🔨 4. Ставка на Аукционе (Любая)</option>
+                        <option value="cauldron_contribution">🍲 5. Вклад в "Котел" (Любой)</option>
+                        <option value="stat_twitch_messages_week">📈 (Пассивно) Сообщения Twitch (Неделя)</option>
+                        <option value="stat_twitch_uptime_week">📈 (Пассивно) Время Twitch (Неделя)</option>
+                        <option value="stat_telegram_messages_week">📈 (Пассивно) Сообщения TG (Неделя)</option>
+                    </select>
+
+                    <div id="weekly-goal-entity-picker-wrapper" class="admin-form hidden" style="gap: 5px; margin-top: -10px; margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                        <label id="weekly-goal-entity-picker-label">Выбрано:</label>
+                        <input type="hidden" name="target_entity_id" id="weekly-goal-target-entity-id">
+                        <input type="hidden" name="target_entity_name" id="weekly-goal-target-entity-name">
+                        
+                        <div id="weekly-goal-entity-display" class="entity-picker-display">
+                            <span>Ничего не выбрано</span>
+                        </div>
+                        <button type="button" id="weekly-goal-select-entity-btn" class="admin-menu-button" style="background-color: #555;">Выбрать...</button>
+                    </div>
+                    
+                    <label for="weekly-goal-task-target">Цель (сколько раз)</label>
+                    <input type="number" name="target_value" id="weekly-goal-task-target" value="1" min="1" required>
+                    
+                    <label for="weekly-goal-task-reward-type">Опциональная Награда</label>
+                    <select name="reward_type" id="weekly-goal-task-reward-type">
+                        <option value="none">Нет награды</option>
+                        <option value="tickets">Билеты</option>
+                    </select>
+                    
+                    <div id="weekly-goal-task-reward-value-wrapper" class="hidden">
+                        <label for="weekly-goal-task-reward-value">Кол-во билетов</label>
+                        <input type="number" name="reward_value" id="weekly-goal-task-reward-value" placeholder="0">
+                    </div>
+                    
+                    <label for="weekly-goal-task-sort-order">Порядок (#)</label>
+                    <input type="number" name="sort_order" id="weekly-goal-task-sort-order" value="0">
+                    
+                    <div class="setting-item" style="padding: 10px 0 0; border: none;">
+                        <span class="setting-label">✅ Задача Активна</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="is_active" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit">Добавить Задачу</button>
+                    <button type="button" id="weekly-goal-cancel-edit-btn" class="admin-action-btn reject hidden" style="margin-top: -5px;">Отмена (сбросить форму)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+  
 
     <script src="admin.js" defer></script>
 </body>
