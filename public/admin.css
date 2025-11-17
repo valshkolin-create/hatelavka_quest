@@ -814,4 +814,58 @@ CSS
     margin: -10px 0 10px;
     line-height: 1.4;
 }
+/* --- НАЧАЛО: Код для мобильной адаптации (вставить в конец) --- */
 
+@media (max-width: 768px) {
+    
+    /* 1. Уменьшаем общие отступы */
+    .main-content {
+        padding: 15px 12px; /* было 25px 20px */
+    }
+
+    /* 2. Уменьшаем "фигуры" (карточки и иконки) */
+    .quest-card {
+        padding: 12px; /* было 15px */
+    }
+    
+    .admin-form {
+        gap: 12px; /* Чуть плотнее (было 15px) */
+    }
+
+    .admin-icon-button .icon-wrapper {
+        width: 50px; /* было 64px */
+        height: 50px; /* было 64px */
+        font-size: 22px; /* Размер иконки (был 26px) */
+    }
+
+    /* 3. Уменьшаем шрифты (более умеренно) */
+    .page-header-title {
+        font-size: 18px; /* было 22px */
+    }
+
+    body, .admin-form input, .admin-form select, .admin-menu-button {
+        font-size: 14px; /* было 16px */
+    }
+
+    .admin-form label, .admin-action-btn, .tab-button {
+        font-size: 13px; /* было 14px */
+    }
+
+    .admin-icon-button span {
+        font-size: 11px; /* было 12px */
+    }
+    
+    .admin-grid-2-col {
+        gap: 10px; /* Уменьшаем отступ между колонками (было 20px) */
+    }
+
+    /* Уменьшаем специфичные шрифты */
+    .form-hint, .manage-quest-info small, .submission-item p, .purchase-item p {
+        font-size: 11px;
+    }
+    .submission-data {
+        font-size: 12px;
+    }
+}
+
+/* --- КОНЕЦ: Код для мобильной адаптации --- */
