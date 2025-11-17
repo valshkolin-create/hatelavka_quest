@@ -821,9 +821,17 @@
                     </div>
 
                     <label for="weekly-goal-week-id">ID Текущей Недели (для сброса)</label>
-                    <input type="text" name="week_id" id="weekly-goal-week-id" placeholder="2025-W46">
-                    <p style="font-size: 12px; color: var(--text-color-muted); margin: -10px 0 10px;">
-                        При изменении этого ID, прогресс всех пользователей сбросится, и начнется новая неделя.
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" name="week_id" id="weekly-goal-week-id" placeholder="2025-W46" style="flex-grow: 1;">
+                        <button type="button" id="generate-new-week-id-btn" class="admin-menu-button" style="width: auto; padding: 10px 14px; flex-shrink: 0; background-color: #555;">
+                            <i class="fa-solid fa-rotate-right"></i> Новая
+                        </button>
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-color-muted); margin: -5px 0 10px; line-height: 1.5;">
+                        <b>Как начать новую неделю:</b><br>
+                        1. Нажмите "Новая" <i class="fa-solid fa-rotate-right"></i>, чтобы получить ID (напр. 2025-W47).<br>
+                        2. Нажмите "Сохранить Настройки" ниже.<br>
+                        3. (Важно) Перейдите в "Опасную зону" и нажмите "Очистить ВЕСЬ прогресс забега".
                     </p>
 
                     <label for="weekly-goal-super-prize-type">Тип Суперприза</label>
