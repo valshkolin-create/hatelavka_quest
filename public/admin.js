@@ -2388,13 +2388,7 @@ function openEntityPickerModal(taskType) {
  * (v3) ОБРАБОТЧИКИ: Подключаем кнопки
  */
 
-// 1. Показать/скрыть поле "Кол-во" для СУПЕРПРИЗА
-if (dom.weeklyGoalSuperPrizeType) {
-    dom.weeklyGoalSuperPrizeType.addEventListener('change', (e) => {
-        const type = e.target.value;
-        dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', type === 'none');
-    });
-}
+
 
 // 2. Показать/скрыть поле "Кол-во" для ОПЦИОНАЛЬНОЙ НАГРАДЫ
 if (dom.weeklyGoalTaskRewardType) {
@@ -2731,6 +2725,16 @@ if (dom.weeklyGoalsList) {
         // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
         console.log('[DEBUG] setupEventListeners() - ФУНКЦИЯ ЗАПУЩЕНА. Начинаем привязку...');
         // [КОНЕЦ] ВСТАВЬ ЭТОТ ЛОГ
+        
+        // 1. Показать/скрыть поле "Кол-во" для СУПЕРПРИЗА
+        if (dom.weeklyGoalSuperPrizeType) {
+            dom.weeklyGoalSuperPrizeType.addEventListener('change', (e) => {
+                const type = e.target.value;
+           dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', type === 'none');
+            });
+        }
+
+        
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
