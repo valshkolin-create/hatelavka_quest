@@ -2437,7 +2437,11 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
                 auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
                 auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), # <-- ДОБАВЛЕНО
                 weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), # <-- 🔽 ДОБАВИТЬ
-                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
+                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False),
+               # --- 🔽 ДОБАВЛЯЕМ СЮДА 🔽 ---
+                quest_schedule_override_enabled=settings_data.get('quest_schedule_override_enabled', False),
+                quest_schedule_active_type=settings_data.get('quest_schedule_active_type', 'twitch')
+                # --- 🔼 БЕЗ ЭТОГО ФРОНТЕНД НЕ ВИДИТ НАСТРОЙКИ 🔼 ---
             )
 
             # Сохраняем в кэш
