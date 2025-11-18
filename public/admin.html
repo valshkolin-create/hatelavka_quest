@@ -94,6 +94,11 @@
                         <div class="icon-wrapper" style="color: #FFC107;"><i class="fa-solid fa-calendar-week"></i></div>
                         <span>Недельные испытания</span>
                     </div>
+                  <div class="admin-icon-button" data-view="view-admin-schedule">
+                    <div class="icon-wrapper" style="color: #A065F7;"><i class="fa-solid fa-calendar-alt"></i></div>
+                    <span>Расписание</span>
+                </div>
+                  
                 </div> </div> <div class="quest-card" style="margin-top: 20px; text-align: center;">
                 <p style="font-size: 14px; color: var(--text-color-muted); margin:0;">
                     Панель для администратирования канала HATElove.ttv.
@@ -886,6 +891,40 @@
             <div id="weekly-goals-list" class="quests-container" style="margin-top: 20px;">
                 </div>
         </div>
+      <div id="view-admin-schedule" class="view hidden">
+        <div class="page-header">
+            <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+            <h1 class="page-header-title">Расписание</h1>
+            <div style="width: 60px;"></div>
+        </div>
+        <div class="quest-card">
+            <form id="quest-schedule-form" class="admin-form">
+                <div class="settings-group">
+                    <div class="setting-item" style="padding-top: 0; border: none;">
+                        <span class="setting-label">Включить ручное управление<div class="tooltip">?<span class="tooltip-text">Если включено, автоматический график (по дням недели) будет игнорироваться.</span></div></span>
+                        <label class="toggle-switch"><input type="checkbox" id="setting-quest-schedule-override" name="quest_schedule_override_enabled"><span class="toggle-slider"></span></label>
+                    </div>
+
+                    <div id="setting-quest-schedule-type-wrapper" class="admin-form" style="display: none; margin-top: 10px; gap: 10px;">
+                        <label for="setting-quest-schedule-type">Принудительно включить:</label>
+                        <select id="setting-quest-schedule-type" name="quest_schedule_active_type">
+                            <option value="twitch">Twitch (испытания буднего дня)</option>
+                            <option value="telegram">Telegram (испытания выходного дня)</option>
+                        </select>
+                    </div>
+
+                    <button id="save-schedule-btn" type="submit" class="admin-action-btn approve" style="margin-top: 15px;">Сохранить расписание</button>
+                </div>
+            </form>
+        </div>
+        <div class="quest-card" style="margin-top: 15px; background-color: rgba(0, 122, 255, 0.1);">
+            <p style="margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-color-muted);">
+                <strong>Как это работает:</strong><br>
+                • <strong>Ручное управление ВЫКЛ:</strong> Работает автоматика. Twitch по будням, Telegram в Воскресенье и Понедельник.<br>
+                • <strong>Ручное управление ВКЛ:</strong> Автоматика отключается. Бот будет показывать тот тип, который вы выбрали в списке (например, "Telegram"), пока вы снова не выключите ручной режим.
+            </p>
+        </div>
+    </div>
         </main>
   
     <div id="weekly-goal-entity-select-modal" class="modal-overlay hidden">
