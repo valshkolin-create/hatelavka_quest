@@ -3321,18 +3321,40 @@ if (dom.settingQuestScheduleOverride) {
 if (dom.questScheduleForm) {
     dom.questScheduleForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-
+        
         try {
             // 1. СНАЧАЛА получаем текущие настройки
             const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
 
-            // 2. ОБНОВЛЯЕМ в них *только* поля расписания
-            currentSettings.quest_schedule_override_enabled = dom.settingQuestScheduleOverride.checked;
-            currentSettings.quest_schedule_active_type = dom.settingQuestScheduleType.value;
+            // 2. СОЗДАЕМ payload на их основе
+            const payload = { ...currentSettings }; // Копируем все, что есть
 
-            // 3. СОХРАНЯЕМ *весь* объект настроек обратно
+            // 3. ОБНОВЛЯЕМ payload полями со ВСЕХ вкладок
+            
+            // --- Поля с главной "Настройки" ---
+            const newSliderOrder = Array.from(dom.sliderOrderManager.querySelectorAll('.slider-order-item'))
+                                         .map(item => item.dataset.slideId);
+            payload.skin_race_enabled = dom.settingSkinRaceEnabled.checked;
+            payload.slider_order = newSliderOrder;
+            payload.auction_enabled = dom.settingAuctionEnabled.checked;
+            payload.quests_enabled = dom.settingQuestsEnabled.checked;
+            payload.challenges_enabled = dom.settingChallengesEnabled.checked;
+            payload.quest_promocodes_enabled = dom.settingQuestRewardsEnabled.checked;
+            payload.challenge_promocodes_enabled = dom.settingChallengeRewardsEnabled.checked;
+            payload.checkpoint_enabled = dom.settingCheckpointEnabled.checked;
+            payload.menu_banner_url = dom.settingMenuBannerUrl.value.trim();
+            payload.checkpoint_banner_url = dom.settingCheckpointBannerUrl.value.trim();
+            payload.auction_banner_url = dom.settingAuctionBannerUrl.value.trim();
+            payload.weekly_goals_banner_url = dom.settingWeeklyGoalsBannerUrl.value.trim();
+            payload.weekly_goals_enabled = dom.settingWeeklyGoalsEnabled.checked;
+
+            // --- Поля с ЭТОЙ страницы "Расписание" ---
+            payload.quest_schedule_override_enabled = dom.settingQuestScheduleOverride.checked;
+            payload.quest_schedule_active_type = dom.settingQuestScheduleType.value;
+
+            // 4. СОХРАНЯЕМ *весь* обновленный объект настроек обратно
             await makeApiRequest('/api/v1/admin/settings/update', { 
-                settings: currentSettings 
+                settings: payload 
             });
 
             tg.showAlert('Настройки расписания сохранены!');
@@ -3374,6 +3396,10 @@ if (dom.questScheduleForm) {
             payload.auction_banner_url = dom.settingAuctionBannerUrl.value.trim();
             payload.weekly_goals_banner_url = dom.settingWeeklyGoalsBannerUrl.value.trim();
             payload.weekly_goals_enabled = dom.settingWeeklyGoalsEnabled.checked;
+            // --- 🔽 ВОТ СЮДА ДОБАВЬ ЭТИ ДВЕ СТРОКИ 🔽 ---
+            payload.quest_schedule_override_enabled = dom.settingQuestScheduleOverride.checked;
+            payload.quest_schedule_active_type = dom.settingQuestScheduleType.value;
+            // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
 
             // 4. ОТПРАВЛЯЕМ обновленный payload
             await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
