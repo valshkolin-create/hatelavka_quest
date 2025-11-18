@@ -4336,58 +4336,39 @@ if (dom.settingQuestScheduleOverride) {
     const safeScheduleBtn = document.getElementById('save-schedule-btn');
 
     if (safeScheduleBtn) {
-        // 2. Удаляем старые обработчики (клонированием), чтобы они не наслаивались
+        // Удаляем старые обработчики через клонирование
         const newBtn = safeScheduleBtn.cloneNode(true);
         safeScheduleBtn.parentNode.replaceChild(newBtn, safeScheduleBtn);
 
-        // 3. Вешаем событие 'click' на чистую кнопку
         newBtn.addEventListener('click', async (e) => {
-            e.preventDefault(); // На всякий случай
+            e.preventDefault();
             
-            // Визуальная реакция кнопки (чтобы вы видели, что клик прошел)
             const originalText = newBtn.textContent;
             newBtn.textContent = 'Сохранение...';
             newBtn.disabled = true;
 
             try {
-                // А. Загружаем актуальные настройки с сервера
+                // 1. Получаем АКТУАЛЬНЫЕ настройки с сервера (баннеры, тумблеры и т.д.)
                 const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
 
-                // Б. Создаем копию настроек
+                // 2. Создаем копию объекта настроек
                 const payload = { ...currentSettings }; 
 
-                // В. ОБНОВЛЯЕМ ДАННЫЕ С ГЛАВНОЙ ВКЛАДКИ (чтобы не сломать их)
-                // (Проверяем существование элементов перед чтением)
-                if (dom.settingSkinRaceEnabled) payload.skin_race_enabled = dom.settingSkinRaceEnabled.checked;
-                if (dom.settingAuctionEnabled) payload.auction_enabled = dom.settingAuctionEnabled.checked;
-                if (dom.settingQuestsEnabled) payload.quests_enabled = dom.settingQuestsEnabled.checked;
-                if (dom.settingChallengesEnabled) payload.challenges_enabled = dom.settingChallengesEnabled.checked;
-                if (dom.settingQuestRewardsEnabled) payload.quest_promocodes_enabled = dom.settingQuestRewardsEnabled.checked;
-                if (dom.settingChallengeRewardsEnabled) payload.challenge_promocodes_enabled = dom.settingChallengeRewardsEnabled.checked;
-                if (dom.settingCheckpointEnabled) payload.checkpoint_enabled = dom.settingCheckpointEnabled.checked;
-                if (dom.settingWeeklyGoalsEnabled) payload.weekly_goals_enabled = dom.settingWeeklyGoalsEnabled.checked;
-                
-                if (dom.settingMenuBannerUrl) payload.menu_banner_url = dom.settingMenuBannerUrl.value.trim();
-                if (dom.settingCheckpointBannerUrl) payload.checkpoint_banner_url = dom.settingCheckpointBannerUrl.value.trim();
-                if (dom.settingAuctionBannerUrl) payload.auction_banner_url = dom.settingAuctionBannerUrl.value.trim();
-                if (dom.settingWeeklyGoalsBannerUrl) payload.weekly_goals_banner_url = dom.settingWeeklyGoalsBannerUrl.value.trim();
+                // 3. ВАЖНО: Мы НЕ трогаем dom.settingSkinRaceEnabled и другие общие настройки.
+                // Мы доверяем тому, что пришло с сервера в `currentSettings`.
+                // Если мы попытаемся прочитать их из DOM здесь, они могут быть пустыми, 
+                // так как вкладка "Настройки" скрыта и могла не прогрузиться.
 
-                if (dom.sliderOrderManager) {
-                    payload.slider_order = Array.from(dom.sliderOrderManager.querySelectorAll('.slider-order-item'))
-                                             .map(item => item.dataset.slideId);
-                }
-
-                // Г. ОБНОВЛЯЕМ ДАННЫЕ РАСПИСАНИЯ (ради чего всё затевалось)
-                // Ищем элементы напрямую, на случай если их нет в dom объекте
+                // 4. Обновляем ТОЛЬКО поля расписания (то, что мы видим на экране)
                 const overrideEl = document.getElementById('setting-quest-schedule-override');
                 const typeEl = document.getElementById('setting-quest-schedule-type');
 
                 if (overrideEl) payload.quest_schedule_override_enabled = overrideEl.checked;
                 if (typeEl) payload.quest_schedule_active_type = typeEl.value;
 
-                console.log("Отправляем настройки:", payload); // Для отладки в консоли
+                console.log("Сохраняем расписание. Итоговый payload:", payload);
 
-                // Д. Отправляем на сервер
+                // 5. Отправляем обновленный объект
                 await makeApiRequest('/api/v1/admin/settings/update', { 
                     settings: payload 
                 });
@@ -4398,7 +4379,6 @@ if (dom.settingQuestScheduleOverride) {
                 console.error("Ошибка сохранения:", err);
                 tg.showAlert(`Ошибка: ${err.message}`);
             } finally {
-                // Возвращаем кнопку в исходное состояние
                 newBtn.textContent = originalText;
                 newBtn.disabled = false;
             }
@@ -4406,7 +4386,7 @@ if (dom.settingQuestScheduleOverride) {
     } else {
         console.error("КРИТИЧЕСКАЯ ОШИБКА: Кнопка save-schedule-btn не найдена в HTML!");
     }
-    // --- 🔼 КОНЕЦ ВАРИАНТА 🔼 ---    
+    // --- 🔼 КОНЕЦ ИСПРАВЛЕННОГО ВАРИАНТА 🔼 ---
         // --- 🔽 ДОБАВЬ ЭТОТ БЛОК ДЛЯ НОВОГО МОДАЛЬНОГО ОКНА 🔽 ---
         if (dom.openCreateGoalModalBtn) {
             dom.openCreateGoalModalBtn.addEventListener('click', () => {
