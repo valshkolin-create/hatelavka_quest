@@ -1528,7 +1528,7 @@ function setupEventListeners() {
         } else {
             questButton.classList.remove('telegram-theme');
             questButton.classList.add('twitch-theme');
-            questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЕ';
+            questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
         }
         // --- 🔼 КОНЕЦ ИСПРАВЛЕННОГО БЛОКА (v2) 🔼 ---
 
