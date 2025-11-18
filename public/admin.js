@@ -5,8 +5,9 @@ try {
 
     // 1. Объявляем dom как ПУСТОЙ объект
     const dom = {};
-    
+
     // 2. Создаем функцию для ЗАПОЛНЕНИЯ объекта dom
+    // Эта функция будет вызвана только ПОСЛЕ загрузки HTML
     function initDom() {
         dom.loaderOverlay = document.getElementById('loader-overlay');
         dom.appContainer = document.getElementById('app-container');
