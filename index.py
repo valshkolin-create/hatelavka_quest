@@ -2042,8 +2042,10 @@ async def get_quests_categories(request_data: InitDataRequest, supabase: httpx.A
 @app.post("/api/v1/quests/list")
 async def get_public_quests(request_data: InitDataRequest):
     """
-    Получает список квестов и ФИЛЬТРУЕТ их согласно расписанию (Twitch/Telegram)
-    или ручному переключателю админа.
+    Получает список квестов.
+    Вся логика расписания и приоритетов (Ручное/Авто)
+    теперь выполняется внутри SQL-функции get_available_quests_for_user.
+    Python просто передает результат.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     telegram_id = user_info.get("id") if user_info else None
@@ -2052,7 +2054,7 @@ async def get_public_quests(request_data: InitDataRequest):
         return []
 
     try:
-        # 1. Получаем "сырой" список всех доступных квестов из БД
+        # Вызываем "умную" SQL функцию
         response = supabase.rpc(
             "get_available_quests_for_user",
             {"p_telegram_id": telegram_id}
@@ -2061,51 +2063,13 @@ async def get_public_quests(request_data: InitDataRequest):
         available_quests_raw = response.data
 
         if available_quests_raw is None or not isinstance(available_quests_raw, list):
-            raw_quests = []
+            available_quests = []
         else:
-            raw_quests = available_quests_raw
+            available_quests = available_quests_raw
 
-        # 2. Получаем настройки расписания
-        admin_settings = await get_admin_settings_async_global()
-        
-        # 3. Определяем, какой тип квестов сейчас АКТИВЕН
-        allowed_type_prefix = "automatic_twitch" # По умолчанию Twitch
-        
-        if admin_settings.quest_schedule_override_enabled:
-            # --- РУЧНОЙ РЕЖИМ ---
-            if admin_settings.quest_schedule_active_type == 'telegram':
-                allowed_type_prefix = "automatic_telegram"
-            else:
-                allowed_type_prefix = "automatic_twitch"
-        else:
-            # --- АВТОМАТИЧЕСКИЙ РЕЖИМ (по дням недели) ---
-            # 0=Понедельник, 6=Воскресенье
-            # Логика: Воскресенье (6) и Понедельник (0) -> Telegram
-            # Вторник (1) ... Суббота (5) -> Twitch
-            weekday = datetime.now(timezone.utc).weekday()
-            
-            if weekday == 6 or weekday == 0:
-                allowed_type_prefix = "automatic_telegram"
-            else:
-                allowed_type_prefix = "automatic_twitch"
-
-        # 4. Фильтруем список
-        filtered_quests = []
-        for quest in raw_quests:
-            q_type = quest.get('quest_type', '')
-            
-            # Ручные задания (manual_check) показываем ВСЕГДА, независимо от расписания
-            if q_type == 'manual_check':
-                filtered_quests.append(quest)
-                continue
-            
-            # Автоматические фильтруем по префиксу
-            if q_type.startswith(allowed_type_prefix):
-                filtered_quests.append(quest)
-
-        # 5. Дополняем данные (иконки и т.д.) и возвращаем
+        # Просто добавляем технические поля, не фильтруя список
         processed_quests = []
-        for quest_data in filtered_quests:
+        for quest_data in available_quests:
             if isinstance(quest_data, dict):
                 quest_data['is_completed'] = False
                 processed_quests.append(quest_data)
@@ -2113,7 +2077,7 @@ async def get_public_quests(request_data: InitDataRequest):
         return fill_missing_quest_data(processed_quests)
 
     except Exception as e:
-        logging.error(f"Ошибка при вызове RPC get_available_quests_for_user для {telegram_id}: {e}", exc_info=True)
+        logging.error(f"Ошибка при получении квестов RPC: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
 @app.get("/api/v1/auth/twitch_oauth")
