@@ -3348,10 +3348,6 @@ if (dom.settingQuestScheduleOverride) {
             payload.auction_banner_url = dom.settingAuctionBannerUrl.value.trim();
             payload.weekly_goals_banner_url = dom.settingWeeklyGoalsBannerUrl.value.trim();
             payload.weekly_goals_enabled = dom.settingWeeklyGoalsEnabled.checked;
-            // --- 🔽 ВОТ СЮДА ДОБАВЬ ЭТИ ДВЕ СТРОКИ 🔽 ---
-            payload.quest_schedule_override_enabled = dom.settingQuestScheduleOverride.checked;
-            payload.quest_schedule_active_type = dom.settingQuestScheduleType.value;
-            // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
 
             // 4. ОТПРАВЛЯЕМ обновленный payload
             await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
