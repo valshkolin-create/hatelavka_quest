@@ -1462,7 +1462,27 @@ function setupEventListeners() {
             // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
             const day = new Date().getDay();
             const questButton = dom.questChooseBtn;
-            if (day === 0 || day === 1) { 
+
+            // --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
+        
+        let activeQuestType = 'twitch'; // По умолчанию
+        
+        if (menuContent.quest_schedule_override_enabled) {
+            // Ручное управление включено
+            activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
+            console.log(`[Quest Schedule] Ручное управление: ${activeQuestType}`);
+        } else {
+            // Автоматический режим по дням недели
+            if (day === 0 || day === 1) { // 0 = Вск, 1 = Пн
+                activeQuestType = 'telegram';
+            }
+            console.log(`[Quest Schedule] Авто-режим (День: ${day}): ${activeQuestType}`);
+        }
+
+        // Применяем настройки к кнопке
+        // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+            
+            if (activeQuestType === 'telegram') { 
                 questButton.classList.remove('twitch-theme');
                 questButton.classList.add('telegram-theme');
                 questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> ВЫХОДНЫЕ ИСПЫТАНИЯ';
