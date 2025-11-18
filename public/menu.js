@@ -1697,7 +1697,13 @@ function setupEventListeners() {
 
             const questsDataResp = await makeApiRequest("/api/v1/quests/list");
             allQuests = questsDataResp || [];
-            questsForRoulette = allQuests.filter(q => q.quest_type && q.quest_type.startsWith('automatic') && !q.is_completed);
+            // --- (СТАЛО) ---
+            questsForRoulette = allQuests.filter(q => 
+            q.quest_type && 
+            q.quest_type.startsWith(`automatic_${activeQuestType}`) && // Фильтруем по типу
+            !q.is_completed
+            );
+            // --- 🔼 КОНЕЦ ЗАМЕНЫ 🔼 ---
             const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
             const questChooseWrapper = document.getElementById('quest-choose-wrapper');
             if (questChooseWrapper) {
