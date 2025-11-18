@@ -1307,24 +1307,35 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
     }
     async function loadScheduleSettings() {
     try {
-        // Загружаем общие настройки, так как расписание теперь их часть
+        // 1. Загружаем актуальные настройки
         const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
 
+        // 2. Получаем значения (с дефолтами)
         const overrideEnabled = settings.quest_schedule_override_enabled || false;
         const activeType = settings.quest_schedule_active_type || 'twitch';
 
+        // 3. Применяем к элементам DOM
         if (dom.settingQuestScheduleOverride) {
             dom.settingQuestScheduleOverride.checked = overrideEnabled;
+            
+            // Важно: Вручную вызываем событие 'change', чтобы сработал наш обработчик
+            // и показал/скрыл выпадающий список
+            dom.settingQuestScheduleOverride.dispatchEvent(new Event('change'));
         }
+        
         if (dom.settingQuestScheduleType) {
             dom.settingQuestScheduleType.value = activeType;
         }
+
+        // (Опционально) Явно показываем/скрываем блок, если событие change не сработает
         if (dom.settingQuestScheduleWrapper) {
-            // Используем 'flex' для .admin-form
             dom.settingQuestScheduleWrapper.style.display = overrideEnabled ? 'flex' : 'none';
         }
 
+        console.log(`[loadScheduleSettings] Загружено: Override=${overrideEnabled}, Type=${activeType}`);
+
     } catch (e) {
+        console.error("Ошибка загрузки расписания:", e);
         tg.showAlert(`Не удалось загрузить настройки расписания: ${e.message}`);
     }
 }
