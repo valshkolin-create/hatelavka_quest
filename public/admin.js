@@ -154,8 +154,13 @@ try {
         // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
         // --- 🔽 ДОБАВЬ ЭТИ ДВЕ СТРОКИ 🔽 ---
         adminCreateGoalModal: document.getElementById('admin-create-goal-modal'),
-        openCreateGoalModalBtn: document.getElementById('open-create-goal-modal-btn')
+        openCreateGoalModalBtn: document.getElementById('open-create-goal-modal-btn'),
         // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
+        viewAdminSchedule: document.getElementById('view-admin-schedule'),
+        questScheduleForm: document.getElementById('quest-schedule-form'),
+        settingQuestScheduleOverride: document.getElementById('setting-quest-schedule-override'),
+        settingQuestScheduleWrapper: document.getElementById('setting-quest-schedule-type-wrapper'),
+        settingQuestScheduleType: document.getElementById('setting-quest-schedule-type')
         
     };
 
@@ -633,6 +638,13 @@ const showLoader = () => {
                     await loadWeeklyGoalsData(); 
                     break;
                 }
+                 // --- 🔽 ДОБАВЬ ЭТОТ БЛОК 🔽 ---
+                case 'view-admin-schedule': {
+                    await loadScheduleSettings();
+                    break;
+                }
+            // --- 🔼 КОНЕЦ 🔼 ---
+                    
                     
                 // --- ДОБАВЬТЕ ЭТОТ БЛОК ---
                 default: {
@@ -1290,6 +1302,31 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              tg.showAlert("Не удалось загрузить настройки.");
         }
     }
+    async function loadScheduleSettings() {
+    try {
+        // Загружаем общие настройки, так как расписание теперь их часть
+        const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+
+        const overrideEnabled = settings.quest_schedule_override_enabled || false;
+        const activeType = settings.quest_schedule_active_type || 'twitch';
+
+        if (dom.settingQuestScheduleOverride) {
+            dom.settingQuestScheduleOverride.checked = overrideEnabled;
+        }
+        if (dom.settingQuestScheduleType) {
+            dom.settingQuestScheduleType.value = activeType;
+        }
+        if (dom.settingQuestScheduleWrapper) {
+            // Используем 'flex' для .admin-form
+            dom.settingQuestScheduleWrapper.style.display = overrideEnabled ? 'flex' : 'none';
+        }
+
+    } catch (e) {
+        tg.showAlert(`Не удалось загрузить настройки расписания: ${e.message}`);
+    }
+}
+// --- 🔼 КОНЕЦ НОВОЙ ФУНКЦИИ 🔼 ---
+    
 
         async function loadTwitchRewards() {
         const container = document.getElementById('twitch-rewards-container');
@@ -3269,6 +3306,44 @@ if (dom.weeklyGoalsList) {
                 tg.showAlert(result.message);
             });
         }
+        // --- 🔽 ДОБАВЬ ЭТОТ БЛОК (Логика страницы "Расписание") 🔽 ---
+
+// Показываем/скрываем выпадающий список при клике на тумблер
+if (dom.settingQuestScheduleOverride) {
+    dom.settingQuestScheduleOverride.addEventListener('change', (e) => {
+        if (dom.settingQuestScheduleWrapper) {
+            dom.settingQuestScheduleWrapper.style.display = e.target.checked ? 'flex' : 'none';
+        }
+    });
+}
+
+// Сохранение формы "Расписание"
+if (dom.questScheduleForm) {
+    dom.questScheduleForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        try {
+            // 1. СНАЧАЛА получаем текущие настройки
+            const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+
+            // 2. ОБНОВЛЯЕМ в них *только* поля расписания
+            currentSettings.quest_schedule_override_enabled = dom.settingQuestScheduleOverride.checked;
+            currentSettings.quest_schedule_active_type = dom.settingQuestScheduleType.value;
+
+            // 3. СОХРАНЯЕМ *весь* объект настроек обратно
+            await makeApiRequest('/api/v1/admin/settings/update', { 
+                settings: currentSettings 
+            });
+
+            tg.showAlert('Настройки расписания сохранены!');
+
+        } catch (err) {
+            tg.showAlert(`Ошибка сохранения: ${err.message}`);
+        }
+    });
+}
+// --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+        
 
         if(dom.saveSettingsBtn) {
             dom.saveSettingsBtn.addEventListener('click', async () => {
