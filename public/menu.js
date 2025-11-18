@@ -1524,11 +1524,11 @@ function setupEventListeners() {
         if (activeQuestType === 'telegram') {
             questButton.classList.remove('twitch-theme');
             questButton.classList.add('telegram-theme');
-            questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> ВЫХОДНЫЕ ИСПЫТАНИЯ';
+            questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
         } else {
             questButton.classList.remove('telegram-theme');
             questButton.classList.add('twitch-theme');
-            questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> НАЧАТЬ ИСПЫТАНИЕ';
+            questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЕ';
         }
         // --- 🔼 КОНЕЦ ИСПРАВЛЕННОГО БЛОКА (v2) 🔼 ---
 
