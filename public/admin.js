@@ -160,7 +160,10 @@ try {
         questScheduleForm: document.getElementById('quest-schedule-form'),
         settingQuestScheduleOverride: document.getElementById('setting-quest-schedule-override'),
         settingQuestScheduleWrapper: document.getElementById('setting-quest-schedule-type-wrapper'),
-        settingQuestScheduleType: document.getElementById('setting-quest-schedule-type')
+        settingQuestScheduleType: document.getElementById('setting-quest-schedule-type'),
+        // --- 🔽 ВОТ СЮДА ДОБАВЬ НОВУЮ СТРОКУ 🔽 ---
+        saveScheduleBtn: document.getElementById('save-schedule-btn')
+        // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
         
     };
 
@@ -3318,16 +3321,20 @@ if (dom.settingQuestScheduleOverride) {
 }
 
 // Сохранение формы "Расписание"
-if (dom.questScheduleForm) {
-    dom.questScheduleForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
+// Сохранение формы "Расписание"
+if (dom.saveScheduleBtn) { // <-- 1. ПРОВЕРЯЕМ НАЛИЧИЕ КНОПКИ (вместо формы)
+    
+    dom.saveScheduleBtn.addEventListener('click', async (e) => { // <-- 2. СЛУШАЕМ 'click' (вместо 'submit')
+        e.preventDefault(); // 3. Предотвращаем стандартное поведение кнопки
         
         try {
+            // 4. ВСЯ ОСТАЛЬНАЯ ЛОГИКА ОСТАЕТСЯ ТОЙ ЖЕ
+            
             // 1. СНАЧАЛА получаем текущие настройки
             const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
 
             // 2. СОЗДАЕМ payload на их основе
-            const payload = { ...currentSettings }; // Копируем все, что есть
+            const payload = { ...currentSettings }; 
 
             // 3. ОБНОВЛЯЕМ payload полями со ВСЕХ вкладок
             
@@ -3363,8 +3370,10 @@ if (dom.questScheduleForm) {
             tg.showAlert(`Ошибка сохранения: ${err.message}`);
         }
     });
+} else {
+    // Эта ошибка появится в консоли, если кнопка не будет найдена
+    console.error("ОШИБКА: Кнопка 'save-schedule-btn' НЕ НАЙДЕНА в DOM!");
 }
-// --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
         
 
         if(dom.saveSettingsBtn) {
