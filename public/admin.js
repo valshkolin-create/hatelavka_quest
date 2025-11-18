@@ -151,7 +151,13 @@ try {
         dom.adminClearAllWeeklyProgressBtn = document.getElementById('admin-clear-all-weekly-progress-btn');
         // --- 🔽 НОВЫЙ КОД 🔽 ---
         // --- 🔽 ДОБАВЬ ЭТУ СТРОКУ 🔽 ---
+        console.log("[initDom] 2. Ищем 'save-weekly-settings-btn'..."); // <-- ДОБАВЛЕН ЛОГ
         dom.saveWeeklySettingsBtn = document.getElementById('save-weekly-settings-btn');
+        if (!dom.saveWeeklySettingsBtn) {
+            console.error("[initDom] 🚨 'save-weekly-settings-btn' НЕ НАЙДЕН!"); // <-- ДОБАВЛЕН ЛОГ
+        } else {
+            console.log("[initDom] ✅ 'save-weekly-settings-btn' НАЙДЕН."); // <-- ДОБАВЛЕН ЛОГ
+        }
         // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
         dom.adminResetUserWeeklyProgressForm = document.getElementById('admin-reset-user-weekly-progress-form');
         dom.adminResetUserWeeklyProgressUserName = document.getElementById('admin-reset-user-weekly-progress-user-name');
