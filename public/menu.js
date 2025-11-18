@@ -1459,30 +1459,27 @@ function setupEventListeners() {
                     console.error("Не удалось загрузить Недельный Забег:", e.message);
                     return null; // Не ломаем приложение, если забег упал
                 });
-            // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
+            // --- 🔽 НАЧАЛО ИСПРАВЛЕННОГО БЛОКА (v2) 🔽 ---
             const day = new Date().getDay();
             const questButton = dom.questChooseBtn;
 
-            // --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
-        
-        let activeQuestType = 'twitch'; // По умолчанию
-        
-        if (menuContent.quest_schedule_override_enabled) {
-            // Ручное управление включено
-            activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
-            console.log(`[Quest Schedule] Ручное управление: ${activeQuestType}`);
-        } else {
-            // Автоматический режим по дням недели
-            if (day === 0 || day === 1) { // 0 = Вск, 1 = Пн
-                activeQuestType = 'telegram';
-            }
-            console.log(`[Quest Schedule] Авто-режим (День: ${day}): ${activeQuestType}`);
-        }
+            let activeQuestType = 'twitch'; // По умолчанию
 
-        // Применяем настройки к кнопке
-        // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
-            
-            if (activeQuestType === 'telegram') { 
+            // Проверяем menuContent *ПОСЛЕ* его загрузки
+            if (menuContent.quest_schedule_override_enabled) {
+                // Ручное управление включено
+                activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
+                console.log(`[Quest Schedule] Ручное управление: ${activeQuestType}`);
+            } else {
+                // Автоматический режим по дням недели
+                if (day === 0 || day === 1) { // 0 = Вск, 1 = Пн
+                    activeQuestType = 'telegram';
+                }
+                console.log(`[Quest Schedule] Авто-режим (День: ${day}): ${activeQuestType}`);
+            }
+
+            // Применяем настройки к кнопке
+            if (activeQuestType === 'telegram') {
                 questButton.classList.remove('twitch-theme');
                 questButton.classList.add('telegram-theme');
                 questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> ВЫХОДНЫЕ ИСПЫТАНИЯ';
@@ -1491,6 +1488,7 @@ function setupEventListeners() {
                 questButton.classList.add('twitch-theme');
                 questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> НАЧАТЬ ИСПЫТАНИЕ';
             }
+            // --- 🔼 КОНЕЦ ИСПРАВЛЕННОГО БЛОКА (v2) 🔼 ---
             if (sessionStorage.getItem('newPromoReceived') === 'true') {
                 dom.newPromoNotification.classList.remove('hidden');
             }
