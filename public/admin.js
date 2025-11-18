@@ -3,177 +3,167 @@
 try {
     const tg = window.Telegram.WebApp;
 
-    // 1. Объявляем dom как ПУСТОЙ объект
-    const dom = {};
-
-    // 2. Создаем функцию для ЗАПОЛНЕНИЯ объекта dom
-    // Эта функция будет вызвана только ПОСЛЕ загрузки HTML
-    function initDom() {
-        dom.loaderOverlay = document.getElementById('loader-overlay');
-        dom.appContainer = document.getElementById('app-container');
-        dom.views = document.querySelectorAll('.view');
-        dom.questsList = document.getElementById('quests-list');
-        dom.createQuestForm = document.getElementById('create-quest-form');
-        dom.editQuestForm = document.getElementById('edit-quest-form');
-        dom.addPromocodesForm = document.getElementById('add-promocodes-form');
-        dom.submissionsModal = document.getElementById('submissions-modal');
-        dom.modalTitle = document.getElementById('modal-title');
-        dom.modalBody = document.getElementById('modal-body');
-        dom.modalCloseBtn = document.getElementById('modal-close-btn');
-        dom.challengesList = document.getElementById('challenges-list');
-        dom.challengeForm = document.getElementById('challenge-form');
-        dom.challengeFormTitle = document.getElementById('challenge-form-title');
-        dom.createCategoryForm = document.getElementById('create-category-form');
-        dom.categoriesList = document.getElementById('categories-list');
-        dom.genericPromptOverlay = document.getElementById('generic-prompt-overlay');
-        dom.genericPromptTitle = document.getElementById('generic-prompt-title');
-        dom.genericPromptInput = document.getElementById('generic-prompt-input');
-        dom.genericPromptCancel = document.getElementById('generic-prompt-cancel');
-        dom.genericPromptConfirm = document.getElementById('generic-prompt-confirm');
-        dom.winnersModal = document.getElementById('winners-modal');
-        dom.winnersModalBody = document.getElementById('winners-modal-body');
-        dom.winnersModalCloseBtn = document.getElementById('winners-modal-close-btn');
-        dom.sleepModeToggle = document.getElementById('sleep-mode-toggle');
-        dom.sleepPromptOverlay = document.getElementById('sleep-prompt-overlay');
-        dom.sleepMinutesInput = document.getElementById('sleep-minutes-input');
-        dom.sleepPromptCancel = document.getElementById('sleep-prompt-cancel');
-        dom.sleepPromptConfirm = document.getElementById('sleep-prompt-confirm');
-        dom.tabContentSubmissions = document.getElementById('tab-content-submissions');
-        dom.tabContentEventPrizes = document.getElementById('tab-content-event-prizes');
-        dom.tabContentCheckpointPrizes = document.getElementById('tab-content-checkpoint-prizes');
+    const dom = {
+        loaderOverlay: document.getElementById('loader-overlay'),
+        appContainer: document.getElementById('app-container'),
+        views: document.querySelectorAll('.view'),
+        questsList: document.getElementById('quests-list'),
+        createQuestForm: document.getElementById('create-quest-form'),
+        editQuestForm: document.getElementById('edit-quest-form'),
+        addPromocodesForm: document.getElementById('add-promocodes-form'),
+        submissionsModal: document.getElementById('submissions-modal'),
+        modalTitle: document.getElementById('modal-title'),
+        modalBody: document.getElementById('modal-body'),
+        modalCloseBtn: document.getElementById('modal-close-btn'),
+        challengesList: document.getElementById('challenges-list'),
+        challengeForm: document.getElementById('challenge-form'),
+        challengeFormTitle: document.getElementById('challenge-form-title'),
+        createCategoryForm: document.getElementById('create-category-form'),
+        categoriesList: document.getElementById('categories-list'),
+        genericPromptOverlay: document.getElementById('generic-prompt-overlay'),
+        genericPromptTitle: document.getElementById('generic-prompt-title'),
+        genericPromptInput: document.getElementById('generic-prompt-input'),
+        genericPromptCancel: document.getElementById('generic-prompt-cancel'),
+        genericPromptConfirm: document.getElementById('generic-prompt-confirm'),
+        winnersModal: document.getElementById('winners-modal'),
+        winnersModalBody: document.getElementById('winners-modal-body'),
+        winnersModalCloseBtn: document.getElementById('winners-modal-close-btn'),
+        sleepModeToggle: document.getElementById('sleep-mode-toggle'),
+        sleepPromptOverlay: document.getElementById('sleep-prompt-overlay'),
+        sleepMinutesInput: document.getElementById('sleep-minutes-input'),
+        sleepPromptCancel: document.getElementById('sleep-prompt-cancel'),
+        sleepPromptConfirm: document.getElementById('sleep-prompt-confirm'),
+        tabContentSubmissions: document.getElementById('tab-content-submissions'),
+        tabContentEventPrizes: document.getElementById('tab-content-event-prizes'),
+        tabContentCheckpointPrizes: document.getElementById('tab-content-checkpoint-prizes'),
         // --- Админ search ---  
-        dom.grantCheckpointStarsForm = document.getElementById('grant-checkpoint-stars-form');
-        dom.grantCpUserName = document.getElementById('grant-cp-user-name');
-        dom.openGrantCpSearchBtn = document.getElementById('open-grant-cp-search');
-        dom.grantTicketsForm = document.getElementById('grant-tickets-form');
-        dom.grantTicketsUserName = document.getElementById('grant-tickets-user-name');
-        dom.openGrantTicketsSearchBtn = document.getElementById('open-grant-tickets-search');
-        dom.freezeCpUserName = document.getElementById('freeze-cp-user-name');
-        dom.openFreezeCpSearchBtn = document.getElementById('open-freeze-cp-search');
-        dom.freezeTicketsUserName = document.getElementById('freeze-tickets-user-name');
-        dom.openFreezeTicketsSearchBtn = document.getElementById('open-freeze-tickets-search');
+        grantCheckpointStarsForm: document.getElementById('grant-checkpoint-stars-form'),
+        grantCpUserName: document.getElementById('grant-cp-user-name'),
+        openGrantCpSearchBtn: document.getElementById('open-grant-cp-search'),
+        grantTicketsForm: document.getElementById('grant-tickets-form'),
+        grantTicketsUserName: document.getElementById('grant-tickets-user-name'),
+        openGrantTicketsSearchBtn: document.getElementById('open-grant-tickets-search'),
+        freezeCpUserName: document.getElementById('freeze-cp-user-name'),
+        openFreezeCpSearchBtn: document.getElementById('open-freeze-cp-search'),
+        freezeTicketsUserName: document.getElementById('freeze-tickets-user-name'),
+        openFreezeTicketsSearchBtn: document.getElementById('open-freeze-tickets-search'),
         // --- Завершение Админ search ---
         // Заморозка
-        dom.freezeCheckpointStarsForm = document.getElementById('freeze-checkpoint-stars-form');
-        dom.freezeCpUserName = document.getElementById('freeze-cp-user-name'); // Новое
-        dom.openFreezeCpSearchBtn = document.getElementById('open-freeze-cp-search'); // Новое
-        dom.freezeTicketsForm = document.getElementById('freeze-tickets-form');
-        dom.freezeTicketsUserName = document.getElementById('freeze-tickets-user-name'); // Новое
-        dom.openFreezeTicketsSearchBtn = document.getElementById('open-freeze-tickets-search'); // Новое
+        freezeCheckpointStarsForm: document.getElementById('freeze-checkpoint-stars-form'),
+        freezeCpUserName: document.getElementById('freeze-cp-user-name'), // Новое
+        openFreezeCpSearchBtn: document.getElementById('open-freeze-cp-search'), // Новое
+        freezeTicketsForm: document.getElementById('freeze-tickets-form'),
+        freezeTicketsUserName: document.getElementById('freeze-tickets-user-name'), // Новое
+        openFreezeTicketsSearchBtn: document.getElementById('open-freeze-tickets-search'), // Новое
         // Очистка (новые элементы)
-        dom.resetCheckpointProgressForm = document.getElementById('reset-checkpoint-progress-form');
-        dom.resetCpProgressUserName = document.getElementById('reset-cp-progress-user-name'); // Новое
-        dom.openResetCpProgressSearchBtn = document.getElementById('open-reset-cp-progress-search'); // Новое
-        dom.clearCheckpointStarsForm = document.getElementById('clear-checkpoint-stars-form');
-        dom.clearCpStarsUserName = document.getElementById('clear-cp-stars-user-name'); // Новое
-        dom.openClearCpStarsSearchBtn = document.getElementById('open-clear-cp-stars-search'); // Новое
+        resetCheckpointProgressForm: document.getElementById('reset-checkpoint-progress-form'),
+        resetCpProgressUserName: document.getElementById('reset-cp-progress-user-name'), // Новое
+        openResetCpProgressSearchBtn: document.getElementById('open-reset-cp-progress-search'), // Новое
+        clearCheckpointStarsForm: document.getElementById('clear-checkpoint-stars-form'),
+        clearCpStarsUserName: document.getElementById('clear-cp-stars-user-name'), // Новое
+        openClearCpStarsSearchBtn: document.getElementById('open-clear-cp-stars-search'), // Новое
         // --- Завершение Админ search ---
-        dom.settingMenuBannerUrl = document.getElementById('setting-menu-banner-url');
-        dom.settingCheckpointBannerUrl = document.getElementById('setting-checkpoint-banner-url');
-        dom.settingAuctionBannerUrl = document.getElementById('setting-auction-banner-url'); // <-- 1. ДОБАВИТЬ ЭТУ СТРОКУ
-        dom.settingAuctionBannerUrl = document.getElementById('setting-auction-banner-url'); // <-- 1. ДОБАВИТЬ ЭТУ СТРОКУ
-        dom.settingWeeklyGoalsBannerUrl = document.getElementById('setting-weekly-goals-banner-url'); // <-- 🔽 ДОБАВИТЬ ЭТУ СТРОКУ
-        dom.saveSettingsBtn = document.getElementById('save-settings-btn');
-        dom.settingQuestsEnabled = document.getElementById('setting-quests-enabled');
-        dom.settingChallengesEnabled = document.getElementById('setting-challenges-enabled');
-        dom.settingQuestRewardsEnabled = document.getElementById('setting-quest-rewards-enabled');
-        dom.settingChallengeRewardsEnabled = document.getElementById('setting-challenge-rewards-enabled');
-        dom.resetAllQuestsBtn = document.getElementById('reset-all-quests-btn');
-        dom.resetAllCheckpointProgressBtn = document.getElementById('reset-all-checkpoint-progress-btn');
-        dom.clearAllCheckpointStarsBtn = document.getElementById('clear-all-checkpoint-stars-btn');
-        dom.settingCheckpointEnabled = document.getElementById('setting-checkpoint-enabled');
-        dom.adminGrantLogList = document.getElementById('admin-grant-log-list');
+        settingMenuBannerUrl: document.getElementById('setting-menu-banner-url'),
+        settingCheckpointBannerUrl: document.getElementById('setting-checkpoint-banner-url'),
+        settingAuctionBannerUrl: document.getElementById('setting-auction-banner-url'), // <-- 1. ДОБАВИТЬ ЭТУ СТРОКУ
+        settingAuctionBannerUrl: document.getElementById('setting-auction-banner-url'), // <-- 1. ДОБАВИТЬ ЭТУ СТРОКУ
+        settingWeeklyGoalsBannerUrl: document.getElementById('setting-weekly-goals-banner-url'), // <-- 🔽 ДОБАВИТЬ ЭТУ СТРОКУ
+        saveSettingsBtn: document.getElementById('save-settings-btn'),
+        settingQuestsEnabled: document.getElementById('setting-quests-enabled'),
+        settingChallengesEnabled: document.getElementById('setting-challenges-enabled'),
+        settingQuestRewardsEnabled: document.getElementById('setting-quest-rewards-enabled'),
+        settingChallengeRewardsEnabled: document.getElementById('setting-challenge-rewards-enabled'),
+        resetAllQuestsBtn: document.getElementById('reset-all-quests-btn'),
+        resetAllCheckpointProgressBtn: document.getElementById('reset-all-checkpoint-progress-btn'),
+        clearAllCheckpointStarsBtn: document.getElementById('clear-all-checkpoint-stars-btn'),
+        settingCheckpointEnabled: document.getElementById('setting-checkpoint-enabled'),
+        adminGrantLogList: document.getElementById('admin-grant-log-list'),
         // --- НОВЫЙ КОД ---       
-        dom.settingSkinRaceEnabled = document.getElementById('setting-skin-race-enabled');
+        settingSkinRaceEnabled: document.getElementById('setting-skin-race-enabled'),
         // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ПОИСКА ПОЛЬЗОВАТЕЛЯ ---
         // --- ↓↓↓ АУКЦИОН ↓↓↓ ---
-        dom.settingAuctionEnabled = document.getElementById('setting-auction-enabled');
+        settingAuctionEnabled: document.getElementById('setting-auction-enabled'),
         // --- ↑↑↑ АУКЦИОН ↑↑↑ ---
-        dom.adminUserSearchModal = document.getElementById('admin-user-search-modal');
-        dom.adminUserSearchTitle = document.getElementById('admin-user-search-title');
-        dom.adminUserSearchInput = document.getElementById('admin-user-search-input');
-        dom.adminUserSearchResults = document.getElementById('admin-user-search-results');
+        adminUserSearchModal: document.getElementById('admin-user-search-modal'),
+        adminUserSearchTitle: document.getElementById('admin-user-search-title'),
+        adminUserSearchInput: document.getElementById('admin-user-search-input'),
+        adminUserSearchResults: document.getElementById('admin-user-search-results'),
         // --- КОНЕЦ НОВОГО КОДА ---
         // --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ВЫПОЛНЕНИЯ ---
-        dom.openForceCompleteSearchBtn = document.getElementById('open-force-complete-search');
-        dom.adminEntitySelectModal = document.getElementById('admin-entity-select-modal');
-        dom.adminEntitySelectTitle = document.getElementById('admin-entity-select-title');
-        dom.adminEntityListQuest = document.getElementById('admin-entity-list-quest');
-        dom.adminEntityListChallenge = document.getElementById('admin-entity-list-challenge');
+        openForceCompleteSearchBtn: document.getElementById('open-force-complete-search'),
+        adminEntitySelectModal: document.getElementById('admin-entity-select-modal'),
+        adminEntitySelectTitle: document.getElementById('admin-entity-select-title'),
+        adminEntityListQuest: document.getElementById('admin-entity-list-quest'),
+        adminEntityListChallenge: document.getElementById('admin-entity-list-challenge'),
         // --- КОНЕЦ НОВОГО КОДА ---
-        dom.statisticsContent = document.getElementById('statistics-content');
-        dom.sliderOrderManager = document.getElementById('slider-order-manager');
-        dom.createRoulettePrizeForm = document.getElementById('create-roulette-prize-form');
-        dom.roulettePrizesList = document.getElementById('roulette-prizes-list');
-        dom.passwordPromptOverlay = document.getElementById('password-prompt-overlay');
-        dom.passwordPromptInput = document.getElementById('password-prompt-input');
-        dom.passwordPromptCancel = document.getElementById('password-prompt-cancel');
-        dom.passwordPromptConfirm = document.getElementById('password-prompt-confirm');
-        dom.cauldronSettingsForm = document.getElementById('cauldron-settings-form');
-        dom.resetCauldronBtn = document.getElementById('reset-cauldron-btn');
-        dom.distributeRewardsBtn = document.getElementById('distribute-rewards-btn');
-        dom.addTopRewardBtn = document.getElementById('add-top-reward-btn');
-        dom.topRewardsContainer = document.getElementById('top-rewards-container');
-        dom.defaultRewardForm = document.getElementById('default-reward-form');
-        dom.saveOrderButton = document.getElementById('save-order-button');
+        statisticsContent: document.getElementById('statistics-content'),
+        sliderOrderManager: document.getElementById('slider-order-manager'),
+        createRoulettePrizeForm: document.getElementById('create-roulette-prize-form'),
+        roulettePrizesList: document.getElementById('roulette-prizes-list'),
+        passwordPromptOverlay: document.getElementById('password-prompt-overlay'),
+        passwordPromptInput: document.getElementById('password-prompt-input'),
+        passwordPromptCancel: document.getElementById('password-prompt-cancel'),
+        passwordPromptConfirm: document.getElementById('password-prompt-confirm'),
+        cauldronSettingsForm: document.getElementById('cauldron-settings-form'),
+        resetCauldronBtn: document.getElementById('reset-cauldron-btn'),
+        distributeRewardsBtn: document.getElementById('distribute-rewards-btn'),
+        addTopRewardBtn: document.getElementById('add-top-reward-btn'),
+        topRewardsContainer: document.getElementById('top-rewards-container'),
+        defaultRewardForm: document.getElementById('default-reward-form'),
+        saveOrderButton: document.getElementById('save-order-button'),
         // --- ↓↓↓ НОВЫЙ КОД ↓↓↓ ---
-        dom.viewAdminAuctions = document.getElementById('view-admin-auctions');
-        dom.createAuctionForm = document.getElementById('create-auction-form');
-        dom.adminAuctionsList = document.getElementById('admin-auctions-list');
+        viewAdminAuctions: document.getElementById('view-admin-auctions'),
+        createAuctionForm: document.getElementById('create-auction-form'),
+        adminAuctionsList: document.getElementById('admin-auctions-list'),
         // --- ↑↑↑ КОНЕЦ НОВОГО КОДА ↑↑↑
-        dom.settingWeeklyGoalsEnabled = document.getElementById('setting-weekly-goals-enabled');
+        settingWeeklyGoalsEnabled: document.getElementById('setting-weekly-goals-enabled'),
         // Элементы "Недельного Забега"
-        dom.weeklyGoalsSettingsForm = document.getElementById('weekly-goals-settings-form');
-        dom.weeklyGoalSuperPrizeType = document.getElementById('weekly-goal-super-prize-type');
-        dom.weeklyGoalSuperPrizeValueWrapper = document.getElementById('weekly-goal-super-prize-value-wrapper');
+        weeklyGoalsSettingsForm: document.getElementById('weekly-goals-settings-form'),
+        weeklyGoalSuperPrizeType: document.getElementById('weekly-goal-super-prize-type'),
+        weeklyGoalSuperPrizeValueWrapper: document.getElementById('weekly-goal-super-prize-value-wrapper'),
         
-        dom.weeklyGoalsCreateTaskForm = document.getElementById('weekly-goals-create-task-form');
-        dom.weeklyGoalTaskRewardType = document.getElementById('weekly-goal-task-reward-type');
-        dom.weeklyGoalTaskRewardValueWrapper = document.getElementById('weekly-goal-task-reward-value-wrapper');
+        weeklyGoalsCreateTaskForm: document.getElementById('weekly-goals-create-task-form'),
+        weeklyGoalTaskRewardType: document.getElementById('weekly-goal-task-reward-type'),
+        weeklyGoalTaskRewardValueWrapper: document.getElementById('weekly-goal-task-reward-value-wrapper'),
         
-        dom.weeklyGoalsList = document.getElementById('weekly-goals-list');
+        weeklyGoalsList: document.getElementById('weekly-goals-list'),
         // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
         // (v3) Элементы для "Выборщика"
-        dom.weeklyGoalTaskTypeSelect = document.getElementById('weekly-goal-task-type');
-        dom.weeklyGoalEntityPickerWrapper = document.getElementById('weekly-goal-entity-picker-wrapper');
-        dom.weeklyGoalEntityPickerLabel = document.getElementById('weekly-goal-entity-picker-label');
-        dom.weeklyGoalEntityDisplay = document.getElementById('weekly-goal-entity-display');
-        dom.weeklyGoalSelectEntityBtn = document.getElementById('weekly-goal-select-entity-btn');
-        dom.weeklyGoalCancelEditBtn = document.getElementById('weekly-goal-cancel-edit-btn');
-        dom.weeklyGoalTargetEntityId = document.getElementById('weekly-goal-target-entity-id');
-        dom.weeklyGoalTargetEntityName = document.getElementById('weekly-goal-target-entity-name');
+        weeklyGoalTaskTypeSelect: document.getElementById('weekly-goal-task-type'),
+        weeklyGoalEntityPickerWrapper: document.getElementById('weekly-goal-entity-picker-wrapper'),
+        weeklyGoalEntityPickerLabel: document.getElementById('weekly-goal-entity-picker-label'),
+        weeklyGoalEntityDisplay: document.getElementById('weekly-goal-entity-display'),
+        weeklyGoalSelectEntityBtn: document.getElementById('weekly-goal-select-entity-btn'),
+        weeklyGoalCancelEditBtn: document.getElementById('weekly-goal-cancel-edit-btn'),
+        weeklyGoalTargetEntityId: document.getElementById('weekly-goal-target-entity-id'),
+        weeklyGoalTargetEntityName: document.getElementById('weekly-goal-target-entity-name'),
         
         // (v3) Модальное окно "Выборщика"
-        dom.weeklyGoalEntitySelectModal = document.getElementById('weekly-goal-entity-select-modal');
-        dom.weeklyGoalEntitySelectTitle = document.getElementById('weekly-goal-entity-select-title');
-        dom.weeklyGoalEntitySelectList = document.getElementById('weekly-goal-entity-select-list');
+        weeklyGoalEntitySelectModal: document.getElementById('weekly-goal-entity-select-modal'),
+        weeklyGoalEntitySelectTitle: document.getElementById('weekly-goal-entity-select-title'),
+        weeklyGoalEntitySelectList: document.getElementById('weekly-goal-entity-select-list'),
         // --- 🔼 КОНЕЦ НОВОГО БЛОКА 🔼 ---
-        dom.adminClearAllWeeklyProgressBtn = document.getElementById('admin-clear-all-weekly-progress-btn');
+        adminClearAllWeeklyProgressBtn: document.getElementById('admin-clear-all-weekly-progress-btn'),
         // --- 🔽 НОВЫЙ КОД 🔽 ---
         // --- 🔽 ДОБАВЬ ЭТУ СТРОКУ 🔽 ---
-        console.log("[initDom] 2. Ищем 'save-weekly-settings-btn'..."); // <-- ДОБАВЛЕН ЛОГ
-        dom.saveWeeklySettingsBtn = document.getElementById('save-weekly-settings-btn');
-        if (!dom.saveWeeklySettingsBtn) {
-            console.error("[initDom] 🚨 'save-weekly-settings-btn' НЕ НАЙДЕН!"); // <-- ДОБАВЛЕН ЛОГ
-        } else {
-            console.log("[initDom] ✅ 'save-weekly-settings-btn' НАЙДЕН."); // <-- ДОБАВЛЕН ЛОГ
-        }
+        saveWeeklySettingsBtn: document.getElementById('save-weekly-settings-btn'),
         // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
-        dom.adminResetUserWeeklyProgressForm = document.getElementById('admin-reset-user-weekly-progress-form');
-        dom.adminResetUserWeeklyProgressUserName = document.getElementById('admin-reset-user-weekly-progress-user-name');
-        dom.adminResetUserWeeklyProgressSearchBtn = document.getElementById('admin-reset-user-weekly-progress-search-btn');
+        adminResetUserWeeklyProgressForm: document.getElementById('admin-reset-user-weekly-progress-form'),
+        adminResetUserWeeklyProgressUserName: document.getElementById('admin-reset-user-weekly-progress-user-name'),
+        adminResetUserWeeklyProgressSearchBtn: document.getElementById('admin-reset-user-weekly-progress-search-btn'),
         // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
         // --- 🔽 ДОБАВЬ ЭТИ ДВЕ СТРОКИ 🔽 ---
-        dom.adminCreateGoalModal = document.getElementById('admin-create-goal-modal');
-        dom.openCreateGoalModalBtn = document.getElementById('open-create-goal-modal-btn');
+        adminCreateGoalModal: document.getElementById('admin-create-goal-modal'),
+        openCreateGoalModalBtn: document.getElementById('open-create-goal-modal-btn'),
         // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
-        dom.viewAdminSchedule = document.getElementById('view-admin-schedule');
-        dom.questScheduleForm = document.getElementById('quest-schedule-form');
-        dom.settingQuestScheduleOverride = document.getElementById('setting-quest-schedule-override');
-        dom.settingQuestScheduleWrapper = document.getElementById('setting-quest-schedule-type-wrapper');
-        dom.settingQuestScheduleType = document.getElementById('setting-quest-schedule-type');
-    }
+        viewAdminSchedule: document.getElementById('view-admin-schedule'),
+        questScheduleForm: document.getElementById('quest-schedule-form'),
+        settingQuestScheduleOverride: document.getElementById('setting-quest-schedule-override'),
+        settingQuestScheduleWrapper: document.getElementById('setting-quest-schedule-type-wrapper'),
+        settingQuestScheduleType: document.getElementById('setting-quest-schedule-type')
         
+    };
+
     let categoriesCache = [];
     let adminQuestsCache = []; // Кэш для "Ручных заданий" (Q1)
     let adminTwitchRewardsCache = []; // Кэш для "Twitch Наград" (Q3)
@@ -2394,7 +2384,13 @@ function openEntityPickerModal(taskType) {
  * (v3) ОБРАБОТЧИКИ: Подключаем кнопки
  */
 
-
+// 1. Показать/скрыть поле "Кол-во" для СУПЕРПРИЗА
+if (dom.weeklyGoalSuperPrizeType) {
+    dom.weeklyGoalSuperPrizeType.addEventListener('change', (e) => {
+        const type = e.target.value;
+        dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', type === 'none');
+    });
+}
 
 // 2. Показать/скрыть поле "Кол-во" для ОПЦИОНАЛЬНОЙ НАГРАДЫ
 if (dom.weeklyGoalTaskRewardType) {
@@ -2731,16 +2727,6 @@ if (dom.weeklyGoalsList) {
         // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
         console.log('[DEBUG] setupEventListeners() - ФУНКЦИЯ ЗАПУЩЕНА. Начинаем привязку...');
         // [КОНЕЦ] ВСТАВЬ ЭТОТ ЛОГ
-        
-        // 1. Показать/скрыть поле "Кол-во" для СУПЕРПРИЗА
-        if (dom.weeklyGoalSuperPrizeType) {
-            dom.weeklyGoalSuperPrizeType.addEventListener('change', (e) => {
-                const type = e.target.value;
-           dom.weeklyGoalSuperPrizeValueWrapper.classList.toggle('hidden', type === 'none');
-            });
-        }
-
-        
         if(document.getElementById('refresh-purchases-btn')) {
             document.getElementById('refresh-purchases-btn').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
@@ -4876,7 +4862,6 @@ async function main() {
     
     document.addEventListener("DOMContentLoaded", () => {
         tg.ready();
-        initDom();
         setupEventListeners();
         main();
     });
