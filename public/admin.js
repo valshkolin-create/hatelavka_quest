@@ -3319,63 +3319,6 @@ if (dom.settingQuestScheduleOverride) {
         }
     });
 }
-
-// Сохранение формы "Расписание"
-// Сохранение формы "Расписание"
-if (dom.saveScheduleBtn) { // <-- 1. ПРОВЕРЯЕМ НАЛИЧИЕ КНОПКИ (вместо формы)
-    
-    dom.saveScheduleBtn.addEventListener('click', async (e) => { // <-- 2. СЛУШАЕМ 'click' (вместо 'submit')
-        e.preventDefault(); // 3. Предотвращаем стандартное поведение кнопки
-        
-        try {
-            // 4. ВСЯ ОСТАЛЬНАЯ ЛОГИКА ОСТАЕТСЯ ТОЙ ЖЕ
-            
-            // 1. СНАЧАЛА получаем текущие настройки
-            const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
-
-            // 2. СОЗДАЕМ payload на их основе
-            const payload = { ...currentSettings }; 
-
-            // 3. ОБНОВЛЯЕМ payload полями со ВСЕХ вкладок
-            
-            // --- Поля с главной "Настройки" ---
-            const newSliderOrder = Array.from(dom.sliderOrderManager.querySelectorAll('.slider-order-item'))
-                                         .map(item => item.dataset.slideId);
-            payload.skin_race_enabled = dom.settingSkinRaceEnabled.checked;
-            payload.slider_order = newSliderOrder;
-            payload.auction_enabled = dom.settingAuctionEnabled.checked;
-            payload.quests_enabled = dom.settingQuestsEnabled.checked;
-            payload.challenges_enabled = dom.settingChallengesEnabled.checked;
-            payload.quest_promocodes_enabled = dom.settingQuestRewardsEnabled.checked;
-            payload.challenge_promocodes_enabled = dom.settingChallengeRewardsEnabled.checked;
-            payload.checkpoint_enabled = dom.settingCheckpointEnabled.checked;
-            payload.menu_banner_url = dom.settingMenuBannerUrl.value.trim();
-            payload.checkpoint_banner_url = dom.settingCheckpointBannerUrl.value.trim();
-            payload.auction_banner_url = dom.settingAuctionBannerUrl.value.trim();
-            payload.weekly_goals_banner_url = dom.settingWeeklyGoalsBannerUrl.value.trim();
-            payload.weekly_goals_enabled = dom.settingWeeklyGoalsEnabled.checked;
-
-            // --- Поля с ЭТОЙ страницы "Расписание" ---
-            payload.quest_schedule_override_enabled = dom.settingQuestScheduleOverride.checked;
-            payload.quest_schedule_active_type = dom.settingQuestScheduleType.value;
-
-            // 4. СОХРАНЯЕМ *весь* обновленный объект настроек обратно
-            await makeApiRequest('/api/v1/admin/settings/update', { 
-                settings: payload 
-            });
-
-            tg.showAlert('Настройки расписания сохранены!');
-
-        } catch (err) {
-            tg.showAlert(`Ошибка сохранения: ${err.message}`);
-        }
-    });
-} else {
-    // Эта ошибка появится в консоли, если кнопка не будет найдена
-    console.error("ОШИБКА: Кнопка 'save-schedule-btn' НЕ НАЙДЕНА в DOM!");
-}
-        
-
         if(dom.saveSettingsBtn) {
     dom.saveSettingsBtn.addEventListener('click', async () => {
 
@@ -4388,6 +4331,82 @@ if (dom.saveScheduleBtn) { // <-- 1. ПРОВЕРЯЕМ НАЛИЧИЕ КНОП�
                 }
             });
         }
+        // --- 🔽 ФИНАЛЬНЫЙ ВАРИАНТ ДЛЯ КНОПКИ РАСПИСАНИЯ 🔽 ---
+    // 1. Ищем кнопку напрямую по ID (минуя объект dom, чтобы исключить ошибки)
+    const safeScheduleBtn = document.getElementById('save-schedule-btn');
+
+    if (safeScheduleBtn) {
+        // 2. Удаляем старые обработчики (клонированием), чтобы они не наслаивались
+        const newBtn = safeScheduleBtn.cloneNode(true);
+        safeScheduleBtn.parentNode.replaceChild(newBtn, safeScheduleBtn);
+
+        // 3. Вешаем событие 'click' на чистую кнопку
+        newBtn.addEventListener('click', async (e) => {
+            e.preventDefault(); // На всякий случай
+            
+            // Визуальная реакция кнопки (чтобы вы видели, что клик прошел)
+            const originalText = newBtn.textContent;
+            newBtn.textContent = 'Сохранение...';
+            newBtn.disabled = true;
+
+            try {
+                // А. Загружаем актуальные настройки с сервера
+                const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+
+                // Б. Создаем копию настроек
+                const payload = { ...currentSettings }; 
+
+                // В. ОБНОВЛЯЕМ ДАННЫЕ С ГЛАВНОЙ ВКЛАДКИ (чтобы не сломать их)
+                // (Проверяем существование элементов перед чтением)
+                if (dom.settingSkinRaceEnabled) payload.skin_race_enabled = dom.settingSkinRaceEnabled.checked;
+                if (dom.settingAuctionEnabled) payload.auction_enabled = dom.settingAuctionEnabled.checked;
+                if (dom.settingQuestsEnabled) payload.quests_enabled = dom.settingQuestsEnabled.checked;
+                if (dom.settingChallengesEnabled) payload.challenges_enabled = dom.settingChallengesEnabled.checked;
+                if (dom.settingQuestRewardsEnabled) payload.quest_promocodes_enabled = dom.settingQuestRewardsEnabled.checked;
+                if (dom.settingChallengeRewardsEnabled) payload.challenge_promocodes_enabled = dom.settingChallengeRewardsEnabled.checked;
+                if (dom.settingCheckpointEnabled) payload.checkpoint_enabled = dom.settingCheckpointEnabled.checked;
+                if (dom.settingWeeklyGoalsEnabled) payload.weekly_goals_enabled = dom.settingWeeklyGoalsEnabled.checked;
+                
+                if (dom.settingMenuBannerUrl) payload.menu_banner_url = dom.settingMenuBannerUrl.value.trim();
+                if (dom.settingCheckpointBannerUrl) payload.checkpoint_banner_url = dom.settingCheckpointBannerUrl.value.trim();
+                if (dom.settingAuctionBannerUrl) payload.auction_banner_url = dom.settingAuctionBannerUrl.value.trim();
+                if (dom.settingWeeklyGoalsBannerUrl) payload.weekly_goals_banner_url = dom.settingWeeklyGoalsBannerUrl.value.trim();
+
+                if (dom.sliderOrderManager) {
+                    payload.slider_order = Array.from(dom.sliderOrderManager.querySelectorAll('.slider-order-item'))
+                                             .map(item => item.dataset.slideId);
+                }
+
+                // Г. ОБНОВЛЯЕМ ДАННЫЕ РАСПИСАНИЯ (ради чего всё затевалось)
+                // Ищем элементы напрямую, на случай если их нет в dom объекте
+                const overrideEl = document.getElementById('setting-quest-schedule-override');
+                const typeEl = document.getElementById('setting-quest-schedule-type');
+
+                if (overrideEl) payload.quest_schedule_override_enabled = overrideEl.checked;
+                if (typeEl) payload.quest_schedule_active_type = typeEl.value;
+
+                console.log("Отправляем настройки:", payload); // Для отладки в консоли
+
+                // Д. Отправляем на сервер
+                await makeApiRequest('/api/v1/admin/settings/update', { 
+                    settings: payload 
+                });
+
+                tg.showAlert('Настройки расписания сохранены!');
+
+            } catch (err) {
+                console.error("Ошибка сохранения:", err);
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                // Возвращаем кнопку в исходное состояние
+                newBtn.textContent = originalText;
+                newBtn.disabled = false;
+            }
+        });
+    } else {
+        console.error("КРИТИЧЕСКАЯ ОШИБКА: Кнопка save-schedule-btn не найдена в HTML!");
+    }
+    // --- 🔼 КОНЕЦ ВАРИАНТА 🔼 ---    
         // --- 🔽 ДОБАВЬ ЭТОТ БЛОК ДЛЯ НОВОГО МОДАЛЬНОГО ОКНА 🔽 ---
         if (dom.openCreateGoalModalBtn) {
             dom.openCreateGoalModalBtn.addEventListener('click', () => {
@@ -4405,6 +4424,7 @@ if (dom.saveScheduleBtn) { // <-- 1. ПРОВЕРЯЕМ НАЛИЧИЕ КНОП�
         }
             
         }
+        
 
 /**
      * Загружает и отображает список квестов или челленджей в модальное окно.
