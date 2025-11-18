@@ -5938,7 +5938,13 @@ async def get_admin_settings(
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/9046s7W0/cekpoint.png"),
                 auction_enabled=settings_data.get('auction_enabled', False),
                 auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"),
-                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
+                weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"),
+                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False),
+                
+                # --- 🔽 ВОТ ЭТИ СТРОКИ БЫЛИ ПРОПУЩЕНЫ В ЭТОЙ ФУНКЦИИ 🔽 ---
+                quest_schedule_override_enabled=settings_data.get('quest_schedule_override_enabled', False),
+                quest_schedule_active_type=settings_data.get('quest_schedule_active_type', 'twitch')
+                # --- 🔼 ТЕПЕРЬ ОНИ ТУТ ЕСТЬ 🔼 ---
             )
         
         # 3. Парсим 'weekly_run_settings'
