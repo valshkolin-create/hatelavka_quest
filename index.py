@@ -6008,6 +6008,13 @@ async def update_admin_settings(
         json={"key": "admin_controls", "value": request_data.settings.dict()},
         headers={"Prefer": "resolution=merge-duplicates"}
     )
+
+    # --- 🔽 ДОБАВЬ ЭТИ ДВЕ СТРОКИ 🔽 ---
+    # Сбрасываем кэш, чтобы настройки применились мгновенно
+    admin_settings_cache["settings"] = None
+    admin_settings_cache["last_checked"] = 0
+    # --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
+
     return {"message": "Настройки успешно сохранены."}
 
 @app.post("/api/v1/admin/weekly_goals/settings/update")
