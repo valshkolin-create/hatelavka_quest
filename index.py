@@ -263,6 +263,8 @@ class AdminSettings(BaseModel):
     weekly_goals_banner_url: Optional[str] = "https://i.postimg.cc/T1j6hQGP/1200-324.png"
     # --- 🔽 ВОТ ЭТУ СТРОКУ НУЖНО ДОБАВИТЬ 🔽 ---
     weekly_goals_enabled: bool = False # (Отступ 8 пробелов)
+    quest_schedule_override_enabled: bool = False # (Отступ 8 пробелов)
+    quest_schedule_active_type: str = 'twitch' # (Отступ 8 пробелов) 'twitch' или 'telegram'
     
     
 class AdminSettingsUpdateRequest(BaseModel):
@@ -758,7 +760,9 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
                 auction_enabled=settings_data.get('auction_enabled', False), 
                 auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), 
                 weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), 
-                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False)
+                weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False),
+                quest_schedule_override_enabled=settings_data.get('quest_schedule_override_enabled', False),
+                quest_schedule_active_type=settings_data.get('quest_schedule_active_type', 'twitch')
             )
 
             # Сохраняем в кэш
@@ -6402,7 +6406,9 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         "slider_order": ["skin_race", "cauldron", "auction", "checkpoint"],
         "auction_enabled": False, 
         "auction_slide_data": None,
-        "checkpoint_enabled": False 
+        "checkpoint_enabled": False,
+        "quest_schedule_override_enabled": False,
+        "quest_schedule_active_type": "twitch"
 }
     
     is_admin = False
@@ -6448,7 +6454,9 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
             "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
             "slider_order": loaded_order, # <-- ИСПРАВЛЕНО
             "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"]),
-            "checkpoint_enabled": settings.get("checkpoint_enabled", defaults["checkpoint_enabled"])
+            "checkpoint_enabled": settings.get("checkpoint_enabled", defaults["checkpoint_enabled"]),
+            "quest_schedule_override_enabled": settings.get("quest_schedule_override_enabled", defaults["quest_schedule_override_enabled"]),
+            "quest_schedule_active_type": settings.get("quest_schedule_active_type", defaults["quest_schedule_active_type"])
         }
         
         # --- КОРРЕКТНАЯ ЛОГИКА АУКЦИОНА С ЛОГАМИ ---
