@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             dom.auctionsList.appendChild(card);
 
-            // --- ЗАЩИТА ОТ БЕСКОНЕЧНОГО ЦИКЛА ---
+            // --- ЗАЩИТА ОТ БЕСКОНЕЧНОГО ЦИКЛА (ИСПРАВЛЕНО) ---
             if (auction.bid_cooldown_ends_at && !isEnded) {
                 const timerElement = document.getElementById(timerId);
                 const endTime = new Date(auction.bid_cooldown_ends_at).getTime();
@@ -350,18 +350,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (endTime > now) {
                     // Время еще есть, запускаем таймер
-                    startCountdown(timerElement, auction.bid_cooldown_ends_at, `auction-${auction.id}`, () => {
-                        // Когда таймер истек, ждем 3 секунды перед обновлением, 
-                        // чтобы дать бэкенду шанс обработать завершение
-                        if(timerElement) timerElement.innerHTML = '<i class="fa-solid fa-hourglass-half fa-spin"></i>';
+                    // Обрати внимание: здесь 'auction-' + auction.id вместо обратных кавычек
+                    startCountdown(timerElement, auction.bid_cooldown_ends_at, 'auction-' + auction.id, () => {
+                        
+                        if (timerElement) {
+                            timerElement.innerHTML = '<i class="fa-solid fa-hourglass-half fa-spin"></i>';
+                        }
+                        
                         setTimeout(() => {
                             initialize(false);
                         }, 3000);
                     });
                 } else {
-                    // Время вышло, но статус ended_at еще не пришел от сервера.
-                    // НЕ запускаем таймер снова, чтобы избежать цикла.
-                    if(timerElement) {
+                    // Время вышло, но сервер еще не закрыл лот
+                    if (timerElement) {
                         timerElement.innerHTML = '<span style="font-size: 0.9em; color: var(--accent-color);">Финиш...</span>';
                     }
                 }
