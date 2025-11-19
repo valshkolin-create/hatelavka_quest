@@ -737,3 +737,36 @@ body.browser-view {
   width: 100%;
   max-width: 400px; 
 }
+/* --- ИСПРАВЛЕНИЕ ШРИФТОВ И ИКОНОК --- */
+
+/* 1. Уменьшаем шрифт имени победителя (золотая плашка) */
+.winner-block .stat-item-value.winner-name {
+    font-size: 11px !important; /* Было 15px, уменьшаем до 11px */
+    line-height: 1.2;
+    
+    /* Гарантируем, что длинный текст обрежется (user...) */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%; 
+    display: block; /* Важно для работы ellipsis */
+}
+
+/* 2. Уменьшаем общий шрифт значений (Лидер, Ваше место и т.д.) */
+.stat-item-value {
+    font-size: 11px !important; /* Было 12px */
+}
+
+/* 3. Уменьшаем ВСЕ иконки внутри статистики (кубок, твич, юзер) */
+.winner-name i,
+.stat-item-value i,
+.twitch-icon,
+.user-icon {
+    font-size: 9px !important; /* Делаем иконки маленькими и аккуратными */
+    margin-right: 3px !important; /* Уменьшаем отступ от иконки до текста */
+}
+
+/* 4. Немного уменьшаем отступы внутри блоков статистики, чтобы влезало больше */
+.stat-item {
+    padding: 4px 2px !important; /* Уменьшили боковые отступы */
+}
