@@ -673,21 +673,31 @@ body.browser-view {
     margin: 0; /* Убираем старые отступы */
 }
 .auction-restriction-badge {
-    top: 5px;           /* Прижимаем к углу */
-    right: 5px;
-    padding: 2px 5px;   /* Минимальные отступы */
-    font-size: 8px;     /* Очень маленький шрифт */
-    font-weight: 600;
-    border-radius: 3px;
+    /* Сбрасываем старые координаты */
+    top: auto !important;
+    right: auto !important;
     
-    /* Убираем все рамки и цветные фоны, делаем просто полупрозрачную подложку */
+    /* Новые координаты: СНИЗУ СЛЕВА */
+    bottom: 8px;
+    left: 10px;
+    
+    /* Слой: Между фоном и картинкой */
+    z-index: 5 !important;
+    
+    /* Стиль: Текст без рамок и фона */
+    background: transparent !important;
     border: none !important;
-    background: rgba(0, 0, 0, 0.6) !important; 
-    backdrop-filter: none;
-    box-shadow: none;
-    z-index: 10;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    padding: 0;
+    
+    /* Шрифт */
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    opacity: 0.6; /* Полупрозрачность */
+    text-shadow: 0 2px 5px rgba(0,0,0,0.9); /* Тень, чтобы читалось */
 }
-
 /* Стиль для "До X билетов" (зеленоватый/синий) */
 .low-balance-restriction {
     background: rgba(44, 44, 44, 0.95);
