@@ -356,6 +356,15 @@ document.addEventListener('DOMContentLoaded', () => {
             createCard.innerHTML = `<i class="fa-solid fa-plus"></i><span>Создать лот</span>`;
             dom.auctionsList.appendChild(createCard);
         }
+
+        // --- 🔽 НОВОЕ: Проверка на количество лотов для центрирования ---
+        // Если дочерний элемент только один (один лот), добавляем класс centered
+        if (dom.auctionsList.children.length === 1) {
+            dom.auctionsList.classList.add('centered');
+        } else {
+            dom.auctionsList.classList.remove('centered');
+        }
+        // --- ⬆️ КОНЕЦ НОВОГО ---
     }
 
     //
@@ -599,10 +608,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Updated click handler for bid and history buttons ---
         if (button?.matches('.bid-button')) {
-            const auctionId = button.dataset.auctionId;
+            const auctionId = parseInt(button.dataset.auctionId);
             const auction = currentAuctions.find(a => a.id == auctionId);
             
             if (auction) {
+                // --- 🔽 НОВОЕ: Проверка на участие в других аукционах 🔽 ---
+                // Проверяем:
+                // 1. ID аукциона не совпадает с текущим (другой аукцион)
+                // 2. Аукцион еще не завершен (активен)
+                // 3. У пользователя там уже есть ставка (> 0)
+                const activeBidElsewhere = currentAuctions.find(a => 
+                    a.id !== auctionId && 
+                    !a.ended_at && 
+                    a.user_bid_amount > 0
+                );
+
+                if (activeBidElsewhere) {
+                    tg.showAlert(`⛔️ Вы не можете участвовать в этом аукционе.\n\nУ вас уже есть активная ставка в лоте «${activeBidElsewhere.title}». Дождитесь его завершения.`);
+                    return; // Прерываем выполнение, модалка не откроется
+                }
+                // --- ⬆️ КОНЕЦ НОВОГО ⬆️ ---
+
                 // 1. Get user's ticket balance
                 const userTickets = userData.tickets || 0;
                 
