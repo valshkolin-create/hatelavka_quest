@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Аукцион</title>
+    <title>Аукцион Live</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -234,7 +234,10 @@
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
         
+        // Время показа одного слайда перед переключением на следующий
         const ROTATION_INTERVAL = 5 * 60 * 1000; 
+        
+        // Настройки промо
         const PROMO_INTERVAL = 7 * 60 * 1000;    
         const PROMO_DURATION = 30 * 1000;        
 
@@ -251,6 +254,7 @@
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // Состояние
         let auctionsList = [];     
         let currentAuctionIndex = 0; 
         let rotationTimer = null;
@@ -258,7 +262,7 @@
         let countdownInterval = null;
         let isPromoActive = false;
 
-        // --- HELPER FUNCTIONS ---
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
         function getDisplayName(user) {
             if (!user) return 'Аноним';
             return user.twitch_login || user.full_name || 'Аноним';
@@ -294,10 +298,9 @@
         }
 
         /**
-         * ОТРИСОВКА. 
-         * АРГУМЕНТЫ:
-         * - forceBidders: если есть, используем их (Live). Если нет - грузим из БД.
-         * - forceAuctionData: если есть, используем его для Цены и Таймера (Live). Если нет - берем из списка.
+         * ГЛАВНАЯ ФУНКЦИЯ ОТРИСОВКИ
+         * Если переданы `forceBidders`, значит это LIVE-обновление, и мы рисуем их.
+         * Если нет, мы загружаем их из базы (медленный путь, только при старте).
          */
         async function renderCurrentAuction(forceBidders = null, forceAuctionData = null) {
             if (auctionsList.length === 0 && !forceAuctionData) {
@@ -305,31 +308,31 @@
                 return;
             }
 
-            // 1. Определяем ДАННЫЕ ЛОТА (Цена, Картинка, Таймер)
-            // Если передали forceAuctionData (Live), берем его. Иначе берем из массива.
-            let auction = forceAuctionData;
+            // 1. Какой аукцион показываем?
+            let auction = forceAuctionData; // Если прилетел апдейт, берем данные из него
             if (!auction) {
-                auction = auctionsList[currentAuctionIndex];
+                auction = auctionsList[currentAuctionIndex]; // Иначе берем текущий слайд
             }
             
             if (!auction) return;
 
-            console.log(`🎨 ОТРИСОВКА: ${auction.title} (ID: ${auction.id})`);
+            console.log(`🎨 ОТРИСОВКА ЛОТА: ${auction.title}`);
 
-            // 2. Определяем СПИСОК БИДДЕРОВ
+            // 2. Данные ставок
             let finalBidders = [];
             
             if (forceBidders) {
-                // LIVE РЕЖИМ: Используем данные прямо из сокета
-                console.log("⚡️ ИСПОЛЬЗУЕМ LIVE-ДАННЫЕ ДЛЯ БИДДЕРОВ");
+                // 🔥 БЫСТРЫЙ ПУТЬ (LIVE)
+                console.log("⚡️ LIVE: Данные взяты напрямую из сокета (быстро)");
                 finalBidders = forceBidders.map(b => ({
                     name: b.name,
                     amount: b.amount,
+                    // В старом коде иконка генерировалась так же
                     icon: b.name ? getDisplayIcon({ twitch_login: "temp" }) : getDisplayIcon(null)
                 }));
             } else {
-                // ОБЫЧНЫЙ РЕЖИМ: Запрос к БД
-                console.log("💾 ЗАГРУЗКА БИДДЕРОВ ИЗ БД");
+                // 🐢 МЕДЛЕННЫЙ ПУТЬ (БАЗА ДАННЫХ)
+                console.log("💾 DB: Загрузка списка из базы...");
                 const { data: historyData } = await supabaseClient
                     .from('auction_bids')
                     .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') 
@@ -346,7 +349,7 @@
                 }
             }
 
-            // 3. ГЕНЕРАЦИЯ HTML
+            // 3. Генерация HTML
             let biddersHtml = `<div class="bidders-title">Аукцион</div>`;
             if (finalBidders.length === 0) {
                 biddersHtml += '<div style="color: var(--text-secondary); text-align: center; font-size: 11px; margin-top: 10px;">Ставок пока нет</div>';
@@ -366,12 +369,13 @@
                 });
             }
 
-            // 4. ОБНОВЛЕНИЕ DOM
+            // 4. Вставка в DOM
             dom.title.textContent = auction.title || "Аукцион";
             dom.skinImage.src = auction.image_url || 'https://placehold.co/200x150?text=No+Image';
             dom.biddersList.innerHTML = biddersHtml;
-            startCountdown(auction.bid_cooldown_ends_at); // Обновляем таймер
+            startCountdown(auction.bid_cooldown_ends_at);
             
+            // Если виджет скрыт (из-за промо), показываем его
             if (!isPromoActive) {
                 dom.widget.classList.remove('promo-active'); 
                 dom.widget.classList.add('visible');
@@ -379,23 +383,23 @@
             }
         }
 
-        // --- СМЕНА СЛАЙДОВ ---
+        // --- РОТАЦИЯ СЛАЙДОВ ---
         function nextSlide() {
-            if (isPromoActive) return;
+            if (isPromoActive) return; // Не переключаем во время промо
             if (auctionsList.length === 0) return;
 
-            console.log("🔄 СЛЕДУЮЩИЙ СЛАЙД...");
+            console.log("🔄 Смена слайда...");
             dom.widget.classList.add('fade-out');
             setTimeout(() => {
                 currentAuctionIndex = (currentAuctionIndex + 1) % auctionsList.length;
-                renderCurrentAuction(); // Без аргументов -> берет из массива
+                renderCurrentAuction(); // Загрузит из базы для нового слайда
                 dom.widget.classList.remove('fade-out');
             }, 700); 
         }
 
-        // --- ПРОМО ---
+        // --- УПРАВЛЕНИЕ ПРОМО ---
         function showPromo(permanent = false) {
-            console.log("📺 ВКЛЮЧЕНИЕ ПРОМО");
+            console.log("📺 Включение промо");
             isPromoActive = true;
             dom.widget.classList.add('promo-active');
             dom.promoOverlay.classList.add('show');
@@ -406,7 +410,7 @@
         }
 
         function hidePromo() {
-            console.log("🔙 ВЫКЛЮЧЕНИЕ ПРОМО");
+            console.log("🔙 Выключение промо");
             isPromoActive = false;
             dom.widget.classList.remove('promo-active');
             dom.promoOverlay.classList.remove('show');
@@ -416,7 +420,7 @@
         // --- ЗАГРУЗКА СПИСКА ЛОТОВ ---
         async function loadAuctionsList() {
             try {
-                console.log("📥 ЗАГРУЗКА СПИСКА АУКЦИОНОВ...");
+                console.log("📥 Загрузка списка активных аукционов...");
                 const { data, error } = await supabaseClient
                     .from('auctions')
                     .select('*')
@@ -427,43 +431,43 @@
 
                 if (error) throw error;
                 auctionsList = data || [];
-                console.log(`📦 НАЙДЕНО АКТИВНЫХ: ${auctionsList.length}`);
+                console.log(`📦 Найдено лотов: ${auctionsList.length}`);
                 
                 if (currentAuctionIndex >= auctionsList.length) currentAuctionIndex = 0;
                 
+                // Рисуем только если не активна промо-заставка
                 if (!isPromoActive) renderCurrentAuction();
 
-            } catch (e) { console.error("Ошибка:", e); }
+            } catch (e) { console.error("Ошибка загрузки:", e); }
         }
 
-        // --- ГЛАВНЫЙ ОБРАБОТЧИК СОБЫТИЙ (LIVE) ---
+        // --- LIVE LISTENER (САМОЕ ВАЖНОЕ) ---
         function handleRealtimeUpdate(payload) {
-            console.log("🔔 REALTIME EVENT:", payload);
+            console.log("🔔 Пришло событие Supabase:", payload.eventType);
 
             if (payload.table === 'auction_triggers') {
+                // ВОТ ОНО: Берем данные СРАЗУ из payload, как в старом файле
                 const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
                 
-                // 1. Обновляем данные в кэше (чтобы при прокрутке они были свежие)
+                // 1. Обновляем данные в нашем списке (в фоне)
                 const foundIndex = auctionsList.findIndex(a => a.id === auction_data.id);
                 if (foundIndex !== -1) {
                     auctionsList[foundIndex] = auction_data;
-                    console.log("✅ Кэш лота обновлен");
                 }
 
-                // 2. Проверяем: мы сейчас смотрим на этот лот?
+                // 2. Если ставка пришла на ТОТ лот, который сейчас на экране -> обновляем мгновенно
                 const currentAuction = auctionsList[currentAuctionIndex];
                 
                 if (currentAuction && currentAuction.id === auction_data.id) {
-                    console.log(`🔥 ЭТО ТЕКУЩИЙ ЛОТ! МГНОВЕННОЕ ОБНОВЛЕНИЕ!`);
+                    console.log(`🔥 LIVE UPDATE! Ставка от ${last_bidder_name}`);
                     
-                    // Если было промо - убираем
+                    // Если висит промо -> убираем его
                     if (isPromoActive) hidePromo();
 
-                    // 3. ВЫЗЫВАЕМ РЕНДЕР С ЯВНЫМИ ДАННЫМИ (FORCE)
-                    // Передаем top_bidders и auction_data НАПРЯМУЮ в рендер
+                    // Рендерим, передавая данные ЯВНО (чтобы не ждать базу)
                     renderCurrentAuction(top_bidders, auction_data);
                     
-                    // Уведомление
+                    // Уведомление сверху
                     dom.notifyName.textContent = last_bidder_name;
                     dom.notification.classList.add('show');
                     setTimeout(() => {
@@ -472,18 +476,18 @@
                     }, 4000); 
                     setTimeout(() => dom.notification.classList.remove('hide'), 4500);
                 } else {
-                    console.log("💤 Ставка на другой лот (сейчас не на экране).");
+                    console.log("💤 Ставка на другой лот (сейчас скрыт). Данные обновлены в фоне.");
                 }
             }
             else if (payload.table === 'auctions') {
-                console.log("♻️ Таблица аукционов изменилась. Перезагрузка списка.");
+                console.log("♻️ Изменился список аукционов, перезагружаем...");
                 loadAuctionsList();
             }
         }
 
-        // --- INIT ---
+        // --- ЗАПУСК ---
         async function init() {
-            console.log("🚀 ЗАПУСК ВИДЖЕТА");
+            console.log("🚀 Widget Init");
             await loadAuctionsList();
 
             if (rotationTimer) clearInterval(rotationTimer);
@@ -497,7 +501,7 @@
             supabaseClient.channel('overlay-channel')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'auction_triggers' }, handleRealtimeUpdate)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, handleRealtimeUpdate)
-                .subscribe((status) => console.log(`📡 SUPABASE STATUS: ${status}`));
+                .subscribe((status) => console.log(`📡 Connection Status: ${status}`));
         }
 
         init();
