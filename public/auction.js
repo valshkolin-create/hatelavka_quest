@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 restrictionsHtml = `
                     <div class="auction-restriction-badge low-balance-restriction">
                         <i class="fa-solid fa-ban"></i>
-                        <span>Макс. ${auction.max_allowed_tickets} 🎟️</span>
+                        <span>Вход до ${auction.max_allowed_tickets} 🎟️</span>
                     </div>
                 `;
             } else if (auction.min_required_tickets && auction.min_required_tickets > 1) {
