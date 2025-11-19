@@ -368,7 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            // --- КОНЕЦ ЗАЩИТЫ ---
+            // --- КОНЕЦ ЗАЩИТЫ --
+        });
         
         if (isEditMode) {
             const createCard = document.createElement('div');
@@ -385,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.auctionsList.classList.remove('centered');
         }
         // --- ⬆️ КОНЕЦ НОВОГО ---
+    }
 
     //
     // ⬇️ ИЗМЕНЕНИЕ: Parallax-эффект (только влево-вправо) ⬇️
