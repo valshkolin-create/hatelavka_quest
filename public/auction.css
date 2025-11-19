@@ -698,7 +698,7 @@ body.browser-view {
     border-radius: 4px;
     
     /* --- ШРИФТ (как было у тебя) --- */
-    font-size: 10px; /* Вернул маленький размер */
+    font-size: 8px; /* Вернул маленький размер */
     font-weight: 800; /* Жирный */
     text-transform: uppercase;
     
