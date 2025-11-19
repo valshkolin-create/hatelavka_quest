@@ -43,7 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
         editAuctionCooldown: document.getElementById('auction-cooldown-input'),
         editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'), // <-- ДОБАВЬ ЭТО
         editAuctionActive: document.getElementById('auction-active-input'),
-        editAuctionVisible: document.getElementById('auction-visible-input')
+        editAuctionVisible: document.getElementById('auction-visible-input'),
+        // ⬇️ ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ ⬇️
+        editAuctionMinTickets: document.getElementById('auction-min-tickets-input'), 
+        editAuctionMaxTickets: document.getElementById('auction-max-tickets-input')
     };
 
     // --- Вспомогательные функции ---
@@ -462,6 +465,9 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.editAuctionSnipeMinutes.value = auction.snipe_guard_minutes || 5;
             // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
+        dom.editAuctionMinTickets.value = auction.min_required_tickets || 1;
+        dom.editAuctionMaxTickets.value = auction.max_allowed_tickets || 0;
+
         dom.editAuctionActive.checked = auction.is_active;
         dom.editAuctionVisible.checked = auction.is_visible;
     } else {
@@ -470,6 +476,9 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.editAuctionId.value = '';
         dom.editAuctionCooldown.value = 24; // <-- Устанавливаем "часы" по умолч.
         dom.editAuctionSnipeMinutes.value = 5;
+        // ⬇️ ДОБАВИТЬ ДЕФОЛТНЫЕ ЗНАЧЕНИЯ ⬇️
+        dom.editAuctionMinTickets.value = 1;
+        dom.editAuctionMaxTickets.value = 0;
         dom.editAuctionActive.checked = false;
         dom.editAuctionVisible.checked = false;
     }
@@ -635,35 +644,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    dom.editModalForm.addEventListener('submit', async (e) => {
+   dom.editModalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const auctionId = dom.editAuctionId.value ? parseInt(dom.editAuctionId.value) : null;
         
+        // --- НОВАЯ ЛОГИКА: Обработка лимитов билетов ---
+        // Получаем значение максимальных билетов
+        const rawMaxTickets = dom.editAuctionMaxTickets.value;
+        let maxTicketsValue = null;
+
+        // Если введено число больше 0, используем его. 
+        // Если 0, пусто или null — отправляем null (что значит "нет лимита")
+        if (rawMaxTickets && parseInt(rawMaxTickets) > 0) {
+            maxTicketsValue = parseInt(rawMaxTickets);
+        }
+
+        // Получаем значение минимальных билетов
+        const minTicketsValue = parseInt(dom.editAuctionMinTickets.value);
+        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
         let url = '';
         let payload = {};
 
         if (auctionId) {
-        url = '/api/v1/admin/auctions/update';
-        payload = {
-            id: auctionId,
-            title: dom.editAuctionTitle.value,
-            image_url: dom.editAuctionImage.value,
-            bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
-            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
-            is_active: dom.editAuctionActive.checked,
-            is_visible: dom.editAuctionVisible.checked
-        };
-    } else {
-        url = '/api/v1/admin/auctions/create';
-        payload = {
-            title: dom.editAuctionTitle.value,
-            image_url: dom.editAuctionImage.value,
-            bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
-            snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
-            is_active: dom.editAuctionActive.checked,
-            is_visible: dom.editAuctionVisible.checked
-        };
-    }
+            url = '/api/v1/admin/auctions/update';
+            payload = {
+                id: auctionId,
+                title: dom.editAuctionTitle.value,
+                image_url: dom.editAuctionImage.value,
+                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
+                snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
+                is_active: dom.editAuctionActive.checked,
+                is_visible: dom.editAuctionVisible.checked,
+                // Добавляем новые поля в payload обновления
+                min_required_tickets: minTicketsValue,
+                max_allowed_tickets: maxTicketsValue
+            };
+        } else {
+            url = '/api/v1/admin/auctions/create';
+            payload = {
+                title: dom.editAuctionTitle.value,
+                image_url: dom.editAuctionImage.value,
+                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
+                snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
+                is_active: dom.editAuctionActive.checked,
+                is_visible: dom.editAuctionVisible.checked,
+                // Добавляем новые поля в payload создания
+                min_required_tickets: minTicketsValue,
+                max_allowed_tickets: maxTicketsValue
+            };
+        }
         
         try {
             await makeApiRequest(url, payload);
@@ -672,8 +702,6 @@ document.addEventListener('DOMContentLoaded', () => {
             initialize(false); 
         } catch(e) { /* Ошибка уже показана */ }
     });
-
-
     // --- Инициализация ---
 
     async function initialize(showMainLoader = true) {
