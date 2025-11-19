@@ -675,39 +675,42 @@ body.browser-view {
 .auction-restriction-badge {
     position: absolute;
     
-    /* --- ПОЗИЦИЯ (Оставляем как было: снизу слева) --- */
+    /* --- ПОЗИЦИЯ --- */
     top: auto !important;
     right: auto !important;
-    bottom: 8px;
-    left: 10px;
+    /* Прижали ближе к рамке (было 8px/10px) */
+    bottom: 4px;
+    left: 4px;
     
     z-index: 5 !important;
     
-    /* --- ВИЗУАЛ (Черный фон + Белый текст) --- */
-    background-color: rgba(0, 0, 0, 0.7) !important; /* Черный фон 70% непрозрачности */
-    color: #ffffff !important; /* Ярко-белый текст */
+    /* --- ФОН И ЦВЕТ --- */
+    /* Черный фон 40% прозрачности */
+    background-color: rgba(0, 0, 0, 0.4) !important; 
+    /* Ярко-белый текст */
+    color: #ffffff !important; 
     
-    /* Отступы внутри плашки */
-    padding: 4px 8px !important;
+    /* --- РАЗМЕРЫ --- */
+    /* Минимальные отступы внутри плашки */
+    padding: 2px 5px !important;
     
-    /* Скругление краев плашки */
-    border-radius: 6px;
+    /* Аккуратное скругление */
+    border-radius: 4px;
     
-    /* Убираем старую рамку и прозрачность всего блока */
+    /* --- ШРИФТ (как было у тебя) --- */
+    font-size: 7px; /* Вернул маленький размер */
+    font-weight: 800; /* Жирный */
+    text-transform: uppercase;
+    
+    /* Убираем лишнее */
     border: none !important;
     box-shadow: none !important;
-    opacity: 1 !important; /* Сам элемент виден на 100%, прозрачный только фон */
+    text-shadow: none; 
+    opacity: 1 !important; 
     
-    /* Настройки текста */
-    font-size: 9px; /* Чуть увеличил, чтобы читалось */
-    font-weight: 800;
-    text-transform: uppercase;
-    text-shadow: none; /* Тень не нужна на черном фоне */
-    
-    /* Выравнивание иконки и текста */
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 3px; /* Расстояние между иконкой и текстом */
 }
 /* Стиль для "До X билетов" (зеленоватый/синий) */
 .low-balance-restriction {
