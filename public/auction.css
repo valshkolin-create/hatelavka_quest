@@ -700,7 +700,3 @@ body.browser-view {
     color: #ffd700; /* Золотой текст */
     border: 1px solid #FFD700;
 }
-/* Корректировка заголовка внутри синей карточки (опционально) */
-.auction-card.beginner-lot .event-title {
-    color: #e0d4fc; /* Светло-сиреневый текст */
-}
