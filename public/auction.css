@@ -209,6 +209,11 @@ body.browser-view {
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     padding: 5px;
+    text-align: center; /* <--- ЦЕНТРИРОВАНИЕ ЗАГОЛОВКА */
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Центрируем содержимое по горизонтали */
+    justify-content: center;
 }
 .stat-item-label {
     font-size: 9px;
@@ -225,6 +230,8 @@ body.browser-view {
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
+    justify-content: center; /* <--- ЦЕНТРИРОВАНИЕ ЗНАЧЕНИЯ */
+    width: 100%;
 }
 .stat-item-value.timer {
     color: var(--accent-primary);
@@ -559,20 +566,22 @@ body.browser-view {
 .auction-card.admin-card .edit-overlay {
     opacity: 1;
     pointer-events: all;
+    gap: 8px; /* Чуть меньше отступ */
 }
 
 .card-btn {
     border: none;
     border-radius: 50%;
-    width: 44px;
-    height: 44px;
+    width: 32px;       /* Было 44px, уменьшаем */
+    height: 32px;      /* Было 44px, уменьшаем */
     color: white;
-    font-size: 18px;
+    font-size: 14px;   /* Уменьшаем иконку */
     cursor: pointer;
     transition: transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;    /* ВАЖНО: Запрещаем кнопке сжиматься/растягиваться */
 }
 .card-btn:hover {
     transform: scale(1.1);
