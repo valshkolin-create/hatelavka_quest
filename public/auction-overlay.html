@@ -21,6 +21,7 @@
           --gold-color: #ffd700;
         }
         
+        /* Размер обертки 600x240 */
         .overlay-wrapper {
             position: absolute;
             bottom: 20px;
@@ -38,6 +39,7 @@
             color: var(--text-primary);
         }
         
+        /* Виджет (Стекло + Темный фон) */
         .widget-container {
             position: absolute;
             bottom: 0;
@@ -59,17 +61,18 @@
         }
         
         .widget-container.visible { opacity: 1; }
-        .widget-container.promo-active { transform: translateX(-120%); opacity: 0; }
+        .widget-container.promo-active { transform: translateX(-120%); opacity: 0; } /* Уезжает влево */
         
         .header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
         .header-title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-primary); }
         .header-timer { font-size: 20px; font-weight: 700; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; }
         .content-body { display: flex; padding: 20px; gap: 20px; }
         
+        /* Скин */
         .skin-container { 
             width: 200px;
             height: 150px;
-            background-color: #000;
+            background-color: #000; 
             background-size: cover;
             background-position: center;
             border-radius: 8px; 
@@ -81,6 +84,7 @@
             position: relative;
         }
 
+        /* Шум на фоне скина */
         .skin-container::after {
             content: '';
             position: absolute;
@@ -124,9 +128,9 @@
             gap: 10px; 
         }
         .bidder-rank { 
-            font-size: 18px; 
+            font-size: 18px;
             font-weight: 900; 
-            width: 30px; 
+            width: 30px;
             text-align: right; 
             flex-shrink: 0; 
             color: var(--text-secondary);
@@ -145,7 +149,10 @@
             display: flex;
             align-items: center;
         }
-        .bidder-name i { margin-right: 5px; font-size: 0.9em; }
+        .bidder-name i {
+            margin-right: 5px;
+            font-size: 0.9em;
+        }
         .twitch-icon { color: #9146FF; }
         .user-icon { color: var(--text-secondary); }
 
@@ -156,6 +163,7 @@
             flex-shrink: 0; 
         }
 
+        /* Уведомление о новой ставке */
         #new-bid-notification { 
             position: absolute; 
             top: -100px; 
@@ -176,22 +184,29 @@
         #new-bid-notification.show { opacity: 1; top: 20px; }
         #new-bid-notification.hide { opacity: 0; top: -100px; transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045); }
 
+        /* Блок промо */
         .promo-overlay {
             position: absolute;
-            top: 0; left: 0;
+            top: 0; 
+            left: 0;
             width: 600px;
             height: 240px;
             background: transparent;
             border-radius: 12px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.4);
             overflow: hidden;
+            
             opacity: 0;
             visibility: hidden;
             transform: translateX(100%);
             transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
             z-index: 10;
         }
-        .promo-overlay.show { opacity: 1; visibility: visible; transform: translateX(0); }
+        .promo-overlay.show { 
+            opacity: 1; 
+            visibility: visible; 
+            transform: translateX(0); 
+        }
         
         #promo-image {
             width: 100%;
@@ -235,9 +250,9 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
         // --- НАСТРОЙКИ ВРЕМЕНИ ---
-        const ROTATION_INTERVAL = 5 * 60 * 1000; // Время показа одного аукциона
-        const PROMO_INTERVAL = 7 * 60 * 1000;    // Интервал появления промо
-        const PROMO_DURATION = 30 * 1000;        // Длительность промо
+        const ROTATION_INTERVAL = 5 * 60 * 1000; // 5 минут на слайд
+        const PROMO_INTERVAL = 7 * 60 * 1000;    // 7 минут между промо
+        const PROMO_DURATION = 30 * 1000;        // 30 секунд промо
 
         const dom = {
             widget: document.getElementById('widget-container'),
@@ -295,10 +310,16 @@
             updateTimer();
         }
 
-        // --- ОТРИСОВКА КАРТОЧКИ (ГИБРИДНЫЙ МЕТОД) ---
+        /**
+         * ОСНОВНАЯ ФУНКЦИЯ ОТРИСОВКИ
+         * Поддерживает "Гибридный режим":
+         * 1. Если передан directBidders (от сокета) - обновляет мгновенно.
+         * 2. Если нет - грузит из базы (для начальной загрузки).
+         */
         async function renderCurrentAuction(directBidders = null) {
+            // Если список пуст
             if (auctionsList.length === 0) {
-                showPromo(true); 
+                showPromo(true); // Вечное промо
                 return;
             }
 
@@ -306,18 +327,19 @@
             if (!auction) return;
 
             let finalBidders = [];
+            let source = "DB";
 
-            // 1. БЫСТРЫЙ ПУТЬ (LIVE): Если данные пришли из сокета -> используем их
             if (directBidders) {
+                source = "LIVE (Socket)";
+                // Форматируем данные, пришедшие напрямую от триггера
                 finalBidders = directBidders.map(b => ({
                     name: b.name,
                     amount: b.amount,
-                    // Генерируем иконку на лету, так как в сокете может не быть полных данных пользователя
+                    // В триггере имя уже готовое, иконку ставим по умолчанию или по логике
                     icon: b.name ? getDisplayIcon({ twitch_login: "temp" }) : getDisplayIcon(null)
                 }));
-            } 
-            // 2. МЕДЛЕННЫЙ ПУТЬ (DB): Если это просто смена слайда -> грузим из базы
-            else {
+            } else {
+                // Грузим из БД (медленно, но надежно при старте)
                 const { data: historyData } = await supabaseClient
                     .from('auction_bids')
                     .select('bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)') 
@@ -333,8 +355,10 @@
                     }));
                 }
             }
+            
+            console.log(`🎨 Рендер лота: "${auction.title}". Источник данных: ${source}`);
 
-            // Рендер HTML
+            // Формируем HTML
             let biddersHtml = `<div class="bidders-title">Аукцион</div>`;
             if (finalBidders.length === 0) {
                 biddersHtml += '<div style="color: var(--text-secondary); text-align: center; font-size: 11px; margin-top: 10px;">Ставок пока нет</div>';
@@ -354,12 +378,13 @@
                 });
             }
 
+            // Обновляем DOM
             dom.title.textContent = auction.title || "Аукцион";
             dom.skinImage.src = auction.image_url || 'https://placehold.co/200x150?text=No+Image';
             dom.biddersList.innerHTML = biddersHtml;
             startCountdown(auction.bid_cooldown_ends_at);
             
-            // Если показываем аукцион, виджет должен быть видим
+            // Если не идет промо, показываем виджет
             if (!isPromoActive) {
                 dom.widget.classList.remove('promo-active'); 
                 dom.widget.classList.add('visible');
@@ -367,21 +392,24 @@
             }
         }
 
-        // --- ЛОГИКА РОТАЦИИ АУКЦИОНОВ ---
+        // --- ЛОГИКА РОТАЦИИ ---
         function nextSlide() {
-            if (isPromoActive) return; // Не переключаем под промо
+            if (isPromoActive) return;
             if (auctionsList.length === 0) return;
 
+            console.log("🔄 Переключение на следующий слайд...");
             dom.widget.classList.add('fade-out');
+
             setTimeout(() => {
                 currentAuctionIndex = (currentAuctionIndex + 1) % auctionsList.length;
-                renderCurrentAuction(); // null аргумент = загрузка из БД
+                renderCurrentAuction(); // Без аргументов -> загрузка из БД
                 dom.widget.classList.remove('fade-out');
             }, 700); 
         }
 
         // --- ЛОГИКА ПРОМО ---
         function showPromo(permanent = false) {
+            console.log("📺 Запуск промо-заставки");
             isPromoActive = true;
             dom.widget.classList.add('promo-active');
             dom.promoOverlay.classList.add('show');
@@ -394,15 +422,17 @@
         }
 
         function hidePromo() {
+            console.log("🔙 Конец промо, возврат к аукциону");
             isPromoActive = false;
             dom.widget.classList.remove('promo-active');
             dom.promoOverlay.classList.remove('show');
-            renderCurrentAuction(); // Обновить экран
+            renderCurrentAuction();
         }
 
         // --- ЗАГРУЗКА СПИСКА ---
         async function loadAuctionsList() {
             try {
+                console.log("📥 Загрузка списка аукционов...");
                 const { data, error } = await supabaseClient
                     .from('auctions')
                     .select('*')
@@ -413,11 +443,10 @@
 
                 if (error) throw error;
                 auctionsList = data || [];
+                console.log(`📦 Активных аукционов: ${auctionsList.length}`);
                 
-                // Сброс индекса если список уменьшился
                 if (currentAuctionIndex >= auctionsList.length) currentAuctionIndex = 0;
                 
-                // Первичная отрисовка, если не висит промо
                 if (!isPromoActive) renderCurrentAuction();
 
             } catch (e) {
@@ -425,28 +454,34 @@
             }
         }
 
-        // --- REALTIME (САМОЕ ВАЖНОЕ) ---
+        // --- REALTIME (LIVE UPDATE) ---
         function handleRealtimeUpdate(payload) {
+            console.log("⚡️ Событие Realtime:", payload.eventType, payload.table);
+
+            // Если это событие СТАВКИ (из триггера)
             if (payload.table === 'auction_triggers') {
-                // 1. Получаем данные МГНОВЕННО из уведомления
                 const { auction_data, last_bidder_name, top_bidders } = payload.new.payload;
                 
-                // Обновляем данные в памяти (чтобы таймер и цена были актуальны)
+                // 1. Обновляем данные аукциона в локальном списке (цену, время)
                 const foundIndex = auctionsList.findIndex(a => a.id === auction_data.id);
                 if (foundIndex !== -1) {
                     auctionsList[foundIndex] = auction_data; 
                 }
 
-                // 2. Если ставка пришла на ТЕКУЩИЙ лот на экране
+                // 2. Проверяем, отображается ли сейчас ЭТОТ лот
                 if (auctionsList[currentAuctionIndex] && auctionsList[currentAuctionIndex].id === auction_data.id) {
+                    console.log(`🔥 LIVE UPDATE для текущего лота! Ставка от: ${last_bidder_name}`);
                     
-                    // Если висит промо — убираем его срочно!
-                    if (isPromoActive) hidePromo();
+                    // Если сейчас висит промо, СРОЧНО убираем его
+                    if (isPromoActive) {
+                        console.log("🛑 Прерываем промо ради новой ставки!");
+                        hidePromo();
+                    }
 
-                    // Передаем top_bidders прямо в рендер (без запроса к БД!)
+                    // 3. МГНОВЕННЫЙ РЕНДЕР (передаем top_bidders, чтобы не ждать БД)
                     renderCurrentAuction(top_bidders);
                     
-                    // Показываем плашку "Новая ставка!"
+                    // Уведомление сверху
                     dom.notifyName.textContent = last_bidder_name;
                     dom.notification.classList.add('show');
                     setTimeout(() => {
@@ -454,23 +489,27 @@
                         dom.notification.classList.add('hide');
                     }, 4000); 
                     setTimeout(() => dom.notification.classList.remove('hide'), 4500);
+                } else {
+                    console.log("💤 Ставка пришла, но этот лот сейчас не на экране. Данные обновлены в фоне.");
                 }
             }
+            // Если изменилась таблица auctions (добавили/удалили лот)
             else if (payload.table === 'auctions') {
-                // Если добавили/удалили аукцион — перезагружаем список
+                console.log("♻️ Изменения в списке лотов, перезагружаем список...");
                 loadAuctionsList();
             }
         }
 
-        // --- ИНИЦИАЛИЗАЦИЯ ---
+        // --- СТАРТ ---
         async function init() {
+            console.log("🚀 Виджет инициализирован");
             await loadAuctionsList();
 
-            // Ротация слайдов
+            // Таймер ротации
             if (rotationTimer) clearInterval(rotationTimer);
             rotationTimer = setInterval(nextSlide, ROTATION_INTERVAL);
 
-            // Таймер Промо
+            // Таймер промо
             if (promoCycleTimer) clearInterval(promoCycleTimer);
             promoCycleTimer = setInterval(() => {
                 if (auctionsList.length > 0) showPromo();
@@ -480,7 +519,9 @@
             supabaseClient.channel('overlay-channel')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'auction_triggers' }, handleRealtimeUpdate)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, handleRealtimeUpdate)
-                .subscribe();
+                .subscribe((status) => {
+                     console.log(`📡 Статус подключения к Supabase: ${status}`);
+                });
         }
 
         init();
