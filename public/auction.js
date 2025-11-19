@@ -706,6 +706,20 @@ document.addEventListener('DOMContentLoaded', () => {
             costToUser = finalBidAmount; 
         }
 
+        // ⬇️ НОВАЯ ПРОВЕРКА JS ⬇️
+        // Если это лот для новичков (есть max_allowed_tickets)
+        if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
+            const MAX_STEP = 3; // Должно совпадать с SQL (v_max_step)
+            const currentBid = auction.current_highest_bid || 0;
+            
+            // Проверяем разницу
+            if ((finalBidAmount - currentBid) > MAX_STEP) {
+                tg.showAlert(`🚫 Не спешите!\n\nВ данной зоне нельзя повышать ставку более чем на ${MAX_STEP} билета за раз.\n\nМаксимальная ставка сейчас: ${currentBid + MAX_STEP}`);
+                return; // Останавливаем отправку
+            }
+        }
+        // ⬆️ КОНЕЦ ПРОВЕРКИ ⬆️
+
         if (costToUser > (userData.tickets || 0)) {
             // <--- 2. RETURNED OLD TEXT
             tg.showAlert('У вас недостаточно билетов для этой ставки.'); 
