@@ -153,6 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'auction-card';
             card.id = `auction-card-${auction.id}`;
+
+            
             
             // --- 👇 1. ДОБАВЛЯЕМ КЛАСС ДЛЯ СМЕНЫ ДИЗАЙНА 👇 ---
 // Если есть ограничение по макс. билетам, добавляем спец. класс
@@ -302,14 +304,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // --- КОНЕЦ ВСТАВКИ ---
 
+            // Вставляем restrictionsHtml ВНУТРЬ event-image-container
             card.innerHTML = `
                 ${adminOverlay}
-                ${restrictionsHtml}
+                
                 <div class="card-display-area">
                     <div class="event-image-container">
-                        <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
+                        ${restrictionsHtml} <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
                     </div>
                 </div>
+                
                 <div class="card-info-area">
                     <h3 class="event-title">${escapeHTML(auction.title)}</h3>
                     
@@ -325,7 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     
                     ${leaderOrWinnerHtml} 
-
                     ${myBidHtml}
 
                     <div class="event-button-container">
