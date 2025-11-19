@@ -641,10 +641,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
                     // If user has more tickets than allowed
                     if (userTickets > auction.max_allowed_tickets) {
-                        // Check if user is already the leader (allow them to defend their lead)
-                        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
                         
-                        if (!isLeader) {
+                        // Проверяем, была ли у человека хоть одна ставка в этом лоте
+                        const hasBidBefore = auction.user_bid_amount > 0; 
+                        
+                        // Если ставок НЕ было (!hasBidBefore), то запрещаем вход
+                        if (!hasBidBefore) {
                             tg.showAlert(`🔒 Доступ закрыт!\n\nДанный лот доступен только для баланса до ${auction.max_allowed_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
                             return; // <--- STOP, do not open modal
                         }
