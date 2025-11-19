@@ -673,32 +673,37 @@ body.browser-view {
     margin: 0; /* Убираем старые отступы */
 }
 .auction-restriction-badge {
-    top: 5px;           /* Прижимаем к углу */
-    right: 5px;
-    padding: 2px 5px;   /* Минимальные отступы */
-    font-size: 8px;     /* Очень маленький шрифт */
-    font-weight: 600;
-    border-radius: 3px;
+    position: absolute;
+    top: 10px;      
+    right: 10px;    
+    z-index: 5;     /* Текст ПОД картинкой */
     
-    /* Убираем все рамки и цветные фоны, делаем просто полупрозрачную подложку */
+    font-size: 11px; 
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    /* Полностью прозрачный фон, никаких рамок */
+    background: transparent !important;
     border: none !important;
-    background: rgba(0, 0, 0, 0.6) !important; 
-    backdrop-filter: none;
-    box-shadow: none;
-    z-index: 10;
+    box-shadow: none !important;
+    padding: 0;
+    
+    /* Тень, чтобы текст читался на темном фоне */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    
+    /* Полупрозрачность, чтобы текст сидел "глубоко" */
+    opacity: 0.5; 
 }
-
 /* Стиль для "До X билетов" (зеленоватый/синий) */
 .low-balance-restriction {
-    background: rgba(44, 44, 44, 0.95);
-    color: #d8b4fe; /* Нежно-фиолетовый цвет текста */
-    border: 1px solid #4da6ff;
+    color: #d8b4fe; 
 }
 
 /* Стиль для "От X билетов" (золотой/фиолетовый) */
 .high-balance-restriction {
     background: rgba(255, 215, 0, 0.15);
-    color: #ffd700; /* Золотой текст */
+    color: #ffd700;
     border: 1px solid #FFD700;
 }
 /* 👇 НОВЫЙ СТИЛЬ: Карточка с лимитом (для новичков) 👇 */
