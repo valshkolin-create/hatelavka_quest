@@ -673,20 +673,41 @@ body.browser-view {
     margin: 0; /* Убираем старые отступы */
 }
 .auction-restriction-badge {
-  position: absolute;
-  top: 10px; /* Отступ сверху */
-  left: 10px; /* Отступ слева */
-  background-color: rgba(0, 0, 0, 0.6); /* Полупрозрачный черный фон (60% прозрачности) */
-  color: #fff; /* Яркий белый цвет текста */
-  padding: 5px 10px; /* Внутренние отступы */
-  border-radius: 5px; /* Скругленные углы */
-  font-size: 0.8em; /* Размер шрифта, если нужно сделать чуть меньше */
-  font-weight: bold; /* Жирный текст */
-  z-index: 10; /* Убедимся, что значок поверх изображения */
-  display: flex; /* Для выравнивания иконки и текста */
-  align-items: center; /* Выравнивание по центру по вертикали */
-  gap: 5px; /* Расстояние между иконкой и текстом */
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8); /* Небольшая тень для еще большей яркости */
+    position: absolute;
+    
+    /* --- ПОЗИЦИЯ (Оставляем как было: снизу слева) --- */
+    top: auto !important;
+    right: auto !important;
+    bottom: 8px;
+    left: 10px;
+    
+    z-index: 5 !important;
+    
+    /* --- ВИЗУАЛ (Черный фон + Белый текст) --- */
+    background-color: rgba(0, 0, 0, 0.7) !important; /* Черный фон 70% непрозрачности */
+    color: #ffffff !important; /* Ярко-белый текст */
+    
+    /* Отступы внутри плашки */
+    padding: 4px 8px !important;
+    
+    /* Скругление краев плашки */
+    border-radius: 6px;
+    
+    /* Убираем старую рамку и прозрачность всего блока */
+    border: none !important;
+    box-shadow: none !important;
+    opacity: 1 !important; /* Сам элемент виден на 100%, прозрачный только фон */
+    
+    /* Настройки текста */
+    font-size: 9px; /* Чуть увеличил, чтобы читалось */
+    font-weight: 800;
+    text-transform: uppercase;
+    text-shadow: none; /* Тень не нужна на черном фоне */
+    
+    /* Выравнивание иконки и текста */
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 /* Стиль для "До X билетов" (зеленоватый/синий) */
 .low-balance-restriction {
