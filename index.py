@@ -3349,6 +3349,15 @@ async def admin_get_auctions(
         return resp.json()
 
     except Exception as e:
+
+        # --- ДИАГНОСТИКА ---
+        try:
+            error_body = e.response.json()
+            logging.error(f"Детали ошибки Supabase: {error_body}")
+        except:
+            logging.error(f"Текст ошибки Supabase: {e.response.text}")
+        # -------------------
+        
         logging.error(f"Ошибка при получении админ-списка аукционов для admin {admin_user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить лоты.")
 
