@@ -108,22 +108,26 @@ class AuctionCreateRequest(BaseModel):
     initData: str
     title: str
     image_url: Optional[str] = None
-    # main_end_date: str # <-- УБИРАЕМ ЭТУ СТРОКУ
-    bid_cooldown_hours: Optional[int] = 4 # <-- ДОБАВЛЯЕМ ЭТУ СТРОКУ (по умолчанию 4 часа)
+    bid_cooldown_hours: Optional[int] = 4 
     snipe_guard_minutes: int = 5
     is_active: Optional[bool] = False
     is_visible: Optional[bool] = False
+    # ⬇️ ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ ⬇️
+    min_required_tickets: Optional[int] = 1 # Допустим, по умолчанию 1
+    max_allowed_tickets: Optional[int] = None # По умолчанию - нет ограничения
 
 class AuctionUpdateRequest(BaseModel):
     initData: str
     id: int
-    title: Optional[str] = None # Добавляем все поля
+    title: Optional[str] = None 
     image_url: Optional[str] = None
-    # main_end_date: Optional[str] = None # <-- УБИРАЕМ ЭТУ СТРОКУ
-    bid_cooldown_hours: Optional[int] = None # <-- ДОБАВЛЯЕМ ЭТУ СТРОКУ
+    bid_cooldown_hours: Optional[int] = None 
     snipe_guard_minutes: Optional[int] = None
     is_active: Optional[bool] = None
     is_visible: Optional[bool] = None
+    # ⬇️ ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ ⬇️
+    min_required_tickets: Optional[int] = None
+    max_allowed_tickets: Optional[int] = None
 
 class AuctionDeleteRequest(BaseModel):
     initData: str
@@ -3370,7 +3374,13 @@ async def admin_create_auction(
         "snipe_guard_minutes": request_data.snipe_guard_minutes,
         "bid_cooldown_ends_at": end_time.isoformat(),
         "is_active": request_data.is_active,
-        "is_visible": request_data.is_visible
+        "is_visible": request_data.is_visible,
+        
+        # ⬇️ ИСПРАВЛЕННАЯ ЛОГИКА ⬇️
+        # Если пришел 0, делаем его None, чтобы Supabase сохранил NULL
+        "min_required_tickets": request_data.min_required_tickets,
+        "max_allowed_tickets": request_data.max_allowed_tickets if request_data.max_allowed_tickets and request_data.max_allowed_tickets > 0 else None
+        # ⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️
     }
 
     try:
@@ -3407,6 +3417,13 @@ async def admin_update_auction(
 
     # Собираем все, что пришло от админа (например, title, image_url, is_active...)
     update_data = request_data.dict(exclude={'initData', 'id'}, exclude_unset=True)
+
+    # ⬇️ ИСПРАВЛЕННАЯ ЛОГИКА ⬇️
+    # Обрабатываем max_allowed_tickets, если он был отправлен
+    if 'max_allowed_tickets' in update_data:
+        max_val = update_data['max_allowed_tickets']
+        update_data['max_allowed_tickets'] = max_val if max_val and max_val > 0 else None
+    # ⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️
 
     # (!!!) ВОТ ПРАВИЛЬНАЯ ЛОГИКА (!!!)
     # Если админ поменял длительность в ЧАСАХ...
