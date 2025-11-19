@@ -109,7 +109,7 @@ body.browser-view {
   position: relative;
   overflow: hidden;
   position: relative; /* Обязательно для позиционирования плашки */
-  transition: border-color 0.3s ease; /* Добавим плавность */
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 }
 
 .card-display-area {
@@ -673,44 +673,44 @@ body.browser-view {
     margin: 0; /* Убираем старые отступы */
 }
 .auction-restriction-badge {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    z-index: 20; /* Поднимаем выше всего */
-    padding: 4px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    pointer-events: none;
+    top: 5px;           /* Прижимаем к углу */
+    right: 5px;
+    padding: 2px 5px;   /* Минимальные отступы */
+    font-size: 8px;     /* Очень маленький шрифт */
+    font-weight: 600;
+    border-radius: 3px;
+    
+    /* Убираем все рамки и цветные фоны, делаем просто полупрозрачную подложку */
+    border: none !important;
+    background: rgba(0, 0, 0, 0.6) !important; 
+    backdrop-filter: none;
+    box-shadow: none;
+    z-index: 10;
 }
 
 /* Стиль для "До X билетов" (зеленоватый/синий) */
 .low-balance-restriction {
     background: rgba(44, 44, 44, 0.95);
-    color: #4da6ff; /* Голубой текст */
+    color: #d8b4fe; /* Нежно-фиолетовый цвет текста */
     border: 1px solid #4da6ff;
 }
 
 /* Стиль для "От X билетов" (золотой/фиолетовый) */
 .high-balance-restriction {
     background: rgba(255, 215, 0, 0.15);
-    color: #FFD700;
+    color: #ffd700; /* Золотой текст */
     border: 1px solid #FFD700;
 }
 /* 👇 НОВЫЙ СТИЛЬ: Карточка с лимитом (для новичков) 👇 */
-.auction-card.beginner-lot {
-  border-color: #4da6ff; /* Голубая рамка вместо серой */
-  box-shadow: 0 0 15px rgba(77, 166, 255, 0.15); /* Легкое голубое свечение */
-  background-color: rgba(28, 28, 40, 0.85); /* Чуть более синий оттенок фона */
+.auction-card.beginner-lot {   
+    /* Глубокий фиолетовый фон */
+    background-color: rgba(45, 20, 65, 0.85); 
+    
+    /* Легкое фиолетовое свечение */
+    box-shadow: 0 0 15px rgba(138, 43, 226, 0.1); 
 }
 
 /* Корректировка заголовка внутри синей карточки (опционально) */
 .auction-card.beginner-lot .event-title {
-    color: #e0f0ff;
+    color: #e0d4fc; /* Светло-сиреневый текст */
 }
