@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
                         
                         if (!isLeader) {
-                            tg.showAlert(`🚫 Доступ запрещен!\n\nЭтот аукцион только для новичков (баланс до ${auction.max_allowed_tickets} 🎟️).\n\nУ вас сейчас ${userTickets} 🎟️.`);
+                            tg.showAlert(`🔒 Доступ закрыт!\n\nДанный лот доступен только для баланса до ${auction.max_allowed_tickets} 🎟️).\n\nУ вас сейчас ${userTickets} 🎟️.`);
                             return; // <--- STOP, do not open modal
                         }
                     }
@@ -616,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // --- Check for "Poverty" limit (e.g., "VIP only") ---
                 if (auction.min_required_tickets && userTickets < auction.min_required_tickets) {
-                     tg.showAlert(`🔒 Доступ закрыт!\n\nЭто VIP аукцион. Требуется минимум ${auction.min_required_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
+                     tg.showAlert(`🔒 Доступ закрыт!\n\nТребуется минимум ${auction.min_required_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
                      return; // <--- STOP, do not open modal
                 }
 
