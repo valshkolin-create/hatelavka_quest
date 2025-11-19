@@ -707,3 +707,16 @@ body.browser-view {
     color: #ffd700; /* Золотой текст */
     border: 1px solid #FFD700;
 }
+/* Добавляем класс для центрирования, если карточка одна */
+.auctions-container.centered {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* Ограничиваем ширину одной карточки, чтобы она не растягивалась слишком сильно, 
+   но была больше, чем в сетке (опционально, можно оставить просто width: 100%) */
+.auctions-container.centered .auction-card {
+  width: 100%;
+  max-width: 400px; 
+}
