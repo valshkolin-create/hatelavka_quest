@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 restrictionsHtml = `
                     <div class="auction-restriction-badge high-balance-restriction">
                         <i class="fa-solid fa-crown"></i>
-                        <span>Мин. ${auction.min_required_tickets} 🎟️</span>
+                        <span>ВХОД ОТ ${auction.min_required_tickets} 🎟️</span>
                     </div>
                 `;
             }
