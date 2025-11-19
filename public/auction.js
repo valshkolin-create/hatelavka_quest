@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
                         
                         if (!isLeader) {
-                            tg.showAlert(`🔒 Доступ закрыт!\n\nДанный лот доступен только для баланса до ${auction.max_allowed_tickets} 🎟️).\n\nУ вас сейчас ${userTickets} 🎟️.`);
+                            tg.showAlert(`🔒 Доступ закрыт!\n\nДанный лот доступен только для баланса до ${auction.max_allowed_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
                             return; // <--- STOP, do not open modal
                         }
                     }
