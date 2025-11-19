@@ -273,23 +273,23 @@ document.addEventListener('DOMContentLoaded', () => {
             //
             // ⬆️ ⬆️ ⬆️ КОНЕЦ НОВОГО БЛОКА ⬆️ ⬆️ ⬆️
             //
-            // --- НАЧАЛО ВСТАВКИ: Визуальные плашки ограничений ---
+            // --- ЛОГИКА ПЛАШЕК ---
             let restrictionsHtml = '';
             
             if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
-                // Аукцион "для бедных" (новички)
+                // Аукцион "для новичков"
                 restrictionsHtml = `
-                    <div class="auction-restriction-badge low-balance-restriction" title="Только для баланса до ${auction.max_allowed_tickets} 🎟️">
-                        <i class="fa-solid fa-scale-unbalanced-flip"></i>
-                        <span>До ${auction.max_allowed_tickets} 🎟️</span>
+                    <div class="auction-restriction-badge low-balance-restriction">
+                        <i class="fa-solid fa-ban"></i>
+                        <span>Макс. ${auction.max_allowed_tickets} 🎟️</span>
                     </div>
                 `;
             } else if (auction.min_required_tickets && auction.min_required_tickets > 1) {
-                // Аукцион "для богатых" (VIP)
+                // Аукцион "VIP"
                  restrictionsHtml = `
-                    <div class="auction-restriction-badge high-balance-restriction" title="Требуется баланс от ${auction.min_required_tickets} 🎟️">
-                        <i class="fa-solid fa-wallet"></i>
-                        <span>От ${auction.min_required_tickets} 🎟️</span>
+                    <div class="auction-restriction-badge high-balance-restriction">
+                        <i class="fa-solid fa-crown"></i>
+                        <span>Мин. ${auction.min_required_tickets} 🎟️</span>
                     </div>
                 `;
             }
@@ -586,8 +586,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Логика для Пользователя ---
 
+        // --- Updated click handler for bid and history buttons ---
         if (button?.matches('.bid-button')) {
-            showBidModal(button.dataset.auctionId);
+            const auctionId = button.dataset.auctionId;
+            const auction = currentAuctions.find(a => a.id == auctionId);
+            
+            if (auction) {
+                // 1. Get user's ticket balance
+                const userTickets = userData.tickets || 0;
+                
+                // 2. Check restrictions (Wealth/Poverty check)
+                // Note: We use strict checking here. If you want to allow previous bidders to continue
+                // regardless of current balance, you'd need to check bid history (which might not be available here).
+                // For now, we assume strict checking based on current balance.
+                
+                // --- Check for "Wealth" limit (e.g., "Newbies only") ---
+                if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
+                    // If user has more tickets than allowed
+                    if (userTickets > auction.max_allowed_tickets) {
+                        // Check if user is already the leader (allow them to defend their lead)
+                        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+                        
+                        if (!isLeader) {
+                            tg.showAlert(`🚫 Доступ запрещен!\n\nЭтот аукцион только для новичков (баланс до ${auction.max_allowed_tickets} 🎟️).\n\nУ вас сейчас ${userTickets} 🎟️.`);
+                            return; // <--- STOP, do not open modal
+                        }
+                    }
+                }
+                
+                // --- Check for "Poverty" limit (e.g., "VIP only") ---
+                if (auction.min_required_tickets && userTickets < auction.min_required_tickets) {
+                     tg.showAlert(`🔒 Доступ закрыт!\n\nЭто VIP аукцион. Требуется минимум ${auction.min_required_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
+                     return; // <--- STOP, do not open modal
+                }
+
+                // If checks pass, open the modal
+                showBidModal(auctionId);
+            }
         }
 
         if (button?.matches('.history-button')) {
@@ -615,7 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
         
         let finalBidAmount = 0;
-        let costToUser = 0; // СКОЛЬКО РЕАЛЬНО СПИШЕТСЯ СЕЙЧАС
+        let costToUser = 0; // HOW MUCH WILL ACTUALLY BE SPENT
 
         if (isLeader) {
             if (isNaN(amountInput) || amountInput < 1) {
@@ -623,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             finalBidAmount = (auction.current_highest_bid || 0) + amountInput;
-            costToUser = finalBidAmount; // <--- 1. ВЕРНУЛИ КАК БЫЛО
+            costToUser = finalBidAmount; // <--- 1. RETURNED AS IT WAS
         } else {
             const minAmount = parseInt(dom.bidCurrentMinInput.value);
             finalBidAmount = amountInput;
@@ -635,13 +670,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (costToUser > (userData.tickets || 0)) {
-            // <--- 2. ВЕРНУЛИ СТАРЫЙ ТЕКСТ
+            // <--- 2. RETURNED OLD TEXT
             tg.showAlert('У вас недостаточно билетов для этой ставки.'); 
             return;
         }
         
         try {
-            // Отправляем ПОЛНУЮ новую ставку. Бэкенд сам разберется, сколько списать.
+            // Send FULL new bid amount. Backend figures out deduction.
             await makeApiRequest('/api/v1/auctions/bid', {
                 auction_id: auctionId,
                 bid_amount: finalBidAmount 
@@ -661,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.editToggle.addEventListener('change', () => {
             isEditMode = dom.editToggle.checked;
             renderPage(currentAuctions);
-            initializeParallax(); // Повторно применяем Parallax
+            initializeParallax(); // Re-apply Parallax
         });
     }
 
@@ -669,20 +704,20 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const auctionId = dom.editAuctionId.value ? parseInt(dom.editAuctionId.value) : null;
         
-        // --- НОВАЯ ЛОГИКА: Обработка лимитов билетов ---
-        // Получаем значение максимальных билетов
+        // --- NEW LOGIC: Process ticket limits ---
+        // Get max tickets value
         const rawMaxTickets = dom.editAuctionMaxTickets.value;
         let maxTicketsValue = null;
 
-        // Если введено число больше 0, используем его. 
-        // Если 0, пусто или null — отправляем null (что значит "нет лимита")
+        // If input is greater than 0, use it. 
+        // If 0, empty or null — send null (means "no limit")
         if (rawMaxTickets && parseInt(rawMaxTickets) > 0) {
             maxTicketsValue = parseInt(rawMaxTickets);
         }
 
-        // Получаем значение минимальных билетов
+        // Get min tickets value
         const minTicketsValue = parseInt(dom.editAuctionMinTickets.value);
-        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+        // --- END NEW LOGIC ---
 
         let url = '';
         let payload = {};
@@ -693,11 +728,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: auctionId,
                 title: dom.editAuctionTitle.value,
                 image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
+                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- CHANGE
                 snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
                 is_active: dom.editAuctionActive.checked,
                 is_visible: dom.editAuctionVisible.checked,
-                // Добавляем новые поля в payload обновления
+                // Add new fields to update payload
                 min_required_tickets: minTicketsValue,
                 max_allowed_tickets: maxTicketsValue
             };
@@ -706,11 +741,11 @@ document.addEventListener('DOMContentLoaded', () => {
             payload = {
                 title: dom.editAuctionTitle.value,
                 image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- ИЗМЕНЕНИЕ
+                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- CHANGE
                 snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
                 is_active: dom.editAuctionActive.checked,
                 is_visible: dom.editAuctionVisible.checked,
-                // Добавляем новые поля в payload создания
+                // Add new fields to create payload
                 min_required_tickets: minTicketsValue,
                 max_allowed_tickets: maxTicketsValue
             };
@@ -721,9 +756,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tg.showAlert(auctionId ? 'Лот обновлен' : 'Лот создан');
             hideModal(dom.editModal);
             initialize(false); 
-        } catch(e) { /* Ошибка уже показана */ }
+        } catch(e) { /* Error already shown */ }
     });
-    // --- Инициализация ---
 
     async function initialize(showMainLoader = true) {
         if (showMainLoader) {
