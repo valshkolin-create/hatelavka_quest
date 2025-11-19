@@ -154,6 +154,13 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'auction-card';
             card.id = `auction-card-${auction.id}`;
             
+            // --- 👇 1. ДОБАВЛЯЕМ КЛАСС ДЛЯ СМЕНЫ ДИЗАЙНА 👇 ---
+// Если есть ограничение по макс. билетам, добавляем спец. класс
+            if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
+                card.classList.add('beginner-lot'); // Этот класс поменяет цвет рамки
+            }
+// --- ⬆️ КОНЕЦ ИЗМЕНЕНИЯ ⬆️ ---
+            
             if (isEditMode) {
                 card.classList.add('admin-card');
                 if (!auction.is_visible) card.classList.add('admin-hidden');
@@ -286,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else if (auction.min_required_tickets && auction.min_required_tickets > 1) {
                 // Аукцион "VIP"
-                 restrictionsHtml = `
+                restrictionsHtml = `
                     <div class="auction-restriction-badge high-balance-restriction">
                         <i class="fa-solid fa-crown"></i>
                         <span>Мин. ${auction.min_required_tickets} 🎟️</span>
@@ -297,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 ${adminOverlay}
+                ${restrictionsHtml}
                 <div class="card-display-area">
                     <div class="event-image-container">
                         <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
