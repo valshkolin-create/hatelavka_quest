@@ -385,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.auctionsList.classList.remove('centered');
         }
         // --- ⬆️ КОНЕЦ НОВОГО ---
-    }
 
     //
     // ⬇️ ИЗМЕНЕНИЕ: Parallax-эффект (только влево-вправо) ⬇️
