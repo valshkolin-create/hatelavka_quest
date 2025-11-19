@@ -21,6 +21,7 @@
           --gold-color: #ffd700;
         }
         
+        /* Размер обертки 600x240 под твое промо */
         .overlay-wrapper {
             position: absolute;
             bottom: 20px;
@@ -38,6 +39,7 @@
             color: var(--text-primary);
         }
         
+        /* Редизайн виджета (Стекло + Темный фон) */
         .widget-container {
             position: absolute;
             bottom: 0;
@@ -47,6 +49,7 @@
             background-color: rgba(10, 10, 10, 1.00);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
+            /* border: 1px solid var(--border-color);  <-- УДАЛЕНО */
             border-radius: 12px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.4);
             display: flex;
@@ -58,21 +61,19 @@
                         transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         
-        /* Класс для скрытия при ротации */
-        .widget-container.fade-out { opacity: 0; }
         .widget-container.visible { opacity: 1; }
-        /* Класс когда активно промо - виджет уезжает влево */
-        .widget-container.promo-active { transform: translateX(-120%); opacity: 0; } 
+        .widget-container.promo-active { transform: translateX(-120%); opacity: 0; } /* Уезжает дальше */
         
         .header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
         .header-title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-primary); }
         .header-timer { font-size: 20px; font-weight: 700; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; }
         .content-body { display: flex; padding: 20px; gap: 20px; }
         
+        /* Редизайн скина (Текстура, Шум, Резкость) */
         .skin-container { 
             width: 200px;
             height: 150px;
-            background-color: #000; 
+            background-color: #000; /* Ставим чистый черный фон */
             background-size: cover;
             background-position: center;
             border-radius: 8px; 
@@ -84,6 +85,7 @@
             position: relative;
         }
 
+        /* Рабочий шум */
         .skin-container::after {
             content: '';
             position: absolute;
@@ -102,7 +104,7 @@
             width: 100%; 
             height: 100%; 
             object-fit: contain; 
-            filter: contrast(115%); 
+            filter: contrast(115%); /* Резкость */
         }
 
         .bidders-container { 
@@ -111,25 +113,25 @@
             justify-content: flex-start;
             flex-grow: 1; 
             min-width: 0; 
-            gap: 6px; /* Уменьшенный отступ */
+            gap: 8px; /* <-- ИЗМЕНЕНО С 4px */
         }
         .bidders-title {
-            font-size: 16px;
+            font-size: 16px; /* <-- ИЗМЕНЕНО С 14px */
             font-weight: 700;
             color: var(--text-secondary);
-            margin-bottom: 6px;
+            margin-bottom: 8px; /* <-- ИЗМЕНЕНО С 5px */
             text-align: center;
             text-transform: uppercase;
         }
         .bidder-item { 
             display: flex; 
             align-items: center; 
-            gap: 8px; 
+            gap: 10px; /* <-- ИЗМЕНЕНО С 8px */
         }
         .bidder-rank { 
-            font-size: 16px; 
+            font-size: 18px; /* <-- ИЗМЕНЕНО С 15px */
             font-weight: 900; 
-            width: 25px; 
+            width: 30px; /* <-- ИЗМЕНЕНО С 25px */
             text-align: right; 
             flex-shrink: 0; 
             color: var(--text-secondary);
@@ -138,9 +140,9 @@
         .bidder-item.rank-2 .bidder-rank { color: #c0c0c0; }
         .bidder-item.rank-3 .bidder-rank { color: #cd7f32; }
 
-        /* --- ИСПРАВЛЕННЫЕ ШРИФТЫ И ИКОНКИ --- */
+        /* Стили для иконок Twitch */
         .bidder-name { 
-            font-size: 11px; /* Уменьшено до 11px */
+            font-size: 16px;
             font-weight: 700; 
             white-space: nowrap; 
             overflow: hidden; 
@@ -150,14 +152,14 @@
             align-items: center;
         }
         .bidder-name i {
-            margin-right: 4px;
-            font-size: 9px; /* Иконки уменьшены до 9px */
+            margin-right: 5px;
+            font-size: 0.9em;
         }
         .twitch-icon { color: #9146FF; }
         .user-icon { color: var(--text-secondary); }
 
         .bidder-amount { 
-            font-size: 14px; /* Чуть меньше для баланса */
+            font-size: 16px;
             font-weight: 700; 
             color: var(--accent-primary);
             flex-shrink: 0; 
@@ -183,6 +185,7 @@
         #new-bid-notification.show { opacity: 1; top: 20px; }
         #new-bid-notification.hide { opacity: 0; top: -100px; transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045); }
 
+        /* Блок промо - это просто картинка */
         .promo-overlay {
             position: absolute;
             top: 0; 
@@ -209,13 +212,15 @@
         #promo-image {
             width: 100%;
             height: 100%;
+            /* 1. Уменьшаем, чтобы поместилась */
             object-fit: contain; 
+            /* 2. Добавляем черный фон для полей */
             background-color: #000; 
         }
     </style>
 </head>
 <body>
-
+    
     <div id="new-bid-notification">
         Новая ставка от <span id="bid-notify-name">...</span>!
     </div>
