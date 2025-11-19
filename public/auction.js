@@ -273,6 +273,27 @@ document.addEventListener('DOMContentLoaded', () => {
             //
             // ⬆️ ⬆️ ⬆️ КОНЕЦ НОВОГО БЛОКА ⬆️ ⬆️ ⬆️
             //
+            // --- НАЧАЛО ВСТАВКИ: Визуальные плашки ограничений ---
+            let restrictionsHtml = '';
+            
+            if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
+                // Аукцион "для бедных" (новички)
+                restrictionsHtml = `
+                    <div class="auction-restriction-badge low-balance-restriction" title="Только для баланса до ${auction.max_allowed_tickets} 🎟️">
+                        <i class="fa-solid fa-scale-unbalanced-flip"></i>
+                        <span>До ${auction.max_allowed_tickets} 🎟️</span>
+                    </div>
+                `;
+            } else if (auction.min_required_tickets && auction.min_required_tickets > 1) {
+                // Аукцион "для богатых" (VIP)
+                 restrictionsHtml = `
+                    <div class="auction-restriction-badge high-balance-restriction" title="Требуется баланс от ${auction.min_required_tickets} 🎟️">
+                        <i class="fa-solid fa-wallet"></i>
+                        <span>От ${auction.min_required_tickets} 🎟️</span>
+                    </div>
+                `;
+            }
+            // --- КОНЕЦ ВСТАВКИ ---
 
             card.innerHTML = `
                 ${adminOverlay}
