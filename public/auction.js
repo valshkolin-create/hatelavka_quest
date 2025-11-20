@@ -309,7 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const isUserBanned = userData.profile && userData.profile.is_banned;
             
             if (!isEnded && !isUserBanned && auction.user_bid_amount > 0 && auction.user_bid_rank > 0) {
-                const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+                const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
+                const isLeader = myId && (auction.current_highest_bidder_id === myId);
                 myBidHtml = `
                     <div class="my-bid-stats">
                         <div class="stat-item">
@@ -733,13 +734,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentAuctions[aucIndex].current_highest_bid = finalBidAmount;
                 currentAuctions[aucIndex].user_bid_amount = finalBidAmount;
                 currentAuctions[aucIndex].user_bid_rank = 1;
-                currentAuctions[aucIndex].current_highest_bidder_id = userData.profile.telegram_id;
+                currentAuctions[aucIndex].current_highest_bidder_id = myId;
                 
-                const myName = userData.profile.username || userData.profile.full_name || 'Вы';
+                const myName = userData.username || (userData.profile && userData.profile.username) || 
+                userData.full_name || (userData.profile && userData.profile.full_name) || 'Вы';
                 currentAuctions[aucIndex].current_highest_bidder_name = myName;
                 currentAuctions[aucIndex].bidder = {
-                    full_name: userData.profile.full_name,
-                    twitch_login: userData.profile.twitch_login
+                    full_name: userData.full_name || (userData.profile && userData.profile.full_name),
+                    twitch_login: userData.twitch_login || (userData.profile && userData.profile.twitch_login)
                 };
             }
 
