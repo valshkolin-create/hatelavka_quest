@@ -783,7 +783,10 @@ body.browser-view {
 .archive-toggle-btn {
     width: 100%;
     background: transparent;
-    border: 1px dashed var(--border-color); /* Пунктирная тонкая рамка */
+    
+    /* 👇 ИЗМЕНЕНИЕ: Сплошная (solid) тонкая белая рамка с прозрачностью 20% */
+    border: 1px solid rgba(255, 255, 255, 0.2); 
+    
     color: var(--text-secondary);
     padding: 10px;
     border-radius: 8px;
@@ -791,7 +794,7 @@ body.browser-view {
     font-weight: 600;
     text-transform: uppercase;
     cursor: pointer;
-    margin-bottom: 20px; /* Отступ от инфо-блоков */
+    margin-bottom: 20px;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
