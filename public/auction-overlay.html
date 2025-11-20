@@ -131,6 +131,37 @@
             gap: 8px; 
             height: 22px; 
         }
+        /* --- 🔥 НОВЫЕ СТИЛИ ДЛЯ ТОП-1 🔥 --- */
+        .bidder-item.rank-1 {
+            height: 34px; /* Увеличиваем высоту строки (было 22px) */
+            margin-bottom: 8px; /* Отступ снизу, чтобы отделить лидера */
+            border-radius: 4px;
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent); /* Легкая золотая подсветка фона */
+            padding-left: 6px; /* Чуть сдвигаем вправо */
+            border-left: 3px solid var(--gold-color); /* Золотая полоска слева */
+        }
+
+        /* Увеличиваем шрифт имени и суммы для Топ-1 */
+        .bidder-item.rank-1 .bidder-name {
+            font-size: 19px; /* Было 15px */
+            color: #ffffff;  /* Делаем имя ярко-белым */
+        }
+        
+        .bidder-item.rank-1 .bidder-amount {
+            font-size: 20px; /* Было 15px */
+            color: var(--gold-color);
+        }
+
+        /* Увеличиваем цифру ранга "1." */
+        .bidder-item.rank-1 .bidder-rank {
+            font-size: 22px; /* Было 16px */
+            color: var(--gold-color);
+        }
+        
+        /* Чуть увеличиваем иконку */
+        .bidder-item.rank-1 i {
+            font-size: 1.1em;
+        }
         .bidder-rank { 
             font-size: 16px;
             font-weight: 900; 
