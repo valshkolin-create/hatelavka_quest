@@ -265,7 +265,10 @@
         let currentAuctionIndex = 0; 
         let currentAuctionData = null; 
         let countdownInterval = null;
+        
+        // Таймеры для логики
         let isPromoTimerActive = false; 
+        let promoTimeoutId = null; // Чтобы можно было отменить промо при ставке
 
         // Настройки времени
         const ROTATION_INTERVAL = 5 * 60 * 1000; // 5 минут (смена лота)
@@ -275,14 +278,15 @@
         // --- 1. ИНИЦИАЛИЗАЦИЯ ---
 
         async function initialize() {
-            // По умолчанию включаем логику видимости (покажет промо, если нет данных)
+            // Сразу запускаем проверку видимости (покажет промо, т.к. данных еще нет)
             updateVisibility(); 
 
             await fetchAllAuctions();
             
-            // 1. Ротация лотов (каждые 5 мин)
+            // 1. Таймер Ротации (каждые 5 мин)
             setInterval(() => {
-                if (allActiveAuctions.length > 1) {
+                // Ротируем, только если сейчас не идет промо и есть больше 1 лота
+                if (allActiveAuctions.length > 1 && !isPromoTimerActive) {
                     currentAuctionIndex++;
                     if (currentAuctionIndex >= allActiveAuctions.length) {
                         currentAuctionIndex = 0;
@@ -294,43 +298,55 @@
 
             // 2. Таймер Промо (каждые 7 мин)
             setInterval(() => {
-                triggerPromoTimer();
+                // Запускаем промо, только если есть что скрывать (если лотов нет, промо и так висит)
+                if (allActiveAuctions.length > 0) {
+                    triggerPromoTimer();
+                }
             }, PROMO_INTERVAL);
 
-            // 3. Realtime (Слушаем ставки И создание лотов)
+            // 3. Realtime
             setupRealtime();
             
-            // 4. На всякий случай обновляем список раз в минуту
+            // 4. Обновление списка (раз в минуту) для надежности
             setInterval(fetchAllAuctions, 60000);
         }
 
-        // --- 2. ЛОГИКА ОТОБРАЖЕНИЯ ---
+        // --- 2. ГЛАВНАЯ ЛОГИКА ОТОБРАЖЕНИЯ ---
 
         function updateVisibility() {
-            // 1. Работает таймер промо? -> ПРОМО
-            // 2. Нет данных о лоте? -> ПРОМО
-            // 3. Ставок нет? -> ПРОМО
-            // Иначе -> АУКЦИОН
-
+            // Условие: Промо показывается, если:
+            // 1. Активен таймер (isPromoTimerActive)
+            // 2. ИЛИ Нет данных о лоте (!currentAuctionData)
+            // 3. ИЛИ В текущем лоте 0 ставок
+            
             const hasBids = currentAuctionData && (currentAuctionData.current_highest_bid > 0);
 
             if (isPromoTimerActive || !currentAuctionData || !hasBids) {
-                dom.widget.classList.add('hidden-by-promo'); 
-                dom.promo.classList.add('visible');
+                // --> ПОКАЗАТЬ ПРОМО
+                if (!dom.promo.classList.contains('visible')) {
+                    dom.widget.classList.add('hidden-by-promo'); 
+                    dom.promo.classList.add('visible');
+                }
             } else {
-                dom.promo.classList.remove('visible');
-                dom.widget.classList.remove('hidden-by-promo');
-                dom.widget.classList.add('visible');
+                // --> ПОКАЗАТЬ АУКЦИОН
+                if (dom.promo.classList.contains('visible')) {
+                    dom.promo.classList.remove('visible');
+                    dom.widget.classList.remove('hidden-by-promo');
+                    dom.widget.classList.add('visible');
+                }
             }
         }
 
         function triggerPromoTimer() {
-            console.log("🎬 Таймер: Принудительный показ ПРОМО (20 сек)");
+            console.log("🎬 Таймер: Старт ПРОМО (20 сек)");
             isPromoTimerActive = true;
             updateVisibility();
 
-            setTimeout(() => {
-                console.log("🎬 Таймер: Конец принудительного промо");
+            // Сохраняем ID таймера, чтобы при ставке можно было его убить
+            if (promoTimeoutId) clearTimeout(promoTimeoutId);
+            
+            promoTimeoutId = setTimeout(() => {
+                console.log("🎬 Таймер: Конец ПРОМО");
                 isPromoTimerActive = false;
                 updateVisibility();
             }, PROMO_DURATION);
@@ -350,33 +366,30 @@
                 if (error) throw error;
 
                 allActiveAuctions = data || [];
-                console.log(`📚 Список лотов обновлен: ${allActiveAuctions.length} шт.`);
+                console.log(`📚 Лотов в базе: ${allActiveAuctions.length}`);
 
-                // Умная логика обновления:
+                if (allActiveAuctions.length === 0) {
+                    // ЛОТОВ НЕТ -> Очищаем и принудительно обновляем видимость (включится Промо)
+                    currentAuctionData = null;
+                    updateVisibility();
+                    return;
+                }
+
+                // Если лоты ЕСТЬ:
                 if (currentAuctionData) {
-                    // Если мы сейчас показываем лот, проверим, есть ли он в новом списке
-                    const stillExists = allActiveAuctions.find(a => a.id === currentAuctionData.id);
-                    
-                    if (stillExists) {
-                        // Лот существует. Обновим данные (вдруг ты поменял название или картинку)
-                        currentAuctionData = stillExists;
-                        // Найдем его новый индекс (вдруг порядок сменился)
-                        currentAuctionIndex = allActiveAuctions.findIndex(a => a.id === stillExists.id);
-                        // Перерисуем текущий лот
-                        loadAuctionByIndex(currentAuctionIndex);
+                    // Проверяем, жив ли текущий лот
+                    const exists = allActiveAuctions.find(a => a.id === currentAuctionData.id);
+                    if (exists) {
+                        currentAuctionData = exists; // Обновляем инфо (напр. таймер)
+                        currentAuctionIndex = allActiveAuctions.findIndex(a => a.id === exists.id);
                     } else {
-                        // Лот был удален или скрыт. Переключаемся на первый доступный
-                        console.log("⚠️ Текущий лот исчез, переключаемся...");
+                        console.log("⚠️ Текущий лот удален, переключаемся на первый.");
                         currentAuctionIndex = 0;
                         loadAuctionByIndex(0);
                     }
-                } else if (allActiveAuctions.length > 0) {
-                    // Если раньше лотов не было (или был старт), а теперь появились -> показываем первый
-                    loadAuctionByIndex(0);
                 } else {
-                    // Лотов нет вообще -> сбрасываем
-                    currentAuctionData = null;
-                    updateVisibility(); // Уйдет в промо
+                    // Первый старт
+                    loadAuctionByIndex(0);
                 }
 
             } catch (e) {
@@ -390,35 +403,36 @@
             const auction = allActiveAuctions[index];
             currentAuctionData = auction; 
 
-            // Если ставок нет — render просто обновит картинку/таймер, а updateVisibility скроет виджет
-            // Если ставки есть — грузим топ и показываем
-            if (auction.current_highest_bid > 0) {
-                const { data: historyData } = await supabaseClient
-                    .from('auction_bids')
-                    .select('bid_amount, user_id, user:users(full_name, twitch_login)') 
-                    .eq('auction_id', auction.id)
-                    .order('created_at', { ascending: false })
-                    .limit(5);
+            // Если ставок нет -> просто рендерим (updateVisibility сам скроет виджет)
+            if (!auction.current_highest_bid || auction.current_highest_bid === 0) {
+                render(auction, []);
+                return;
+            }
 
-                let topBidders = [];
-                if (historyData) {
-                    const seenUserIds = new Set();
-                    for (const b of historyData) {
-                        if (topBidders.length >= 5) break;
-                        if (b.user_id && !seenUserIds.has(b.user_id)) {
-                            topBidders.push({
-                                name: getDisplayName(b.user),
-                                amount: b.bid_amount,
-                                icon: getDisplayIcon(b.user)
-                            });
-                            seenUserIds.add(b.user_id);
-                        }
+            // Если ставки есть -> грузим топ
+            const { data: historyData } = await supabaseClient
+                .from('auction_bids')
+                .select('bid_amount, user_id, user:users(full_name, twitch_login)') 
+                .eq('auction_id', auction.id)
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            let topBidders = [];
+            if (historyData) {
+                const seenUserIds = new Set();
+                for (const b of historyData) {
+                    if (topBidders.length >= 5) break;
+                    if (b.user_id && !seenUserIds.has(b.user_id)) {
+                        topBidders.push({
+                            name: getDisplayName(b.user),
+                            amount: b.bid_amount,
+                            icon: getDisplayIcon(b.user)
+                        });
+                        seenUserIds.add(b.user_id);
                     }
                 }
-                render(auction, topBidders);
-            } else {
-                render(auction, []);
             }
+            render(auction, topBidders);
         }
 
         // --- 4. ОТРИСОВКА ---
@@ -451,31 +465,40 @@
             }
             dom.biddersList.innerHTML = html;
             
-            updateVisibility(); // Проверяем, показывать или прятать
+            // Всегда проверяем, что показывать после рендера
+            updateVisibility();
         }
 
-        // --- 5. REALTIME (САМОЕ ВАЖНОЕ) ---
+        // --- 5. REALTIME (МОМЕНТАЛЬНАЯ РЕАКЦИЯ) ---
         function setupRealtime() {
-             supabaseClient.channel('auction-overlay-channel')
-                // 1. Слушаем НОВЫЕ СТАВКИ (обновление цифр и топа)
+             const channel = supabaseClient.channel('auction-overlay-channel');
+
+             channel
+                // 1. СЛУШАЕМ НОВЫЕ СТАВКИ
                 .on('postgres_changes', 
                     { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
                     payload => {
                         const data = payload.new.payload;
                         
-                        // Обновляем экран только если это текущий лот
+                        // Если прилетела ставка на ТЕКУЩИЙ лот
                         if (currentAuctionData && currentAuctionData.id === data.auction_data.id) {
-                            console.log("⚡ Новая ставка!");
-                            currentAuctionData = data.auction_data; // Обновляем данные в памяти
+                            console.log("⚡ СТАВКА! ПРЕРЫВАЕМ ПРОМО.");
+                            
+                            // 1. Моментально выключаем промо-таймер
+                            isPromoTimerActive = false;
+                            if (promoTimeoutId) clearTimeout(promoTimeoutId);
 
+                            // 2. Обновляем данные
+                            currentAuctionData = data.auction_data; 
                             const formattedBidders = data.top_bidders.map(b => ({
                                 ...b,
                                 icon: b.name === data.last_bidder_name ? '<i class="fa-solid fa-fire" style="color:orange"></i>' : getDisplayIcon({ full_name: "temp" })
                             }));
                             
+                            // 3. Рендер вызовет updateVisibility(), который теперь увидит isPromoTimerActive = false
                             render(data.auction_data, formattedBidders);
 
-                            // Уведомление
+                            // 4. Уведомление
                             dom.notifyName.textContent = data.last_bidder_name;
                             dom.notification.classList.add('show');
                             setTimeout(() => {
@@ -486,15 +509,19 @@
                         }
                     }
                 )
-                // 2. Слушаем СОЗДАНИЕ / ИЗМЕНЕНИЕ ЛОТОВ (чтобы ловить новые аукционы)
+                // 2. СЛУШАЕМ ИЗМЕНЕНИЯ В ТАБЛИЦЕ AUCTIONS (Создание/Удаление/Редактирование)
                 .on('postgres_changes',
-                    { event: '*', schema: 'public', table: 'auctions' }, // '*' значит любые изменения (Insert, Update, Delete)
+                    { event: '*', schema: 'public', table: 'auctions' }, 
                     () => {
-                        console.log("🔔 Изменение в таблице аукционов! Обновляем список...");
-                        fetchAllAuctions(); // Просто перезапрашиваем список
+                        console.log("🔔 База аукционов изменилась! Обновляем...");
+                        fetchAllAuctions(); // Мгновенная перезагрузка списка
                     }
                 )
-                .subscribe();
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log("🟢 Realtime подключен");
+                    }
+                });
         }
 
         // --- HELPERS ---
