@@ -41,10 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
         editAuctionTitle: document.getElementById('auction-title-input'),
         editAuctionImage: document.getElementById('auction-image-input'),
         editAuctionCooldown: document.getElementById('auction-cooldown-input'),
-        editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'), // <-- ДОБАВЬ ЭТО
+        editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'),
         editAuctionActive: document.getElementById('auction-active-input'),
         editAuctionVisible: document.getElementById('auction-visible-input'),
-        // ⬇️ ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ ⬇️
+        
         editAuctionMinTickets: document.getElementById('auction-min-tickets-input'), 
         editAuctionMaxTickets: document.getElementById('auction-max-tickets-input'),
         archiveBtn: document.getElementById('archive-btn'),
@@ -86,7 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return result;
         } catch (e) {
-            tg.showAlert(e.message);
+            // Здесь мы только пробрасываем ошибку, чтобы обработать её в месте вызова
+            // tg.showAlert(e.message); // <-- Убрали alert отсюда, чтобы не дублировать
             throw e;
         } finally {
             if (showLoader) dom.loader.classList.add('hidden');
@@ -106,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             dom.archiveList.innerHTML = archiveData.map(item => {
-                // Логика определения имени (как в основном списке)
                 let winnerName = 'Неизвестно';
                 let iconHtml = '<i class="fa-solid fa-user"></i>';
 
@@ -118,9 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         winnerName = item.winner.full_name;
                     }
                 }
-
-                // Форматирование даты (опционально, если хотите выводить дату)
-                // const date = new Date(item.ended_at).toLocaleDateString();
 
                 return `
                     <div class="archive-item">
@@ -198,42 +195,33 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPage(auctions) {
         dom.auctionsList.innerHTML = '';
 
-        // 1. ФИЛЬТРАЦИЯ
         const visibleAuctions = isEditMode 
             ? auctions 
             : auctions.filter(a => !a.ended_at);
 
-        // --- 🔥 ИЗМЕНЕНИЕ: Кнопка создания теперь создается ПЕРВОЙ ---
-        // Если мы в режиме редактирования, сразу добавляем кнопку "Создать" в начало списка
+        // Кнопка создания лота (первая в режиме редактирования)
         if (isEditMode) {
             const createCard = document.createElement('div');
             createCard.className = 'auction-card create-auction-card';
             createCard.innerHTML = `<i class="fa-solid fa-plus"></i><span>Создать лот</span>`;
             dom.auctionsList.appendChild(createCard);
         }
-        // --- ⬆️ КОНЕЦ ИЗМЕНЕНИЯ ⬆️ ---
 
-        // 2. ПРОВЕРКА НА ПУСТОТУ
-        // Показываем надпись "Нет аукционов" ТОЛЬКО если режим редактирования ВЫКЛЮЧЕН.
-        // (Если он включен, у нас уже есть кнопка "Создать", так что список визуально не пуст).
         if ((!visibleAuctions || visibleAuctions.length === 0) && !isEditMode) {
             dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); margin-top: 20px;">Активных аукционов пока нет.</p>';
         }
 
         currentAuctions = auctions;
 
-        // 3. ОТРИСОВКА КАРТОЧЕК
         visibleAuctions.forEach(auction => {
             const card = document.createElement('div');
             card.className = 'auction-card';
             card.id = `auction-card-${auction.id}`;
             
-            // Если лот имеет ограничение по макс. билетам
             if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
                 card.classList.add('beginner-lot');
             }
             
-            // Стили для режима редактирования
             if (isEditMode) {
                 card.classList.add('admin-card');
                 if (!auction.is_visible) card.classList.add('admin-hidden');
@@ -249,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isDisabled = isEnded ? 'disabled' : '';
 
-            // Админские кнопки
             let adminOverlay = '';
             if (isEditMode) {
                 const isAlreadyFinished = !!auction.ended_at;
@@ -276,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
             
-            // Логика лидера
             let leaderOrWinnerHtml = '';
             let displayName = 'Нет ставок';
             let iconHtml = '';
@@ -319,7 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
-            // Блок "Ваша ставка"
             let myBidHtml = '';
             const isUserBanned = userData.profile && userData.profile.is_banned;
             
@@ -342,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
-            // Плашки ограничений
             let restrictionsHtml = '';
             if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
                 restrictionsHtml = `
@@ -360,17 +344,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
-            // Сборка HTML
             card.innerHTML = `
                 ${adminOverlay}
+                
                 <div class="card-display-area">
                     <div class="event-image-container">
                         ${restrictionsHtml} 
                         <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
                     </div>
                 </div>
+                
                 <div class="card-info-area">
                     <h3 class="event-title">${escapeHTML(auction.title)}</h3>
+                    
                     <div class="auction-stats">
                         <div class="stat-item">
                             <div class="stat-item-label">Текущая ставка</div>
@@ -381,8 +367,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${timerHtml}
                         </div>
                     </div>
+                    
                     ${leaderOrWinnerHtml} 
                     ${myBidHtml}
+
                     <div class="event-button-container">
                         <button class="history-button" data-auction-id="${auction.id}">Топ по ставкам</button>
                         <button class="event-button bid-button" data-auction-id="${auction.id}" ${isDisabled}>
@@ -394,11 +382,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             dom.auctionsList.appendChild(card);
 
-            // Таймер
             if (auction.bid_cooldown_ends_at && !isEnded) {
                 const timerElement = document.getElementById(timerId);
                 const endTime = new Date(auction.bid_cooldown_ends_at).getTime();
                 const now = new Date().getTime();
+
                 if (endTime > now) {
                     startCountdown(timerElement, auction.bid_cooldown_ends_at, 'auction-' + auction.id, () => {
                         if (timerElement) timerElement.innerHTML = '<i class="fa-solid fa-hourglass-half fa-spin"></i>';
@@ -410,7 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Центрирование
         if (dom.auctionsList.children.length === 1) {
             dom.auctionsList.classList.add('centered');
         } else {
@@ -418,37 +405,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    //
-    // ⬇️ ИЗМЕНЕНИЕ: Parallax-эффект (только влево-вправо) ⬇️
-    //
     function initializeParallax() {
         const cards = document.querySelectorAll('.event-image-container');
-        
         cards.forEach(card => {
             const image = card.querySelector('.event-image');
             if (!image) return;
-
             card.addEventListener('mousemove', (e) => {
                 const rect = card.getBoundingClientRect();
-                // Находим позицию курсора по X
                 const x = e.clientX - rect.left - rect.width / 2;
-                
-                // Вычисляем угол наклона (максимум 8 градусов) только для Y
                 const rotateY = (x / (rect.width / 2)) * 8;
-
-                // Применяем 3D-трансформацию (rotateX теперь 0)
                 image.style.transform = `perspective(1000px) rotateX(0deg) rotateY(${rotateY}deg) scale(1.05)`;
             });
-
-            // Когда мышь уходит, сбрасываем эффект
             card.addEventListener('mouseleave', () => {
                 image.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale(1)';
             });
         });
     }
-    //
-    // ⬆️ ИЗМЕНЕНИЕ: Конец ⬆️
-    //
 
     // --- Модальные окна ---
 
@@ -461,6 +433,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // 🔒 [ИСПРАВЛЕНИЕ 1] Снова проверяем лидерство перед открытием
+        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+        if (isLeader) {
+             tg.showAlert("🏆 Вы уже лидируете в этом аукционе!\n\nНет смысла перебивать самого себя.");
+             return;
+        }
+
         dom.bidModalTitle.textContent = `Ставка: ${escapeHTML(auction.title)}`;
         dom.userBalanceDisplay.textContent = userData.tickets || 0;
         dom.bidAuctionIdInput.value = auction.id;
@@ -468,20 +447,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = dom.bidModal.querySelector('label');
         const currentBid = auction.current_highest_bid || 0;
         
-        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
-
-        if (isLeader) {
-            label.textContent = "Добавить к ставке (билеты)";
-            dom.bidAmountInput.placeholder = "Например: 10";
-            dom.bidAmountInput.min = 1;
-            dom.bidCurrentMinInput.value = currentBid; 
-        } else {
-            const minBid = currentBid + 1;
-            label.textContent = "Ваша ставка (билеты)";
-            dom.bidAmountInput.placeholder = `Больше ${currentBid} 🎟️`;
-            dom.bidAmountInput.min = minBid;
-            dom.bidCurrentMinInput.value = minBid; 
-        }
+        // Так как лидер не может открыть окно, логика только для новой ставки
+        const minBid = currentBid + 1;
+        label.textContent = "Ваша ставка (билеты)";
+        dom.bidAmountInput.placeholder = `Больше ${currentBid} 🎟️`;
+        dom.bidAmountInput.min = minBid;
+        dom.bidCurrentMinInput.value = minBid; 
         
         dom.bidAmountInput.value = ''; 
 
@@ -493,12 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return;
 
-        dom.historyModalTitle.textContent = `Топ 10: ${escapeHTML(auction.title)}`; // Изменил заголовок
+        dom.historyModalTitle.textContent = `Топ 10: ${escapeHTML(auction.title)}`;
         dom.historyList.innerHTML = '<li><i>Загрузка топа...</i></li>';
         showModal(dom.historyModal);
         
         try {
-            // 1. Вызываем наш обновленный бэкенд
             const leaderboard = await makePublicGetRequest(`/api/v1/auctions/history/${auctionId}`, false); 
             
             if (!leaderboard || leaderboard.length === 0) {
@@ -506,14 +476,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // 2. Рендерим лидерборд, а не историю
             dom.historyList.innerHTML = leaderboard.map((bid, index) => {
-                const rank = index + 1; // Место в топе
-                
+                const rank = index + 1; 
                 let displayName = 'Аноним';
                 let iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 
-                // Данные пользователя теперь в bid.user
                 if (bid.user) {
                     if (bid.user.twitch_login) {
                         displayName = bid.user.twitch_login;
@@ -523,7 +490,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // 3. Вместо даты показываем ранг
                 return `
                     <li class="participant-item">
                         <span class="participant-rank"><b>#${rank}</b></span>
@@ -546,37 +512,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const auction = currentAuctions.find(a => a.id == auctionId);
             if (!auction) return;
             
-        dom.editModalTitle.textContent = 'Редактировать лот';
-        dom.editAuctionId.value = auction.id;
-        dom.editAuctionTitle.value = auction.title;
-        dom.editAuctionImage.value = auction.image_url;
-        dom.editAuctionImage.value = auction.image_url;
-            
-            // --- ИЗМЕНЕНИЕ (на "часы") ---
-        dom.editAuctionCooldown.value = auction.bid_cooldown_hours;
-        dom.editAuctionSnipeMinutes.value = auction.snipe_guard_minutes || 5;
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            dom.editModalTitle.textContent = 'Редактировать лот';
+            dom.editAuctionId.value = auction.id;
+            dom.editAuctionTitle.value = auction.title;
+            dom.editAuctionImage.value = auction.image_url;
+            dom.editAuctionCooldown.value = auction.bid_cooldown_hours;
+            dom.editAuctionSnipeMinutes.value = auction.snipe_guard_minutes || 5;
 
-        dom.editAuctionMinTickets.value = auction.min_required_tickets || 1;
-        dom.editAuctionMaxTickets.value = auction.max_allowed_tickets || 0;
+            dom.editAuctionMinTickets.value = auction.min_required_tickets || 1;
+            dom.editAuctionMaxTickets.value = auction.max_allowed_tickets || 0;
 
-        dom.editAuctionActive.checked = auction.is_active;
-        dom.editAuctionVisible.checked = auction.is_visible;
-    } else {
-        dom.editModalTitle.textContent = 'Создать лот';
-        dom.editModalForm.reset(); 
-        dom.editAuctionId.value = '';
-        dom.editAuctionCooldown.value = 24; // <-- Устанавливаем "часы" по умолч.
-        dom.editAuctionSnipeMinutes.value = 5;
-        // ⬇️ ДОБАВИТЬ ДЕФОЛТНЫЕ ЗНАЧЕНИЯ ⬇️
-        dom.editAuctionMinTickets.value = 1;
-        dom.editAuctionMaxTickets.value = 0;
-        dom.editAuctionActive.checked = false;
-        dom.editAuctionVisible.checked = false;
+            dom.editAuctionActive.checked = auction.is_active;
+            dom.editAuctionVisible.checked = auction.is_visible;
+        } else {
+            dom.editModalTitle.textContent = 'Создать лот';
+            dom.editModalForm.reset(); 
+            dom.editAuctionId.value = '';
+            dom.editAuctionCooldown.value = 24; 
+            dom.editAuctionSnipeMinutes.value = 5;
+            dom.editAuctionMinTickets.value = 1;
+            dom.editAuctionMaxTickets.value = 0;
+            dom.editAuctionActive.checked = false;
+            dom.editAuctionVisible.checked = false;
+        }
+        showModal(dom.editModal);
     }
-    showModal(dom.editModal);
-}
-
 
     function showModal(modal) {
         modal.classList.remove('hidden');
@@ -657,17 +617,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Логика для Пользователя ---
 
-        // --- Updated click handler for bid and history buttons ---
         if (button?.matches('.bid-button')) {
             const auctionId = parseInt(button.dataset.auctionId);
             const auction = currentAuctions.find(a => a.id == auctionId);
             
             if (auction) {
-                // --- 🔽 НОВОЕ: Проверка на участие в других аукционах 🔽 ---
-                // Проверяем:
-                // 1. ID аукциона не совпадает с текущим (другой аукцион)
-                // 2. Аукцион еще не завершен (активен)
-                // 3. У пользователя там уже есть ставка (> 0)
+                // Проверка на участие в других аукционах
                 const activeBidElsewhere = currentAuctions.find(a => 
                     a.id !== auctionId && 
                     !a.ended_at && 
@@ -676,50 +631,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (activeBidElsewhere) {
                     tg.showAlert(`⛔️ Вы не можете участвовать в этом аукционе.\n\nУ вас уже есть активная ставка в лоте «${activeBidElsewhere.title}». Дождитесь его завершения.`);
-                    return; // Прерываем выполнение, модалка не откроется
+                    return; 
                 }
-                // --- ⬆️ КОНЕЦ НОВОГО ⬆️ ---
 
-                // 1. Get user's ticket balance
                 const userTickets = userData.tickets || 0;
                 
-                // 2. Check restrictions (Wealth/Poverty check)
-                // Note: We use strict checking here. If you want to allow previous bidders to continue
-                // regardless of current balance, you'd need to check bid history (which might not be available here).
-                // For now, we assume strict checking based on current balance.
-                
-                // --- Check for "Wealth" limit (e.g., "Newbies only") ---
+                // Макс. лимит (для новичков)
                 if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
-                    // If user has more tickets than allowed
                     if (userTickets > auction.max_allowed_tickets) {
-                        
-                        // Проверяем, была ли у человека хоть одна ставка в этом лоте
                         const hasBidBefore = auction.user_bid_amount > 0; 
-                        
-                        // Если ставок НЕ было (!hasBidBefore), то запрещаем вход
                         if (!hasBidBefore) {
                             tg.showAlert(`🔒 Доступ закрыт!\n\nДанный лот доступен только для баланса до ${auction.max_allowed_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
-                            return; // <--- STOP, do not open modal
+                            return; 
                         }
                     }
                 }
                 
-                // --- Check for "Poverty" limit (e.g., "VIP only") ---
+                // Мин. лимит (для богатых)
                 if (auction.min_required_tickets && userTickets < auction.min_required_tickets) {
                      tg.showAlert(`🔒 Доступ закрыт!\n\nТребуется минимум ${auction.min_required_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
-                     return; // <--- STOP, do not open modal
+                     return; 
                 }
 
-                // 👇👇👇 ДОБАВЛЯЕМ ЭТОТ БЛОК 👇👇👇
-                // Проверка: не является ли пользователь уже лидером?
+                // 🔒 [ИСПРАВЛЕНИЕ 1] Блокировка клика для лидера
                 const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
                 if (isLeader) {
                      tg.showAlert("🏆 Вы уже лидируете в этом аукционе!\n\nНет смысла перебивать самого себя.");
                      return;
                 }
-                // 👆👆👆 КОНЕЦ БЛОКА 👆👆👆
 
-                // If checks pass, open the modal
                 showBidModal(auctionId);
             }
         }
@@ -731,9 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            // 👇 ИСПРАВЛЕНИЕ: Если это окно редактирования, игнорируем клик по фону
             if (modal.id === 'auction-edit-modal') return;
-
             if (e.target === modal) {
                 hideModal(modal);
             }
@@ -749,19 +687,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return; 
 
-        // Определяем, является ли пользователь текущим лидером
+        // 🔒 [Дублирующая проверка] на случай, если модалка была открыта давно
         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
-        
-        // 👇 Если вдруг модалка открылась, запрещаем отправку лидеру
         if (isLeader) {
             tg.showAlert("Вы уже лидируете!");
+            hideModal(dom.bidModal);
             return;
         }
 
         let finalBidAmount = 0;
         let costToUser = 0; 
 
-        // 👇 Убрали ветку if (isLeader), оставили только стандартную логику
         const minAmount = parseInt(dom.bidCurrentMinInput.value);
         finalBidAmount = amountInput;
         
@@ -791,55 +727,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 bid_amount: finalBidAmount 
             });
             
-            // --- 🔥 НАЧАЛО: ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ ИНТЕРФЕЙСА 🔥 ---
-            
-            // А. Обновляем данные аукциона локально
+            // --- Оптимистичное обновление ---
             const aucIndex = currentAuctions.findIndex(a => a.id === auctionId);
             if (aucIndex !== -1) {
                 currentAuctions[aucIndex].current_highest_bid = finalBidAmount;
                 currentAuctions[aucIndex].user_bid_amount = finalBidAmount;
-                
-                // Раз мы перебили ставку, мы теперь #1
                 currentAuctions[aucIndex].user_bid_rank = 1;
                 currentAuctions[aucIndex].current_highest_bidder_id = userData.profile.telegram_id;
                 
-                // Обновляем имя лидера локально, чтобы сразу отобразилось
                 const myName = userData.profile.username || userData.profile.full_name || 'Вы';
                 currentAuctions[aucIndex].current_highest_bidder_name = myName;
-                
-                // Обновляем объект bidder для иконки (Twitch/User)
                 currentAuctions[aucIndex].bidder = {
                     full_name: userData.profile.full_name,
                     twitch_login: userData.profile.twitch_login
                 };
             }
 
-            // Б. Обновляем баланс пользователя локально
             if (userData.tickets >= costToUser) {
                 userData.tickets -= costToUser;
-                // Обновляем цифру в модалке (хоть она и закроется, но для порядка)
                 dom.userBalanceDisplay.textContent = userData.tickets;
-                
-                // Если у вас есть отображение баланса в хедере, обновите его тут тоже, например:
-                // const headerBalance = document.getElementById('header-balance');
-                // if (headerBalance) headerBalance.textContent = userData.tickets;
             }
 
-            // В. Мгновенно перерисовываем страницу с новыми локальными данными
             renderPage(currentAuctions);
             
-            // --- КОНЕЦ ОПТИМИСТИЧНОГО ОБНОВЛЕНИЯ ---
-
+            // ✅ [ИСПРАВЛЕНИЕ 2] Диалог успеха теперь гарантированно показывается
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
             
-            // 2. Фоновая синхронизация с сервером (для надежности)
-            // Передаем false, чтобы не включать лоадер и не мерцать экраном
             initialize(false); 
 
         } catch (e) {
             console.error(e);
-            // Если произошла ошибка, лучше перезагрузить данные, чтобы вернуть все как было
+            // ✅ [ИСПРАВЛЕНИЕ 2] Показываем ошибку пользователю
+            tg.showAlert(e.message || "Ошибка при ставке");
+            // Закрываем окно, чтобы данные обновились
+            hideModal(dom.bidModal);
             initialize(false);
         }
     });
@@ -848,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.editToggle.addEventListener('change', () => {
             isEditMode = dom.editToggle.checked;
             renderPage(currentAuctions);
-            initializeParallax(); // Re-apply Parallax
+            initializeParallax(); 
         });
     }
 
@@ -862,20 +784,12 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const auctionId = dom.editAuctionId.value ? parseInt(dom.editAuctionId.value) : null;
         
-        // --- NEW LOGIC: Process ticket limits ---
-        // Get max tickets value
         const rawMaxTickets = dom.editAuctionMaxTickets.value;
         let maxTicketsValue = null;
-
-        // If input is greater than 0, use it. 
-        // If 0, empty or null — send null (means "no limit")
         if (rawMaxTickets && parseInt(rawMaxTickets) > 0) {
             maxTicketsValue = parseInt(rawMaxTickets);
         }
-
-        // Get min tickets value
         const minTicketsValue = parseInt(dom.editAuctionMinTickets.value);
-        // --- END NEW LOGIC ---
 
         let url = '';
         let payload = {};
@@ -886,11 +800,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: auctionId,
                 title: dom.editAuctionTitle.value,
                 image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- CHANGE
+                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
                 snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
                 is_active: dom.editAuctionActive.checked,
                 is_visible: dom.editAuctionVisible.checked,
-                // Add new fields to update payload
                 min_required_tickets: minTicketsValue,
                 max_allowed_tickets: maxTicketsValue
             };
@@ -899,11 +812,10 @@ document.addEventListener('DOMContentLoaded', () => {
             payload = {
                 title: dom.editAuctionTitle.value,
                 image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value), // <-- CHANGE
+                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
                 snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
                 is_active: dom.editAuctionActive.checked,
                 is_visible: dom.editAuctionVisible.checked,
-                // Add new fields to create payload
                 min_required_tickets: minTicketsValue,
                 max_allowed_tickets: maxTicketsValue
             };
@@ -929,21 +841,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dom.adminControls) dom.adminControls.style.display = 'block';
                 auctionsData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', false);
             } else {
-                //
-                // ⬇️ ⬇️ ⬇️ ИЗМЕНЕНИЕ 4: Заменяем GET на POST (makeApiRequest) ⬇️ ⬇️ ⬇️
-                //
-                // Старый код:
-                // auctionsData = await makePublicGetRequest('/api/v1/auctions/list', false);
-                //
-                // Новый код (отправляет initData, чтобы бэкенд мог найти ранг):
                 auctionsData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
-                //
-                // ⬆️ ⬆️ ⬆️ КОНЕЦ ИЗМЕНЕНИЯ 4 ⬆️ ⬆️ ⬆️
-                //
             }
             
             renderPage(auctionsData || []);
-            
             initializeParallax();
 
         } catch (e) {
