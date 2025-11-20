@@ -622,19 +622,31 @@ def decode_cookie(value: str | None) -> dict | None:
 
 def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
     try:
-        parsed_data = dict(parse_qsl(unquote(init_data)))
-        if "hash" not in parsed_data: return None
+        # 1. УБИРАЕМ unquote()! parse_qsl сам раскодирует проценты,
+        # но корректно разделит параметры по основным амперсандам.
+        parsed_data = dict(parse_qsl(init_data))
+        
+        if "hash" not in parsed_data:
+            logging.error("❌ Validation Error: 'hash' not found in initData")
+            return None
+            
         received_hash = parsed_data.pop("hash")
+        
+        # 2. Сортируем ключи и собираем строку проверки
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items()))
+        
         for token in valid_tokens:
             if not token: continue
             secret_key = hmac.new("WebAppData".encode(), token.encode(), hashlib.sha256).digest()
             calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+            
             if calculated_hash == received_hash:
                 return json.loads(parsed_data.get("user", "{}"))
+                
         logging.error("❌ HASH MISMATCH - initData validation FAILED.")
         return None
-    except Exception:
+    except Exception as e:
+        logging.error(f"Error checking hash: {e}")
         return None
         
 def create_twitch_state(init_data: str) -> str:
