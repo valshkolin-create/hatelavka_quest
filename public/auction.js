@@ -197,39 +197,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPage(auctions) {
         dom.auctionsList.innerHTML = '';
-        if (!auctions || auctions.length === 0) {
-            dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Активных аукционов пока нет.</p>';
-        }
 
-        // 👇👇👇 НОВАЯ ЛОГИКА ФИЛЬТРАЦИИ 👇👇👇
-        // Если включен режим редактирования (Админ), показываем ВСЕ.
-        // Если режим выключен (Пользователь), скрываем завершенные (где есть ended_at).
+        // 1. ФИЛЬТРАЦИЯ
+        // Если включен "Режим ред." (isEditMode) — показываем ВСЕ лоты (чтобы админ мог удалить старые).
+        // Если режим выключен — показываем ТОЛЬКО активные (у которых нет ended_at).
         const visibleAuctions = isEditMode 
             ? auctions 
             : auctions.filter(a => !a.ended_at);
 
+        // 2. ПРОВЕРКА НА ПУСТОТУ
+        // Если после фильтрации список пуст — показываем заглушку
         if (!visibleAuctions || visibleAuctions.length === 0) {
             dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); margin-top: 20px;">Активных аукционов пока нет.</p>';
-            // Не делаем return, чтобы currentAuctions все равно обновился
         }
-        // 👆👆👆 КОНЕЦ ФИЛЬТРАЦИИ 👆👆👆
 
-        currentAuctions = auctions; 
+        currentAuctions = auctions; // Сохраняем полный список (для модалок и логики)
 
-        auctions.forEach(auction => {
+        // 3. ОТРИСОВКА (Используем отфильтрованный список visibleAuctions)
+        visibleAuctions.forEach(auction => {
             const card = document.createElement('div');
             card.className = 'auction-card';
             card.id = `auction-card-${auction.id}`;
-
             
-            
-            // --- 👇 1. ДОБАВЛЯЕМ КЛАСС ДЛЯ СМЕНЫ ДИЗАЙНА 👇 ---
-// Если есть ограничение по макс. билетам, добавляем спец. класс
+            // Если лот имеет ограничение по макс. билетам, меняем стиль
             if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
-                card.classList.add('beginner-lot'); // Этот класс поменяет цвет рамки
+                card.classList.add('beginner-lot');
             }
-// --- ⬆️ КОНЕЦ ИЗМЕНЕНИЯ ⬆️ ---
             
+            // Стили для режима редактирования
             if (isEditMode) {
                 card.classList.add('admin-card');
                 if (!auction.is_visible) card.classList.add('admin-hidden');
@@ -237,19 +232,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const isEnded = !!auction.ended_at;
-
             const timerId = `timer-${auction.id}`;
+            
+            // Таймер или статус
             const timerHtml = (auction.bid_cooldown_ends_at && !isEnded)
                 ? `<div class="stat-item-value timer" id="${timerId}">...</div>`
                 : `<div class="stat-item-value">${isEnded ? 'ЗАВЕРШЕН' : '00:00:00'}</div>`;
 
             const isDisabled = isEnded ? 'disabled' : '';
 
+            // Админские кнопки (появляются только в isEditMode)
             let adminOverlay = '';
             if (isEditMode) {
-                // 👇 Проверяем, завершен ли аукцион
                 const isAlreadyFinished = !!auction.ended_at;
-
                 adminOverlay = `
                     <div class="edit-overlay">
                         <button class="card-btn card-edit-btn" data-auction-id="${auction.id}" title="Редактировать">
@@ -262,8 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="card-btn card-finish-btn" 
                                 data-auction-id="${auction.id}" 
                                 title="${isAlreadyFinished ? 'Уже завершен' : 'Завершить вручную'}"
-                                ${isAlreadyFinished ? 'disabled' : ''}> <i class="fa-solid fa-flag-checkered"></i>
+                                ${isAlreadyFinished ? 'disabled' : ''}> 
+                            <i class="fa-solid fa-flag-checkered"></i>
                         </button>
+                        
                         <button class="card-btn card-delete-btn" data-auction-id="${auction.id}" title="Удалить">
                             <i class="fa-solid fa-trash"></i>
                         </button>
@@ -271,16 +268,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
             
-            // 
-            // ⬇️ ЛОГИКА ОТОБРАЖЕНИЯ ЛИДЕРА (ВКЛЮЧАЯ TWITCH) ⬇️
-            // (Этот код УЖЕ корректно показывает Twitch-ник в приоритете)
-            //
+            // Логика отображения лидера/победителя
             let leaderOrWinnerHtml = '';
-            
             let displayName = 'Нет ставок';
             let iconHtml = '';
             
-            // 'bidder' - это объект {full_name, twitch_login}, который приходит от RPC
             if (isEnded && !auction.bidder && !auction.current_highest_bidder_name) {
                 displayName = 'Не определен';
             } else if (auction.bidder) {
@@ -292,7 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
-                // Фоллбэк на старое поле, если 'bidder' по какой-то причине null
                 displayName = auction.current_highest_bidder_name;
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
@@ -319,23 +310,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-            //
-            // ⬆️ КОНЕЦ ЛОГИКИ ОТОБРАЖЕНИЯ ЛИДЕРА ⬆️
-            //
 
-            //
-            // ⬇️ ⬇️ ⬇️ ИЗМЕНЕНИЕ 2: НОВЫЙ БЛОК "ВАША СТАВКА" ⬇️ ⬇️ ⬇️
-            //
+            // Блок "Ваша ставка"
             let myBidHtml = '';
             const isUserBanned = userData.profile && userData.profile.is_banned;
             
-            // Эти поля (user_bid_amount, user_bid_rank) теперь приходят
-            // от API в объекте `auction` благодаря новой RPC-функции.
             if (!isEnded && !isUserBanned && auction.user_bid_amount > 0 && auction.user_bid_rank > 0) {
-                
-                // Проверяем, является ли пользователь лидером
                 const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
-
                 myBidHtml = `
                     <div class="my-bid-stats">
                         <div class="stat-item">
@@ -352,14 +333,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-            //
-            // ⬆️ ⬆️ ⬆️ КОНЕЦ НОВОГО БЛОКА ⬆️ ⬆️ ⬆️
-            //
-            // --- ЛОГИКА ПЛАШЕК ---
+
+            // Плашки ограничений
             let restrictionsHtml = '';
-            
             if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
-                // Аукцион "для новичков"
                 restrictionsHtml = `
                     <div class="auction-restriction-badge low-balance-restriction">
                         <i class="fa-solid fa-ban"></i>
@@ -367,7 +344,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             } else if (auction.min_required_tickets && auction.min_required_tickets > 1) {
-                // Аукцион "VIP"
                 restrictionsHtml = `
                     <div class="auction-restriction-badge high-balance-restriction">
                         <i class="fa-solid fa-crown"></i>
@@ -375,15 +351,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-            // --- КОНЕЦ ВСТАВКИ ---
 
-            // Вставляем restrictionsHtml ВНУТРЬ event-image-container
+            // Сборка HTML карточки
             card.innerHTML = `
                 ${adminOverlay}
                 
                 <div class="card-display-area">
                     <div class="event-image-container">
-                        ${restrictionsHtml} <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
+                        ${restrictionsHtml} 
+                        <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
                     </div>
                 </div>
                 
@@ -415,35 +391,24 @@ document.addEventListener('DOMContentLoaded', () => {
             
             dom.auctionsList.appendChild(card);
 
-            // --- ЗАЩИТА ОТ БЕСКОНЕЧНОГО ЦИКЛА (ИСПРАВЛЕНО) ---
+            // Запуск таймера только для активных
             if (auction.bid_cooldown_ends_at && !isEnded) {
                 const timerElement = document.getElementById(timerId);
                 const endTime = new Date(auction.bid_cooldown_ends_at).getTime();
                 const now = new Date().getTime();
 
                 if (endTime > now) {
-                    // Время еще есть, запускаем таймер
-                    // Обрати внимание: здесь 'auction-' + auction.id вместо обратных кавычек
                     startCountdown(timerElement, auction.bid_cooldown_ends_at, 'auction-' + auction.id, () => {
-                        
-                        if (timerElement) {
-                            timerElement.innerHTML = '<i class="fa-solid fa-hourglass-half fa-spin"></i>';
-                        }
-                        
-                        setTimeout(() => {
-                            initialize(false);
-                        }, 3000);
+                        if (timerElement) timerElement.innerHTML = '<i class="fa-solid fa-hourglass-half fa-spin"></i>';
+                        setTimeout(() => { initialize(false); }, 3000);
                     });
                 } else {
-                    // Время вышло, но сервер еще не закрыл лот
-                    if (timerElement) {
-                        timerElement.innerHTML = '<span style="font-size: 0.9em; color: var(--accent-color);">Финиш...</span>';
-                    }
+                    if (timerElement) timerElement.innerHTML = '<span style="font-size: 0.9em; color: var(--accent-color);">Финиш...</span>';
                 }
             }
-            // --- КОНЕЦ ЗАЩИТЫ --
         });
         
+        // Кнопка создания лота (только в режиме редактирования)
         if (isEditMode) {
             const createCard = document.createElement('div');
             createCard.className = 'auction-card create-auction-card';
@@ -451,14 +416,12 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.auctionsList.appendChild(createCard);
         }
 
-        // --- 🔽 НОВОЕ: Проверка на количество лотов для центрирования ---
-        // Если дочерний элемент только один (один лот), добавляем класс centered
+        // Центрирование, если лот один
         if (dom.auctionsList.children.length === 1) {
             dom.auctionsList.classList.add('centered');
         } else {
             dom.auctionsList.classList.remove('centered');
         }
-        // --- ⬆️ КОНЕЦ НОВОГО ---
     }
 
     //
