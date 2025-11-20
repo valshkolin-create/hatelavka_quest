@@ -770,3 +770,10 @@ body.browser-view {
 .stat-item {
     padding: 4px 2px !important; /* Уменьшили боковые отступы */
 }
+.card-finish-btn:disabled {
+    background-color: #555 !important; /* Серый цвет */
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important; /* Убираем увеличение при наведении */
+    pointer-events: none; /* Отключаем клики */
+}
