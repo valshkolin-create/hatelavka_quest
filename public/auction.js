@@ -180,6 +180,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let adminOverlay = '';
             if (isEditMode) {
+                // 👇 Проверяем, завершен ли аукцион
+                const isAlreadyFinished = !!auction.ended_at;
+
                 adminOverlay = `
                     <div class="edit-overlay">
                         <button class="card-btn card-edit-btn" data-auction-id="${auction.id}" title="Редактировать">
@@ -188,8 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="card-btn card-reset-btn" data-auction-id="${auction.id}" title="Сбросить лот (клонировать)">
                             <i class="fa-solid fa-arrow-rotate-left"></i>
                         </button>
-                        <button class="card-btn card-finish-btn" data-auction-id="${auction.id}" title="Завершить вручную">
-                            <i class="fa-solid fa-flag-checkered"></i>
+                        
+                        <button class="card-btn card-finish-btn" 
+                                data-auction-id="${auction.id}" 
+                                title="${isAlreadyFinished ? 'Уже завершен' : 'Завершить вручную'}"
+                                ${isAlreadyFinished ? 'disabled' : ''}> <i class="fa-solid fa-flag-checkered"></i>
                         </button>
                         <button class="card-btn card-delete-btn" data-auction-id="${auction.id}" title="Удалить">
                             <i class="fa-solid fa-trash"></i>
@@ -701,6 +707,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
+            // 👇 ИСПРАВЛЕНИЕ: Если это окно редактирования, игнорируем клик по фону
+            if (modal.id === 'auction-edit-modal') return;
+
             if (e.target === modal) {
                 hideModal(modal);
             }
