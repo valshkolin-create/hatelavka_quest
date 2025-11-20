@@ -688,11 +688,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return; 
 
-        // 🔒 [Дублирующая проверка] на случай, если модалка была открыта давно
-        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+        // 🔥 [ИСПРАВЛЕНИЕ] Определяем myId в самом начале функции
+        // Это гарантирует, что переменная видна и для проверки лидера, и для обновления UI внизу
+        const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
+
+        // Проверка на лидера
+        const isLeader = myId && (auction.current_highest_bidder_id === myId);
+        
+        // 👇 Если вдруг модалка открылась, запрещаем отправку лидеру
         if (isLeader) {
             tg.showAlert("Вы уже лидируете!");
-            hideModal(dom.bidModal);
             return;
         }
 
@@ -728,17 +733,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 bid_amount: finalBidAmount 
             });
             
-            // --- Оптимистичное обновление ---
+            // --- 🔥 НАЧАЛО: ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ ИНТЕРФЕЙСА 🔥 ---
+            
             const aucIndex = currentAuctions.findIndex(a => a.id === auctionId);
             if (aucIndex !== -1) {
                 currentAuctions[aucIndex].current_highest_bid = finalBidAmount;
                 currentAuctions[aucIndex].user_bid_amount = finalBidAmount;
                 currentAuctions[aucIndex].user_bid_rank = 1;
+                
+                // 🔥 Используем myId, который мы определили в начале
                 currentAuctions[aucIndex].current_highest_bidder_id = myId;
                 
+                // Безопасное получение имени
                 const myName = userData.username || (userData.profile && userData.profile.username) || 
-                userData.full_name || (userData.profile && userData.profile.full_name) || 'Вы';
+                               userData.full_name || (userData.profile && userData.profile.full_name) || 'Вы';
+                               
                 currentAuctions[aucIndex].current_highest_bidder_name = myName;
+                
                 currentAuctions[aucIndex].bidder = {
                     full_name: userData.full_name || (userData.profile && userData.profile.full_name),
                     twitch_login: userData.twitch_login || (userData.profile && userData.profile.twitch_login)
@@ -752,7 +763,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             renderPage(currentAuctions);
             
-            // ✅ [ИСПРАВЛЕНИЕ 2] Диалог успеха теперь гарантированно показывается
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
             
@@ -760,9 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (e) {
             console.error(e);
-            // ✅ [ИСПРАВЛЕНИЕ 2] Показываем ошибку пользователю
             tg.showAlert(e.message || "Ошибка при ставке");
-            // Закрываем окно, чтобы данные обновились
             hideModal(dom.bidModal);
             initialize(false);
         }
