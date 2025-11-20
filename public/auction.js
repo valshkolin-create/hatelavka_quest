@@ -685,13 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return; 
         }
 
-        // Обработчик кнопки архива
-        if (dom.archiveBtn) {
-            dom.archiveBtn.addEventListener('click', () => {
-            loadArchive();
-                });
-            }
-
         // --- Логика для Пользователя ---
 
         // --- Updated click handler for bid and history buttons ---
@@ -886,6 +879,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isEditMode = dom.editToggle.checked;
             renderPage(currentAuctions);
             initializeParallax(); // Re-apply Parallax
+        });
+    }
+
+    if (dom.archiveBtn) {
+        dom.archiveBtn.addEventListener('click', () => {
+            loadArchive();
         });
     }
 
