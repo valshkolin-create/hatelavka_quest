@@ -319,7 +319,19 @@
             font-weight: 900; 
             font-size: 1.1em;
         }
-        .notify-auction-name { color: var(--accent-primary); font-weight: 900; }
+        .notify-auction-name { 
+            font-weight: 900;
+            
+            /* Градиент "Неоновый Закат" */
+            background: linear-gradient(to right, #F2994A, #F2C94C);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            
+            /* Легкое свечение, чтобы читалось на темном */
+            filter: drop-shadow(0 0 8px rgba(242, 201, 76, 0.3));
+        }
 
     </style>
 </head>
