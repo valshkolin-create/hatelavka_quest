@@ -80,11 +80,19 @@
         }
 
         .header-title {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--accent-primary);
+            
+            /* 🌆 ГРАДИЕНТ 🌆 */
+            background: linear-gradient(to right, #F2994A, #F2C94C); 
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            
+            filter: drop-shadow(0 0 15px rgba(242, 201, 76, 0.2));
         }
 
         .header-timer {
