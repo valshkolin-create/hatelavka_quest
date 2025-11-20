@@ -746,7 +746,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         costToUser = finalBidAmount; 
-        }
 
         const MAX_STEP = 3; 
         const currentBid = auction.current_highest_bid || 0;
