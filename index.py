@@ -1925,6 +1925,36 @@ async def get_pending_counts(
         raise HTTPException(status_code=500, detail="Не удалось получить счетчики.")
 # --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
 
+# --- НОВЫЙ ЭНДПОИНТ: Архив аукционов ---
+@app.post("/api/v1/auctions/archive")
+async def get_auctions_archive(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Возвращает список завершенных аукционов (с победителями)."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        # Запрашиваем лоты, у которых есть winner_id.
+        # Используем синтаксис PostgREST для JOIN таблицы users (чтобы получить имена).
+        response = await supabase.get(
+            "/auctions",
+            params={
+                "winner_id": "not.is.null",
+                "select": "id, title, image_url, current_highest_bid, ended_at, winner:users!winner_id(full_name, twitch_login)",
+                "order": "ended_at.desc",
+                "limit": "30"
+            }
+        )
+        response.raise_for_status()
+        return response.json()
+
+    except Exception as e:
+        logging.error(f"Ошибка получения архива аукционов: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить архив.")
+
 @app.post("/api/v1/auctions/list") # <-- ИЗМЕНЕНО: GET на POST
 async def get_auctions_list_for_user(
     request_data: InitDataRequest, # <-- ИЗМЕНЕНО: Принимаем initData
