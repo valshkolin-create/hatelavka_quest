@@ -154,7 +154,7 @@
             letter-spacing: 0.5px;
         }
 
-        /* --- УЧАСТНИКИ --- */
+        /* --- СТИЛИ УЧАСТНИКОВ --- */
         .bidder-item {
             display: flex;
             align-items: center;
@@ -163,13 +163,16 @@
             transition: all 0.3s ease;
         }
 
+        /* 🔥 ТОП-1 ИГРОК (Неоновый Закат) 🔥 */
         .bidder-item.rank-1 {
             height: 34px;
             margin-bottom: 8px;
             border-radius: 4px;
-            background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent);
+            /* Легкий оранжевый фон */
+            background: linear-gradient(90deg, rgba(242, 153, 74, 0.15), transparent);
             padding-left: 6px;
-            border-left: 3px solid var(--gold-color);
+            /* Оранжевая полоска слева */
+            border-left: 3px solid #F2994A;
         }
 
         .bidder-rank {
@@ -180,7 +183,18 @@
             flex-shrink: 0;
             color: var(--text-secondary);
         }
-        .bidder-item.rank-1 .bidder-rank { color: var(--gold-color); font-size: 22px; }
+
+        /* Ранг "1." с градиентом */
+        .bidder-item.rank-1 .bidder-rank { 
+            font-size: 22px;
+            background: linear-gradient(to right, #F2994A, #F2C94C); 
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        /* Ранги 2 и 3 (серебро и бронза - классика) */
         .bidder-item.rank-2 .bidder-rank { color: #c0c0c0; }
         .bidder-item.rank-3 .bidder-rank { color: #cd7f32; }
 
@@ -194,10 +208,17 @@
             display: flex;
             align-items: center;
         }
+
+        /* Имя лидера - белое и крупное */
         .bidder-item.rank-1 .bidder-name { font-size: 19px; color: #fff; }
         
         .bidder-name i { margin-right: 6px; font-size: 0.9em; }
-        .bidder-item.rank-1 i { font-size: 1.1em; }
+        
+        /* Иконка лидера - оранжевая */
+        .bidder-item.rank-1 i { 
+            font-size: 1.1em; 
+            color: #F2994A; 
+        }
 
         .twitch-icon { color: var(--twitch-color); }
         .user-icon { color: var(--text-secondary); }
@@ -208,7 +229,17 @@
             color: var(--accent-primary);
             flex-shrink: 0;
         }
-        .bidder-item.rank-1 .bidder-amount { font-size: 20px; color: var(--gold-color); }
+        
+        /* Сумма лидера с градиентом */
+        .bidder-item.rank-1 .bidder-amount { 
+            font-size: 20px; 
+            font-weight: 900;
+            background: linear-gradient(to right, #F2994A, #F2C94C); 
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+        }
 
         /* --- ПРОМО --- */
         .promo-container {
