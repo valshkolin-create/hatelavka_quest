@@ -201,6 +201,19 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Активных аукционов пока нет.</p>';
         }
 
+        // 👇👇👇 НОВАЯ ЛОГИКА ФИЛЬТРАЦИИ 👇👇👇
+        // Если включен режим редактирования (Админ), показываем ВСЕ.
+        // Если режим выключен (Пользователь), скрываем завершенные (где есть ended_at).
+        const visibleAuctions = isEditMode 
+            ? auctions 
+            : auctions.filter(a => !a.ended_at);
+
+        if (!visibleAuctions || visibleAuctions.length === 0) {
+            dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); margin-top: 20px;">Активных аукционов пока нет.</p>';
+            // Не делаем return, чтобы currentAuctions все равно обновился
+        }
+        // 👆👆👆 КОНЕЦ ФИЛЬТРАЦИИ 👆👆👆
+
         currentAuctions = auctions; 
 
         auctions.forEach(auction => {
