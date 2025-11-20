@@ -777,3 +777,86 @@ body.browser-view {
     transform: none !important; /* Убираем увеличение при наведении */
     pointer-events: none; /* Отключаем клики */
 }
+
+/* --- СТИЛИ ДЛЯ АРХИВА --- */
+
+.archive-toggle-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--border-color); /* Пунктирная тонкая рамка */
+    color: var(--text-secondary);
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-bottom: 20px; /* Отступ от инфо-блоков */
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.archive-toggle-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Список внутри модалки */
+.archive-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Карточка архива (компактная) */
+.archive-item {
+    display: flex;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    gap: 10px;
+}
+
+.archive-item-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+    background-color: #000;
+    flex-shrink: 0;
+}
+
+.archive-item-info {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.archive-item-title {
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+}
+
+.archive-item-winner {
+    font-size: 10px;
+    color: var(--accent-primary); /* Золотой цвет победителя */
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.archive-item-price {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
