@@ -1521,11 +1521,13 @@ async def make_auction_bid(
         except Exception:
             error_details = e.response.text
             
+        # --- ИСПРАВЛЕНИЕ: Перехват ошибки удаленного аукциона ---
+        if "violates foreign key constraint" in error_details and "auction_bids_auction_id_fkey" in error_details:
+             error_details = "Лот был перезапущен или удален администратором. Пожалуйста, обновите страницу."
+        # -------------------------------------------------------
+            
         logging.warning(f"Ошибка RPC place_auction_bid: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
-    except Exception as e:
-        logging.error(f"Критическая ошибка при ставке на аукционе: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.get("/api/v1/auctions/history/{auction_id}")
 async def get_auction_history(
