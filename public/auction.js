@@ -199,27 +199,36 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.auctionsList.innerHTML = '';
 
         // 1. ФИЛЬТРАЦИЯ
-        // Если включен "Режим ред." (isEditMode) — показываем ВСЕ лоты (чтобы админ мог удалить старые).
-        // Если режим выключен — показываем ТОЛЬКО активные (у которых нет ended_at).
         const visibleAuctions = isEditMode 
             ? auctions 
             : auctions.filter(a => !a.ended_at);
 
+        // --- 🔥 ИЗМЕНЕНИЕ: Кнопка создания теперь создается ПЕРВОЙ ---
+        // Если мы в режиме редактирования, сразу добавляем кнопку "Создать" в начало списка
+        if (isEditMode) {
+            const createCard = document.createElement('div');
+            createCard.className = 'auction-card create-auction-card';
+            createCard.innerHTML = `<i class="fa-solid fa-plus"></i><span>Создать лот</span>`;
+            dom.auctionsList.appendChild(createCard);
+        }
+        // --- ⬆️ КОНЕЦ ИЗМЕНЕНИЯ ⬆️ ---
+
         // 2. ПРОВЕРКА НА ПУСТОТУ
-        // Если после фильтрации список пуст — показываем заглушку
-        if (!visibleAuctions || visibleAuctions.length === 0) {
+        // Показываем надпись "Нет аукционов" ТОЛЬКО если режим редактирования ВЫКЛЮЧЕН.
+        // (Если он включен, у нас уже есть кнопка "Создать", так что список визуально не пуст).
+        if ((!visibleAuctions || visibleAuctions.length === 0) && !isEditMode) {
             dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); margin-top: 20px;">Активных аукционов пока нет.</p>';
         }
 
-        currentAuctions = auctions; // Сохраняем полный список (для модалок и логики)
+        currentAuctions = auctions;
 
-        // 3. ОТРИСОВКА (Используем отфильтрованный список visibleAuctions)
+        // 3. ОТРИСОВКА КАРТОЧЕК
         visibleAuctions.forEach(auction => {
             const card = document.createElement('div');
             card.className = 'auction-card';
             card.id = `auction-card-${auction.id}`;
             
-            // Если лот имеет ограничение по макс. билетам, меняем стиль
+            // Если лот имеет ограничение по макс. билетам
             if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
                 card.classList.add('beginner-lot');
             }
@@ -234,14 +243,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const isEnded = !!auction.ended_at;
             const timerId = `timer-${auction.id}`;
             
-            // Таймер или статус
             const timerHtml = (auction.bid_cooldown_ends_at && !isEnded)
                 ? `<div class="stat-item-value timer" id="${timerId}">...</div>`
                 : `<div class="stat-item-value">${isEnded ? 'ЗАВЕРШЕН' : '00:00:00'}</div>`;
 
             const isDisabled = isEnded ? 'disabled' : '';
 
-            // Админские кнопки (появляются только в isEditMode)
+            // Админские кнопки
             let adminOverlay = '';
             if (isEditMode) {
                 const isAlreadyFinished = !!auction.ended_at;
@@ -268,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
             
-            // Логика отображения лидера/победителя
+            // Логика лидера
             let leaderOrWinnerHtml = '';
             let displayName = 'Нет ставок';
             let iconHtml = '';
@@ -352,20 +360,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
-            // Сборка HTML карточки
+            // Сборка HTML
             card.innerHTML = `
                 ${adminOverlay}
-                
                 <div class="card-display-area">
                     <div class="event-image-container">
                         ${restrictionsHtml} 
                         <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
                     </div>
                 </div>
-                
                 <div class="card-info-area">
                     <h3 class="event-title">${escapeHTML(auction.title)}</h3>
-                    
                     <div class="auction-stats">
                         <div class="stat-item">
                             <div class="stat-item-label">Текущая ставка</div>
@@ -376,10 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${timerHtml}
                         </div>
                     </div>
-                    
                     ${leaderOrWinnerHtml} 
                     ${myBidHtml}
-
                     <div class="event-button-container">
                         <button class="history-button" data-auction-id="${auction.id}">Топ по ставкам</button>
                         <button class="event-button bid-button" data-auction-id="${auction.id}" ${isDisabled}>
@@ -391,12 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             dom.auctionsList.appendChild(card);
 
-            // Запуск таймера только для активных
+            // Таймер
             if (auction.bid_cooldown_ends_at && !isEnded) {
                 const timerElement = document.getElementById(timerId);
                 const endTime = new Date(auction.bid_cooldown_ends_at).getTime();
                 const now = new Date().getTime();
-
                 if (endTime > now) {
                     startCountdown(timerElement, auction.bid_cooldown_ends_at, 'auction-' + auction.id, () => {
                         if (timerElement) timerElement.innerHTML = '<i class="fa-solid fa-hourglass-half fa-spin"></i>';
@@ -407,16 +409,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-        
-        // Кнопка создания лота (только в режиме редактирования)
-        if (isEditMode) {
-            const createCard = document.createElement('div');
-            createCard.className = 'auction-card create-auction-card';
-            createCard.innerHTML = `<i class="fa-solid fa-plus"></i><span>Создать лот</span>`;
-            dom.auctionsList.appendChild(createCard);
-        }
 
-        // Центрирование, если лот один
+        // Центрирование
         if (dom.auctionsList.children.length === 1) {
             dom.auctionsList.classList.add('centered');
         } else {
