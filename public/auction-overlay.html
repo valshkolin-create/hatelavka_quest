@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Аукцион - Overlay (LOGS + STYLES)</title>
+    <title>Аукцион - Overlay (FINAL PRO)</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,24 +10,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
         :root {
-          --background-main: #111111;
-          --surface-primary: #1C1C1C;
-          --surface-secondary: #2C2C2C;
-          --border-color: #333333;
-          --text-primary: #f0f0f5;
-          --text-secondary: #AAAAAA;
-          --accent-primary: #FFD700;
-          --accent-secondary: #FF9500;
-          --gold-color: #ffd700;
-        }
-        
-        .overlay-wrapper {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 600px;
-            height: 240px;
-            overflow: hidden;
+            --background-main: #111111;
+            --surface-primary: #1C1C1C;
+            --surface-secondary: #2C2C2C;
+            --border-color: #333333;
+            --text-primary: #f0f0f5;
+            --text-secondary: #AAAAAA;
+            --accent-primary: #FFD700;
+            --accent-secondary: #FF9500;
+            --gold-color: #ffd700;
+            --twitch-color: #9146FF;
         }
 
         body {
@@ -37,86 +29,115 @@
             margin: 0;
             color: var(--text-primary);
         }
-        
-        /* Основной контейнер виджета */
+
+        .overlay-wrapper {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 600px;
+            height: 240px;
+            /* overflow: hidden; Убрали, чтобы уведомление могло "вылезать" сверху */
+        }
+
+        /* --- ОСНОВНОЙ ВИДЖЕТ --- */
         .widget-container {
             position: absolute;
             bottom: 0;
             left: 0;
             width: 600px;
-            height: 240px; 
+            height: 240px;
             background-color: rgba(10, 10, 10, 1.00);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border-radius: 12px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            opacity: 0; 
+            opacity: 0;
             transform: translateX(0);
-            transition: opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), 
-                        transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
-            z-index: 5;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            z-index: 10; /* Виджет сверху */
         }
-        
-        .widget-container.visible { opacity: 1; }
-        
-        /* Класс, который прячет виджет, когда активно Промо */
+
+        .widget-container.visible {
+            opacity: 1;
+        }
+
+        /* Скрытие виджета при промо */
         .widget-container.hidden-by-promo {
             opacity: 0;
             transform: translateX(-50px);
         }
-        
-        .header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-        .header-title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-primary); }
-        .header-timer { font-size: 20px; font-weight: 700; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; }
-        .content-body { display: flex; padding: 20px; gap: 20px; height: 100%; box-sizing: border-box; }
-        
-        .skin-container { 
-            width: 200px;
-            height: 150px;
-            background-color: #000; 
-            background-size: cover;
-            background-position: center;
-            border-radius: 8px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            flex-shrink: 0; 
-            overflow: hidden; 
+
+        .header {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(20, 20, 20, 0.5);
+            z-index: 12;
             position: relative;
         }
 
-        .skin-container::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-image: url('https://i.imgur.com/gYy63vX.png');
-            background-size: 100px;
-            background-repeat: repeat;
-            opacity: 0.05;
-            pointer-events: none;
-            mix-blend-mode: overlay;
+        .header-title {
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+        }
+
+        .header-timer {
+            font-size: 20px;
+            font-weight: 700;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 5px 10px;
+            border-radius: 6px;
+            min-width: 90px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .content-body {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .skin-container {
+            width: 200px;
+            height: 150px;
+            background-color: #080808;
             border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #222;
         }
 
-        #skin-image { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: contain; 
-            filter: contrast(115%); 
+        #skin-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
         }
 
-        .bidders-container { 
-            display: flex; 
-            flex-direction: column; 
+        .bidders-container {
+            display: flex;
+            flex-direction: column;
             justify-content: flex-start;
-            flex-grow: 1; 
-            min-width: 0; 
-            gap: 5px; 
+            flex-grow: 1;
+            min-width: 0;
+            gap: 5px;
         }
+
         .bidders-title {
             font-size: 14px;
             font-weight: 700;
@@ -124,96 +145,67 @@
             margin-bottom: 5px;
             text-align: center;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* --- СТАНДАРТНЫЙ УЧАСТНИК --- */
-        .bidder-item { 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            height: 22px; 
-            transition: all 0.3s ease; /* Плавность */
+        /* --- СТИЛИ УЧАСТНИКОВ --- */
+        .bidder-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 22px;
+            transition: all 0.3s ease;
         }
 
-        /* --- 🔥 НОВЫЕ СТИЛИ ДЛЯ ТОП-1 🔥 --- */
+        /* 🔥 ТОП-1 ИГРОК (Увеличенный) 🔥 */
         .bidder-item.rank-1 {
-            height: 34px; /* Увеличенная высота */
-            margin-bottom: 8px; /* Отступ снизу */
+            height: 34px;
+            margin-bottom: 8px;
             border-radius: 4px;
-            background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent); /* Золотой фон */
-            padding-left: 6px; 
-            border-left: 3px solid var(--gold-color); /* Золотая полоска */
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent);
+            padding-left: 6px;
+            border-left: 3px solid var(--gold-color);
         }
 
-        .bidder-rank { 
+        .bidder-rank {
             font-size: 16px;
-            font-weight: 900; 
+            font-weight: 900;
             width: 25px;
-            text-align: right; 
-            flex-shrink: 0; 
+            text-align: right;
+            flex-shrink: 0;
             color: var(--text-secondary);
         }
-        /* Увеличенный ранг для топ-1 */
-        .bidder-item.rank-1 .bidder-rank { 
-            color: var(--gold-color); 
-            font-size: 22px;
-        }
+
+        .bidder-item.rank-1 .bidder-rank { color: var(--gold-color); font-size: 22px; }
         .bidder-item.rank-2 .bidder-rank { color: #c0c0c0; }
         .bidder-item.rank-3 .bidder-rank { color: #cd7f32; }
 
-        .bidder-name { 
-            font-size: 15px; 
-            font-weight: 700; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
-            flex-grow: 1; 
+        .bidder-name {
+            font-size: 15px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-grow: 1;
             display: flex;
             align-items: center;
         }
-        /* Увеличенное имя для топ-1 */
-        .bidder-item.rank-1 .bidder-name {
-            font-size: 19px;
-            color: #ffffff;
-        }
 
-        .bidder-name i { margin-right: 5px; font-size: 0.9em; }
-        .bidder-item.rank-1 i { font-size: 1.1em; } /* Иконка побольше */
+        .bidder-item.rank-1 .bidder-name { font-size: 19px; color: #fff; }
         
-        .twitch-icon { color: #9146FF; }
+        .bidder-name i { margin-right: 6px; font-size: 0.9em; }
+        .bidder-item.rank-1 i { font-size: 1.1em; }
+
+        .twitch-icon { color: var(--twitch-color); }
         .user-icon { color: var(--text-secondary); }
 
-        .bidder-amount { 
+        .bidder-amount {
             font-size: 15px;
-            font-weight: 700; 
+            font-weight: 700;
             color: var(--accent-primary);
-            flex-shrink: 0; 
+            flex-shrink: 0;
         }
-        /* Увеличенная сумма для топ-1 */
-        .bidder-item.rank-1 .bidder-amount {
-            font-size: 20px;
-            color: var(--gold-color);
-        }
-
-        #new-bid-notification { 
-            position: absolute; 
-            top: -100px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            background: linear-gradient(45deg, var(--accent-secondary), var(--accent-primary));
-            color: #000; 
-            padding: 15px 30px; 
-            border-radius: 10px; 
-            font-size: 24px; 
-            font-weight: 900; 
-            box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
-            white-space: nowrap; 
-            opacity: 0; 
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            z-index: 20; 
-        }
-        #new-bid-notification.show { opacity: 1; top: 20px; }
-        #new-bid-notification.hide { opacity: 0; top: -100px; transition: all 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045); }
+        .bidder-item.rank-1 .bidder-amount { font-size: 20px; color: var(--gold-color); }
 
         /* --- ПРОМО КАРТИНКА --- */
         .promo-container {
@@ -226,9 +218,8 @@
             box-shadow: 0 5px 20px rgba(0,0,0,0.4);
             opacity: 0;
             transform: translateX(50px);
-            transition: opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), 
-                        transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
-            z-index: 10; 
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            z-index: 15;
             pointer-events: none;
         }
 
@@ -240,27 +231,88 @@
         .promo-image {
             width: 100%;
             height: 100%;
-            object-fit: cover; 
+            object-fit: cover;
         }
+
+        /* --- УВЕДОМЛЕНИЕ О ДРУГОМ АУКЦИОНЕ (СЛАЙДЕР СВЕРХУ) --- */
+        .secondary-notification {
+            position: absolute;
+            top: 10px; /* Начальная позиция (спрятано за виджетом, если z-index ниже) */
+            left: 20px; /* Отступ как у виджета */
+            right: 20px;
+            width: 560px; /* Чуть меньше ширины виджета */
+            height: 50px;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            box-sizing: border-box;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
+            
+            /* Анимация */
+            transform: translateY(0); 
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            
+            z-index: 5; /* НИЖЕ виджета, чтобы выезжать "из-под" него */
+        }
+
+        .secondary-notification.active {
+            transform: translateY(-65px); /* Выезжаем вверх из-под виджета */
+            opacity: 1;
+        }
+
+        .notify-content {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 8px;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .notify-highlight { color: var(--accent-primary); font-weight: 800; }
+        .notify-text { color: var(--text-secondary); font-weight: 600; }
+        .notify-amount { 
+            background: rgba(255, 215, 0, 0.1); 
+            color: var(--gold-color); 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-weight: 800; 
+        }
+        
     </style>
 </head>
 <body>
 
-    <div id="new-bid-notification">
-        Новая ставка от <span id="bid-notify-name">...</span>!
-    </div>
+    <div class="overlay-wrapper">
+        
+        <div id="secondary-notification" class="secondary-notification">
+            <div class="notify-content">
+                <span id="notify-icon"></span> <span id="notify-user" class="notify-highlight">User</span>
+                <span class="notify-text">поставил</span>
+                <span id="notify-amount" class="notify-amount">100 🎟️</span>
+                <span class="notify-text">на</span>
+                <span id="notify-auction" class="notify-highlight" style="color: #fff;">Название лота</span>
+            </div>
+        </div>
 
-    <div class="overlay-wrapper" id="overlay-wrapper">
         <div id="widget-container" class="widget-container">
             <div class="header">
-                <div class="header-title" id="auction-title">Аукцион</div>
+                <div class="header-title" id="auction-title">Загрузка...</div>
                 <div class="header-timer" id="auction-timer">00:00:00</div>
             </div>
             <div class="content-body">
                 <div class="skin-container">
-                    <img id="skin-image" src="" alt="Skin">
+                    <img id="skin-image" src="" alt="Lot Image">
                 </div>
-                <div class="bidders-container" id="top-bidders-list"></div>
+                <div class="bidders-container" id="top-bidders-list">
+                    </div>
             </div>
         </div>
 
@@ -275,7 +327,7 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- DOM ---
+        // --- DOM Elements ---
         const dom = {
             widget: document.getElementById('widget-container'),
             promo: document.getElementById('promo-container'),
@@ -283,19 +335,31 @@
             timer: document.getElementById('auction-timer'),
             skinImage: document.getElementById('skin-image'),
             biddersList: document.getElementById('top-bidders-list'),
-            notification: document.getElementById('new-bid-notification'),
-            notifyName: document.getElementById('bid-notify-name')
+            
+            // Уведомление
+            notify: document.getElementById('secondary-notification'),
+            notifyIcon: document.getElementById('notify-icon'),
+            notifyUser: document.getElementById('notify-user'),
+            notifyAmount: document.getElementById('notify-amount'),
+            notifyAuction: document.getElementById('notify-auction')
         };
 
-        // --- ПЕРЕМЕННЫЕ ---
+        // --- STATE ---
         let allActiveAuctions = []; 
         let currentAuctionIndex = 0; 
         let currentAuctionData = null; 
-        let countdownInterval = null;
+        
+        // Таймеры
+        let rotationTimeout = null;
+        let rotationStartTimestamp = 0;
+        let timeRemainingForLot = 300000; // 5 минут
+        const ROTATION_DURATION = 300000; 
+
         let isPromoTimerActive = false; 
         let promoTimeoutId = null; 
+        let notifyTimeoutId = null;
 
-        // --- ПОЛЕЗНЫЕ ФУНКЦИИ ---
+        // --- LOGGING ---
         function log(msg) {
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             console.log(`[${time}] ${msg}`);
@@ -303,52 +367,88 @@
 
         // --- ИНИЦИАЛИЗАЦИЯ ---
         async function initialize() {
-            log("🚀 Запуск скрипта оверлея...");
+            log("🚀 ЗАПУСК ОВЕРЛЕЯ (FINAL BUILD)...");
             updateVisibility(); 
             await fetchAllAuctions();
             
-            // 1. Ротация лотов (раз в 5 минут)
-            setInterval(() => {
-                // Переключаем, только если лотов > 1 и сейчас НЕ идет промо
-                if (allActiveAuctions.length > 1 && !isPromoTimerActive) {
-                    currentAuctionIndex++;
-                    if (currentAuctionIndex >= allActiveAuctions.length) currentAuctionIndex = 0;
-                    
-                    log(`🔄 РОТАЦИЯ: Переключение на лот #${currentAuctionIndex + 1} (ID: ${allActiveAuctions[currentAuctionIndex].id})`);
-                    loadAuctionByIndex(currentAuctionIndex);
-                }
-            }, 300000); // 5 минут
+            // Запуск умного таймера ротации
+            if (allActiveAuctions.length > 1) {
+                startRotationTimer(ROTATION_DURATION);
+            }
 
-            // 2. Таймер Промо (раз в 7 минут)
+            // Таймер Промо (раз в 7 минут)
             setInterval(() => {
                 if (allActiveAuctions.length > 0) {
-                    log("🎬 ТАЙМЕР: Запуск ПРОМО-баннера (на 20 сек)");
+                    log("🎬 ТАЙМЕР: Время для ПРОМО (20 сек)");
                     triggerPromoTimer();
                 }
             }, 420000); // 7 минут
 
-            // 3. Realtime
             setupRealtime();
             
-            // 4. Обновление списка лотов раз в минуту (в фоне)
-            setInterval(() => {
-                // log("☁️ Фоновое обновление списка аукционов...");
-                fetchAllAuctions();
-            }, 60000);
+            // Фоновое обновление списка лотов (раз в минуту)
+            setInterval(fetchAllAuctions, 60000);
         }
 
-        // --- ВИДИМОСТЬ ---
+        // --- УМНЫЙ ТАЙМЕР РОТАЦИИ ---
+        function startRotationTimer(duration) {
+            if (rotationTimeout) clearTimeout(rotationTimeout);
+            rotationStartTimestamp = Date.now();
+            timeRemainingForLot = duration;
+
+            rotationTimeout = setTimeout(() => {
+                if (allActiveAuctions.length > 1) {
+                    currentAuctionIndex++;
+                    if (currentAuctionIndex >= allActiveAuctions.length) currentAuctionIndex = 0;
+                    log(`🔄 РОТАЦИЯ: Переключение на лот #${currentAuctionIndex + 1}`);
+                    loadAuctionByIndex(currentAuctionIndex);
+                }
+                // Запускаем снова на 5 минут
+                startRotationTimer(ROTATION_DURATION);
+            }, duration);
+        }
+
+        function pauseRotationTimer() {
+            if (rotationTimeout) {
+                clearTimeout(rotationTimeout);
+                rotationTimeout = null;
+                const timePassed = Date.now() - rotationStartTimestamp;
+                timeRemainingForLot -= timePassed;
+                if (timeRemainingForLot < 0) timeRemainingForLot = 0;
+                log(`⏸ РОТАЦИЯ ПАУЗА: Осталось ${Math.ceil(timeRemainingForLot/1000)} сек.`);
+            }
+        }
+
+        // --- ЛОГИКА ПРОМО ---
+        function triggerPromoTimer() {
+            pauseRotationTimer(); // Ставим аукцион на паузу
+            isPromoTimerActive = true;
+            updateVisibility();
+            
+            if (promoTimeoutId) clearTimeout(promoTimeoutId);
+            promoTimeoutId = setTimeout(() => {
+                log("🎬 ПРОМО КОНЕЦ: Возвращаем аукцион");
+                isPromoTimerActive = false;
+                updateVisibility();
+                
+                // Возобновляем ротацию с того места, где остановились
+                if (allActiveAuctions.length > 1) {
+                    startRotationTimer(timeRemainingForLot);
+                }
+            }, 20000); // 20 секунд
+        }
+
         function updateVisibility() {
             const hasBids = currentAuctionData && (currentAuctionData.current_highest_bid > 0);
-
-            // Показываем Промо, если: таймер промо активен ИЛИ нет данных ИЛИ нет ставок
+            
+            // Показываем ПРОМО если: таймер активен ИЛИ нет данных ИЛИ нет ставок
             if (isPromoTimerActive || !currentAuctionData || !hasBids) {
                 if (!dom.promo.classList.contains('visible')) {
                     dom.widget.classList.add('hidden-by-promo'); 
                     dom.promo.classList.add('visible');
                 }
             } else {
-                // Показываем Аукцион
+                // Показываем АУКЦИОН
                 if (dom.promo.classList.contains('visible')) {
                     dom.promo.classList.remove('visible');
                     dom.widget.classList.remove('hidden-by-promo');
@@ -357,19 +457,7 @@
             }
         }
 
-        function triggerPromoTimer() {
-            isPromoTimerActive = true;
-            updateVisibility();
-            if (promoTimeoutId) clearTimeout(promoTimeoutId);
-            
-            promoTimeoutId = setTimeout(() => {
-                log("🎬 ТАЙМЕР: Конец ПРОМО, возврат к аукциону");
-                isPromoTimerActive = false;
-                updateVisibility();
-            }, 20000); // 20 секунд
-        }
-
-        // --- API ---
+        // --- API ЗАГРУЗКА ---
         async function fetchAllAuctions() {
             try {
                 const { data, error } = await supabaseClient
@@ -388,9 +476,10 @@
                     return;
                 }
 
+                // Если первый запуск
                 if (!currentAuctionData) loadAuctionByIndex(0);
 
-            } catch (e) { console.error("Error:", e); }
+            } catch (e) { console.error("Error fetching auctions:", e); }
         }
 
         async function loadAuctionByIndex(index) {
@@ -398,12 +487,12 @@
             const auction = allActiveAuctions[index];
             currentAuctionData = auction; 
 
-            // Если ставок нет, просто рендерим (оно скроется в updateVisibility, но данные будут готовы)
             if (!auction.current_highest_bid || auction.current_highest_bid === 0) {
                 render(auction, []);
                 return;
             }
 
+            // Грузим топ-5
             const { data: historyData } = await supabaseClient
                 .from('auction_bids')
                 .select('bid_amount, user_id, user:users(full_name, twitch_login)') 
@@ -429,9 +518,9 @@
             render(auction, topBidders);
         }
 
-        // --- REALTIME (САМОЕ ВАЖНОЕ) ---
+        // --- REALTIME LOGIC ---
         function setupRealtime() {
-            log("🟢 Realtime статус: Подключено, слушаем ставки...");
+            log("🟢 Realtime: Подключено.");
             const channel = supabaseClient.channel('auction-overlay-channel');
 
             channel
@@ -439,49 +528,44 @@
                 { event: 'INSERT', schema: 'public', table: 'auction_triggers' },
                 payload => {
                     const data = payload.new.payload;
-                    log(`⚡ LIVE СТАВКА: Игрок ${data.last_bidder_name} на лот "${data.auction_data.title}"!`);
-                    
-                    // === ХИРУРГИЧЕСКОЕ ВМЕШАТЕЛЬСТВО ===
-                    
-                    // 1. Обновляем данные о текущем аукционе
-                    currentAuctionData = data.auction_data;
-                    
-                    // 2. ЖЕСТКИЙ СБРОС таймеров промо
-                    isPromoTimerActive = false;
-                    if (promoTimeoutId) {
-                        clearTimeout(promoTimeoutId);
-                        promoTimeoutId = null;
+                    log(`⚡ СОБЫТИЕ: Ставка от ${data.last_bidder_name} на лот "${data.auction_data.title}"`);
+
+                    // Проверяем, на какой лот ставка
+                    if (currentAuctionData && currentAuctionData.id === data.auction_data.id) {
+                        // === 1. ЭТО ТЕКУЩИЙ ЛОТ ===
+                        
+                        // Обновляем данные
+                        currentAuctionData = data.auction_data;
+                        
+                        // Сброс промо и ротации (лот продлевается на 5 мин)
+                        isPromoTimerActive = false;
+                        if (promoTimeoutId) clearTimeout(promoTimeoutId);
+                        startRotationTimer(ROTATION_DURATION); // Рестарт 5 мин
+
+                        // Показываем виджет
+                        dom.promo.classList.remove('visible');
+                        dom.widget.classList.remove('hidden-by-promo');
+                        dom.widget.classList.add('visible');
+
+                        // Формируем список (Python шлет плоский список, иконки ставим по имени)
+                        const formattedBidders = data.top_bidders.map(b => ({
+                            name: b.name,
+                            amount: b.amount,
+                            icon: getIconByHeuristic(b.name) // Определяем иконку
+                        }));
+                        
+                        render(data.auction_data, formattedBidders);
+
+                    } else {
+                        // === 2. ЭТО ДРУГОЙ ЛОТ (ПОКАЗАТЬ УВЕДОМЛЕНИЕ) ===
+                        showSecondaryNotification(data);
                     }
-
-                    // 3. Принудительно показываем виджет
-                    dom.promo.classList.remove('visible');
-                    dom.widget.classList.remove('hidden-by-promo');
-                    dom.widget.classList.add('visible');
-
-                    // 4. Форматируем биддеров
-                    const formattedBidders = data.top_bidders.map(b => ({
-                        name: b.name,
-                        amount: b.amount,
-                        icon: b.name === data.last_bidder_name ? '<i class="fa-solid fa-fire" style="color:orange"></i>' : '<i class="fa-solid fa-user user-icon"></i>'
-                    }));
-                    
-                    // 5. Рендерим
-                    render(data.auction_data, formattedBidders);
-
-                    // 6. Уведомление
-                    dom.notifyName.textContent = data.last_bidder_name;
-                    dom.notification.classList.remove('hide');
-                    dom.notification.classList.add('show');
-                    
-                    setTimeout(() => {
-                        dom.notification.classList.remove('show');
-                        dom.notification.classList.add('hide');
-                    }, 4000); 
                 }
             )
             .subscribe();
         }
 
+        // --- РЕНДЕР ОСНОВНОГО ВИДЖЕТА ---
         function render(auctionData, topBidders = []) {
             dom.title.textContent = auctionData.title || "Аукцион";
             dom.skinImage.src = auctionData.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2';
@@ -493,7 +577,6 @@
             } else {
                 topBidders.forEach((bidder, i) => {
                     const rank = i + 1;
-                    // Добавляем класс rank-1, rank-2 и т.д.
                     html += `
                         <div class="bidder-item rank-${rank}">
                             <div class="bidder-rank">${rank}.</div>
@@ -510,16 +593,54 @@
             if (!isPromoTimerActive) updateVisibility();
         }
 
-        // --- HELPERS ---
-        function getDisplayName(user) {
-            if (!user) return 'Аноним';
-            return user.twitch_login || user.full_name || 'Аноним';
+        // --- УВЕДОМЛЕНИЕ О ВТОРОМ АУКЦИОНЕ ---
+        function showSecondaryNotification(data) {
+            log(`🔔 УВЕДОМЛЕНИЕ: Ставка на другой лот (${data.auction_data.title})`);
+            
+            // Заполняем данные
+            dom.notifyUser.textContent = data.last_bidder_name;
+            dom.notifyAmount.textContent = `${data.auction_data.current_highest_bid} 🎟️`; // Или сумма добавки, если есть в data
+            dom.notifyAuction.textContent = data.auction_data.title;
+            
+            // Ставим иконку (Twitch или User)
+            dom.notifyIcon.innerHTML = getIconByHeuristic(data.last_bidder_name);
+
+            // Показываем
+            dom.notify.classList.add('active');
+
+            // Скрываем через 5 сек
+            if (notifyTimeoutId) clearTimeout(notifyTimeoutId);
+            notifyTimeoutId = setTimeout(() => {
+                dom.notify.classList.remove('active');
+            }, 5000);
         }
+
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+        
+        // Определение иконки (если есть объект User)
         function getDisplayIcon(user) {
             if (!user) return '<i class="fa-solid fa-user user-icon"></i>';
             if (user.twitch_login) return '<i class="fa-brands fa-twitch twitch-icon"></i>';
             return '<i class="fa-solid fa-user user-icon"></i>';
         }
+
+        // Эвристика для Realtime (когда нет объекта User, только имя)
+        // Пытаемся угадать: если имя без пробелов и латиницей -> Twitch (вероятно)
+        function getIconByHeuristic(name) {
+            // Простая проверка: если нет пробелов, считаем ником (Twitch)
+            // Если есть пробелы (Иван Иванов), считаем TG
+            if (name && !name.includes(' ')) {
+                 return '<i class="fa-brands fa-twitch twitch-icon"></i>';
+            }
+            return '<i class="fa-solid fa-user user-icon"></i>';
+        }
+
+        function getDisplayName(user) {
+            if (!user) return 'Аноним';
+            return user.twitch_login || user.full_name || 'Аноним';
+        }
+
+        let countdownInterval = null;
         function startCountdown(expiresAt) {
             if (countdownInterval) clearInterval(countdownInterval);
             if (!expiresAt) { dom.timer.textContent = "00:00:00"; return; }
@@ -527,7 +648,11 @@
             const updateTimer = () => {
                 const now = new Date().getTime();
                 const distance = endTime - now;
-                if (distance < 0) { clearInterval(countdownInterval); dom.timer.textContent = "00:00:00"; return; }
+                if (distance < 0) { 
+                    clearInterval(countdownInterval); 
+                    dom.timer.textContent = "00:00:00"; 
+                    return; 
+                }
                 const h = Math.floor(distance / 3600000);
                 const m = Math.floor((distance % 3600000) / 60000);
                 const s = Math.floor((distance % 60000) / 1000);
