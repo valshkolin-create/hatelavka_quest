@@ -680,6 +680,15 @@ document.addEventListener('DOMContentLoaded', () => {
                      return; // <--- STOP, do not open modal
                 }
 
+                // 👇👇👇 ДОБАВЛЯЕМ ЭТОТ БЛОК 👇👇👇
+                // Проверка: не является ли пользователь уже лидером?
+                const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+                if (isLeader) {
+                     tg.showAlert("🏆 Вы уже лидируете в этом аукционе!\n\nНет смысла перебивать самого себя.");
+                     return;
+                }
+                // 👆👆👆 КОНЕЦ БЛОКА 👆👆👆
+
                 // If checks pass, open the modal
                 showBidModal(auctionId);
             }
@@ -710,27 +719,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // Определяем, является ли пользователь текущим лидером
         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
         
+        // 👇 Если вдруг модалка открылась, запрещаем отправку лидеру
+        if (isLeader) {
+            tg.showAlert("Вы уже лидируете!");
+            return;
+        }
+
         let finalBidAmount = 0;
         let costToUser = 0; 
 
-        if (isLeader) {
-            if (isNaN(amountInput) || amountInput < 1) {
-                tg.showAlert("Сумма добавления должна быть 1 🎟️ или больше.");
-                return;
-            }
-            finalBidAmount = (auction.current_highest_bid || 0) + amountInput;
-            // Логика списания: зависит от вашей RPC функции. 
-            // Обычно при повышении своей ставки списывается только разница.
-            // Но здесь используем вашу переменную costToUser как есть.
-            costToUser = amountInput; // Если повышаем свою, тратим только добавку
-        } else {
-            const minAmount = parseInt(dom.bidCurrentMinInput.value);
-            finalBidAmount = amountInput;
-            if (isNaN(finalBidAmount) || finalBidAmount < minAmount) {
-                tg.showAlert(`Ваша ставка должна быть ${minAmount} 🎟️ или больше.`);
-                return;
-            }
-            costToUser = finalBidAmount; 
+        // 👇 Убрали ветку if (isLeader), оставили только стандартную логику
+        const minAmount = parseInt(dom.bidCurrentMinInput.value);
+        finalBidAmount = amountInput;
+        
+        if (isNaN(finalBidAmount) || finalBidAmount < minAmount) {
+            tg.showAlert(`Ваша ставка должна быть ${minAmount} 🎟️ или больше.`);
+            return;
+        }
+        costToUser = finalBidAmount; 
         }
 
         const MAX_STEP = 3; 
