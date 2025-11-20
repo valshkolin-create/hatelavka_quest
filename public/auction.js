@@ -434,12 +434,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 🔒 [ИСПРАВЛЕНИЕ 1] Снова проверяем лидерство перед открытием
-        const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+       // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        // Надежное получение ID пользователя (учитываем разную структуру ответа API)
+        const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
+        
+        // Проверяем, является ли текущий пользователь лидером
+        const isLeader = myId && (auction.current_highest_bidder_id === myId);
+        
         if (isLeader) {
              tg.showAlert("🏆 Вы уже лидируете в этом аукционе!\n\nНет смысла перебивать самого себя.");
              return;
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
         dom.bidModalTitle.textContent = `Ставка: ${escapeHTML(auction.title)}`;
         dom.userBalanceDisplay.textContent = userData.tickets || 0;
@@ -654,12 +660,16 @@ document.addEventListener('DOMContentLoaded', () => {
                      return; 
                 }
 
-                // 🔒 [ИСПРАВЛЕНИЕ 1] Блокировка клика для лидера
-                const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
+                // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+                // 🔒 Блокировка клика для лидера
+                const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
+                const isLeader = myId && (auction.current_highest_bidder_id === myId);
+                
                 if (isLeader) {
                      tg.showAlert("🏆 Вы уже лидируете в этом аукционе!\n\nНет смысла перебивать самого себя.");
                      return;
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
                 showBidModal(auctionId);
             }
@@ -688,18 +698,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return; 
 
-        // 🔥 [ИСПРАВЛЕНИЕ] Определяем myId в самом начале функции
-        // Это гарантирует, что переменная видна и для проверки лидера, и для обновления UI внизу
+        // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        // 🔥 Определяем myId в самом начале функции надежным способом
         const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
 
         // Проверка на лидера
         const isLeader = myId && (auction.current_highest_bidder_id === myId);
         
-        // 👇 Если вдруг модалка открылась, запрещаем отправку лидеру
         if (isLeader) {
-            tg.showAlert("Вы уже лидируете!");
+            tg.showAlert("Вы уже лидируете! Обновите страницу.");
             return;
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
         let finalBidAmount = 0;
         let costToUser = 0; 
