@@ -46,7 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
         editAuctionVisible: document.getElementById('auction-visible-input'),
         // ⬇️ ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ ⬇️
         editAuctionMinTickets: document.getElementById('auction-min-tickets-input'), 
-        editAuctionMaxTickets: document.getElementById('auction-max-tickets-input')
+        editAuctionMaxTickets: document.getElementById('auction-max-tickets-input'),
+        archiveBtn: document.getElementById('archive-btn'),
+        archiveModal: document.getElementById('archive-modal'),
+        archiveList: document.getElementById('archive-list'),
     };
 
     // --- Вспомогательные функции ---
@@ -87,6 +90,57 @@ document.addEventListener('DOMContentLoaded', () => {
             throw e;
         } finally {
             if (showLoader) dom.loader.classList.add('hidden');
+        }
+    }
+
+    async function loadArchive() {
+        dom.archiveList.innerHTML = '<div style="text-align:center; padding:20px;"><div class="spinner"></div></div>';
+        showModal(dom.archiveModal);
+
+        try {
+            const archiveData = await makeApiRequest('/api/v1/auctions/archive', {}, 'POST', false);
+
+            if (!archiveData || archiveData.length === 0) {
+                dom.archiveList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); font-size: 12px;">История пуста.</p>';
+                return;
+            }
+
+            dom.archiveList.innerHTML = archiveData.map(item => {
+                // Логика определения имени (как в основном списке)
+                let winnerName = 'Неизвестно';
+                let iconHtml = '<i class="fa-solid fa-user"></i>';
+
+                if (item.winner) {
+                    if (item.winner.twitch_login) {
+                        winnerName = item.winner.twitch_login;
+                        iconHtml = '<i class="fa-brands fa-twitch"></i>';
+                    } else {
+                        winnerName = item.winner.full_name;
+                    }
+                }
+
+                // Форматирование даты (опционально, если хотите выводить дату)
+                // const date = new Date(item.ended_at).toLocaleDateString();
+
+                return `
+                    <div class="archive-item">
+                        <img src="${escapeHTML(item.image_url)}" class="archive-item-img" alt="skin">
+                        <div class="archive-item-info">
+                            <div class="archive-item-title">${escapeHTML(item.title)}</div>
+                            <div class="archive-item-winner">
+                                ${iconHtml} ${escapeHTML(winnerName)}
+                            </div>
+                        </div>
+                        <div class="archive-item-price">
+                            ${item.current_highest_bid} 🎟️
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (e) {
+            console.error(e);
+            dom.archiveList.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки.</p>';
         }
     }
     
@@ -630,6 +684,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return; 
         }
+
+        // Обработчик кнопки архива
+        if (dom.archiveBtn) {
+            dom.archiveBtn.addEventListener('click', () => {
+            loadArchive();
+                });
+            }
 
         // --- Логика для Пользователя ---
 
