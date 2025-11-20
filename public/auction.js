@@ -707,10 +707,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return; 
 
+        // Определяем, является ли пользователь текущим лидером
         const isLeader = userData.profile && (auction.current_highest_bidder_id === userData.profile.telegram_id);
         
         let finalBidAmount = 0;
-        let costToUser = 0; // HOW MUCH WILL ACTUALLY BE SPENT
+        let costToUser = 0; 
 
         if (isLeader) {
             if (isNaN(amountInput) || amountInput < 1) {
@@ -718,7 +719,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             finalBidAmount = (auction.current_highest_bid || 0) + amountInput;
-            costToUser = finalBidAmount; // <--- 1. RETURNED AS IT WAS
+            // Логика списания: зависит от вашей RPC функции. 
+            // Обычно при повышении своей ставки списывается только разница.
+            // Но здесь используем вашу переменную costToUser как есть.
+            costToUser = amountInput; // Если повышаем свою, тратим только добавку
         } else {
             const minAmount = parseInt(dom.bidCurrentMinInput.value);
             finalBidAmount = amountInput;
@@ -729,36 +733,75 @@ document.addEventListener('DOMContentLoaded', () => {
             costToUser = finalBidAmount; 
         }
 
-        // ⬇️ ЛЕСЕНКА ДЛЯ ВСЕХ ЛОТОВ ⬇️
-        const MAX_STEP = 3; // Максимальный шаг ставки (можно изменить на 5, 10 и т.д.)
+        const MAX_STEP = 3; 
         const currentBid = auction.current_highest_bid || 0;
 
-        // Проверка работает для ВСЕХ лотов
         if ((finalBidAmount - currentBid) > MAX_STEP) {
-            tg.showAlert(`🚫 Не спешите!\n\nВ аукционе работает система "Лесенка".\nНельзя повышать ставку более чем на ${MAX_STEP} 🎟️ за раз.\n\nМаксимально возможная ставка сейчас: ${currentBid + MAX_STEP}`);
-            return; // Останавливаем отправку
+            tg.showAlert(`🚫 Не спешите!\n\nМаксимальный шаг повышения: ${MAX_STEP} 🎟️.`);
+            return; 
         }
-        // ⬆️ КОНЕЦ ПРОВЕРКИ ⬆️
 
         if (costToUser > (userData.tickets || 0)) {
-            // <--- 2. RETURNED OLD TEXT
             tg.showAlert('У вас недостаточно билетов для этой ставки.'); 
             return;
         }
         
         try {
-            // Send FULL new bid amount. Backend figures out deduction.
+            // 1. Отправляем запрос на сервер
             await makeApiRequest('/api/v1/auctions/bid', {
                 auction_id: auctionId,
                 bid_amount: finalBidAmount 
             });
             
+            // --- 🔥 НАЧАЛО: ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ ИНТЕРФЕЙСА 🔥 ---
+            
+            // А. Обновляем данные аукциона локально
+            const aucIndex = currentAuctions.findIndex(a => a.id === auctionId);
+            if (aucIndex !== -1) {
+                currentAuctions[aucIndex].current_highest_bid = finalBidAmount;
+                currentAuctions[aucIndex].user_bid_amount = finalBidAmount;
+                
+                // Раз мы перебили ставку, мы теперь #1
+                currentAuctions[aucIndex].user_bid_rank = 1;
+                currentAuctions[aucIndex].current_highest_bidder_id = userData.profile.telegram_id;
+                
+                // Обновляем имя лидера локально, чтобы сразу отобразилось
+                const myName = userData.profile.username || userData.profile.full_name || 'Вы';
+                currentAuctions[aucIndex].current_highest_bidder_name = myName;
+                
+                // Обновляем объект bidder для иконки (Twitch/User)
+                currentAuctions[aucIndex].bidder = {
+                    full_name: userData.profile.full_name,
+                    twitch_login: userData.profile.twitch_login
+                };
+            }
+
+            // Б. Обновляем баланс пользователя локально
+            if (userData.tickets >= costToUser) {
+                userData.tickets -= costToUser;
+                // Обновляем цифру в модалке (хоть она и закроется, но для порядка)
+                dom.userBalanceDisplay.textContent = userData.tickets;
+                
+                // Если у вас есть отображение баланса в хедере, обновите его тут тоже, например:
+                // const headerBalance = document.getElementById('header-balance');
+                // if (headerBalance) headerBalance.textContent = userData.tickets;
+            }
+
+            // В. Мгновенно перерисовываем страницу с новыми локальными данными
+            renderPage(currentAuctions);
+            
+            // --- КОНЕЦ ОПТИМИСТИЧНОГО ОБНОВЛЕНИЯ ---
+
             tg.showAlert('Ваша ставка принята!');
             hideModal(dom.bidModal);
+            
+            // 2. Фоновая синхронизация с сервером (для надежности)
+            // Передаем false, чтобы не включать лоадер и не мерцать экраном
             initialize(false); 
 
         } catch (e) {
             console.error(e);
+            // Если произошла ошибка, лучше перезагрузить данные, чтобы вернуть все как было
             initialize(false);
         }
     });
