@@ -1231,7 +1231,41 @@ function setupEventListeners() {
                 console.error('Highlighting error:', err);
             }
             // --- 🔼 КОНЕЦ НОВОГО КОДА 🔼 ---
-        });
+        }); 
+    
+    // --- ЛОГИКА ДЛЯ МАГАЗИНА BOT-T ---
+        const shopBtn = document.getElementById('shop-open-btn');
+        if (shopBtn) {
+            shopBtn.addEventListener('click', async () => {
+                // Блокируем кнопку, чтобы не кликали дважды
+                shopBtn.disabled = true;
+                const originalText = shopBtn.innerHTML;
+                shopBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
+
+                try {
+                    // 1. Запрашиваем сгенерированную ссылку у вашего бэкенда
+                    // Это важно, так как бэкенд "зашивает" ID пользователя в ссылку (custom_fields)
+                    const result = await makeApiRequest('/api/v1/user/shop_link');
+
+                    if (result && result.url) {
+                        // 2. Открываем ссылку через Telegram SDK
+                        // openLink откроет её во внешнем браузере или встроенном браузере Telegram,
+                        // где гарантированно сработает оплата.
+                        Telegram.WebApp.openLink(result.url);
+                    } else {
+                        Telegram.WebApp.showAlert('Не удалось получить ссылку на магазин.');
+                    }
+                } catch (e) {
+                    console.error("Ошибка открытия магазина:", e);
+                    Telegram.WebApp.showAlert('Ошибка: ' + (e.message || 'Неизвестная ошибка'));
+                } finally {
+                    // Возвращаем кнопку в исходное состояние
+                    shopBtn.disabled = false;
+                    shopBtn.innerHTML = originalText;
+                }
+            });
+        }
+        // --- КОНЕЦ ЛОГИКИ МАГАЗИНА ---    
         dom.promptCancel.addEventListener('click', hideCustomPrompt);
         dom.promptConfirm.addEventListener('click', async () => {
             const text = dom.promptInput.value.trim();
