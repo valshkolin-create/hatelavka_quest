@@ -7501,35 +7501,30 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # --- ВАРИАНТ ЧЕРЕЗ U_API (Самый вероятный для Bot-t) ---
-    url = "https://api.bot-t.com/v1/shop/goods"
-    # или
-    url = f"https://api.bot-t.com/v1/shops/{BOTT_BOT_ID}/goods"
+    # Используем путь u_api (User API)
+    url = "https://api.bot-t.com/v1/u_api/goods"
     
-    # Параметры запроса
     params = {
-        "bot_id": BOTT_BOT_ID
+        "bot_id": BOTT_BOT_ID 
     }
 
     headers = {
+        # В документации Bot-t иногда просят передавать API Key именно так:
         "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", 
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Content-Type": "application/json"
     }
     
     try:
         async with httpx.AsyncClient() as client:
-            # Передаем params
+            # Передаем bot_id в параметрах
             resp = await client.get(url, headers=headers, params=params)
             
         logging.info(f"Bot-t Response Status: {resp.status_code}")
         
         if resp.status_code == 200:
             data = resp.json()
-            # Bot-t часто возвращает список товаров в поле "data" или "items"
-            # Если пришел сразу список — берем его.
+            # Bot-t может вернуть просто список или { "data": [...] }
             items = data.get("data", data) if isinstance(data, dict) else data
-            
             logging.info(f"Товары загружены: {len(items) if isinstance(items, list) else 0} шт.")
             return items
         else:
@@ -7538,6 +7533,7 @@ async def get_bott_goods_proxy(
     except Exception as e:
         logging.error(f"Сбой соединения с Bot-t: {e}")
         return []
+
 # 2. Эндпоинт: Купить товар
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
@@ -7552,47 +7548,43 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
 
-    # ШАГ 1: Проверяем баланс пользователя
+    # ШАГ 1: Проверка баланса
     user_db = await supabase.table("users").select("tickets").eq("telegram_id", user_id).execute()
-    
-    if not user_db.data:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-        
-    current_balance = user_db.data[0].get('tickets', 0)
-    
-    if current_balance < price:
+    if not user_db.data or user_db.data[0].get('tickets', 0) < price:
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-    # ШАГ 2: Списываем средства
+    # ШАГ 2: Списание
     await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
 
-    # ШАГ 3: Отправляем приказ в Bot-t
-    url = "https://api.bot-t.com/v1/shop/orders" 
+    # ШАГ 3: Создание заказа (u_api/orders)
+    url = "https://api.bot-t.com/v1/u_api/orders" 
     
     payload = {
-        "bot_id": BOTT_BOT_ID,      # Используем переменную из начала файла
-        "user_id": user_id,         # Telegram ID получателя
-        "item_id": item_id,         # Товар
-        "status": 1,                # Оплачено
+        "bot_id": BOTT_BOT_ID,
+        "user_id": user_id,
+        "item_id": item_id,
+        "status": 1, # Оплачено
         "amount": price,
-        "comment": "Оплата звездами (Internal App)"
+        "comment": "Internal App Purchase"
     }
     
     async with httpx.AsyncClient() as client:
+        # Важно: передаем bot_id еще и в query параметрах на всякий случай
         order_resp = await client.post(
             url, 
             json=payload, 
-            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"}
+            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"},
+            params={"bot_id": BOTT_BOT_ID} 
         )
         
-    logging.info(f"Ответ Bot-t на выдачу: {order_resp.status_code} - {order_resp.text}")
+    logging.info(f"Ответ Bot-t (Order): {order_resp.status_code} - {order_resp.text}")
 
     if order_resp.status_code not in [200, 201]:
-        # Если ошибка - возвращаем деньги
+        # Возврат средств
         await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
-        raise HTTPException(status_code=500, detail="Ошибка выдачи товара. Средства возвращены.")
+        raise HTTPException(status_code=500, detail="Ошибка магазина. Средства возвращены.")
 
-    return {"message": "Успешно! Бот отправил вам товар."}
+    return {"message": "Товар куплен!"}
 
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
