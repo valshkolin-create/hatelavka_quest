@@ -1127,37 +1127,93 @@ async function startQuestRoulette() {
         }, 500);
     }
 
+    // --- ФУНКЦИИ МАГАЗИНА ---
+
+// 1. Функция загрузки товаров
+async function loadAndRenderShop() {
+    const container = document.getElementById('shop-container');
+    container.innerHTML = '<div class="spinner"></div>'; // Показываем спиннер
+    
+    try {
+        // Запрашиваем товары у вашего Python-сервера
+        // Убедитесь, что в Python (index.py) есть эндпоинт /api/v1/shop/goods
+        const goods = await makeApiRequest('/api/v1/shop/goods');
+        
+        container.innerHTML = ''; // Очищаем спиннер
+        
+        if (!goods || goods.length === 0) {
+            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">В магазине пока пусто.</p>';
+            return;
+        }
+
+        // Рисуем карточки товаров
+        goods.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'shop-item';
+            
+            // Подставляем данные (image_url, name, price)
+            // Если картинки нет, ставим заглушку
+            const imgUrl = item.image_url || 'https://placehold.co/150/2c2c2c/ffffff?text=No+Image';
+            
+            card.innerHTML = `
+                <img src="${escapeHTML(imgUrl)}" alt="${escapeHTML(item.name)}">
+                <h3>${escapeHTML(item.name)}</h3>
+                <p>${item.price} <i class="fa-solid fa-star"></i></p>
+                <button class="shop-btn">Купить</button>
+            `;
+            
+            // Вешаем клик на кнопку "Купить"
+            const btn = card.querySelector('.shop-btn');
+            btn.onclick = () => buyItem(item.id, item.price, item.name);
+            
+            container.appendChild(card);
+        });
+        
+    } catch (e) {
+        container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #ff453a;">Ошибка загрузки магазина. Попробуйте позже.</p>';
+        console.error(e);
+    }
+}
+
+// 2. Функция покупки
+async function buyItem(itemId, price, name) {
+    Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звёзд?`, async (ok) => {
+        if (!ok) return;
+        
+        try {
+            // Вызываем эндпоинт покупки
+            await makeApiRequest('/api/v1/shop/buy', { item_id: itemId, price: price });
+            
+            Telegram.WebApp.showAlert(`Успешно! Товар "${name}" выдан.`);
+            
+            // Обновляем баланс в интерфейсе (перезагружаем данные пользователя)
+            await main(); 
+            
+        } catch (e) {
+            // Если недостаточно денег или ошибка
+            Telegram.WebApp.showAlert(e.message || "Ошибка при покупке");
+        }
+    });
+}
+
 function setupEventListeners() {
-   // --- ЛОГИКА ДЛЯ МАГАЗИНА BOT-T ---
+   // --- ЛОГИКА ДЛЯ МАГАЗИНА (ВНУТРЕННИЙ ВИД) ---
         const shopBtn = document.getElementById('shop-open-btn');
         if (shopBtn) {
-            shopBtn.addEventListener('click', async () => {
-                // Блокируем кнопку, чтобы не кликали дважды
-                shopBtn.disabled = true;
-                const originalText = shopBtn.innerHTML;
-                shopBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
-
-                try {
-                    // 1. Запрашиваем сгенерированную ссылку у вашего бэкенда
-                    const result = await makeApiRequest('/api/v1/user/shop_link', {}, 'POST');
-
-                    if (result && result.url) {
-                        // 2. Открываем ссылку через Telegram SDK с флагом try_instant_view
-                        Telegram.WebApp.openLink(result.url, { try_instant_view: true });
-                    } else {
-                        Telegram.WebApp.showAlert('Не удалось получить ссылку на магазин.');
-                    }
-                } catch (e) {
-                    console.error("Ошибка открытия магазина:", e);
-                    Telegram.WebApp.showAlert('Ошибка: ' + (e.message || 'Неизвестная ошибка'));
-                } finally {
-                    // Возвращаем кнопку в исходное состояние
-                    shopBtn.disabled = false;
-                    shopBtn.innerHTML = originalText;
+            shopBtn.addEventListener('click', () => {
+                // 1. Прячем Dashboard, показываем Shop
+                dom.viewDashboard.classList.add('hidden');
+                dom.viewQuests.classList.add('hidden');
+                
+                const viewShop = document.getElementById('view-shop');
+                if (viewShop) {
+                    viewShop.classList.remove('hidden');
+                    // 2. Загружаем товары
+                    loadAndRenderShop();
                 }
             });
         }
-    // --- КОНЕЦ ЛОГИКИ МАГАЗИНА ---
+        // --- КОНЕЦ ЛОГИКИ ---
     // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
     // Сохраняем состояние аккордеона при его открытии/закрытии
     if (dom.weeklyGoalsAccordion) {
