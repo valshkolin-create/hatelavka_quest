@@ -546,6 +546,63 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Quest Bot API")
 # app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
 
+# --- 📊 АНАЛИТИКА И БУФЕРИЗАЦИЯ ---
+
+LOG_BUFFER = []
+LAST_FLUSH_TIME = time.time()
+BUFFER_SIZE_LIMIT = 50  # Сбрасывать каждые 50 запросов
+FLUSH_INTERVAL = 30     # Или каждые 30 секунд
+
+async def flush_logs_to_db():
+    """Отправляет накопленные логи в Supabase одной пачкой."""
+    global LOG_BUFFER, LAST_FLUSH_TIME
+    
+    if not LOG_BUFFER:
+        return
+
+    logs_to_insert = LOG_BUFFER.copy()
+    LOG_BUFFER = []
+    LAST_FLUSH_TIME = time.time()
+
+    try:
+        # Используем глобальный supabase клиент
+        await supabase.table("request_analytics").insert(logs_to_insert).execute()
+    except Exception as e:
+        logging.error(f"⚠️ Ошибка сохранения аналитики: {e}")
+
+@app.middleware("http")
+async def analytics_middleware(request: Request, call_next):
+    start_time = time.time()
+    
+    response = await call_next(request)
+    
+    process_time = time.time() - start_time
+    
+    # Фильтруем: не логируем статику, favicon и OPTIONS запросы (CORS check)
+    if (not request.url.path.startswith("/public") 
+        and not request.url.path.startswith("/favicon.ico")
+        and request.method != "OPTIONS"):
+        
+        log_entry = {
+            "path": request.url.path,
+            "method": request.method,
+            "execution_time": process_time,
+            "status_code": response.status_code
+        }
+        LOG_BUFFER.append(log_entry)
+        
+        # Проверяем буфер
+        if len(LOG_BUFFER) >= BUFFER_SIZE_LIMIT or (time.time() - LAST_FLUSH_TIME) > FLUSH_INTERVAL:
+            asyncio.create_task(flush_logs_to_db())
+            
+    return response
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await flush_logs_to_db()
+
+# --- КОНЕЦ БЛОКА АНАЛИТИКИ ---
+
 # --- Middlewares ---
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
@@ -2782,6 +2839,25 @@ async def create_event(
     except Exception as e:
         logging.error(f"Непредвиденная ошибка при создании события: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+@app.post("/api/v1/admin/stats/endpoints")
+async def get_endpoint_statistics(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Получает статистику использования эндпоинтов."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Вызываем нашу SQL функцию
+        response = await supabase.rpc("get_endpoint_stats_summary", {})
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logging.error(f"Ошибка получения статистики эндпоинтов: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось загрузить статистику.")
 
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
