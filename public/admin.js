@@ -4448,6 +4448,7 @@ if (dom.settingQuestScheduleOverride) {
             refreshApiBtn.addEventListener('click', async () => {
                 await loadStatistics();
             });
+        }
             // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
         if (dom.openGrantCpSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
