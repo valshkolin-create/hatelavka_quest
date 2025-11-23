@@ -568,30 +568,56 @@
             </div>
         </div>
 
-        <div id="view-admin-statistics" class="view hidden">
+<div id="view-admin-statistics" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Статистика</h1>
                 <div style="width: 60px;"></div>
             </div>
+            
             <div id="statistics-content">
+                
                 <h2 style="font-size: 20px; margin-bottom: 15px;">Склад Рулеток 📦</h2>
-                 <div class="stats-grid">
+                <div class="stats-grid">
                     <div class="stat-card">
-                         <div class="stat-card-header">
+                        <div class="stat-card-header">
                             <h4>Всего скинов в наличии</h4>
                             <div class="tooltip">?<span class="tooltip-text">Общее количество всех скинов, доступных для выпадения во всех рулетках.</span></div>
                         </div>
                         <p id="stat-total-stock">0</p>
                     </div>
-                     <div class="stat-card">
-                         <div class="stat-card-header">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
                             <h4>Примерная стоимость</h4>
                             <div class="tooltip">?<span class="tooltip-text">Скоро... Ориентировочная суммарная стоимость всех скинов на складе.</span></div>
                         </div>
                         <p>Скоро...</p>
                     </div>
+                </div> <div class="quest-card" style="margin-top: 20px;">
+                    <div class="stat-card-header" style="justify-content: space-between; margin-bottom: 15px;">
+                        <h3 style="margin: 0;">🔥 Нагрузка API (Топ-50)</h3>
+                        <button id="refresh-api-stats-btn" class="admin-menu-button" style="width: auto; padding: 6px 12px; font-size: 12px;">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Метод</th>
+                                    <th>Путь (Endpoint)</th>
+                                    <th class="text-center">Вызовы</th>
+                                    <th class="text-center">Ср. время</th>
+                                </tr>
+                            </thead>
+                            <tbody id="api-stats-tbody">
+                                <tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-color-muted);">Загрузка данных...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
             </div>
         </div>
 
