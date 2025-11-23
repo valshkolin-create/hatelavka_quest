@@ -387,35 +387,37 @@ async function renderCauldronParticipants() {
 async function loadStatistics() {
         showLoader();
         try {
-            // 1. Запрашиваем статистику склада
+            // Запрашиваем только данные о складе
             const stats = await makeApiRequest("/api/v1/admin/stats", {}, 'POST', true);
-            
-            // 2. Запрашиваем новую статистику API
-            const apiStats = await makeApiRequest("/api/v1/admin/stats/endpoints", {}, 'POST', true);
 
-            // --- Обновление UI ---
-            
-            // Обновляем цифру склада
+            // Очищаем старую статистику
+            dom.statisticsContent.innerHTML = '';
+
+            // Отображаем новую статистику склада
             const totalStock = stats.total_skin_stock !== undefined ? stats.total_skin_stock : 0;
-            const stockElement = document.getElementById('stat-total-stock');
-            if (stockElement) {
-                stockElement.textContent = totalStock;
-            }
 
-            // Рендерим таблицу API (используем helper функцию)
-            renderApiStatsTable(apiStats);
+            dom.statisticsContent.innerHTML = `
+                <h2 style="font-size: 20px; margin-bottom: 15px;">Склад Рулеток 📦</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                         <div class="stat-card-header">
+                            <h4>Всего скинов в наличии</h4>
+                            <div class="tooltip">?<span class="tooltip-text">Общее количество всех скинов, доступных для выпадения во всех рулетках.</span></div>
+                        </div>
+                        <p id="stat-total-stock">${totalStock}</p>
+                    </div>
+                     <div class="stat-card">
+                         <div class="stat-card-header">
+                            <h4>Примерная стоимость</h4>
+                            <div class="tooltip">?<span class="tooltip-text">Скоро... Ориентировочная суммарная стоимость всех скинов на складе.</span></div>
+                        </div>
+                        <p>Скоро...</p>
+                    </div>
+                </div>
+            `;
 
         } catch (e) {
-            console.error("Ошибка загрузки статистики:", e);
-            
-            // Если есть таблица, пишем ошибку туда
-            const tbody = document.getElementById('api-stats-tbody');
-            if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="4" class="error-message" style="text-align:center; color: var(--danger-color);">Ошибка: ${escapeHTML(e.message)}</td></tr>`;
-            }
-            
-            // И показываем алерт
-            tg.showAlert(`Ошибка: ${e.message}`);
+            dom.statisticsContent.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить статистику склада: ${e.message}</p>`;
         } finally {
             hideLoader();
         }
@@ -1204,40 +1206,6 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             // Заменяем dom.tabContentEventPrizes на targetElement
             targetElement.innerHTML += cardHtml;
         });
-    }
-
-function renderApiStatsTable(data) {
-        const tbody = document.getElementById('api-stats-tbody');
-        if (!tbody) return;
-
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: var(--text-color-muted);">Данных пока нет. Сделайте пару запросов в боте.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = data.map(row => {
-            // Логика цветов для времени выполнения
-            const avgTime = parseFloat(row.avg_time);
-            let timeStyle = 'color: var(--text-color); font-family: monospace;';
-            
-            if (avgTime > 1.0) {
-                timeStyle = 'color: var(--danger-color); font-weight: 700; font-family: monospace;'; // Критично (> 1 сек)
-            } else if (avgTime > 0.5) {
-                timeStyle = 'color: var(--warning-color); font-weight: 600; font-family: monospace;'; // Внимание (> 0.5 сек)
-            }
-
-            // Стиль для бейджа метода
-            const methodClass = `method-${row.method}`; // CSS класс будет добавлен позже
-
-            return `
-                <tr>
-                    <td><span class="method-badge ${methodClass}">${escapeHTML(row.method)}</span></td>
-                    <td style="font-family: monospace; font-size: 12px; word-break: break-all; color: var(--text-color-muted);">${escapeHTML(row.path)}</td>
-                    <td class="text-center" style="font-weight: 600;">${row.usage_count}</td>
-                    <td class="text-center" style="${timeStyle}">${avgTime.toFixed(4)}s</td>
-                </tr>
-            `;
-        }).join('');
     }
 
     async function loadAndRenderSettings() {
@@ -4441,15 +4409,123 @@ if (dom.settingQuestScheduleOverride) {
                 }
             });
         }
-
-        // Обработчик кнопки обновления статистики API
-        const refreshApiBtn = document.getElementById('refresh-api-stats-btn');
-        if (refreshApiBtn) {
-            refreshApiBtn.addEventListener('click', async () => {
-                await loadStatistics();
-            });
+            
         }
-            // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
+        
+
+/**
+     * Загружает и отображает список квестов или челленджей в модальное окно.
+     * Отмечает и сортирует активный для выбранного пользователя.
+     * @param {string} entityType - 'quest' или 'challenge'
+     */
+    async function loadEntitiesForForceComplete(entityType) {
+        // --- ЛОГ 1 ---
+        console.log(`[ForceComplete] START: entityType = ${entityType}`);
+
+        const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
+        // Добавил (v4) для уверенности
+        container.innerHTML = '<i>Загрузка... (JS v4)</i>';
+
+        let activeUserEntities = { quest_id: null, challenge_id: null };
+
+        if (!selectedAdminUser) {
+            // --- ЛОГ 2 ---
+            console.error("[ForceComplete] FATAL: selectedAdminUser is null!");
+            container.innerHTML = '<p class="error-message">Ошибка: Пользователь не выбран.</p>';
+            return;
+        }
+
+        // --- ЛОГ 3 ---
+        console.log(`[ForceComplete] User selected: ID=${selectedAdminUser.id}, Name=${selectedAdminUser.name}`);
+
+        try {
+            // --- ЛОГ 4 ---
+            console.log("[ForceComplete] Starting Promise.allSettled...");
+            const [activeDataResult, entitiesResult] = await Promise.allSettled([
+                makeApiRequest(`/api/v1/admin/users/${selectedAdminUser.id}/active_entities?initData=${encodeURIComponent(tg.initData)}`, {}, 'GET', true),
+                makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true)
+            ]);
+
+            // --- ЛОГ 5 ---
+            console.log("[ForceComplete] Promise.allSettled FINISHED.");
+            console.log("[ForceComplete] activeDataResult:", JSON.stringify(activeDataResult, null, 2));
+            console.log("[ForceComplete] entitiesResult:", JSON.stringify(entitiesResult, null, 2));
+
+            // Обработка результата активных сущностей
+            if (activeDataResult.status === 'fulfilled' && activeDataResult.value) {
+                activeUserEntities.quest_id = activeDataResult.value.active_quest_id;
+                activeUserEntities.challenge_id = activeDataResult.value.active_challenge_id;
+                // --- ЛОГ 6 ---
+                console.log("[ForceComplete] Active entities parsed:", activeUserEntities);
+            } else if (activeDataResult.status === 'rejected') {
+                // --- ЛОГ 7 ---
+                console.warn("[ForceComplete] Failed to get active entities:", activeDataResult.reason?.message || activeDataResult.reason);
+            }
+
+            // Обработка результата списка сущностей
+            if (entitiesResult.status === 'rejected') {
+                 // --- ЛОГ 8 ---
+                 console.error("[ForceComplete] Failed to list entities:", entitiesResult.reason);
+                 throw entitiesResult.reason; // Перебрасываем ошибку загрузки списка
+            }
+
+            let entities = entitiesResult.value; // Используем let, так как будем сортировать
+
+            // --- ЛОГ 9 ---
+            console.log(`[ForceComplete] Entities list received. Count: ${entities ? entities.length : 'null'}`);
+
+
+            if (!entities || entities.length === 0) {
+                container.innerHTML = `<p style="text-align: center;">Активных ${entityType === 'quest' ? 'квестов' : 'челленджей'} не найдено.</p>`;
+                return;
+            }
+
+            // --- СОРТИРОВКА ---
+            const activeEntityId = (entityType === 'quest') ? activeUserEntities.quest_id : activeUserEntities.challenge_id;
+            entities.sort((a, b) => {
+                const aIsActive = a.id === activeEntityId;
+                const bIsActive = b.id === activeEntityId;
+                if (aIsActive && !bIsActive) return -1; // Активный элемент идет первым
+                if (!aIsActive && bIsActive) return 1;  // Активный элемент идет первым
+                // Если оба активны/неактивны, сортируем по ID или названию (опционально)
+                return (a.title || '').localeCompare(b.title || ''); // Сортировка по названию
+                // return a.id - b.id; // Или сортировка по ID
+            });
+            console.log("[ForceComplete] Entities sorted.");
+            // --- КОНЕЦ СОРТИРОВКИ ---
+
+            // --- ЛОГ 10 ---
+            console.log("[ForceComplete] Rendering list...");
+
+            // 3. Рендерим отсортированный список
+            container.innerHTML = entities.map(entity => {
+                const isActive = entity.id === activeEntityId; // Перепроверяем после сортировки
+                const activeClass = isActive ? 'active' : ''; // Класс для подсветки
+
+                return `
+                <div class="submission-item entity-list-item ${activeClass}"
+                     data-entity-id="${entity.id}"
+                     data-entity-type="${entityType}"
+                     data-entity-name="${escapeHTML(entity.title)}"
+                     style="cursor: pointer;">
+                    <p style="margin: 0; font-weight: 500;">
+                        ${isActive ? '⭐ ' : ''}${escapeHTML(entity.title)} (ID: ${entity.id})
+                    </p>
+                </div>
+            `;
+            }).join('');
+
+            // --- ЛОГ 11 ---
+            console.log("[ForceComplete] Rendering FINISHED.");
+
+        } catch (e) {
+            // --- ЛОГ 12 ---
+            console.error("[ForceComplete] CATCH block triggered:", e);
+            container.innerHTML = `<p class="error-message">Ошибка загрузки (v4): ${e.message}</p>`;
+        }
+    }
+
+        // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
         if (dom.openGrantCpSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
             dom.openGrantCpSearchBtn.addEventListener('click', () => {
@@ -4463,11 +4539,12 @@ if (dom.settingQuestScheduleOverride) {
                     dom.grantCheckpointStarsForm.elements['amount_cp'].focus();
                 });
             });
-        }   
+        }
         if(dom.grantCheckpointStarsForm) {
             // 2. Отправка самой формы (после выбора пользователя)
             dom.grantCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_grant_cp'].value);
                 const amount = parseInt(form.elements['amount_cp'].value);
@@ -4497,6 +4574,20 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
         
+        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ ЗВЕЗД ЧЕКПОИНТА ---
+        if (dom.openFreezeCpSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openFreezeCpSearchBtn.addEventListener('click', () => {
+                dom.freezeCheckpointStarsForm.classList.add('hidden'); // Прячем форму подтверждения
+                openAdminUserSearchModal('Заморозить/разморозить звезды Чекпоинта', (user) => {
+                    // Коллбэк после выбора пользователя
+                    dom.freezeCheckpointStarsForm.elements['user_id_to_freeze_cp'].value = user.id;
+                    dom.freezeCpUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.freezeCheckpointStarsForm.classList.remove('hidden'); // Показываем форму
+                    dom.freezeCheckpointStarsForm.elements['days_cp'].focus();
+                });
+            });
+        }
         if(dom.freezeCheckpointStarsForm) {
             // 2. Отправка самой формы (после выбора пользователя)
             dom.freezeCheckpointStarsForm.addEventListener('submit', async (e) => {
@@ -4509,13 +4600,13 @@ if (dom.settingQuestScheduleOverride) {
                      return;
                 }
                 try {
+                    // Используем user_id из Pydantic модели
                     const result = await makeApiRequest('/api/v1/admin/users/freeze-checkpoint-stars', { user_id: userId, days: days });
                     tg.showAlert(result.message);
                     form.reset(); form.classList.add('hidden'); selectedAdminUser = null; // Сброс
                 } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
             });
         }
-
         // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ БИЛЕТОВ ---
         if (dom.openGrantTicketsSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
@@ -4535,12 +4626,13 @@ if (dom.settingQuestScheduleOverride) {
             // 2. Отправка самой формы (после выбора пользователя)
             dom.grantTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_grant_tickets'].value);
                 const amount = parseInt(form.elements['amount_tickets'].value);
                 if (!userId || !amount || amount <= 0) return;
 
-                const result = await makeApiRequest('/api/v1/admin/users/grant-stars', { 
+                const result = await makeApiRequest('/api/v1/admin/users/grant-stars', { // Используем /grant-stars, как в твоем коде
                     user_id_to_grant: userId,
                     amount: amount
                 });
@@ -4563,7 +4655,19 @@ if (dom.settingQuestScheduleOverride) {
                 });
             });
         }
-        
+        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ БИЛЕТОВ ---
+        if (dom.openFreezeTicketsSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openFreezeTicketsSearchBtn.addEventListener('click', () => {
+                dom.freezeTicketsForm.classList.add('hidden');
+                openAdminUserSearchModal('Заморозить/разморозить билеты', (user) => {
+                    dom.freezeTicketsForm.elements['user_id_to_freeze_tickets'].value = user.id;
+                    dom.freezeTicketsUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.freezeTicketsForm.classList.remove('hidden');
+                    dom.freezeTicketsForm.elements['days_tickets'].focus();
+                });
+            });
+        }
         if(dom.freezeTicketsForm) {
             // 2. Отправка самой формы
             dom.freezeTicketsForm.addEventListener('submit', async (e) => {
@@ -4576,6 +4680,7 @@ if (dom.settingQuestScheduleOverride) {
                      return;
                  }
                 try {
+                    // Используем user_id из Pydantic модели
                     const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', { user_id: userId, days: days });
                     tg.showAlert(result.message);
                     form.reset(); form.classList.add('hidden'); selectedAdminUser = null; // Сброс
@@ -4585,6 +4690,7 @@ if (dom.settingQuestScheduleOverride) {
         
         // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК СБРОСА НАГРАД ЧЕКПОИНТА ---
         if (dom.openResetCpProgressSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
             dom.openResetCpProgressSearchBtn.addEventListener('click', () => {
                 dom.resetCheckpointProgressForm.classList.add('hidden');
                 openAdminUserSearchModal('Сбросить награды Чекпоинта', (user) => {
@@ -4595,6 +4701,7 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
         if (dom.resetCheckpointProgressForm) {
+            // 2. Отправка самой формы
             dom.resetCheckpointProgressForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
@@ -4604,6 +4711,7 @@ if (dom.settingQuestScheduleOverride) {
                 tg.showConfirm(`Точно сбросить ВСЕ награды Чекпоинта для пользователя ${dom.resetCpProgressUserName.textContent}? Звёзды останутся.`, async (ok) => {
                     if (ok) {
                          try {
+                            // Эндпоинт остается тот же, но теперь ID берется из скрытого поля
                             const result = await makeApiRequest('/api/v1/admin/users/reset-checkpoint-progress', { user_id: userId });
                             tg.showAlert(result.message);
                             form.reset(); form.classList.add('hidden'); selectedAdminUser = null;
@@ -4615,6 +4723,7 @@ if (dom.settingQuestScheduleOverride) {
 
         // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ОБНУЛЕНИЯ ЗВЕЗД ЧЕКПОИНТА ---
         if (dom.openClearCpStarsSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
             dom.openClearCpStarsSearchBtn.addEventListener('click', () => {
                 dom.clearCheckpointStarsForm.classList.add('hidden');
                 openAdminUserSearchModal('Обнулить звёзды Чекпоинта', (user) => {
@@ -4625,6 +4734,7 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
         if (dom.clearCheckpointStarsForm) {
+            // 2. Отправка самой формы
             dom.clearCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
@@ -4634,6 +4744,7 @@ if (dom.settingQuestScheduleOverride) {
                 tg.showConfirm(`Точно обнулить БАЛАНС звёзд Чекпоинта для ${dom.clearCpStarsUserName.textContent}? Полученные награды останутся.`, async (ok) => {
                      if (ok) {
                          try {
+                             // Эндпоинт остается тот же
                              const result = await makeApiRequest('/api/v1/admin/users/clear-checkpoint-stars', { user_id: userId });
                              tg.showAlert(result.message);
                              form.reset(); form.classList.add('hidden'); selectedAdminUser = null;
@@ -4645,14 +4756,14 @@ if (dom.settingQuestScheduleOverride) {
 
         if(dom.modalCloseBtn) dom.modalCloseBtn.addEventListener('click', () => {
             dom.submissionsModal.classList.add('hidden');
-            dom.submissionsModal.dataset.sourceType = ''; 
-            dom.submissionsModal.dataset.sourceId = '';
+            dom.submissionsModal.dataset.sourceType = ''; // Очистка
+            dom.submissionsModal.dataset.sourceId = '';   // Очистка
         });
         if(dom.submissionsModal) dom.submissionsModal.addEventListener('click', (e) => { 
             if (e.target === dom.submissionsModal) {
                 dom.submissionsModal.classList.add('hidden'); 
-                dom.submissionsModal.dataset.sourceType = '';
-                dom.submissionsModal.dataset.sourceId = '';
+                dom.submissionsModal.dataset.sourceType = ''; // Очистка
+                dom.submissionsModal.dataset.sourceId = '';   // Очистка
             }
         });
 
@@ -4671,39 +4782,41 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
 
-        if(dom.createRoulettePrizeForm) {
-            dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const form = e.target;
-                const quantity = parseInt(form.elements['quantity'].value);
+if(dom.createRoulettePrizeForm) {
+        dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const quantity = parseInt(form.elements['quantity'].value);
 
-                if (isNaN(quantity) || quantity < 0) {
-                     tg.showAlert('Количество должно быть 0 или больше.');
-                     return;
-                }
+            if (isNaN(quantity) || quantity < 0) {
+                 tg.showAlert('Количество должно быть 0 или больше.');
+                 return;
+            }
 
-                const data = {
-                    reward_title: form.elements['reward_title'].value,
-                    skin_name: form.elements['skin_name'].value,
-                    image_url: form.elements['image_url'].value,
-                    chance_weight: parseFloat(form.elements['chance_weight'].value),
-                    quantity: quantity 
-                };
+            const data = {
+                reward_title: form.elements['reward_title'].value,
+                skin_name: form.elements['skin_name'].value,
+                image_url: form.elements['image_url'].value,
+                chance_weight: parseFloat(form.elements['chance_weight'].value),
+                quantity: quantity // <-- Убедись, что это поле добавлено
+            };
 
-                await makeApiRequest('/api/v1/admin/roulette/create', data);
-                tg.showAlert('Приз добавлен!');
-                form.elements['skin_name'].value = '';
-                form.elements['image_url'].value = '';
-                form.elements['chance_weight'].value = 10;
-                form.elements['quantity'].value = 0;
-                form.elements['skin_name'].focus();
+            await makeApiRequest('/api/v1/admin/roulette/create', data);
+            tg.showAlert('Приз добавлен!');
+            // Очищаем только поля скина, оставляем название рулетки
+            form.elements['skin_name'].value = '';
+            form.elements['image_url'].value = '';
+            form.elements['chance_weight'].value = 10;
+            form.elements['quantity'].value = 0; // Сбрасываем количество
+            form.elements['skin_name'].focus();
 
-                const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
-                renderRoulettePrizes(prizes);
-            });
-        }
+            // Перезагружаем список призов
+            const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+            renderRoulettePrizes(prizes);
+        });
+    }
 
-       if(dom.roulettePrizesList) {
+        if(dom.roulettePrizesList) {
             dom.roulettePrizesList.addEventListener('click', async (e) => {
                 const deleteBtn = e.target.closest('.delete-roulette-prize-btn');
                 if (deleteBtn) {
@@ -4717,82 +4830,6 @@ if (dom.settingQuestScheduleOverride) {
                     });
                 }
             });
-        }          
-    } // <--- ✅ ОДНА скобка, закрывающая setupEventListeners
- /**
-     * Загружает и отображает список квестов или челленджей в модальное окно.
-     * Отмечает и сортирует активный для выбранного пользователя.
-     * @param {string} entityType - 'quest' или 'challenge'
-     */
-    async function loadEntitiesForForceComplete(entityType) {
-        console.log(`[ForceComplete] START: entityType = ${entityType}`);
-
-        const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
-        container.innerHTML = '<i>Загрузка...</i>';
-
-        let activeUserEntities = { quest_id: null, challenge_id: null };
-
-        if (!selectedAdminUser) {
-            console.error("[ForceComplete] FATAL: selectedAdminUser is null!");
-            container.innerHTML = '<p class="error-message">Ошибка: Пользователь не выбран.</p>';
-            return;
-        }
-
-        try {
-            const [activeDataResult, entitiesResult] = await Promise.allSettled([
-                makeApiRequest(`/api/v1/admin/users/${selectedAdminUser.id}/active_entities?initData=${encodeURIComponent(tg.initData)}`, {}, 'GET', true),
-                makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true)
-            ]);
-
-            // Обработка результата активных сущностей
-            if (activeDataResult.status === 'fulfilled' && activeDataResult.value) {
-                activeUserEntities.quest_id = activeDataResult.value.active_quest_id;
-                activeUserEntities.challenge_id = activeDataResult.value.active_challenge_id;
-            }
-
-            // Обработка результата списка сущностей
-            if (entitiesResult.status === 'rejected') {
-                 throw entitiesResult.reason; 
-            }
-
-            let entities = entitiesResult.value;
-
-            if (!entities || entities.length === 0) {
-                container.innerHTML = `<p style="text-align: center;">Активных ${entityType === 'quest' ? 'квестов' : 'челленджей'} не найдено.</p>`;
-                return;
-            }
-
-            // --- СОРТИРОВКА ---
-            const activeEntityId = (entityType === 'quest') ? activeUserEntities.quest_id : activeUserEntities.challenge_id;
-            entities.sort((a, b) => {
-                const aIsActive = a.id === activeEntityId;
-                const bIsActive = b.id === activeEntityId;
-                if (aIsActive && !bIsActive) return -1; 
-                if (!aIsActive && bIsActive) return 1;  
-                return (a.title || '').localeCompare(b.title || ''); 
-            });
-
-            // 3. Рендерим отсортированный список
-            container.innerHTML = entities.map(entity => {
-                const isActive = entity.id === activeEntityId; 
-                const activeClass = isActive ? 'active' : ''; 
-
-                return `
-                <div class="submission-item entity-list-item ${activeClass}"
-                     data-entity-id="${entity.id}"
-                     data-entity-type="${entityType}"
-                     data-entity-name="${escapeHTML(entity.title)}"
-                     style="cursor: pointer;">
-                    <p style="margin: 0; font-weight: 500;">
-                        ${isActive ? '⭐ ' : ''}${escapeHTML(entity.title)} (ID: ${entity.id})
-                    </p>
-                </div>
-            `;
-            }).join('');
-
-        } catch (e) {
-            console.error("[ForceComplete] CATCH block triggered:", e);
-            container.innerHTML = `<p class="error-message">Ошибка загрузки: ${e.message}</p>`;
         }
     }
 
@@ -4871,7 +4908,6 @@ async function main() {
         main();
     });
 } catch (e) {
-        console.error(`Критическая ошибка на старте: ${e.message}`);
-        alert(`Критическая ошибка: ${e.message}`);
-    }
-// Конец файла
+    console.error(`Критическая ошибка на старте: ${e.message}`);
+    alert(`Критическая ошибка: ${e.message}`);
+}
