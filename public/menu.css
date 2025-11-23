@@ -219,51 +219,97 @@
     .expired-overlay-text { font-size: 16px; font-weight: bold; color: var(--danger-color); text-shadow: 0 0 8px black; margin-bottom: 10px; }
     /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ИСТЕКШИХ ЗАДАНИЙ --- */
     
-    /* --- УЛУЧШЕННЫЕ СТИЛИ ДЛЯ НИЖНИХ КНОПОК --- */
-    .footer-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 2px; /* ИЗМЕНЕНИЕ: 4px -> 2px */
-        color: var(--text-color-muted);
-        font-size: 10px; /* ИЗМЕНЕНИЕ: 11px -> 10px */
-        cursor: pointer;
-        text-decoration: none;
-        flex: 1;
-        position: relative;
-        transition: color 0.3s ease;
-    }
-    .footer-item .icon-wrapper {
-        font-size: 22px; /* ИЗМЕНЕНИЕ: 26px -> 22px */
-        width: 28px; /* ИЗМЕНЕНИЕ: 32px -> 28px */
-        height: 28px; /* ИЗМЕНЕНИЕ: 32px -> 28px */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        position: relative;
-        transition: color 0.3s ease, transform 0.3s ease;
-    }
-    .footer-item.active span {
-        color: var(--text-color);
-        font-weight: 600;
-    }
-    .footer-item.active .icon-wrapper {
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        text-shadow: 0 0 10px var(--primary-color);
-    }
-    .footer-item.active .icon-wrapper::before {
-        content: '';
-        position: absolute;
-        top: -6px;
-        width: 28px;
-        height: 3px;
-        background-color: var(--primary-color);
-        border-radius: 2px;
-        /* box-shadow: 0 0 8px var(--primary-color); */
-    }
-    /* --- КОНЕЦ СТИЛЕЙ ДЛЯ НИЖНИХ КНОПОК --- */
+    /* --- ЕДИНЫЙ ФИКСИРОВАННЫЙ ФУТЕР (ВСТАВИТЬ ВО ВСЕ ФАЙЛЫ) --- */
+.app-footer {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    
+    /* Жесткие цвета, чтобы не зависеть от переменных разных файлов */
+    background-color: rgba(28, 28, 30, 0.85); 
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 9999; /* Поверх всего */
+    
+    /* ФИКСИРОВАННАЯ ВЫСОТА И ОТСТУПЫ */
+    /* Высота контента (иконка + текст) = ~40-44px. 
+       Добавляем паддинги сверху и снизу */
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    box-sizing: border-box; /* Гарантирует, что padding не раздувает ширину */
+    height: auto; /* Высота определяется контентом и паддингами */
+}
+
+.footer-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px; /* Фиксированный отступ между иконкой и текстом */
+    
+    color: #8E8E93; /* Единый серый цвет для всех страниц */
+    text-decoration: none;
+    flex: 1; /* Равномерное распределение по ширине */
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    
+    /* Сброс стилей текста */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    line-height: 1; 
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.footer-item .icon-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    /* Фиксированный размер контейнера иконки, чтобы они стояли ровно */
+    width: 24px;
+    height: 24px;
+    font-size: 22px; /* Размер самой иконки */
+    
+    position: relative;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* --- Активное состояние (выбранная вкладка) --- */
+.footer-item.active {
+    color: #FFFFFF; /* Белый текст */
+}
+
+.footer-item.active span {
+    font-weight: 600;
+}
+
+.footer-item.active .icon-wrapper {
+    color: #34c759; /* Ваш зеленый акцент */
+    transform: translateY(-2px); /* Легкий подскок */
+    text-shadow: 0 0 12px rgba(52, 199, 89, 0.6); /* Свечение */
+}
+
+/* Полоска над активной иконкой */
+.footer-item.active .icon-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -8px; /* Чуть выше иконки */
+    width: 20px; /* Ширина полоски */
+    height: 2px;
+    background-color: #34c759;
+    border-radius: 2px;
+    box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
+}
 
     /* --- СТИЛИ ДЛЯ СЛАЙДЕРА НА ГЛАВНОЙ (ФИНАЛЬНАЯ ВЕРСИЯ) --- */
     .slider-container {
