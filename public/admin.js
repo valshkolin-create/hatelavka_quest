@@ -4455,6 +4455,8 @@ if (dom.settingQuestScheduleOverride) {
                 await loadStatistics();
             });
         }
+        }
+       
 
 /**
      * Загружает и отображает список квестов или челленджей в модальное окно.
