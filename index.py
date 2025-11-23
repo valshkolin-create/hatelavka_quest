@@ -7501,32 +7501,48 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Используем путь u_api (User API)
-    url = "https://api.bot-t.com/v1/u_api/goods"
+    # Используем ВАШ Host, но добавляем /api/v1/
+    # Пробуем 'items' вместо 'goods'
+    url = "https://shopdigital.bot-t.com/api/v1/shop/items"
     
     params = {
         "bot_id": BOTT_BOT_ID 
     }
 
     headers = {
-        # В документации Bot-t иногда просят передавать API Key именно так:
         "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", 
         "Content-Type": "application/json"
     }
     
     try:
         async with httpx.AsyncClient() as client:
-            # Передаем bot_id в параметрах
+            # Передаем bot_id
             resp = await client.get(url, headers=headers, params=params)
             
-        logging.info(f"Bot-t Response Status: {resp.status_code}")
+        logging.info(f"Bot-t Response ({url}): {resp.status_code}")
         
         if resp.status_code == 200:
             data = resp.json()
-            # Bot-t может вернуть просто список или { "data": [...] }
+            # Если API вернуло items, берем их. Иначе data.
             items = data.get("data", data) if isinstance(data, dict) else data
             logging.info(f"Товары загружены: {len(items) if isinstance(items, list) else 0} шт.")
             return items
+            
+        elif resp.status_code == 404:
+             # План Б: Если items не сработал, пробуем 'products'
+             logging.warning("Маршрут 'items' не найден. Пробуем 'products'...")
+             url_backup = "https://shopdigital.bot-t.com/api/v1/shop/products"
+             async with httpx.AsyncClient() as client:
+                resp_backup = await client.get(url_backup, headers=headers, params=params)
+             
+             if resp_backup.status_code == 200:
+                 data = resp_backup.json()
+                 items = data.get("data", data) if isinstance(data, dict) else data
+                 return items
+             else:
+                 logging.error(f"Ошибка API (Backup): {resp_backup.status_code} | {resp_backup.text}")
+                 return []
+                 
         else:
             logging.error(f"Ошибка API Bot-t: {resp.status_code} | {resp.text}")
             return [] 
@@ -7556,8 +7572,9 @@ async def buy_bott_item_proxy(
     # ШАГ 2: Списание
     await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
 
-    # ШАГ 3: Создание заказа (u_api/orders)
-    url = "https://api.bot-t.com/v1/u_api/orders" 
+    # ШАГ 3: Создание заказа
+    # Используем тот же хост
+    url = "https://shopdigital.bot-t.com/api/v1/shop/orders" 
     
     payload = {
         "bot_id": BOTT_BOT_ID,
@@ -7569,12 +7586,10 @@ async def buy_bott_item_proxy(
     }
     
     async with httpx.AsyncClient() as client:
-        # Важно: передаем bot_id еще и в query параметрах на всякий случай
         order_resp = await client.post(
             url, 
             json=payload, 
-            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"},
-            params={"bot_id": BOTT_BOT_ID} 
+            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"}
         )
         
     logging.info(f"Ответ Bot-t (Order): {order_resp.status_code} - {order_resp.text}")
