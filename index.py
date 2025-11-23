@@ -51,6 +51,13 @@ admin_settings_cache = {
 }
 ADMIN_SETTINGS_CACHE_DURATION = 900 # Кэшировать настройки админа на 5 минут (300 секунд)
 # --- КОНЕЦ НОВОГО КЭША ---
+# --- Добавьте этот блок после sleep_cache и admin_settings_cache ---
+webhook_cache = {
+    "ids": set(),
+    "last_cleanup": 0
+}
+WEBHOOK_CACHE_TTL = 600 # Хранить ID 10 минут
+# ------------------------------------------------------------------
 
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
@@ -1008,6 +1015,23 @@ async def handle_twitch_webhook(
 
     if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
         raise HTTPException(status_code=403, detail="Отсутствуют заголовки подписи.")
+
+    # --- 🛡️ ЗАЩИТА ОТ ДВОЙНОГО СРАБАТЫВАНИЯ (НОВЫЙ КОД) 🛡️ ---
+    current_time = time.time()
+    
+    # 1. Очистка старого кэша раз в 10 минут (чтобы память не текла)
+    if current_time - webhook_cache["last_cleanup"] > WEBHOOK_CACHE_TTL:
+        webhook_cache["ids"].clear()
+        webhook_cache["last_cleanup"] = current_time
+
+    # 2. Проверка: если ID уже был обработан, сразу отвечаем "OK" и выходим
+    if message_id in webhook_cache["ids"]:
+        logging.info(f"♻️ Дубликат вебхука Twitch (ID: {message_id}). Игнорируем.")
+        return Response(content="Duplicate ignored", status_code=200)
+
+    # 3. Запоминаем ID
+    webhook_cache["ids"].add(message_id)
+    # --- 🛡️ КОНЕЦ ЗАЩИТЫ 🛡️ ---
 
     hmac_message = (message_id + timestamp).encode() + body
     expected_signature = "sha256=" + hmac.new(
