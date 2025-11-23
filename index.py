@@ -485,6 +485,12 @@ class EventsPageContentUpdate(BaseModel):
     initData: str
     content: dict
 
+# Модели для запросов
+class ShopBuyRequest(BaseModel):
+    initData: str
+    item_id: int # ID товара в Bot-t
+    price: int   # Цена в звездах
+
 manager = ConnectionManager()
 
 # соответствие condition_type ↔ колонка из users
@@ -7488,6 +7494,101 @@ async def buy_promo_endpoint(
     except Exception as e:
         logging.error(f"Promo buy error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# 1. Эндпоинт: Получить список товаров из Bot-t
+@app.post("/api/v1/shop/goods")
+async def get_bott_goods_proxy(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # ВАШИ ДАННЫЕ (Вставьте свои!)
+    BOTT_API_KEY = "ВСТАВЬТЕ_СЮДА_ВАШ_ТОКЕН_ИЗ_НАСТРОЕК_API"
+    
+    # Ссылка на документацию Bot-t API (обычно получение товаров выглядит так)
+    # Если не сработает, проверьте раздел "Товары" в документации API Bot-t
+    url = "https://api.bot-t.com/v1/shop/goods" 
+    
+    headers = {
+        "Authorization": f"Bearer {BOTT_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # Иногда нужно передавать shop_id в параметрах
+            resp = await client.get(url, headers=headers)
+            
+        if resp.status_code == 200:
+            data = resp.json()
+            # Bot-t обычно возвращает массив товаров. 
+            # Нам нужно вернуть его фронтенду.
+            # Логируем для отладки, чтобы вы видели структуру в логах Vercel
+            logging.info(f"Товары загружены: {len(data)} шт.")
+            return data 
+        else:
+            logging.error(f"Ошибка API Bot-t: {resp.status_code} - {resp.text}")
+            return [] 
+    except Exception as e:
+        logging.error(f"Сбой соединения с Bot-t: {e}")
+        return []
+
+# 2. Эндпоинт: Купить товар (Списать звезды и выдать товар через Bot-t)
+@app.post("/api/v1/shop/buy")
+async def buy_bott_item_proxy(
+    request_data: ShopBuyRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    user_id = user_info["id"]
+    price = request_data.price
+    item_id = request_data.item_id # ID товара в системе Bot-t
+
+    # ШАГ 1: Проверяем баланс пользователя в Supabase
+    # (Убедитесь, что колонка называется 'tickets' или 'checkpoint_stars' - смотря чем платят)
+    user_db = await supabase.table("users").select("tickets").eq("telegram_id", user_id).execute()
+    
+    if not user_db.data:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+    current_balance = user_db.data[0].get('tickets', 0)
+    
+    if current_balance < price:
+        raise HTTPException(status_code=400, detail="Недостаточно средств!")
+
+    # ШАГ 2: Списываем средства в вашей базе
+    # Используем отрицательное значение для списания
+    await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
+
+    # ШАГ 3: Отправляем приказ в Bot-t выдать товар
+    BOTT_API_KEY = "ВСТАВЬТЕ_СЮДА_ВАШ_ТОКЕН_ИЗ_НАСТРОЕК_API"
+    
+    # Метод создания заказа (Order Creation)
+    # Он заставит бота отправить товар пользователю в личку
+    url = "https://api.bot-t.com/v1/shop/orders" 
+    
+    payload = {
+        "user_id": user_id, # Telegram ID получателя
+        "item_id": item_id, # Какой товар выдаем
+        "status": 1,        # 1 = Оплачено (сразу выдать)
+        "amount": price,    # Цена (для статистики в Bot-t)
+        "comment": "Оплата звездами через Mini App"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        order_resp = await client.post(url, json=payload, headers={"Authorization": f"Bearer {BOTT_API_KEY}"})
+        
+    # Логируем ответ Bot-t
+    logging.info(f"Ответ Bot-t на выдачу: {order_resp.status_code} - {order_resp.text}")
+
+    if order_resp.status_code not in [200, 201]:
+        # ВАЖНО: Если Bot-t не выдал товар, нужно вернуть деньги пользователю!
+        await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
+        raise HTTPException(status_code=500, detail="Ошибка выдачи товара (магазин недоступен). Средства возвращены.")
+
+    return {"message": "Успешно! Бот отправил вам товар."}
 
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
