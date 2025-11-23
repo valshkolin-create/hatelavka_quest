@@ -526,6 +526,11 @@ if ADMIN_TELEGRAM_IDS_STR:
             ADMIN_IDS.append(int(admin_id))
         else:
             logging.warning(f"Не удалось преобразовать ID администратора в число: '{admin_id}'")
+# --- BOT-T CONFIG ---
+BOTT_SHOP_URL = "https://shopdigital.bot-t.com/shop"
+BOTT_BOT_ID = "233790" 
+BOTT_PUBLIC_KEY = "3ff90f7d9067e067dc6bcd7440e3f860"
+BOTT_PRIVATE_KEY = "a514e99bd44087724a23b4ebb3812381"
 ADMIN_NOTIFY_CHAT_ID = os.getenv("ADMIN_NOTIFY_CHAT_ID")
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
@@ -2264,6 +2269,13 @@ class QuestStartRequest(BaseModel):
     initData: str
     quest_id: int
 
+class BottWebhookModel(BaseModel):
+    id: str | int          # ID платежа в Bot-t
+    amount: float          # Сумма
+    status_id: str | int   # Статус (обычно '1' или 'paid')
+    custom_fields: Optional[str] = None # Сюда придет ID юзера
+    # Остальные поля можно не описывать, если они нам не нужны
+
 # ------------------------------------------------------------------
 # 1. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВСПОМОГАТЕЛЬНУЮ ФУНКЦИЮ НА ЭТУ ВЕРСИЮ
 # ------------------------------------------------------------------
@@ -3046,6 +3058,68 @@ async def get_quest_details(request_data: QuestDetailsRequest, supabase: httpx.A
     # Поле duration_hours уже должно быть в объекте quest.
     # Старая логика с вычислением больше не нужна.
     return quest
+
+@app.post("/api/v1/webhooks/bott")
+async def bott_webhook(
+    request: Request,
+    # Bot-t может присылать данные как Form Data, а не JSON, поэтому читаем так:
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        # Bot-t часто шлет данные как форму (x-www-form-urlencoded)
+        form_data = await request.form()
+        data = dict(form_data)
+        
+        logging.info(f"💰 Bot-t Webhook data: {data}")
+
+        # 1. Проверка статуса (зависит от Bot-t, обычно '1' это успех)
+        # Если статус не '1' и не 'success', игнорируем
+        status = str(data.get('status_id', ''))
+        if status not in ['1', 'success', 'paid']:
+            return {"status": "ignored"}
+
+        # 2. Получаем ID юзера
+        custom_fields = data.get('custom_fields')
+        if not custom_fields:
+            logging.error("Нет custom_fields (user_id) в вебхуке Bot-t")
+            return {"status": "error", "message": "No user ID"}
+        
+        user_id = int(custom_fields)
+        amount = float(data.get('amount', 0))
+
+        # 3. НАЧИСЛЯЕМ НАГРАДУ
+        # Пример: 1 рубль = 10 монет Grind
+        coins = int(amount * 10) 
+
+        # Вызываем твою функцию в БД
+        await supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": coins}).execute()
+        
+        # Уведомляем (фоном)
+        await safe_send_message(user_id, f"✅ Оплата {amount}р прошла! Начислено {coins} монет.")
+
+        return "OK"
+
+    except Exception as e:
+        logging.error(f"Ошибка вебхука Bot-t: {e}", exc_info=True)
+        return "Error"
+
+@app.post("/api/v1/user/shop_link")
+async def get_bott_link(
+    request_data: InitDataRequest,
+):
+    """Генерирует ссылку на Bot-t с 'зашитым' ID пользователя"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    user_id = user_info["id"]
+
+    # Параметр custom_fields очень важен! Именно он вернется нам при оплате.
+    link = f"{BOTT_SHOP_URL}?bot_id={BOTT_BOT_ID}&public_key={BOTT_PUBLIC_KEY}&custom_fields={user_id}"
+    
+    return {"url": link}
+
+
 
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
