@@ -1686,6 +1686,18 @@ function setupEventListeners() {
                     eventSlide.style.display = 'none';
                 }
             }
+            // --- ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ПО ССЫЛКЕ ---
+        // Проверяем хэш в URL (#quests)
+        if (window.location.hash === '#quests') {
+            // Имитируем клик по кнопке "Задания", чтобы сработала вся логика (загрузка API и т.д.)
+            const questsBtn = document.getElementById('nav-quests');
+            if (questsBtn) {
+                console.log("Обнаружен переход по ссылке на #quests. Переключаем вкладку...");
+                questsBtn.click();
+            }
+            // Очищаем хэш, чтобы при обновлении страницы не открывались задания снова (опционально)
+            // history.replaceState(null, null, ' '); 
+        }
         } catch (e) {
             console.error("main() [Котел]: Ошибка загрузки статуса Котла", e); // ЛОГ
             const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
