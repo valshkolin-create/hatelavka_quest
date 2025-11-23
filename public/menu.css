@@ -674,3 +674,68 @@
 .weekly-goal-item {
     align-items: flex-start;
 }
+/* Стили для магазина */
+.shop-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Два товара в ряд */
+    gap: 12px;
+    padding: 10px 0;
+    width: 100%;
+}
+
+.shop-item {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.shop-item img {
+    width: 100%;
+    aspect-ratio: 1/1;
+    object-fit: contain;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    background: rgba(0,0,0,0.2);
+}
+
+.shop-item h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 5px 0;
+    color: #fff;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.shop-item p {
+    font-size: 14px;
+    color: #ffc700; /* Цвет золота/звезд */
+    font-weight: bold;
+    margin: 0 0 10px 0;
+}
+
+.shop-btn {
+    background: var(--primary-color); /* Или ваш основной цвет */
+    color: #000;
+    border: none;
+    padding: 8px 0;
+    border-radius: 8px;
+    width: 100%;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.shop-btn:active {
+    transform: scale(0.95);
+}
