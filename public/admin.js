@@ -4703,7 +4703,7 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
 
-        if(dom.roulettePrizesList) {
+       if(dom.roulettePrizesList) {
             dom.roulettePrizesList.addEventListener('click', async (e) => {
                 const deleteBtn = e.target.closest('.delete-roulette-prize-btn');
                 if (deleteBtn) {
@@ -4718,7 +4718,7 @@ if (dom.settingQuestScheduleOverride) {
                 }
             });
         }          
-    } // <--- 🔴 ДОБАВЬТЕ ЭТУ СКОБКУ ЗДЕСЬ (закрывает setupEventListeners)         
+    } // <--- ✅ ОДНА скобка, закрывающая setupEventListeners
  /**
      * Загружает и отображает список квестов или челленджей в модальное окно.
      * Отмечает и сортирует активный для выбранного пользователя.
@@ -4871,6 +4871,7 @@ async function main() {
         main();
     });
 } catch (e) {
-    console.error(`Критическая ошибка на старте: ${e.message}`);
-    alert(`Критическая ошибка: ${e.message}`);
-}
+        console.error(`Критическая ошибка на старте: ${e.message}`);
+        alert(`Критическая ошибка: ${e.message}`);
+    }
+// Конец файла
