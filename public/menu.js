@@ -1128,37 +1128,36 @@ async function startQuestRoulette() {
     }
 
 function setupEventListeners() {
-    // --- 👇 ВСТАВИТЬ СЮДА (Начало кода для Магазина) 👇 ---
+   // --- ЛОГИКА ДЛЯ МАГАЗИНА BOT-T ---
         const shopBtn = document.getElementById('shop-open-btn');
         if (shopBtn) {
             shopBtn.addEventListener('click', async () => {
-                // 1. Визуальный эффект загрузки
-                const originalContent = shopBtn.innerHTML;
+                // Блокируем кнопку, чтобы не кликали дважды
                 shopBtn.disabled = true;
+                const originalText = shopBtn.innerHTML;
                 shopBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
 
                 try {
-                    // 2. Делаем запрос через твою функцию-помощник (она сама добавит initData)
+                    // 1. Запрашиваем сгенерированную ссылку у вашего бэкенда
                     const result = await makeApiRequest('/api/v1/user/shop_link', {}, 'POST');
 
-                    // 3. Открываем ссылку
                     if (result && result.url) {
-                        Telegram.WebApp.openLink(result.url);
+                        // 2. Открываем ссылку через Telegram SDK с флагом try_instant_view
+                        Telegram.WebApp.openLink(result.url, { try_instant_view: true });
                     } else {
-                        Telegram.WebApp.showAlert('Ошибка: Сервер не вернул ссылку.');
+                        Telegram.WebApp.showAlert('Не удалось получить ссылку на магазин.');
                     }
                 } catch (e) {
                     console.error("Ошибка открытия магазина:", e);
-                    // makeApiRequest обычно сам показывает алерт с ошибкой, но на всякий случай:
-                    // Telegram.WebApp.showAlert('Не удалось открыть магазин.');
+                    Telegram.WebApp.showAlert('Ошибка: ' + (e.message || 'Неизвестная ошибка'));
                 } finally {
-                    // 4. Возвращаем кнопку в исходное состояние
+                    // Возвращаем кнопку в исходное состояние
                     shopBtn.disabled = false;
-                    shopBtn.innerHTML = originalContent;
+                    shopBtn.innerHTML = originalText;
                 }
             });
         }
-        // --- 👆 КОНЕЦ ВСТАВКИ 👆 ---
+    // --- КОНЕЦ ЛОГИКИ МАГАЗИНА ---
     // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
     // Сохраняем состояние аккордеона при его открытии/закрытии
     if (dom.weeklyGoalsAccordion) {
