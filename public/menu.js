@@ -1696,7 +1696,7 @@ function setupEventListeners() {
                 questsBtn.click();
             }
             // Очищаем хэш, чтобы при обновлении страницы не открывались задания снова (опционально)
-            // history.replaceState(null, null, ' '); 
+            history.replaceState(null, null, ' '); 
         }
         } catch (e) {
             console.error("main() [Котел]: Ошибка загрузки статуса Котла", e); // ЛОГ
