@@ -7501,83 +7501,125 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    # Если user_id нет (гость), отправляем 0 или заглушку
-    telegram_id = user_info.get("id") if user_info else 0
+    logging.info("========== [SHOP] ЗАПРОС ТОВАРОВ ==========")
+    
+    # 1. Парсинг initData
+    try:
+        user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    except Exception as e:
+        logging.error(f"[SHOP] Ошибка валидации initData: {e}")
+        return []
 
-    # Тот самый адрес из логов браузера
+    if not user_info:
+        logging.warning("[SHOP] initData невалидна или пуста")
+        return []
+
+    # 2. Подготовка данных
+    telegram_id = user_info.get("id")
+    username = user_info.get("username", "")
+    first_name = user_info.get("first_name", "")
+    
+    logging.info(f"[SHOP] Пользователь: ID={telegram_id}, User={username}, Name={first_name}")
+
+    # Адрес публичного API
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # Полный набор данных, как в браузере
+    # 3. Формируем ПОЛНЫЙ payload (добавили имя и юзернейм, вдруг Bot-t этого ждет)
     payload = {
         "bot_id": int(BOTT_BOT_ID),
         "public_key": BOTT_PUBLIC_KEY,
-        "user_id": telegram_id  # <--- ДОБАВИЛИ ЭТО
+        "user_id": telegram_id,    # Основной ID
+        "id": telegram_id,         # Дублируем
+        "username": username,      # Добавляем username
+        "first_name": first_name   # Добавляем имя
     }
 
-    # Заголовки, чтобы Bot-t думал, что мы - это сайт магазина
+    # Логируем то, что отправляем
+    logging.info(f"[SHOP] Отправляем POST на: {url}")
+    logging.info(f"[SHOP] Payload: {json.dumps(payload, ensure_ascii=False)}")
+
+    # Заголовки
     headers = {
         "Content-Type": "application/json",
-        "Referer": "https://shopdigital.bot-t.com/", # <--- ВАЖНО
+        "Referer": "https://shopdigital.bot-t.com/",
         "Origin": "https://shopdigital.bot-t.com",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
     }
 
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)
             
-        logging.info(f"Bot-t Public API Response: {resp.status_code}")
-        
+        # 4. Логируем ответ
+        logging.info(f"[SHOP] Ответ Bot-t STATUS: {resp.status_code}")
+        logging.info(f"[SHOP] Ответ Bot-t BODY: {resp.text[:500]}...") # Первые 500 символов
+
         if resp.status_code == 200:
             data = resp.json()
-            
             all_products = []
-            # Парсим категории
+            
+            # Логика парсинга (с логами)
             if isinstance(data, list):
+                logging.info("[SHOP] Пришел список категорий.")
                 for category in data:
                     products = category.get("products", [])
                     if products:
                         all_products.extend(products)
             elif isinstance(data, dict):
+                logging.info("[SHOP] Пришел объект.")
                 if "products" in data:
                     all_products = data["products"]
                 elif "categories" in data:
                     for cat in data["categories"]:
                          all_products.extend(cat.get("products", []))
-
-            logging.info(f"Найдено товаров: {len(all_products)}")
+            
+            logging.info(f"[SHOP] Итого найдено товаров: {len(all_products)}")
             return all_products
         else:
-            logging.error(f"Ошибка API Bot-t: {resp.status_code} | {resp.text}")
+            logging.error(f"[SHOP] ❌ Ошибка API: {resp.status_code}")
             return [] 
+
     except Exception as e:
-        logging.error(f"Сбой соединения с Bot-t: {e}")
+        logging.error(f"[SHOP] ❌ КРИТИЧЕСКАЯ ОШИБКА СОЕДИНЕНИЯ: {e}", exc_info=True)
         return []
 
-# 2. Эндпоинт: Купить товар
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    logging.info("========== [SHOP] ПОКУПКА ТОВАРА ==========")
+    
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
+        logging.error("[SHOP] Покупка: Невалидный initData")
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     user_id = user_info["id"]
     price = request_data.price
     item_id = request_data.item_id
+    
+    logging.info(f"[SHOP] Покупатель: {user_id}, Товар ID: {item_id}, Цена: {price}")
 
     # 1. Проверка баланса
     user_db = await supabase.table("users").select("tickets").eq("telegram_id", user_id).execute()
-    if not user_db.data or user_db.data[0].get('tickets', 0) < price:
+    
+    if not user_db.data:
+        logging.error("[SHOP] Пользователь не найден в БД")
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+    current_balance = user_db.data[0].get('tickets', 0)
+    logging.info(f"[SHOP] Баланс пользователя: {current_balance}")
+    
+    if current_balance < price:
+        logging.warning("[SHOP] Недостаточно средств")
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
     # 2. Списание
+    logging.info("[SHOP] Списываем средства...")
     await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
 
-    # 3. Создание заказа (Используем приватный метод API для надежности)
+    # 3. Создание заказа
     url = "https://api.bot-t.com/v1/shop/order/create"
     
     payload = {
@@ -7585,41 +7627,47 @@ async def buy_bott_item_proxy(
         "user_id": user_id,
         "item_id": item_id,
         "count": 1,
-        "status": 1, # Оплачено
+        "status": 1,
         "amount": price,
         "comment": "Internal App Purchase"
     }
     
-    # Для покупки используем Private Key, так как это админское действие
     headers = {
         "Authorization": f"Bearer {BOTT_PRIVATE_KEY}",
         "Content-Type": "application/json"
     }
     
+    logging.info(f"[SHOP] Отправляем заказ в Bot-t: {url}")
+    logging.info(f"[SHOP] Payload заказа: {json.dumps(payload)}")
+
     try:
         async with httpx.AsyncClient() as client:
             order_resp = await client.post(url, json=payload, headers=headers)
-            
-        logging.info(f"Bot-t Order Response: {order_resp.status_code} - {order_resp.text}")
+        
+        logging.info(f"[SHOP] Ответ заказа STATUS: {order_resp.status_code}")
+        logging.info(f"[SHOP] Ответ заказа BODY: {order_resp.text}")
 
         if order_resp.status_code not in [200, 201]:
-            # Попытка №2 через другой метод, если первый не сработал
+            # Backup URL
+            logging.warning("[SHOP] Основной URL не сработал, пробуем v1/u_api...")
             url_v2 = "https://api.bot-t.com/v1/u_api/orders/create"
             async with httpx.AsyncClient() as client:
                 order_resp = await client.post(url_v2, json=payload, headers=headers)
+            
+            logging.info(f"[SHOP] Ответ Backup заказа: {order_resp.status_code} | {order_resp.text}")
 
         if order_resp.status_code not in [200, 201]:
-            # Возврат средств
+            logging.error("[SHOP] ❌ Не удалось создать заказ. Возвращаем деньги.")
             await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
             raise HTTPException(status_code=500, detail="Ошибка выдачи товара. Средства возвращены.")
 
     except Exception as e:
+        logging.error(f"[SHOP] ❌ Исключение при покупке: {e}", exc_info=True)
         await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
-        logging.error(f"Ошибка покупки: {e}")
         raise HTTPException(status_code=500, detail="Ошибка соединения.")
 
+    logging.info("[SHOP] ✅ Покупка успешна!")
     return {"message": "Успешно! Бот отправил вам товар."}
-
 
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
