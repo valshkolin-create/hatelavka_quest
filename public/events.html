@@ -296,24 +296,73 @@
     .free-ticket-text { font-size: 11px; color: var(--text-secondary); }
     .free-ticket-title { font-size: 12px; font-weight: 700; color: #fff; display: block; margin-bottom: 2px; }
 
-    /* ФУТЕР */
-    .app-footer {
-        display: flex; justify-content: space-around;
-        background-color: rgba(17, 17, 17, 0.9);
-        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-        border-top: 1px solid var(--border-color); width: 100%;
-        padding-top: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom));
-        position: fixed; bottom: 0; left: 0; z-index: 100;
-    }
-    .footer-item {
-        display: flex; flex-direction: column; align-items: center; gap: 2px;
-        color: var(--text-secondary); font-size: 10px; text-decoration: none; flex: 1;
-    }
-    .footer-item .icon-wrapper {
-        font-size: 22px; width: 28px; height: 28px;
-        display: flex; justify-content: center; align-items: center;
-    }
-    .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-primary); font-weight: 600; }
+   /* ЕДИНЫЙ СТИЛЬ ФУТЕРА */
+.app-footer {
+    display: flex;
+    justify-content: space-around;
+    align-items: center; /* Центрирование */
+    background-color: rgba(28, 28, 30, 0.75); /* Цвет из menu.css */
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-top: 1px solid rgba(58, 58, 60, 0.6);
+    width: 100%;
+    padding-top: 6px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    box-sizing: border-box;
+}
+
+.footer-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #b0b0b0; /* var(--text-color-muted) */
+    font-size: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    flex: 1;
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.footer-item .icon-wrapper {
+    font-size: 22px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+
+/* Активное состояние */
+.footer-item.active span {
+    color: #ffffff; /* var(--text-color) */
+    font-weight: 600;
+}
+
+.footer-item.active .icon-wrapper {
+    color: #34c759; /* var(--primary-color) - или gold, если нужно */
+    transform: translateY(-2px);
+    text-shadow: 0 0 10px #34c759; /* Подсветка */
+}
+
+/* Полоска над активной иконкой (как в menu.css) */
+.footer-item.active .icon-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    width: 28px;
+    height: 3px;
+    background-color: #34c759; /* var(--primary-color) */
+    border-radius: 2px;
+}
 
     /* Анимации */
     .shine {
@@ -421,19 +470,27 @@
   </div>
 
   <footer class="app-footer">
+    <a href="/leaderboard" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+        <span>Лидерборд</span>
+    </a>
     <a href="/menu" class="footer-item">
-      <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
-      <span>Главная</span>
+        <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
+        <span>Главная</span>
+    </a>
+    <a href="/menu#quests" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
+        <span>Задания</span>
     </a>
     <a href="/events" class="footer-item active">
-      <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
-      <span>Гринд</span>
+        <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
+        <span>Гринд</span>
     </a>
-    <a href="/profile" class="footer-item">
-      <div class="icon-wrapper"><i class="fa-solid fa-user"></i></div>
-      <span>Профиль</span>
+    <a href="/auction" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
+        <span>Аукцион</span>
     </a>
-  </footer>
+</footer>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
