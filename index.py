@@ -7501,86 +7501,63 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ЗАПРОС ТОВАРОВ ==========")
-    
-    # 1. Парсинг initData
-    try:
-        user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    except Exception as e:
-        logging.error(f"[SHOP] Ошибка валидации initData: {e}")
-        return []
-
-    if not user_info:
-        logging.warning("[SHOP] initData невалидна или пуста")
-        return []
-
-    # 2. Подготовка данных
-    telegram_id = user_info.get("id")
-    username = user_info.get("username", "")
-    first_name = user_info.get("first_name", "")
-    
-    logging.info(f"[SHOP] Пользователь: ID={telegram_id}, User={username}, Name={first_name}")
-
     # Адрес публичного API
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # 3. Формируем ПОЛНЫЙ payload (добавили имя и юзернейм, вдруг Bot-t этого ждет)
+    # ОТПРАВЛЯЕМ ТОЛЬКО ЭТО. 
+    # Лишние поля (user_id и т.д.) могут вызывать 500 ошибку на сервере Bot-t.
     payload = {
         "bot_id": int(BOTT_BOT_ID),
-        "public_key": BOTT_PUBLIC_KEY,
-        "user_id": telegram_id,    # Основной ID
-        "id": telegram_id,         # Дублируем
-        "username": username,      # Добавляем username
-        "first_name": first_name   # Добавляем имя
+        "public_key": BOTT_PUBLIC_KEY
     }
 
-    # Логируем то, что отправляем
-    logging.info(f"[SHOP] Отправляем POST на: {url}")
-    logging.info(f"[SHOP] Payload: {json.dumps(payload, ensure_ascii=False)}")
-
-    # Заголовки
+    # Стандартные заголовки
     headers = {
         "Content-Type": "application/json",
         "Referer": "https://shopdigital.bot-t.com/",
-        "Origin": "https://shopdigital.bot-t.com",
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
+
+    logging.info(f"[SHOP] Payload (Simple): {json.dumps(payload)}")
 
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)
             
-        # 4. Логируем ответ
-        logging.info(f"[SHOP] Ответ Bot-t STATUS: {resp.status_code}")
-        logging.info(f"[SHOP] Ответ Bot-t BODY: {resp.text[:500]}...") # Первые 500 символов
-
+        logging.info(f"[SHOP] Ответ Bot-t: {resp.status_code}")
+        
         if resp.status_code == 200:
             data = resp.json()
             all_products = []
             
-            # Логика парсинга (с логами)
+            # Логика парсинга (учитываем, что могут быть категории)
             if isinstance(data, list):
-                logging.info("[SHOP] Пришел список категорий.")
                 for category in data:
-                    products = category.get("products", [])
+                    # Продукты могут называться 'products' или 'items'
+                    products = category.get("products", category.get("items", []))
                     if products:
                         all_products.extend(products)
+                        
             elif isinstance(data, dict):
-                logging.info("[SHOP] Пришел объект.")
+                # Если пришел словарь, ищем списки внутри
                 if "products" in data:
                     all_products = data["products"]
                 elif "categories" in data:
                     for cat in data["categories"]:
                          all_products.extend(cat.get("products", []))
-            
-            logging.info(f"[SHOP] Итого найдено товаров: {len(all_products)}")
+                # Иногда Bot-t отдает 'subcategories'
+                elif "subcategories" in data:
+                     for sub in data["subcategories"]:
+                         all_products.extend(sub.get("products", []))
+
+            logging.info(f"[SHOP] Найдено товаров: {len(all_products)}")
             return all_products
         else:
-            logging.error(f"[SHOP] ❌ Ошибка API: {resp.status_code}")
+            logging.error(f"[SHOP] Ошибка API: {resp.status_code} | {resp.text}")
             return [] 
-
+            
     except Exception as e:
-        logging.error(f"[SHOP] ❌ КРИТИЧЕСКАЯ ОШИБКА СОЕДИНЕНИЯ: {e}", exc_info=True)
+        logging.error(f"[SHOP] Ошибка соединения: {e}")
         return []
 
 @app.post("/api/v1/shop/buy")
