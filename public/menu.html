@@ -77,23 +77,25 @@
         </details>
         <div id="challenge-container"></div>
         <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
-       <div id="view-shop" class="view hidden">
-    <h2 class="page-title" style="grid-column: 1 / -1;">
-        🛒 Магазин скинов
-        <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 6px; margin-bottom: 12px;">
-            Товары загружаются из Bot-t. Оплата звездами.
-        </span>
-    </h2>
-    
-    <div id="shop-container" class="shop-grid">
-        <div class="spinner"></div>
-    </div>
-    
-    <button onclick="location.reload()" class="cancel-btn" style="margin-top: 20px;">Назад в меню</button>
-</div>
 
-<div id="view-quests" class="view quests-container hidden">
-   </div>
+        <button id="shop-open-btn" class="quest-choose-btn-roulette" style="background: linear-gradient(90deg, #ffcc00, #ff9500); color: #000; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-cart-shopping"></i> МАГАЗИН
+        </button>
+
+        <button id="quest-choose-btn" class="quest-choose-btn-roulette">НАЧАТЬ ИСПЫТАНИЕ</button>
+        <div id="quest-choose-container" class="quest-choose-container hidden"></div>
+        <div id="active-automatic-quest-container"></div>
+    </div> <div id="view-shop" class="view hidden">
+        <h2 class="page-title" style="grid-column: 1 / -1;">
+            🛒 Магазин скинов
+            <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 6px; margin-bottom: 12px;">
+                Товары загружаются из Bot-t. Оплата звездами.
+            </span>
+        </h2>
+        
+        <div id="shop-container" class="shop-grid">
+            <div class="spinner"></div>
+        </div>
         
         <button onclick="location.reload()" class="cancel-btn" style="margin-top: 20px;">Назад в меню</button>
     </div>
