@@ -4597,6 +4597,40 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
 
+        // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ ЗВЕЗД ЧЕКПОИНТА ---
+        if (dom.openGrantCpSearchBtn) {
+            // 1. Клик по кнопке "Найти пользователя"
+            dom.openGrantCpSearchBtn.addEventListener('click', () => {
+                dom.grantCheckpointStarsForm.classList.add('hidden');
+                // Открываем модалку и передаем коллбэк
+                openAdminUserSearchModal('Выдать звезды Чекпоинта', (user) => {
+                    // Этот код выполнится, когда админ выбрал пользователя
+                    dom.grantCheckpointStarsForm.elements['user_id_to_grant_cp'].value = user.id;
+                    dom.grantCpUserName.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.grantCheckpointStarsForm.classList.remove('hidden');
+                    dom.grantCheckpointStarsForm.elements['amount_cp'].focus();
+                });
+            });
+        }
+        if(dom.grantCheckpointStarsForm) {
+            // 2. Отправка самой формы (после выбора пользователя)
+            dom.grantCheckpointStarsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id_to_grant_cp'].value);
+                const amount = parseInt(form.elements['amount_cp'].value);
+                if (!userId || !amount || amount <= 0) return;
+
+                const result = await makeApiRequest('/api/v1/admin/users/grant-checkpoint-stars', {
+                    user_id_to_grant: userId,
+                    amount: amount
+                });
+                tg.showAlert(result.message);
+                form.reset();
+                form.classList.add('hidden'); // Снова прячем форму
+            });
+        }
+
         // --- НОВЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ ЗВЕЗД ЧЕКПОИНТА ---
         if (dom.openFreezeCpSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
@@ -4611,20 +4645,6 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
         
-        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ ЗВЕЗД ЧЕКПОИНТА ---
-        if (dom.openFreezeCpSearchBtn) {
-            // 1. Клик по кнопке "Найти пользователя"
-            dom.openFreezeCpSearchBtn.addEventListener('click', () => {
-                dom.freezeCheckpointStarsForm.classList.add('hidden'); // Прячем форму подтверждения
-                openAdminUserSearchModal('Заморозить/разморозить звезды Чекпоинта', (user) => {
-                    // Коллбэк после выбора пользователя
-                    dom.freezeCheckpointStarsForm.elements['user_id_to_freeze_cp'].value = user.id;
-                    dom.freezeCpUserName.textContent = `${user.name} (ID: ${user.id})`;
-                    dom.freezeCheckpointStarsForm.classList.remove('hidden'); // Показываем форму
-                    dom.freezeCheckpointStarsForm.elements['days_cp'].focus();
-                });
-            });
-        }
         if(dom.freezeCheckpointStarsForm) {
             // 2. Отправка самой формы (после выбора пользователя)
             dom.freezeCheckpointStarsForm.addEventListener('submit', async (e) => {
@@ -4637,13 +4657,13 @@ if (dom.settingQuestScheduleOverride) {
                      return;
                 }
                 try {
-                    // Используем user_id из Pydantic модели
                     const result = await makeApiRequest('/api/v1/admin/users/freeze-checkpoint-stars', { user_id: userId, days: days });
                     tg.showAlert(result.message);
                     form.reset(); form.classList.add('hidden'); selectedAdminUser = null; // Сброс
                 } catch (err) { tg.showAlert(`Ошибка: ${err.message}`); }
             });
         }
+
         // --- НОВЫЙ ОБРАБОТЧИК ВЫДАЧИ БИЛЕТОВ ---
         if (dom.openGrantTicketsSearchBtn) {
             // 1. Клик по кнопке "Найти пользователя"
@@ -4663,13 +4683,12 @@ if (dom.settingQuestScheduleOverride) {
             // 2. Отправка самой формы (после выбора пользователя)
             dom.grantTicketsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                // ... (логика submit, как в твоем файле) ...
                 const form = e.target;
                 const userId = parseInt(form.elements['user_id_to_grant_tickets'].value);
                 const amount = parseInt(form.elements['amount_tickets'].value);
                 if (!userId || !amount || amount <= 0) return;
 
-                const result = await makeApiRequest('/api/v1/admin/users/grant-stars', { // Используем /grant-stars, как в твоем коде
+                const result = await makeApiRequest('/api/v1/admin/users/grant-stars', { 
                     user_id_to_grant: userId,
                     amount: amount
                 });
@@ -4692,19 +4711,7 @@ if (dom.settingQuestScheduleOverride) {
                 });
             });
         }
-        // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАМОРОЗКИ БИЛЕТОВ ---
-        if (dom.openFreezeTicketsSearchBtn) {
-            // 1. Клик по кнопке "Найти пользователя"
-            dom.openFreezeTicketsSearchBtn.addEventListener('click', () => {
-                dom.freezeTicketsForm.classList.add('hidden');
-                openAdminUserSearchModal('Заморозить/разморозить билеты', (user) => {
-                    dom.freezeTicketsForm.elements['user_id_to_freeze_tickets'].value = user.id;
-                    dom.freezeTicketsUserName.textContent = `${user.name} (ID: ${user.id})`;
-                    dom.freezeTicketsForm.classList.remove('hidden');
-                    dom.freezeTicketsForm.elements['days_tickets'].focus();
-                });
-            });
-        }
+        
         if(dom.freezeTicketsForm) {
             // 2. Отправка самой формы
             dom.freezeTicketsForm.addEventListener('submit', async (e) => {
@@ -4717,7 +4724,6 @@ if (dom.settingQuestScheduleOverride) {
                      return;
                  }
                 try {
-                    // Используем user_id из Pydantic модели
                     const result = await makeApiRequest('/api/v1/admin/users/freeze-stars', { user_id: userId, days: days });
                     tg.showAlert(result.message);
                     form.reset(); form.classList.add('hidden'); selectedAdminUser = null; // Сброс
@@ -4727,7 +4733,6 @@ if (dom.settingQuestScheduleOverride) {
         
         // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК СБРОСА НАГРАД ЧЕКПОИНТА ---
         if (dom.openResetCpProgressSearchBtn) {
-            // 1. Клик по кнопке "Найти пользователя"
             dom.openResetCpProgressSearchBtn.addEventListener('click', () => {
                 dom.resetCheckpointProgressForm.classList.add('hidden');
                 openAdminUserSearchModal('Сбросить награды Чекпоинта', (user) => {
@@ -4738,7 +4743,6 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
         if (dom.resetCheckpointProgressForm) {
-            // 2. Отправка самой формы
             dom.resetCheckpointProgressForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
@@ -4748,7 +4752,6 @@ if (dom.settingQuestScheduleOverride) {
                 tg.showConfirm(`Точно сбросить ВСЕ награды Чекпоинта для пользователя ${dom.resetCpProgressUserName.textContent}? Звёзды останутся.`, async (ok) => {
                     if (ok) {
                          try {
-                            // Эндпоинт остается тот же, но теперь ID берется из скрытого поля
                             const result = await makeApiRequest('/api/v1/admin/users/reset-checkpoint-progress', { user_id: userId });
                             tg.showAlert(result.message);
                             form.reset(); form.classList.add('hidden'); selectedAdminUser = null;
@@ -4760,7 +4763,6 @@ if (dom.settingQuestScheduleOverride) {
 
         // --- ОБНОВЛЕННЫЙ ОБРАБОТЧИК ОБНУЛЕНИЯ ЗВЕЗД ЧЕКПОИНТА ---
         if (dom.openClearCpStarsSearchBtn) {
-            // 1. Клик по кнопке "Найти пользователя"
             dom.openClearCpStarsSearchBtn.addEventListener('click', () => {
                 dom.clearCheckpointStarsForm.classList.add('hidden');
                 openAdminUserSearchModal('Обнулить звёзды Чекпоинта', (user) => {
@@ -4771,7 +4773,6 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
         if (dom.clearCheckpointStarsForm) {
-            // 2. Отправка самой формы
             dom.clearCheckpointStarsForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
@@ -4781,7 +4782,6 @@ if (dom.settingQuestScheduleOverride) {
                 tg.showConfirm(`Точно обнулить БАЛАНС звёзд Чекпоинта для ${dom.clearCpStarsUserName.textContent}? Полученные награды останутся.`, async (ok) => {
                      if (ok) {
                          try {
-                             // Эндпоинт остается тот же
                              const result = await makeApiRequest('/api/v1/admin/users/clear-checkpoint-stars', { user_id: userId });
                              tg.showAlert(result.message);
                              form.reset(); form.classList.add('hidden'); selectedAdminUser = null;
@@ -4793,14 +4793,14 @@ if (dom.settingQuestScheduleOverride) {
 
         if(dom.modalCloseBtn) dom.modalCloseBtn.addEventListener('click', () => {
             dom.submissionsModal.classList.add('hidden');
-            dom.submissionsModal.dataset.sourceType = ''; // Очистка
-            dom.submissionsModal.dataset.sourceId = '';   // Очистка
+            dom.submissionsModal.dataset.sourceType = ''; 
+            dom.submissionsModal.dataset.sourceId = '';
         });
         if(dom.submissionsModal) dom.submissionsModal.addEventListener('click', (e) => { 
             if (e.target === dom.submissionsModal) {
                 dom.submissionsModal.classList.add('hidden'); 
-                dom.submissionsModal.dataset.sourceType = ''; // Очистка
-                dom.submissionsModal.dataset.sourceId = '';   // Очистка
+                dom.submissionsModal.dataset.sourceType = '';
+                dom.submissionsModal.dataset.sourceId = '';
             }
         });
 
@@ -4819,39 +4819,37 @@ if (dom.settingQuestScheduleOverride) {
             });
         }
 
-if(dom.createRoulettePrizeForm) {
-        dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const form = e.target;
-            const quantity = parseInt(form.elements['quantity'].value);
+        if(dom.createRoulettePrizeForm) {
+            dom.createRoulettePrizeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const quantity = parseInt(form.elements['quantity'].value);
 
-            if (isNaN(quantity) || quantity < 0) {
-                 tg.showAlert('Количество должно быть 0 или больше.');
-                 return;
-            }
+                if (isNaN(quantity) || quantity < 0) {
+                     tg.showAlert('Количество должно быть 0 или больше.');
+                     return;
+                }
 
-            const data = {
-                reward_title: form.elements['reward_title'].value,
-                skin_name: form.elements['skin_name'].value,
-                image_url: form.elements['image_url'].value,
-                chance_weight: parseFloat(form.elements['chance_weight'].value),
-                quantity: quantity // <-- Убедись, что это поле добавлено
-            };
+                const data = {
+                    reward_title: form.elements['reward_title'].value,
+                    skin_name: form.elements['skin_name'].value,
+                    image_url: form.elements['image_url'].value,
+                    chance_weight: parseFloat(form.elements['chance_weight'].value),
+                    quantity: quantity 
+                };
 
-            await makeApiRequest('/api/v1/admin/roulette/create', data);
-            tg.showAlert('Приз добавлен!');
-            // Очищаем только поля скина, оставляем название рулетки
-            form.elements['skin_name'].value = '';
-            form.elements['image_url'].value = '';
-            form.elements['chance_weight'].value = 10;
-            form.elements['quantity'].value = 0; // Сбрасываем количество
-            form.elements['skin_name'].focus();
+                await makeApiRequest('/api/v1/admin/roulette/create', data);
+                tg.showAlert('Приз добавлен!');
+                form.elements['skin_name'].value = '';
+                form.elements['image_url'].value = '';
+                form.elements['chance_weight'].value = 10;
+                form.elements['quantity'].value = 0;
+                form.elements['skin_name'].focus();
 
-            // Перезагружаем список призов
-            const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
-            renderRoulettePrizes(prizes);
-        });
-    }
+                const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                renderRoulettePrizes(prizes);
+            });
+        }
 
         if(dom.roulettePrizesList) {
             dom.roulettePrizesList.addEventListener('click', async (e) => {
@@ -4868,7 +4866,6 @@ if(dom.createRoulettePrizeForm) {
                 }
             });
         }
-    }
 
 async function main() {
         try {
