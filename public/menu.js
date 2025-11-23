@@ -1564,20 +1564,6 @@ function setupEventListeners() {
             if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
         }
         // --- 👇 ВСТАВИТЬ ЭТОТ БЛОК СЮДА 👇 ---
-        // Логика скрытия кнопки магазина (только для админов)
-        const shopBtnElement = document.getElementById('shop-open-btn');
-        if (shopBtnElement) {
-            if (userData.is_admin) {
-                // Если админ — показываем
-                shopBtnElement.style.display = ''; 
-                shopBtnElement.classList.remove('hidden');
-            } else {
-                // Если не админ — скрываем намертво
-                shopBtnElement.style.display = 'none';
-                shopBtnElement.classList.add('hidden');
-            }
-        }
-        // --- 👆 КОНЕЦ ВСТАВКИ 👆 ---
         document.getElementById('ticketStats').textContent = userData.tickets || 0;
         console.log("main(): Ожидаем ответ от /api/v1/content/menu..."); // ЛОГ
         
