@@ -418,7 +418,6 @@ async function loadStatistics() {
         } finally {
             hideLoader();
         }
-    }
 
         } catch (e) {
             dom.statisticsContent.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить статистику склада: ${e.message}</p>`;
