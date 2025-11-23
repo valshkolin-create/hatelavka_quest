@@ -77,10 +77,20 @@
         </details>
         <div id="challenge-container"></div>
         <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
-        <div id="quest-choose-wrapper">
-            <button id="shop-open-btn" class="quest-choose-btn-roulette" style="margin-bottom: 12px; background: linear-gradient(135deg, #8E2DE2, #4A00E0); box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);">
-                <i class="fa-solid fa-cart-shopping"></i> ОТКРЫТЬ МАГАЗИН
-            </button>
+        <div id="view-shop" class="view hidden">
+        <h2 class="page-title" style="grid-column: 1 / -1;">
+            🛒 Магазин скинов
+            <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 6px; margin-bottom: 12px;">
+                Товары загружаются из Bot-t. Оплата звездами.
+            </span>
+        </h2>
+        
+        <div id="shop-container" class="shop-grid">
+            <div class="spinner"></div>
+        </div>
+        
+        <button onclick="location.reload()" class="cancel-btn" style="margin-top: 20px;">Назад в меню</button>
+    </div>
             <button id="quest-choose-btn" class="quest-choose-btn-roulette">НАЧАТЬ ИСПЫТАНИЕ</button>
             <div id="quest-choose-container" class="quest-choose-container hidden"></div>
         </div>
