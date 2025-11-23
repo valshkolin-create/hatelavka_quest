@@ -1680,22 +1680,25 @@ async function openQuestsTab(isSilent = false) {
         if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
 
         // 3. ЛОГИКА ПЕРЕХОДА ПО ХЭШУ (#quests) ВНУТРИ ЕДИНОЙ ЗАГРУЗКИ
-        if (window.location.hash === '#quests') {
-            console.log("Обнаружен хэш #quests. Загружаем вкладку заданий без мигания...");
-            // Вызываем функцию с isSilent = true, так как спиннер еще висит
-            await openQuestsTab(true);
-        }
+            if (window.location.hash === '#quests') {
+                console.log("Обнаружен хэш #quests. Загружаем вкладку заданий без мигания...");
+                // Вызываем функцию с isSilent = true, так как спиннер еще висит
+                await openQuestsTab(true);
 
-    } catch (e) {
-        console.error("Критическая ошибка main:", e);
-        dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки.</p>`;
-    } finally {
-        // 4. СКРЫВАЕМ СПИННЕР ТОЛЬКО ОДИН РАЗ В САМОМ КОНЦЕ
-        console.log("--- main() ЗАВЕРШЕНА. Скрываем лоадер. ---");
-        dom.mainContent.classList.add('visible');
-        dom.loaderOverlay.classList.add('hidden');
+                // ОЧИЩАЕМ ХЭШ, чтобы не было зацикливания при вызове main() снова
+                history.replaceState(null, null, window.location.pathname + window.location.search);
+            }
+    
+        } catch (e) {
+            console.error("Критическая ошибка main:", e);
+            dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки.</p>`;
+        } finally {
+            // 4. СКРЫВАЕМ СПИННЕР ТОЛЬКО ОДИН РАЗ В САМОМ КОНЦЕ
+            console.log("--- main() ЗАВЕРШЕНА. Скрываем лоадер. ---");
+            dom.mainContent.classList.add('visible');
+            dom.loaderOverlay.classList.add('hidden');
+        }
     }
-}
 
     setupEventListeners();
     main();
