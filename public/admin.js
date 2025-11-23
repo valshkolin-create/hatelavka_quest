@@ -387,34 +387,38 @@ async function renderCauldronParticipants() {
 async function loadStatistics() {
         showLoader();
         try {
-            // Запрашиваем только данные о складе
+            // 1. Запрашиваем статистику склада (существующая логика)
             const stats = await makeApiRequest("/api/v1/admin/stats", {}, 'POST', true);
+            
+            // 2. Запрашиваем новую статистику API
+            const apiStats = await makeApiRequest("/api/v1/admin/stats/endpoints", {}, 'POST', true);
 
-            // Очищаем старую статистику
-            dom.statisticsContent.innerHTML = '';
-
-            // Отображаем новую статистику склада
+            // Очищаем контент, но сохраняем структуру, если она была создана динамически (или обновляем точечно)
+            // В данном случае мы обновляем только цифры склада и таблицу
+            
             const totalStock = stats.total_skin_stock !== undefined ? stats.total_skin_stock : 0;
+            
+            // Обновляем цифру склада
+            const stockElement = document.getElementById('stat-total-stock');
+            if (stockElement) {
+                stockElement.textContent = totalStock;
+            }
 
-            dom.statisticsContent.innerHTML = `
-                <h2 style="font-size: 20px; margin-bottom: 15px;">Склад Рулеток 📦</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                         <div class="stat-card-header">
-                            <h4>Всего скинов в наличии</h4>
-                            <div class="tooltip">?<span class="tooltip-text">Общее количество всех скинов, доступных для выпадения во всех рулетках.</span></div>
-                        </div>
-                        <p id="stat-total-stock">${totalStock}</p>
-                    </div>
-                     <div class="stat-card">
-                         <div class="stat-card-header">
-                            <h4>Примерная стоимость</h4>
-                            <div class="tooltip">?<span class="tooltip-text">Скоро... Ориентировочная суммарная стоимость всех скинов на складе.</span></div>
-                        </div>
-                        <p>Скоро...</p>
-                    </div>
-                </div>
-            `;
+            // Рендерим таблицу API
+            renderApiStatsTable(apiStats);
+
+        } catch (e) {
+            console.error("Ошибка загрузки статистики:", e);
+            // Если произошла ошибка, выводим её в контейнер таблицы, если он есть
+            const tbody = document.getElementById('api-stats-tbody');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="4" class="error-message" style="text-align:center;">Ошибка: ${escapeHTML(e.message)}</td></tr>`;
+            }
+            tg.showAlert(`Ошибка: ${e.message}`);
+        } finally {
+            hideLoader();
+        }
+    }
 
         } catch (e) {
             dom.statisticsContent.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить статистику склада: ${e.message}</p>`;
@@ -1206,6 +1210,40 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             // Заменяем dom.tabContentEventPrizes на targetElement
             targetElement.innerHTML += cardHtml;
         });
+    }
+
+function renderApiStatsTable(data) {
+        const tbody = document.getElementById('api-stats-tbody');
+        if (!tbody) return;
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: var(--text-color-muted);">Данных пока нет. Сделайте пару запросов в боте.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(row => {
+            // Логика цветов для времени выполнения
+            const avgTime = parseFloat(row.avg_time);
+            let timeStyle = 'color: var(--text-color); font-family: monospace;';
+            
+            if (avgTime > 1.0) {
+                timeStyle = 'color: var(--danger-color); font-weight: 700; font-family: monospace;'; // Критично (> 1 сек)
+            } else if (avgTime > 0.5) {
+                timeStyle = 'color: var(--warning-color); font-weight: 600; font-family: monospace;'; // Внимание (> 0.5 сек)
+            }
+
+            // Стиль для бейджа метода
+            const methodClass = `method-${row.method}`; // CSS класс будет добавлен позже
+
+            return `
+                <tr>
+                    <td><span class="method-badge ${methodClass}">${escapeHTML(row.method)}</span></td>
+                    <td style="font-family: monospace; font-size: 12px; word-break: break-all; color: var(--text-color-muted);">${escapeHTML(row.path)}</td>
+                    <td class="text-center" style="font-weight: 600;">${row.usage_count}</td>
+                    <td class="text-center" style="${timeStyle}">${avgTime.toFixed(4)}s</td>
+                </tr>
+            `;
+        }).join('');
     }
 
     async function loadAndRenderSettings() {
@@ -4409,9 +4447,14 @@ if (dom.settingQuestScheduleOverride) {
                 }
             });
         }
-            
+
+        // Обработчик кнопки обновления статистики API
+        const refreshApiBtn = document.getElementById('refresh-api-stats-btn');
+        if (refreshApiBtn) {
+            refreshApiBtn.addEventListener('click', async () => {
+                await loadStatistics();
+            });
         }
-        
 
 /**
      * Загружает и отображает список квестов или челленджей в модальное окно.
