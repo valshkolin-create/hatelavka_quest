@@ -3,356 +3,419 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Daily Grind</title>
+  <title>Ежедневный Гринд</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
   <style>
+    /* --- ВСТАВКА СТИЛЕЙ ИЗ AUCTION.CSS --- */
     :root {
-      --bg-main: #09090b;
-      --surface-card: #18181b;
-      --surface-elevated: #27272a;
-      --accent-color: #d433ff; /* Фиолетовый акцент */
-      --accent-glow: rgba(212, 51, 255, 0.4);
-      --coin-color: #ffd700;
-      --ticket-color: #00f2ea;
-      --text-main: #ffffff;
-      --text-muted: #a1a1aa;
-      --danger: #ef4444;
-      --success: #22c55e;
+      --background-main: #111111;
+      --surface-primary: #1C1C1C;
+      --surface-secondary: #2C2C2C;
+      --border-color: #333333;
+      --text-primary: #f0f0f5;
+      --text-secondary: #AAAAAA;
+      --accent-primary: #FFD700; /* Золото */
+      --accent-secondary: #FF9500; /* Оранжевый */
+      --danger-color: #ff4d4d;
+      --success-color: #34c759;
+      --card-bg-glass: rgba(28, 28, 28, 0.75);
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-    
+
     body {
       font-family: 'Inter', sans-serif;
-      background-color: var(--bg-main);
-      color: var(--text-main);
+      background-color: var(--background-main);
+      color: var(--text-primary);
       margin: 0;
-      padding: 20px 20px 100px;
-      min-height: 100vh;
+      padding: 10px 10px 80px;
+      overflow-x: hidden;
+      background-image: url('https://i.postimg.cc/Dyks29xc/fon-variant1.png');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
     }
 
-    /* --- HEADER & BALANCE --- */
-    .dashboard-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 25px;
+    /* ХЕДЕР */
+    .new-header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        margin-bottom: 20px; 
+        padding: 5px 0;
     }
 
-    .balance-card {
-      background: linear-gradient(135deg, var(--surface-card), var(--surface-elevated));
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 15px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-      overflow: hidden;
+    .header-back-button {
+        display: flex; align-items: center; gap: 6px;
+        color: var(--text-secondary); text-decoration: none;
+        font-size: 12px; font-weight: 600; position: relative; z-index: 2;
+        transition: color 0.2s ease;
+    }
+    .header-back-button:hover { color: var(--text-primary); }
+
+    .page-header {
+        position: absolute; left: 0; right: 0; top: 50%;
+        transform: translateY(-50%); text-align: center; z-index: 1;
+    }
+    .page-title {
+        font-size: 18px; font-weight: 700; margin: 0;
+        color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px;
     }
 
-    .balance-card:first-child { margin-right: 15px; }
+    /* --- КАРТОЧКИ (Стиль Auction) --- */
+    .glass-card {
+        background-color: var(--card-bg-glass);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 15px;
+        position: relative;
+        overflow: hidden;
+    }
 
-    .balance-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-    .balance-value { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    /* БАЛАНСЫ */
+    .balance-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
     
-    .coin-icon { color: var(--coin-color); filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
-    .ticket-icon { color: var(--ticket-color); filter: drop-shadow(0 0 5px rgba(0, 242, 234, 0.5)); }
-
-    /* --- STREAK PROGRESS --- */
-    .grind-section {
-      background: var(--surface-card);
-      border-radius: 20px;
-      padding: 20px;
-      margin-bottom: 25px;
-      border: 1px solid rgba(255,255,255,0.05);
-      position: relative;
+    .balance-item {
+        background-color: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
 
+    .balance-label {
+        font-size: 10px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+
+    .balance-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .coin-icon { color: var(--accent-primary); text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+    .ticket-icon { color: #00f2ea; text-shadow: 0 0 10px rgba(0, 242, 234, 0.4); }
+
+    /* ПРОГРЕСС ГРИНДА */
     .section-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin: 0 0 15px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        text-transform: uppercase;
+    }
+    .section-title i { color: var(--accent-secondary); }
+
+    .streak-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        margin: 20px 5px 25px;
     }
 
-    .section-title i { color: var(--accent-color); }
-
-    .streak-container {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      position: relative;
+    .streak-line-bg {
+        position: absolute;
+        top: 50%; left: 0; right: 0;
+        height: 2px;
+        background: var(--border-color);
+        transform: translateY(-50%);
+        z-index: 0;
     }
 
-    /* Линия прогресса */
-    .streak-track {
-      position: absolute;
-      top: 50%;
-      left: 10px;
-      right: 10px;
-      height: 4px;
-      background: #333;
-      transform: translateY(-50%);
-      z-index: 0;
-      border-radius: 2px;
-    }
-
-    .streak-fill {
-      position: absolute;
-      top: 50%;
-      left: 10px;
-      height: 4px;
-      background: var(--accent-color);
-      transform: translateY(-50%);
-      z-index: 1;
-      border-radius: 2px;
-      width: 0%; /* JS update */
-      transition: width 0.5s ease;
-      box-shadow: 0 0 10px var(--accent-color);
+    .streak-line-fill {
+        position: absolute;
+        top: 50%; left: 0;
+        height: 2px;
+        background: var(--accent-primary);
+        transform: translateY(-50%);
+        z-index: 1;
+        width: 0%;
+        transition: width 0.5s ease;
+        box-shadow: 0 0 10px var(--accent-primary);
     }
 
     .streak-step {
-      width: 30px;
-      height: 30px;
-      background: var(--surface-elevated);
-      border: 2px solid #444;
-      border-radius: 50%;
-      z-index: 2;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 10px;
-      font-weight: bold;
-      color: var(--text-muted);
-      transition: all 0.3s ease;
+        width: 24px; height: 24px;
+        background: var(--surface-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 50%;
+        z-index: 2;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 9px;
+        color: var(--text-secondary);
+        font-weight: 700;
+        transition: all 0.3s ease;
     }
 
     .streak-step.active {
-      border-color: var(--accent-color);
-      background: var(--bg-main);
-      color: white;
-      box-shadow: 0 0 10px var(--accent-glow);
-      transform: scale(1.1);
+        border-color: var(--accent-primary);
+        background: var(--background-main);
+        color: var(--text-primary);
+        transform: scale(1.2);
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
     }
 
     .streak-step.completed {
-      background: var(--accent-color);
-      border-color: var(--accent-color);
-      color: black;
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: #000;
     }
 
-    .next-reward-info {
-      text-align: center;
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-bottom: 15px;
+    .grind-info {
+        text-align: center;
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+        background: rgba(0,0,0,0.2);
+        padding: 8px;
+        border-radius: 6px;
     }
-    .next-reward-info span { color: var(--coin-color); font-weight: bold; }
+    .grind-info span { color: var(--accent-primary); font-weight: 700; }
 
-    /* --- BIG CLAIM BUTTON --- */
-    .grind-btn {
-      width: 100%;
-      padding: 18px;
-      border: none;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 700;
-      color: black;
-      background: var(--accent-color);
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.1s, filter 0.2s;
-      box-shadow: 0 4px 20px var(--accent-glow);
+    /* КНОПКА ГРИНДА */
+    .main-action-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: var(--accent-primary);
+        color: #000;
+        font-size: 13px;
+        font-weight: 700;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: transform 0.1s;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+        position: relative;
+        overflow: hidden;
     }
-
-    .grind-btn:active { transform: scale(0.98); }
+    .main-action-btn:active { transform: scale(0.98); }
+    .main-action-btn:disabled {
+        background-color: var(--surface-secondary);
+        color: var(--text-secondary);
+        cursor: not-allowed;
+        box-shadow: none;
+    }
     
-    .grind-btn.disabled {
-      background: #333;
-      color: #777;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    .grind-btn .shine {
-      position: absolute;
-      top: 0; left: -100%;
-      width: 50%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-      animation: shine 3s infinite;
-    }
-
-    @keyframes shine { 
-      0% { left: -100%; } 
-      20% { left: 200%; } 
-      100% { left: 200%; } 
-    }
-
-    .timer-display { font-family: monospace; font-size: 14px; margin-left: 8px; }
-
-    /* --- EXCHANGE MARKET --- */
+    /* ОБМЕННИК */
     .exchange-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 15px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
     }
 
-    .exchange-card {
-      background: var(--surface-card);
-      border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 12px;
-      padding: 15px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .exchange-item {
+        background-color: rgba(0,0,0,0.2);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
-    .exchange-info { display: flex; flex-direction: column; gap: 4px; }
-    .exchange-rate { font-size: 16px; font-weight: 700; color: white; }
-    .exchange-desc { font-size: 12px; color: var(--text-muted); }
+    .exchange-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .exchange-title {
+        font-size: 12px;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+    .exchange-cost {
+        font-size: 10px;
+        color: var(--accent-primary);
+    }
     
-    .exchange-btn {
-      background: rgba(0, 242, 234, 0.1);
-      border: 1px solid var(--ticket-color);
-      color: var(--ticket-color);
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.2s;
+    .mini-btn {
+        background: transparent;
+        border: 1px solid var(--accent-primary);
+        color: var(--accent-primary);
+        padding: 6px 12px;
+        font-size: 10px;
+        font-weight: 600;
+        border-radius: 4px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .mini-btn:hover {
+        background: var(--accent-primary);
+        color: #000;
+    }
+    .mini-btn:disabled {
+        border-color: var(--border-color);
+        color: var(--text-secondary);
+        pointer-events: none;
     }
 
-    .exchange-btn:active { background: var(--ticket-color); color: black; }
-    .exchange-btn:disabled { border-color: #444; color: #666; background: transparent; }
-
-    /* --- BONUS TICKET (Legacy) --- */
-    .legacy-ticket-block {
-      background: linear-gradient(45deg, #1e1b2e, #2a2638);
-      border: 1px solid #3c3852;
-      border-radius: 16px;
-      padding: 15px;
-      margin-top: 25px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    /* БЕСПЛАТНЫЙ БИЛЕТ */
+    .free-ticket-section {
+        border: 1px dashed var(--text-secondary);
+        padding: 12px;
+        border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        background: rgba(255,255,255,0.02);
     }
+    .free-ticket-text { font-size: 11px; color: var(--text-secondary); }
+    .free-ticket-title { font-size: 12px; font-weight: 700; color: #fff; display: block; margin-bottom: 2px; }
 
-    .legacy-info h4 { margin: 0 0 4px; font-size: 14px; color: white; }
-    .legacy-info p { margin: 0; font-size: 11px; color: var(--text-muted); }
-    
-    .legacy-btn {
-      background: #00f2ea;
-      color: black;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 12px;
-    }
-    .legacy-btn:disabled { background: #333; color: #777; }
-
-    /* --- FOOTER --- */
+    /* ФУТЕР */
     .app-footer {
-      display: flex;
-      justify-content: space-around;
-      background-color: rgba(24, 24, 27, 0.9);
-      backdrop-filter: blur(15px);
-      border-top: 1px solid #333;
-      width: 100%;
-      padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
-      position: fixed;
-      bottom: 0; left: 0;
-      z-index: 100;
+        display: flex;
+        justify-content: space-around;
+        background-color: rgba(17, 17, 17, 0.9);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border-top: 1px solid var(--border-color);
+        width: 100%;
+        padding-top: 6px;
+        padding-bottom: calc(6px + env(safe-area-inset-bottom));
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        z-index: 100;
     }
 
     .footer-item {
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      color: var(--text-muted); text-decoration: none; font-size: 11px; flex: 1;
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+        color: var(--text-secondary); font-size: 10px; text-decoration: none; flex: 1;
     }
-    .footer-item i { font-size: 20px; margin-bottom: 2px; }
-    .footer-item.active { color: var(--accent-color); }
+    .footer-item .icon-wrapper {
+        font-size: 22px; width: 28px; height: 28px;
+        display: flex; justify-content: center; align-items: center;
+    }
+    .footer-item.active span, .footer-item.active .icon-wrapper {
+        color: var(--accent-primary); font-weight: 600;
+    }
 
-    /* Animation for coins */
-    .float-anim { animation: floatUp 1s ease-out forwards; position: absolute; font-weight: bold; font-size: 20px; pointer-events: none; }
-    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-30px); } }
+    /* Анимация блеска кнопки */
+    .shine {
+        position: absolute; top: 0; left: -100%;
+        width: 50%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: shine 3s infinite;
+    }
+    @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
+
+    /* Анимация вылетающей цифры */
+    .float-anim {
+        animation: floatUp 1s ease-out forwards;
+        position: absolute; font-weight: 800; font-size: 16px; pointer-events: none; z-index: 100;
+    }
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-40px); } }
 
   </style>
 </head>
 <body>
 
-  <div class="dashboard-header">
-    <div class="balance-card">
-      <span class="balance-label">Монеты</span>
-      <div class="balance-value">
-        <span id="user-coins">0.0</span> <i class="fa-solid fa-coins coin-icon"></i>
-      </div>
+  <div class="new-header-container">
+    <a href="/menu" class="header-back-button">
+        <i class="fa-solid fa-chevron-left"></i> Назад
+    </a>
+    <div class="page-header">
+        <h1 class="page-title">Станция Гринда</h1>
     </div>
-    <div class="balance-card">
-      <span class="balance-label">Билеты</span>
-      <div class="balance-value">
-        <span id="user-tickets">0</span> <i class="fa-solid fa-ticket ticket-icon"></i>
-      </div>
+    <div style="width: 40px;"></div> </div>
+
+  <div class="balance-grid">
+    <div class="balance-item">
+        <span class="balance-label">Монеты</span>
+        <div class="balance-value">
+            <span id="user-coins">0.0</span> <i class="fa-solid fa-coins coin-icon"></i>
+        </div>
+    </div>
+    <div class="balance-item">
+        <span class="balance-label">Билеты</span>
+        <div class="balance-value">
+            <span id="user-tickets">0</span> <i class="fa-solid fa-ticket ticket-icon"></i>
+        </div>
     </div>
   </div>
 
-  <div class="grind-section">
-    <h3 class="section-title"><i class="fa-solid fa-fire"></i> Ежедневная Серия</h3>
+  <div class="glass-card">
+    <div class="section-title"><i class="fa-solid fa-fire"></i> Ежедневная Серия</div>
     
-    <div class="streak-container">
-      <div class="streak-track"></div>
-      <div class="streak-fill" id="streak-bar"></div>
-      
-      <div id="streak-steps" style="display: flex; justify-content: space-between; width: 100%; position: relative;"></div>
+    <div class="streak-wrapper">
+        <div class="streak-line-bg"></div>
+        <div class="streak-line-fill" id="streak-bar"></div>
+        <div id="streak-steps" style="display: flex; justify-content: space-between; width: 100%; position: relative;">
+            </div>
     </div>
 
-    <div class="next-reward-info">
-      Текущая серия: <span id="current-streak-day">1</span> дн. <br>
-      Награда сегодня: <span id="today-reward">+0.1</span>
+    <div class="grind-info">
+        День серии: <span id="current-streak-day">1</span> / 10 <br>
+        Награда сегодня: <span id="today-reward">+0.1</span> монет
     </div>
 
-    <button id="grind-btn" class="grind-btn">
-      <span id="grind-btn-text">ЗАБРАТЬ МОНЕТЫ</span>
-      <div class="shine"></div>
+    <button id="grind-btn" class="main-action-btn">
+        <span id="grind-btn-text">ЗАБРАТЬ БОНУС</span>
+        <div class="shine"></div>
     </button>
   </div>
 
-  <div class="grind-section">
-    <h3 class="section-title"><i class="fa-solid fa-shop"></i> Обмен Монет</h3>
-    <div class="exchange-grid">
-      
-      <div class="exchange-card">
-        <div class="exchange-info">
-          <div class="exchange-rate">4 Монеты ➜ 1 Билет</div>
-          <div class="exchange-desc">Стандартный обмен</div>
+  <div class="glass-card">
+    <div class="section-title"><i class="fa-solid fa-shop"></i> Обменник</div>
+    
+    <div class="exchange-grid" id="exchange-grid">
+        <div class="exchange-item">
+            <div class="exchange-details">
+                <div class="exchange-title">Обменять на Билет</div>
+                <div class="exchange-cost">Цена: 4.0 Монет</div>
+            </div>
+            <button class="mini-btn" onclick="exchangeCoins(4, 1)">Купить</button>
         </div>
-        <button class="exchange-btn" onclick="exchangeCoins(4, 1)">Обменять</button>
-      </div>
 
-      <div class="exchange-card">
-        <div class="exchange-info">
-          <div class="exchange-rate" style="color: var(--coin-color)">40 Монет ➜ 10 Билетов</div>
-          <div class="exchange-desc">Пакетный обмен</div>
+        <div class="exchange-item">
+            <div class="exchange-details">
+                <div class="exchange-title">Пакет Билетов (10 шт)</div>
+                <div class="exchange-cost">Цена: 40.0 Монет</div>
+            </div>
+            <button class="mini-btn" onclick="exchangeCoins(40, 10)">Купить</button>
         </div>
-        <button class="exchange-btn" onclick="exchangeCoins(40, 10)">Обменять</button>
-      </div>
-
-    </div>
+        
+        </div>
   </div>
 
-  <div class="legacy-ticket-block">
-    <div class="legacy-info">
-      <h4>Ежедневный бонус</h4>
-      <p>Обычный бесплатный билет раз в 24ч</p>
+  <div class="free-ticket-section">
+    <div>
+        <span class="free-ticket-title">Ежедневный билет</span>
+        <span class="free-ticket-text">Бесплатно раз в 24ч</span>
     </div>
     <div id="free-ticket-container">
         </div>
@@ -360,15 +423,15 @@
 
   <footer class="app-footer">
     <a href="/menu" class="footer-item">
-      <i class="fa-solid fa-house"></i>
+      <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
       <span>Главная</span>
     </a>
     <a href="/events" class="footer-item active">
-      <i class="fa-solid fa-gavel"></i>
+      <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
       <span>Гринд</span>
     </a>
     <a href="/profile" class="footer-item">
-      <i class="fa-solid fa-user"></i>
+      <div class="icon-wrapper"><i class="fa-solid fa-user"></i></div>
       <span>Профиль</span>
     </a>
   </footer>
@@ -378,21 +441,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
+    // tg.setHeaderColor('#111111'); // Установка цвета хедера под фон
 
-    // Эмуляция данных пользователя (Пока нет бэкенда для монет)
-    // В реальной версии это придет из API /api/v1/user/me
     let userState = {
         coins: 0.0,
         tickets: 0,
-        streakDays: 1,       // Текущий день серии (1-10)
-        lastGrindTime: null, // timestamp ISO
-        lastFreeTicket: null // timestamp ISO
+        streakDays: 1,
+        lastGrindTime: null, 
+        lastFreeTicket: null 
     };
 
     const MAX_STREAK = 10;
     const GRIND_COOLDOWN = 24 * 60 * 60 * 1000; // 24 часа
 
-    // DOM Elements
     const dom = {
         coinsDisplay: document.getElementById('user-coins'),
         ticketsDisplay: document.getElementById('user-tickets'),
@@ -402,14 +463,13 @@ document.addEventListener('DOMContentLoaded', function() {
         todayRewardDisplay: document.getElementById('today-reward'),
         grindBtn: document.getElementById('grind-btn'),
         grindBtnText: document.getElementById('grind-btn-text'),
-        freeTicketContainer: document.getElementById('free-ticket-container')
+        freeTicketContainer: document.getElementById('free-ticket-container'),
+        exchangeGrid: document.getElementById('exchange-grid')
     };
 
-    // --- ИНИЦИАЛИЗАЦИЯ ---
     async function init() {
         try {
-            // 1. Загружаем данные пользователя (билеты и даты)
-            // ВАЖНО: Вам нужно будет обновить API, чтобы возвращать 'coins', 'streak_days', 'last_grind_date'
+            // Запрос данных с сервера
             const response = await fetch('/api/v1/user/me', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -419,108 +479,72 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.ok) {
                 const data = await response.json();
                 userState.tickets = data.tickets || 0;
-                // Пока API не обновлено, используем заглушки или localStorage для теста
-                // В продакшене данные должны идти с сервера!
-                loadLocalState(data.id); 
+                userState.coins = parseFloat(data.coins || 0);
+                userState.streakDays = data.streak_days || 1;
+                userState.lastGrindTime = data.last_grind_at;
                 userState.lastFreeTicket = data.last_free_ticket_claimed_at;
                 
                 updateUI();
                 renderStreakVisuals();
+                renderShop(); // Загрузка промокодов
                 startTimers();
             }
         } catch (e) {
-            console.error("Ошибка загрузки:", e);
-            // Фолбэк для браузера
-            updateUI();
-            renderStreakVisuals();
+            console.error("Ошибка инициализации:", e);
+            tg.showAlert("Ошибка загрузки данных. Проверьте интернет.");
         }
     }
 
-    // Временная функция для сохранения состояния гринда (пока вы не добавите колонки в БД)
-    function loadLocalState(userId) {
-        const key = `grind_state_${userId || 'guest'}`;
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            userState.coins = parsed.coins || 0;
-            userState.streakDays = parsed.streakDays || 1;
-            userState.lastGrindTime = parsed.lastGrindTime;
-            
-            // Логика сброса серии (если прошло > 48 часов)
-            if (userState.lastGrindTime) {
-                const now = new Date().getTime();
-                const last = new Date(userState.lastGrindTime).getTime();
-                if (now - last > (48 * 60 * 60 * 1000)) {
-                    userState.streakDays = 1; // Сброс серии
-                }
-            }
-        }
-    }
-
-    function saveLocalState() {
-        // В продакшене это не нужно, состояние сохраняется на сервере
-        const userId = tg.initDataUnsafe?.user?.id || 'guest';
-        const key = `grind_state_${userId}`;
-        localStorage.setItem(key, JSON.stringify(userState));
-    }
-
-    // --- РЕНДЕРИНГ ---
+    // --- UI И ГРИНД ---
 
     function updateUI() {
-        // Обновляем цифры
         dom.coinsDisplay.textContent = userState.coins.toFixed(1);
         dom.ticketsDisplay.textContent = userState.tickets;
         dom.streakDayDisplay.textContent = userState.streakDays;
         
-        // Расчет награды (0.1 * день серии, макс 1.0)
+        // Расчет награды
         let reward = (userState.streakDays * 0.1).toFixed(1);
         if (parseFloat(reward) > 1.0) reward = "1.0";
         dom.todayRewardDisplay.textContent = `+${reward}`;
-        dom.todayRewardDisplay.style.color = 'var(--coin-color)';
 
-        // Состояние кнопки Гринда
+        // Состояние кнопки гринда
         const now = new Date().getTime();
         const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
         const diff = now - last;
 
         if (diff < GRIND_COOLDOWN) {
-            dom.grindBtn.classList.add('disabled');
+            dom.grindBtn.disabled = true;
             const remaining = GRIND_COOLDOWN - diff;
             const h = Math.floor(remaining / 3600000);
             const m = Math.floor((remaining % 3600000) / 60000);
-            dom.grindBtnText.innerHTML = `ЖДИТЕ: <span class="timer-display">${h}ч ${m}м</span>`;
+            dom.grindBtnText.textContent = `ДОСТУПНО ЧЕРЕЗ ${h}ч ${m}м`;
         } else {
-            dom.grindBtn.classList.remove('disabled');
-            dom.grindBtnText.textContent = "ЗАБРАТЬ МОНЕТЫ";
+            dom.grindBtn.disabled = false;
+            dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
 
-        // Обновление кнопок обмена
-        document.querySelectorAll('.exchange-btn').forEach(btn => {
-            // Простая логика проверки баланса в UI (реальная проверка на сервере)
-            // Здесь сложно получить параметры onclick, поэтому оставим как есть,
-            // валидация будет внутри функции exchangeCoins
+        // Обновляем доступность кнопок в магазине
+        document.querySelectorAll('.mini-btn').forEach(btn => {
+            // Пропускаем кнопки с onclick="buyItem...", их обновляет renderShop
+            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes('exchangeCoins')) {
+                const cost = parseInt(btn.getAttribute('onclick').match(/\d+/)[0]);
+                btn.disabled = userState.coins < cost;
+                btn.style.opacity = userState.coins < cost ? '0.5' : '1';
+            }
         });
     }
 
     function renderStreakVisuals() {
         dom.streakSteps.innerHTML = '';
-        const stepsCount = 5; // Показываем 5 основных точек, хотя дней может быть больше
-        
-        // Логика визуализации: 
-        // 1..2..3..4..10
-        
-        // Процент заполнения бара
-        // Если день 1 -> 0%, День 5 -> 50%, День 10 -> 100%
+        // 5 точек визуализации (1, 3, 5, 7, 10)
         let percent = ((userState.streakDays - 1) / (MAX_STREAK - 1)) * 100;
         if (percent > 100) percent = 100;
         dom.streakBar.style.width = `${percent}%`;
 
-        // Генерируем кружки
         for (let i = 1; i <= 5; i++) {
             const step = document.createElement('div');
             step.className = 'streak-step';
             
-            // Распределяем значения для 5 кружков: 1, 3, 5, 7, 10
             let dayValue = 1;
             if (i === 2) dayValue = 3;
             if (i === 3) dayValue = 5;
@@ -532,92 +556,181 @@ document.addEventListener('DOMContentLoaded', function() {
             if (userState.streakDays >= dayValue) {
                 step.classList.add('completed');
                 step.innerHTML = '<i class="fa-solid fa-check"></i>';
-            }
-            
-            // Подсветка следующей цели
-            if (userState.streakDays < dayValue && userState.streakDays > (dayValue - 3)) {
-                // Ближайшая цель
-                // step.style.borderColor = 'white';
+            } else if (userState.streakDays === dayValue - 1 || (i===1 && userState.streakDays===1)) {
+               // Активный следующий шаг (можно добавить стиль active, если нужно)
             }
 
             dom.streakSteps.appendChild(step);
         }
     }
 
-    // --- ЛОГИКА ДЕЙСТВИЙ ---
+    // --- ДЕЙСТВИЯ ---
 
-    // 1. ЗАБРАТЬ МОНЕТЫ
+    // 1. СБОР МОНЕТ
     dom.grindBtn.addEventListener('click', async () => {
-        if (dom.grindBtn.classList.contains('disabled')) {
-            tg.HapticFeedback.notificationOccurred('error');
-            return;
-        }
-
-        tg.HapticFeedback.impactOccurred('medium');
-
-        // Расчет награды
-        let rewardAmount = parseFloat((userState.streakDays * 0.1).toFixed(1));
-        if (rewardAmount > 1.0) rewardAmount = 1.0;
-
-        // Анимация вылетающей цифры
-        showFloatText(dom.grindBtn, `+${rewardAmount}`, 'var(--coin-color)');
-
-        // Обновление состояния
-        userState.coins += rewardAmount;
-        userState.lastGrindTime = new Date().toISOString();
+        if (dom.grindBtn.disabled) return;
         
-        // Увеличение серии (до макс 10)
-        if (userState.streakDays < MAX_STREAK) {
-            userState.streakDays++;
-        }
+        tg.HapticFeedback.impactOccurred('medium');
+        dom.grindBtn.disabled = true; // Анти-клик
 
-        // Сохранение (здесь нужен fetch к вашему новому API)
-        /*
-        await fetch('/api/v1/user/grind/claim', {
-            method: 'POST', 
-            body: JSON.stringify({initData: tg.initData})
-        });
-        */
-        saveLocalState();
-        updateUI();
-        renderStreakVisuals();
+        try {
+            const response = await fetch('/api/v1/user/grind/claim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || "Ошибка");
+            }
+
+            const res = await response.json();
+            
+            // Анимация
+            showFloatText(dom.grindBtn, `+${res.reward_claimed}`, 'var(--accent-primary)');
+
+            // Обновление состояния
+            userState.coins = parseFloat(res.new_coins);
+            userState.streakDays = res.streak_days;
+            userState.lastGrindTime = res.last_grind_at;
+
+            updateUI();
+            renderStreakVisuals();
+
+        } catch (e) {
+            tg.showAlert(e.message);
+            dom.grindBtn.disabled = false;
+        }
     });
 
-    // 2. ОБМЕН МОНЕТ
+    // 2. ОБМЕН МОНЕТ НА БИЛЕТЫ
     window.exchangeCoins = async (cost, rewardTickets) => {
         if (userState.coins < cost) {
-            tg.showAlert(`Недостаточно монет! Нужно ${cost}.`);
             tg.HapticFeedback.notificationOccurred('error');
             return;
         }
 
         tg.showConfirm(`Обменять ${cost} монет на ${rewardTickets} билет(ов)?`, async (ok) => {
             if (ok) {
-                // Списываем
-                userState.coins -= cost;
-                
-                // Вызываем API начисления билетов (существующее)
-                // Но лучше создать отдельный эндпоинт для обмена
                 try {
-                    // Эмуляция успеха
-                    userState.tickets += rewardTickets;
+                    const response = await fetch('/api/v1/user/grind/exchange', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            initData: tg.initData,
+                            cost: cost,
+                            tickets_reward: rewardTickets
+                        })
+                    });
+
+                    if (!response.ok) throw new Error("Ошибка обмена");
+                    const res = await response.json();
+
+                    userState.coins = parseFloat(res.new_coins);
+                    userState.tickets = res.new_tickets;
                     
-                    // Здесь в идеале вызвать:
-                    // /api/v1/user/grind/exchange 
-                    
-                    // Но пока используем локальный апдейт + сохранение
-                    saveLocalState();
                     updateUI();
-                    tg.showAlert('Успешный обмен!');
+                    renderShop(); // Перерисовать доступность кнопок
                     tg.HapticFeedback.notificationOccurred('success');
+                    tg.showAlert('Успешный обмен!');
+
                 } catch (e) {
-                    tg.showAlert('Ошибка обмена.');
+                    tg.showAlert('Не удалось выполнить обмен.');
                 }
             }
         });
     };
 
-    // 3. БЕСПЛАТНЫЙ БИЛЕТ (LEGACY)
+    // 3. ПОКУПКА ПРОМОКОДА (ДИНАМИЧЕСКАЯ)
+    window.buyItem = async (rewardValue) => {
+        const cost = rewardValue;
+
+        tg.showConfirm(`Купить промокод на ${rewardValue} звёзд за ${cost} монет?`, async (ok) => {
+            if (ok) {
+                if(typeof tg.MainButton.showProgress === 'function') tg.MainButton.showProgress();
+                try {
+                    const response = await fetch('/api/v1/user/grind/buy_item', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            initData: tg.initData,
+                            reward_value: rewardValue 
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Ошибка покупки');
+                    }
+
+                    const res = await response.json();
+                    userState.coins = parseFloat(res.new_coins);
+                    updateUI();
+                    renderShop(); // Обновляем магазин (кол-во товаров)
+                    
+                    tg.HapticFeedback.notificationOccurred('success');
+                    tg.showPopup({
+                        title: '🎉 Успешно!',
+                        message: `Ваш код:\n\n${res.promo_code}\n\nСкопируйте его.`,
+                        buttons: [{type: 'ok'}]
+                    });
+
+                } catch (e) {
+                    tg.showAlert(e.message);
+                    tg.HapticFeedback.notificationOccurred('error');
+                } finally {
+                    if(typeof tg.MainButton.hideProgress === 'function') tg.MainButton.hideProgress();
+                }
+            }
+        });
+    };
+
+    // 4. ОТРИСОВКА МАГАЗИНА (ПРОМОКОДЫ)
+    async function renderShop() {
+        // Удаляем старые промо-карточки (оставляем только первые 2 статических обмена)
+        // Но лучше просто пересобрать весь грид или добавлять в конец
+        // Для простоты: удаляем все динамические элементы с классом dynamic-promo
+        document.querySelectorAll('.dynamic-promo').forEach(e => e.remove());
+
+        try {
+            const response = await fetch('/api/v1/user/grind/shop');
+            const items = await response.json();
+
+            if (items && items.length > 0) {
+                items.forEach(item => {
+                    const cost = item.reward_value;
+                    const div = document.createElement('div');
+                    div.className = 'exchange-item dynamic-promo';
+                    div.style.borderColor = 'var(--accent-primary)'; // Подсветка золотом
+                    
+                    const isAffordable = userState.coins >= cost;
+
+                    div.innerHTML = `
+                        <div class="exchange-details">
+                            <div class="exchange-title" style="color:var(--accent-primary)">
+                                Промокод на ${item.reward_value} звёзд
+                            </div>
+                            <div class="exchange-cost" style="color:#fff">
+                                Цена: ${cost} Монет <span style="opacity:0.5; font-size:9px;">(Ост: ${item.quantity})</span>
+                            </div>
+                        </div>
+                        <button class="mini-btn" 
+                                onclick="buyItem(${item.reward_value})" 
+                                ${isAffordable ? '' : 'disabled'} 
+                                style="${isAffordable ? 'background:var(--accent-primary); color:#000;' : ''}">
+                            ${isAffordable ? 'Купить' : 'Мало монет'}
+                        </button>
+                    `;
+                    dom.exchangeGrid.appendChild(div);
+                });
+            }
+        } catch (e) {
+            console.warn("Shop load error", e);
+        }
+    }
+
+    // 5. БЕСПЛАТНЫЙ БИЛЕТ (LEGACY)
     function renderFreeTicketBtn() {
         const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
         const now = new Date().getTime();
@@ -625,19 +738,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const cooldown = 24 * 60 * 60 * 1000;
 
         if (diff > cooldown) {
-            dom.freeTicketContainer.innerHTML = `<button class="legacy-btn" onclick="claimFreeTicket()">ПОЛУЧИТЬ</button>`;
+            dom.freeTicketContainer.innerHTML = `<button class="mini-btn" style="border-color:#fff; color:#fff;" onclick="claimFreeTicket()">ПОЛУЧИТЬ</button>`;
         } else {
             const remaining = cooldown - diff;
             const h = Math.floor(remaining / 3600000);
             const m = Math.floor((remaining % 3600000) / 60000);
-            dom.freeTicketContainer.innerHTML = `<button class="legacy-btn" disabled>${h}ч ${m}м</button>`;
+            dom.freeTicketContainer.innerHTML = `<span style="font-size:11px; color:#555;">${h}ч ${m}м</span>`;
         }
     }
 
     window.claimFreeTicket = async () => {
-        const btn = document.querySelector('.legacy-btn');
-        if(btn) btn.disabled = true;
-        
         try {
             const response = await fetch('/api/v1/user/claim-free-ticket', {
                 method: 'POST',
@@ -649,7 +759,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const res = await response.json();
                 userState.tickets = res.new_ticket_balance;
                 userState.lastFreeTicket = new Date().toISOString();
-                tg.showAlert('Бесплатный билет получен!');
+                tg.showAlert('Билет получен!');
                 updateUI();
                 renderFreeTicketBtn();
             } else {
@@ -657,16 +767,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {
             tg.showAlert('Ошибка получения билета');
-            if(btn) btn.disabled = false;
         }
     };
 
-    // Утилиты
+    // УТИЛИТЫ
     function startTimers() {
         setInterval(() => {
-            updateUI(); // Обновляет таймер на кнопке гринда
-            renderFreeTicketBtn(); // Обновляет таймер на бонусе
-        }, 60000); // Раз в минуту
+            updateUI(); 
+            renderFreeTicketBtn(); 
+        }, 60000); 
         renderFreeTicketBtn();
     }
 
@@ -676,7 +785,8 @@ document.addEventListener('DOMContentLoaded', function() {
         floatEl.textContent = text;
         floatEl.className = 'float-anim';
         floatEl.style.color = color;
-        floatEl.style.left = (rect.left + rect.width / 2 - 10) + 'px';
+        // Центрируем относительно кнопки
+        floatEl.style.left = (rect.left + rect.width / 2 - 20) + 'px'; 
         floatEl.style.top = (rect.top) + 'px';
         document.body.appendChild(floatEl);
         setTimeout(() => floatEl.remove(), 1000);
