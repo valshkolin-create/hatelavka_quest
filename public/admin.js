@@ -387,40 +387,35 @@ async function renderCauldronParticipants() {
 async function loadStatistics() {
         showLoader();
         try {
-            // 1. Запрашиваем статистику склада (существующая логика)
+            // 1. Запрашиваем статистику склада
             const stats = await makeApiRequest("/api/v1/admin/stats", {}, 'POST', true);
             
             // 2. Запрашиваем новую статистику API
             const apiStats = await makeApiRequest("/api/v1/admin/stats/endpoints", {}, 'POST', true);
 
-            // Очищаем контент, но сохраняем структуру, если она была создана динамически (или обновляем точечно)
-            // В данном случае мы обновляем только цифры склада и таблицу
-            
-            const totalStock = stats.total_skin_stock !== undefined ? stats.total_skin_stock : 0;
+            // --- Обновление UI ---
             
             // Обновляем цифру склада
+            const totalStock = stats.total_skin_stock !== undefined ? stats.total_skin_stock : 0;
             const stockElement = document.getElementById('stat-total-stock');
             if (stockElement) {
                 stockElement.textContent = totalStock;
             }
 
-            // Рендерим таблицу API
+            // Рендерим таблицу API (используем helper функцию)
             renderApiStatsTable(apiStats);
 
         } catch (e) {
             console.error("Ошибка загрузки статистики:", e);
-            // Если произошла ошибка, выводим её в контейнер таблицы, если он есть
+            
+            // Если есть таблица, пишем ошибку туда
             const tbody = document.getElementById('api-stats-tbody');
             if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="4" class="error-message" style="text-align:center;">Ошибка: ${escapeHTML(e.message)}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="error-message" style="text-align:center; color: var(--danger-color);">Ошибка: ${escapeHTML(e.message)}</td></tr>`;
             }
+            
+            // И показываем алерт
             tg.showAlert(`Ошибка: ${e.message}`);
-        } finally {
-            hideLoader();
-        }
-
-        } catch (e) {
-            dom.statisticsContent.innerHTML = `<p class="error-message" style="text-align: center;">Не удалось загрузить статистику склада: ${e.message}</p>`;
         } finally {
             hideLoader();
         }
@@ -4454,9 +4449,7 @@ if (dom.settingQuestScheduleOverride) {
                 await loadStatistics();
             });
         }
-        }
-       
-
+            
 /**
      * Загружает и отображает список квестов или челленджей в модальное окно.
      * Отмечает и сортирует активный для выбранного пользователя.
