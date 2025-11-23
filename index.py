@@ -7373,6 +7373,48 @@ async def exchange_coins_endpoint(
         logging.error(f"Exchange error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+@app.post("/api/v1/user/grind/buy_promo")
+async def buy_promo_endpoint(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Покупка реального промокода из таблицы promocodes за монеты."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # --- НАСТРОЙКИ ЦЕНЫ ---
+    COST_IN_COINS = 10.0   # Сколько монет стоит покупка
+    REWARD_STARS = 50      # Какой номинал промокода искать в базе (например, промокод на 50 звезд)
+    # Убедись, что в таблице 'promocodes' есть свободные коды с reward_value = 50 (или сколько ты поставишь)
+    # ----------------------
+
+    try:
+        response = await supabase.post(
+            "/rpc/buy_promo_for_coins",
+            json={
+                "p_user_id": user_info["id"],
+                "p_cost": COST_IN_COINS,
+                "p_reward_value": REWARD_STARS 
+            }
+        )
+        
+        # Обработка ошибок от SQL (например, если коды закончились)
+        if response.status_code != 200:
+            error_data = response.json()
+            error_msg = error_data.get("message", "Ошибка покупки")
+            # Если коды закончились, база вернет нашу ошибку 'Промокоды закончились...'
+            raise HTTPException(status_code=400, detail=error_msg)
+
+        return response.json()
+
+    except httpx.HTTPStatusError as e:
+        error_msg = e.response.json().get("message", e.response.text)
+        raise HTTPException(status_code=400, detail=error_msg)
+    except Exception as e:
+        logging.error(f"Promo buy error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon(): return Response(status_code=204)
