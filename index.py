@@ -7415,6 +7415,57 @@ async def buy_promo_endpoint(
         logging.error(f"Promo buy error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+# --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
+@app.get("/api/v1/user/grind/shop")
+async def get_grind_shop(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Возвращает доступные номиналы промокодов."""
+    try:
+        response = await supabase.post("/rpc/get_grind_shop_inventory")
+        return response.json()
+    except Exception as e:
+        logging.error(f"Shop inventory error: {e}")
+        return [] # Возвращаем пустой список, если ошибка
+
+# --- ПОКУПКА ДИНАМИЧЕСКОГО ПРОМОКОДА ---
+class BuyPromoRequest(BaseModel):
+    initData: str
+    reward_value: int # Пользователь присылает только номинал, который хочет купить
+
+@app.post("/api/v1/user/grind/buy_item")
+async def buy_dynamic_promo_endpoint(
+    request_data: BuyPromoRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        response = await supabase.post(
+            "/rpc/buy_dynamic_promo",
+            json={
+                "p_user_id": user_info["id"],
+                "p_reward_value": request_data.reward_value
+            }
+        )
+        
+        # Обработка ошибок SQL (например, код кончился или мало денег)
+        if response.status_code != 200:
+            error_data = response.json()
+            # Пытаемся достать понятное сообщение
+            msg = error_data.get("message", "Ошибка покупки")
+            raise HTTPException(status_code=400, detail=msg)
+
+        return response.json()
+
+    except httpx.HTTPStatusError as e:
+        # Ловим ошибки от raise exception в SQL
+        error_msg = e.response.json().get("message", e.response.text)
+        raise HTTPException(status_code=400, detail=error_msg)
+    except Exception as e:
+        logging.error(f"Buy promo error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon(): return Response(status_code=204)
