@@ -250,6 +250,9 @@
     let isAnimating = false;
     const animationQueue = [];
 
+    // --- 🆕 ДОБАВЛЯЕМ ПЕРЕМЕННУЮ ---
+    let lastAnimationTimestamp = 0;
+
     function playSound(audioElem) {
         if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; audioElem.play().catch(e => console.warn(e)); }
     }
@@ -257,19 +260,16 @@
         if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; }
     }
 
-    // Добавьте эту переменную перед функциями
-    let lastAnimationTimestamp = 0;
-
     function startRouletteAnimation(payload) {
-        // --- 🛡️ ЗАЩИТА НА ФРОНТЕНДЕ 🛡️ ---
+        // --- 🛡️ ЗАЩИТА ОТ ДУБЛЕЙ (НОВЫЙ КОД) 🛡️ ---
         const now = Date.now();
-        // Если прошло менее 5000 мс (5 секунд) с прошлой анимации, игнорируем дубль
+        // Если с прошлой анимации прошло меньше 5 секунд (5000 мс), игнорируем
         if (now - lastAnimationTimestamp < 5000) {
-            console.warn("Дубликат анимации обнаружен и заблокирован.");
+            console.warn("Дубликат анимации обнаружен и заблокирован (Frontend).");
             return;
         }
         lastAnimationTimestamp = now;
-        // ----------------------------------
+        // ------------------------------------------
 
         animationQueue.push(payload);
         if (!isAnimating) processNextAnimation();
