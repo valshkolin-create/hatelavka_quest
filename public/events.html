@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   
   <style>
-    /* --- ВСТАВКА СТИЛЕЙ ИЗ AUCTION.CSS --- */
     :root {
       --background-main: #111111;
       --surface-primary: #1C1C1C;
@@ -68,7 +67,7 @@
         color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px;
     }
 
-    /* --- КАРТОЧКИ (Стиль Auction) --- */
+    /* КАРТОЧКИ */
     .glass-card {
         background-color: var(--card-bg-glass);
         backdrop-filter: blur(15px);
@@ -101,217 +100,166 @@
     }
 
     .balance-label {
-        font-size: 10px;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        margin-bottom: 4px;
+        font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px;
     }
 
     .balance-value {
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--text-primary);
-        display: flex;
-        align-items: center;
-        gap: 6px;
+        font-size: 16px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;
     }
     
     .coin-icon { color: var(--accent-primary); text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
     .ticket-icon { color: #00f2ea; text-shadow: 0 0 10px rgba(0, 242, 234, 0.4); }
 
-    /* ПРОГРЕСС ГРИНДА */
+    /* ГРИНД */
     .section-title {
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin: 0 0 12px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        text-transform: uppercase;
+        font-size: 13px; font-weight: 700; color: var(--text-primary); margin: 0 0 12px;
+        display: flex; align-items: center; gap: 6px; text-transform: uppercase;
     }
     .section-title i { color: var(--accent-secondary); }
 
     .streak-wrapper {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        position: relative;
-        margin: 20px 5px 25px;
+        display: flex; justify-content: space-between; align-items: center;
+        position: relative; margin: 20px 5px 25px;
     }
 
     .streak-line-bg {
-        position: absolute;
-        top: 50%; left: 0; right: 0;
-        height: 2px;
-        background: var(--border-color);
-        transform: translateY(-50%);
-        z-index: 0;
+        position: absolute; top: 50%; left: 0; right: 0; height: 2px;
+        background: var(--border-color); transform: translateY(-50%); z-index: 0;
     }
 
     .streak-line-fill {
-        position: absolute;
-        top: 50%; left: 0;
-        height: 2px;
-        background: var(--accent-primary);
-        transform: translateY(-50%);
-        z-index: 1;
-        width: 0%;
-        transition: width 0.5s ease;
-        box-shadow: 0 0 10px var(--accent-primary);
+        position: absolute; top: 50%; left: 0; height: 2px;
+        background: var(--accent-primary); transform: translateY(-50%); z-index: 1;
+        width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px var(--accent-primary);
     }
 
     .streak-step {
-        width: 24px; height: 24px;
-        background: var(--surface-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 50%;
-        z-index: 2;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 9px;
-        color: var(--text-secondary);
-        font-weight: 700;
-        transition: all 0.3s ease;
+        width: 24px; height: 24px; background: var(--surface-primary);
+        border: 1px solid var(--border-color); border-radius: 50%; z-index: 2;
+        display: flex; justify-content: center; align-items: center;
+        font-size: 9px; color: var(--text-secondary); font-weight: 700; transition: all 0.3s ease;
     }
 
     .streak-step.active {
-        border-color: var(--accent-primary);
-        background: var(--background-main);
-        color: var(--text-primary);
-        transform: scale(1.2);
-        box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        border-color: var(--accent-primary); background: var(--background-main);
+        color: var(--text-primary); transform: scale(1.2); box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
     }
 
     .streak-step.completed {
-        background: var(--accent-primary);
-        border-color: var(--accent-primary);
-        color: #000;
+        background: var(--accent-primary); border-color: var(--accent-primary); color: #000;
     }
 
     .grind-info {
-        text-align: center;
-        font-size: 11px;
-        color: var(--text-secondary);
-        margin-bottom: 12px;
-        background: rgba(0,0,0,0.2);
-        padding: 8px;
-        border-radius: 6px;
+        text-align: center; font-size: 11px; color: var(--text-secondary); margin-bottom: 12px;
+        background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px;
     }
     .grind-info span { color: var(--accent-primary); font-weight: 700; }
 
-    /* КНОПКА ГРИНДА */
     .main-action-btn {
-        width: 100%;
-        padding: 12px;
-        background-color: var(--accent-primary);
-        color: #000;
-        font-size: 13px;
-        font-weight: 700;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        transition: transform 0.1s;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
-        position: relative;
-        overflow: hidden;
+        width: 100%; padding: 12px; background-color: var(--accent-primary);
+        color: #000; font-size: 13px; font-weight: 700; border: none; border-radius: 6px;
+        cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
+        transition: transform 0.1s; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+        position: relative; overflow: hidden;
     }
     .main-action-btn:active { transform: scale(0.98); }
     .main-action-btn:disabled {
-        background-color: var(--surface-secondary);
-        color: var(--text-secondary);
-        cursor: not-allowed;
-        box-shadow: none;
+        background-color: var(--surface-secondary); color: var(--text-secondary);
+        cursor: not-allowed; box-shadow: none;
     }
-    
-    /* ОБМЕННИК */
-    .exchange-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
+
+    /* КНОПКА ОТКРЫТИЯ МАГАЗИНА */
+    .open-shop-card {
+        display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+        transition: transform 0.2s; border-color: var(--accent-secondary);
     }
+    .open-shop-card:active { transform: scale(0.98); }
+    .shop-info-left { display: flex; align-items: center; gap: 12px; }
+    .shop-icon-large { font-size: 24px; color: var(--accent-secondary); }
+    .shop-text h4 { margin: 0; font-size: 13px; color: var(--text-primary); }
+    .shop-text p { margin: 2px 0 0; font-size: 10px; color: var(--text-secondary); }
+    .shop-arrow { color: var(--text-secondary); font-size: 12px; }
+
+    /* МОДАЛКА МАГАЗИНА */
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.8); z-index: 200; display: flex;
+        align-items: center; justify-content: center; backdrop-filter: blur(8px);
+        opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .modal-overlay.visible { opacity: 1; pointer-events: all; }
+
+    .modal-content {
+        background-color: var(--surface-primary); border: 1px solid var(--accent-primary);
+        border-radius: 12px; width: 90%; max-width: 360px;
+        box-shadow: 0 10px 40px rgba(255, 215, 0, 0.15);
+        display: flex; flex-direction: column; position: relative;
+        max-height: 85vh;
+    }
+
+    .modal-header {
+        padding: 15px; border-bottom: 1px solid var(--border-color);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-title { font-size: 14px; font-weight: 700; color: var(--accent-primary); text-transform: uppercase; }
+    .modal-close-btn {
+        background: none; border: none; color: var(--text-secondary);
+        font-size: 24px; cursor: pointer; padding: 0; line-height: 1;
+    }
+
+    .modal-body { padding: 15px; overflow-y: auto; }
+
+    .shop-grid { display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
 
     .exchange-item {
-        background-color: rgba(0,0,0,0.2);
+        background-color: rgba(255, 255, 255, 0.03);
         border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        border-radius: 6px; padding: 10px;
+        display: flex; justify-content: space-between; align-items: center;
     }
-
-    .exchange-details {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-    .exchange-title {
-        font-size: 12px;
-        color: var(--text-primary);
-        font-weight: 600;
-    }
-    .exchange-cost {
-        font-size: 10px;
-        color: var(--accent-primary);
-    }
+    .exchange-details { display: flex; flex-direction: column; gap: 2px; }
+    .exchange-title { font-size: 12px; color: var(--text-primary); font-weight: 600; }
+    .exchange-cost { font-size: 10px; color: var(--accent-primary); }
     
     .mini-btn {
-        background: transparent;
-        border: 1px solid var(--accent-primary);
-        color: var(--accent-primary);
-        padding: 6px 12px;
-        font-size: 10px;
-        font-weight: 600;
-        border-radius: 4px;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: all 0.2s;
+        background: transparent; border: 1px solid var(--accent-primary); color: var(--accent-primary);
+        padding: 6px 12px; font-size: 10px; font-weight: 600; border-radius: 4px;
+        text-transform: uppercase; cursor: pointer; transition: all 0.2s;
     }
-    .mini-btn:hover {
-        background: var(--accent-primary);
-        color: #000;
+    .mini-btn:hover { background: var(--accent-primary); color: #000; }
+    .mini-btn:disabled { border-color: var(--border-color); color: var(--text-secondary); pointer-events: none; opacity: 0.5; }
+
+    /* ПАГИНАЦИЯ */
+    .pagination-controls {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-color);
     }
-    .mini-btn:disabled {
-        border-color: var(--border-color);
-        color: var(--text-secondary);
-        pointer-events: none;
+    .page-btn {
+        background: var(--surface-secondary); border: none; color: var(--text-primary);
+        width: 30px; height: 30px; border-radius: 50%; font-size: 12px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
     }
+    .page-btn:disabled { opacity: 0.3; cursor: default; }
+    .page-info { font-size: 11px; color: var(--text-secondary); }
 
     /* БЕСПЛАТНЫЙ БИЛЕТ */
     .free-ticket-section {
-        border: 1px dashed var(--text-secondary);
-        padding: 12px;
-        border-radius: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 10px;
-        background: rgba(255,255,255,0.02);
+        border: 1px dashed var(--text-secondary); padding: 12px; border-radius: 8px;
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: 10px; background: rgba(255,255,255,0.02);
     }
     .free-ticket-text { font-size: 11px; color: var(--text-secondary); }
     .free-ticket-title { font-size: 12px; font-weight: 700; color: #fff; display: block; margin-bottom: 2px; }
 
     /* ФУТЕР */
     .app-footer {
-        display: flex;
-        justify-content: space-around;
+        display: flex; justify-content: space-around;
         background-color: rgba(17, 17, 17, 0.9);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border-top: 1px solid var(--border-color);
-        width: 100%;
-        padding-top: 6px;
-        padding-bottom: calc(6px + env(safe-area-inset-bottom));
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        z-index: 100;
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        border-top: 1px solid var(--border-color); width: 100%;
+        padding-top: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom));
+        position: fixed; bottom: 0; left: 0; z-index: 100;
     }
-
     .footer-item {
         display: flex; flex-direction: column; align-items: center; gap: 2px;
         color: var(--text-secondary); font-size: 10px; text-decoration: none; flex: 1;
@@ -320,20 +268,15 @@
         font-size: 22px; width: 28px; height: 28px;
         display: flex; justify-content: center; align-items: center;
     }
-    .footer-item.active span, .footer-item.active .icon-wrapper {
-        color: var(--accent-primary); font-weight: 600;
-    }
+    .footer-item.active span, .footer-item.active .icon-wrapper { color: var(--accent-primary); font-weight: 600; }
 
-    /* Анимация блеска кнопки */
+    /* Анимации */
     .shine {
-        position: absolute; top: 0; left: -100%;
-        width: 50%; height: 100%;
+        position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
         animation: shine 3s infinite;
     }
     @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
-
-    /* Анимация вылетающей цифры */
     .float-anim {
         animation: floatUp 1s ease-out forwards;
         position: absolute; font-weight: 800; font-size: 16px; pointer-events: none; z-index: 100;
@@ -351,7 +294,8 @@
     <div class="page-header">
         <h1 class="page-title">Станция Гринда</h1>
     </div>
-    <div style="width: 40px;"></div> </div>
+    <div style="width: 40px;"></div>
+  </div>
 
   <div class="balance-grid">
     <div class="balance-item">
@@ -389,27 +333,15 @@
     </button>
   </div>
 
-  <div class="glass-card">
-    <div class="section-title"><i class="fa-solid fa-shop"></i> Обменник</div>
-    
-    <div class="exchange-grid" id="exchange-grid">
-        <div class="exchange-item">
-            <div class="exchange-details">
-                <div class="exchange-title">Обменять на Билет</div>
-                <div class="exchange-cost">Цена: 4.0 Монет</div>
-            </div>
-            <button class="mini-btn" onclick="exchangeCoins(4, 1)">Купить</button>
+  <div class="glass-card open-shop-card" onclick="openShopModal()">
+    <div class="shop-info-left">
+        <i class="fa-solid fa-shop shop-icon-large"></i>
+        <div class="shop-text">
+            <h4>Магазин Наград</h4>
+            <p>Обмен монет на билеты и промокоды</p>
         </div>
-
-        <div class="exchange-item">
-            <div class="exchange-details">
-                <div class="exchange-title">Пакет Билетов (10 шт)</div>
-                <div class="exchange-cost">Цена: 40.0 Монет</div>
-            </div>
-            <button class="mini-btn" onclick="exchangeCoins(40, 10)">Купить</button>
-        </div>
-        
-        </div>
+    </div>
+    <div class="shop-arrow"><i class="fa-solid fa-chevron-right"></i></div>
   </div>
 
   <div class="free-ticket-section">
@@ -419,6 +351,25 @@
     </div>
     <div id="free-ticket-container">
         </div>
+  </div>
+
+  <div id="shop-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">Обменник</div>
+            <button class="modal-close-btn" onclick="closeShopModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="shop-grid" id="shop-container">
+                </div>
+            
+            <div class="pagination-controls" id="pagination-controls">
+                <button class="page-btn" id="prev-page-btn" onclick="changePage(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                <span class="page-info" id="page-indicator">1 / 1</span>
+                <button class="page-btn" id="next-page-btn" onclick="changePage(1)"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
   </div>
 
   <footer class="app-footer">
@@ -441,7 +392,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
-    // tg.setHeaderColor('#111111'); // Установка цвета хедера под фон
 
     let userState = {
         coins: 0.0,
@@ -451,8 +401,13 @@ document.addEventListener('DOMContentLoaded', function() {
         lastFreeTicket: null 
     };
 
+    // Данные для магазина
+    let shopItems = [];
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
     const MAX_STREAK = 10;
-    const GRIND_COOLDOWN = 24 * 60 * 60 * 1000; // 24 часа
+    const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
 
     const dom = {
         coinsDisplay: document.getElementById('user-coins'),
@@ -464,12 +419,16 @@ document.addEventListener('DOMContentLoaded', function() {
         grindBtn: document.getElementById('grind-btn'),
         grindBtnText: document.getElementById('grind-btn-text'),
         freeTicketContainer: document.getElementById('free-ticket-container'),
-        exchangeGrid: document.getElementById('exchange-grid')
+        shopModal: document.getElementById('shop-modal'),
+        shopContainer: document.getElementById('shop-container'),
+        pageIndicator: document.getElementById('page-indicator'),
+        prevPageBtn: document.getElementById('prev-page-btn'),
+        nextPageBtn: document.getElementById('next-page-btn'),
+        paginationControls: document.getElementById('pagination-controls')
     };
 
     async function init() {
         try {
-            // Запрос данных с сервера
             const response = await fetch('/api/v1/user/me', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -486,28 +445,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 updateUI();
                 renderStreakVisuals();
-                renderShop(); // Загрузка промокодов
+                fetchShopItems(); // Загружаем товары, но пока не рендерим модалку
                 startTimers();
             }
         } catch (e) {
             console.error("Ошибка инициализации:", e);
-            tg.showAlert("Ошибка загрузки данных. Проверьте интернет.");
+            tg.showAlert("Ошибка загрузки данных.");
         }
     }
-
-    // --- UI И ГРИНД ---
 
     function updateUI() {
         dom.coinsDisplay.textContent = userState.coins.toFixed(1);
         dom.ticketsDisplay.textContent = userState.tickets;
         dom.streakDayDisplay.textContent = userState.streakDays;
         
-        // Расчет награды
         let reward = (userState.streakDays * 0.1).toFixed(1);
         if (parseFloat(reward) > 1.0) reward = "1.0";
         dom.todayRewardDisplay.textContent = `+${reward}`;
 
-        // Состояние кнопки гринда
         const now = new Date().getTime();
         const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
         const diff = now - last;
@@ -522,21 +477,10 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.grindBtn.disabled = false;
             dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
-
-        // Обновляем доступность кнопок в магазине
-        document.querySelectorAll('.mini-btn').forEach(btn => {
-            // Пропускаем кнопки с onclick="buyItem...", их обновляет renderShop
-            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes('exchangeCoins')) {
-                const cost = parseInt(btn.getAttribute('onclick').match(/\d+/)[0]);
-                btn.disabled = userState.coins < cost;
-                btn.style.opacity = userState.coins < cost ? '0.5' : '1';
-            }
-        });
     }
 
     function renderStreakVisuals() {
         dom.streakSteps.innerHTML = '';
-        // 5 точек визуализации (1, 3, 5, 7, 10)
         let percent = ((userState.streakDays - 1) / (MAX_STREAK - 1)) * 100;
         if (percent > 100) percent = 100;
         dom.streakBar.style.width = `${percent}%`;
@@ -556,22 +500,130 @@ document.addEventListener('DOMContentLoaded', function() {
             if (userState.streakDays >= dayValue) {
                 step.classList.add('completed');
                 step.innerHTML = '<i class="fa-solid fa-check"></i>';
-            } else if (userState.streakDays === dayValue - 1 || (i===1 && userState.streakDays===1)) {
-               // Активный следующий шаг (можно добавить стиль active, если нужно)
             }
-
             dom.streakSteps.appendChild(step);
         }
     }
 
-    // --- ДЕЙСТВИЯ ---
+    // --- ЛОГИКА МАГАЗИНА (МОДАЛКА + ПАГИНАЦИЯ) ---
 
-    // 1. СБОР МОНЕТ
+    // 1. Загрузка всех товаров в память
+    async function fetchShopItems() {
+        // Статические товары
+        shopItems = [
+            { type: 'ticket', cost: 4, reward: 1, title: '1 Билет' },
+            { type: 'ticket', cost: 40, reward: 10, title: '10 Билетов' }
+        ];
+
+        try {
+            // Динамические промокоды
+            const response = await fetch('/api/v1/user/grind/shop');
+            const promos = await response.json();
+            if (promos && promos.length > 0) {
+                promos.forEach(p => {
+                    shopItems.push({
+                        type: 'promo',
+                        cost: p.reward_value,
+                        reward: p.reward_value, // тут это номинал
+                        title: `Промокод на ${p.reward_value} ★`,
+                        quantity: p.quantity
+                    });
+                });
+            }
+        } catch (e) {
+            console.warn("Shop fetch error", e);
+        }
+        // Сортировка: сначала билеты, потом промокоды по цене
+        shopItems.sort((a, b) => a.cost - b.cost);
+    }
+
+    // 2. Открытие модалки
+    window.openShopModal = async () => {
+        await fetchShopItems(); // Обновить данные перед открытием
+        currentPage = 1;
+        renderShopPage(currentPage);
+        dom.shopModal.classList.add('visible');
+    };
+
+    // 3. Закрытие модалки
+    window.closeShopModal = () => {
+        dom.shopModal.classList.remove('visible');
+    };
+
+    // 4. Рендер конкретной страницы
+    function renderShopPage(page) {
+        dom.shopContainer.innerHTML = '';
+        
+        const totalPages = Math.ceil(shopItems.length / itemsPerPage);
+        if (totalPages === 0) {
+            dom.shopContainer.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">Магазин пуст</div>';
+            dom.paginationControls.style.display = 'none';
+            return;
+        }
+
+        dom.paginationControls.style.display = 'flex';
+        
+        const start = (page - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const itemsToShow = shopItems.slice(start, end);
+
+        itemsToShow.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'exchange-item';
+            
+            // Подсветка, если промокод (золото) или билет (стандарт)
+            if(item.type === 'promo') div.style.borderColor = 'var(--accent-primary)';
+
+            const isAffordable = userState.coins >= item.cost;
+            const btnClick = item.type === 'ticket' 
+                ? `exchangeCoins(${item.cost}, ${item.reward})`
+                : `buyItem(${item.reward})`;
+
+            let titleColor = item.type === 'promo' ? 'var(--accent-primary)' : '#fff';
+            let extraInfo = item.quantity ? `<span style="opacity:0.5; font-size:9px; margin-left:4px;">(Ост: ${item.quantity})</span>` : '';
+
+            div.innerHTML = `
+                <div class="exchange-details">
+                    <div class="exchange-title" style="color:${titleColor}">
+                        ${item.title}
+                    </div>
+                    <div class="exchange-cost" style="color:#fff">
+                        Цена: ${item.cost} Монет ${extraInfo}
+                    </div>
+                </div>
+                <button class="mini-btn" 
+                        onclick="${btnClick}" 
+                        ${isAffordable ? '' : 'disabled'} 
+                        style="${isAffordable && item.type==='promo' ? 'background:var(--accent-primary); color:#000;' : ''}">
+                    ${isAffordable ? 'Купить' : 'Мало монет'}
+                </button>
+            `;
+            dom.shopContainer.appendChild(div);
+        });
+
+        // Обновление контролов пагинации
+        dom.pageIndicator.textContent = `${page} / ${totalPages}`;
+        dom.prevPageBtn.disabled = page === 1;
+        dom.nextPageBtn.disabled = page === totalPages;
+    }
+
+    // 5. Смена страницы
+    window.changePage = (delta) => {
+        const totalPages = Math.ceil(shopItems.length / itemsPerPage);
+        const newPage = currentPage + delta;
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentPage = newPage;
+            renderShopPage(currentPage);
+        }
+    };
+
+    // --- ДЕЙСТВИЯ ПОКУПКИ ---
+
+    // Гринд
     dom.grindBtn.addEventListener('click', async () => {
         if (dom.grindBtn.disabled) return;
-        
         tg.HapticFeedback.impactOccurred('medium');
-        dom.grindBtn.disabled = true; // Анти-клик
+        dom.grindBtn.disabled = true;
 
         try {
             const response = await fetch('/api/v1/user/grind/claim', {
@@ -586,11 +638,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const res = await response.json();
-            
-            // Анимация
             showFloatText(dom.grindBtn, `+${res.reward_claimed}`, 'var(--accent-primary)');
-
-            // Обновление состояния
+            
             userState.coins = parseFloat(res.new_coins);
             userState.streakDays = res.streak_days;
             userState.lastGrindTime = res.last_grind_at;
@@ -604,24 +653,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 2. ОБМЕН МОНЕТ НА БИЛЕТЫ
+    // Обмен на билеты
     window.exchangeCoins = async (cost, rewardTickets) => {
-        if (userState.coins < cost) {
-            tg.HapticFeedback.notificationOccurred('error');
-            return;
-        }
-
         tg.showConfirm(`Обменять ${cost} монет на ${rewardTickets} билет(ов)?`, async (ok) => {
             if (ok) {
                 try {
                     const response = await fetch('/api/v1/user/grind/exchange', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            initData: tg.initData,
-                            cost: cost,
-                            tickets_reward: rewardTickets
-                        })
+                        body: JSON.stringify({ initData: tg.initData, cost: cost, tickets_reward: rewardTickets })
                     });
 
                     if (!response.ok) throw new Error("Ошибка обмена");
@@ -631,7 +671,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     userState.tickets = res.new_tickets;
                     
                     updateUI();
-                    renderShop(); // Перерисовать доступность кнопок
+                    renderShopPage(currentPage); // Обновить кнопки в модалке
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.showAlert('Успешный обмен!');
 
@@ -642,21 +682,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // 3. ПОКУПКА ПРОМОКОДА (ДИНАМИЧЕСКАЯ)
+    // Покупка промокода
     window.buyItem = async (rewardValue) => {
-        const cost = rewardValue;
-
-        tg.showConfirm(`Купить промокод на ${rewardValue} звёзд за ${cost} монет?`, async (ok) => {
+        tg.showConfirm(`Купить промокод на ${rewardValue} звёзд?`, async (ok) => {
             if (ok) {
                 if(typeof tg.MainButton.showProgress === 'function') tg.MainButton.showProgress();
                 try {
                     const response = await fetch('/api/v1/user/grind/buy_item', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            initData: tg.initData,
-                            reward_value: rewardValue 
-                        })
+                        body: JSON.stringify({ initData: tg.initData, reward_value: rewardValue })
                     });
 
                     if (!response.ok) {
@@ -666,8 +701,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const res = await response.json();
                     userState.coins = parseFloat(res.new_coins);
+                    
                     updateUI();
-                    renderShop(); // Обновляем магазин (кол-во товаров)
+                    await fetchShopItems(); // Перезагрузить инвентарь
+                    renderShopPage(currentPage); // Обновить страницу
                     
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.showPopup({
@@ -686,51 +723,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // 4. ОТРИСОВКА МАГАЗИНА (ПРОМОКОДЫ)
-    async function renderShop() {
-        // Удаляем старые промо-карточки (оставляем только первые 2 статических обмена)
-        // Но лучше просто пересобрать весь грид или добавлять в конец
-        // Для простоты: удаляем все динамические элементы с классом dynamic-promo
-        document.querySelectorAll('.dynamic-promo').forEach(e => e.remove());
-
-        try {
-            const response = await fetch('/api/v1/user/grind/shop');
-            const items = await response.json();
-
-            if (items && items.length > 0) {
-                items.forEach(item => {
-                    const cost = item.reward_value;
-                    const div = document.createElement('div');
-                    div.className = 'exchange-item dynamic-promo';
-                    div.style.borderColor = 'var(--accent-primary)'; // Подсветка золотом
-                    
-                    const isAffordable = userState.coins >= cost;
-
-                    div.innerHTML = `
-                        <div class="exchange-details">
-                            <div class="exchange-title" style="color:var(--accent-primary)">
-                                Промокод на ${item.reward_value} звёзд
-                            </div>
-                            <div class="exchange-cost" style="color:#fff">
-                                Цена: ${cost} Монет <span style="opacity:0.5; font-size:9px;">(Ост: ${item.quantity})</span>
-                            </div>
-                        </div>
-                        <button class="mini-btn" 
-                                onclick="buyItem(${item.reward_value})" 
-                                ${isAffordable ? '' : 'disabled'} 
-                                style="${isAffordable ? 'background:var(--accent-primary); color:#000;' : ''}">
-                            ${isAffordable ? 'Купить' : 'Мало монет'}
-                        </button>
-                    `;
-                    dom.exchangeGrid.appendChild(div);
-                });
-            }
-        } catch (e) {
-            console.warn("Shop load error", e);
-        }
-    }
-
-    // 5. БЕСПЛАТНЫЙ БИЛЕТ (LEGACY)
+    // Бесплатный билет (Legacy)
     function renderFreeTicketBtn() {
         const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
         const now = new Date().getTime();
@@ -754,7 +747,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: tg.initData })
             });
-            
             if (response.ok) {
                 const res = await response.json();
                 userState.tickets = res.new_ticket_balance;
@@ -762,20 +754,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 tg.showAlert('Билет получен!');
                 updateUI();
                 renderFreeTicketBtn();
-            } else {
-                throw new Error();
-            }
-        } catch (e) {
-            tg.showAlert('Ошибка получения билета');
-        }
+            } else { throw new Error(); }
+        } catch (e) { tg.showAlert('Ошибка получения билета'); }
     };
 
-    // УТИЛИТЫ
     function startTimers() {
-        setInterval(() => {
-            updateUI(); 
-            renderFreeTicketBtn(); 
-        }, 60000); 
+        setInterval(() => { updateUI(); renderFreeTicketBtn(); }, 60000);
         renderFreeTicketBtn();
     }
 
@@ -785,12 +769,17 @@ document.addEventListener('DOMContentLoaded', function() {
         floatEl.textContent = text;
         floatEl.className = 'float-anim';
         floatEl.style.color = color;
-        // Центрируем относительно кнопки
-        floatEl.style.left = (rect.left + rect.width / 2 - 20) + 'px'; 
+        floatEl.style.left = (rect.left + rect.width / 2 - 20) + 'px';
         floatEl.style.top = (rect.top) + 'px';
         document.body.appendChild(floatEl);
         setTimeout(() => floatEl.remove(), 1000);
     }
+
+    // Антиклик для модалки (закрывается только кнопкой)
+    dom.shopModal.addEventListener('click', (e) => {
+        // Если клик был по оверлею (e.target === dom.shopModal), мы НИЧЕГО не делаем.
+        // Закрытие происходит только если нажата кнопка .modal-close-btn (onclick="closeShopModal()")
+    });
 
     init();
 });
