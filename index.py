@@ -7303,6 +7303,76 @@ async def delete_roulette_prize(
     )
     return {"message": "Приз удален."}
 
+# --- ЭНДПОИНТЫ ДЛЯ ГРИНД-СТАНЦИИ ---
+
+@app.post("/api/v1/user/grind/claim")
+async def claim_grind_reward_endpoint(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Пользователь забирает ежедневную награду (монеты)."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        # Вызываем RPC
+        response = await supabase.post(
+            "/rpc/claim_grind_reward",
+            json={"p_user_id": user_info["id"]}
+        )
+        response.raise_for_status()
+        return response.json()
+
+    except httpx.HTTPStatusError as e:
+        # Обработка ошибок от RPC (например, кулдаун)
+        error_msg = e.response.json().get("message", e.response.text)
+        raise HTTPException(status_code=400, detail=error_msg)
+    except Exception as e:
+        logging.error(f"Grind claim error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+class ExchangeRequest(BaseModel):
+    initData: str
+    cost: float
+    tickets_reward: int
+
+@app.post("/api/v1/user/grind/exchange")
+async def exchange_coins_endpoint(
+    request_data: ExchangeRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обмен монет на билеты."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Простая валидация курса на бэкенде (чтобы не слали {cost: 1, tickets: 1000})
+    # Курс: 4 монеты = 1 билет.
+    # Допускаем небольшую погрешность floating point, но в целом проверяем пропорцию.
+    if request_data.cost / request_data.tickets_reward < 3.9: 
+        raise HTTPException(status_code=400, detail="Invalid exchange rate detected.")
+
+    try:
+        response = await supabase.post(
+            "/rpc/exchange_coins",
+            json={
+                "p_user_id": user_info["id"],
+                "p_cost": request_data.cost,
+                "p_tickets_reward": request_data.tickets_reward
+            }
+        )
+        response.raise_for_status()
+        return response.json()
+
+    except httpx.HTTPStatusError as e:
+        error_msg = e.response.json().get("message", e.response.text)
+        raise HTTPException(status_code=400, detail=error_msg)
+    except Exception as e:
+        logging.error(f"Exchange error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon(): return Response(status_code=204)
