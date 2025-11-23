@@ -342,23 +342,31 @@ body.browser-view {
   background-color: rgba(0, 0, 0, 0.4);
 }
 
-/* ЕДИНЫЙ СТИЛЬ ФУТЕРА */
+/* --- ЕДИНЫЙ ФИКСИРОВАННЫЙ ФУТЕР (ВСТАВИТЬ ВО ВСЕ ФАЙЛЫ) --- */
 .app-footer {
     display: flex;
     justify-content: space-around;
-    align-items: center; /* Центрирование */
-    background-color: rgba(28, 28, 30, 0.75); /* Цвет из menu.css */
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border-top: 1px solid rgba(58, 58, 60, 0.6);
-    width: 100%;
-    padding-top: 6px;
-    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    align-items: center;
+    
+    /* Жесткие цвета, чтобы не зависеть от переменных разных файлов */
+    background-color: rgba(28, 28, 30, 0.85); 
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    
     position: fixed;
     bottom: 0;
     left: 0;
-    z-index: 100;
-    box-sizing: border-box;
+    width: 100%;
+    z-index: 9999; /* Поверх всего */
+    
+    /* ФИКСИРОВАННАЯ ВЫСОТА И ОТСТУПЫ */
+    /* Высота контента (иконка + текст) = ~40-44px. 
+       Добавляем паддинги сверху и снизу */
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    box-sizing: border-box; /* Гарантирует, что padding не раздувает ширину */
+    height: auto; /* Высота определяется контентом и паддингами */
 }
 
 .footer-item {
@@ -366,25 +374,64 @@ body.browser-view {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    color: #b0b0b0; /* var(--text-color-muted) */
-    font-size: 10px;
-    cursor: pointer;
+    gap: 4px; /* Фиксированный отступ между иконкой и текстом */
+    
+    color: #8E8E93; /* Единый серый цвет для всех страниц */
     text-decoration: none;
-    flex: 1;
-    position: relative;
-    transition: color 0.3s ease;
+    flex: 1; /* Равномерное распределение по ширине */
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    
+    /* Сброс стилей текста */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    line-height: 1; 
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
 .footer-item .icon-wrapper {
-    font-size: 22px;
-    width: 28px;
-    height: 28px;
     display: flex;
     justify-content: center;
     align-items: center;
+    
+    /* Фиксированный размер контейнера иконки, чтобы они стояли ровно */
+    width: 24px;
+    height: 24px;
+    font-size: 22px; /* Размер самой иконки */
+    
     position: relative;
-    transition: color 0.3s ease, transform 0.3s ease;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* --- Активное состояние (выбранная вкладка) --- */
+.footer-item.active {
+    color: #FFFFFF; /* Белый текст */
+}
+
+.footer-item.active span {
+    font-weight: 600;
+}
+
+.footer-item.active .icon-wrapper {
+    color: #34c759; /* Ваш зеленый акцент */
+    transform: translateY(-2px); /* Легкий подскок */
+    text-shadow: 0 0 12px rgba(52, 199, 89, 0.6); /* Свечение */
+}
+
+/* Полоска над активной иконкой */
+.footer-item.active .icon-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -8px; /* Чуть выше иконки */
+    width: 20px; /* Ширина полоски */
+    height: 2px;
+    background-color: #34c759;
+    border-radius: 2px;
+    box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
 }
 
 /* Активное состояние */
