@@ -7501,54 +7501,44 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Используем ВАШ Host, но добавляем /api/v1/
-    # Пробуем 'items' вместо 'goods'
-    url = "https://shopdigital.bot-t.com/api/v1/shop/items"
+    # Варианты адресов (от самого вероятного к менее вероятному)
+    urls_to_try = [
+        "https://api.bot-t.com/v1/u_api/items",      # Вариант 1 (User API / Items)
+        "https://api.bot-t.com/v1/shop/items",       # Вариант 2 (Shop API / Items)
+        "https://api.bot-t.com/v1/u_api/goods",      # Вариант 3 (Goods)
+        f"https://api.bot-t.com/v1/shops/{BOTT_BOT_ID}/items" # Вариант 4 (REST ID)
+    ]
     
-    params = {
-        "bot_id": BOTT_BOT_ID 
-    }
-
+    params = { "bot_id": BOTT_BOT_ID }
     headers = {
         "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", 
         "Content-Type": "application/json"
     }
     
-    try:
-        async with httpx.AsyncClient() as client:
-            # Передаем bot_id
-            resp = await client.get(url, headers=headers, params=params)
-            
-        logging.info(f"Bot-t Response ({url}): {resp.status_code}")
-        
-        if resp.status_code == 200:
-            data = resp.json()
-            # Если API вернуло items, берем их. Иначе data.
-            items = data.get("data", data) if isinstance(data, dict) else data
-            logging.info(f"Товары загружены: {len(items) if isinstance(items, list) else 0} шт.")
-            return items
-            
-        elif resp.status_code == 404:
-             # План Б: Если items не сработал, пробуем 'products'
-             logging.warning("Маршрут 'items' не найден. Пробуем 'products'...")
-             url_backup = "https://shopdigital.bot-t.com/api/v1/shop/products"
-             async with httpx.AsyncClient() as client:
-                resp_backup = await client.get(url_backup, headers=headers, params=params)
-             
-             if resp_backup.status_code == 200:
-                 data = resp_backup.json()
-                 items = data.get("data", data) if isinstance(data, dict) else data
-                 return items
-             else:
-                 logging.error(f"Ошибка API (Backup): {resp_backup.status_code} | {resp_backup.text}")
-                 return []
-                 
-        else:
-            logging.error(f"Ошибка API Bot-t: {resp.status_code} | {resp.text}")
-            return [] 
-    except Exception as e:
-        logging.error(f"Сбой соединения с Bot-t: {e}")
-        return []
+    async with httpx.AsyncClient() as client:
+        for url in urls_to_try:
+            try:
+                logging.info(f"Пробуем адрес API: {url}")
+                resp = await client.get(url, headers=headers, params=params)
+                
+                # Если успешно (200)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # Ищем массив с товарами внутри ответа
+                    items = data.get("data", data.get("items", data))
+                    if isinstance(items, list):
+                        logging.info(f"✅ УСПЕХ! Товары загружены с {url}: {len(items)} шт.")
+                        return items
+                else:
+                    logging.warning(f"Неудачно ({resp.status_code}): {resp.text}")
+                    
+            except Exception as e:
+                logging.error(f"Ошибка при запросе к {url}: {e}")
+                continue
+
+    # Если ничего не подошло
+    logging.error("❌ Все варианты API не сработали.")
+    return []
 
 # 2. Эндпоинт: Купить товар
 @app.post("/api/v1/shop/buy")
@@ -7564,42 +7554,43 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
 
-    # ШАГ 1: Проверка баланса
+    # 1. Проверка баланса
     user_db = await supabase.table("users").select("tickets").eq("telegram_id", user_id).execute()
     if not user_db.data or user_db.data[0].get('tickets', 0) < price:
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-    # ШАГ 2: Списание
+    # 2. Списание
     await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
 
-    # ШАГ 3: Создание заказа
-    # Используем тот же хост
-    url = "https://shopdigital.bot-t.com/api/v1/shop/orders" 
+    # 3. Покупка (Тут пробуем самый стандартный адрес u_api/orders)
+    url = "https://api.bot-t.com/v1/u_api/orders"
     
     payload = {
         "bot_id": BOTT_BOT_ID,
         "user_id": user_id,
         "item_id": item_id,
-        "status": 1, # Оплачено
+        "status": 1,
         "amount": price,
-        "comment": "Internal App Purchase"
+        "comment": "Internal App"
     }
     
     async with httpx.AsyncClient() as client:
+        # Иногда Bot-t требует bot_id в query, иногда в body. Шлем везде.
         order_resp = await client.post(
             url, 
             json=payload, 
-            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"}
+            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"},
+            params={"bot_id": BOTT_BOT_ID}
         )
-        
+
     logging.info(f"Ответ Bot-t (Order): {order_resp.status_code} - {order_resp.text}")
 
     if order_resp.status_code not in [200, 201]:
         # Возврат средств
         await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
-        raise HTTPException(status_code=500, detail="Ошибка магазина. Средства возвращены.")
+        raise HTTPException(status_code=500, detail="Ошибка выдачи. Средства возвращены.")
 
-    return {"message": "Товар куплен!"}
+    return {"message": "Успешно! Бот отправил вам товар."}
 
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
