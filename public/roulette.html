@@ -257,7 +257,20 @@
         if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; }
     }
 
+    // Добавьте эту переменную перед функциями
+    let lastAnimationTimestamp = 0;
+
     function startRouletteAnimation(payload) {
+        // --- 🛡️ ЗАЩИТА НА ФРОНТЕНДЕ 🛡️ ---
+        const now = Date.now();
+        // Если прошло менее 5000 мс (5 секунд) с прошлой анимации, игнорируем дубль
+        if (now - lastAnimationTimestamp < 5000) {
+            console.warn("Дубликат анимации обнаружен и заблокирован.");
+            return;
+        }
+        lastAnimationTimestamp = now;
+        // ----------------------------------
+
         animationQueue.push(payload);
         if (!isAnimating) processNextAnimation();
     }
