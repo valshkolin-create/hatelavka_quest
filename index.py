@@ -7501,40 +7501,45 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Адрес из ваших логов!
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    # Если user_id нет (гость), отправляем 0 или заглушку
+    telegram_id = user_info.get("id") if user_info else 0
+
+    # Тот самый адрес из логов браузера
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # Браузер отправляет эти данные, чтобы получить категории
+    # Полный набор данных, как в браузере
     payload = {
         "bot_id": int(BOTT_BOT_ID),
-        "public_key": BOTT_PUBLIC_KEY
+        "public_key": BOTT_PUBLIC_KEY,
+        "user_id": telegram_id  # <--- ДОБАВИЛИ ЭТО
+    }
+
+    # Заголовки, чтобы Bot-t думал, что мы - это сайт магазина
+    headers = {
+        "Content-Type": "application/json",
+        "Referer": "https://shopdigital.bot-t.com/", # <--- ВАЖНО
+        "Origin": "https://shopdigital.bot-t.com",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
     try:
         async with httpx.AsyncClient() as client:
-            # Это POST запрос, а не GET
-            resp = await client.post(url, json=payload)
+            resp = await client.post(url, json=payload, headers=headers)
             
         logging.info(f"Bot-t Public API Response: {resp.status_code}")
         
         if resp.status_code == 200:
             data = resp.json()
-            # data обычно выглядит как список категорий: [{id:1, name: "...", products: [...]}]
-            # Нам нужно вытащить все продукты из всех категорий в один список
             
             all_products = []
-            
-            # Если пришел список категорий
+            # Парсим категории
             if isinstance(data, list):
                 for category in data:
-                    # Достаем продукты из категории (если они есть)
                     products = category.get("products", [])
                     if products:
                         all_products.extend(products)
-            
-            # Если пришел словарь (иногда бывает data: {...})
             elif isinstance(data, dict):
-                # Попробуем найти products или categories внутри
                 if "products" in data:
                     all_products = data["products"]
                 elif "categories" in data:
@@ -7572,26 +7577,25 @@ async def buy_bott_item_proxy(
     # 2. Списание
     await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
 
-    # 3. Создание заказа (Пробуем endpoint order/create)
-    # ВАЖНО: Тут используем Private Key, так как это действие админа
+    # 3. Создание заказа (Используем приватный метод API для надежности)
     url = "https://api.bot-t.com/v1/shop/order/create"
     
     payload = {
         "bot_id": int(BOTT_BOT_ID),
         "user_id": user_id,
         "item_id": item_id,
-        "count": 1,        # Кол-во товара
-        "status": 1,       # 1 = Оплачено
+        "count": 1,
+        "status": 1, # Оплачено
         "amount": price,
         "comment": "Internal App Purchase"
     }
     
-    # Заголовки для приватного API
+    # Для покупки используем Private Key, так как это админское действие
     headers = {
         "Authorization": f"Bearer {BOTT_PRIVATE_KEY}",
         "Content-Type": "application/json"
     }
-
+    
     try:
         async with httpx.AsyncClient() as client:
             order_resp = await client.post(url, json=payload, headers=headers)
@@ -7599,24 +7603,24 @@ async def buy_bott_item_proxy(
         logging.info(f"Bot-t Order Response: {order_resp.status_code} - {order_resp.text}")
 
         if order_resp.status_code not in [200, 201]:
-            # Если неудача - пробуем запасной вариант URL
-            logging.warning("Первый метод покупки не сработал, пробуем v1/u_api/orders/create...")
-            url_backup = "https://api.bot-t.com/v1/u_api/orders/create"
+            # Попытка №2 через другой метод, если первый не сработал
+            url_v2 = "https://api.bot-t.com/v1/u_api/orders/create"
             async with httpx.AsyncClient() as client:
-                 order_resp = await client.post(url_backup, json=payload, headers=headers)
+                order_resp = await client.post(url_v2, json=payload, headers=headers)
 
         if order_resp.status_code not in [200, 201]:
             # Возврат средств
             await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
-            raise HTTPException(status_code=500, detail="Не удалось выдать товар (ошибка API). Средства возвращены.")
-            
+            raise HTTPException(status_code=500, detail="Ошибка выдачи товара. Средства возвращены.")
+
     except Exception as e:
-        # Возврат средств при ошибке сети
         await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
         logging.error(f"Ошибка покупки: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка соединения с магазином.")
+        raise HTTPException(status_code=500, detail="Ошибка соединения.")
 
     return {"message": "Успешно! Бот отправил вам товар."}
+
+
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
 async def get_grind_shop(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
