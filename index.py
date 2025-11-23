@@ -7496,37 +7496,42 @@ async def buy_promo_endpoint(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # 1. Эндпоинт: Получить список товаров из Bot-t
-# 1. Эндпоинт: Получить список товаров из Bot-t
 @app.post("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (из начала файла)
-    # Формируем URL с ID магазина
-    url = f"https://api.bot-t.com/v1/shop/{BOTT_BOT_ID}/goods" 
+    # ВАЖНО: Правильный URL без ID внутри
+    url = "https://api.bot-t.com/v1/shop/goods" 
     
+    # ID магазина передаем в параметрах (как bot_id)
+    params = {
+        "bot_id": BOTT_BOT_ID 
+    }
+
     headers = {
-        "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", # Используем Private Key
+        "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", # Ваш приватный ключ
         "Content-Type": "application/json"
     }
     
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers)
+            # Передаем params=params
+            resp = await client.get(url, headers=headers, params=params)
             
+        logging.info(f"Bot-t Response Status: {resp.status_code}")
+        
         if resp.status_code == 200:
             data = resp.json()
             logging.info(f"Товары загружены: {len(data.get('data', []))} шт.")
-            # Bot-t обычно отдает список внутри поля 'data'
             return data.get("data", data) 
         else:
+            # Логируем текст ошибки, чтобы видеть в Vercel
             logging.error(f"Ошибка API Bot-t: {resp.status_code} - {resp.text}")
             return [] 
     except Exception as e:
         logging.error(f"Сбой соединения с Bot-t: {e}")
         return []
-
 # 2. Эндпоинт: Купить товар
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
