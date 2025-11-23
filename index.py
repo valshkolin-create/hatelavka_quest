@@ -7496,20 +7496,18 @@ async def buy_promo_endpoint(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # 1. Эндпоинт: Получить список товаров из Bot-t
+# 1. Эндпоинт: Получить список товаров из Bot-t
 @app.post("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (которые ты задал в начале файла)
-    # BOTT_PRIVATE_KEY = "a514e99..."
-    # BOTT_BOT_ID = "233790"
-    
+    # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (из начала файла)
     # Формируем URL с ID магазина
     url = f"https://api.bot-t.com/v1/shop/{BOTT_BOT_ID}/goods" 
     
     headers = {
-        "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", # Используем Private Key как токен
+        "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", # Используем Private Key
         "Content-Type": "application/json"
     }
     
@@ -7529,7 +7527,7 @@ async def get_bott_goods_proxy(
         logging.error(f"Сбой соединения с Bot-t: {e}")
         return []
 
-# 2. Эндпоинт: Купить товар (Списать звезды и выдать товар через Bot-t)
+# 2. Эндпоинт: Купить товар
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
@@ -7543,7 +7541,7 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
 
-    # ШАГ 1: Проверяем баланс (без изменений)
+    # ШАГ 1: Проверяем баланс пользователя
     user_db = await supabase.table("users").select("tickets").eq("telegram_id", user_id).execute()
     
     if not user_db.data:
@@ -7554,15 +7552,14 @@ async def buy_bott_item_proxy(
     if current_balance < price:
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-    # ШАГ 2: Списываем средства (без изменений)
+    # ШАГ 2: Списываем средства
     await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
 
     # ШАГ 3: Отправляем приказ в Bot-t
-    # Используем глобальные переменные!
     url = "https://api.bot-t.com/v1/shop/orders" 
     
     payload = {
-        "bot_id": BOTT_BOT_ID,      # Используем переменную из начала файла (233790)
+        "bot_id": BOTT_BOT_ID,      # Используем переменную из начала файла
         "user_id": user_id,         # Telegram ID получателя
         "item_id": item_id,         # Товар
         "status": 1,                # Оплачено
@@ -7574,7 +7571,7 @@ async def buy_bott_item_proxy(
         order_resp = await client.post(
             url, 
             json=payload, 
-            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"} # Используем Private Key
+            headers={"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"}
         )
         
     logging.info(f"Ответ Bot-t на выдачу: {order_resp.status_code} - {order_resp.text}")
