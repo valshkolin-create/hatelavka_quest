@@ -105,10 +105,25 @@
 
     .balance-value {
         font-size: 16px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;
+        min-height: 20px; /* Чтобы не прыгало при загрузке */
     }
     
     .coin-icon { color: var(--accent-primary); text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
     .ticket-icon { color: #00f2ea; text-shadow: 0 0 10px rgba(0, 242, 234, 0.4); }
+
+    /* SKELETON LOADING (Для красивой загрузки баланса) */
+    .skeleton-loader {
+        width: 40px;
+        height: 16px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        animation: pulse 1.5s infinite ease-in-out;
+    }
+    @keyframes pulse {
+        0% { opacity: 0.3; }
+        50% { opacity: 0.7; }
+        100% { opacity: 0.3; }
+    }
 
     /* ГРИНД */
     .section-title {
@@ -200,8 +215,35 @@
     .modal-header {
         padding: 15px; border-bottom: 1px solid var(--border-color);
         display: flex; justify-content: space-between; align-items: center;
+        background: var(--surface-primary); /* Фикс прозрачности */
+        border-radius: 12px 12px 0 0;
     }
-    .modal-title { font-size: 14px; font-weight: 700; color: var(--accent-primary); text-transform: uppercase; }
+    
+    /* ВКЛАДКИ (TABS) */
+    .shop-tabs {
+        display: flex;
+        gap: 10px;
+    }
+    .tab-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.2s;
+        text-transform: uppercase;
+    }
+    .tab-btn.active {
+        background: rgba(255, 215, 0, 0.1);
+        color: var(--accent-primary);
+    }
+    .tab-btn:hover:not(.active) {
+        color: var(--text-primary);
+    }
+
     .modal-close-btn {
         background: none; border: none; color: var(--text-secondary);
         font-size: 24px; cursor: pointer; padding: 0; line-height: 1;
@@ -209,7 +251,7 @@
 
     .modal-body { padding: 15px; overflow-y: auto; }
 
-    .shop-grid { display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
+    .shop-grid { display: flex; flex-direction: column; gap: 10px; min-height: 150px; }
 
     .exchange-item {
         background-color: rgba(255, 255, 255, 0.03);
@@ -217,6 +259,9 @@
         border-radius: 6px; padding: 10px;
         display: flex; justify-content: space-between; align-items: center;
     }
+    
+    /* Убираем желтую обводку, как просили, оставляем единый стиль */
+    
     .exchange-details { display: flex; flex-direction: column; gap: 2px; }
     .exchange-title { font-size: 12px; color: var(--text-primary); font-weight: 600; }
     .exchange-cost { font-size: 10px; color: var(--accent-primary); }
@@ -301,13 +346,13 @@
     <div class="balance-item">
         <span class="balance-label">Монеты</span>
         <div class="balance-value">
-            <span id="user-coins">0.0</span> <i class="fa-solid fa-coins coin-icon"></i>
+            <span id="user-coins"><div class="skeleton-loader"></div></span> <i class="fa-solid fa-coins coin-icon"></i>
         </div>
     </div>
     <div class="balance-item">
         <span class="balance-label">Билеты</span>
         <div class="balance-value">
-            <span id="user-tickets">0</span> <i class="fa-solid fa-ticket ticket-icon"></i>
+            <span id="user-tickets"><div class="skeleton-loader"></div></span> <i class="fa-solid fa-ticket ticket-icon"></i>
         </div>
     </div>
   </div>
@@ -327,8 +372,8 @@
         Награда сегодня: <span id="today-reward">+0.1</span> монет
     </div>
 
-    <button id="grind-btn" class="main-action-btn">
-        <span id="grind-btn-text">ЗАБРАТЬ БОНУС</span>
+    <button id="grind-btn" class="main-action-btn" disabled>
+        <span id="grind-btn-text">Загрузка...</span>
         <div class="shine"></div>
     </button>
   </div>
@@ -356,7 +401,10 @@
   <div id="shop-modal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
-            <div class="modal-title">Обменник</div>
+            <div class="shop-tabs">
+                <button class="tab-btn active" id="tab-tickets" onclick="switchTab('tickets')">Билеты</button>
+                <button class="tab-btn" id="tab-promos" onclick="switchTab('promos')">Промокоды</button>
+            </div>
             <button class="modal-close-btn" onclick="closeShopModal()">&times;</button>
         </div>
         <div class="modal-body">
@@ -403,6 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Данные для магазина
     let shopItems = [];
+    let currentTab = 'tickets'; // 'tickets' or 'promos'
     let currentPage = 1;
     const itemsPerPage = 5;
 
@@ -424,7 +473,9 @@ document.addEventListener('DOMContentLoaded', function() {
         pageIndicator: document.getElementById('page-indicator'),
         prevPageBtn: document.getElementById('prev-page-btn'),
         nextPageBtn: document.getElementById('next-page-btn'),
-        paginationControls: document.getElementById('pagination-controls')
+        paginationControls: document.getElementById('pagination-controls'),
+        tabTickets: document.getElementById('tab-tickets'),
+        tabPromos: document.getElementById('tab-promos')
     };
 
     async function init() {
@@ -445,11 +496,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 updateUI();
                 renderStreakVisuals();
-                fetchShopItems(); // Загружаем товары, но пока не рендерим модалку
                 startTimers();
             }
         } catch (e) {
             console.error("Ошибка инициализации:", e);
+            // Если ошибка, убираем прелоадер, показываем нули
+            dom.coinsDisplay.textContent = "0.0";
+            dom.ticketsDisplay.textContent = "0";
             tg.showAlert("Ошибка загрузки данных.");
         }
     }
@@ -505,58 +558,89 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- ЛОГИКА МАГАЗИНА (МОДАЛКА + ПАГИНАЦИЯ) ---
+    // --- ЛОГИКА МАГАЗИНА ---
 
-    // 1. Загрузка всех товаров в память
+    // 1. Загрузка всех товаров
     async function fetchShopItems() {
-        // Статические товары
-        shopItems = [
+        shopItems = []; // Сброс
+
+        // Статические билеты
+        const ticketItems = [
             { type: 'ticket', cost: 4, reward: 1, title: '1 Билет' },
             { type: 'ticket', cost: 40, reward: 10, title: '10 Билетов' }
         ];
 
+        // Динамические промокоды
+        const promoItems = [];
         try {
-            // Динамические промокоды
             const response = await fetch('/api/v1/user/grind/shop');
             const promos = await response.json();
             if (promos && promos.length > 0) {
                 promos.forEach(p => {
-                    shopItems.push({
+                    promoItems.push({
                         type: 'promo',
                         cost: p.reward_value,
-                        reward: p.reward_value, // тут это номинал
+                        reward: p.reward_value,
                         title: `Промокод на ${p.reward_value} ★`,
                         quantity: p.quantity
                     });
                 });
+                promoItems.sort((a, b) => a.cost - b.cost);
             }
         } catch (e) {
             console.warn("Shop fetch error", e);
         }
-        // Сортировка: сначала билеты, потом промокоды по цене
-        shopItems.sort((a, b) => a.cost - b.cost);
+
+        // Собираем всё в один массив (фильтровать будем при рендере)
+        shopItems = [...ticketItems, ...promoItems];
     }
 
-    // 2. Открытие модалки
-    window.openShopModal = async () => {
-        await fetchShopItems(); // Обновить данные перед открытием
+    // 2. Переключение вкладок
+    window.switchTab = (tab) => {
+        currentTab = tab;
         currentPage = 1;
+        
+        // Обновляем классы кнопок
+        if (tab === 'tickets') {
+            dom.tabTickets.classList.add('active');
+            dom.tabPromos.classList.remove('active');
+        } else {
+            dom.tabTickets.classList.remove('active');
+            dom.tabPromos.classList.add('active');
+        }
+        
         renderShopPage(currentPage);
-        dom.shopModal.classList.add('visible');
     };
 
-    // 3. Закрытие модалки
+    // 3. Открытие модалки
+    window.openShopModal = async () => {
+        dom.shopModal.classList.add('visible');
+        // Показываем лоадер внутри пока грузим
+        dom.shopContainer.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">Обновление...</div>';
+        
+        await fetchShopItems(); 
+        renderShopPage(currentPage); // Используем текущий таб
+    };
+
     window.closeShopModal = () => {
         dom.shopModal.classList.remove('visible');
     };
 
-    // 4. Рендер конкретной страницы
+    // 4. Рендер списка (с фильтрацией по табу)
     function renderShopPage(page) {
         dom.shopContainer.innerHTML = '';
         
-        const totalPages = Math.ceil(shopItems.length / itemsPerPage);
-        if (totalPages === 0) {
-            dom.shopContainer.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">Магазин пуст</div>';
+        // Фильтруем элементы по текущей вкладке
+        const filteredItems = shopItems.filter(item => {
+            if (currentTab === 'tickets') return item.type === 'ticket';
+            if (currentTab === 'promos') return item.type === 'promo';
+            return false;
+        });
+
+        const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+        
+        if (filteredItems.length === 0) {
+            dom.shopContainer.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">В этом разделе пока пусто</div>';
             dom.paginationControls.style.display = 'none';
             return;
         }
@@ -565,51 +649,53 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const start = (page - 1) * itemsPerPage;
         const end = start + itemsPerPage;
-        const itemsToShow = shopItems.slice(start, end);
+        const itemsToShow = filteredItems.slice(start, end);
 
         itemsToShow.forEach(item => {
             const div = document.createElement('div');
             div.className = 'exchange-item';
             
-            // Подсветка, если промокод (золото) или билет (стандарт)
-            if(item.type === 'promo') div.style.borderColor = 'var(--accent-primary)';
-
             const isAffordable = userState.coins >= item.cost;
             const btnClick = item.type === 'ticket' 
                 ? `exchangeCoins(${item.cost}, ${item.reward})`
                 : `buyItem(${item.reward})`;
 
-            let titleColor = item.type === 'promo' ? 'var(--accent-primary)' : '#fff';
             let extraInfo = item.quantity ? `<span style="opacity:0.5; font-size:9px; margin-left:4px;">(Ост: ${item.quantity})</span>` : '';
 
+            // Дизайн теперь единый, без желтых рамок
             div.innerHTML = `
                 <div class="exchange-details">
-                    <div class="exchange-title" style="color:${titleColor}">
+                    <div class="exchange-title" style="color:#fff">
                         ${item.title}
                     </div>
-                    <div class="exchange-cost" style="color:#fff">
+                    <div class="exchange-cost" style="color:var(--accent-primary)">
                         Цена: ${item.cost} Монет ${extraInfo}
                     </div>
                 </div>
                 <button class="mini-btn" 
                         onclick="${btnClick}" 
                         ${isAffordable ? '' : 'disabled'} 
-                        style="${isAffordable && item.type==='promo' ? 'background:var(--accent-primary); color:#000;' : ''}">
+                        style="${isAffordable ? 'background:var(--accent-primary); color:#000;' : ''}">
                     ${isAffordable ? 'Купить' : 'Мало монет'}
                 </button>
             `;
             dom.shopContainer.appendChild(div);
         });
 
-        // Обновление контролов пагинации
+        // Пагинация
         dom.pageIndicator.textContent = `${page} / ${totalPages}`;
         dom.prevPageBtn.disabled = page === 1;
         dom.nextPageBtn.disabled = page === totalPages;
     }
 
-    // 5. Смена страницы
     window.changePage = (delta) => {
-        const totalPages = Math.ceil(shopItems.length / itemsPerPage);
+        // Нужно пересчитать totalPages для текущего фильтра
+        const filteredItems = shopItems.filter(item => {
+            if (currentTab === 'tickets') return item.type === 'ticket';
+            if (currentTab === 'promos') return item.type === 'promo';
+        });
+        const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+        
         const newPage = currentPage + delta;
         if (newPage >= 1 && newPage <= totalPages) {
             currentPage = newPage;
@@ -617,7 +703,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // --- ДЕЙСТВИЯ ПОКУПКИ ---
+    // --- ДЕЙСТВИЯ ---
 
     // Гринд
     dom.grindBtn.addEventListener('click', async () => {
@@ -653,7 +739,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Обмен на билеты
+    // Обмен
     window.exchangeCoins = async (cost, rewardTickets) => {
         tg.showConfirm(`Обменять ${cost} монет на ${rewardTickets} билет(ов)?`, async (ok) => {
             if (ok) {
@@ -671,7 +757,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     userState.tickets = res.new_tickets;
                     
                     updateUI();
-                    renderShopPage(currentPage); // Обновить кнопки в модалке
+                    renderShopPage(currentPage); // Обновить состояние кнопок
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.showAlert('Успешный обмен!');
 
@@ -682,7 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // Покупка промокода
+    // Покупка
     window.buyItem = async (rewardValue) => {
         tg.showConfirm(`Купить промокод на ${rewardValue} звёзд?`, async (ok) => {
             if (ok) {
@@ -703,8 +789,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     userState.coins = parseFloat(res.new_coins);
                     
                     updateUI();
-                    await fetchShopItems(); // Перезагрузить инвентарь
-                    renderShopPage(currentPage); // Обновить страницу
+                    // Обновляем инвентарь (количество кодов изменилось)
+                    await fetchShopItems(); 
+                    renderShopPage(currentPage);
                     
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.showPopup({
@@ -723,7 +810,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // Бесплатный билет (Legacy)
     function renderFreeTicketBtn() {
         const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
         const now = new Date().getTime();
@@ -775,10 +861,9 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => floatEl.remove(), 1000);
     }
 
-    // Антиклик для модалки (закрывается только кнопкой)
+    // Антиклик: закрытие только по кнопке
     dom.shopModal.addEventListener('click', (e) => {
-        // Если клик был по оверлею (e.target === dom.shopModal), мы НИЧЕГО не делаем.
-        // Закрытие происходит только если нажата кнопка .modal-close-btn (onclick="closeShopModal()")
+        // Если клик по фону - ничего не делаем.
     });
 
     init();
