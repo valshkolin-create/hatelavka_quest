@@ -7501,33 +7501,37 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # ВАЖНО: Правильный URL без ID внутри
-    url = "https://api.bot-t.com/v1/shop/goods" 
+    # --- ВАРИАНТ ЧЕРЕЗ U_API (Самый вероятный для Bot-t) ---
+    url = "https://api.bot-t.com/v1/u_api/goods"
     
-    # ID магазина передаем в параметрах (как bot_id)
+    # Параметры запроса
     params = {
-        "bot_id": BOTT_BOT_ID 
+        "bot_id": BOTT_BOT_ID
     }
 
     headers = {
-        "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", # Ваш приватный ключ
-        "Content-Type": "application/json"
+        "Authorization": f"Bearer {BOTT_PRIVATE_KEY}", 
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
     
     try:
         async with httpx.AsyncClient() as client:
-            # Передаем params=params
+            # Передаем params
             resp = await client.get(url, headers=headers, params=params)
             
         logging.info(f"Bot-t Response Status: {resp.status_code}")
         
         if resp.status_code == 200:
             data = resp.json()
-            logging.info(f"Товары загружены: {len(data.get('data', []))} шт.")
-            return data.get("data", data) 
+            # Bot-t часто возвращает список товаров в поле "data" или "items"
+            # Если пришел сразу список — берем его.
+            items = data.get("data", data) if isinstance(data, dict) else data
+            
+            logging.info(f"Товары загружены: {len(items) if isinstance(items, list) else 0} шт.")
+            return items
         else:
-            # Логируем текст ошибки, чтобы видеть в Vercel
-            logging.error(f"Ошибка API Bot-t: {resp.status_code} - {resp.text}")
+            logging.error(f"Ошибка API Bot-t: {resp.status_code} | {resp.text}")
             return [] 
     except Exception as e:
         logging.error(f"Сбой соединения с Bot-t: {e}")
