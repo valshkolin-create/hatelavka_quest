@@ -7502,7 +7502,9 @@ async def get_bott_goods_proxy(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     # --- ВАРИАНТ ЧЕРЕЗ U_API (Самый вероятный для Bot-t) ---
-    url = "https://api.bot-t.com/v1/u_api/goods"
+    url = "https://api.bot-t.com/v1/shop/goods"
+    # или
+    url = f"https://api.bot-t.com/v1/shops/{BOTT_BOT_ID}/goods"
     
     # Параметры запроса
     params = {
