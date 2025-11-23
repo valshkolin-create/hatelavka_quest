@@ -1128,6 +1128,37 @@ async function startQuestRoulette() {
     }
 
 function setupEventListeners() {
+    // --- 👇 ВСТАВИТЬ СЮДА (Начало кода для Магазина) 👇 ---
+        const shopBtn = document.getElementById('shop-open-btn');
+        if (shopBtn) {
+            shopBtn.addEventListener('click', async () => {
+                // 1. Визуальный эффект загрузки
+                const originalContent = shopBtn.innerHTML;
+                shopBtn.disabled = true;
+                shopBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
+
+                try {
+                    // 2. Делаем запрос через твою функцию-помощник (она сама добавит initData)
+                    const result = await makeApiRequest('/api/v1/user/shop_link', {}, 'POST');
+
+                    // 3. Открываем ссылку
+                    if (result && result.url) {
+                        Telegram.WebApp.openLink(result.url);
+                    } else {
+                        Telegram.WebApp.showAlert('Ошибка: Сервер не вернул ссылку.');
+                    }
+                } catch (e) {
+                    console.error("Ошибка открытия магазина:", e);
+                    // makeApiRequest обычно сам показывает алерт с ошибкой, но на всякий случай:
+                    // Telegram.WebApp.showAlert('Не удалось открыть магазин.');
+                } finally {
+                    // 4. Возвращаем кнопку в исходное состояние
+                    shopBtn.disabled = false;
+                    shopBtn.innerHTML = originalContent;
+                }
+            });
+        }
+        // --- 👆 КОНЕЦ ВСТАВКИ 👆 ---
     // --- 🔽 ВОТ НОВЫЙ КОД 🔽 ---
     // Сохраняем состояние аккордеона при его открытии/закрытии
     if (dom.weeklyGoalsAccordion) {
