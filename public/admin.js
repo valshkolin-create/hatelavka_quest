@@ -4462,7 +4462,7 @@ if (dom.settingQuestScheduleOverride) {
                     dom.grantCheckpointStarsForm.elements['amount_cp'].focus();
                 });
             });
-        }
+        }   
         if(dom.grantCheckpointStarsForm) {
             // 2. Отправка самой формы (после выбора пользователя)
             dom.grantCheckpointStarsForm.addEventListener('submit', async (e) => {
@@ -4828,6 +4828,83 @@ if (dom.settingQuestScheduleOverride) {
             // --- ЛОГ 12 ---
             console.error("[ForceComplete] CATCH block triggered:", e);
             container.innerHTML = `<p class="error-message">Ошибка загрузки (v4): ${e.message}</p>`;
+        }
+    }
+
+ /**
+     * Загружает и отображает список квестов или челленджей в модальное окно.
+     * Отмечает и сортирует активный для выбранного пользователя.
+     * @param {string} entityType - 'quest' или 'challenge'
+     */
+    async function loadEntitiesForForceComplete(entityType) {
+        console.log(`[ForceComplete] START: entityType = ${entityType}`);
+
+        const container = (entityType === 'quest') ? dom.adminEntityListQuest : dom.adminEntityListChallenge;
+        container.innerHTML = '<i>Загрузка...</i>';
+
+        let activeUserEntities = { quest_id: null, challenge_id: null };
+
+        if (!selectedAdminUser) {
+            console.error("[ForceComplete] FATAL: selectedAdminUser is null!");
+            container.innerHTML = '<p class="error-message">Ошибка: Пользователь не выбран.</p>';
+            return;
+        }
+
+        try {
+            const [activeDataResult, entitiesResult] = await Promise.allSettled([
+                makeApiRequest(`/api/v1/admin/users/${selectedAdminUser.id}/active_entities?initData=${encodeURIComponent(tg.initData)}`, {}, 'GET', true),
+                makeApiRequest('/api/v1/admin/actions/list_entities', { entity_type: entityType }, 'POST', true)
+            ]);
+
+            // Обработка результата активных сущностей
+            if (activeDataResult.status === 'fulfilled' && activeDataResult.value) {
+                activeUserEntities.quest_id = activeDataResult.value.active_quest_id;
+                activeUserEntities.challenge_id = activeDataResult.value.active_challenge_id;
+            }
+
+            // Обработка результата списка сущностей
+            if (entitiesResult.status === 'rejected') {
+                 throw entitiesResult.reason; 
+            }
+
+            let entities = entitiesResult.value;
+
+            if (!entities || entities.length === 0) {
+                container.innerHTML = `<p style="text-align: center;">Активных ${entityType === 'quest' ? 'квестов' : 'челленджей'} не найдено.</p>`;
+                return;
+            }
+
+            // --- СОРТИРОВКА ---
+            const activeEntityId = (entityType === 'quest') ? activeUserEntities.quest_id : activeUserEntities.challenge_id;
+            entities.sort((a, b) => {
+                const aIsActive = a.id === activeEntityId;
+                const bIsActive = b.id === activeEntityId;
+                if (aIsActive && !bIsActive) return -1; 
+                if (!aIsActive && bIsActive) return 1;  
+                return (a.title || '').localeCompare(b.title || ''); 
+            });
+
+            // 3. Рендерим отсортированный список
+            container.innerHTML = entities.map(entity => {
+                const isActive = entity.id === activeEntityId; 
+                const activeClass = isActive ? 'active' : ''; 
+
+                return `
+                <div class="submission-item entity-list-item ${activeClass}"
+                     data-entity-id="${entity.id}"
+                     data-entity-type="${entityType}"
+                     data-entity-name="${escapeHTML(entity.title)}"
+                     style="cursor: pointer;">
+                    <p style="margin: 0; font-weight: 500;">
+                        ${isActive ? '⭐ ' : ''}${escapeHTML(entity.title)} (ID: ${entity.id})
+                    </p>
+                </div>
+            `;
+            }).join('');
+
+        } catch (e) {
+            console.error("[ForceComplete] CATCH block triggered:", e);
+            container.innerHTML = `<p class="error-message">Ошибка загрузки: ${e.message}</p>`;
         }
     }
 
