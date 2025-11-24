@@ -7673,7 +7673,11 @@ async def buy_bott_item_proxy(
     logging.info(f"[SHOP] Покупатель: {user_id}, Товар ID: {item_id}, Цена: {price}")
 
     # 1. Проверка баланса
-    user_db = await supabase.table("users").select("tickets").eq("telegram_id", user_id).execute()
+    await supabase.patch(
+    "/users",
+    params={"telegram_id": f"eq.{telegram_id}"},
+    json={"tickets": tickets}
+)
     
     if not user_db.data:
         logging.error("[SHOP] Пользователь не найден в БД")
