@@ -108,20 +108,23 @@
             </span>
         </h2>
 
-        <div id="challenge-container"></div>
+        <div id="challenge-container" style="grid-column: 1 / -1; width: 100%;"></div>
         
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0; grid-column: 1 / -1; width: 100%;">
 
-        <button id="quest-choose-btn" class="quest-choose-btn-roulette">НАЧАТЬ ИСПЫТАНИЕ</button>
-        <div id="quest-choose-container" class="quest-choose-container hidden"></div>
-        <div id="active-automatic-quest-container"></div>
+        <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="grid-column: 1 / -1; width: 100%;">НАЧАТЬ ИСПЫТАНИЕ</button>
         
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
+        <div id="quest-choose-container" class="quest-choose-container hidden" style="grid-column: 1 / -1; width: 100%;"></div>
+        
+        <div id="active-automatic-quest-container" style="grid-column: 1 / -1; width: 100%;"></div>
+        
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0; grid-column: 1 / -1; width: 100%;">
 
-        <div id="manual-quests-list">
+        <div id="manual-quests-list" style="grid-column: 1 / -1; width: 100%;">
             <div class="spinner"></div>
         </div>
-        <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 20px;">
+
+        <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 20px; grid-column: 1 / -1;">
             Все полученные промокоды вы найдёте в разделе
             <span style="color: #ffc700; font-weight: 600;">Профиль</span>.
         </span>
