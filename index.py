@@ -7527,75 +7527,104 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Используем ТОТ ЖЕ URL, что и в твоем браузере
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # 2. Формируем payload точь-в-точь как в консоли разработчика
-    payload = {
-        "bot_id": str(BOTT_BOT_ID), # Передаем как строку, как в браузере
-        "public_key": BOTT_PUBLIC_KEY,
-        "category_id": 0 # Обязательный параметр
-    }
-
-    # Заголовки как у обычного браузера
+    # Заголовки
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
 
-    logging.info(f"[SHOP] Запрос: {url} | Payload: {json.dumps(payload)}")
+    # 1. Получаем список ГЛАВНЫХ категорий
+    payload_main = {
+        "bot_id": str(BOTT_BOT_ID),
+        "public_key": BOTT_PUBLIC_KEY,
+        "category_id": 0 
+    }
+
+    logging.info("[SHOP] Загрузка категорий...")
+    
+    all_final_products = []
 
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, headers=headers)
+            # Шаг 1: Запрос главной страницы
+            resp = await client.post(url, json=payload_main, headers=headers)
             
-        logging.info(f"[SHOP] Статус ответа: {resp.status_code}")
+            if resp.status_code != 200:
+                logging.error(f"[SHOP] Ошибка API: {resp.status_code}")
+                return []
+
+            data = resp.json().get("data", [])
+            categories_to_scan = []
+
+            # Разделяем: если это товар - берем, если категория - запоминаем ID
+            for item in data:
+                item_type = item.get("type", 0)
+                
+                if item_type == 0: # Это категория
+                    categories_to_scan.append(item["id"])
+                else: # Это уже товар
+                    all_final_products.append(item)
+
+            logging.info(f"[SHOP] Найдено категорий для сканирования: {len(categories_to_scan)}")
+
+            # Шаг 2: Проходимся по каждой категории и достаем товары
+            for cat_id in categories_to_scan:
+                payload_cat = {
+                    "bot_id": str(BOTT_BOT_ID),
+                    "public_key": BOTT_PUBLIC_KEY,
+                    "category_id": cat_id
+                }
+                # Делаем запрос внутрь категории
+                cat_resp = await client.post(url, json=payload_cat, headers=headers)
+                if cat_resp.status_code == 200:
+                    cat_items = cat_resp.json().get("data", [])
+                    # Добавляем только товары (type != 0), чтобы не плодить вложенные папки
+                    products_in_cat = [x for x in cat_items if x.get("type") != 0]
+                    all_final_products.extend(products_in_cat)
+                
+                # Небольшая пауза, чтобы не спамить API (опционально)
+                await asyncio.sleep(0.1)
+
+        # Шаг 3: ПРЕОБРАЗОВАНИЕ ДАННЫХ (Mapping) для фронтенда
+        # Превращаем сложный JSON Bot-t в простой вид, который ждет menu.js
+        mapped_products = []
         
-        # ВАЖНО: Выводим в лог то, что ответил сервер (первые 2000 символов)
-        # Это поможет нам понять структуру, если товары не появятся
-        response_text = resp.text
-        logging.info(f"[SHOP] JSON RAW: {response_text[:2000]}")
-
-        if resp.status_code == 200:
-            data = resp.json()
-            all_products = []
+        for p in all_final_products:
+            # 1. Достаем картинку (пробуем разные поля)
+            image_url = "https://placehold.co/150?text=No+Image"
             
-            # --- ЛОГИКА ПАРСИНГА (Попытка найти товары везде) ---
-            
-            # Вариант 1: Пришел список категорий/товаров (массив)
-            if isinstance(data, list):
-                for item in data:
-                    # Если это категория (type 0) и внутри есть products
-                    if isinstance(item, dict):
-                        # Собираем товары внутри категории
-                        products_inside = item.get("products", []) or item.get("items", [])
-                        if products_inside:
-                            all_products.extend(products_inside)
-                        
-                        # А может этот item - сам по себе товар? (type != 0)
-                        # Проверяем наличие цены, чтобы не добавить пустую категорию как товар
-                        if item.get("price") and item.get("type") != 0:
-                            all_products.append(item)
+            # Проверяем design.image (как в твоем логе)
+            if p.get("design") and p["design"].get("image"):
+                image_url = p["design"]["image"]
+            # Проверяем photo.abs_path (как резерв)
+            elif p.get("photo") and p["photo"].get("abs_path"):
+                image_url = p["photo"]["abs_path"]
 
-            # Вариант 2: Пришел словарь (объект)
-            elif isinstance(data, dict):
-                # Проверяем популярные ключи
-                if "products" in data:
-                    all_products.extend(data["products"])
-                elif "data" in data:
-                     # Иногда бывает вложенность data -> list
-                     inner = data["data"]
-                     if isinstance(inner, list):
-                         all_products.extend(inner)
+            # 2. Достаем цену
+            price = 0
+            if p.get("price"):
+                price = p["price"].get("amount", 0)
 
-            logging.info(f"[SHOP] Итого найдено товаров: {len(all_products)}")
-            return all_products
-        else:
-            logging.error(f"[SHOP] Ошибка API: {resp.status_code} | {resp.text}")
-            return [] 
-            
+            # 3. Достаем название
+            name = "Товар"
+            if p.get("design"):
+                name = p["design"].get("title", "Без названия")
+
+            # Собираем красивый объект
+            mapped_products.append({
+                "id": p.get("id"),
+                "name": name,   # JS ждет .name
+                "price": price, # JS ждет .price
+                "image_url": image_url # JS ждет .image_url
+            })
+
+        logging.info(f"[SHOP] Итого товаров для витрины: {len(mapped_products)}")
+        return mapped_products
+
     except Exception as e:
-        logging.error(f"[SHOP] Ошибка соединения: {e}", exc_info=True)
+        logging.error(f"[SHOP] Критическая ошибка: {e}", exc_info=True)
         return []
 
 @app.post("/api/v1/shop/buy")
