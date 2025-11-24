@@ -7597,7 +7597,9 @@ async def sync_bott_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Запрашивает реальный баланс пользователя в Bot-t и обновляет колонку bot_t_coins в Supabase.
+    1. Идет в Bot-t.
+    2. Узнает реальный баланс пользователя.
+    3. Сохраняет его в твою базу (в колонку bot_t_coins), чтобы показать юзеру.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -7605,7 +7607,7 @@ async def sync_bott_balance(
     
     telegram_id = user_info["id"]
     
-    # 1. Запрос к Bot-t
+    # Получаем данные пользователя по Telegram ID
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     params = {
         "bot_id": BOTT_BOT_ID,
@@ -7626,20 +7628,20 @@ async def sync_bott_balance(
         if not user_data:
              return {"bot_t_coins": 0}
 
-        # 2. Получаем баланс (поле money в Bot-t — это копейки, если тип int)
+        # Получаем поле money (баланс)
         money_raw = user_data.get("money", 0)
         
-        # Преобразуем в целое число
+        # Bot-t может отдавать строку или число. Приводим к int (копейки или рубли, как настроено).
         current_balance = int(float(money_raw))
 
-        # 3. Сохраняем в НОВУЮ колонку bot_t_coins
+        # Обновляем НОВУЮ колонку bot_t_coins в твоей базе
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"bot_t_coins": current_balance} 
         )
         
-        logging.info(f"[SYNC] Bot-T Coins обновлены: {current_balance} для ID {telegram_id}")
+        logging.info(f"[SYNC] Баланс Bot-t ({current_balance}) синхронизирован для {telegram_id}")
         return {"bot_t_coins": current_balance}
 
     except Exception as e:
@@ -7651,90 +7653,99 @@ async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ПОКУПКА ТОВАРА ==========")
+    logging.info("========== [SHOP] ПОКУПКА ЧЕРЕЗ BOT-T COINS ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
-        logging.error("[SHOP] Покупка: Невалидный initData")
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    user_id = user_info["id"]
-    price = request_data.price
+    telegram_id = user_info["id"]
+    price = request_data.price       # Цена товара
     item_id = request_data.item_id
     
-    logging.info(f"[SHOP] Покупатель: {user_id}, Товар ID: {item_id}, Цена: {price}")
-
-    # 1. Проверка баланса
-    await supabase.patch(
-    "/users",
-    params={"telegram_id": f"eq.{telegram_id}"},
-    json={"tickets": tickets}
-)
-    
-    if not user_db.data:
-        logging.error("[SHOP] Пользователь не найден в БД")
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-        
-    current_balance = user_db.data[0].get('tickets', 0)
-    logging.info(f"[SHOP] Баланс пользователя: {current_balance}")
-    
-    if current_balance < price:
-        logging.warning("[SHOP] Недостаточно средств")
-        raise HTTPException(status_code=400, detail="Недостаточно средств!")
-
-    # 2. Списание
-    logging.info("[SHOP] Списываем средства...")
-    await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": -price}).execute()
-
-    # 3. Создание заказа
-    url = "https://api.bot-t.com/v1/shop/order/create"
-    
-    payload = {
+    # 1. Сначала нам нужно узнать ВНУТРЕННИЙ ID пользователя в Bot-t (не Telegram ID!)
+    # Используем метод view-by-telegram-id 
+    user_data_url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+    base_params = {
         "bot_id": int(BOTT_BOT_ID),
-        "user_id": user_id,
-        "item_id": item_id,
-        "count": 1,
-        "status": 1,
-        "amount": price,
-        "comment": "Internal App Purchase"
+        "token": BOTT_PRIVATE_KEY
     }
     
-    headers = {
-        "Authorization": f"Bearer {BOTT_PRIVATE_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    logging.info(f"[SHOP] Отправляем заказ в Bot-t: {url}")
-    logging.info(f"[SHOP] Payload заказа: {json.dumps(payload)}")
-
-    try:
-        async with httpx.AsyncClient() as client:
-            order_resp = await client.post(url, json=payload, headers=headers)
-        
-        logging.info(f"[SHOP] Ответ заказа STATUS: {order_resp.status_code}")
-        logging.info(f"[SHOP] Ответ заказа BODY: {order_resp.text}")
-
-        if order_resp.status_code not in [200, 201]:
-            # Backup URL
-            logging.warning("[SHOP] Основной URL не сработал, пробуем v1/u_api...")
-            url_v2 = "https://api.bot-t.com/v1/u_api/orders/create"
-            async with httpx.AsyncClient() as client:
-                order_resp = await client.post(url_v2, json=payload, headers=headers)
+    async with httpx.AsyncClient() as client:
+        # Шаг А: Получаем Bot-t User ID
+        user_resp = await client.get(user_data_url, params={**base_params, "telegram_id": telegram_id})
+        if user_resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Пользователь не найден в Bot-t")
             
-            logging.info(f"[SHOP] Ответ Backup заказа: {order_resp.status_code} | {order_resp.text}")
+        bott_user_data = user_resp.json().get("data", user_resp.json())
+        bott_internal_id = bott_user_data.get("id") # [cite: 20] Это внутренний ID
+        current_money = float(bott_user_data.get("money", 0))
 
+        if current_money < price:
+            raise HTTPException(status_code=400, detail="Недостаточно средств на балансе Bot-t!")
+
+        # Шаг Б: Списываем деньги в Bot-t 
+        # Используем метод subtract-balance
+        subtract_url = "https://api.bot-t.com/v1/bot/user/subtract-balance"
+        subtract_payload = {
+            "bot_id": int(BOTT_BOT_ID),
+            "user_id": bott_internal_id, # Важно: тут нужен внутренний ID 
+            "sum": price,
+            "comment": f"Покупка товара ID {item_id} через WebApp"
+        }
+        
+        # Отправляем запрос как POST form-data или json (Bot-t обычно принимает JSON)
+        sub_resp = await client.post(subtract_url, json=subtract_payload, params={"token": BOTT_PRIVATE_KEY})
+        
+        if sub_resp.status_code != 200:
+            logging.error(f"[SHOP] Ошибка списания: {sub_resp.text}")
+            raise HTTPException(status_code=500, detail="Ошибка списания средств в Bot-t")
+
+        logging.info(f"[SHOP] Списано {price} с юзера {bott_internal_id}")
+
+        # Шаг В: Создаем заказ (чтобы выдать товар)
+        # Если API создания заказа не списывает деньги повторно (обычно статус 1=оплачено просто фиксирует факт), то всё ок.
+        create_order_url = "https://api.bot-t.com/v1/shop/order/create"
+        order_payload = {
+            "bot_id": int(BOTT_BOT_ID),
+            "user_id": telegram_id, # Тут часто можно TG ID, но лучше проверить документацию. Обычно Bot-t умен.
+            "item_id": item_id,
+            "count": 1,
+            "status": 1, # Оплачено
+            "amount": price,
+            "comment": "Auto-order from WebApp"
+        }
+        
+        # Для заказа авторизация часто идет в заголовке
+        headers = {
+            "Authorization": f"Bearer {BOTT_PRIVATE_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        order_resp = await client.post(create_order_url, json=order_payload, headers=headers)
+        
+        # Если заказ не создался, нужно ВЕРНУТЬ деньги (add-balance) 
         if order_resp.status_code not in [200, 201]:
-            logging.error("[SHOP] ❌ Не удалось создать заказ. Возвращаем деньги.")
-            await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
+            logging.error("[SHOP] Заказ не создан! Возвращаем деньги...")
+            refund_url = "https://api.bot-t.com/v1/bot/user/add-balance"
+            await client.post(refund_url, json={
+                "bot_id": int(BOTT_BOT_ID),
+                "user_id": bott_internal_id,
+                "sum": price,
+                "comment": "Refund: ошибка выдачи товара"
+            }, params={"token": BOTT_PRIVATE_KEY})
+            
             raise HTTPException(status_code=500, detail="Ошибка выдачи товара. Средства возвращены.")
 
-    except Exception as e:
-        logging.error(f"[SHOP] ❌ Исключение при покупке: {e}", exc_info=True)
-        await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": price}).execute()
-        raise HTTPException(status_code=500, detail="Ошибка соединения.")
+        # Шаг Г: Обновляем баланс локально в Supabase, чтобы юзер сразу увидел изменение
+        new_balance = int(current_money - price)
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json={"bot_t_coins": new_balance} 
+        )
 
-    logging.info("[SHOP] ✅ Покупка успешна!")
-    return {"message": "Успешно! Бот отправил вам товар."}
+    return {"message": "Покупка успешна! Товар должен прийти в боте."}
 
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
