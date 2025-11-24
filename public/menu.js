@@ -769,23 +769,24 @@ function renderChallenge(challengeData, isGuest) {
         dom.questChooseContainer.classList.add('hidden');
     }
 
-    function renderManualQuests(quests) { // Принимает только ОДИН аргумент
-        const container = dom.viewQuests;
-        const title = container.querySelector('.page-title');
-        container.innerHTML = '';
-        if (title) container.appendChild(title);
+    function renderManualQuests(quests) {
+        // ИЗМЕНЕНИЕ: Целимся в конкретный контейнер, а не во всю вкладку
+        const container = document.getElementById('manual-quests-list');
+        
+        // Если контейнер еще не создан в HTML (на всякий случай), выходим
+        if (!container) return;
+
+        container.innerHTML = ''; // Очищаем ТОЛЬКО список заданий
 
         if (!quests || quests.length === 0) {
-            container.insertAdjacentHTML('beforeend', `<p style="text-align: center; font-size: 12px; color: var(--text-color-muted); grid-column: 1 / -1;">Нет заданий для ручной проверки.</p>`);
+            container.innerHTML = `<p style="text-align: center; font-size: 12px; color: var(--text-color-muted);">Нет заданий для ручной проверки.</p>`;
             return;
         }
 
-        // Используем Map для сохранения порядка категорий, как они пришли от API
+        // Используем Map для сохранения порядка категорий
         const groupedQuests = new Map();
 
         quests.forEach(quest => {
-            // Используем имя категории или "Разное" как ключ
-            // Информация о категории теперь берется из объекта quest
             const categoryName = quest.quest_categories ? quest.quest_categories.name : 'Разное';
             if (!groupedQuests.has(categoryName)) {
                 groupedQuests.set(categoryName, []);
@@ -793,15 +794,15 @@ function renderChallenge(challengeData, isGuest) {
             groupedQuests.get(categoryName).push(quest);
         });
 
-        // Отображаем категории и квесты в том порядке, в котором они были добавлены в Map
+        // Отображаем категории
         groupedQuests.forEach((questsInCategory, categoryName) => {
             const questsHtml = questsInCategory.map(quest => {
-                // Внутренняя логика map остается без изменений, т.к. она уже работает с одним quest
                 const iconHtml = (quest.icon_url && quest.icon_url !== "") ? `<img src="${escapeHTML(quest.icon_url)}" class="quest-image-icon" alt="Иконка квеста">` : `<div class="quest-icon"><i class="fa-solid fa-user-check"></i></div>`;
                 const actionLinkHtml = (quest.action_url && quest.action_url !== "")
                     ? `<a href="${escapeHTML(quest.action_url)}" target="_blank" rel="noopener noreferrer" class="action-link-btn">Перейти</a>`
                     : '';
                 const submitButtonText = (quest.action_url && quest.action_url !== "") ? 'Отправить' : 'Выполнить';
+                
                 return `
                     <div class="quest-card" style="display: flex; flex-direction: column;">
                         <div style="flex-grow: 1;">
