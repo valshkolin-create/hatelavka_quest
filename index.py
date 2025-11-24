@@ -7527,64 +7527,75 @@ async def get_bott_goods_proxy(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Адрес публичного API
+    # 1. Используем ТОТ ЖЕ URL, что и в твоем браузере
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # ОТПРАВЛЯЕМ ТОЛЬКО ЭТО. 
-    # Лишние поля (user_id и т.д.) могут вызывать 500 ошибку на сервере Bot-t.
+    # 2. Формируем payload точь-в-точь как в консоли разработчика
     payload = {
-        "bot_id": int(BOTT_BOT_ID), 
+        "bot_id": str(BOTT_BOT_ID), # Передаем как строку, как в браузере
         "public_key": BOTT_PUBLIC_KEY,
-        "category_id": 0  # <--- ДОБАВЬ ЭТУ СТРОКУ! (0 = Главная категория)
+        "category_id": 0 # Обязательный параметр
     }
 
-    # Стандартные заголовки
+    # Заголовки как у обычного браузера
     headers = {
         "Content-Type": "application/json",
-        "Referer": "https://shopdigital.bot-t.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
-    logging.info(f"[SHOP] Payload (Simple): {json.dumps(payload)}")
+    logging.info(f"[SHOP] Запрос: {url} | Payload: {json.dumps(payload)}")
 
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)
             
-        logging.info(f"[SHOP] Ответ Bot-t: {resp.status_code}")
+        logging.info(f"[SHOP] Статус ответа: {resp.status_code}")
         
+        # ВАЖНО: Выводим в лог то, что ответил сервер (первые 2000 символов)
+        # Это поможет нам понять структуру, если товары не появятся
+        response_text = resp.text
+        logging.info(f"[SHOP] JSON RAW: {response_text[:2000]}")
+
         if resp.status_code == 200:
             data = resp.json()
             all_products = []
             
-            # Логика парсинга (учитываем, что могут быть категории)
+            # --- ЛОГИКА ПАРСИНГА (Попытка найти товары везде) ---
+            
+            # Вариант 1: Пришел список категорий/товаров (массив)
             if isinstance(data, list):
-                for category in data:
-                    # Продукты могут называться 'products' или 'items'
-                    products = category.get("products", category.get("items", []))
-                    if products:
-                        all_products.extend(products)
+                for item in data:
+                    # Если это категория (type 0) и внутри есть products
+                    if isinstance(item, dict):
+                        # Собираем товары внутри категории
+                        products_inside = item.get("products", []) or item.get("items", [])
+                        if products_inside:
+                            all_products.extend(products_inside)
                         
-            elif isinstance(data, dict):
-                # Если пришел словарь, ищем списки внутри
-                if "products" in data:
-                    all_products = data["products"]
-                elif "categories" in data:
-                    for cat in data["categories"]:
-                         all_products.extend(cat.get("products", []))
-                # Иногда Bot-t отдает 'subcategories'
-                elif "subcategories" in data:
-                     for sub in data["subcategories"]:
-                         all_products.extend(sub.get("products", []))
+                        # А может этот item - сам по себе товар? (type != 0)
+                        # Проверяем наличие цены, чтобы не добавить пустую категорию как товар
+                        if item.get("price") and item.get("type") != 0:
+                            all_products.append(item)
 
-            logging.info(f"[SHOP] Найдено товаров: {len(all_products)}")
+            # Вариант 2: Пришел словарь (объект)
+            elif isinstance(data, dict):
+                # Проверяем популярные ключи
+                if "products" in data:
+                    all_products.extend(data["products"])
+                elif "data" in data:
+                     # Иногда бывает вложенность data -> list
+                     inner = data["data"]
+                     if isinstance(inner, list):
+                         all_products.extend(inner)
+
+            logging.info(f"[SHOP] Итого найдено товаров: {len(all_products)}")
             return all_products
         else:
             logging.error(f"[SHOP] Ошибка API: {resp.status_code} | {resp.text}")
             return [] 
             
     except Exception as e:
-        logging.error(f"[SHOP] Ошибка соединения: {e}")
+        logging.error(f"[SHOP] Ошибка соединения: {e}", exc_info=True)
         return []
 
 @app.post("/api/v1/shop/buy")
