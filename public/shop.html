@@ -247,7 +247,8 @@
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 });
                 const data = await response.json();
-                document.getElementById('user-balance').textContent = data.bot_t_coins || 0;
+                let balance = (data.bot_t_coins || 0) / 100;
+                document.getElementById('user-balance').textContent = balance.toFixed(2);
             } catch (e) {
                 console.error("Ошибка синхронизации баланса:", e);
             }
