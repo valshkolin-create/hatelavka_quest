@@ -7649,7 +7649,7 @@ async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ПОКУПКА v5 (PUBLIC API) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v6 (DIRECT SUBTRACT) ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -7658,64 +7658,131 @@ async def buy_bott_item_proxy(
     telegram_id = user_info["id"]
     price = request_data.price
     item_id = request_data.item_id
-
-    # 1. Формируем запрос к публичному API (как браузер)
-    url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
     
-    # Мы добавляем userData (initData), чтобы сервер понял, КТО покупает.
-    # Поле category_id в Bot-t часто соответствует ID товара.
-    payload = {
-        "bot_id": str(BOTT_BOT_ID),
-        "category_id": item_id, 
-        "count": 1,
-        "userData": request_data.initData  # <--- ГЛАВНЫЙ ЭЛЕМЕНТ АВТОРИЗАЦИИ
-    }
+    # 1. Получаем данные из нашей БД (включая внутренний ID Bot-t)
+    try:
+        user_db_resp = await supabase.get(
+            "/users", 
+            params={
+                "telegram_id": f"eq.{telegram_id}",
+                "select": "bot_t_coins,bott_internal_id"
+            }
+        )
+        user_data_list = user_db_resp.json()
+    except Exception as e:
+        logging.error(f"[SHOP] Ошибка БД: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+    
+    if not user_data_list:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+        
+    user_record = user_data_list[0]
+    bott_internal_id = user_record.get("bott_internal_id")
+    current_balance_kopecks = user_record.get("bot_t_coins", 0)
+    
+    # Если ID нет - значит юзер не заходил в "Меню"
+    if not bott_internal_id:
+         raise HTTPException(status_code=400, detail="Пожалуйста, зайдите на главную страницу (Меню), чтобы обновить данные.")
 
-    logging.info(f"[SHOP] Payload: {payload}")
+    # 2. Проверка баланса (Локально)
+    price_in_kopecks = price * 100
+    if current_balance_kopecks < price_in_kopecks:
+        raise HTTPException(status_code=400, detail="Недостаточно средств!")
+
+    logging.info(f"[SHOP] Покупка: IntID={bott_internal_id}, Price={price}")
 
     async with httpx.AsyncClient() as client:
-        # Отправляем POST запрос
-        resp = await client.post(url, json=payload)
+        # ---------------------------------------------------------
+        # ШАГ А: Списываем деньги (subtract-balance)
+        # Мы отправляем токен везде, чтобы наверняка
+        # ---------------------------------------------------------
+        subtract_url = "https://api.bot-t.com/v1/bot/user/subtract-balance"
         
-        logging.info(f"[SHOP] Ответ API: {resp.status_code} | {resp.text}")
-
-        # 2. Обрабатываем ответ
-        if resp.status_code != 200:
-            # Пытаемся найти текст ошибки
-            try:
-                err_json = resp.json()
-                err_msg = err_json.get("message", resp.text)
-            except:
-                err_msg = resp.text
+        subtract_payload = {
+            "bot_id": str(BOTT_BOT_ID),
+            "user_id": str(bott_internal_id), # Берем ID из базы!
+            "sum": str(price),
+            "comment": f"WebBuy item {item_id}",
+            "token": BOTT_PRIVATE_KEY
+        }
+        
+        # Отправляем запрос
+        # ВАЖНО: Токен пробуем передать только в URL, а данные в теле
+        sub_resp = await client.post(
+            subtract_url, 
+            data=subtract_payload,
+            params={"token": BOTT_PRIVATE_KEY}
+        )
+        
+        logging.info(f"[SHOP] Ответ списания: {sub_resp.text}")
+        
+        sub_json = sub_resp.json()
+        
+        # Если ошибка
+        if sub_resp.status_code != 200 or sub_json.get("result") is False:
+            error_msg = sub_json.get("message", "Ошибка списания")
             
-            logging.error(f"[SHOP] Ошибка покупки: {err_msg}")
-            raise HTTPException(status_code=400, detail=f"Ошибка магазина: {err_msg}")
-
-        resp_data = resp.json()
-        
-        if resp_data.get("result") is False:
-            err_msg = resp_data.get("message", "Неизвестная ошибка")
-            logging.error(f"[SHOP] API вернул ошибку: {err_msg}")
-            raise HTTPException(status_code=400, detail=f"Магазин отклонил покупку: {err_msg}")
-
-        # 3. Если всё ок — обновляем локальный кэш баланса для красоты
-        # Мы просто отнимаем цену, чтобы юзеру не пришлось перезагружать страницу
-        try:
-            # Получаем текущий кэш
-            user_db = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins"})
-            if user_db.json():
-                current_coins = user_db.json()[0].get("bot_t_coins", 0)
-                new_balance = current_coins - (price * 100) # price в рублях, coins в копейках
+            if "token" in str(error_msg):
+                logging.error(f"[SHOP] CRITICAL: Токен невалиден! Проверьте .env")
+                raise HTTPException(status_code=500, detail="Ошибка настройки магазина (Token).")
                 
-                await supabase.patch(
-                    "/users",
-                    params={"telegram_id": f"eq.{telegram_id}"},
-                    json={"bot_t_coins": new_balance}
-                )
-        except Exception as e:
-            logging.warning(f"[SHOP] Не удалось обновить локальный кэш (не критично): {e}")
+            raise HTTPException(status_code=500, detail=f"Ошибка оплаты: {error_msg}")
 
-    return {"message": "Покупка успешна! Товар выдан в боте."}
+        # ---------------------------------------------------------
+        # ШАГ Б: Создаем заказ
+        # ---------------------------------------------------------
+        create_order_url = "https://api.bot-t.com/v1/shop/order/create"
+        
+        # Для создания заказа обычно нужен JSON
+        order_payload = {
+            "bot_id": int(BOTT_BOT_ID),
+            "user_id": telegram_id,
+            "item_id": item_id,
+            "count": 1,
+            "status": 1, 
+            "amount": price,
+            "comment": "WebApp Purchase"
+        }
+        
+        # Токен в заголовке (Bearer) - это стандарт для многих методов Bot-t
+        headers = {"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"}
+
+        order_resp = await client.post(create_order_url, json=order_payload, headers=headers)
+        order_json = order_resp.json()
+        
+        logging.info(f"[SHOP] Ответ создания заказа: {order_resp.text}")
+
+        # Если заказ не создался - ВОЗВРАТ
+        if order_resp.status_code not in [200, 201] or order_json.get("result") is False:
+            logging.error(f"[SHOP] Заказ не создан! Возврат средств...")
+            
+            refund_url = "https://api.bot-t.com/v1/bot/user/add-balance"
+            await client.post(
+                refund_url, 
+                data={
+                    "bot_id": str(BOTT_BOT_ID),
+                    "user_id": str(bott_internal_id),
+                    "sum": str(price),
+                    "comment": "Refund",
+                    "token": BOTT_PRIVATE_KEY
+                },
+                params={"token": BOTT_PRIVATE_KEY}
+            )
+            
+            err_text = order_json.get("message", "Ошибка создания заказа")
+            raise HTTPException(status_code=500, detail=f"Товар не выдан ({err_text}). Деньги возвращены.")
+
+        # ---------------------------------------------------------
+        # ШАГ В: Обновляем локальный баланс
+        # ---------------------------------------------------------
+        new_balance = int(current_balance_kopecks - price_in_kopecks)
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json={"bot_t_coins": new_balance} 
+        )
+
+    return {"message": "Успешно! Товар оплачен."}
 
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
