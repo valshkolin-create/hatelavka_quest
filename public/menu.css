@@ -801,3 +801,59 @@
 .shop-btn:active {
     transform: scale(0.95);
 }
+/* --- СТИЛИ ДЛЯ ЯРЛЫКОВ НА ГЛАВНОЙ (DASHBOARD SHORTCUTS) --- */
+.dashboard-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 иконки в ряд */
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 0 5px;
+}
+
+.shortcut-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.1s;
+    /* Убираем стандартное выделение при тапе */
+    -webkit-tap-highlight-color: transparent;
+}
+
+.shortcut-item:active {
+    transform: scale(0.95);
+}
+
+.shortcut-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px; /* Скругленный квадрат (как iOS/MacOS иконка) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: #ffffff;
+    margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+}
+
+.shortcut-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-color);
+    line-height: 1.2;
+}
+
+/* Цвета для разных иконок */
+.shortcut-shop-bg {
+    background: linear-gradient(135deg, #FFD700, #FF8C00); /* Золотой */
+}
+.shortcut-challenge-bg {
+    background: linear-gradient(135deg, #007AFF, #00C6FF); /* Синий */
+}
+.shortcut-quest-bg {
+    background: linear-gradient(135deg, #FF3B30, #FF9500); /* Оранжево-красный */
+}
