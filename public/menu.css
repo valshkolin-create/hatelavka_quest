@@ -801,12 +801,12 @@
 .shop-btn:active {
     transform: scale(0.95);
 }
-/* --- СТИЛИ ДЛЯ ЯРЛЫКОВ (КОМПАКТНЫЕ) --- */
+/* --- СТИЛИ ДЛЯ ЯРЛЫКОВ (ЕДИНЫЙ СТИЛЬ) --- */
 .dashboard-shortcuts {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     padding: 0 10px;
 }
 
@@ -825,28 +825,39 @@
 }
 
 .shortcut-icon {
-    /* ИЗМЕНЕНИЕ: Уменьшили размер */
-    width: 42px; 
-    height: 42px;
-    border-radius: 12px; 
+    /* Единый размер и форма */
+    width: 48px; 
+    height: 48px;
+    border-radius: 14px; /* Мягкий квадрат (как в iOS) */
+    
     display: flex;
     align-items: center;
     justify-content: center;
-    /* ИЗМЕНЕНИЕ: Уменьшили иконку */
-    font-size: 18px; 
-    color: #ffffff;
-    margin-bottom: 6px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    
+    /* ЕДИНЫЙ ФОН ДЛЯ ВСЕХ (Стекло) */
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    
+    margin-bottom: 8px;
+    font-size: 20px; /* Размер иконки */
+    transition: background 0.2s;
+}
+
+.shortcut-item:active .shortcut-icon {
+    background: rgba(255, 255, 255, 0.15); /* Подсветка при нажатии */
 }
 
 .shortcut-label {
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 500;
     color: var(--text-color-muted);
+    line-height: 1.1;
 }
 
-/* Цвета */
-.shortcut-shop-bg { background: linear-gradient(135deg, #FFD700, #FF8C00); }
-.shortcut-challenge-bg { background: linear-gradient(135deg, #007AFF, #00C6FF); }
-.shortcut-quest-bg { background: linear-gradient(135deg, #FF3B30, #FF9500); }
+/* Цвета только для самих иконок (i) */
+.shortcut-shop-bg { color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+.shortcut-challenge-bg { color: #007AFF; text-shadow: 0 0 10px rgba(0, 122, 255, 0.4); }
+.shortcut-quest-bg { color: #FF3B30; text-shadow: 0 0 10px rgba(255, 59, 48, 0.4); }
