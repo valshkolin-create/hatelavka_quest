@@ -1198,6 +1198,42 @@ async function buyItem(itemId, price, name) {
 }
 
 function setupEventListeners() {
+    // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
+    
+    // 1. Магазин
+    document.getElementById('shortcut-shop')?.addEventListener('click', () => {
+        // Открываем магазин так же, как это делает кнопка в футере или старая кнопка
+        dom.viewDashboard.classList.add('hidden');
+        dom.viewQuests.classList.add('hidden');
+        const viewShop = document.getElementById('view-shop');
+        if (viewShop) {
+            viewShop.classList.remove('hidden');
+            loadAndRenderShop();
+        }
+    });
+
+    // 2. Челленджи (переход во вкладку Задания -> скролл к Челленджу)
+    document.getElementById('shortcut-challenge')?.addEventListener('click', async () => {
+        await openQuestsTab(false); // Открываем вкладку
+        // Плавный скролл к контейнеру челленджей
+        const el = document.getElementById('challenge-container');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    // 3. Испытания (переход во вкладку Задания -> скролл к кнопке Старт или активному квесту)
+    document.getElementById('shortcut-quests')?.addEventListener('click', async () => {
+        await openQuestsTab(false);
+        // Если есть активный квест - скроллим к нему, иначе к кнопке "Начать"
+        const activeEl = document.getElementById('active-automatic-quest-container');
+        const startBtn = document.getElementById('quest-choose-btn');
+        
+        if (activeEl && activeEl.innerHTML.trim() !== "") {
+             activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (startBtn) {
+             startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+    // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
    // --- ЛОГИКА ДЛЯ МАГАЗИНА (ВНУТРЕННИЙ ВИД) ---
         const shopBtn = document.getElementById('shop-open-btn');
         if (shopBtn) {
