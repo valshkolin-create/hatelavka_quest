@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Магазин</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #ffcc00;
+            --bg-color: #0f0f0f;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text-color: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Шапка */
+        .shop-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .balance-display {
+            background: rgba(255, 204, 0, 0.15);
+            color: var(--primary-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Сетка товаров */
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 товара в ряд */
+            gap: 10px;
+            padding: 15px;
+            padding-bottom: 40px;
+        }
+
+        .shop-item {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.1s;
+        }
+
+        .shop-item:active {
+            transform: scale(0.98);
+        }
+
+        .item-image-wrapper {
+            width: 100%;
+            aspect-ratio: 1/1;
+            position: relative;
+            background: #1a1a1a;
+        }
+
+        .item-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .folder-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: #fff;
+        }
+
+        .item-info {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .item-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 5px;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            height: 34px; /* Фикс высота для 2 строк */
+        }
+
+        .item-price {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-top: auto;
+            font-size: 14px;
+        }
+
+        .buy-btn {
+            margin-top: 8px;
+            width: 100%;
+            background: var(--primary-color);
+            color: #000;
+            border: none;
+            padding: 8px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .folder-btn {
+            margin-top: 8px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        /* Загрузчик */
+        .loader {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            grid-column: 1 / -1;
+        }
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .empty-msg {
+            text-align: center;
+            grid-column: 1 / -1;
+            color: #888;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="shop-header">
+        <button class="back-btn" onclick="goBack()">
+            <i class="fa-solid fa-arrow-left"></i> <span id="nav-title">Меню</span>
+        </button>
+        <div class="balance-display">
+            <span id="user-balance">...</span> <i class="fa-solid fa-star"></i>
+        </div>
+    </div>
+
+    <div id="shop-grid" class="shop-grid">
+        </div>
+
+    <script>
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        Telegram.WebApp.BackButton.show();
+        
+        // История навигации (для кнопки Назад)
+        let categoryStack = []; 
+        let currentCategoryId = 0;
+
+        // Обработка кнопки "Назад" в Телеграм
+        Telegram.WebApp.BackButton.onClick(() => {
+            goBack();
+        });
+
+        // Инициализация
+        async function initShop() {
+            // 1. Загружаем баланс (быстрый запрос)
+            fetch('/api/v1/user/me', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('user-balance').textContent = data.tickets || 0;
+            });
+
+            // 2. Загружаем главную категорию
+            loadCategory(0);
+        }
+
+        // Функция загрузки товаров
+        async function loadCategory(catId) {
+            const container = document.getElementById('shop-grid');
+            container.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+            
+            currentCategoryId = catId;
+
+            try {
+                const response = await fetch('/api/v1/shop/goods', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        initData: Telegram.WebApp.initData,
+                        category_id: catId 
+                    })
+                });
+
+                const items = await response.json();
+                renderItems(items);
+
+            } catch (e) {
+                container.innerHTML = '<div class="empty-msg">Ошибка загрузки :(</div>';
+                console.error(e);
+            }
+        }
+
+        // Отрисовка
+        function renderItems(items) {
+            const container = document.getElementById('shop-grid');
+            container.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div class="empty-msg">В этой категории пусто.</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'shop-item';
+                
+                // Логика кнопки: если папка - "Открыть", если товар - "Купить"
+                let btnHtml = '';
+                let iconOverlay = '';
+                
+                if (item.is_folder) {
+                    btnHtml = `<button class="folder-btn" onclick="openFolder(${item.id})">Открыть</button>`;
+                    iconOverlay = `<div class="folder-overlay"><i class="fa-solid fa-folder-open"></i></div>`;
+                } else {
+                    btnHtml = `<button class="buy-btn" onclick="buyItem(${item.id}, ${item.price}, '${escapeHtml(item.name)}')">Купить</button>`;
+                }
+
+                el.innerHTML = `
+                    <div class="item-image-wrapper" onclick="${item.is_folder ? `openFolder(${item.id})` : ''}">
+                        <img src="${item.image_url}" class="item-image" alt="${item.name}">
+                        ${iconOverlay}
+                    </div>
+                    <div class="item-info">
+                        <div class="item-title">${item.name}</div>
+                        <div class="item-price">${item.price} ⭐️</div>
+                        ${btnHtml}
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        // Навигация: Вглубь
+        window.openFolder = function(id) {
+            categoryStack.push(currentCategoryId); // Запоминаем, откуда пришли
+            updateNavTitle("Назад");
+            loadCategory(id);
+        }
+
+        // Навигация: Назад
+        window.goBack = function() {
+            if (categoryStack.length > 0) {
+                const prevId = categoryStack.pop();
+                loadCategory(prevId);
+                if (categoryStack.length === 0) updateNavTitle("Меню");
+            } else {
+                // Если стек пуст - возвращаемся в главное меню
+                window.location.href = "/"; 
+            }
+        }
+
+        function updateNavTitle(text) {
+            document.getElementById('nav-title').textContent = text;
+        }
+
+        // Покупка
+        window.buyItem = function(id, price, name) {
+            Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звезд?`, (ok) => {
+                if(ok) {
+                    fetch('/api/v1/shop/buy', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ 
+                            initData: Telegram.WebApp.initData,
+                            item_id: id,
+                            price: price
+                        })
+                    })
+                    .then(res => {
+                        if (!res.ok) return res.json().then(err => { throw err; });
+                        return res.json();
+                    })
+                    .then(data => {
+                        Telegram.WebApp.showAlert(data.message || "Успешно!");
+                        // Обновляем баланс
+                        initShop(); 
+                    })
+                    .catch(err => {
+                        Telegram.WebApp.showAlert(err.detail || "Ошибка при покупке");
+                    });
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Старт
+        initShop();
+
+    </script>
+</body>
+</html>
