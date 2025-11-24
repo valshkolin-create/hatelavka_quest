@@ -7535,17 +7535,13 @@ async def get_bott_goods_proxy(
 ):
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # Запрашиваем конкретную категорию, которую попросил фронтенд
     payload = {
         "bot_id": str(BOTT_BOT_ID),
         "public_key": BOTT_PUBLIC_KEY,
         "category_id": request_data.category_id 
     }
 
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
 
     try:
         async with httpx.AsyncClient() as client:
@@ -7559,23 +7555,20 @@ async def get_bott_goods_proxy(
         mapped_items = []
 
         for item in data:
-            # Определяем, папка это или товар
-            # type 0 = Категория (Папка)
             is_folder = (item.get("type") == 0)
 
-            # Картинка
             image_url = "https://placehold.co/150?text=No+Image"
             if item.get("design") and item["design"].get("image"):
                 image_url = item["design"]["image"]
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
 
-            # Цена
+            # ЦЕНЫ: Bot-t отдает в копейках. Делим на 100, чтобы получить рубли/звезды
             price = 0
             if item.get("price"):
-                price = item["price"].get("amount", 0)
+                amount = item["price"].get("amount", 0)
+                price = int(amount / 100) if amount else 0
 
-            # Название
             name = "Без названия"
             if item.get("design"):
                 name = item["design"].get("title", "Без названия")
@@ -7585,7 +7578,7 @@ async def get_bott_goods_proxy(
                 "name": name,
                 "price": price,
                 "image_url": image_url,
-                "is_folder": is_folder  # Важный флаг для фронтенда
+                "is_folder": is_folder
             })
 
         return mapped_items
@@ -7593,6 +7586,66 @@ async def get_bott_goods_proxy(
     except Exception as e:
         logging.error(f"[SHOP] Ошибка: {e}", exc_info=True)
         return []
+
+
+# --- [2] ДОБАВЛЯЕМ НОВЫЙ ЭНДПОИНТ СИНХРОНИЗАЦИИ БАЛАНСА ---
+# Вставь это где-то рядом с другими эндпоинтами магазина
+
+@app.post("/api/v1/user/sync_bott_balance")
+async def sync_bott_balance(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Запрашивает реальный баланс пользователя в Bot-t и обновляет локальные tickets.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    
+    # Формируем запрос к приватному API Bot-t (см. Пользователи.docx Source 12)
+    # GET https://api.bot-t.com/v1/bot/user/view-by-telegram-id
+    url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+    params = {
+        "bot_id": BOTT_BOT_ID,
+        "token": BOTT_PRIVATE_KEY, # Используем приватный ключ как токен
+        "telegram_id": telegram_id
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params)
+        
+        # Если пользователь не найден в Bot-t (например, он новый), API может вернуть ошибку.
+        # В таком случае оставляем баланс как есть или 0.
+        if resp.status_code != 200:
+            logging.warning(f"[SYNC] Не удалось получить баланс Bot-t для {telegram_id}: {resp.text}")
+            # Можно вернуть текущий локальный баланс, чтобы не ломать интерфейс
+            return {"tickets": 0} # Или старое значение
+
+        data = resp.json()
+        # В ответе ищем поле 'money' (оно в копейках)
+        # Структура ответа Bot-t обычно: { result: true, data: { ... money: 1000 ... } } 
+        # Или сразу объект User, если это v1. Судя по документации, возвращает BotUser.
+        
+        # Предположим прямую структуру или внутри data. Проверим оба варианта.
+        user_data = data.get("data", data) 
+        money_kopecks = user_data.get("money", 0)
+        
+        # Переводим копейки в рубли (билеты)
+        tickets = int(money_kopecks / 100)
+
+        # Обновляем локальную базу Supabase, чтобы везде было одинаково
+        await supabase.table("users").update({"tickets": tickets}).eq("telegram_id", telegram_id).execute()
+        
+        logging.info(f"[SYNC] Баланс синхронизирован для {telegram_id}: {tickets} (из {money_kopecks} коп.)")
+        return {"tickets": tickets}
+
+    except Exception as e:
+        logging.error(f"[SYNC] Ошибка синхронизации: {e}", exc_info=True)
+        return {"tickets": 0}
 
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
