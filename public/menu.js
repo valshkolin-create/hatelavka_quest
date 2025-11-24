@@ -1200,38 +1200,39 @@ async function buyItem(itemId, price, name) {
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
     
-    // 1. Магазин
+    // 1. Магазин -> shop.html
     document.getElementById('shortcut-shop')?.addEventListener('click', () => {
-        // Открываем магазин так же, как это делает кнопка в футере или старая кнопка
-        dom.viewDashboard.classList.add('hidden');
-        dom.viewQuests.classList.add('hidden');
-        const viewShop = document.getElementById('view-shop');
-        if (viewShop) {
-            viewShop.classList.remove('hidden');
-            loadAndRenderShop();
-        }
+        window.location.href = '/shop';
     });
 
-    // 2. Челленджи (переход во вкладку Задания -> скролл к Челленджу)
+    // 2. Челленджи -> Вкладка Задания + Скролл
     document.getElementById('shortcut-challenge')?.addEventListener('click', async () => {
         await openQuestsTab(false); // Открываем вкладку
-        // Плавный скролл к контейнеру челленджей
-        const el = document.getElementById('challenge-container');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await refreshDataSilently(); // 🔥 ПРИНУДИТЕЛЬНО ПОДГРУЖАЕМ ДАННЫЕ
+        
+        // Небольшая задержка, чтобы данные успели отрисоваться
+        setTimeout(() => {
+            const el = document.getElementById('challenge-container');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
     });
 
-    // 3. Испытания (переход во вкладку Задания -> скролл к кнопке Старт или активному квесту)
+    // 3. Испытания -> Вкладка Задания + Скролл
     document.getElementById('shortcut-quests')?.addEventListener('click', async () => {
         await openQuestsTab(false);
-        // Если есть активный квест - скроллим к нему, иначе к кнопке "Начать"
-        const activeEl = document.getElementById('active-automatic-quest-container');
-        const startBtn = document.getElementById('quest-choose-btn');
+        await refreshDataSilently(); // 🔥 ПРИНУДИТЕЛЬНО ПОДГРУЖАЕМ ДАННЫЕ
         
-        if (activeEl && activeEl.innerHTML.trim() !== "") {
-             activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } else if (startBtn) {
-             startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        setTimeout(() => {
+            const activeEl = document.getElementById('active-automatic-quest-container');
+            const startBtn = document.getElementById('quest-choose-btn');
+            
+            // Если есть активный квест, скроллим к нему, иначе к кнопке старт
+            if (activeEl && activeEl.innerHTML.trim() !== "") {
+                 activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else if (startBtn) {
+                 startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
     });
     // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
    // --- ЛОГИКА ДЛЯ МАГАЗИНА (ВНУТРЕННИЙ ВИД) ---
