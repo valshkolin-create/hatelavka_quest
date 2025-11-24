@@ -440,7 +440,7 @@
 
   <div class="balance-grid">
     <div class="balance-item">
-        <span class="balance-label">Монеты</span>
+        <span class="balance-label">Гринд-монеты</span>
         <div class="balance-value">
             <span id="user-coins"><div class="skeleton-loader"></div></span> <i class="fa-solid fa-coins coin-icon"></i>
         </div>
@@ -465,7 +465,7 @@
 
     <div class="grind-info">
         День серии: <span id="current-streak-day">1</span> / 10 <br>
-        Награда сегодня: <span id="today-reward">+0.1</span> монет
+        Награда сегодня: <span id="today-reward">+0.1</span> грин-монет
     </div>
 
     <button id="grind-btn" class="main-action-btn" disabled>
@@ -479,7 +479,7 @@
         <i class="fa-solid fa-shop shop-icon-large"></i>
         <div class="shop-text">
             <h4>Магазин Наград</h4>
-            <p>Обмен монет на билеты и промокоды</p>
+            <p>Обмен грин-монет на билеты и промокоды</p>
         </div>
     </div>
     <div class="shop-arrow"><i class="fa-solid fa-chevron-right"></i></div>
@@ -774,14 +774,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${item.title}
                     </div>
                     <div class="exchange-cost" style="color:var(--accent-primary)">
-                        Цена: ${item.cost} Монет ${extraInfo}
+                        Цена: ${item.cost} грин-Монет ${extraInfo}
                     </div>
                 </div>
                 <button class="mini-btn" 
                         onclick="${btnClick}" 
                         ${isAffordable ? '' : 'disabled'} 
                         style="${isAffordable ? 'background:var(--accent-primary); color:#000;' : ''}">
-                    ${isAffordable ? 'Купить' : 'Мало монет'}
+                    ${isAffordable ? 'Купить' : 'Мало грин-монет'}
                 </button>
             `;
             dom.shopContainer.appendChild(div);
@@ -846,7 +846,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Обмен
     window.exchangeCoins = async (cost, rewardTickets) => {
-        tg.showConfirm(`Обменять ${cost} монет на ${rewardTickets} билет(ов)?`, async (ok) => {
+        tg.showConfirm(`Обменять ${cost} грин-монет на ${rewardTickets} билет(ов)?`, async (ok) => {
             if (ok) {
                 try {
                     const response = await fetch('/api/v1/user/grind/exchange', {
