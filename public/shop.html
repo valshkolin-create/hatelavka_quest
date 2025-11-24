@@ -187,14 +187,27 @@
 
         /* Фикс для футера в shop.html, чтобы он был поверх контента */
         .app-footer {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            
+            /* Единый стиль стекла */
+            background-color: rgba(28, 28, 30, 0.85); 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            z-index: 999;
-            background: rgba(18, 18, 18, 0.95); /* Чуть темнее фона */
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255,255,255,0.1);
+            z-index: 9999;
+            
+            /* ВАЖНО: Эти отступы выравнивают иконки по высоте как в меню */
+            padding-top: 8px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            box-sizing: border-box;
+            height: auto; 
         }
     </style>
 </head>
