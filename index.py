@@ -7656,26 +7656,41 @@ async def buy_bott_item_proxy(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
-    price = request_data.price  # Цена в рублях (например, 22)
+    price = request_data.price
     item_id = request_data.item_id
     
     # 1. Берем данные из НАШЕЙ базы (ID и Баланс)
-    # Нам нужен bott_internal_id, который мы сохранили при входе
-    user_db = await supabase.table("users").select("bot_t_coins, bott_internal_id").eq("telegram_id", telegram_id).execute()
-    
-    if not user_db.data:
-        raise HTTPException(status_code=404, detail="Пользователь не найден. Перезапустите бота.")
+    # ИСПРАВЛЕНИЕ: Используем .get() вместо .table()
+    try:
+        user_db_resp = await supabase.get(
+            "/users", 
+            params={
+                "telegram_id": f"eq.{telegram_id}",
+                "select": "bot_t_coins,bott_internal_id"
+            }
+        )
         
-    user_record = user_db.data[0]
-    bott_internal_id = user_record.get("bott_internal_id")
-    current_balance_kopecks = user_record.get("bot_t_coins", 0) # Копейки (650500)
+        if user_db_resp.status_code != 200:
+             logging.error(f"[SHOP] Ошибка БД: {user_db_resp.text}")
+             raise HTTPException(status_code=500, detail="Ошибка базы данных")
+             
+        user_data_list = user_db_resp.json()
+        
+    except Exception as e:
+        logging.error(f"[SHOP] Исключение БД: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     
-    # Проверка: если ID нет, значит юзер не заходил в "Меню" или синхронизация не прошла
+    if not user_data_list:
+        raise HTTPException(status_code=404, detail="Пользователь не найден. Зайдите в меню для синхронизации.")
+        
+    user_record = user_data_list[0]
+    bott_internal_id = user_record.get("bott_internal_id")
+    current_balance_kopecks = user_record.get("bot_t_coins", 0) 
+    
     if not bott_internal_id:
-         raise HTTPException(status_code=400, detail="Ошибка авторизации в магазине. Пожалуйста, обновите страницу Меню.")
+         raise HTTPException(status_code=400, detail="Ошибка авторизации. Обновите страницу Меню.")
 
     # 2. Проверка баланса (Локально)
-    # price (22) * 100 = 2200 копеек
     price_in_kopecks = price * 100
     
     if current_balance_kopecks < price_in_kopecks:
@@ -7685,17 +7700,15 @@ async def buy_bott_item_proxy(
 
     async with httpx.AsyncClient() as client:
         # Шаг А: Списываем деньги (subtract-balance)
-        # [cite_start]Документация [cite: 16] говорит: sum: POST float.
-        # Обычно это значит рубли. Отправляем "22".
         subtract_url = "https://api.bot-t.com/v1/bot/user/subtract-balance"
         subtract_payload = {
             "bot_id": str(BOTT_BOT_ID),
-            "user_id": str(bott_internal_id), # Используем сохраненный ID!
-            "sum": str(price), # Отправляем рубли (22)
+            "user_id": str(bott_internal_id),
+            "sum": str(price),
             "comment": f"WebBuy item {item_id}"
         }
         
-        # Отправляем как Form Data (data=...) + Token в URL
+        # Отправляем как Form Data
         sub_resp = await client.post(subtract_url, data=subtract_payload, params={"token": BOTT_PRIVATE_KEY})
         
         logging.info(f"[SHOP] Ответ списания: {sub_resp.text}")
@@ -7707,11 +7720,11 @@ async def buy_bott_item_proxy(
         create_order_url = "https://api.bot-t.com/v1/shop/order/create"
         order_payload = {
             "bot_id": int(BOTT_BOT_ID),
-            "user_id": telegram_id, # Для заказа обычно нужен TG ID
+            "user_id": telegram_id, 
             "item_id": item_id,
             "count": 1,
             "status": 1, 
-            "amount": price, # Цена в рублях
+            "amount": price, 
             "comment": "WebApp Purchase"
         }
         
