@@ -1010,6 +1010,8 @@ function renderChallenge(challengeData, isGuest) {
                 } else {
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
+                // 👇👇👇 ВСТАВИТЬ НУЖНО ЗДЕСЬ 👇👇👇
+                updateShortcutStatuses(userData, allQuests);
             }
         } catch (e) {
             console.error("Ошибка фонового обновления:", e);
@@ -1543,6 +1545,59 @@ async function openQuestsTab(isSilent = false) {
         console.error('Highlighting error:', err);
     }
 }
+    // Функция обновления статусов на ярлыках (Магазин, Челленджи, Испытания)
+    function updateShortcutStatuses(userData, allQuests) {
+        // 1. Обновляем Челлендж (shortcut-challenge)
+        const challengeEl = document.getElementById('shortcut-challenge-status');
+        if (challengeEl && userData.challenge) {
+            const ch = userData.challenge;
+            const prog = ch.progress_value || 0;
+            const target = ch.target_value || 1;
+            
+            if (ch.claimed_at) {
+                challengeEl.textContent = "Выполнено";
+                challengeEl.classList.add('done');
+            } else if (prog >= target) {
+                challengeEl.textContent = "Забрать!";
+                challengeEl.classList.add('done');
+            } else {
+                challengeEl.textContent = `${prog} / ${target}`;
+                challengeEl.classList.remove('done');
+            }
+            challengeEl.style.opacity = '1';
+        } else if (challengeEl) {
+            challengeEl.textContent = "Нет активного";
+            challengeEl.style.opacity = '1';
+        }
+
+        // 2. Обновляем Испытание (shortcut-quests)
+        const questEl = document.getElementById('shortcut-quest-status');
+        if (questEl) {
+            const activeId = userData.active_quest_id;
+            if (!activeId) {
+                questEl.textContent = "Выбрать";
+                questEl.classList.remove('done');
+            } else {
+                // Ищем квест в списке allQuests
+                const quest = allQuests.find(q => q.id === activeId);
+                if (quest) {
+                    const prog = userData.active_quest_progress || 0;
+                    const target = quest.target_value || 1;
+                    
+                    if (prog >= target) {
+                        questEl.textContent = "Готово";
+                        questEl.classList.add('done');
+                    } else {
+                        questEl.textContent = `${prog} / ${target}`;
+                        questEl.classList.remove('done');
+                    }
+                } else {
+                    questEl.textContent = "...";
+                }
+            }
+            questEl.style.opacity = '1';
+        }
+    }
 
     async function main() {
     // 1. Принудительно показываем спиннер в самом начале
@@ -1713,6 +1768,10 @@ async function openQuestsTab(isSilent = false) {
 
         if (dashboardData.challenge) renderChallenge(dashboardData.challenge, !userData.twitch_id);
         else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+        }
+
+        // --- 🔥 ВАЖНО: Обновляем цифры на Ярлыках (Магазин, Челленджи, Испытания) ---
+        updateShortcutStatuses(userData, allQuests);
 
         if (!localStorage.getItem('tutorialCompleted')) startTutorial();
         if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
