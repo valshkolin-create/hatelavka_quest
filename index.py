@@ -7605,48 +7605,54 @@ async def sync_bott_balance(
     
     telegram_id = user_info["id"]
     
-    # Формируем запрос к приватному API Bot-t (см. Пользователи.docx Source 12)
-    # GET https://api.bot-t.com/v1/bot/user/view-by-telegram-id
+    # URL для получения данных пользователя по Telegram ID
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     params = {
         "bot_id": BOTT_BOT_ID,
-        "token": BOTT_PRIVATE_KEY, # Используем приватный ключ как токен
+        "token": BOTT_PRIVATE_KEY,
         "telegram_id": telegram_id
     }
 
     try:
+        logging.info(f"[SYNC] Запрос баланса для ID: {telegram_id}")
+        
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params=params)
         
-        # Если пользователь не найден в Bot-t (например, он новый), API может вернуть ошибку.
-        # В таком случае оставляем баланс как есть или 0.
+        # Логируем сырой ответ, чтобы видеть, что именно присылает Bot-t
+        logging.info(f"[SYNC] Ответ Bot-t RAW: {resp.text}")
+
         if resp.status_code != 200:
-            logging.warning(f"[SYNC] Не удалось получить баланс Bot-t для {telegram_id}: {resp.text}")
-            # Можно вернуть текущий локальный баланс, чтобы не ломать интерфейс
-            return {"tickets": 0} # Или старое значение
+            logging.warning(f"[SYNC] Не удалось получить данные. Статус: {resp.status_code}")
+            return {"tickets": 0}
 
         data = resp.json()
-        # В ответе ищем поле 'money' (оно в копейках)
-        # Структура ответа Bot-t обычно: { result: true, data: { ... money: 1000 ... } } 
-        # Или сразу объект User, если это v1. Судя по документации, возвращает BotUser.
         
-        # Предположим прямую структуру или внутри data. Проверим оба варианта.
-        user_data = data.get("data", data) 
-        money_kopecks = user_data.get("money", 0)
+        # Bot-t может вернуть данные в data или в корне (в зависимости от версии API)
+        user_data = data.get("data", data)
         
-        # Переводим копейки в рубли (билеты)
-        tickets = int(money_kopecks / 100)
+        # Если user_data — это null или пустой список (пользователь не найден)
+        if not user_data:
+             logging.warning(f"[SYNC] Пользователь {telegram_id} не найден в Bot-t (пустой data).")
+             return {"tickets": 0}
 
-        # Обновляем локальную базу Supabase, чтобы везде было одинаково
+        # Получаем баланс.
+        # ВАЖНО: Мы убрали деление на 100. Берем как есть.
+        money_raw = user_data.get("money", 0)
+        
+        # Приводим к целому числу (на случай если там 6505.00)
+        tickets = int(float(money_raw))
+
+        # Обновляем локальную базу Supabase
         await supabase.table("users").update({"tickets": tickets}).eq("telegram_id", telegram_id).execute()
         
-        logging.info(f"[SYNC] Баланс синхронизирован для {telegram_id}: {tickets} (из {money_kopecks} коп.)")
+        logging.info(f"[SYNC] Баланс обновлен: {tickets} (из поля money: {money_raw})")
         return {"tickets": tickets}
 
     except Exception as e:
         logging.error(f"[SYNC] Ошибка синхронизации: {e}", exc_info=True)
+        # В случае ошибки возвращаем 0, но не сохраняем его в базу, чтобы не сбить старый баланс
         return {"tickets": 0}
-
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
