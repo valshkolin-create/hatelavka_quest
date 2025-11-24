@@ -1773,7 +1773,6 @@ async function openQuestsTab(isSilent = false) {
 
         if (dashboardData.challenge) renderChallenge(dashboardData.challenge, !userData.twitch_id);
         else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
-        }
 
         // --- 🔥 ВАЖНО: Обновляем цифры на Ярлыках (Магазин, Челленджи, Испытания) ---
         updateShortcutStatuses(userData, allQuests);
