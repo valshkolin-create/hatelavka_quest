@@ -6,6 +6,7 @@
     <title>Магазин</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/public/menu.css">
     <style>
         :root {
             --primary-color: #ffcc00;
@@ -21,9 +22,11 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
+            /* Отступ снизу для футера */
+            padding-bottom: 80px; 
         }
 
-        /* Шапка */
+        /* Шапка магазина */
         .shop-header {
             position: sticky;
             top: 0;
@@ -45,7 +48,8 @@
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
+            font-weight: 500;
         }
 
         .balance-display {
@@ -63,10 +67,9 @@
         /* Сетка товаров */
         .shop-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 2 товара в ряд */
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px;
             padding: 15px;
-            padding-bottom: 40px;
         }
 
         .shop-item {
@@ -76,11 +79,7 @@
             display: flex;
             flex-direction: column;
             border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: transform 0.1s;
-        }
-
-        .shop-item:active {
-            transform: scale(0.98);
+            position: relative;
         }
 
         .item-image-wrapper {
@@ -105,6 +104,7 @@
             justify-content: center;
             font-size: 30px;
             color: #fff;
+            pointer-events: none;
         }
 
         .item-info {
@@ -117,13 +117,13 @@
         .item-title {
             font-size: 13px;
             font-weight: 500;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             line-height: 1.3;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            height: 34px; /* Фикс высота для 2 строк */
+            height: 34px;
         }
 
         .item-price {
@@ -158,28 +158,26 @@
             cursor: pointer;
         }
 
-        /* Загрузчик */
-        .loader {
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-            grid-column: 1 / -1;
-        }
+        /* Лоадер */
+        .loader { display: flex; justify-content: center; padding: 20px; grid-column: 1 / -1; }
         .spinner {
-            width: 30px;
-            height: 30px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: var(--primary-color);
+            width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%; border-top-color: var(--primary-color);
             animation: spin 1s ease-in-out infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-msg { text-align: center; grid-column: 1 / -1; color: #888; margin-top: 20px; }
 
-        .empty-msg {
-            text-align: center;
-            grid-column: 1 / -1;
-            color: #888;
-            margin-top: 20px;
+        /* Фикс для футера в shop.html, чтобы он был поверх контента */
+        .app-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 999;
+            background: rgba(18, 18, 18, 0.95); /* Чуть темнее фона */
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
     </style>
 </head>
@@ -187,52 +185,71 @@
 
     <div class="shop-header">
         <button class="back-btn" onclick="goBack()">
-            <i class="fa-solid fa-arrow-left"></i> <span id="nav-title">Меню</span>
+            <i class="fa-solid fa-chevron-left"></i> <span id="nav-title">В меню</span>
         </button>
         <div class="balance-display">
             <span id="user-balance">...</span> <i class="fa-solid fa-star"></i>
         </div>
     </div>
 
-    <div id="shop-grid" class="shop-grid">
-        </div>
+    <div id="shop-grid" class="shop-grid"></div>
+
+    <footer class="app-footer">
+        <a href="/leaderboard" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+            <span>Лидерборд</span>
+        </a>
+        <a href="/menu#quests" class="footer-item"> <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
+            <span>Задания</span>
+        </a>
+        <a href="/menu" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
+            <span>Главная</span>
+        </a>
+        <a href="/events" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
+            <span>Гринд</span>
+        </a>
+        <a href="/auction" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
+            <span>Аукцион</span>
+        </a>
+    </footer>
 
     <script>
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.BackButton.show();
         
-        // История навигации (для кнопки Назад)
         let categoryStack = []; 
         let currentCategoryId = 0;
 
-        // Обработка кнопки "Назад" в Телеграм
+        // Обработка аппаратной кнопки "Назад"
         Telegram.WebApp.BackButton.onClick(() => {
             goBack();
         });
 
-        // Инициализация
         async function initShop() {
-            // 1. Загружаем баланс (быстрый запрос)
-            fetch('/api/v1/user/me', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData })
-            })
-            .then(res => res.json())
-            .then(data => {
+            // 1. Синхронизируем баланс с Bot-t (Запрос к новому эндпоинту)
+            try {
+                const response = await fetch('/api/v1/user/sync_bott_balance', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
+                });
+                const data = await response.json();
                 document.getElementById('user-balance').textContent = data.tickets || 0;
-            });
+            } catch (e) {
+                console.error("Ошибка синхронизации баланса:", e);
+            }
 
             // 2. Загружаем главную категорию
             loadCategory(0);
         }
 
-        // Функция загрузки товаров
         async function loadCategory(catId) {
             const container = document.getElementById('shop-grid');
             container.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
-            
             currentCategoryId = catId;
 
             try {
@@ -244,23 +261,19 @@
                         category_id: catId 
                     })
                 });
-
                 const items = await response.json();
                 renderItems(items);
-
             } catch (e) {
                 container.innerHTML = '<div class="empty-msg">Ошибка загрузки :(</div>';
-                console.error(e);
             }
         }
 
-        // Отрисовка
         function renderItems(items) {
             const container = document.getElementById('shop-grid');
             container.innerHTML = '';
 
             if (!items || items.length === 0) {
-                container.innerHTML = '<div class="empty-msg">В этой категории пусто.</div>';
+                container.innerHTML = '<div class="empty-msg">Здесь пока пусто.</div>';
                 return;
             }
 
@@ -268,48 +281,48 @@
                 const el = document.createElement('div');
                 el.className = 'shop-item';
                 
-                // Логика кнопки: если папка - "Открыть", если товар - "Купить"
-                let btnHtml = '';
-                let iconOverlay = '';
-                
+                let actionHtml = '';
+                let priceHtml = ''; // По умолчанию цены нет (для папок)
+
                 if (item.is_folder) {
-                    btnHtml = `<button class="folder-btn" onclick="openFolder(${item.id})">Открыть</button>`;
-                    iconOverlay = `<div class="folder-overlay"><i class="fa-solid fa-folder-open"></i></div>`;
+                    // ПАПКА: Цена скрыта, кнопка "Открыть"
+                    actionHtml = `<button class="folder-btn" onclick="openFolder(${item.id})">Открыть</button>`;
+                    // priceHtml остается пустым!
                 } else {
-                    btnHtml = `<button class="buy-btn" onclick="buyItem(${item.id}, ${item.price}, '${escapeHtml(item.name)}')">Купить</button>`;
+                    // ТОВАР: Цена есть, кнопка "Купить"
+                    priceHtml = `<div class="item-price">${item.price} ⭐️</div>`;
+                    actionHtml = `<button class="buy-btn" onclick="buyItem(${item.id}, ${item.price}, '${escapeHtml(item.name)}')">Купить</button>`;
                 }
 
                 el.innerHTML = `
                     <div class="item-image-wrapper" onclick="${item.is_folder ? `openFolder(${item.id})` : ''}">
                         <img src="${item.image_url}" class="item-image" alt="${item.name}">
-                        ${iconOverlay}
+                        ${item.is_folder ? '<div class="folder-overlay"><i class="fa-solid fa-folder-open"></i></div>' : ''}
                     </div>
                     <div class="item-info">
                         <div class="item-title">${item.name}</div>
-                        <div class="item-price">${item.price} ⭐️</div>
-                        ${btnHtml}
+                        ${priceHtml}
+                        ${actionHtml}
                     </div>
                 `;
                 container.appendChild(el);
             });
         }
 
-        // Навигация: Вглубь
         window.openFolder = function(id) {
-            categoryStack.push(currentCategoryId); // Запоминаем, откуда пришли
+            categoryStack.push(currentCategoryId);
             updateNavTitle("Назад");
             loadCategory(id);
         }
 
-        // Навигация: Назад
         window.goBack = function() {
             if (categoryStack.length > 0) {
                 const prevId = categoryStack.pop();
                 loadCategory(prevId);
-                if (categoryStack.length === 0) updateNavTitle("Меню");
+                if (categoryStack.length === 0) updateNavTitle("В меню");
             } else {
-                // Если стек пуст - возвращаемся в главное меню
-                window.location.href = "/"; 
+                // ВОЗВРАЩАЕМСЯ В MENU.HTML
+                window.location.href = "/menu"; 
             }
         }
 
@@ -317,7 +330,6 @@
             document.getElementById('nav-title').textContent = text;
         }
 
-        // Покупка
         window.buyItem = function(id, price, name) {
             Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звезд?`, (ok) => {
                 if(ok) {
@@ -336,8 +348,7 @@
                     })
                     .then(data => {
                         Telegram.WebApp.showAlert(data.message || "Успешно!");
-                        // Обновляем баланс
-                        initShop(); 
+                        initShop(); // Обновляем баланс после покупки
                     })
                     .catch(err => {
                         Telegram.WebApp.showAlert(err.detail || "Ошибка при покупке");
@@ -347,17 +358,10 @@
         }
 
         function escapeHtml(text) {
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
-        // Старт
         initShop();
-
     </script>
 </body>
 </html>
