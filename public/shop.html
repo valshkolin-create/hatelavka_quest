@@ -291,12 +291,11 @@
                 el.className = 'shop-item';
                 
                 let actionHtml = '';
-                let priceHtml = ''; // По умолчанию цены нет (для папок)
+                let priceHtml = ''; 
 
                 if (item.is_folder) {
                     // ПАПКА: Цена скрыта, кнопка "Открыть"
                     actionHtml = `<button class="folder-btn" onclick="openFolder(${item.id})">Открыть</button>`;
-                    // priceHtml остается пустым!
                 } else {
                     // ТОВАР: Цена есть, кнопка "Купить"
                     priceHtml = `<div class="item-price">${item.price} ⭐️</div>`;
@@ -306,8 +305,7 @@
                 el.innerHTML = `
                     <div class="item-image-wrapper" onclick="${item.is_folder ? `openFolder(${item.id})` : ''}">
                         <img src="${item.image_url}" class="item-image" alt="${item.name}">
-                        ${item.is_folder ? '<div class="folder-overlay"><i class="fa-solid fa-folder-open"></i></div>' : ''}
-                    </div>
+                        </div>
                     <div class="item-info">
                         <div class="item-title">${item.name}</div>
                         ${priceHtml}
