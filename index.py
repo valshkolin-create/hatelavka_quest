@@ -7424,8 +7424,8 @@ async def exchange_coins_endpoint(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Обмен монет на билеты. Добавлена проверка курса, обработка деления на ноль 
-    и улучшенное логирование.
+    Обмен монет на билеты. Исправлено: курс обмена снижен до 2.9,
+    чтобы разрешить обмен по цене 3 монеты за билет.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     
@@ -7434,22 +7434,23 @@ async def exchange_coins_endpoint(
         logging.error("❌ Exchange Failed: Invalid initData.")
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Временный лог для отладки клиента
+    # Временный лог для отладки клиента (можно удалить после подтверждения работы)
     logging.info(
         f"🔍 Exchange Data: User={user_info['id']}, "
         f"Cost={request_data.cost}, Reward={request_data.tickets_reward}"
     )
 
-    # 2. Валидация входных данных (защита от деления на ноль)
+    # 2. Валидация входных данных (защита от деления на ноль и нулевой награды)
     if (request_data.tickets_reward <= 0):
-         logging.error(f"❌ Exchange Failed: Tickets reward must be positive (Got: {request_data.tickets_reward}).")
-         raise HTTPException(status_code=400, detail="Неверное количество билетов для обмена.")
+        logging.error(f"❌ Exchange Failed: Tickets reward must be positive (Got: {request_data.tickets_reward}).")
+        raise HTTPException(status_code=400, detail="Неверное количество билетов для обмена.")
 
-    # 3. Проверка курса обмена (самая частая причина 400)
-    # Курс 4 монеты за 1 билет (4.0). Используем 3.9 для допуска погрешности.
+    # 3. ПРОВЕРКА КУРСА: Установлен минимальный порог 2.9, чтобы разрешить курс 3.0.
+    MIN_REQUIRED_RATE = 2.9 
     exchange_rate = request_data.cost / request_data.tickets_reward
-    if exchange_rate < 3.9: 
-        logging.error(f"❌ Exchange Failed: Invalid exchange rate (Got: {exchange_rate}).")
+    
+    if exchange_rate < MIN_REQUIRED_RATE: 
+        logging.error(f"❌ Exchange Failed: Invalid exchange rate (Got: {exchange_rate}). Min required: {MIN_REQUIRED_RATE}")
         raise HTTPException(status_code=400, detail="Неверный курс обмена.")
 
     # 4. Вызов RPC
@@ -7472,7 +7473,6 @@ async def exchange_coins_endpoint(
         error_details = e.response.json().get("message", e.response.text)
         logging.error(f"❌ Exchange RPC Error (400): {error_details}")
         
-        # Пробрасываем ошибку обратно с кодом 400
         raise HTTPException(status_code=400, detail=error_details) 
 
     except Exception as e:
