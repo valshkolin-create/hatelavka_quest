@@ -141,6 +141,14 @@
             margin-top: auto;
             font-size: 14px;
         }
+        .item-stock {
+            font-size: 11px;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .in-stock { color: #aaaaaa; }   /* Серый для обычного наличия */
+        .low-stock { color: #ff9800; }  /* Оранжевый, если мало (опционально) */
+        .out-stock { color: #ff4444; }  /* Красный, если 0 */
 
         .buy-btn {
             margin-top: 8px;
@@ -293,30 +301,49 @@
                 
                 let actionHtml = '';
                 let priceHtml = ''; 
+                let stockHtml = ''; // HTML для остатка
 
                 if (item.is_folder) {
-                    // ПАПКА: Цена скрыта, кнопка "Открыть"
+                    // ПАПКА
                     actionHtml = `<button class="folder-btn" onclick="openFolder(${item.id})">Открыть</button>`;
                 } else {
-                    // ТОВАР: Цена есть, кнопка "Купить"
+                    // ТОВАР
+                    
+                    // Логика отображения остатка
+                    let isOutOfStock = false;
+                    if (item.count === null) {
+                        // Если null — значит бесконечно
+                        stockHtml = `<div class="item-stock in-stock">В наличии: ∞</div>`;
+                    } else if (item.count === 0) {
+                        isOutOfStock = true;
+                        stockHtml = `<div class="item-stock out-stock">Нет в наличии</div>`;
+                    } else {
+                        stockHtml = `<div class="item-stock in-stock">В наличии: ${item.count} шт.</div>`;
+                    }
+
                     priceHtml = `<div class="item-price">${item.price} ⭐️</div>`;
-                    actionHtml = `<button class="buy-btn" onclick="buyItem(${item.id}, ${item.price}, '${escapeHtml(item.name)}')">Купить</button>`;
+                    
+                    // Блокируем кнопку, если товара нет
+                    if (isOutOfStock) {
+                        actionHtml = `<button class="buy-btn" disabled style="opacity: 0.5; cursor: not-allowed;">Раскуплено</button>`;
+                    } else {
+                        actionHtml = `<button class="buy-btn" onclick="buyItem(${item.id}, ${item.price}, '${escapeHtml(item.name)}')">Купить</button>`;
+                    }
                 }
 
                 el.innerHTML = `
                     <div class="item-image-wrapper" onclick="${item.is_folder ? `openFolder(${item.id})` : ''}">
                         <img src="${item.image_url}" class="item-image" alt="${item.name}">
-                        </div>
+                    </div>
                     <div class="item-info">
                         <div class="item-title">${item.name}</div>
-                        ${priceHtml}
+                        ${stockHtml} ${priceHtml}
                         ${actionHtml}
                     </div>
                 `;
                 container.appendChild(el);
             });
         }
-
         window.openFolder = function(id) {
             categoryStack.push(currentCategoryId);
             updateNavTitle("Назад");
