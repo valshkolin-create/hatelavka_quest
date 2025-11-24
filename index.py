@@ -7444,14 +7444,21 @@ async def exchange_coins_endpoint(
             }
         )
         response.raise_for_status()
-        return response.json()
+        
+        # Если вы дошли сюда, все хорошо, возвращаем ответ
+        return {"message": "..."} 
 
     except httpx.HTTPStatusError as e:
-        error_msg = e.response.json().get("message", e.response.text)
-        raise HTTPException(status_code=400, detail=error_msg)
+        # ⚠️ ВРЕМЕННОЕ ЛОГИРОВАНИЕ ⚠️
+        error_details = e.response.json().get("message", e.response.text)
+        logging.error(f"❌ Ошибка RPC/HTTP при обмене: {error_details}")
+        # -----------------------------
+        
+        # ... Ваш код обработки ошибки...
+        raise HTTPException(status_code=400, detail=error_details) 
     except Exception as e:
-        logging.error(f"Exchange error: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        logging.error(f"❌ Непредвиденная ошибка обмена: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.post("/api/v1/user/grind/buy_promo")
 async def buy_promo_endpoint(
