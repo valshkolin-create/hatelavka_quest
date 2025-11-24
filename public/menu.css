@@ -861,3 +861,15 @@
 .shortcut-shop-bg { color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
 .shortcut-challenge-bg { color: #FFD700; text-shadow: 0 0 10px rgba(0, 122, 255, 0.4); }
 .shortcut-quest-bg { color: #FFD700; text-shadow: 0 0 10px rgba(255, 59, 48, 0.4); }
+
+.shortcut-status {
+    font-size: 9px;
+    color: #8E8E93; /* Серый цвет */
+    margin-top: 2px;
+    font-weight: 500;
+    white-space: nowrap; /* Чтобы не переносилось */
+}
+
+.shortcut-status.done {
+    color: #34c759; /* Зеленый, если выполнено */
+}
