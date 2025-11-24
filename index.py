@@ -7649,7 +7649,7 @@ async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ПОКУПКА v3 (INTERNAL ID) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v4 (DEBUG + STRICT CHECK) ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -7659,8 +7659,7 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
     
-    # 1. Берем данные из НАШЕЙ базы (ID и Баланс)
-    # ИСПРАВЛЕНИЕ: Используем .get() вместо .table()
+    # 1. Получаем данные из нашей БД
     try:
         user_db_resp = await supabase.get(
             "/users", 
@@ -7669,95 +7668,103 @@ async def buy_bott_item_proxy(
                 "select": "bot_t_coins,bott_internal_id"
             }
         )
-        
-        if user_db_resp.status_code != 200:
-             logging.error(f"[SHOP] Ошибка БД: {user_db_resp.text}")
-             raise HTTPException(status_code=500, detail="Ошибка базы данных")
-             
         user_data_list = user_db_resp.json()
-        
     except Exception as e:
-        logging.error(f"[SHOP] Исключение БД: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        logging.error(f"[SHOP] Ошибка БД: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
     
     if not user_data_list:
-        raise HTTPException(status_code=404, detail="Пользователь не найден. Зайдите в меню для синхронизации.")
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
         
     user_record = user_data_list[0]
     bott_internal_id = user_record.get("bott_internal_id")
-    current_balance_kopecks = user_record.get("bot_t_coins", 0) 
+    current_balance_kopecks = user_record.get("bot_t_coins", 0)
     
     if not bott_internal_id:
-         raise HTTPException(status_code=400, detail="Ошибка авторизации. Обновите страницу Меню.")
+         raise HTTPException(status_code=400, detail="Внутренняя ошибка ID. Обновите страницу Меню.")
 
     # 2. Проверка баланса (Локально)
     price_in_kopecks = price * 100
-    
     if current_balance_kopecks < price_in_kopecks:
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-    logging.info(f"[SHOP] User Internal ID: {bott_internal_id}, Price: {price} RUB")
+    logging.info(f"[SHOP] Покупка: User Int ID={bott_internal_id}, TG ID={telegram_id}, Item={item_id}, Price={price}")
 
     async with httpx.AsyncClient() as client:
-        # Шаг А: Списываем деньги (subtract-balance)
+        # ---------------------------------------------------------
+        # ШАГ А: Списываем деньги (subtract-balance)
+        # ---------------------------------------------------------
         subtract_url = "https://api.bot-t.com/v1/bot/user/subtract-balance"
         subtract_payload = {
             "bot_id": str(BOTT_BOT_ID),
-            "user_id": str(bott_internal_id),
+            "user_id": str(bott_internal_id), # Внутренний ID!
             "sum": str(price),
             "comment": f"WebBuy item {item_id}"
         }
         
-        # Отправляем как Form Data
         sub_resp = await client.post(subtract_url, data=subtract_payload, params={"token": BOTT_PRIVATE_KEY})
         
+        # ЛОГИРУЕМ ОТВЕТ!
         logging.info(f"[SHOP] Ответ списания: {sub_resp.text}")
+        
+        sub_json = sub_resp.json()
+        # Проверяем не только статус 200, но и result: true
+        if sub_resp.status_code != 200 or sub_json.get("result") is False:
+            error_msg = sub_json.get("message", "Ошибка списания")
+            logging.error(f"[SHOP] Сбой списания: {error_msg}")
+            raise HTTPException(status_code=500, detail=f"Ошибка оплаты: {error_msg}")
 
-        if sub_resp.status_code != 200:
-            raise HTTPException(status_code=500, detail="Ошибка списания средств.")
+        logging.info(f"[SHOP] Деньги списаны успешно.")
 
-        # Шаг Б: Создаем заказ
+        # ---------------------------------------------------------
+        # ШАГ Б: Создаем заказ (order/create)
+        # ---------------------------------------------------------
         create_order_url = "https://api.bot-t.com/v1/shop/order/create"
         order_payload = {
             "bot_id": int(BOTT_BOT_ID),
-            "user_id": telegram_id, 
+            "user_id": telegram_id, # Обычно тут нужен TG ID для доставки
             "item_id": item_id,
             "count": 1,
             "status": 1, 
-            "amount": price, 
+            "amount": price,
             "comment": "WebApp Purchase"
         }
         
-        headers = {
-            "Authorization": f"Bearer {BOTT_PRIVATE_KEY}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {BOTT_PRIVATE_KEY}"}
 
+        # Пробуем отправить как JSON (стандарт для создания объектов)
         order_resp = await client.post(create_order_url, json=order_payload, headers=headers)
         
-        # Если заказ не создался - ВОЗВРАТ (Refund)
-        if order_resp.status_code not in [200, 201]:
-            logging.error(f"[SHOP] Заказ не создан! Код: {order_resp.status_code}. Возврат...")
+        logging.info(f"[SHOP] Ответ создания заказа: {order_resp.text}")
+        order_json = order_resp.json()
+
+        # Если заказ не создался
+        if order_resp.status_code not in [200, 201] or order_json.get("result") is False:
+            logging.error(f"[SHOP] Заказ не создан! Возврат средств...")
             
+            # --- ВОЗВРАТ СРЕДСТВ (REFUND) ---
             refund_url = "https://api.bot-t.com/v1/bot/user/add-balance"
             await client.post(refund_url, data={
                 "bot_id": str(BOTT_BOT_ID),
                 "user_id": str(bott_internal_id),
                 "sum": str(price),
-                "comment": "Refund: error"
+                "comment": "Refund: error creation"
             }, params={"token": BOTT_PRIVATE_KEY})
             
-            raise HTTPException(status_code=500, detail="Ошибка выдачи товара. Средства возвращены.")
+            err_text = order_json.get("message", "Ошибка создания заказа")
+            raise HTTPException(status_code=500, detail=f"Товар не выдан ({err_text}). Деньги возвращены.")
 
-        # Шаг В: Обновляем локальный баланс
-        new_balance = current_balance_kopecks - price_in_kopecks
+        # ---------------------------------------------------------
+        # ШАГ В: Обновляем локальный баланс в Supabase
+        # ---------------------------------------------------------
+        new_balance = int(current_balance_kopecks - price_in_kopecks)
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"bot_t_coins": new_balance} 
         )
 
-    return {"message": "Успешно! Товар оплачен."}
+    return {"message": "Успешно! Товар оплачен и должен прийти в боте."}
 
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
