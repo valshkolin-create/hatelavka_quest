@@ -7631,18 +7631,17 @@ async def sync_bott_balance(
              logging.warning(f"[SYNC] Пользователь {telegram_id} не найден в Bot-t.")
              return {"tickets": 0}
 
-        # Получаем баланс (без деления на 100, как договаривались)
+        # Получаем баланс
         money_raw = user_data.get("money", 0)
         tickets = int(float(money_raw))
 
-        # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-        # Используем .patch вместо .table().update()
+        # --- 👇 ИСПРАВЛЕНИЕ: ИСПОЛЬЗУЕМ .patch ВМЕСТО .table ---
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"tickets": tickets}
         )
-        # -------------------------
+        # ------------------------------------------------------
         
         logging.info(f"[SYNC] Баланс обновлен: {tickets} (из поля money: {money_raw})")
         return {"tickets": tickets}
