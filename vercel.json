@@ -21,7 +21,8 @@
     { "src": "/roulette.html", "dest": "/public/roulette.html" },
     { "src": "/halloween", "dest": "/public/halloween.html" },
     { "src": "/auction.html", "dest": "/public/auction.html" },
-    { "src": "/auction", "dest": "/public/auction.html" }, 
+    { "src": "/auction", "dest": "/public/auction.html" },
+    { "src": "/shop", "dest": "/public/shop.html" },
     { "src": "/", "dest": "/public/index.html" },
     { "src": "/api/(.*)", "dest": "/index.py" },
     { "src": "/(.*)", "dest": "/public/$1" }
