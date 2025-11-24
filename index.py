@@ -7533,8 +7533,9 @@ async def get_bott_goods_proxy(
     # ОТПРАВЛЯЕМ ТОЛЬКО ЭТО. 
     # Лишние поля (user_id и т.д.) могут вызывать 500 ошибку на сервере Bot-t.
     payload = {
-        "bot_id": int(BOTT_BOT_ID),
-        "public_key": BOTT_PUBLIC_KEY
+        "bot_id": int(BOTT_BOT_ID), 
+        "public_key": BOTT_PUBLIC_KEY,
+        "category_id": 0  # <--- ДОБАВЬ ЭТУ СТРОКУ! (0 = Главная категория)
     }
 
     # Стандартные заголовки
