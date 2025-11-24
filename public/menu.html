@@ -101,32 +101,36 @@
     </div>
     
     <div id="view-quests" class="view quests-container hidden">
-        <h2 class="page-title" style="grid-column: 1 / -1;">
-            📝 Задания и Челленджи
-            <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 6px; margin-bottom: 12px;">
-                Выполняйте задания, чтобы получать билеты и звезды.
-            </span>
+        <h2 class="page-title" style="grid-column: 1 / -1; margin-bottom: 5px;">
+            🎯 Испытания
         </h2>
+        <span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 10px; grid-column: 1 / -1;">
+            Выполняйте, чтобы получать билеты и звезды.
+        </span>
 
-        <div id="challenge-container" style="grid-column: 1 / -1; width: 100%;"></div>
+        <div id="challenge-container" style="grid-column: 1 / -1; width: 100%; margin-bottom: 0;"></div>
         
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0; grid-column: 1 / -1; width: 100%;">
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
 
-        <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="grid-column: 1 / -1; width: 100%;">НАЧАТЬ ИСПЫТАНИЕ</button>
+        <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="grid-column: 1 / -1; width: 100%; margin: 0;">
+            НАЧАТЬ ИСПЫТАНИЕ
+        </button>
         
-        <div id="quest-choose-container" class="quest-choose-container hidden" style="grid-column: 1 / -1; width: 100%;"></div>
+        <div id="quest-choose-container" class="quest-choose-container hidden" style="grid-column: 1 / -1; width: 100%; margin-top: 10px;"></div>
+        <div id="active-automatic-quest-container" style="grid-column: 1 / -1; width: 100%; margin-top: 5px;"></div>
         
-        <div id="active-automatic-quest-container" style="grid-column: 1 / -1; width: 100%;"></div>
-        
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0; grid-column: 1 / -1; width: 100%;">
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
+
+        <h3 style="grid-column: 1 / -1; font-size: 14px; font-weight: 600; color: #ffcc00; margin: 0 0 8px 0; text-align: center;">
+            📝 Задания с ручной проверкой
+        </h3>
 
         <div id="manual-quests-list" style="grid-column: 1 / -1; width: 100%;">
             <div class="spinner"></div>
         </div>
 
-        <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 20px; grid-column: 1 / -1;">
-            Все полученные промокоды вы найдёте в разделе
-            <span style="color: #ffc700; font-weight: 600;">Профиль</span>.
+        <span class="manual-hint" style="display: block; font-size: 11px; color: #666; text-align: center; margin-top: 15px; margin-bottom: 20px; grid-column: 1 / -1;">
+            Награды ищите в разделе <span style="color: #ffc700;">Профиль</span>
         </span>
     </div>
 
