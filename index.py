@@ -7591,11 +7591,44 @@ async def get_bott_goods_proxy(
 # --- [2] ДОБАВЛЯЕМ НОВЫЙ ЭНДПОИНТ СИНХРОНИЗАЦИИ БАЛАНСА ---
 # Вставь это где-то рядом с другими эндпоинтами магазина
 
+Отличные новости. Загруженный вами файл Пользователи.docx — это именно то, что было нужно. Он полностью проясняет ситуацию и подтверждает мои догадки.
+
+Анализ документации
+Согласно разделу "Просмотр пользователя по Telegram_id":
+
+Метод: Используется POST (так как bot_id и telegram_id помечены как POST).
+
+
+token: Передается как GET string. Это значит, он должен быть строго в адресной строке.
+
+
+bot_id: Передается как POST int. Это значит, он должен быть строго в теле запроса.
+
+
+telegram_id: Передается как POST int. Тоже строго в теле запроса.
+
+Почему возникала ошибка?
+В предыдущих попытках мы либо:
+
+Отправляли всё как JSON (json=...) — сервер Bot-t не понимал этот формат для данного метода.
+
+Отправляли токен и в URL, и в теле (body_data) — это могло сбить сервер с толку (дублирование параметров).
+
+Решение: Строгое разделение
+Мы сделаем запрос, который идеально соответствует документации: токен — только в URL, ID — только в теле формы.
+
+Замените функцию sync_bott_balance в index.py на этот финальный вариант:
+
+Python
+
 @app.post("/api/v1/user/sync_bott_balance")
 async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """
+    Синхронизация баланса в строгом соответствии с документацией Bot-t (Source 12).
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -7604,54 +7637,61 @@ async def sync_bott_balance(
     
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     
-    # 1. Токен в URL (как в доке)
+    # 1. Токен СТРОГО в URL (GET string )
     query_params = {
-        "token": BOTT_PRIVATE_KEY
+        "token": BOTT_PRIVATE_KEY.strip() # .strip() удалит случайные пробелы, если они есть
     }
 
-    # 2. ВСЕ параметры (включая токен) в тело запроса (Form Data)
-    # Преобразуем в строки явно, чтобы избежать проблем с типами
+    # 2. Данные СТРОГО в теле как Form Data (POST int )
+    # Мы НЕ добавляем сюда токен.
     body_data = {
-        "bot_id": str(BOTT_BOT_ID),
-        "telegram_id": str(telegram_id),
-        "token": BOTT_PRIVATE_KEY 
+        "bot_id": str(BOTT_BOT_ID).strip(),
+        "telegram_id": str(telegram_id)
     }
+
+    logging.info(f"[SYNC START] Отправка запроса: Params={query_params} Body={body_data}")
 
     try:
         async with httpx.AsyncClient() as client:
-            # Отправляем и params, и data. httpx сам поставит нужный Content-Type
+            # data=... отправляет заголовок application/x-www-form-urlencoded
             resp = await client.post(url, params=query_params, data=body_data)
         
-        logging.info(f"[SYNC DEBUG] Ответ от Bot-t для {telegram_id}: {resp.text}")
+        logging.info(f"[SYNC DEBUG] Ответ API: {resp.text}")
 
         if resp.status_code != 200:
+            logging.error(f"[SYNC] HTTP Error: {resp.status_code}")
             return {"bot_t_coins": 0}
 
         data = resp.json()
         
+        # Проверка на логическую ошибку API (например, token invalid)
         if data.get("result") is False:
-             # Если снова ошибка - скорее всего, неверный BOTT_PRIVATE_KEY или BOTT_BOT_ID в переменных окружения
-             logging.error(f"[SYNC] Ошибка API Bot-t: {data.get('message')}")
+             logging.error(f"[SYNC] API Error Message: {data.get('message')}")
              return {"bot_t_coins": 0}
 
+        # Bot-t может вернуть данные в корне или внутри 'data'
         user_data = data.get("data", data)
         
         if not user_data:
+             logging.warning("[SYNC] Пустой объект user_data")
              return {"bot_t_coins": 0}
 
+        # Получаем баланс (money)
         money_raw = user_data.get("money", 0)
         current_balance = int(float(money_raw))
 
+        # Сохраняем
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"bot_t_coins": current_balance} 
         )
         
+        logging.info(f"[SYNC SUCCESS] Баланс: {current_balance}")
         return {"bot_t_coins": current_balance}
 
     except Exception as e:
-        logging.error(f"[SYNC] Ошибка синхронизации: {e}", exc_info=True)
+        logging.error(f"[SYNC] Критическая ошибка: {e}", exc_info=True)
         return {"bot_t_coins": 0}
         
 @app.post("/api/v1/shop/buy")
