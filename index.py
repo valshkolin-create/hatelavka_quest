@@ -7596,16 +7596,12 @@ async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    Запрашивает реальный баланс пользователя в Bot-t и обновляет колонку bot_t_coins в Supabase.
-    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
     
-    # 1. Запрос к Bot-t
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     params = {
         "bot_id": BOTT_BOT_ID,
@@ -7617,22 +7613,31 @@ async def sync_bott_balance(
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params=params)
         
+        # --- 👇 ВАЖНОЕ ИЗМЕНЕНИЕ: ЛОГИРУЕМ ВЕСЬ ОТВЕТ ---
+        logging.info(f"[SYNC DEBUG] Ответ от Bot-t для {telegram_id}: {resp.text}")
+        # -----------------------------------------------
+
         if resp.status_code != 200:
+            logging.error(f"[SYNC] Статус не 200. Код: {resp.status_code}")
             return {"bot_t_coins": 0}
 
         data = resp.json()
+        
+        # Пробуем найти данные пользователя
+        # Сначала ищем в 'data', если нет - берем корень
         user_data = data.get("data", data)
         
+        # --- ЕЩЕ ОДНА ПРОВЕРКА ---
         if not user_data:
+             logging.warning("[SYNC] user_data пустой!")
              return {"bot_t_coins": 0}
 
-        # 2. Получаем баланс (поле money в Bot-t — это копейки, если тип int)
+        # Получаем баланс. Если поля нет, вернется 0
         money_raw = user_data.get("money", 0)
         
-        # Преобразуем в целое число
+        # Bot-t баланс в копейках (int). Конвертируем безопасно.
         current_balance = int(float(money_raw))
 
-        # 3. Сохраняем в НОВУЮ колонку bot_t_coins
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
