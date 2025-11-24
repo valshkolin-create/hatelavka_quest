@@ -7604,43 +7604,39 @@ async def sync_bott_balance(
     
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     
-    # Токен передаем в URL (GET параметр)
+    # Токен согласно документации передается в GET (URL) [cite: 12]
     query_params = {
         "token": BOTT_PRIVATE_KEY
     }
 
-    # Данные передаем в теле (POST параметры)
+    # Остальные параметры - POST int[cite: 12].
+    # Используем словарь для Form Data
     body_data = {
-        "bot_id": int(BOTT_BOT_ID),
-        "telegram_id": int(telegram_id)
+        "bot_id": BOTT_BOT_ID,
+        "telegram_id": telegram_id
     }
 
     try:
         async with httpx.AsyncClient() as client:
-            # ⚠️ ИЗМЕНЕНИЕ: Используем POST вместо GET
-            resp = await client.post(url, params=query_params, json=body_data)
+            # ⚠️ ИЗМЕНЕНИЕ: используем data= вместо json= для отправки Form Data
+            resp = await client.post(url, params=query_params, data=body_data)
         
         logging.info(f"[SYNC DEBUG] Ответ от Bot-t для {telegram_id}: {resp.text}")
 
         if resp.status_code != 200:
-            logging.error(f"[SYNC] Статус не 200. Код: {resp.status_code}")
             return {"bot_t_coins": 0}
 
         data = resp.json()
         
-        # Bot-t при ошибке (даже с кодом 200) может вернуть result: false
         if data.get("result") is False:
              logging.error(f"[SYNC] Ошибка API Bot-t: {data.get('message')}")
              return {"bot_t_coins": 0}
 
-        # Ищем данные пользователя
         user_data = data.get("data", data)
         
         if not user_data:
-             logging.warning("[SYNC] user_data пустой!")
              return {"bot_t_coins": 0}
 
-        # Получаем баланс
         money_raw = user_data.get("money", 0)
         current_balance = int(float(money_raw))
 
@@ -7650,7 +7646,6 @@ async def sync_bott_balance(
             json={"bot_t_coins": current_balance} 
         )
         
-        logging.info(f"[SYNC] Bot-T Coins обновлены: {current_balance} для ID {telegram_id}")
         return {"bot_t_coins": current_balance}
 
     except Exception as e:
@@ -7680,11 +7675,11 @@ async def buy_bott_item_proxy(
     }
     
     async with httpx.AsyncClient() as client:
-        # Шаг А: Получаем данные из Bot-t (Используем POST!)
+        # Шаг А: Получаем данные из Bot-t (Используем POST + Form Data)
         user_resp = await client.post(
             user_data_url, 
             params={"token": BOTT_PRIVATE_KEY}, 
-            json={"bot_id": int(BOTT_BOT_ID), "telegram_id": telegram_id}
+            data={"bot_id": BOTT_BOT_ID, "telegram_id": telegram_id} # <--- data= вместо json=
         )
         
         if user_resp.status_code != 200:
