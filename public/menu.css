@@ -1,5 +1,5 @@
 :root {
-      --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+      --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000); 
       --bg-color: #000000;
       --text-color: #ffffff;
       --text-color-muted: #b0b0b0;
