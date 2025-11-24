@@ -7605,6 +7605,9 @@ async def sync_bott_balance(
     
     telegram_id = user_info["id"]
     
+    # --- 🟢 МАРКЕР ОБНОВЛЕНИЯ 🟢 ---
+    logging.info(f"[SYNC V2 🚀] НАЧАЛО СИНХРОНИЗАЦИИ для ID: {telegram_id}")
+
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     params = {
         "bot_id": BOTT_BOT_ID,
@@ -7613,41 +7616,42 @@ async def sync_bott_balance(
     }
 
     try:
-        logging.info(f"[SYNC] Запрос баланса для ID: {telegram_id}")
-        
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params=params)
         
-        logging.info(f"[SYNC] Ответ Bot-t RAW: {resp.text}")
+        # Логируем ответ, чтобы видеть данные
+        logging.info(f"[SYNC V2 🚀] Ответ от Bot-t: {resp.text}")
 
         if resp.status_code != 200:
-            logging.warning(f"[SYNC] Не удалось получить данные. Статус: {resp.status_code}")
             return {"tickets": 0}
 
         data = resp.json()
+        # Обработка разных форматов ответа
         user_data = data.get("data", data)
         
         if not user_data:
-             logging.warning(f"[SYNC] Пользователь {telegram_id} не найден в Bot-t.")
+             logging.warning(f"[SYNC V2 🚀] Пустые данные для {telegram_id}")
              return {"tickets": 0}
 
-        # Получаем баланс
+        # Получаем баланс (как есть, без деления на 100)
         money_raw = user_data.get("money", 0)
         tickets = int(float(money_raw))
 
-        # --- 👇 ИСПРАВЛЕНИЕ: ИСПОЛЬЗУЕМ .patch ВМЕСТО .table ---
+        # --- 👇 ИСПРАВЛЕННЫЙ ЗАПРОС (PATCH) 👇 ---
+        logging.info(f"[SYNC V2 🚀] Сохраняем {tickets} звезд в базу...")
+        
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"tickets": tickets}
         )
-        # ------------------------------------------------------
+        # -----------------------------------------
         
-        logging.info(f"[SYNC] Баланс обновлен: {tickets} (из поля money: {money_raw})")
+        logging.info(f"[SYNC V2 🚀] УСПЕХ! Баланс обновлен: {tickets}")
         return {"tickets": tickets}
 
     except Exception as e:
-        logging.error(f"[SYNC] Ошибка синхронизации: {e}", exc_info=True)
+        logging.error(f"[SYNC V2 🚀] ОШИБКА: {e}", exc_info=True)
         return {"tickets": 0}
         
 @app.post("/api/v1/shop/buy")
