@@ -7604,21 +7604,22 @@ async def sync_bott_balance(
     
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     
-    # Токен согласно документации передается в GET (URL) [cite: 12]
+    # 1. Токен в URL (как в доке)
     query_params = {
         "token": BOTT_PRIVATE_KEY
     }
 
-    # Остальные параметры - POST int[cite: 12].
-    # Используем словарь для Form Data
+    # 2. ВСЕ параметры (включая токен) в тело запроса (Form Data)
+    # Преобразуем в строки явно, чтобы избежать проблем с типами
     body_data = {
-        "bot_id": BOTT_BOT_ID,
-        "telegram_id": telegram_id
+        "bot_id": str(BOTT_BOT_ID),
+        "telegram_id": str(telegram_id),
+        "token": BOTT_PRIVATE_KEY 
     }
 
     try:
         async with httpx.AsyncClient() as client:
-            # ⚠️ ИЗМЕНЕНИЕ: используем data= вместо json= для отправки Form Data
+            # Отправляем и params, и data. httpx сам поставит нужный Content-Type
             resp = await client.post(url, params=query_params, data=body_data)
         
         logging.info(f"[SYNC DEBUG] Ответ от Bot-t для {telegram_id}: {resp.text}")
@@ -7629,6 +7630,7 @@ async def sync_bott_balance(
         data = resp.json()
         
         if data.get("result") is False:
+             # Если снова ошибка - скорее всего, неверный BOTT_PRIVATE_KEY или BOTT_BOT_ID в переменных окружения
              logging.error(f"[SYNC] Ошибка API Bot-t: {data.get('message')}")
              return {"bot_t_coins": 0}
 
@@ -7667,19 +7669,19 @@ async def buy_bott_item_proxy(
     price = request_data.price       # Цена товара
     item_id = request_data.item_id
     
-    # 1. Узнаем ВНУТРЕННИЙ ID пользователя в Bot-t и его баланс
+    # 1. Узнаем ВНУТРЕННИЙ ID пользователя
     user_data_url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
-    base_params = {
-        "bot_id": int(BOTT_BOT_ID),
-        "token": BOTT_PRIVATE_KEY
-    }
     
     async with httpx.AsyncClient() as client:
-        # Шаг А: Получаем данные из Bot-t (Используем POST + Form Data)
+        # Шаг А: Отправляем все данные в BODY (data=)
         user_resp = await client.post(
             user_data_url, 
             params={"token": BOTT_PRIVATE_KEY}, 
-            data={"bot_id": BOTT_BOT_ID, "telegram_id": telegram_id} # <--- data= вместо json=
+            data={
+                "bot_id": str(BOTT_BOT_ID), 
+                "telegram_id": str(telegram_id),
+                "token": BOTT_PRIVATE_KEY
+            }
         )
         
         if user_resp.status_code != 200:
