@@ -7423,17 +7423,36 @@ async def exchange_coins_endpoint(
     request_data: ExchangeRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Обмен монет на билеты."""
+    """
+    Обмен монет на билеты. Добавлена проверка курса, обработка деления на ноль 
+    и улучшенное логирование.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    
+    # 1. Проверка аутентификации
     if not user_info or "id" not in user_info:
+        logging.error("❌ Exchange Failed: Invalid initData.")
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Простая валидация курса на бэкенде (чтобы не слали {cost: 1, tickets: 1000})
-    # Курс: 4 монеты = 1 билет.
-    # Допускаем небольшую погрешность floating point, но в целом проверяем пропорцию.
-    if request_data.cost / request_data.tickets_reward < 3.9: 
-        raise HTTPException(status_code=400, detail="Invalid exchange rate detected.")
+    # Временный лог для отладки клиента
+    logging.info(
+        f"🔍 Exchange Data: User={user_info['id']}, "
+        f"Cost={request_data.cost}, Reward={request_data.tickets_reward}"
+    )
 
+    # 2. Валидация входных данных (защита от деления на ноль)
+    if (request_data.tickets_reward <= 0):
+         logging.error(f"❌ Exchange Failed: Tickets reward must be positive (Got: {request_data.tickets_reward}).")
+         raise HTTPException(status_code=400, detail="Неверное количество билетов для обмена.")
+
+    # 3. Проверка курса обмена (самая частая причина 400)
+    # Курс 4 монеты за 1 билет (4.0). Используем 3.9 для допуска погрешности.
+    exchange_rate = request_data.cost / request_data.tickets_reward
+    if exchange_rate < 3.9: 
+        logging.error(f"❌ Exchange Failed: Invalid exchange rate (Got: {exchange_rate}).")
+        raise HTTPException(status_code=400, detail="Неверный курс обмена.")
+
+    # 4. Вызов RPC
     try:
         response = await supabase.post(
             "/rpc/exchange_coins",
@@ -7445,19 +7464,19 @@ async def exchange_coins_endpoint(
         )
         response.raise_for_status()
         
-        # Если вы дошли сюда, все хорошо, возвращаем ответ
-        return {"message": "..."} 
+        # 5. Успех
+        return response.json()
 
     except httpx.HTTPStatusError as e:
-        # ⚠️ ВРЕМЕННОЕ ЛОГИРОВАНИЕ ⚠️
+        # 6. Обработка ошибки RPC (Недостаточно монет, User not found и т.д.)
         error_details = e.response.json().get("message", e.response.text)
-        logging.error(f"❌ Ошибка RPC/HTTP при обмене: {error_details}")
-        # -----------------------------
+        logging.error(f"❌ Exchange RPC Error (400): {error_details}")
         
-        # ... Ваш код обработки ошибки...
+        # Пробрасываем ошибку обратно с кодом 400
         raise HTTPException(status_code=400, detail=error_details) 
+
     except Exception as e:
-        logging.error(f"❌ Непредвиденная ошибка обмена: {e}")
+        logging.error(f"❌ Exchange Critical Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.post("/api/v1/user/grind/buy_promo")
