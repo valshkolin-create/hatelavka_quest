@@ -50,6 +50,38 @@
 
     <div id="view-dashboard" class="view">
     
+        <div class="dashboard-shortcuts">
+            <div class="shortcut-item" id="shortcut-shop">
+                <div class="shortcut-icon shortcut-shop-bg">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                </div>
+                <span class="shortcut-label">Магазин</span>
+            </div>
+
+            <div class="shortcut-item" id="shortcut-challenge">
+                <div class="shortcut-icon shortcut-challenge-bg">
+                    <i class="fa-solid fa-star"></i>
+                </div>
+                <span class="shortcut-label">Челленджи</span>
+            </div>
+
+            <div class="shortcut-item" id="shortcut-quests">
+                <div class="shortcut-icon shortcut-quest-bg">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <span class="shortcut-label">Испытания</span>
+            </div>
+        </div>
+
+        <details class="image-accordion" id="weekly-goals-accordion"> 
+            <summary class="image-accordion-summary">
+                <img id="weekly-goals-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Недельные испытания" />
+            </summary>
+            <div id="weekly-goals-container-placeholder"></div>
+        </details>
+
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px;">
+
         <div id="main-slider-container" class="slider-container">
                 <div class="slider-wrapper">
                         <a href="/events" class="slide" data-event="skin_race">
@@ -69,21 +101,6 @@
                 <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
                 <div class="slider-dots"></div>
         </div>
-
-        <details class="image-accordion" id="weekly-goals-accordion"> <summary class="image-accordion-summary">
-                <img id="weekly-goals-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Недельные испытания" />
-            </summary>
-            <div id="weekly-goals-container-placeholder">
-                </div>
-        </details>
-        
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
-
-        <a href="/shop" class="quest-choose-btn-roulette" style="text-decoration: none; display: flex; background: linear-gradient(90deg, #ffcc00, #ff9500); color: #000; margin-bottom: 10px; justify-content: center; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-cart-shopping"></i> МАГАЗИН
-        </a> 
-
-    </div> 
 
     <div id="view-shop" class="view hidden">
         <h2 class="page-title" style="grid-column: 1 / -1;">
