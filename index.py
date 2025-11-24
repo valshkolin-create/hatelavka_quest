@@ -7563,7 +7563,7 @@ async def get_bott_goods_proxy(
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
 
-            # ЦЕНЫ: Bot-t отдает в копейках. Делим на 100, чтобы получить рубли/звезды
+            # ЦЕНЫ: Bot-t отдает в копейках. Делим на 100
             price = 0
             if item.get("price"):
                 amount = item["price"].get("amount", 0)
@@ -7573,12 +7573,22 @@ async def get_bott_goods_proxy(
             if item.get("design"):
                 name = item["design"].get("title", "Без названия")
 
+            # --- 👇 НОВАЯ ЛОГИКА: ПОЛУЧАЕМ ОСТАТОК 👇 ---
+            count = None # None означает "бесконечно" или "не указано"
+            if item.get("setting"):
+                # API может вернуть null, строку или число. Приводим безопасно.
+                raw_count = item["setting"].get("count")
+                if raw_count is not None:
+                    count = int(raw_count)
+            # ---------------------------------------------
+
             mapped_items.append({
                 "id": item.get("id"),
                 "name": name,
                 "price": price,
                 "image_url": image_url,
-                "is_folder": is_folder
+                "is_folder": is_folder,
+                "count": count # Передаем остаток
             })
 
         return mapped_items
