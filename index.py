@@ -7605,7 +7605,6 @@ async def sync_bott_balance(
     
     telegram_id = user_info["id"]
     
-    # URL для получения данных пользователя по Telegram ID
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     params = {
         "bot_id": BOTT_BOT_ID,
@@ -7619,7 +7618,6 @@ async def sync_bott_balance(
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params=params)
         
-        # Логируем сырой ответ, чтобы видеть, что именно присылает Bot-t
         logging.info(f"[SYNC] Ответ Bot-t RAW: {resp.text}")
 
         if resp.status_code != 200:
@@ -7627,32 +7625,32 @@ async def sync_bott_balance(
             return {"tickets": 0}
 
         data = resp.json()
-        
-        # Bot-t может вернуть данные в data или в корне (в зависимости от версии API)
         user_data = data.get("data", data)
         
-        # Если user_data — это null или пустой список (пользователь не найден)
         if not user_data:
-             logging.warning(f"[SYNC] Пользователь {telegram_id} не найден в Bot-t (пустой data).")
+             logging.warning(f"[SYNC] Пользователь {telegram_id} не найден в Bot-t.")
              return {"tickets": 0}
 
-        # Получаем баланс.
-        # ВАЖНО: Мы убрали деление на 100. Берем как есть.
+        # Получаем баланс (без деления на 100, как договаривались)
         money_raw = user_data.get("money", 0)
-        
-        # Приводим к целому числу (на случай если там 6505.00)
         tickets = int(float(money_raw))
 
-        # Обновляем локальную базу Supabase
-        await supabase.table("users").update({"tickets": tickets}).eq("telegram_id", telegram_id).execute()
+        # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+        # Используем .patch вместо .table().update()
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json={"tickets": tickets}
+        )
+        # -------------------------
         
         logging.info(f"[SYNC] Баланс обновлен: {tickets} (из поля money: {money_raw})")
         return {"tickets": tickets}
 
     except Exception as e:
         logging.error(f"[SYNC] Ошибка синхронизации: {e}", exc_info=True)
-        # В случае ошибки возвращаем 0, но не сохраняем его в базу, чтобы не сбить старый баланс
         return {"tickets": 0}
+        
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
