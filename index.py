@@ -7597,7 +7597,7 @@ async def sync_bott_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Запрашивает реальный баланс пользователя в Bot-t и обновляет локальные tickets.
+    Запрашивает реальный баланс пользователя в Bot-t и обновляет колонку bot_t_coins в Supabase.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -7605,9 +7605,7 @@ async def sync_bott_balance(
     
     telegram_id = user_info["id"]
     
-    # --- 🟢 МАРКЕР ОБНОВЛЕНИЯ 🟢 ---
-    logging.info(f"[SYNC V2 🚀] НАЧАЛО СИНХРОНИЗАЦИИ для ID: {telegram_id}")
-
+    # 1. Запрос к Bot-t
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     params = {
         "bot_id": BOTT_BOT_ID,
@@ -7619,40 +7617,34 @@ async def sync_bott_balance(
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params=params)
         
-        # Логируем ответ, чтобы видеть данные
-        logging.info(f"[SYNC V2 🚀] Ответ от Bot-t: {resp.text}")
-
         if resp.status_code != 200:
-            return {"tickets": 0}
+            return {"bot_t_coins": 0}
 
         data = resp.json()
-        # Обработка разных форматов ответа
         user_data = data.get("data", data)
         
         if not user_data:
-             logging.warning(f"[SYNC V2 🚀] Пустые данные для {telegram_id}")
-             return {"tickets": 0}
+             return {"bot_t_coins": 0}
 
-        # Получаем баланс (как есть, без деления на 100)
+        # 2. Получаем баланс (поле money в Bot-t — это копейки, если тип int)
         money_raw = user_data.get("money", 0)
-        tickets = int(float(money_raw))
-
-        # --- 👇 ИСПРАВЛЕННЫЙ ЗАПРОС (PATCH) 👇 ---
-        logging.info(f"[SYNC V2 🚀] Сохраняем {tickets} звезд в базу...")
         
+        # Преобразуем в целое число
+        current_balance = int(float(money_raw))
+
+        # 3. Сохраняем в НОВУЮ колонку bot_t_coins
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
-            json={"tickets": tickets}
+            json={"bot_t_coins": current_balance} 
         )
-        # -----------------------------------------
         
-        logging.info(f"[SYNC V2 🚀] УСПЕХ! Баланс обновлен: {tickets}")
-        return {"tickets": tickets}
+        logging.info(f"[SYNC] Bot-T Coins обновлены: {current_balance} для ID {telegram_id}")
+        return {"bot_t_coins": current_balance}
 
     except Exception as e:
-        logging.error(f"[SYNC V2 🚀] ОШИБКА: {e}", exc_info=True)
-        return {"tickets": 0}
+        logging.error(f"[SYNC] Ошибка синхронизации: {e}", exc_info=True)
+        return {"bot_t_coins": 0}
         
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
