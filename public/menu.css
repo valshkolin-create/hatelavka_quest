@@ -801,13 +801,13 @@
 .shop-btn:active {
     transform: scale(0.95);
 }
-/* --- СТИЛИ ДЛЯ ЯРЛЫКОВ НА ГЛАВНОЙ (DASHBOARD SHORTCUTS) --- */
+/* --- СТИЛИ ДЛЯ ЯРЛЫКОВ (КОМПАКТНЫЕ) --- */
 .dashboard-shortcuts {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* 3 иконки в ряд */
-    gap: 15px;
-    margin-bottom: 20px;
-    padding: 0 5px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 0 10px;
 }
 
 .shortcut-item {
@@ -816,9 +816,8 @@
     align-items: center;
     text-align: center;
     cursor: pointer;
-    transition: transform 0.1s;
-    /* Убираем стандартное выделение при тапе */
     -webkit-tap-highlight-color: transparent;
+    transition: transform 0.1s;
 }
 
 .shortcut-item:active {
@@ -826,34 +825,28 @@
 }
 
 .shortcut-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px; /* Скругленный квадрат (как iOS/MacOS иконка) */
+    /* ИЗМЕНЕНИЕ: Уменьшили размер */
+    width: 42px; 
+    height: 42px;
+    border-radius: 12px; 
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 26px;
+    /* ИЗМЕНЕНИЕ: Уменьшили иконку */
+    font-size: 18px; 
     color: #ffffff;
-    margin-bottom: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(5px);
+    margin-bottom: 6px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .shortcut-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-color);
-    line-height: 1.2;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-color-muted);
 }
 
-/* Цвета для разных иконок */
-.shortcut-shop-bg {
-    background: linear-gradient(135deg, #FFD700, #FF8C00); /* Золотой */
-}
-.shortcut-challenge-bg {
-    background: linear-gradient(135deg, #007AFF, #00C6FF); /* Синий */
-}
-.shortcut-quest-bg {
-    background: linear-gradient(135deg, #FF3B30, #FF9500); /* Оранжево-красный */
-}
+/* Цвета */
+.shortcut-shop-bg { background: linear-gradient(135deg, #FFD700, #FF8C00); }
+.shortcut-challenge-bg { background: linear-gradient(135deg, #007AFF, #00C6FF); }
+.shortcut-quest-bg { background: linear-gradient(135deg, #FF3B30, #FF9500); }
