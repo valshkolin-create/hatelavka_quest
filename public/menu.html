@@ -48,8 +48,58 @@
       </div>
     </div>
 
+    Это разумные правки. Давайте переделаем структуру и логику навигации.
+
+Вот план действий:
+
+HTML (menu.html): Меняем порядок блоков (Слайдер -> Недельные цели -> Ярлыки).
+
+CSS (menu.css): Уменьшаем размер иконок ярлыков.
+
+JS (menu.js): Меняем логику кнопки Магазина на прямой переход (/shop) и исправляем логику кнопок Челленджей (добавляем принудительное обновление данных, чтобы они не были пустыми).
+
+1. Обновите menu.html
+Найдите блок <div id="view-dashboard" class="view"> и замените его полностью на этот код.
+
+Что изменилось:
+
+Слайдер перемещен наверх.
+
+Ярлыки перемещены вниз.
+
+HTML
+
     <div id="view-dashboard" class="view">
     
+        <div id="main-slider-container" class="slider-container">
+                <div class="slider-wrapper">
+                        <a href="/events" class="slide" data-event="skin_race">
+                                <img id="menu-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Гонка за скинами">
+                        </a>
+                       <a href="/halloween" class="slide" data-event="cauldron">
+                                <img src="https://i.postimg.cc/CKKLsnVw/1200-600-hallowen.png" alt="Хэллоуин Ивент">
+                        </a>
+                        
+                        <a href="/auction" class="slide" data-event="auction" style="display: none;">
+                                <img id="auction-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Аукцион">
+                        </a>
+                  <a id="checkpoint-link" href="/checkpoint" class="slide" data-event="checkpoint" style="text-decoration: none; display: block;">
+                                <img id="checkpoint-banner-img" src="https://i.postimg.cc/6p39wgzJ/1200-324.png" alt="Марафон Чекпоинт" style="width: 100%; display: block;">
+                        </a>
+                </div> <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
+                <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
+                <div class="slider-dots"></div>
+        </div>
+
+        <details class="image-accordion" id="weekly-goals-accordion"> 
+            <summary class="image-accordion-summary">
+                <img id="weekly-goals-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Недельные испытания" />
+            </summary>
+            <div id="weekly-goals-container-placeholder"></div>
+        </details>
+
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px;">
+
         <div class="dashboard-shortcuts">
             <div class="shortcut-item" id="shortcut-shop">
                 <div class="shortcut-icon shortcut-shop-bg">
@@ -73,34 +123,7 @@
             </div>
         </div>
 
-        <details class="image-accordion" id="weekly-goals-accordion"> 
-            <summary class="image-accordion-summary">
-                <img id="weekly-goals-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Недельные испытания" />
-            </summary>
-            <div id="weekly-goals-container-placeholder"></div>
-        </details>
-
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px;">
-
-        <div id="main-slider-container" class="slider-container">
-                <div class="slider-wrapper">
-                        <a href="/events" class="slide" data-event="skin_race">
-                                <img id="menu-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Гонка за скинами">
-                        </a>
-                       <a href="/halloween" class="slide" data-event="cauldron">
-                                <img src="https://i.postimg.cc/CKKLsnVw/1200-600-hallowen.png" alt="Хэллоуин Ивент">
-                        </a>
-                        
-                        <a href="/auction" class="slide" data-event="auction" style="display: none;">
-                                <img id="auction-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Аукцион">
-                        </a>
-                  <a id="checkpoint-link" href="/checkpoint" class="slide" data-event="checkpoint" style="text-decoration: none; display: block;">
-                                <img id="checkpoint-banner-img" src="https://i.postimg.cc/6p39wgzJ/1200-324.png" alt="Марафон Чекпоинт" style="width: 100%; display: block;">
-                        </a>
-                </div> <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
-                <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
-                <div class="slider-dots"></div>
-        </div>
+    </div>
 
     <div id="view-shop" class="view hidden">
         <h2 class="page-title" style="grid-column: 1 / -1;">
