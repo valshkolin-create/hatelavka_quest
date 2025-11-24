@@ -7596,7 +7596,8 @@ async def sync_bott_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Синхронизация баланса в строгом соответствии с документацией Bot-t (Source 12).
+    Синхронизация баланса через публичный API (check-hash), 
+    как это делает веб-версия бота. Это обходит проблему с 'token invalid'.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -7604,28 +7605,22 @@ async def sync_bott_balance(
     
     telegram_id = user_info["id"]
     
-    url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+    # Используем найденный вами рабочий эндпоинт
+    url = "https://api.bot-t.com/v1/module/bot/check-hash"
     
-    # 1. Токен СТРОГО в URL (GET string )
-    query_params = {
-        "token": BOTT_PRIVATE_KEY.strip() # .strip() удалит случайные пробелы, если они есть
+    # Формируем payload как в вашем логе браузера
+    # Мы передаем сырую initData в поле userData
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "userData": request_data.initData 
     }
-
-    # 2. Данные СТРОГО в теле как Form Data (POST int )
-    # Мы НЕ добавляем сюда токен.
-    body_data = {
-        "bot_id": str(BOTT_BOT_ID).strip(),
-        "telegram_id": str(telegram_id)
-    }
-
-    logging.info(f"[SYNC START] Отправка запроса: Params={query_params} Body={body_data}")
 
     try:
         async with httpx.AsyncClient() as client:
-            # data=... отправляет заголовок application/x-www-form-urlencoded
-            resp = await client.post(url, params=query_params, data=body_data)
+            # Отправляем JSON (как в вашем логе браузера)
+            resp = await client.post(url, json=payload)
         
-        logging.info(f"[SYNC DEBUG] Ответ API: {resp.text}")
+        logging.info(f"[SYNC CHECK-HASH] Ответ: {resp.text}")
 
         if resp.status_code != 200:
             logging.error(f"[SYNC] HTTP Error: {resp.status_code}")
@@ -7633,30 +7628,31 @@ async def sync_bott_balance(
 
         data = resp.json()
         
-        # Проверка на логическую ошибку API (например, token invalid)
+        # Проверяем успех
         if data.get("result") is False:
-             logging.error(f"[SYNC] API Error Message: {data.get('message')}")
+             logging.error(f"[SYNC] API Error: {data.get('message')}")
              return {"bot_t_coins": 0}
 
-        # Bot-t может вернуть данные в корне или внутри 'data'
-        user_data = data.get("data", data)
+        # Данные пользователя лежат в data
+        # Пример: {"data": { "money": 650500, ... }}
+        response_data = data.get("data", {})
         
-        if not user_data:
-             logging.warning("[SYNC] Пустой объект user_data")
+        if not response_data:
+             logging.warning("[SYNC] Пустой объект data")
              return {"bot_t_coins": 0}
 
-        # Получаем баланс (money)
-        money_raw = user_data.get("money", 0)
+        # Получаем баланс (в копейках)
+        money_raw = response_data.get("money", 0)
         current_balance = int(float(money_raw))
 
-        # Сохраняем
+        # Сохраняем в базу
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"bot_t_coins": current_balance} 
         )
         
-        logging.info(f"[SYNC SUCCESS] Баланс: {current_balance}")
+        logging.info(f"[SYNC SUCCESS] Баланс обновлен: {current_balance}")
         return {"bot_t_coins": current_balance}
 
     except Exception as e:
