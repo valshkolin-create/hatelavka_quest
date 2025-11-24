@@ -10,8 +10,8 @@
     <style>
         :root {
             --primary-color: #ffcc00;
-            --bg-color: #0f0f0f;
-            --card-bg: rgba(255, 255, 255, 0.05);
+            --bg-color: #000000; /* Сделал чисто черным, как в меню */
+            --card-bg: rgba(28, 28, 30, 0.75); /* Цвет карточек как в меню */
             --text-color: #ffffff;
         }
 
@@ -19,45 +19,49 @@
             margin: 0;
             padding: 0;
             background-color: var(--bg-color);
+            /* Градиент как в меню для красоты */
+            background-image: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+            background-attachment: fixed; 
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* Отступ снизу для футера + безопасная зона */
-            padding-bottom: calc(80px + env(safe-area-inset-bottom)); 
+            
+            /* ГЛАВНОЕ ИСПРАВЛЕНИЕ: Отступ снизу, чтобы контент не был под футером */
+            padding-bottom: calc(90px + env(safe-area-inset-bottom));
         }
 
-        /* --- ШАПКА МАГАЗИНА (АДАПТИВНАЯ) --- */
+        /* --- ШАПКА МАГАЗИНА --- */
         .shop-header {
             position: sticky;
             top: 0;
             z-index: 100;
-            background: rgba(15, 15, 15, 0.95);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            
-            /* Отступы с учетом "челки" iPhone */
-            padding-top: calc(15px + env(safe-area-inset-top));
-            padding-bottom: 15px;
+            background: rgba(28, 28, 30, 0.85); /* Стекло */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+            /* 🔥 АДАПТАЦИЯ ПОД IPHONE (ЧЕЛКА) 🔥 */
+            padding-top: calc(12px + env(safe-area-inset-top));
+            padding-bottom: 12px;
             padding-left: 15px;
             padding-right: 15px;
             
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .back-btn {
             background: none;
             border: none;
             color: var(--text-color);
-            font-size: 16px; /* Чуть меньше для мобилок */
+            font-size: 16px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             font-weight: 500;
-            padding: 0; /* Убираем лишние отступы */
+            padding: 0;
         }
 
         .balance-display {
@@ -66,32 +70,32 @@
             padding: 6px 12px;
             border-radius: 20px;
             font-weight: 600;
-            font-size: 13px; /* Оптимизировано для мобилок */
+            font-size: 13px;
             display: flex;
             align-items: center;
             gap: 5px;
         }
 
-        /* --- СЕТКА ТОВАРОВ (АДАПТИВНАЯ) --- */
+        /* --- СЕТКА ТОВАРОВ --- */
         .shop-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 2 колонки */
-            gap: 10px; /* Отступ между карточками */
-            padding: 12px; /* Внешний отступ от краев экрана */
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px; /* Чуть больше воздуха */
+            padding: 15px;
             
             box-sizing: border-box;
             width: 100%;
             margin: 0 auto;
-            max-width: 600px; /* Ограничитель для ПК */
+            max-width: 600px;
         }
 
         .shop-item {
             background: var(--card-bg);
-            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            border: 1px solid rgba(255, 255, 255, 0.05);
             position: relative;
         }
 
@@ -99,7 +103,7 @@
             width: 100%;
             aspect-ratio: 1/1;
             position: relative;
-            background: #1a1a1a;
+            background: rgba(0,0,0,0.2);
         }
 
         .item-image {
@@ -116,25 +120,24 @@
         }
 
         .item-title {
-            font-size: 12px; /* Уменьшили шрифт для мобилок */
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             margin-bottom: 6px;
             line-height: 1.3;
-            
-            /* Обрезка текста до 2 строк */
+            /* Обрезка до 2 строк */
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            height: 32px; /* Фиксированная высота под 2 строки */
+            height: 34px; 
         }
 
         .item-stock {
             font-size: 10px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             font-weight: 500;
         }
-        .in-stock { color: #aaaaaa; }
+        .in-stock { color: #8E8E93; }
         .low-stock { color: #ff9800; }
         .out-stock { color: #ff4444; }
 
@@ -142,17 +145,17 @@
             font-weight: 700;
             color: var(--primary-color);
             margin-top: auto;
-            font-size: 13px;
+            font-size: 14px;
+            margin-bottom: 8px;
         }
 
         .buy-btn, .folder-btn {
-            margin-top: 8px;
             width: 100%;
             border: none;
-            padding: 8px 0; /* Убрали боковые паддинги для экономии места */
+            padding: 10px 0;
             border-radius: 8px;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 13px;
             cursor: pointer;
             transition: opacity 0.2s;
         }
@@ -163,31 +166,30 @@
         }
         
         .folder-btn {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             color: #fff;
         }
 
         .buy-btn:active, .folder-btn:active {
-            opacity: 0.8;
+            opacity: 0.7;
         }
 
         /* Лоадер */
-        .loader { display: flex; justify-content: center; padding: 20px; grid-column: 1 / -1; }
+        .loader { display: flex; justify-content: center; padding: 40px; grid-column: 1 / -1; }
         .spinner {
             width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.3);
             border-radius: 50%; border-top-color: var(--primary-color);
             animation: spin 1s ease-in-out infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .empty-msg { text-align: center; grid-column: 1 / -1; color: #888; margin-top: 20px; font-size: 13px;}
+        .empty-msg { text-align: center; grid-column: 1 / -1; color: #888; margin-top: 30px; font-size: 14px;}
 
-        /* --- ФУТЕР (Синхронизирован с menu.css) --- */
+        /* --- ФУТЕР (1 в 1 как в menu.css) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
             align-items: center;
             
-            /* Единый стиль стекла */
             background-color: rgba(28, 28, 30, 0.85); 
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -199,24 +201,53 @@
             width: 100%;
             z-index: 9999;
             
+            /* 🔥 АДАПТАЦИЯ ПОД IPHONE (НИЖНЯЯ ПОЛОСКА) 🔥 */
             padding-top: 8px;
-            /* Важно для iPhone без кнопки (с полоской) */
             padding-bottom: calc(8px + env(safe-area-inset-bottom));
             box-sizing: border-box;
             height: auto; 
         }
 
-        /* --- МЕДИА-ЗАПРОС ДЛЯ ОЧЕНЬ МАЛЕНЬКИХ ЭКРАНОВ (iPhone SE и т.д.) --- */
-        @media (max-width: 360px) {
+        /* Стили для кнопок футера, чтобы они были как в меню */
+        .footer-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #8E8E93;
+            text-decoration: none;
+            flex: 1;
+            cursor: pointer;
+            font-size: 10px;
+            line-height: 1; 
+            font-weight: 500;
+        }
+        .footer-item .icon-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 24px;
+            height: 24px;
+            font-size: 22px;
+        }
+
+        /* --- МЕДИА-ЗАПРОС ДЛЯ МАЛЕНЬКИХ IPHONE (SE, 8, mini) --- */
+        @media (max-width: 370px) {
             .shop-grid {
                 gap: 8px;
                 padding: 10px;
             }
             .item-title {
-                font-size: 11px;
+                font-size: 12px;
+                height: 30px;
             }
             .item-price {
+                font-size: 13px;
+            }
+            .buy-btn {
                 font-size: 12px;
+                padding: 8px 0;
             }
         }
     </style>
