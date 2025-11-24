@@ -1002,22 +1002,27 @@ function renderChallenge(challengeData, isGuest) {
                 userData = dashboardData || {};
                 const challengeData = dashboardData.challenge;
                 const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+                
+                // 1. Обновление Активного Испытания (Квест)
                 if (activeQuest) {
                     renderActiveAutomaticQuest(activeQuest, userData);
                 }
+                
+                // 2. Обновление Ежедневного Челленджа
                 if (challengeData) {
                     renderChallenge(challengeData, !userData.twitch_id);
                 } else {
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
-                // 👇👇👇 ВСТАВИТЬ НУЖНО ЗДЕСЬ 👇👇👇
+                
+                // 👇👇👇 ВАШ ВЫЗОВ ЗДЕСЬ 👇👇👇
                 updateShortcutStatuses(userData, allQuests);
             }
         } catch (e) {
             console.error("Ошибка фонового обновления:", e);
         }
     }
-
+    
     async function startChallengeRoulette() {
         const getChallengeBtn = document.getElementById('get-challenge-btn');
         if(getChallengeBtn) getChallengeBtn.disabled = true;
