@@ -156,7 +156,23 @@
     }
     /* --- КОНЕЦ ОПТИМИЗАЦИИ --- */
 
-    .quest-choose-btn-roulette { display: block; width: 100%; padding: 12px; margin: 15px 0; font-size: 16px; font-weight: 700; border: none; border-radius: 10px; color: #1c1c1e; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, background 0.4s ease; box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); }
+    .quest-choose-btn-roulette { 
+    display: block; 
+    width: 100%; 
+    padding: 12px; 
+    margin: 15px 0; 
+    font-size: 16px; 
+    font-weight: 700; 
+    border: none; 
+    border-radius: 10px; 
+    color: #1c1c1e; 
+    cursor: pointer; 
+    transition: transform 0.2s, box-shadow 0.2s, background 0.4s ease; 
+    box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); 
+    
+    /* 👇 ЭТА СТРОКА ИСПРАВИТ ПРОБЛЕМУ 👇 */
+    box-sizing: border-box; 
+}
     .quest-choose-btn-roulette.twitch-theme { background: linear-gradient(90deg, #a97cff, var(--twitch-color)); color: white; box-shadow: 0 0 12px rgba(145, 70, 255, 0.6); }
     .quest-choose-btn-roulette.telegram-theme { background: linear-gradient(90deg, #24a1de, var(--telegram-color)); color: white; box-shadow: 0 0 12px rgba(0, 136, 204, 0.6); }
 .quest-choose-container {
