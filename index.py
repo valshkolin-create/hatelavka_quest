@@ -466,6 +466,8 @@ class WeeklyRunSettingsUpdateRequest(BaseModel):
     settings: WeeklyRunSettings
 # --- 🔼 КОНЕЦ НОВЫХ МОДЕЛЕЙ 🔼 ---
 
+
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -7521,110 +7523,75 @@ async def buy_promo_endpoint(
         logging.error(f"Promo buy error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# 1. Эндпоинт: Получить список товаров
+# Модель для запроса конкретной категории
+class ShopCategoryRequest(BaseModel):
+    initData: str
+    category_id: int = 0  # По умолчанию 0 (главная)
+
 @app.post("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
-    request_data: InitDataRequest,
+    request_data: ShopCategoryRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # Заголовки
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
-
-    # 1. Получаем список ГЛАВНЫХ категорий
-    payload_main = {
+    # Запрашиваем конкретную категорию, которую попросил фронтенд
+    payload = {
         "bot_id": str(BOTT_BOT_ID),
         "public_key": BOTT_PUBLIC_KEY,
-        "category_id": 0 
+        "category_id": request_data.category_id 
     }
 
-    logging.info("[SHOP] Загрузка категорий...")
-    
-    all_final_products = []
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
+    }
 
     try:
         async with httpx.AsyncClient() as client:
-            # Шаг 1: Запрос главной страницы
-            resp = await client.post(url, json=payload_main, headers=headers)
+            resp = await client.post(url, json=payload, headers=headers)
             
-            if resp.status_code != 200:
-                logging.error(f"[SHOP] Ошибка API: {resp.status_code}")
-                return []
+        if resp.status_code != 200:
+            logging.error(f"[SHOP] Ошибка API: {resp.status_code}")
+            return []
 
-            data = resp.json().get("data", [])
-            categories_to_scan = []
+        data = resp.json().get("data", [])
+        mapped_items = []
 
-            # Разделяем: если это товар - берем, если категория - запоминаем ID
-            for item in data:
-                item_type = item.get("type", 0)
-                
-                if item_type == 0: # Это категория
-                    categories_to_scan.append(item["id"])
-                else: # Это уже товар
-                    all_final_products.append(item)
+        for item in data:
+            # Определяем, папка это или товар
+            # type 0 = Категория (Папка)
+            is_folder = (item.get("type") == 0)
 
-            logging.info(f"[SHOP] Найдено категорий для сканирования: {len(categories_to_scan)}")
-
-            # Шаг 2: Проходимся по каждой категории и достаем товары
-            for cat_id in categories_to_scan:
-                payload_cat = {
-                    "bot_id": str(BOTT_BOT_ID),
-                    "public_key": BOTT_PUBLIC_KEY,
-                    "category_id": cat_id
-                }
-                # Делаем запрос внутрь категории
-                cat_resp = await client.post(url, json=payload_cat, headers=headers)
-                if cat_resp.status_code == 200:
-                    cat_items = cat_resp.json().get("data", [])
-                    # Добавляем только товары (type != 0), чтобы не плодить вложенные папки
-                    products_in_cat = [x for x in cat_items if x.get("type") != 0]
-                    all_final_products.extend(products_in_cat)
-                
-                # Небольшая пауза, чтобы не спамить API (опционально)
-                await asyncio.sleep(0.1)
-
-        # Шаг 3: ПРЕОБРАЗОВАНИЕ ДАННЫХ (Mapping) для фронтенда
-        # Превращаем сложный JSON Bot-t в простой вид, который ждет menu.js
-        mapped_products = []
-        
-        for p in all_final_products:
-            # 1. Достаем картинку (пробуем разные поля)
+            # Картинка
             image_url = "https://placehold.co/150?text=No+Image"
-            
-            # Проверяем design.image (как в твоем логе)
-            if p.get("design") and p["design"].get("image"):
-                image_url = p["design"]["image"]
-            # Проверяем photo.abs_path (как резерв)
-            elif p.get("photo") and p["photo"].get("abs_path"):
-                image_url = p["photo"]["abs_path"]
+            if item.get("design") and item["design"].get("image"):
+                image_url = item["design"]["image"]
+            elif item.get("photo") and item["photo"].get("abs_path"):
+                image_url = item["photo"]["abs_path"]
 
-            # 2. Достаем цену
+            # Цена
             price = 0
-            if p.get("price"):
-                price = p["price"].get("amount", 0)
+            if item.get("price"):
+                price = item["price"].get("amount", 0)
 
-            # 3. Достаем название
-            name = "Товар"
-            if p.get("design"):
-                name = p["design"].get("title", "Без названия")
+            # Название
+            name = "Без названия"
+            if item.get("design"):
+                name = item["design"].get("title", "Без названия")
 
-            # Собираем красивый объект
-            mapped_products.append({
-                "id": p.get("id"),
-                "name": name,   # JS ждет .name
-                "price": price, # JS ждет .price
-                "image_url": image_url # JS ждет .image_url
+            mapped_items.append({
+                "id": item.get("id"),
+                "name": name,
+                "price": price,
+                "image_url": image_url,
+                "is_folder": is_folder  # Важный флаг для фронтенда
             })
 
-        logging.info(f"[SHOP] Итого товаров для витрины: {len(mapped_products)}")
-        return mapped_products
+        return mapped_items
 
     except Exception as e:
-        logging.error(f"[SHOP] Критическая ошибка: {e}", exc_info=True)
+        logging.error(f"[SHOP] Ошибка: {e}", exc_info=True)
         return []
 
 @app.post("/api/v1/shop/buy")
