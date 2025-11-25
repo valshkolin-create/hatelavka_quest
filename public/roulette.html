@@ -249,44 +249,61 @@
 
     let isAnimating = false;
     const animationQueue = [];
+    
+    // --- 🛡️ ПЕРЕМЕННЫЕ ЗАЩИТЫ ОТ ДУБЛЕЙ ---
+    let processedIds = new Set(); // Храним ID обработанных записей Supabase
+    let lastSpinTime = 0;         // Время последнего запуска
+    // -------------------------------------
 
-    // --- 🆕 ДОБАВЛЯЕМ ПЕРЕМЕННУЮ ---
-    let lastAnimationTimestamp = 0;
-    let lastPayloadSignature = ""; // <-- НОВАЯ ПЕРЕМЕННАЯ
-
+    // Безопасное воспроизведение звука (чтобы не было красных ошибок в консоли)
     function playSound(audioElem) {
-        if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; audioElem.play().catch(e => console.warn(e)); }
+        if (!audioElem) return;
+        audioElem.pause();
+        audioElem.currentTime = 0;
+        // Пытаемся воспроизвести, если ошибка — просто игнорируем
+        audioElem.play().catch(e => {
+            console.warn("Audio autoplay blocked by browser (normal for OBS without interaction).");
+        });
     }
+
     function stopSound(audioElem) {
         if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; }
     }
 
     function startRouletteAnimation(payload) {
+        const rowId = payload.new.id; // Уникальный ID записи в базе
         const newPayload = payload.new.payload;
-        
-        // Создаем "подпись" данных: Имя + Приз + Индекс победителя
-        // Если придет повтор вебхука, эти данные будут идентичны
-        const currentSignature = `${newPayload.user_name}_${newPayload.prize_name}_${newPayload.winner_index}`;
         const now = Date.now();
 
-        // 1. Проверка по времени (Ваша старая, оставим как страховку)
-        if (now - lastAnimationTimestamp < 2000) { 
-            console.warn("Слишком частые запросы, игнорируем.");
+        console.log("📨 Получен сигнал Supabase. ID:", rowId);
+
+        // 1. ПРОВЕРКА ПО ID ЗАПИСИ
+        // Если мы уже крутили рулетку по этой записи из базы — игнорируем
+        if (processedIds.has(rowId)) {
+            console.warn("⛔ Дубликат по ID базы данных. Игнорируем.");
             return;
         }
-
-        // 2. ГЛАВНАЯ ПРОВЕРКА: Если данные те же самые и прошло меньше 20 секунд
-        // (Анимация идет долго, повтор обычно прилетает через 3-5 секунд)
-        if (currentSignature === lastPayloadSignature && (now - lastAnimationTimestamp < 20000)) {
-            console.warn("⛔ Дубликат рулетки обнаружен (тот же юзер и приз)! Игнорируем.");
-            return;
+        
+        // 2. ПРОВЕРКА ПО ВРЕМЕНИ (Глобальный кулдаун 5 секунд)
+        // Если рулетка запустилась меньше 5 секунд назад — игнорируем всё
+        if (now - lastSpinTime < 5000) {
+             console.warn("⛔ Слишком частый запуск (анти-спам). Игнорируем.");
+             return;
         }
 
-        // Обновляем метки
-        lastAnimationTimestamp = now;
-        lastPayloadSignature = currentSignature;
+        // Добавляем ID в список обработанных и обновляем время
+        processedIds.add(rowId);
+        lastSpinTime = now;
+        
+        // Очищаем старые ID, чтобы память не текла (оставляем последние 50)
+        if (processedIds.size > 50) {
+            const arr = Array.from(processedIds);
+            processedIds = new Set(arr.slice(arr.length - 20));
+        }
 
+        console.log("✅ Валидация пройдена. Добавляем в очередь.");
         animationQueue.push(payload);
+        
         if (!isAnimating) processNextAnimation();
     }
 
@@ -294,17 +311,19 @@
         if (!animationQueue.length) return;
         const payload = animationQueue.shift();
         isAnimating = true;
+        
         runAnimation(payload).finally(() => {
             isAnimating = false;
-            setTimeout(processNextAnimation, 300);
+            // Небольшая пауза перед следующим возможным запуском
+            setTimeout(processNextAnimation, 1000); 
         });
     }
 
     function runAnimation(payload) {
         return new Promise((resolve) => {
+            console.log("🚀 Старт анимации...");
             const { prizes, winner_index, user_name, prize_name } = payload.new.payload;
 
-            // Показываем надпись купленной награды
             currentPrizeText.textContent = prize_name;
 
             reel.innerHTML = '';
@@ -334,13 +353,17 @@
             rouletteWrapper.classList.add('visible');
             playSound(soundStart);
 
+            // Задержка перед началом вращения
             setTimeout(() => {
                 reel.style.transition = `transform ${SCROLL_DURATION_SECONDS}s cubic-bezier(.25, 1, .5, 1)`;
                 reel.style.transform = `translateX(${stopPosition}px)`;
                 playSound(soundTick);
             }, 800);
 
-            reel.addEventListener('transitionend', function handler() {
+            // Обработчик окончания вращения
+            const transitionEndHandler = function() {
+                reel.removeEventListener('transitionend', transitionEndHandler); // Важно удалить слушатель!
+                
                 stopSound(soundTick);
                 playSound(soundWin);
 
@@ -357,24 +380,29 @@
 
                     setTimeout(() => {
                         winnerDisplay.classList.remove('visible');
-                        currentPrizeText.textContent = ''; // <== ДОБАВЬТЕ ЭТУ СТРОКУ
+                        currentPrizeText.textContent = '';
+                        console.log("🏁 Анимация завершена.");
                         resolve();
                     }, WINNER_DISPLAY_DURATION_MS);
 
                 }, 1000);
+            };
 
-                reel.removeEventListener('transitionend', handler);
-            });
+            reel.addEventListener('transitionend', transitionEndHandler);
         });
     }
 
     try {
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("📡 Подключение к Supabase...");
+        
         supabaseClient.channel('roulette-triggers-channel')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'roulette_triggers' },
                 payload => startRouletteAnimation(payload)
-            ).subscribe();
-    } catch (error) { console.error(error); }
+            ).subscribe((status) => {
+                console.log("Статус подписки Supabase:", status);
+            });
+    } catch (error) { console.error("Supabase Error:", error); }
 </script>
 </body>
 </html>
