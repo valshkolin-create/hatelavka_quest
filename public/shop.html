@@ -311,15 +311,17 @@
         }
 
         .item-title {
-            font-size: 12px;
+            font-size: 11px;           /* Уменьшили с 12px до 11px */
             font-weight: 600;
             color: #fff;
-            line-height: 1.25;
+            line-height: 1.2;          /* Чуть прижали строки */
             min-height: 34px; 
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            text-transform: capitalize; /* Делает "Первую Букву Большой" у всех товаров */
+            text-align: center;         /* Гарантирует центровку текста */
         }
         
         .item-subtitle {
