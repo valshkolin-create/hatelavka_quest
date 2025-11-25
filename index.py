@@ -490,8 +490,11 @@ class EventsPageContentUpdate(BaseModel):
 # Модели для запросов
 class ShopBuyRequest(BaseModel):
     initData: str
-    item_id: int # ID товара в Bot-t
-    price: int   # Цена в звездах
+    item_id: int
+    price: int
+    # 👇 Новые поля, чтобы сохранить красоту в админку
+    title: Optional[str] = "Товар магазина"
+    image_url: Optional[str] = None
 
 manager = ConnectionManager()
 
@@ -7730,7 +7733,7 @@ async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ПОКУПКА v7 (PUBLIC + SECRET KEY) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v8 (С ЗАПИСЬЮ В АДМИНКУ) ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -7759,59 +7762,65 @@ async def buy_bott_item_proxy(
         
     user_record = user_data_list[0]
     bott_internal_id = user_record.get("bott_internal_id")
-    bott_secret_key = user_record.get("bott_secret_key") # Достаем ключ
+    bott_secret_key = user_record.get("bott_secret_key")
     current_balance_kopecks = user_record.get("bot_t_coins", 0)
 
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Данные авторизации устарели. Перезайдите в Меню.")
 
-    # 2. Проверка баланса (Локально, для красоты)
+    # 2. Проверка баланса
     if current_balance_kopecks < (price * 100):
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-    # 3. Создаем заказ через ПУБЛИЧНОЕ API (как в доке)
-    # Ссылка из документации: https://api.bot-t.com/v1/shopdigital/order-public/create
+    # 3. Создаем заказ в Bot-t
     url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
-    
-    # Параметры согласно документации 
     payload = {
         "bot_id": int(BOTT_BOT_ID),
-        "category_id": item_id,  # ID товара
+        "category_id": item_id,
         "count": 1,
-        "user_id": int(bott_internal_id),    # Внутренний ID пользователя
-        "secret_user_key": bott_secret_key   # Секретный ключ пользователя
+        "user_id": int(bott_internal_id),
+        "secret_user_key": bott_secret_key
     }
-
-    logging.info(f"[SHOP] Отправка заказа: {payload}")
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(url, json=payload)
         
-        logging.info(f"[SHOP] Ответ API: {resp.text}")
-
         if resp.status_code != 200:
-            try:
-                err_msg = resp.json().get("message", resp.text)
-            except:
-                err_msg = resp.text
-            raise HTTPException(status_code=500, detail=f"Ошибка магазина: {err_msg}")
+            raise HTTPException(status_code=500, detail=f"Ошибка магазина: {resp.text}")
 
         resp_json = resp.json()
         
-        # Если result: false (например, мало денег или товара нет)
         if resp_json.get("result") is False:
             err_msg = resp_json.get("message", "Неизвестная ошибка")
-            # Если в сообщении есть "мало денег", можно вернуть 400
             raise HTTPException(status_code=400, detail=f"Магазин отклонил покупку: {err_msg}")
 
-        # 4. Обновляем локальный баланс
-        # Если всё прошло успешно, магазин сам списал деньги. Нам нужно только обновить цифру у себя.
+        # 4. Обновляем баланс локально
         new_balance = current_balance_kopecks - (price * 100)
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"bot_t_coins": new_balance} 
         )
+
+        # --- 👇👇👇 НОВЫЙ БЛОК: СОХРАНЯЕМ В АДМИНКУ 👇👇👇 ---
+        try:
+            # Формируем описание с картинкой: "Название|URL"
+            # Админка (Python код из прошлого шага) умеет это парсить
+            item_title = request_data.title or "Товар"
+            item_image = request_data.image_url or ""
+            source_desc = f"{item_title}|{item_image}"
+
+            await supabase.post("/manual_rewards", json={
+                "user_id": telegram_id,
+                "status": "pending",
+                "source_type": "shop",  # <-- ВАЖНО: Тип "shop"
+                "reward_details": item_title,
+                "source_description": source_desc
+            })
+            logging.info(f"[SHOP] Запись о покупке '{item_title}' сохранена для админа.")
+        except Exception as e_log:
+            logging.error(f"[SHOP] Не удалось сохранить лог покупки: {e_log}")
+        # --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА 👆👆👆 ---
 
     return {"message": "Покупка успешна! Товар выдан."}
 
