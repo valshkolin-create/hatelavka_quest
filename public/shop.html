@@ -15,7 +15,7 @@
             --card-bg: #1c1c1e;
             --text-color: #ffffff;
             --text-secondary: #8E8E93;
-            --surface-glass-bg: rgba(28, 28, 30, 0.85); /* Как в меню */
+            --surface-glass-bg: rgba(28, 28, 30, 0.85);
         }
 
         body {
@@ -27,9 +27,8 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* Важно: отступ снизу, чтобы контент не заезжал под футер */
             padding-bottom: calc(90px + env(safe-area-inset-bottom));
-            overflow-x: hidden; /* Запрещаем горизонтальный скролл */
+            overflow-x: hidden;
         }
 
         /* --- ШАПКА --- */
@@ -77,7 +76,7 @@
             box-shadow: 0 0 10px rgba(255, 204, 0, 0.1);
         }
 
-        /* --- ПРЕМИУМ ИНФО БЛОК --- */
+        /* --- ИНФО БАННЕР --- */
         .info-banner {
             margin: 16px;
             background: linear-gradient(145deg, #2c2c2e, #1c1c1e);
@@ -88,8 +87,8 @@
             gap: 15px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            box-sizing: border-box; /* Чтобы padding не ломал ширину */
-            width: calc(100% - 32px); /* Учитываем margin */
+            box-sizing: border-box;
+            width: calc(100% - 32px);
         }
 
         .info-icon {
@@ -106,11 +105,10 @@
         }
 
         .info-text h3 {
-            margin: 0;
+            margin: 0 0 4px 0;
             font-size: 15px;
             font-weight: 700;
             color: #fff;
-            margin-bottom: 4px;
         }
 
         .info-text p {
@@ -120,15 +118,15 @@
             line-height: 1.4;
         }
 
-        /* --- СЕТКА ТОВАРОВ (ИСПРАВЛЕНО) --- */
+        /* --- СЕТКА ТОВАРОВ --- */
         .shop-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* Две колонки */
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px;
-            padding: 0 16px; /* Отступы по бокам */
+            padding: 0 16px;
             margin-top: 10px;
-            width: 100%; /* Полная ширина */
-            box-sizing: border-box; /* ВАЖНО: Padding входит в ширину */
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .shop-item {
@@ -141,63 +139,70 @@
             transition: transform 0.1s;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             border-bottom: 2px solid rgba(255, 255, 255, 0.05);
-            /* Гарантируем, что карточка не вылезет */
             min-width: 0; 
         }
 
-        .shop-item:active {
-            transform: scale(0.98);
-        }
+        .shop-item:active { transform: scale(0.98); }
 
         .item-image-wrapper {
             width: 100%;
-            padding-top: 100%; /* Квадрат 1:1 */
+            padding-top: 100%; /* 1:1 */
             position: relative;
             background: #141416;
+            cursor: pointer; /* Показываем, что можно нажать */
         }
 
         .item-image {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             object-fit: cover;
             opacity: 0;
             transition: opacity 0.3s ease-in;
         }
-        .item-image.loaded {
-            opacity: 1;
-        }
+        .item-image.loaded { opacity: 1; }
 
+        /* --- ИНФО О ТОВАРЕ (ЦЕНТРОВКА) --- */
         .item-info {
             padding: 10px;
             display: flex;
             flex-direction: column;
             flex-grow: 1;
-            gap: 6px;
+            gap: 4px;
+            text-align: center; /* Центрируем весь текст */
         }
 
         .item-title {
-            font-size: 13px;
+            font-size: 12px; /* Уменьшили шрифт */
             font-weight: 600;
             color: #fff;
-            white-space: nowrap; /* Одна строка */
-            overflow: hidden;
-            text-overflow: ellipsis;
+            line-height: 1.25;
+            /* Фиксируем высоту под 2 строки, чтобы кнопки были ровно */
+            min-height: 30px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Стиль для части текста в скобках (Well-Worn) */
+        .item-subtitle {
+            font-size: 10px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            display: block; /* Перенос на новую строку */
         }
 
         .item-meta {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column; /* Ставим цену и остаток друг под другом */
             align-items: center;
-            font-size: 11px;
-            margin-bottom: 4px;
+            gap: 2px;
+            font-size: 10px; /* Уменьшили шрифт */
+            margin-bottom: 6px;
         }
 
-        .item-stock {
-            color: var(--text-secondary);
-        }
+        .item-stock { color: var(--text-secondary); }
         .item-stock.out { color: #ff453a; }
 
         .item-price {
@@ -206,14 +211,15 @@
             font-size: 13px;
         }
 
+        /* --- КНОПКИ (ЕДИНЫЙ РАЗМЕР) --- */
         .action-btn {
-            margin-top: auto;
+            margin-top: auto; /* Прижимаем к низу */
             width: 100%;
-            height: 32px;
+            height: 34px; /* Фиксированная высота */
             border: none;
             border-radius: 8px;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -238,13 +244,58 @@
             cursor: not-allowed;
         }
 
+        /* --- МОДАЛКА ДЛЯ КАРТИНКИ (LIGHTBOX) --- */
+        .image-modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000; /* Поверх всего */
+            display: none; /* Скрыто по умолчанию */
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        .image-modal-overlay.open {
+            display: flex;
+            opacity: 1;
+        }
+        .modal-image-container {
+            position: relative;
+            width: 90%;
+            max-width: 500px;
+        }
+        .modal-full-image {
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: #fff;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* --- ЛОАДЕРЫ --- */
         .skeleton {
             background: linear-gradient(90deg, #1c1c1e 25%, #2c2c2e 50%, #1c1c1e 75%);
             background-size: 200% 100%;
             animation: loading 1.5s infinite;
             border-radius: 12px;
-            height: 200px;
+            height: 220px;
         }
         @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
@@ -256,7 +307,7 @@
             font-size: 14px;
         }
 
-        /* --- ФУТЕР (1 в 1 как в menu.css) --- */
+        /* --- ФУТЕР (КАК В MENU.CSS) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
@@ -264,7 +315,7 @@
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
-            border-top: 1px solid rgba(58, 58, 60, 0.6); /* Используем конкретный цвет или переменную */
+            border-top: 1px solid rgba(58, 58, 60, 0.6);
             width: 100%;
             padding-top: 6px;
             padding-bottom: calc(6px + env(safe-area-inset-bottom));
@@ -281,7 +332,7 @@
             align-items: center;
             justify-content: center;
             gap: 4px;
-            color: #8E8E93; /* --text-color-muted из menu.css, но хардкодим для надежности */
+            color: #8E8E93;
             text-decoration: none;
             flex: 1;
             cursor: pointer;
@@ -299,12 +350,6 @@
             font-size: 22px;
             transition: transform 0.2s ease, color 0.2s ease;
         }
-
-        /* Стили для активного элемента, если нужно (пока серые, так как мы не на главной) */
-        .footer-item:active {
-            color: #ffffff;
-        }
-
     </style>
 </head>
 <body>
@@ -328,8 +373,14 @@
         </div>
     </div>
 
-    <div id="shop-grid" class="shop-grid">
+    <div id="shop-grid" class="shop-grid"></div>
+
+    <div id="image-modal" class="image-modal-overlay" onclick="closeImageModal(event)">
+        <div class="modal-image-container">
+            <button class="modal-close-btn" onclick="closeImageModalForce()"><i class="fa-solid fa-xmark"></i></button>
+            <img id="full-image" src="" alt="Full View" class="modal-full-image">
         </div>
+    </div>
 
     <footer class="app-footer">
         <a href="/leaderboard" class="footer-item">
@@ -355,7 +406,6 @@
     </footer>
 
     <script>
-        // Инициализация Telegram WebApp
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.BackButton.show();
@@ -363,7 +413,7 @@
         let categoryStack = []; 
         let currentCategoryId = 0;
         let itemsCache = {}; 
-        let hasTradeLink = false; // Флаг наличия трейд-ссылки
+        let hasTradeLink = false;
 
         Telegram.WebApp.BackButton.onClick(() => {
             goBack();
@@ -372,44 +422,26 @@
         async function initShop() {
             updateNavState();
 
-            // 1. Загрузка данных пользователя (Баланс + Проверка трейд-ссылки)
-            // Мы используем /user/me, так как он обычно возвращает trade_link
-            // Параллельно запускаем синхронизацию с Bot-t для баланса
-            
             Promise.all([
-                // Запрос профиля для трейд-ссылки
                 fetch('/api/v1/user/me', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 }).then(r => r.json()),
 
-                // Запрос баланса Bot-t
                 fetch('/api/v1/user/sync_bott_balance', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 }).then(r => r.json())
             ]).then(([userData, balanceData]) => {
-                
-                // Обработка трейд-ссылки
                 if (userData && userData.trade_link) {
                     hasTradeLink = true;
-                    console.log("Trade link found:", userData.trade_link);
-                } else {
-                    hasTradeLink = false;
-                    console.log("No trade link found");
                 }
-
-                // Обработка баланса
                 let balance = (balanceData.bot_t_coins || 0) / 100;
                 document.getElementById('user-balance').textContent = balance.toFixed(0);
+            }).catch(console.error);
 
-            }).catch(err => {
-                console.error("Ошибка инициализации данных пользователя:", err);
-            });
-
-            // 2. Грузим главную категорию товаров
             loadCategory(0);
         }
 
@@ -451,6 +483,25 @@
             container.innerHTML = html;
         }
 
+        // --- ФУНКЦИЯ ФОРМАТИРОВАНИЯ НАЗВАНИЯ ---
+        function formatItemName(name) {
+            // Ищем первую открывающую скобку
+            const splitIndex = name.indexOf('(');
+            
+            if (splitIndex !== -1) {
+                const mainPart = name.substring(0, splitIndex).trim();
+                const subPart = name.substring(splitIndex).trim();
+                
+                // Экранируем HTML для безопасности
+                const safeMain = escapeHtml(mainPart);
+                const safeSub = escapeHtml(subPart);
+                
+                return `${safeMain}<span class="item-subtitle">${safeSub}</span>`;
+            }
+            
+            return escapeHtml(name);
+        }
+
         function renderItems(items) {
             const container = document.getElementById('shop-grid');
             container.innerHTML = '';
@@ -467,12 +518,17 @@
                 let buttonHtml = '';
                 let stockText = '';
                 let priceText = '';
+                let clickAction = '';
 
                 if (item.is_folder) {
-                    priceText = ''; 
+                    // ПАПКА
                     stockText = '';
-                    buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
+                    // Кнопка "Открыть"
+                    buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть</button>`;
+                    // Клик по картинке тоже открывает папку
+                    clickAction = `openFolder(${item.id})`;
                 } else {
+                    // ТОВАР
                     priceText = `<div class="item-price">${item.price} ⭐️</div>`;
                     
                     let isOutOfStock = false;
@@ -491,14 +547,20 @@
                         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Купить</button>`;
                     }
+                    
+                    // Клик по картинке товара открывает модалку
+                    clickAction = `openImageModal('${item.image_url}')`;
                 }
 
+                // Форматируем название с переносом
+                const displayNameHtml = formatItemName(item.name);
+
                 el.innerHTML = `
-                    <div class="item-image-wrapper" onclick="${item.is_folder ? `openFolder(${item.id})` : ''}">
-                        <img src="${item.image_url}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" alt="${item.name}">
+                    <div class="item-image-wrapper" onclick="${clickAction}">
+                        <img src="${item.image_url}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" alt="${escapeHtml(item.name)}">
                     </div>
                     <div class="item-info">
-                        <div class="item-title">${item.name}</div>
+                        <div class="item-title">${displayNameHtml}</div>
                         <div class="item-meta">
                             ${stockText}
                             ${priceText}
@@ -508,6 +570,29 @@
                 `;
                 container.appendChild(el);
             });
+        }
+
+        // --- ЛОГИКА МОДАЛКИ (LIGHTBOX) ---
+        function openImageModal(imageUrl) {
+            const modal = document.getElementById('image-modal');
+            const img = document.getElementById('full-image');
+            img.src = imageUrl;
+            modal.classList.add('open');
+            // Блокируем скролл страницы
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeImageModal(event) {
+            // Закрываем, если клик по затемненному фону (не по картинке)
+            if (event.target.id === 'image-modal') {
+                closeImageModalForce();
+            }
+        }
+
+        function closeImageModalForce() {
+            const modal = document.getElementById('image-modal');
+            modal.classList.remove('open');
+            document.body.style.overflow = '';
         }
 
         window.openFolder = function(id) {
@@ -536,7 +621,6 @@
         }
 
         window.buyItem = function(id, price, name, imageUrl) {
-            // 🔥 ПРОВЕРКА ТРЕЙД-ССЫЛКИ 🔥
             if (!hasTradeLink) {
                 Telegram.WebApp.showPopup({
                     title: 'Нет трейд-ссылки',
@@ -580,7 +664,15 @@
             });
         }
 
-        // Запуск
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text.replace(/&/g, "&amp;")
+                       .replace(/</g, "&lt;")
+                       .replace(/>/g, "&gt;")
+                       .replace(/"/g, "&quot;")
+                       .replace(/'/g, "&#039;");
+        }
+
         initShop();
     </script>
 </body>
