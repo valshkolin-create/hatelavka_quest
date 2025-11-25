@@ -529,9 +529,6 @@
     <div class="partners-wrapper">
         <div class="partners-scroll" id="partners-scroll">
             <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
-                <div class="partner-icon">
-                    <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" alt="Topskin" class="partner-logo-img">
-                </div>
                 <div class="partner-info">
                     <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
                     <div class="partner-desc">
@@ -543,9 +540,6 @@
             </a>
             
             <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
-                <div class="partner-icon">
-                    <img src="https://i.postimg.cc/gJXWJccF/0x0.png" alt="Xplay" class="partner-logo-img">
-                </div>
                 <div class="partner-info">
                     <div class="partner-title">Xplay.gg <span class="hot-badge">Free</span></div>
                     <div class="partner-desc">Забирай <span class="partner-highlight">10 монет</span><br>бесплатно за вход.</div>
@@ -605,116 +599,75 @@
             const container = document.getElementById('partners-scroll');
             if (!container) return;
 
-            // ЗАЩИТА: Если уже инициализировано, не запускаем снова
-            if (container.getAttribute('data-scroll-init') === 'true') return;
+            // Очищаем содержимое перед инициализацией (на случай перезапуска)
+            // Но сохраняем оригинальные элементы для клонирования
+            // Лучший способ: проверяем, клонировали ли мы уже
+            if (container.getAttribute('data-init') === 'true') return;
+            container.setAttribute('data-init', 'true');
 
-            // Внутренняя функция запуска логики после загрузки картинок
-            const startMarquee = () => {
-                container.setAttribute('data-scroll-init', 'true');
+            const originalItems = Array.from(container.children);
+            if (originalItems.length === 0) return;
 
-                const originalItems = Array.from(container.children);
-                const screenWidth = window.innerWidth;
-
-                if (originalItems.length === 0) return;
-
-                // 1. Клонирование (теперь размеры будут точными)
-                let loops = 0;
-                while (container.scrollWidth < screenWidth * 3 && loops < 20) {
-                    originalItems.forEach(item => {
-                        container.appendChild(item.cloneNode(true));
-                    });
-                    loops++;
-                }
-
-                // 2. Расчет точки сброса
-                // Берем полную ширину одного оригинального блока + gap (10px)
-                const singleItemWidth = originalItems[0].offsetWidth + 10;
-                const resetPoint = singleItemWidth * originalItems.length;
-
-                let scrollPos = 0;
-                const speed = 0.5; 
-                let isDragging = false;
-                let startX, startScrollLeft;
-                let animationFrameId;
-
-                function animate() {
-                    if (!isDragging) {
-                        scrollPos += speed;
-                        if (scrollPos >= resetPoint) {
-                            // Бесшовный сброс
-                            scrollPos -= resetPoint;
-                        }
-                        container.scrollLeft = scrollPos;
-                    }
-                    animationFrameId = requestAnimationFrame(animate);
-                }
-                
-                animate();
-
-                // --- Touch & Mouse Logic ---
-                const startDrag = (e) => {
-                    isDragging = true;
-                    // Отменяем анимацию во время драга, чтобы не было конфликтов
-                    cancelAnimationFrame(animationFrameId);
-                    
-                    startX = e.pageX || e.touches[0].pageX;
-                    startScrollLeft = container.scrollLeft;
-                };
-
-                const doDrag = (e) => {
-                    if (!isDragging) return;
-                    e.preventDefault(); // Важно для предотвращения скролла страницы
-                    const x = e.pageX || e.touches[0].pageX;
-                    const walk = (x - startX) * 1.5;
-                    container.scrollLeft = startScrollLeft - walk;
-                    scrollPos = container.scrollLeft;
-                };
-
-                const stopDrag = () => {
-                    isDragging = false;
-                    // Перезапускаем анимацию
-                    animate();
-                };
-
-                container.addEventListener('touchstart', startDrag, {passive: false}); // passive: false для preventDefault
-                container.addEventListener('touchmove', doDrag, {passive: false});
-                container.addEventListener('touchend', stopDrag);
-                
-                container.addEventListener('mousedown', startDrag);
-                container.addEventListener('mousemove', doDrag);
-                container.addEventListener('mouseup', stopDrag);
-                container.addEventListener('mouseleave', stopDrag);
-            };
-
-            // --- ЛОГИКА ОЖИДАНИЯ КАРТИНОК ---
-            const images = Array.from(container.querySelectorAll('img'));
-            
-            if (images.length === 0) {
-                startMarquee();
-                return;
+            // Клонируем элементы, пока лента не станет достаточно длинной
+            // (минимум 3 ширины экрана для плавного бесконечного скролла)
+            const screenWidth = window.innerWidth;
+            let loops = 0;
+            while (container.scrollWidth < screenWidth * 3 && loops < 20) {
+                originalItems.forEach(item => {
+                    container.appendChild(item.cloneNode(true));
+                });
+                loops++;
             }
 
-            // Проверяем, загружены ли уже картинки
-            let imagesToLoad = images.length;
-            
-            const imageLoaded = () => {
-                imagesToLoad--;
-                if (imagesToLoad <= 0) {
-                    // Небольшая задержка, чтобы рендеринг точно прошел
-                    setTimeout(startMarquee, 50); 
-                }
-            };
+            // Рассчитываем ширину одного набора элементов для сброса
+            // (Ширина первого элемента + отступ) * количество оригинальных элементов
+            const itemWidth = originalItems[0].offsetWidth + 10; // 10px - это gap
+            const resetPoint = itemWidth * originalItems.length;
 
-            images.forEach(img => {
-                if (img.complete) {
-                    imageLoaded();
-                } else {
-                    img.onload = imageLoaded;
-                    img.onerror = imageLoaded; // Запускаем даже если картинка битая
+            let scrollPos = 0;
+            const speed = 0.5; // Скорость прокрутки
+
+            function animate() {
+                scrollPos += speed;
+                
+                // Если прокрутили длину одного набора, сбрасываем в начало
+                // Это создает иллюзию бесконечности
+                if (scrollPos >= resetPoint) {
+                    scrollPos -= resetPoint;
                 }
+                
+                container.scrollLeft = scrollPos;
+                requestAnimationFrame(animate);
+            }
+
+            // Запускаем анимацию
+            animate();
+            
+            // --- Обработка касаний (чтобы можно было листать пальцем) ---
+            let isDragging = false;
+            let startX;
+            let startScrollLeft;
+
+            container.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                startX = e.touches[0].pageX;
+                startScrollLeft = scrollPos; // Используем scrollPos, а не scrollLeft
+            }, {passive: true});
+
+            container.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const x = e.touches[0].pageX;
+                const walk = (startX - x); // Сколько протащили
+                scrollPos = startScrollLeft + walk;
+                // Не даем уйти в минус
+                if (scrollPos < 0) scrollPos = 0;
+                container.scrollLeft = scrollPos;
+            }, {passive: true});
+
+            container.addEventListener('touchend', () => {
+                isDragging = false;
             });
         }
-
         async function initShop() {
             updateNavState();
             
