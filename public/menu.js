@@ -1848,6 +1848,7 @@ async function openQuestsTab(isSilent = false) {
             dom.mainContent.classList.add('visible');
             dom.loaderOverlay.classList.add('hidden');
         }
+    } // <--- ДОБАВЬТЕ ЭТУ СКОБКУ (она закрывает async function main)
 
     setupEventListeners();
     main();
