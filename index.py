@@ -1897,7 +1897,7 @@ async def get_shop_purchases_details_for_admin(
             "/manual_rewards",
             params={
                 "status": "eq.pending",
-                "source_type": "eq.shop", # Фильтруем именно магазин
+                "source_type": "eq.shop", 
                 "select": "id,user_id,reward_details,source_description,created_at"
             }
         )
@@ -1923,21 +1923,27 @@ async def get_shop_purchases_details_for_admin(
         for reward in shop_rewards:
             user_details = users_data.get(reward["user_id"], {})
             
-            # Пытаемся найти URL картинки в описании (если вы его туда кладете)
-            # Или используем заглушку, если картинки нет в базе
-            image_url = "https://placehold.co/100?text=Item"
-            # Если вы будете сохранять URL картинки в source_description (например: "Item Name|http://image.url"),
-            # то можно распарсить это здесь.
+            # --- 👇 ИСПРАВЛЕНИЕ: Извлекаем картинку из source_description 👇 ---
+            raw_desc = reward.get("source_description", "")
+            image_url = "https://placehold.co/100?text=Item" # Дефолт
+            
+            # Формат в базе: "Название Товара|https://картинка..."
+            if raw_desc and "|" in raw_desc:
+                parts = raw_desc.split("|")
+                # Проверяем, что вторая часть похожа на ссылку
+                if len(parts) > 1 and parts[1].strip().startswith("http"):
+                    image_url = parts[1].strip()
+            # --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
             
             final_rewards.append({
                 "id": reward.get("id"),
-                "title": reward.get("reward_details"), # Название товара
-                "description": reward.get("source_description"),
+                "title": reward.get("reward_details"), 
+                "description": raw_desc,
                 "user_full_name": user_details.get("full_name", "N/A"),
                 "user_username": user_details.get("username"),
                 "user_trade_link": user_details.get("trade_link"),
                 "created_at": reward.get("created_at"),
-                "image_url": image_url # Можно доработать логику картинок
+                "image_url": image_url 
             })
 
         final_rewards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
