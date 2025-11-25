@@ -1621,18 +1621,21 @@ async function openQuestsTab(isSilent = false) {
         // Мы используем 'true' (silent mode) для makeApiRequest, чтобы они не дергали спиннер туда-сюда.
         // Спиннер мы контролируем вручную в блоке finally.
         
-        const [menuContent, weeklyGoalsData, dashboardData] = await Promise.all([
-            // Запрос меню (fetch вручную)
-            fetch("/api/v1/content/menu", {
-                headers: { 'Content-Type': 'application/json', 'X-Init-Data': Telegram.WebApp.initData }
-            }).then(res => res.json()),
+        const [menuContent, weeklyGoalsData, dashboardData, questsDataResp] = await Promise.all([
+        // 1. Меню
+        fetch("/api/v1/content/menu", {
+            headers: { 'Content-Type': 'application/json', 'X-Init-Data': Telegram.WebApp.initData }
+        }).then(res => res.json()),
 
-            // Запрос целей (тихий режим)
-            makeApiRequest("/api/v1/user/weekly_goals", {}, 'POST', true).catch(e => null),
+        // 2. Недельные цели
+        makeApiRequest("/api/v1/user/weekly_goals", {}, 'POST', true).catch(e => null),
 
-            // Запрос профиля (тихий режим)
-            makeApiRequest("/api/v1/user/me", {}, 'POST', true)
-        ]);
+        // 3. Профиль пользователя
+        makeApiRequest("/api/v1/user/me", {}, 'POST', true),
+
+        // 4. СПИСОК КВЕСТОВ (Перенесли сюда!)
+        makeApiRequest("/api/v1/quests/list", {}, 'POST', true).catch(e => []) 
+    ]);
 
         // --- Обработка данных пользователя ---
         userData = dashboardData || {};
@@ -1751,7 +1754,6 @@ async function openQuestsTab(isSilent = false) {
 
 
         // --- Квесты и Челленджи ---
-        const questsDataResp = await makeApiRequest("/api/v1/quests/list", {}, 'POST', true); // Silent
         allQuests = questsDataResp || [];
         
         // Фильтр для рулетки
