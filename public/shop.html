@@ -27,8 +27,9 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* Увеличили отступ снизу, чтобы контент не перекрывался высоким футером */
-            padding-bottom: calc(90px + env(safe-area-inset-bottom));
+            /* УВЕЛИЧЕННЫЙ ОТСТУП СНИЗУ (для футера на iPhone) */
+            padding-bottom: 110px !important; 
+            padding-bottom: calc(90px + env(safe-area-inset-bottom)) !important;
             overflow-x: hidden; 
         }
 
@@ -126,25 +127,23 @@
             margin-top: 5px;
             padding-bottom: 15px;
             position: relative;
-            /* Маска для красивого ухода в прозрачность по краям */
-            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            /* Маска прозрачности по краям */
+            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
         }
 
         .partners-scroll {
             display: flex;
             gap: 10px;
             padding: 0 16px;
-            width: max-content; /* Растягиваем по содержимому */
-            overflow-x: auto; /* Разрешаем нативный скролл */
+            width: max-content;
+            overflow-x: scroll; /* Важно: разрешаем скролл */
             cursor: grab;
             /* Скрываем скроллбар */
             scrollbar-width: none; 
             -ms-overflow-style: none;
         }
-        .partners-scroll::-webkit-scrollbar { 
-            display: none; 
-        }
+        .partners-scroll::-webkit-scrollbar { display: none; }
         
         .partners-scroll:active {
             cursor: grabbing;
@@ -164,8 +163,10 @@
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            -webkit-user-drag: none; /* Запрет перетаскивания самого элемента как картинки */
+            /* Запрет системного драга картинок */
+            -webkit-user-drag: none;
             user-select: none;
+            -webkit-user-select: none;
         }
 
         .partner-card.topskin {
@@ -415,7 +416,7 @@
             font-size: 14px;
         }
 
-        /* --- ФУТЕР (СТРОГО КАК В LEADERBOARD + FIX для iPhone) --- */
+        /* --- ФУТЕР (ФИКСИРОВАННЫЙ, КАК В LEADERBOARD) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
@@ -432,10 +433,10 @@
             width: 100%;
             z-index: 9999;
             
-            /* ФИКС ДЛЯ АЙФОНА: */
+            /* ФИКС ДЛЯ АЙФОНА: используем safe-area + фиксированный padding */
             padding-top: 8px;
-            /* safe-area-inset-bottom обязателен, иначе шторка закроет кнопки */
-            padding-bottom: calc(12px + env(safe-area-inset-bottom)); 
+            padding-bottom: 20px; /* Fallback */
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
             
             box-sizing: border-box;
             height: auto;
@@ -479,9 +480,7 @@
 
         .footer-item:active { color: #ffffff; }
 
-        .footer-item.active {
-            color: #FFFFFF;
-        }
+        .footer-item.active { color: #FFFFFF; }
         .footer-item.active .icon-wrapper {
             color: #34c759;
             transform: translateY(-2px);
@@ -594,78 +593,83 @@
             goBack();
         });
 
-        // --- НОВАЯ ЛОГИКА СКРОЛЛЕРА ПАРТНЕРОВ ---
+        // --- ИСПРАВЛЕННЫЙ СКРИПТ СКРОЛЛА ---
         function initPartnersScroll() {
             const container = document.getElementById('partners-scroll');
             if (!container) return;
 
-            // 1. Принудительное клонирование для создания длинной ленты
-            const items = Array.from(container.children);
-            // Клонируем 3 раза, чтобы точно хватило на любой экран
-            for (let i = 0; i < 3; i++) {
-                items.forEach(item => {
+            // 1. Агрессивное клонирование.
+            // Мы клонируем элементы до тех пор, пока ширина контента не станет
+            // как минимум в 3 раза больше ширины экрана.
+            // Это ГАРАНТИРУЕТ, что скролл возможен.
+            const originalItems = Array.from(container.children);
+            const screenWidth = window.innerWidth;
+            
+            // Если элементов нет, выходим
+            if (originalItems.length === 0) return;
+
+            let loops = 0;
+            // Пока ширина контента меньше 3 экранов (и не более 20 итераций для безопасности)
+            while (container.scrollWidth < screenWidth * 3 && loops < 20) {
+                originalItems.forEach(item => {
                     container.appendChild(item.cloneNode(true));
                 });
+                loops++;
             }
 
-            // Вычисляем ширину ОДНОГО оригинального сета (примерно)
-            // Это нужно для бесшовного "прыжка" назад
-            const itemWidth = 260 + 10; // ширина карточки + gap
-            const singleSetWidth = itemWidth * items.length;
+            // Вычисляем "точку сброса".
+            // Сбрасываем, когда прокрутили длину одного оригинального сета.
+            // Для точности берем ширину первого элемента + gap (10px).
+            const singleItemWidth = originalItems[0].offsetWidth + 10;
+            const resetPoint = singleItemWidth * originalItems.length;
 
             let scrollPos = 0;
-            const speed = 0.6; // Скорость движения
+            const speed = 0.5; // Медленная скорость
             let isDragging = false;
             let startX, startScrollLeft;
-            let animationFrameId;
 
-            function step() {
+            function animate() {
                 if (!isDragging) {
                     scrollPos += speed;
                     
-                    // Бесшовный сброс в начало при достижении клонированных элементов
-                    if (scrollPos >= singleSetWidth) {
-                        scrollPos -= singleSetWidth;
+                    // Логика сброса (бесконечный цикл)
+                    if (scrollPos >= resetPoint) {
+                        scrollPos = 0;
                     }
+                    
                     container.scrollLeft = scrollPos;
                 }
-                animationFrameId = requestAnimationFrame(step);
+                requestAnimationFrame(animate);
             }
+            
+            // Запуск анимации
+            animate();
 
-            // Запускаем анимацию
-            step();
-
-            // --- ОБРАБОТЧИКИ SWIPE (DRAG) ---
+            // --- Touch & Mouse Logic ---
+            
             const startDrag = (e) => {
                 isDragging = true;
                 startX = e.pageX || e.touches[0].pageX;
                 startScrollLeft = container.scrollLeft;
-                // Останавливаем CSS инерцию браузера
-                container.style.scrollBehavior = 'auto';
             };
 
             const doDrag = (e) => {
                 if (!isDragging) return;
-                // Важно: на мобилках это предотвращает вертикальный скролл страницы при горизонтальном свайпе
-                // Но если вы хотите разрешить вертикальный, уберите preventDefault
-                // e.preventDefault(); 
-                
                 const x = e.pageX || e.touches[0].pageX;
                 const walk = (x - startX) * 1.5; // Чуть быстрее пальца
                 container.scrollLeft = startScrollLeft - walk;
-                scrollPos = container.scrollLeft; // Синхронизируем
+                // Обновляем позицию для анимации, чтобы при отпускании не дергалось
+                scrollPos = container.scrollLeft; 
             };
 
             const stopDrag = () => {
                 isDragging = false;
             };
 
-            // Touch Events
             container.addEventListener('touchstart', startDrag, {passive: true});
             container.addEventListener('touchmove', doDrag, {passive: true});
             container.addEventListener('touchend', stopDrag);
             
-            // Mouse Events (для тестов на ПК)
             container.addEventListener('mousedown', startDrag);
             container.addEventListener('mousemove', doDrag);
             container.addEventListener('mouseup', stopDrag);
@@ -675,8 +679,15 @@
         async function initShop() {
             updateNavState();
             
-            // Запускаем скроллер партнеров после рендера DOM
-            setTimeout(initPartnersScroll, 100);
+            // ВАЖНО: Ждем полной загрузки страницы (включая картинки),
+            // прежде чем запускать расчеты скролла.
+            if (document.readyState === 'complete') {
+                initPartnersScroll();
+            } else {
+                window.addEventListener('load', initPartnersScroll);
+                // Fallback на случай, если load уже прошел
+                setTimeout(initPartnersScroll, 1000); 
+            }
 
             Promise.all([
                 fetch('/api/v1/user/me', {
