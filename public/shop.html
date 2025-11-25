@@ -381,7 +381,7 @@
                     if (isOutOfStock) {
                         actionHtml = `<button class="buy-btn" disabled style="opacity: 0.5; cursor: not-allowed;">Раскуплено</button>`;
                     } else {
-                        actionHtml = `<button class="buy-btn" onclick="buyItem(${item.id}, ${item.price}, '${escapeHtml(item.name)}')">Купить</button>`;
+                        actionHtml = `<button class="buy-btn" onclick="buyItem(${item.id}, ${item.price}, '${escapeHtml(item.name)}', '${item.image_url}')">Купить</button>`;
                     }
                 }
 
@@ -419,7 +419,7 @@
             document.getElementById('nav-title').textContent = text;
         }
 
-        window.buyItem = function(id, price, name) {
+        window.buyItem = function(id, price, name, imageUrl) { // <-- Добавили imageUrl в аргументы
             Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звезд?`, (ok) => {
                 if(ok) {
                     fetch('/api/v1/shop/buy', {
@@ -428,7 +428,9 @@
                         body: JSON.stringify({ 
                             initData: Telegram.WebApp.initData,
                             item_id: id,
-                            price: price
+                            price: price,
+                            title: name,       // <-- Отправляем название
+                            image_url: imageUrl // <-- Отправляем картинку
                         })
                     })
                     .then(res => {
@@ -437,7 +439,7 @@
                     })
                     .then(data => {
                         Telegram.WebApp.showAlert(data.message || "Успешно!");
-                        initShop(); // Обновляем баланс после покупки
+                        initShop(); // Обновляем баланс
                     })
                     .catch(err => {
                         Telegram.WebApp.showAlert(err.detail || "Ошибка при покупке");
