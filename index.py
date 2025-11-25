@@ -844,61 +844,93 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
-async def bootstrap_app(request_data: InitDataRequest):
+async def bootstrap_app(
+    request_data: InitDataRequest, 
+):
+    """
+    Загружает все необходимые данные для старта приложения одним запросом.
+    Исправлена совместимость с синхронным клиентом Supabase.
+    """
+    # logging.info("--- [bootstrap] Старт запроса ---")
+    
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info:
-        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     telegram_id = user_info["id"]
 
-    # Запускаем все запросы к БД параллельно
-    # Примечание: Используем существующие функции или прямые запросы
-    # Здесь пример логики, объединяющей ваши существующие вызовы
-    
     try:
-        # 1. Настройки меню (admin settings)
-        settings_task = get_admin_settings_async_global()
-        
-        # 2. Данные пользователя (dashboard)
-        # Вызываем RPC напрямую, чтобы не дублировать логику роута
-        user_task = supabase.rpc("get_user_dashboard_data", {"p_telegram_id": telegram_id}).execute()
-        
-        # 3. Квесты
-        quests_task = supabase.rpc("get_available_quests_for_user", {"p_telegram_id": telegram_id}).execute()
-        
-        # 4. Недельные цели
-        goals_task = supabase.rpc("get_user_weekly_goals_status", {"p_user_id": telegram_id}).execute()
+        # logging.info(f"[bootstrap] Пользователь: {telegram_id}")
 
-        # Ожидаем все результаты параллельно
-        settings_res, user_res, quests_res, goals_res = await asyncio.gather(
-            settings_task, 
-            user_task, # Это корутина (из-за execute в async клиенте? Проверьте вашу версию supabase-py)
-            # Если supabase клиент асинхронный, .execute() возвращает корутину.
-            # Если вы используете .execute() без await в коде выше, значит клиент синхронный, 
-            # но вы обернули его в run_in_threadpool или используете postgrest-py async.
-            # НИЖЕ ПРИВЕДЕН БЕЗОПАСНЫЙ ВАРИАНТ для вашего текущего кода с httpx/supabase:
-            quests_task,
-            goals_task,
-            return_exceptions=True # Чтобы одна ошибка не ломала всё
+        # Вспомогательная функция для запуска синхронных запросов в потоках (для скорости)
+        def run_sync_rpc(method, params=None):
+            if params:
+                return supabase.rpc(method, params).execute()
+            return supabase.rpc(method).execute()
+
+        # 1. Настройки (async функция)
+        task_settings = get_admin_settings_async_global()
+
+        # 2. Запускаем запросы к БД параллельно в потоках
+        # Это ускоряет загрузку, даже если клиент Supabase синхронный
+        task_user = asyncio.to_thread(run_sync_rpc, "get_user_dashboard_data", {"p_telegram_id": telegram_id})
+        task_quests = asyncio.to_thread(run_sync_rpc, "get_available_quests_for_user", {"p_telegram_id": telegram_id})
+        task_goals = asyncio.to_thread(run_sync_rpc, "get_user_weekly_goals_status", {"p_user_id": telegram_id})
+
+        # 3. Ожидаем все результаты
+        # logging.info("[bootstrap] Ожидание выполнения задач...")
+        results = await asyncio.gather(
+            task_settings,
+            task_user,
+            task_quests,
+            task_goals,
+            return_exceptions=True
         )
 
-        # Обработка результатов (упрощено для примера)
+        settings_res, user_res, quests_res, goals_res = results
+
+        # 4. Обработка результатов
         
-        # User Data
-        user_data = user_res.data.get('profile', {}) if hasattr(user_res, 'data') and user_res.data else {}
-        if hasattr(user_res, 'data') and user_res.data:
-             user_data['challenge'] = user_res.data.get('challenge')
-             user_data['is_admin'] = telegram_id in ADMIN_IDS
-        
-        # Menu Content (формируем из настроек)
-        menu_content = settings_res.dict() # Pydantic to dict
-        
-        # Quests
-        quests_list = fill_missing_quest_data(quests_res.data) if hasattr(quests_res, 'data') else []
-        
-        # Goals
-        goals_data = goals_res.data if hasattr(goals_res, 'data') else {}
-        goals_data["system_enabled"] = settings_res.weekly_goals_enabled
+        # --- SETTINGS ---
+        if isinstance(settings_res, Exception):
+            logging.error(f"[bootstrap] Ошибка Settings: {settings_res}")
+            menu_content = {}
+        else:
+            menu_content = settings_res.dict() if hasattr(settings_res, 'dict') else settings_res
+
+        # --- USER ---
+        user_data = {}
+        if isinstance(user_res, Exception):
+            logging.error(f"[bootstrap] Ошибка User RPC: {user_res}")
+        elif user_res and hasattr(user_res, 'data') and user_res.data:
+            data = user_res.data
+            user_data = data.get('profile', {})
+            user_data['challenge'] = data.get('challenge')
+            user_data['is_admin'] = telegram_id in ADMIN_IDS
+            
+            user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
+            user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
+
+        # --- QUESTS ---
+        quests_list = []
+        if isinstance(quests_res, Exception):
+            logging.error(f"[bootstrap] Ошибка Quests RPC: {quests_res}")
+        elif quests_res and hasattr(quests_res, 'data') and quests_res.data:
+            raw_quests = quests_res.data
+            try:
+                quests_list = fill_missing_quest_data(raw_quests)
+            except NameError:
+                quests_list = raw_quests 
+
+        # --- GOALS ---
+        goals_data = {"system_enabled": False, "goals": []}
+        if isinstance(goals_res, Exception):
+            logging.error(f"[bootstrap] Ошибка Goals RPC: {goals_res}")
+        elif goals_res and hasattr(goals_res, 'data'):
+            goals_data = goals_res.data or {}
+            goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
+
+        # logging.info("[bootstrap] Успешно собраны данные.")
 
         return {
             "user": user_data,
@@ -908,8 +940,8 @@ async def bootstrap_app(request_data: InitDataRequest):
         }
 
     except Exception as e:
-        logging.error(f"Bootstrap error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Bootstrap failed")
+        logging.error(f"🔥 КРИТИЧЕСКАЯ ОШИБКА BOOTSTRAP: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Bootstrap Error: {str(e)}")
 
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 @app.post("/api/v1/admin/actions/list_entities")
