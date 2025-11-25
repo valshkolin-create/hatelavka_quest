@@ -27,7 +27,6 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* УВЕЛИЧЕННЫЙ ОТСТУП СНИЗУ (для футера на iPhone) */
             padding-bottom: 110px !important; 
             padding-bottom: calc(90px + env(safe-area-inset-bottom)) !important;
             overflow-x: hidden; 
@@ -136,22 +135,16 @@
             gap: 10px;
             padding: 0 16px;
             width: max-content;
-            overflow-x: scroll;
-            cursor: grab;
-            scrollbar-width: none; 
-            -ms-overflow-style: none;
-            /* Важно для стабильности размеров */
+            overflow-x: hidden; /* Скрываем скроллбар */
+            /* Важно для стабильности */
             flex-wrap: nowrap;
         }
-        .partners-scroll::-webkit-scrollbar { display: none; }
         
-        .partners-scroll:active {
-            cursor: grabbing;
-        }
-
+        /* Исправление размеров для карточек */
         .partner-card {
-            flex: 0 0 auto; /* Запрещаем сжиматься */
-            /* min-width: 220px; Защита размеров */
+            flex: 0 0 auto; 
+            width: 260px; /* Фиксированная ширина - ВАЖНО для расчета JS */
+            min-width: 260px; /* Защита от схлопывания */
             background: #1c1c1e;
             border-radius: 14px;
             padding: 12px;
@@ -166,8 +159,6 @@
             -webkit-user-drag: none;
             user-select: none;
             -webkit-user-select: none;
-            /* Важно: не сжимать карточки */
-            flex-shrink: 0; 
         }
 
         .partner-card.topskin {
@@ -524,7 +515,7 @@
         <div class="partners-scroll" id="partners-scroll">
             <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
                 <div class="partner-icon">
-                    <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" alt="Topskin" class="partner-logo-img">
+                    <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" loading="eager" alt="Topskin" class="partner-logo-img">
                 </div>
                 <div class="partner-info">
                     <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
@@ -538,7 +529,7 @@
             
             <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
                 <div class="partner-icon">
-                    <img src="https://i.postimg.cc/gJXWJccF/0x0.png" alt="Xplay" class="partner-logo-img">
+                    <img src="https://i.postimg.cc/gJXWJccF/0x0.png" loading="eager" alt="Xplay" class="partner-logo-img">
                 </div>
                 <div class="partner-info">
                     <div class="partner-title">Xplay.gg <span class="hot-badge">Free</span></div>
@@ -589,34 +580,19 @@
         let currentCategoryId = 0;
         let itemsCache = {}; 
         let hasTradeLink = false;
-        let partnersAnimFrameId = null; // Глобальная переменная анимации
+        let partnersAnimFrameId = null; 
 
         Telegram.WebApp.BackButton.onClick(() => {
             goBack();
         });
 
-        // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ СКРОЛЛА С КАРТИНКАМИ ---
+        // --- УПРОЩЕННАЯ И НАДЕЖНАЯ ФУНКЦИЯ СКРОЛЛА ---
         function initPartnersScroll() {
             const container = document.getElementById('partners-scroll');
             if (!container) return;
 
-            // 1. Проверка инициализации
-            if (container.getAttribute('data-init-done') === 'true') {
-                return;
-            }
-
-            // 2. ВАЖНО: Проверяем, загрузились ли картинки
-            const images = Array.from(container.querySelectorAll('img'));
-            const allImagesLoaded = images.every(img => img.complete && img.naturalHeight !== 0);
-
-            if (!allImagesLoaded && images.length > 0) {
-                // Если картинки еще не загрузились, ждем 100мс и пробуем снова
-                console.log('>>> [DEBUG] Ждем загрузки картинок...');
-                setTimeout(initPartnersScroll, 100);
-                return;
-            }
-
-            // Ставим флаг ТОЛЬКО если картинки загрузились
+            // Защита от двойного запуска
+            if (container.getAttribute('data-init-done') === 'true') return;
             container.setAttribute('data-init-done', 'true');
 
             // Очистка старой анимации
@@ -625,24 +601,15 @@
                 partnersAnimFrameId = null;
             }
 
-            console.log('>>> [DEBUG] Картинки готовы, запускаем скролл');
+            console.log('>>> [DEBUG] Запуск скролла (версия с CSS-размерами)');
 
-            // Небольшая пауза для гарантии рендера CSS
             setTimeout(() => {
                 const originalItems = Array.from(container.children);
                 if (originalItems.length === 0) return;
 
-                const firstItemWidth = originalItems[0].offsetWidth;
-                if (firstItemWidth === 0) {
-                    console.error('>>> [DEBUG] Ширина элемента 0! Сброс флага.');
-                    container.removeAttribute('data-init-done'); // Даем шанс перезапуститься
-                    return;
-                }
-
+                // Клонируем элементы
                 const screenWidth = window.innerWidth;
                 let loops = 0;
-                
-                // Клонируем элементы
                 while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
                     originalItems.forEach(item => {
                         container.appendChild(item.cloneNode(true));
@@ -650,10 +617,17 @@
                     loops++;
                 }
 
-                // Расчет точки сброса
+                // Расчет сброса. 
+                // Т.к. мы задали ширину в CSS (260px) + gap (10px), мы можем посчитать математически
+                // даже если offsetWidth вернет 0 (хотя min-width это исправит)
+                let itemWidth = originalItems[0].offsetWidth;
+                if (itemWidth < 100) itemWidth = 260; // Fallback на CSS значение
+
                 const gap = 10; 
-                const itemFullWidth = firstItemWidth + gap;
+                const itemFullWidth = itemWidth + gap;
                 const resetPoint = itemFullWidth * originalItems.length;
+
+                console.log(`>>> [DEBUG] ResetPoint: ${resetPoint}`);
 
                 let scrollPos = 0;
                 const speed = 0.5; 
@@ -701,12 +675,9 @@
         async function initShop() {
             updateNavState();
             
-            // Запускаем инициализацию скролла
-            // (Функция сама проверит загрузку картинок внутри себя)
+            // Запускаем сразу, не ждем картинок, так как CSS держит размеры
             initPartnersScroll(); 
-            // На всякий случай дублируем через секунду (fallback)
-            setTimeout(initPartnersScroll, 1000);
-
+            
             Promise.all([
                 fetch('/api/v1/user/me', {
                     method: 'POST',
