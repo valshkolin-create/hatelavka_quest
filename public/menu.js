@@ -1796,7 +1796,6 @@ async function openQuestsTab(isSilent = false) {
         // <-- ДОБАВЬТЕ ВОТ ЭТУ СТРОКУ В САМЫЙ КОНЕЦ ФУНКЦИИ:
             setTimeout(() => setupSlider(true), 0);
     }
-    }
 
     // --- ПОЛНОСТЬЮ ОБНОВЛЕННАЯ ФУНКЦИЯ MAIN ---
     async function main() {
