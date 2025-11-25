@@ -1412,7 +1412,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
 
 # --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
 @app.post("/api/v1/webhooks/twitch")
-async def handle_twitch_webhook(
+async def handle_twitch_webhook(request: Request, background_tasks: BackgroundTasks):
+    print("🔥🔥🔥 ВЕБХУК ПОЛУЧЕН! КОД ОБНОВЛЕН! 🔥🔥🔥")
     request: Request,
     background_tasks: BackgroundTasks
     # Supabase здесь не нужен, так как мы ничего не пишем в базу синхронно
