@@ -589,11 +589,10 @@ async def sleep_mode_check(request: Request, call_next):
                     sleep_cache["is_sleeping"] = sleep_data.get('is_sleeping', False)
                     sleep_cache["wake_up_at"] = sleep_data.get('wake_up_at')
                 else:
-                    sleep_cache["is_sleeping"] = False # Если настройки нет, считаем, что не спим
-                sleep_cache["last_checked"] = time.time() # Обновляем время последней проверки
+                    sleep_cache["is_sleeping"] = False 
+                sleep_cache["last_checked"] = time.time() 
         except Exception as e:
             logging.error(f"Ошибка проверки режима сна: {e}")
-            # В случае ошибки просто пропускаем запрос, чтобы не блокировать приложение
             pass
 
     # Теперь используем значения из кеша
@@ -603,7 +602,7 @@ async def sleep_mode_check(request: Request, call_next):
     if is_sleeping and wake_up_at_str:
         wake_up_time = datetime.fromisoformat(wake_up_at_str)
         if datetime.now(timezone.utc) > wake_up_time:
-            is_sleeping = False # Пора просыпаться, пропускаем запрос
+            is_sleeping = False 
 
     if is_sleeping:
         return JSONResponse(
@@ -613,7 +612,7 @@ async def sleep_mode_check(request: Request, call_next):
 
     response = await call_next(request)
     return response
-# --- Middlewares ---
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logging.info(f"🔹 Path: {request.url.path}")
@@ -623,6 +622,12 @@ async def log_requests(request: Request, call_next):
     return response
 
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
+async def get_supabase_client():
+    client = httpx.AsyncClient(
+        base_url=f"{SUPABASE_URL}/rest/v1",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+        timeout=30.0
+    )
     try:
         yield client
     finally:
