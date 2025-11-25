@@ -1427,67 +1427,61 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
     // --- ⬇️⬇️⬇️ ЭТО ИЗМЕНЕННАЯ ФУНКЦИЯ ⬇️⬇️⬇️ ---
     async function loadPendingActions() {
         try {
-            // Запрашиваем ВСЕ данные одновременно
-            const [groupedSubmissions, allEventPrizes, allCheckpointPrizes] = await Promise.all([
-                makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),      // Для вкладки "Проверки" (сетка иконок)
-                makeApiRequest('/api/v1/admin/events/winners/details', {}, 'POST', true), // Для вкладки "Розыгрыши" (сразу список)
-                makeApiRequest('/api/v1/admin/checkpoint_rewards/details', {}, 'POST', true) // Для вкладки "Чекпоинт" (сразу список)
+            // Запрашиваем ВСЕ данные одновременно (+ Магазин)
+            const [groupedSubmissions, allEventPrizes, allCheckpointPrizes, allShopPurchases] = await Promise.all([
+                makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),
+                makeApiRequest('/api/v1/admin/events/winners/details', {}, 'POST', true),
+                makeApiRequest('/api/v1/admin/checkpoint_rewards/details', {}, 'POST', true),
+                makeApiRequest('/api/v1/admin/shop_purchases/details', {}, 'POST', true)
             ]);
             
             // --- 1. Обновление индикаторов вкладок ---
-            try {
-                const eventPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]');
-                const checkpointPrizesTab = document.querySelector('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]');
-                
-                const updateTabText = (tabElement, baseText, hasData) => {
-                    if (!tabElement) return;
-                    const cleanText = baseText || tabElement.textContent.trim().replace(/<i.*<\/i>/, '').trim(); // Убираем старые иконки
-                    if (!baseText) {
-                        tabElement.dataset.baseText = cleanText;
-                    }
-                    if (hasData) {
-                        tabElement.innerHTML = `${cleanText} <i class="fa-solid fa-circle-exclamation" style="font-size: 0.9em; vertical-align: middle; margin-left: 5px; color: var(--danger-color);"></i>`;
-                    } else {
-                        tabElement.innerHTML = cleanText;
-                    }
-                };
-                
-                updateTabText(eventPrizesTab, eventPrizesTab ? eventPrizesTab.dataset.baseText : null, allEventPrizes && allEventPrizes.length > 0);
-                updateTabText(checkpointPrizesTab, checkpointPrizesTab ? checkpointPrizesTab.dataset.baseText : null, allCheckpointPrizes && allCheckpointPrizes.length > 0);
+            const updateTabText = (tabSelector, hasData) => {
+                const tab = document.querySelector(tabSelector);
+                if (!tab) return;
+                // Сохраняем или восстанавливаем исходный текст без иконки
+                const baseText = tab.dataset.baseText || tab.textContent.trim().replace(/<i.*<\/i>/, '').trim(); 
+                if (!tab.dataset.baseText) tab.dataset.baseText = baseText;
 
-            } catch (e) {
-                console.error("Ошибка при обновлении индикаторов вкладок:", e);
+                if (hasData) {
+                    tab.innerHTML = `<i class="${baseText === 'Магазин' ? 'fa-solid fa-cart-shopping' : (baseText === 'Розыгрыши' ? 'fa-solid fa-trophy' : 'fa-solid fa-flag-checkered')}"></i> ${baseText} <i class="fa-solid fa-circle-exclamation" style="font-size: 0.9em; margin-left: 5px; color: var(--danger-color);"></i>`;
+                } else {
+                    tab.innerHTML = `<i class="${baseText === 'Магазин' ? 'fa-solid fa-cart-shopping' : (baseText === 'Розыгрыши' ? 'fa-solid fa-trophy' : 'fa-solid fa-flag-checkered')}"></i> ${baseText}`;
+                }
+            };
+            
+            updateTabText('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]', allEventPrizes?.length > 0);
+            updateTabText('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]', allCheckpointPrizes?.length > 0);
+            updateTabText('#view-admin-pending-actions .tab-button[data-tab="shop-prizes"]', allShopPurchases?.length > 0);
+
+            // Обновляем бейдж в главном меню
+            const shopBadge = document.getElementById('shop-badge-main');
+            if (shopBadge) {
+                const count = allShopPurchases ? allShopPurchases.length : 0;
+                shopBadge.textContent = count;
+                shopBadge.classList.toggle('hidden', count === 0);
             }
 
             // --- 2. Рендеринг вкладок ---
 
-            // Вкладка "Проверки" (submissions): Использует старую логику сетки иконок
+            // Вкладка "Проверки"
             renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
             
-            // Вкладка "Розыгрыши" (event-prizes): Рендерим сразу список победителей
-            // Нам больше не нужна сетка иконок, мы используем функцию renderWinners
+            // Вкладка "Розыгрыши"
             const eventPrizesContainer = document.getElementById('tab-content-event-prizes');
-            if (eventPrizesContainer) {
-                // Передаем данные в renderWinners, но указываем контейнер вкладки как цель
-                renderWinners(allEventPrizes, eventPrizesContainer);
-            }
+            if (eventPrizesContainer) renderWinners(allEventPrizes, eventPrizesContainer);
 
-            // Вкладка "Чекпоинт" (checkpoint-prizes): Рендерим сразу список наград
+            // Вкладка "Чекпоинт"
             const checkpointPrizesContainer = document.getElementById('tab-content-checkpoint-prizes');
-            if (checkpointPrizesContainer) {
-                // Передаем данные в renderCheckpointPrizes, указывая контейнер вкладки
-                renderCheckpointPrizes(allCheckpointPrizes, checkpointPrizesContainer);
-            }
+            if (checkpointPrizesContainer) renderCheckpointPrizes(allCheckpointPrizes, checkpointPrizesContainer);
+
+            // Вкладка "Магазин" (НОВОЕ)
+            const shopPrizesContainer = document.getElementById('tab-content-shop-prizes');
+            if (shopPrizesContainer) renderShopPurchases(allShopPurchases, shopPrizesContainer);
         
         } catch (e) {
             console.error("Не удалось загрузить ожидающие действия:", e);
-            const subContent = document.getElementById('tab-content-submissions');
-            const eventContent = document.getElementById('tab-content-event-prizes');
-            const cpContent = document.getElementById('tab-content-checkpoint-prizes');
-
-            if(subContent) subContent.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
-            if(eventContent) eventContent.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
-            if(cpContent) cpContent.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
+            // Не показываем алерт при тихой загрузке, только логируем
         }
     }
     // --- ⬆️⬆️⬆️ КОНЕЦ ИЗМЕНЕННОЙ ФУНКЦИИ ⬆️⬆️⬆️ ---
@@ -4832,6 +4826,98 @@ if(dom.createRoulettePrizeForm) {
             });
         }
     }
+
+    function renderShopPurchases(purchases, targetElement) {
+        if (!targetElement) return;
+        
+        // Ищем внутренний контейнер, если он есть, или используем сам элемент
+        const listContainer = targetElement.querySelector('.pending-actions-grid') || targetElement;
+        listContainer.innerHTML = '';
+
+        if (!purchases || purchases.length === 0) {
+            listContainer.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых покупок.</p>';
+            return;
+        }
+
+        listContainer.innerHTML = purchases.map(p => {
+            // Обработка трейд-ссылки
+            const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
+            const linkHtml = hasLink 
+                ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
+                : '<span style="color: var(--warning-color);">Не указана</span>';
+
+            // Если есть картинка в объекте (или заглушка)
+            // Для этого на бэкенде нужно парсить source_description, если там есть URL
+            const imgUrl = p.image_url || "https://placehold.co/60?text=Shop";
+
+            return `
+            <div class="shop-purchase-card" id="shop-card-${p.id}">
+                <img src="${escapeHTML(imgUrl)}" class="shop-item-thumb" alt="Item">
+                
+                <div class="shop-item-info">
+                    <h4 class="shop-item-title">${escapeHTML(p.title || 'Товар из магазина')}</h4>
+                    <p class="shop-user-info">
+                        Покупатель: <strong>${escapeHTML(p.user_full_name)}</strong>
+                        ${p.user_username ? `<br><span style="color:#888; font-size:11px;">@${escapeHTML(p.user_username)}</span>` : ''}
+                    </p>
+                    <div class="shop-trade-link-box">
+                        <span>Трейд:</span>
+                        ${linkHtml}
+                    </div>
+                </div>
+
+                <div class="shop-actions">
+                    <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve')" title="Подтвердить выдачу">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject')" title="Отклонить">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Глобальная функция для обработки кликов (так как используется onclick в HTML строке)
+    window.handleShopAction = async function(id, action) {
+        // Используем нативный confirm или tg.showConfirm
+        const confirmMsg = action === 'approve' ? 'Подтвердить выдачу товара?' : 'Отклонить покупку?';
+        
+        // Используем обертку Promise для tg.showConfirm, чтобы код был линейным
+        const userConfirmed = await new Promise(resolve => {
+            tg.showConfirm(confirmMsg, resolve);
+        });
+
+        if (!userConfirmed) return;
+
+        try {
+            // Используем тот же эндпоинт, что и для чекпоинта/квестов
+            if (action === 'approve') {
+                await makeApiRequest('/api/v1/admin/manual_rewards/complete', { reward_id: id });
+            } else {
+                // Reject просто меняет статус в БД на rejected (деньги не возвращает автоматически, если логики нет на бэке)
+                await makeApiRequest('/api/v1/admin/manual_rewards/reject', { reward_id: id }); 
+            }
+            
+            // Удаляем карточку из UI
+            const card = document.getElementById(`shop-card-${id}`);
+            if (card) card.remove();
+            
+            // Обновляем счетчик в меню
+            const shopBadge = document.getElementById('shop-badge-main');
+            if (shopBadge) {
+                let current = parseInt(shopBadge.textContent) || 0;
+                const newCount = Math.max(0, current - 1);
+                shopBadge.textContent = newCount;
+                if (newCount <= 0) shopBadge.classList.add('hidden');
+            }
+            
+            tg.showAlert(action === 'approve' ? 'Выдача подтверждена!' : 'Покупка отклонена.');
+
+        } catch (e) {
+            tg.showAlert('Ошибка: ' + e.message);
+        }
+    };
 
 async function main() {
         try {
