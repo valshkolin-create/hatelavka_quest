@@ -1118,38 +1118,49 @@ async def telegram_webhook(
 
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
-    logging.info(f"🔄 [Background] Старт. Twitch Message ID: {message_id}")
+    print(f"🔄 [START] Обработка Twitch ID: {message_id}") # print виден в Vercel лучше
     
+    if not message_id:
+        print("❌ [ERROR] Нет message_id! Выход.")
+        return
+
     async with httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
         timeout=30.0
     ) as supabase:
         
-        # === [ НАЧАЛО УЛУЧШЕННОЙ ЗАЩИТЫ ] ===
+        # === [ ЗАЩИТА ОТ ДУБЛЕЙ ] ===
         try:
-            # Пытаемся "застолбить" этот ID в базе
-            dup_resp = await supabase.post("/processed_webhooks", json={"id": message_id})
+            # Пытаемся записать ID. Используем minimal, чтобы ответ был легким.
+            # Если ID уже есть, Supabase ОБЯЗАН вернуть 409.
+            dup_resp = await supabase.post(
+                "/processed_webhooks", 
+                json={"id": message_id},
+                headers={"Prefer": "return=minimal"}
+            )
             
-            # ЛОГИРУЕМ РЕЗУЛЬТАТ (Это покажет, в чем проблема!)
-            logging.info(f"🛡️ Статус проверки дублей: {dup_resp.status_code} | Ответ: {dup_resp.text}")
+            print(f"🛡️ DB Check Status: {dup_resp.status_code}")
 
-            # 1. Если такой ID уже есть (409)
+            # 1. Если такой ID уже есть (409 Conflict)
             if dup_resp.status_code == 409:
-                logging.warning(f"🛑 [DUPLICATE] Вебхук {message_id} уже был. STOP.")
+                print(f"🛑 [DUPLICATE] Вебхук {message_id} уже был. ОСТАНОВКА.")
                 return 
 
-            # 2. Если произошла другая ошибка (например, таблицы нет - 404, или нет прав - 403/401)
-            if dup_resp.status_code not in (200, 201):
-                logging.error(f"⚠️ Ошибка записи в processed_webhooks! Код: {dup_resp.status_code}. Продолжаем на свой страх и риск, но защита не сработала.")
-                # Если хочешь строгую защиту, раскомментируй следующую строку:
-                # return 
+            # 2. Если любая другая ошибка (например 401, 403, 500)
+            # МЫ ДОЛЖНЫ ОСТАНОВИТЬСЯ, иначе защита не имеет смысла.
+            if dup_resp.status_code not in (200, 201, 204):
+                print(f"⚠️ [DB ERROR] Ошибка записи ID! Код: {dup_resp.status_code}. Текст: {dup_resp.text}")
+                print("🛑 Аварийная остановка во избежание дублей.")
+                return
 
         except Exception as e_dup:
-            logging.error(f"❌ Критическая ошибка проверки дубля: {e_dup}")
-        # === [ КОНЕЦ ЗАЩИТЫ ] ===
+            print(f"❌ [CRITICAL] Исключение при проверке дубля: {e_dup}")
+            return # Останавливаемся даже при ошибке кода
+        # ============================
 
         try:
+            # Дальше ваш старый код (event_data = ...)
             event_data = data.get("event", {})
             twitch_login = event_data.get("user_login", "unknown_user").lower()
             reward_data = event_data.get("reward", {})
