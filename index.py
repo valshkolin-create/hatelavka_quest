@@ -1412,17 +1412,17 @@ async def process_twitch_notification_background(data: dict, message_id: str):
 
 # --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
 @app.post("/api/v1/webhooks/twitch")
-async def handle_twitch_webhook(request: Request, background_tasks: BackgroundTasks):
-    print("🔥🔥🔥 ВЕБХУК ПОЛУЧЕН! КОД ОБНОВЛЕН! 🔥🔥🔥")
+async def handle_twitch_webhook(
     request: Request,
     background_tasks: BackgroundTasks
-    # Supabase здесь не нужен, так как мы ничего не пишем в базу синхронно
 ):
     """
     Принимает вебхуки от Twitch. 
     ПРОВЕРЯЕТ подпись и СРАЗУ возвращает 200 OK.
     Вся логика перенесена в background_tasks.
     """
+    print("🔥🔥🔥 ВЕБХУК ПОЛУЧЕН! КОД ОБНОВЛЕН! 🔥🔥🔥")
+    
     # 1. Читаем тело и заголовки
     body = await request.body()
     headers = request.headers
