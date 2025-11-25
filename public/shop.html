@@ -127,7 +127,6 @@
             margin-top: 5px;
             padding-bottom: 15px;
             position: relative;
-            /* Маска прозрачности по краям */
             mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
             -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
         }
@@ -137,11 +136,12 @@
             gap: 10px;
             padding: 0 16px;
             width: max-content;
-            overflow-x: scroll; /* Важно: разрешаем скролл */
+            overflow-x: scroll;
             cursor: grab;
-            /* Скрываем скроллбар */
             scrollbar-width: none; 
             -ms-overflow-style: none;
+            /* Важно для стабильности размеров */
+            flex-wrap: nowrap;
         }
         .partners-scroll::-webkit-scrollbar { display: none; }
         
@@ -150,8 +150,8 @@
         }
 
         .partner-card {
-            flex: 0 0 auto;
-            width: 260px;
+            flex: 0 0 auto; /* Запрещаем сжиматься */
+            /* min-width: 220px; Защита размеров */
             background: #1c1c1e;
             border-radius: 14px;
             padding: 12px;
@@ -163,10 +163,11 @@
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            /* Запрет системного драга картинок */
             -webkit-user-drag: none;
             user-select: none;
             -webkit-user-select: none;
+            /* Важно: не сжимать карточки */
+            flex-shrink: 0; 
         }
 
         .partner-card.topskin {
@@ -196,6 +197,7 @@
             height: 100%;
             object-fit: contain;
             pointer-events: none;
+            -webkit-user-drag: none;
         }
 
         .partner-info { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
@@ -416,7 +418,7 @@
             font-size: 14px;
         }
 
-        /* --- ФУТЕР (ФИКСИРОВАННЫЙ, КАК В LEADERBOARD) --- */
+        /* --- ФУТЕР --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
@@ -433,9 +435,8 @@
             width: 100%;
             z-index: 9999;
             
-            /* ФИКС ДЛЯ АЙФОНА: используем safe-area + фиксированный padding */
             padding-top: 8px;
-            padding-bottom: 20px; /* Fallback */
+            padding-bottom: 20px; 
             padding-bottom: calc(8px + env(safe-area-inset-bottom));
             
             box-sizing: border-box;
@@ -495,13 +496,6 @@
             background-color: #34c759;
             border-radius: 2px;
             box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
-        .partner-logo-img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            pointer-events: none; /* Добавить это */
-            -webkit-user-drag: none; /* У вас уже есть, но pointer-events надежнее */
-        }
         }
     </style>
 </head>
@@ -529,6 +523,9 @@
     <div class="partners-wrapper">
         <div class="partners-scroll" id="partners-scroll">
             <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
+                <div class="partner-icon">
+                    <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" alt="Topskin" class="partner-logo-img">
+                </div>
                 <div class="partner-info">
                     <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
                     <div class="partner-desc">
@@ -540,6 +537,9 @@
             </a>
             
             <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
+                <div class="partner-icon">
+                    <img src="https://i.postimg.cc/gJXWJccF/0x0.png" alt="Xplay" class="partner-logo-img">
+                </div>
                 <div class="partner-info">
                     <div class="partner-title">Xplay.gg <span class="hot-badge">Free</span></div>
                     <div class="partner-desc">Забирай <span class="partner-highlight">10 монет</span><br>бесплатно за вход.</div>
@@ -589,54 +589,60 @@
         let currentCategoryId = 0;
         let itemsCache = {}; 
         let hasTradeLink = false;
-        // Глобальная переменная для хранения ID анимации, чтобы можно было её отменить
-        let partnersAnimFrameId = null;
+        let partnersAnimFrameId = null; // Глобальная переменная анимации
 
         Telegram.WebApp.BackButton.onClick(() => {
             goBack();
         });
 
-        
-
+        // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ СКРОЛЛА С КАРТИНКАМИ ---
         function initPartnersScroll() {
             const container = document.getElementById('partners-scroll');
             if (!container) return;
 
-            // 1. СИНХРОННАЯ ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА
-            // Если атрибут уже есть — жестко выходим, не ждем таймеров.
+            // 1. Проверка инициализации
             if (container.getAttribute('data-init-done') === 'true') {
-                console.log('>>> [DEBUG] Скролл уже инициализирован, отмена повторного запуска.');
                 return;
             }
-            // Сразу ставим метку, что мы начали работу
+
+            // 2. ВАЖНО: Проверяем, загрузились ли картинки
+            const images = Array.from(container.querySelectorAll('img'));
+            const allImagesLoaded = images.every(img => img.complete && img.naturalHeight !== 0);
+
+            if (!allImagesLoaded && images.length > 0) {
+                // Если картинки еще не загрузились, ждем 100мс и пробуем снова
+                console.log('>>> [DEBUG] Ждем загрузки картинок...');
+                setTimeout(initPartnersScroll, 100);
+                return;
+            }
+
+            // Ставим флаг ТОЛЬКО если картинки загрузились
             container.setAttribute('data-init-done', 'true');
 
-            // 2. Очистка старой анимации (на всякий случай)
+            // Очистка старой анимации
             if (partnersAnimFrameId) {
                 cancelAnimationFrame(partnersAnimFrameId);
                 partnersAnimFrameId = null;
             }
 
-            console.log('>>> [DEBUG] Запуск initPartnersScroll (Успешный старт)');
+            console.log('>>> [DEBUG] Картинки готовы, запускаем скролл');
 
-            // Небольшая задержка для рендера CSS, но метка уже стоит
+            // Небольшая пауза для гарантии рендера CSS
             setTimeout(() => {
                 const originalItems = Array.from(container.children);
-                
                 if (originalItems.length === 0) return;
 
-                // Проверка ширины
                 const firstItemWidth = originalItems[0].offsetWidth;
                 if (firstItemWidth === 0) {
-                    console.error('>>> [DEBUG] Ширина элемента 0! Проверьте CSS.');
-                    // Снимаем защиту, чтобы можно было попробовать позже, если нужно
-                    container.removeAttribute('data-init-done'); 
+                    console.error('>>> [DEBUG] Ширина элемента 0! Сброс флага.');
+                    container.removeAttribute('data-init-done'); // Даем шанс перезапуститься
                     return;
                 }
 
-                // Клонирование
                 const screenWidth = window.innerWidth;
                 let loops = 0;
+                
+                // Клонируем элементы
                 while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
                     originalItems.forEach(item => {
                         container.appendChild(item.cloneNode(true));
@@ -644,41 +650,33 @@
                     loops++;
                 }
 
-                // Расчет сброса
-                // 10 - это gap (отступ) между элементами. Если в CSS gap другой, поменяйте тут.
+                // Расчет точки сброса
                 const gap = 10; 
                 const itemFullWidth = firstItemWidth + gap;
                 const resetPoint = itemFullWidth * originalItems.length;
 
-                console.log(`>>> [DEBUG] ResetPoint: ${resetPoint}, Элементов: ${originalItems.length}, Клонов: ${loops}`);
-
                 let scrollPos = 0;
-                const speed = 0.5; // Скорость
+                const speed = 0.5; 
 
                 function animate() {
                     scrollPos += speed;
-                    
-                    // Бесшовный сброс
                     if (scrollPos >= resetPoint) {
                         scrollPos -= resetPoint;
                     }
-                    
                     container.scrollLeft = scrollPos;
                     partnersAnimFrameId = requestAnimationFrame(animate);
                 }
 
                 animate();
 
-                // --- Touch / Swipe Logic ---
+                // --- Touch Logic ---
                 let isDragging = false;
                 let startX = 0;
                 let startScrollLeft = 0;
 
                 container.addEventListener('touchstart', (e) => {
                     isDragging = true;
-                    // Останавливаем анимацию на время пальца
                     cancelAnimationFrame(partnersAnimFrameId);
-                    
                     startX = e.touches[0].pageX;
                     startScrollLeft = container.scrollLeft;
                 }, {passive: true});
@@ -686,38 +684,28 @@
                 container.addEventListener('touchmove', (e) => {
                     if (!isDragging) return;
                     const x = e.touches[0].pageX;
-                    const walk = (startX - x) * 1.5; // Чувствительность
-                    
-                    // Обновляем scrollPos, чтобы при отпускании анимация продолжилась с правильного места
+                    const walk = (startX - x) * 1.5;
                     scrollPos = startScrollLeft + walk;
-                    
-                    // Не даем уйти в минус (хотя на круговой прокрутке это не критично, но для порядка)
                     if (scrollPos < 0) scrollPos = 0;
-                    
                     container.scrollLeft = scrollPos;
                 }, {passive: true});
 
                 container.addEventListener('touchend', () => {
                     isDragging = false;
-                    // Перезапускаем анимацию с новой позиции
                     animate();
                 });
 
             }, 50);
         }
-        
+
         async function initShop() {
             updateNavState();
             
-            // ВАЖНО: Ждем полной загрузки страницы (включая картинки),
-            // прежде чем запускать расчеты скролла.
-            if (document.readyState === 'complete') {
-                initPartnersScroll();
-            } else {
-                window.addEventListener('load', initPartnersScroll);
-                // Fallback на случай, если load уже прошел
-                setTimeout(initPartnersScroll, 1000); 
-            }
+            // Запускаем инициализацию скролла
+            // (Функция сама проверит загрузку картинок внутри себя)
+            initPartnersScroll(); 
+            // На всякий случай дублируем через секунду (fallback)
+            setTimeout(initPartnersScroll, 1000);
 
             Promise.all([
                 fetch('/api/v1/user/me', {
