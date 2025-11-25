@@ -27,8 +27,9 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
+            /* Отступ снизу под фиксированный футер */
             padding-bottom: calc(70px + env(safe-area-inset-bottom));
-            overflow-x: hidden;
+            overflow-x: hidden; 
         }
 
         /* --- ШАПКА --- */
@@ -118,23 +119,26 @@
             line-height: 1.4;
         }
 
-        /* --- ПАРТНЕРЫ (ГОРИЗОНТАЛЬНЫЙ СКРОЛЛ) --- */
+        /* --- ПАРТНЕРЫ (БЕГУЩАЯ СТРОКА) --- */
+        .partners-wrapper {
+            width: 100%;
+            overflow: hidden; /* Скрываем то, что уходит за края */
+            margin-top: 5px;
+            padding-bottom: 15px;
+            position: relative;
+        }
+
         .partners-scroll {
             display: flex;
-            overflow-x: auto;
             gap: 10px;
-            padding: 0 16px 15px 16px;
-            margin-top: 5px;
-            -ms-overflow-style: none;  
-            scrollbar-width: none;  
+            padding: 0 16px;
+            width: max-content; /* Растягиваем контейнер по содержимому */
+            /* Убрали CSS анимацию, теперь управляет JS */
+            cursor: grab;
         }
-        .partners-scroll::-webkit-scrollbar { display: none; }
-
-        /* АНИМАЦИЯ ДВИЖЕНИЯ (FLOAT) */
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-4px); } /* Легкий подъем */
-            100% { transform: translateY(0px); }
+        
+        .partners-scroll:active {
+            cursor: grabbing;
         }
 
         .partner-card {
@@ -151,21 +155,13 @@
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            /* Применяем анимацию */
-            animation: float 4s ease-in-out infinite;
+            /* Убрали transform transition для плавности JS-скролла */
         }
-        /* Сдвигаем анимацию второй карточки, чтобы они двигались не синхронно */
-        .partner-card:nth-child(2) { animation-delay: 2s; }
-        
-        .partner-card:active { transform: scale(0.97); animation: none; }
 
-        /* СТИЛИ ДЛЯ TOPSKIN (Оранжевый) */
         .partner-card.topskin {
             background: linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(255, 87, 34, 0.05) 100%);
             border-color: rgba(255, 87, 34, 0.3);
         }
-
-        /* СТИЛИ ДЛЯ XPLAY (Серый/Серебряный) */
         .partner-card.xplay {
             background: linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 100%);
             border-color: #555;
@@ -179,8 +175,8 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            overflow: hidden; /* Чтобы лого не вылезало */
-            background: rgba(0,0,0,0.3); /* Подложка под лого */
+            overflow: hidden;
+            background: rgba(0,0,0,0.3);
             padding: 2px;
         }
         
@@ -213,17 +209,8 @@
             vertical-align: middle;
         }
 
-        .hot-badge { 
-            font-size: 9px; 
-            background: #ffcc00; 
-            color: #000; 
-            padding: 1px 5px; 
-            border-radius: 4px; 
-            font-weight: 800; 
-            text-transform: uppercase; 
-        }
+        .hot-badge { font-size: 9px; background: #ffcc00; color: #000; padding: 1px 5px; border-radius: 4px; font-weight: 800; text-transform: uppercase; }
 
-        /* КНОПКА КОПИРОВАНИЯ */
         .copy-btn {
             background: none;
             border: none;
@@ -232,9 +219,7 @@
             padding: 2px 5px;
             font-size: 11px;
             margin-left: 2px;
-            transition: transform 0.1s;
         }
-        .copy-btn:active { transform: scale(0.8); }
 
         /* --- СЕТКА ТОВАРОВ --- */
         .shop-grid {
@@ -418,17 +403,18 @@
             font-size: 14px;
         }
 
+        /* --- ФУТЕР (1в1 из menu.css) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
-            align-items: center;
+            align-items: center; /* ИЗМЕНЕНИЕ: flex-start -> center */
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border-top: 1px solid rgba(58, 58, 60, 0.6);
             width: 100%;
-            padding-top: 6px; 
-            padding-bottom: calc(6px + env(safe-area-inset-bottom));
+            padding-top: 6px; /* ИЗМЕНЕНИЕ: 8px -> 6px */
+            padding-bottom: calc(6px + env(safe-area-inset-bottom)); /* ИЗМЕНЕНИЕ: 8px -> 6px */
             position: fixed;
             bottom: 0;
             left: 0;
@@ -447,6 +433,7 @@
             flex: 1;
             cursor: pointer;
             font-size: 10px;
+            line-height: 1; /* ВАЖНО: Добавлено для совпадения высоты */
             font-weight: 500;
             transition: color 0.2s ease;
         }
@@ -460,6 +447,7 @@
             font-size: 22px;
             transition: transform 0.2s ease, color 0.2s ease;
         }
+        
         .footer-item:active { color: #ffffff; }
     </style>
 </head>
@@ -484,30 +472,32 @@
         </div>
     </div>
 
-    <div class="partners-scroll">
-        <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
-            <div class="partner-icon">
-                <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" alt="Topskin" class="partner-logo-img">
-            </div>
-            <div class="partner-info">
-                <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
-                <div class="partner-desc">
-                    Код: <span class="partner-highlight">HATElove</span>
-                    <button class="copy-btn" onclick="copyCode(event, 'HATElove')"><i class="fa-regular fa-copy"></i></button>
-                    <br>Кэшбек на заданиях!
+    <div class="partners-wrapper">
+        <div class="partners-scroll" id="partners-scroll">
+            <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
+                <div class="partner-icon">
+                    <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" alt="Topskin" class="partner-logo-img">
                 </div>
-            </div>
-        </a>
-        
-        <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
-            <div class="partner-icon">
-                <img src="https://i.postimg.cc/gJXWJccF/0x0.png" alt="Xplay" class="partner-logo-img">
-            </div>
-            <div class="partner-info">
-                <div class="partner-title">Xplay.gg <span class="hot-badge">Free</span></div>
-                <div class="partner-desc">Забирай <span class="partner-highlight">10 монет</span><br>бесплатно за вход.</div>
-            </div>
-        </a>
+                <div class="partner-info">
+                    <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
+                    <div class="partner-desc">
+                        Код: <span class="partner-highlight">HATElove</span>
+                        <button class="copy-btn" onclick="copyCode(event, 'HATElove')"><i class="fa-regular fa-copy"></i></button>
+                        <br>Кэшбек на заданиях!
+                    </div>
+                </div>
+            </a>
+            
+            <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
+                <div class="partner-icon">
+                    <img src="https://i.postimg.cc/gJXWJccF/0x0.png" alt="Xplay" class="partner-logo-img">
+                </div>
+                <div class="partner-info">
+                    <div class="partner-title">Xplay.gg <span class="hot-badge">Free</span></div>
+                    <div class="partner-desc">Забирай <span class="partner-highlight">10 монет</span><br>бесплатно за вход.</div>
+                </div>
+            </a>
+        </div>
     </div>
 
     <div id="shop-grid" class="shop-grid"></div>
@@ -556,8 +546,57 @@
             goBack();
         });
 
+        // --- ИНИЦИАЛИЗАЦИЯ СКРОЛЛЕРА ПАРТНЕРОВ ---
+        function initPartnersScroll() {
+            const scrollContainer = document.getElementById('partners-scroll');
+            if (!scrollContainer) return;
+
+            // Дублируем контент, чтобы лента была длинной и зацикленной
+            // Создаем 3 копии для плавности
+            const originalContent = scrollContainer.innerHTML;
+            scrollContainer.innerHTML = originalContent + originalContent + originalContent;
+
+            let isPaused = false;
+            let scrollSpeed = 0.5; // Скорость движения
+
+            // Функция анимации
+            function animateScroll() {
+                if (!isPaused) {
+                    scrollContainer.scrollLeft += scrollSpeed;
+                    
+                    // Если прокрутили до конца первой трети (оригинального контента), сбрасываем в начало
+                    // scrollWidth / 3 - это длина одного набора карточек
+                    if (scrollContainer.scrollLeft >= (scrollContainer.scrollWidth / 3)) {
+                        scrollContainer.scrollLeft = 0;
+                    }
+                }
+                requestAnimationFrame(animateScroll);
+            }
+
+            // Запуск
+            animateScroll();
+
+            // События для остановки (Touch и Mouse)
+            const stopScroll = () => { isPaused = true; };
+            const resumeScroll = () => { 
+                // Небольшая задержка перед запуском после свайпа
+                setTimeout(() => { isPaused = false; }, 1000); 
+            };
+
+            scrollContainer.addEventListener('touchstart', stopScroll);
+            scrollContainer.addEventListener('touchend', resumeScroll);
+            scrollContainer.addEventListener('mouseenter', stopScroll);
+            scrollContainer.addEventListener('mouseleave', resumeScroll);
+            
+            // Если пользователь скроллит колесиком (на десктопе)
+            scrollContainer.addEventListener('wheel', stopScroll);
+        }
+
         async function initShop() {
             updateNavState();
+            
+            // Запускаем скроллер партнеров
+            initPartnersScroll();
 
             Promise.all([
                 fetch('/api/v1/user/me', {
@@ -717,15 +756,13 @@
             Telegram.WebApp.openLink(url);
         }
 
-        // ФУНКЦИЯ КОПИРОВАНИЯ КОДА
         function copyCode(event, code) {
-            event.stopPropagation(); // Остановить всплытие, чтобы не открылась ссылка
-            event.preventDefault();  // Остановить переход по ссылке
+            event.stopPropagation(); 
+            event.preventDefault();  
             
             navigator.clipboard.writeText(code).then(() => {
                 Telegram.WebApp.showAlert('Промокод скопирован!');
             }).catch(err => {
-                // Фоллбэк для старых устройств
                 const textArea = document.createElement("textarea");
                 textArea.value = code;
                 document.body.appendChild(textArea);
