@@ -67,78 +67,57 @@ try {
     let questsForRoulette = [];
     let tutorialCountdownInterval = null;
     
-    // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЛАЙДЕРА V2 (С ЛОГАМИ) ---
+    // --- ИСПРАВЛЕННАЯ ЛОГИКА СЛАЙДЕРА (v3 - Без прыжков) ---
     let currentSlideIndex = 0;
     let slideInterval;
-    const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
+    const slideDuration = 15000; 
 
-    function setupSlider() {
-        // --- 1. ЛОГ: Начало ---
-        console.log("--- 1. [setupSlider] Запуск ---");
-        // ---
+    function setupSlider(preserveState = false) {
+        // console.log(`[setupSlider] Запуск. Сохранять позицию? ${preserveState}`);
 
         const container = document.getElementById('main-slider-container');
-        if (!container) {
-            // --- 2. ЛОГ: Контейнер не найден ---
-            console.warn("[setupSlider] ВНИМАНИЕ: Контейнер #main-slider-container не найден. Слайдер не будет запущен.");
-            // ---
-            return; // Если слайдера нет, ничего не делаем
-        }
+        if (!container) return;
 
-        // --- ИЗМЕНЕНИЕ №1: Находим только ВИДИМЫЕ слайды ---
         const allSlides = container.querySelectorAll('.slide');
-        // --- 3. ЛОГ: Сколько всего слайдов ---
-        console.log(`[setupSlider] Найдено allSlides (до фильтрации): ${allSlides.length}`);
-        // ---
-
         const visibleSlides = Array.from(allSlides).filter(
             slide => window.getComputedStyle(slide).display !== 'none'
         );
-        // --- 4. ЛОГ: Сколько видимых слайдов ---
-        console.log(`[setupSlider] Найдено visibleSlides (после фильтрации): ${visibleSlides.length}`);
-        // ---
 
         const wrapper = container.querySelector('.slider-wrapper');
         const dotsContainer = container.querySelector('.slider-dots');
         const prevBtn = document.getElementById('slide-prev-btn');
         const nextBtn = document.getElementById('slide-next-btn');
 
-        // --- ИЗМЕНЕНИЕ №2: Добавляем логику для 0 или 1 слайда ---
-        
-        // Если видимых слайдов нет, прячем весь контейнер
+        // Если слайдов нет, прячем контейнер
         if (visibleSlides.length === 0) {
-            // --- 5. ЛОГ: Логика 0 ---
-            console.log("[setupSlider] ЛОГИКА: 0 видимых. Прячем контейнер.");
-            // ---
             container.style.display = 'none';
             return;
         }
 
-        // Если виден только один слайд, показываем его как картинку, но без управления
+        // Если слайд один, показываем как статику
         if (visibleSlides.length <= 1) {
-            // --- 6. ЛОГ: Логика 1 ---
-            console.log("[setupSlider] ЛОГИКА: 1 видимый. Показываем как картинку (без управления).");
-            // ---
-            container.style.display = ''; // Убедимся, что контейнер виден
+            container.style.display = ''; 
             if (prevBtn) prevBtn.style.display = 'none';
             if (nextBtn) nextBtn.style.display = 'none';
             if (dotsContainer) dotsContainer.style.display = 'none';
-            // Перематываем на первый видимый слайд на случай, если он не первый в DOM
+            
+            // Сдвигаем wrapper к этому единственному слайду
             const firstVisibleIndex = Array.from(allSlides).indexOf(visibleSlides[0]);
-            if (wrapper) wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
+            if (wrapper) {
+                // Отключаем анимацию для мгновенной настройки
+                wrapper.style.transition = 'none';
+                wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
+            }
             return;
         }
         
-        // Если мы дошли сюда, значит слайдов > 1 и нужно запустить карусель
-        // --- 7. ЛОГ: Логика > 1 ---
-        console.log(`[setupSlider] ЛОГИКА: ${visibleSlides.length} видимых. Запускаем карусель.`);
-        // ---
+        // Если слайдов > 1, включаем управление
         container.style.display = '';
         if (prevBtn) prevBtn.style.display = 'flex';
         if (nextBtn) nextBtn.style.display = 'flex';
         if (dotsContainer) dotsContainer.style.display = 'flex';
         
-        // --- ИЗМЕНЕНИЕ №3: Работаем дальше только с видимыми слайдами ---
+        // Генерируем точки
         dotsContainer.innerHTML = '';
         visibleSlides.forEach((_, i) => {
             const dot = document.createElement('button');
@@ -151,34 +130,103 @@ try {
         });
         const dots = dotsContainer.querySelectorAll('.dot');
 
-        function showSlide(index) {
-            // --- 8. ЛОГ: Внутри showSlide ---
-            console.log(`[showSlide] Вызван для index: ${index} (из ${visibleSlides.length} видимых)`);
-            // ---
+        // --- ЛОГИКА СОХРАНЕНИЯ ПОЗИЦИИ ---
+        if (!preserveState) {
+            currentSlideIndex = 0;
+        } else {
+            // Если мы сохраняем позицию, но текущий индекс вышел за пределы (например, слайд удалили), сбрасываем
+            if (currentSlideIndex >= visibleSlides.length) {
+                currentSlideIndex = 0;
+            }
+        }
 
+        function showSlide(index) {
             if (index >= visibleSlides.length) index = 0;
             if (index < 0) index = visibleSlides.length - 1;
 
-            // --- 9. ЛОГ: Внутри showSlide ---
-            // Нам не нужен realIndex, мы используем 'index' (порядковый номер видимого слайда)
-            console.log(`[showSlide] Целевой index в visibleSlides: ${index}`);
-            // ---
-
-            if (!wrapper || !dots[index]) {
-                // --- 10. ЛОГ: Внутри showSlide (ошибка) ---
-                console.warn(`[showSlide] Ошибка: wrapper (${!!wrapper}) или dots[${index}] (${!!dots[index]}) не найден.`);
-                // ---
-                return;
-            }
+            if (!wrapper || !dots[index]) return;
             
-            // --- 11. ЛОГ: Внутри showSlide (действие) ---
-            console.log(`[showSlide] Применяем transform: translateX(-${index * 100}%)`);
-            // ---
+            // Включаем анимацию обратно (если она была отключена выше)
+            wrapper.style.transition = 'transform 0.5s ease-in-out';
             wrapper.style.transform = `translateX(-${index * 100}%)`;
+            
             dots.forEach(dot => dot.classList.remove('active'));
             dots[index].classList.add('active');
             currentSlideIndex = index;
         }
+
+        function nextSlide() {
+            showSlide(currentSlideIndex + 1);
+        }
+
+        function prevSlide() {
+            showSlide(currentSlideIndex - 1);
+        }
+
+        function resetSlideInterval() {
+            if (slideInterval) clearInterval(slideInterval);
+            slideInterval = setInterval(nextSlide, slideDuration);
+        }
+
+        // Очищаем старые обработчики (клонированием кнопок), чтобы не дублировать клики
+        const newPrev = prevBtn.cloneNode(true);
+        const newNext = nextBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+        nextBtn.parentNode.replaceChild(newNext, nextBtn);
+
+        newPrev.addEventListener('click', () => {
+            prevSlide();
+            resetSlideInterval();
+        });
+
+        newNext.addEventListener('click', () => {
+            nextSlide();
+            resetSlideInterval();
+        });
+        
+        // Свайпы (обработчики на контейнере можно не пересоздавать, они не мешают)
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let isSwiping = false;
+
+        // Удаляем старые listeners с контейнера (через cloneNode нельзя, там внутри слайды)
+        // Просто убедимся, что логика showSlide вызывается корректно
+        container.ontouchstart = (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchEndX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isSwiping = false;
+        };
+
+        container.ontouchmove = (e) => {
+            if (!touchStartX || !touchStartY) return;
+            const touchCurrentX = e.touches[0].clientX;
+            const touchCurrentY = e.touches[0].clientY;
+            const deltaX = Math.abs(touchStartX - touchCurrentX);
+            const deltaY = Math.abs(touchStartY - touchCurrentY);
+            if (deltaX > deltaY) e.preventDefault(); // Блокируем скролл страницы при свайпе слайдера
+            touchEndX = touchCurrentX;
+            if (deltaX > 10) isSwiping = true;
+        };
+
+        container.ontouchend = () => {
+            const swipeThreshold = 50; 
+            if (touchStartX - touchEndX > swipeThreshold) {
+                nextSlide();
+                resetSlideInterval();
+            } else if (touchEndX - touchStartX > swipeThreshold) {
+                prevSlide();
+                resetSlideInterval();
+            }
+            touchStartX = 0;
+            touchStartY = 0;
+        };
+
+        // Показываем актуальный слайд
+        showSlide(currentSlideIndex);
+        resetSlideInterval();
+    }
 
         function nextSlide() {
             showSlide(currentSlideIndex + 1);
@@ -1734,6 +1782,9 @@ async function openQuestsTab(isSilent = false) {
             // Обновляем ярлыки
             updateShortcutStatuses(userData, allQuests);
         }
+        // <-- ДОБАВЬТЕ ВОТ ЭТУ СТРОКУ В САМЫЙ КОНЕЦ ФУНКЦИИ:
+            setTimeout(() => setupSlider(true), 0);
+    }
     }
 
     // --- ПОЛНОСТЬЮ ОБНОВЛЕННАЯ ФУНКЦИЯ MAIN ---
@@ -1802,7 +1853,7 @@ async function openQuestsTab(isSilent = false) {
                 bootstrapData.quests
             );
 
-            // --- Слайд "Котел" (загружается отдельно, чтобы не блокировать bootstrap, если он медленный) ---
+            // --- Слайд "Котел" (загружается отдельно) ---
             fetch('/api/v1/events/cauldron/status', { headers: { 'X-Init-Data': Telegram.WebApp.initData } })
                 .then(res => res.json())
                 .then(eventData => {
@@ -1816,13 +1867,13 @@ async function openQuestsTab(isSilent = false) {
                             if (img && eventData.banner_image_url) img.src = eventData.banner_image_url;
                         }
                     }
-                    // Запускаем слайдер после всех проверок
-                    setTimeout(() => setupSlider(), 0);
+                    // Запускаем слайдер с флагом true (сохранить позицию)
+                    setTimeout(() => setupSlider(true), 0); // <--- ВОТ ЗДЕСЬ ИЗМЕНЕНИЕ
                 })
                 .catch((err) => {
                     console.warn("Cauldron status error:", err);
-                    // Даже при ошибке запускаем слайдер, чтобы остальные слайды работали
-                    setTimeout(() => setupSlider(), 0);
+                    // Даже при ошибке обновляем, сохраняя позицию
+                    setTimeout(() => setupSlider(true), 0); // <--- И ЗДЕСЬ
                 });
 
             // --- Инициализация туториала и уведомлений ---
