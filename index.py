@@ -8145,6 +8145,89 @@ async def buy_dynamic_promo_endpoint(
         logging.error(f"Buy promo error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+# --- 🛠️ РЕМОНТ ПОДПИСОК TWITCH ---
+@app.get("/api/v1/debug/fix_twitch_subs")
+async def fix_twitch_subs(
+    request: Request,
+    # Используем ваши переменные окружения
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Удаляет старые подписки и создает новую на ТЕКУЩИЙ адрес приложения.
+    """
+    # 1. Получаем токен приложения (App Access Token)
+    async with httpx.AsyncClient() as client:
+        token_resp = await client.post(
+            "https://id.twitch.tv/oauth2/token",
+            data={
+                "client_id": TWITCH_CLIENT_ID,
+                "client_secret": TWITCH_CLIENT_SECRET,
+                "grant_type": "client_credentials"
+            }
+        )
+        if token_resp.status_code != 200:
+            return {"error": "Не удалось получить токен Twitch", "details": token_resp.json()}
+        
+        access_token = token_resp.json()["access_token"]
+        headers = {
+            "Client-ID": TWITCH_CLIENT_ID,
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        # 2. Получаем текущий ID канала (Broadcaster ID) из базы или хардкода
+        # ВАЖНО: Twitch требует ID стримера (число), а не логин. 
+        # Если он есть в базе users - берем оттуда. Если нет - нужно указать вручную.
+        # Попробуем найти админа:
+        admin_user = None
+        for admin_id in ADMIN_IDS:
+            u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "twitch_id"})
+            if u_resp.json() and u_resp.json()[0].get("twitch_id"):
+                admin_user = u_resp.json()[0]
+                break
+        
+        if not admin_user:
+            return {"error": "Не найден Twitch ID администратора в базе. Войдите через Twitch в боте."}
+        
+        broadcaster_id = admin_user["twitch_id"]
+
+        # 3. Удаляем ВСЕ старые подписки (чтобы очистить мусор на старых хостах)
+        subs_resp = await client.get("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers)
+        if subs_resp.status_code == 200:
+            for sub in subs_resp.json().get("data", []):
+                if sub["status"] != "enabled" or "quest" in sub["transport"]["callback"]: # Удаляем все или по критерию
+                    print(f"Удаляю подписку {sub['id']} -> {sub['transport']['callback']}")
+                    await client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
+
+        # 4. Создаем НОВУЮ подписку на правильный адрес
+        # Ваш новый адрес (берем из WEB_APP_URL или собираем сами)
+        # ВАЖНО: Убедитесь, что WEB_APP_URL в .env правильный (https://hatelavka-quest-nine.vercel.app)
+        callback_url = f"{WEB_APP_URL}/api/v1/webhooks/twitch" 
+        
+        sub_payload = {
+            "type": "channel.channel_points_custom_reward_redemption.add",
+            "version": "1",
+            "condition": {
+                "broadcaster_user_id": broadcaster_id
+            },
+            "transport": {
+                "method": "webhook",
+                "callback": callback_url,
+                "secret": TWITCH_WEBHOOK_SECRET
+            }
+        }
+
+        create_resp = await client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json=sub_payload)
+        
+        return {
+            "message": "Переподписка выполнена!",
+            "deleted_old": True,
+            "new_subscription": create_resp.json(),
+            "target_url": callback_url
+        }
+
+#### https://hatelavka-quest-nine.vercel.app/api/v1/debug/fix_twitch_subs <- ссылка для фикса
+
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon(): return Response(status_code=204)
