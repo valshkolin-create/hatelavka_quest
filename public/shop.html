@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Premium Shop</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="/public/menu.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         :root {
             --primary-color: #ffcc00;
@@ -134,22 +133,22 @@
             display: flex;
             gap: 10px;
             padding: 0 16px;
-            width: 100%; /* <--- ТЕПЕРЬ КОНТЕЙНЕР ОГРАНИЧЕН ЭКРАНОМ */
-            overflow-x: hidden; /* Скрываем скроллбар */
-            /* Важно для стабильности */
+            width: 100%; /* ИСПРАВЛЕНО: Было max-content, стало 100% для работы скролла */
+            overflow-x: hidden; /* Скрываем нативный скроллбар */
             flex-wrap: nowrap;
         }
         
-        /* Исправление размеров для карточек */
         .partner-card {
             flex: 0 0 auto; 
-            width: 260px; /* Фиксированная ширина - ВАЖНО для расчета JS */
-            min-width: 260px; /* Защита от схлопывания */
+            width: 260px; 
+            min-width: 260px;
             background: #1c1c1e;
             border-radius: 14px;
             padding: 12px;
             display: flex;
             align-items: center;
+            /* НОВОЕ: Центрируем содержимое карточки по горизонтали */
+            justify-content: center; 
             gap: 12px;
             text-decoration: none;
             position: relative;
@@ -159,6 +158,7 @@
             -webkit-user-drag: none;
             user-select: none;
             -webkit-user-select: none;
+            cursor: pointer; /* Указываем, что это кликабельно */
         }
 
         .partner-card.topskin {
@@ -191,7 +191,16 @@
             -webkit-user-drag: none;
         }
 
-        .partner-info { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+        .partner-info { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 2px; 
+            pointer-events: none;
+            /* НОВОЕ: Центрируем текст внутри блока информации */
+            align-items: center; 
+            text-align: center;
+            flex-grow: 1; /* Растягиваем блок, чтобы он занял место */
+        }
         
         .partner-title { 
             font-size: 14px; 
@@ -199,10 +208,18 @@
             color: #fff; 
             display: flex; 
             align-items: center; 
+            /* НОВОЕ: Центрируем элементы заголовка */
+            justify-content: center;
             gap: 6px; 
         }
         
-        .partner-desc { font-size: 10px; color: #b0b0b0; line-height: 1.3; }
+        .partner-desc { 
+            font-size: 10px; 
+            color: #b0b0b0; 
+            line-height: 1.3; 
+            /* НОВОЕ: Явное указание центровки текста */
+            text-align: center;
+        }
         
         .partner-highlight { 
             color: #fff; 
@@ -586,28 +603,26 @@
             goBack();
         });
 
-        // --- УПРОЩЕННАЯ И НАДЕЖНАЯ ФУНКЦИЯ СКРОЛЛА ---
+        // --- УЛУЧШЕННАЯ ФУНКЦИЯ СКРОЛЛА С ПАУЗОЙ И ЦЕНТРОВКОЙ ---
         function initPartnersScroll() {
             const container = document.getElementById('partners-scroll');
             if (!container) return;
 
-            // Защита от двойного запуска
             if (container.getAttribute('data-init-done') === 'true') return;
             container.setAttribute('data-init-done', 'true');
 
-            // Очистка старой анимации
             if (partnersAnimFrameId) {
                 cancelAnimationFrame(partnersAnimFrameId);
                 partnersAnimFrameId = null;
             }
 
-            console.log('>>> [DEBUG] Запуск скролла (версия с CSS-размерами)');
+            console.log('>>> [DEBUG] Запуск скролла (Centering + Pause update)');
 
             setTimeout(() => {
                 const originalItems = Array.from(container.children);
                 if (originalItems.length === 0) return;
 
-                // Клонируем элементы
+                // Клонирование для бесконечности
                 const screenWidth = window.innerWidth;
                 let loops = 0;
                 while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
@@ -617,40 +632,50 @@
                     loops++;
                 }
 
-                // Расчет сброса. 
-                // Т.к. мы задали ширину в CSS (260px) + gap (10px), мы можем посчитать математически
-                // даже если offsetWidth вернет 0 (хотя min-width это исправит)
                 let itemWidth = originalItems[0].offsetWidth;
-                if (itemWidth < 100) itemWidth = 260; // Fallback на CSS значение
+                if (itemWidth < 100) itemWidth = 260; // Fallback на CSS
 
                 const gap = 10; 
                 const itemFullWidth = itemWidth + gap;
                 const resetPoint = itemFullWidth * originalItems.length;
 
-                console.log(`>>> [DEBUG] ResetPoint: ${resetPoint}`);
-
                 let scrollPos = 0;
-                const speed = 1; 
+                const speed = 1.0; // Чуть увеличил скорость для плавности
+
+                // Флаги состояния
+                let isDragging = false;
+                let isHovered = false; // Для остановки мышкой
+
+                // --- Слушатели мыши для ПК (пауза при наведении) ---
+                container.addEventListener('mouseenter', () => {
+                    isHovered = true;
+                });
+                container.addEventListener('mouseleave', () => {
+                    isHovered = false;
+                });
 
                 function animate() {
-                    scrollPos += speed;
-                    if (scrollPos >= resetPoint) {
-                        scrollPos -= resetPoint;
+                    // Анимируем только если не тащим пальцем И не навели мышку
+                    if (!isDragging && !isHovered) {
+                        scrollPos += speed;
+                        if (scrollPos >= resetPoint) {
+                            scrollPos -= resetPoint;
+                        }
+                        container.scrollLeft = scrollPos;
                     }
-                    container.scrollLeft = scrollPos;
                     partnersAnimFrameId = requestAnimationFrame(animate);
                 }
 
                 animate();
 
-                // --- Touch Logic ---
-                let isDragging = false;
+                // --- Touch Logic (Мобилки) ---
                 let startX = 0;
                 let startScrollLeft = 0;
 
                 container.addEventListener('touchstart', (e) => {
                     isDragging = true;
-                    cancelAnimationFrame(partnersAnimFrameId);
+                    // Мы не останавливаем requestAnimationFrame полностью,
+                    // просто флаг isDragging остановит инкремент позиции в animate()
                     startX = e.touches[0].pageX;
                     startScrollLeft = container.scrollLeft;
                 }, {passive: true});
@@ -659,14 +684,18 @@
                     if (!isDragging) return;
                     const x = e.touches[0].pageX;
                     const walk = (startX - x) * 1.5;
+                    // Обновляем переменную scrollPos, чтобы при отпускании не дергало
                     scrollPos = startScrollLeft + walk;
+                    
+                    // Защита от ухода в минус (хотя с бесконечностью это редко нужно, но для надежности)
                     if (scrollPos < 0) scrollPos = 0;
+                    
                     container.scrollLeft = scrollPos;
                 }, {passive: true});
 
                 container.addEventListener('touchend', () => {
                     isDragging = false;
-                    animate();
+                    // Анимация подхватит текущий scrollPos и продолжит
                 });
 
             }, 50);
@@ -675,7 +704,7 @@
         async function initShop() {
             updateNavState();
             
-            // Запускаем сразу, не ждем картинок, так как CSS держит размеры
+            // Запускаем сразу
             initPartnersScroll(); 
             
             Promise.all([
