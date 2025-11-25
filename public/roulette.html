@@ -252,6 +252,7 @@
 
     // --- 🆕 ДОБАВЛЯЕМ ПЕРЕМЕННУЮ ---
     let lastAnimationTimestamp = 0;
+    let lastPayloadSignature = ""; // <-- НОВАЯ ПЕРЕМЕННАЯ
 
     function playSound(audioElem) {
         if (audioElem) { audioElem.pause(); audioElem.currentTime = 0; audioElem.play().catch(e => console.warn(e)); }
@@ -261,15 +262,29 @@
     }
 
     function startRouletteAnimation(payload) {
-        // --- 🛡️ ЗАЩИТА ОТ ДУБЛЕЙ (НОВЫЙ КОД) 🛡️ ---
+        const newPayload = payload.new.payload;
+        
+        // Создаем "подпись" данных: Имя + Приз + Индекс победителя
+        // Если придет повтор вебхука, эти данные будут идентичны
+        const currentSignature = `${newPayload.user_name}_${newPayload.prize_name}_${newPayload.winner_index}`;
         const now = Date.now();
-        // Если с прошлой анимации прошло меньше 5 секунд (5000 мс), игнорируем
-        if (now - lastAnimationTimestamp < 5000) {
-            console.warn("Дубликат анимации обнаружен и заблокирован (Frontend).");
+
+        // 1. Проверка по времени (Ваша старая, оставим как страховку)
+        if (now - lastAnimationTimestamp < 2000) { 
+            console.warn("Слишком частые запросы, игнорируем.");
             return;
         }
+
+        // 2. ГЛАВНАЯ ПРОВЕРКА: Если данные те же самые и прошло меньше 20 секунд
+        // (Анимация идет долго, повтор обычно прилетает через 3-5 секунд)
+        if (currentSignature === lastPayloadSignature && (now - lastAnimationTimestamp < 20000)) {
+            console.warn("⛔ Дубликат рулетки обнаружен (тот же юзер и приз)! Игнорируем.");
+            return;
+        }
+
+        // Обновляем метки
         lastAnimationTimestamp = now;
-        // ------------------------------------------
+        lastPayloadSignature = currentSignature;
 
         animationQueue.push(payload);
         if (!isAnimating) processNextAnimation();
