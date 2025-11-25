@@ -27,8 +27,8 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* Отступ снизу под фиксированный футер */
-            padding-bottom: calc(70px + env(safe-area-inset-bottom));
+            /* Отступ снизу под фиксированный футер (высота ~60px + safe area) */
+            padding-bottom: calc(80px + env(safe-area-inset-bottom));
             overflow-x: hidden; 
         }
 
@@ -122,7 +122,7 @@
         /* --- ПАРТНЕРЫ (БЕГУЩАЯ СТРОКА) --- */
         .partners-wrapper {
             width: 100%;
-            overflow: hidden; /* Скрываем то, что уходит за края */
+            overflow: hidden; 
             margin-top: 5px;
             padding-bottom: 15px;
             position: relative;
@@ -132,9 +132,10 @@
             display: flex;
             gap: 10px;
             padding: 0 16px;
-            width: max-content; /* Растягиваем контейнер по содержимому */
-            /* Убрали CSS анимацию, теперь управляет JS */
+            width: max-content;
+            overflow-x: hidden; /* Скрываем стандартный скроллбар */
             cursor: grab;
+            user-select: none; /* Чтобы текст не выделялся при перетаскивании */
         }
         
         .partners-scroll:active {
@@ -155,7 +156,8 @@
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            /* Убрали transform transition для плавности JS-скролла */
+            /* Важно: отключаем стандартное поведение ссылок при перетаскивании JS-ом */
+            -webkit-user-drag: none;
         }
 
         .partner-card.topskin {
@@ -184,9 +186,10 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
+            pointer-events: none; /* Чтобы картинка не мешала свайпу */
         }
 
-        .partner-info { display: flex; flex-direction: column; gap: 2px; }
+        .partner-info { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
         
         .partner-title { 
             font-size: 14px; 
@@ -219,6 +222,7 @@
             padding: 2px 5px;
             font-size: 11px;
             margin-left: 2px;
+            pointer-events: auto; /* Возвращаем кликабельность кнопке */
         }
 
         /* --- СЕТКА ТОВАРОВ --- */
@@ -403,23 +407,27 @@
             font-size: 14px;
         }
 
-        /* --- ФУТЕР (1в1 из menu.css) --- */
+        /* --- ЕДИНЫЙ ФИКСИРОВАННЫЙ ФУТЕР (КАК В LEADERBOARD) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
-            align-items: center; /* ИЗМЕНЕНИЕ: flex-start -> center */
-            background-color: var(--surface-glass-bg);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-top: 1px solid rgba(58, 58, 60, 0.6);
-            width: 100%;
-            padding-top: 6px; /* ИЗМЕНЕНИЕ: 8px -> 6px */
-            padding-bottom: calc(6px + env(safe-area-inset-bottom)); /* ИЗМЕНЕНИЕ: 8px -> 6px */
+            align-items: center;
+            
+            background-color: rgba(28, 28, 30, 0.85); 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            
             position: fixed;
             bottom: 0;
             left: 0;
-            z-index: 100;
+            width: 100%;
+            z-index: 9999;
+            
+            padding-top: 8px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
             box-sizing: border-box;
+            height: auto;
         }
 
         .footer-item {
@@ -428,27 +436,56 @@
             align-items: center;
             justify-content: center;
             gap: 4px;
+            
             color: #8E8E93;
             text-decoration: none;
             flex: 1;
             cursor: pointer;
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             font-size: 10px;
-            line-height: 1; /* ВАЖНО: Добавлено для совпадения высоты */
+            line-height: 1; 
             font-weight: 500;
-            transition: color 0.2s ease;
+            transition: all 0.2s ease;
         }
 
         .footer-item .icon-wrapper {
             display: flex;
             justify-content: center;
             align-items: center;
+            
             width: 24px;
             height: 24px;
             font-size: 22px;
+            
+            position: relative;
             transition: transform 0.2s ease, color 0.2s ease;
         }
-        
+
         .footer-item:active { color: #ffffff; }
+
+        /* Активное состояние (если понадобится, хотя тут нет active класса по умолчанию) */
+        .footer-item.active { color: #FFFFFF; }
+        .footer-item.active span { font-weight: 600; }
+        .footer-item.active .icon-wrapper {
+            color: #34c759;
+            transform: translateY(-2px);
+            text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
+        }
+        .footer-item.active .icon-wrapper::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            width: 20px;
+            height: 2px;
+            background-color: #34c759;
+            border-radius: 2px;
+            box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -514,7 +551,7 @@
             <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
             <span>Лидерборд</span>
         </a>
-        <a href="/menu#quests" class="footer-item"> 
+        <a href="/menu#quests" class="footer-item">
             <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
             <span>Задания</span>
         </a>
@@ -546,56 +583,109 @@
             goBack();
         });
 
-        // --- ИНИЦИАЛИЗАЦИЯ СКРОЛЛЕРА ПАРТНЕРОВ ---
+        // --- НОВАЯ ЛОГИКА СКРОЛЛЕРА ПАРТНЕРОВ ---
         function initPartnersScroll() {
             const scrollContainer = document.getElementById('partners-scroll');
             if (!scrollContainer) return;
 
-            // Дублируем контент, чтобы лента была длинной и зацикленной
-            // Создаем 3 копии для плавности
-            const originalContent = scrollContainer.innerHTML;
-            scrollContainer.innerHTML = originalContent + originalContent + originalContent;
+            // 1. Дублируем контент для "бесконечности" (Original + Clone1 + Clone2)
+            // Достаточно клонировать 2 раза, чтобы всегда был контент справа при скролле
+            const items = Array.from(scrollContainer.children);
+            items.forEach(item => scrollContainer.appendChild(item.cloneNode(true)));
+            items.forEach(item => scrollContainer.appendChild(item.cloneNode(true)));
 
-            let isPaused = false;
-            let scrollSpeed = 0.5; // Скорость движения
+            // Вычисляем ширину одного полного набора элементов (с учетом gap)
+            // Мы знаем, что добавили клонов, поэтому берем треть от общей ширины (при условии полной загрузки)
+            // Но надежнее посчитать ширину оригинальных элементов.
+            let singleSetWidth = 0;
+            const gap = 10; // CSS gap
+            items.forEach(item => {
+                singleSetWidth += item.offsetWidth + gap;
+            });
 
-            // Функция анимации
-            function animateScroll() {
-                if (!isPaused) {
-                    scrollContainer.scrollLeft += scrollSpeed;
+            let currentScroll = 0;
+            const speed = 0.5; // Скорость авто-скролла
+            let isDragging = false;
+            let startX, startScrollLeft;
+            let animationFrameId;
+
+            // Функция авто-анимации
+            function animate() {
+                if (!isDragging) {
+                    currentScroll += speed;
                     
-                    // Если прокрутили до конца первой трети (оригинального контента), сбрасываем в начало
-                    // scrollWidth / 3 - это длина одного набора карточек
-                    if (scrollContainer.scrollLeft >= (scrollContainer.scrollWidth / 3)) {
-                        scrollContainer.scrollLeft = 0;
+                    // Если прокрутили больше длины одного набора, сбрасываем назад незаметно
+                    if (currentScroll >= singleSetWidth) {
+                        currentScroll -= singleSetWidth;
                     }
+                    
+                    scrollContainer.scrollLeft = currentScroll;
                 }
-                requestAnimationFrame(animateScroll);
+                animationFrameId = requestAnimationFrame(animate);
             }
 
-            // Запуск
-            animateScroll();
+            // Запускаем анимацию
+            animate();
 
-            // События для остановки (Touch и Mouse)
-            const stopScroll = () => { isPaused = true; };
-            const resumeScroll = () => { 
-                // Небольшая задержка перед запуском после свайпа
-                setTimeout(() => { isPaused = false; }, 1000); 
+            // --- ОБРАБОТЧИКИ SWIPE / MOUSE DRAG ---
+            
+            const startDrag = (e) => {
+                isDragging = true;
+                // Получаем X позицию (для мыши или тача)
+                startX = e.pageX || e.touches[0].pageX;
+                startScrollLeft = scrollContainer.scrollLeft;
+                // Останавливаем инерцию браузера если есть
+                scrollContainer.style.scrollBehavior = 'auto'; 
             };
 
-            scrollContainer.addEventListener('touchstart', stopScroll);
-            scrollContainer.addEventListener('touchend', resumeScroll);
-            scrollContainer.addEventListener('mouseenter', stopScroll);
-            scrollContainer.addEventListener('mouseleave', resumeScroll);
-            
-            // Если пользователь скроллит колесиком (на десктопе)
-            scrollContainer.addEventListener('wheel', stopScroll);
+            const doDrag = (e) => {
+                if (!isDragging) return;
+                e.preventDefault(); // Блокируем стандартный скролл страницы если тянем слайдер
+                const x = e.pageX || e.touches[0].pageX;
+                const walk = (x - startX) * 1.5; // Множитель скорости свайпа
+                
+                // Обновляем позицию скролла
+                let newScroll = startScrollLeft - walk;
+                
+                // Логика зацикливания при ручном перетаскивании
+                if (newScroll < 0) {
+                    // Если утянули влево до упора, перекидываем в конец (на 2-й сет)
+                    newScroll += singleSetWidth;
+                    startScrollLeft += singleSetWidth; // Корректируем старт, чтобы не было скачка
+                } else if (newScroll >= singleSetWidth * 2) {
+                    // Если утянули далеко вправо
+                    newScroll -= singleSetWidth;
+                    startScrollLeft -= singleSetWidth;
+                }
+                
+                scrollContainer.scrollLeft = newScroll;
+                currentScroll = newScroll; // Синхронизируем для авто-скролла
+            };
+
+            const stopDrag = () => {
+                isDragging = false;
+                // При отпускании корректируем currentScroll на случай, если он вышел за границы цикла
+                if (currentScroll >= singleSetWidth) {
+                     currentScroll = currentScroll % singleSetWidth;
+                }
+            };
+
+            // Mouse events
+            scrollContainer.addEventListener('mousedown', startDrag);
+            scrollContainer.addEventListener('mousemove', doDrag);
+            scrollContainer.addEventListener('mouseup', stopDrag);
+            scrollContainer.addEventListener('mouseleave', stopDrag);
+
+            // Touch events
+            scrollContainer.addEventListener('touchstart', startDrag);
+            scrollContainer.addEventListener('touchmove', doDrag);
+            scrollContainer.addEventListener('touchend', stopDrag);
         }
 
         async function initShop() {
             updateNavState();
             
-            // Запускаем скроллер партнеров
+            // Запускаем улучшенный скроллер
             initPartnersScroll();
 
             Promise.all([
@@ -753,6 +843,7 @@
         }
 
         function openPartnerLink(url) {
+            // Разрешаем переход, если это не перетаскивание
             Telegram.WebApp.openLink(url);
         }
 
