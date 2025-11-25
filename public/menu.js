@@ -67,57 +67,78 @@ try {
     let questsForRoulette = [];
     let tutorialCountdownInterval = null;
     
-    // --- ИСПРАВЛЕННАЯ ЛОГИКА СЛАЙДЕРА (v3 - Без прыжков) ---
+    // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЛАЙДЕРА V2 (С ЛОГАМИ) ---
     let currentSlideIndex = 0;
     let slideInterval;
-    const slideDuration = 15000; 
+    const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
 
-    function setupSlider(preserveState = false) {
-        // console.log(`[setupSlider] Запуск. Сохранять позицию? ${preserveState}`);
+    function setupSlider() {
+        // --- 1. ЛОГ: Начало ---
+        console.log("--- 1. [setupSlider] Запуск ---");
+        // ---
 
         const container = document.getElementById('main-slider-container');
-        if (!container) return;
+        if (!container) {
+            // --- 2. ЛОГ: Контейнер не найден ---
+            console.warn("[setupSlider] ВНИМАНИЕ: Контейнер #main-slider-container не найден. Слайдер не будет запущен.");
+            // ---
+            return; // Если слайдера нет, ничего не делаем
+        }
 
+        // --- ИЗМЕНЕНИЕ №1: Находим только ВИДИМЫЕ слайды ---
         const allSlides = container.querySelectorAll('.slide');
+        // --- 3. ЛОГ: Сколько всего слайдов ---
+        console.log(`[setupSlider] Найдено allSlides (до фильтрации): ${allSlides.length}`);
+        // ---
+
         const visibleSlides = Array.from(allSlides).filter(
             slide => window.getComputedStyle(slide).display !== 'none'
         );
+        // --- 4. ЛОГ: Сколько видимых слайдов ---
+        console.log(`[setupSlider] Найдено visibleSlides (после фильтрации): ${visibleSlides.length}`);
+        // ---
 
         const wrapper = container.querySelector('.slider-wrapper');
         const dotsContainer = container.querySelector('.slider-dots');
         const prevBtn = document.getElementById('slide-prev-btn');
         const nextBtn = document.getElementById('slide-next-btn');
 
-        // Если слайдов нет, прячем контейнер
+        // --- ИЗМЕНЕНИЕ №2: Добавляем логику для 0 или 1 слайда ---
+        
+        // Если видимых слайдов нет, прячем весь контейнер
         if (visibleSlides.length === 0) {
+            // --- 5. ЛОГ: Логика 0 ---
+            console.log("[setupSlider] ЛОГИКА: 0 видимых. Прячем контейнер.");
+            // ---
             container.style.display = 'none';
             return;
         }
 
-        // Если слайд один, показываем как статику
+        // Если виден только один слайд, показываем его как картинку, но без управления
         if (visibleSlides.length <= 1) {
-            container.style.display = ''; 
+            // --- 6. ЛОГ: Логика 1 ---
+            console.log("[setupSlider] ЛОГИКА: 1 видимый. Показываем как картинку (без управления).");
+            // ---
+            container.style.display = ''; // Убедимся, что контейнер виден
             if (prevBtn) prevBtn.style.display = 'none';
             if (nextBtn) nextBtn.style.display = 'none';
             if (dotsContainer) dotsContainer.style.display = 'none';
-            
-            // Сдвигаем wrapper к этому единственному слайду
+            // Перематываем на первый видимый слайд на случай, если он не первый в DOM
             const firstVisibleIndex = Array.from(allSlides).indexOf(visibleSlides[0]);
-            if (wrapper) {
-                // Отключаем анимацию для мгновенной настройки
-                wrapper.style.transition = 'none';
-                wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
-            }
+            if (wrapper) wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
             return;
         }
         
-        // Если слайдов > 1, включаем управление
+        // Если мы дошли сюда, значит слайдов > 1 и нужно запустить карусель
+        // --- 7. ЛОГ: Логика > 1 ---
+        console.log(`[setupSlider] ЛОГИКА: ${visibleSlides.length} видимых. Запускаем карусель.`);
+        // ---
         container.style.display = '';
         if (prevBtn) prevBtn.style.display = 'flex';
         if (nextBtn) nextBtn.style.display = 'flex';
         if (dotsContainer) dotsContainer.style.display = 'flex';
         
-        // Генерируем точки
+        // --- ИЗМЕНЕНИЕ №3: Работаем дальше только с видимыми слайдами ---
         dotsContainer.innerHTML = '';
         visibleSlides.forEach((_, i) => {
             const dot = document.createElement('button');
@@ -130,26 +151,30 @@ try {
         });
         const dots = dotsContainer.querySelectorAll('.dot');
 
-        // --- ЛОГИКА СОХРАНЕНИЯ ПОЗИЦИИ ---
-        if (!preserveState) {
-            currentSlideIndex = 0;
-        } else {
-            // Если мы сохраняем позицию, но текущий индекс вышел за пределы (например, слайд удалили), сбрасываем
-            if (currentSlideIndex >= visibleSlides.length) {
-                currentSlideIndex = 0;
-            }
-        }
-
         function showSlide(index) {
+            // --- 8. ЛОГ: Внутри showSlide ---
+            console.log(`[showSlide] Вызван для index: ${index} (из ${visibleSlides.length} видимых)`);
+            // ---
+
             if (index >= visibleSlides.length) index = 0;
             if (index < 0) index = visibleSlides.length - 1;
 
-            if (!wrapper || !dots[index]) return;
+            // --- 9. ЛОГ: Внутри showSlide ---
+            // Нам не нужен realIndex, мы используем 'index' (порядковый номер видимого слайда)
+            console.log(`[showSlide] Целевой index в visibleSlides: ${index}`);
+            // ---
+
+            if (!wrapper || !dots[index]) {
+                // --- 10. ЛОГ: Внутри showSlide (ошибка) ---
+                console.warn(`[showSlide] Ошибка: wrapper (${!!wrapper}) или dots[${index}] (${!!dots[index]}) не найден.`);
+                // ---
+                return;
+            }
             
-            // Включаем анимацию обратно (если она была отключена выше)
-            wrapper.style.transition = 'transform 0.5s ease-in-out';
+            // --- 11. ЛОГ: Внутри showSlide (действие) ---
+            console.log(`[showSlide] Применяем transform: translateX(-${index * 100}%)`);
+            // ---
             wrapper.style.transform = `translateX(-${index * 100}%)`;
-            
             dots.forEach(dot => dot.classList.remove('active'));
             dots[index].classList.add('active');
             currentSlideIndex = index;
@@ -164,115 +189,34 @@ try {
         }
 
         function resetSlideInterval() {
-            if (slideInterval) clearInterval(slideInterval);
+            clearInterval(slideInterval);
             slideInterval = setInterval(nextSlide, slideDuration);
         }
 
-        // Очищаем старые обработчики (клонированием кнопок), чтобы не дублировать клики
-        const newPrev = prevBtn.cloneNode(true);
-        const newNext = nextBtn.cloneNode(true);
-        prevBtn.parentNode.replaceChild(newPrev, prevBtn);
-        nextBtn.parentNode.replaceChild(newNext, nextBtn);
-
-        newPrev.addEventListener('click', () => {
+        prevBtn.addEventListener('click', () => {
             prevSlide();
             resetSlideInterval();
         });
 
-        newNext.addEventListener('click', () => {
+        nextBtn.addEventListener('click', () => {
             nextSlide();
             resetSlideInterval();
         });
         
-        // Свайпы (обработчики на контейнере можно не пересоздавать, они не мешают)
+        // Код для свайпа остается без изменений, он будет работать корректно
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
         let isSwiping = false;
 
-        // Удаляем старые listeners с контейнера (через cloneNode нельзя, там внутри слайды)
-        // Просто убедимся, что логика showSlide вызывается корректно
-        container.ontouchstart = (e) => {
+        container.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
             touchEndX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = false;
-        };
+        }, { passive: true });
 
-        container.ontouchmove = (e) => {
-            if (!touchStartX || !touchStartY) return;
-            const touchCurrentX = e.touches[0].clientX;
-            const touchCurrentY = e.touches[0].clientY;
-            const deltaX = Math.abs(touchStartX - touchCurrentX);
-            const deltaY = Math.abs(touchStartY - touchCurrentY);
-            if (deltaX > deltaY) e.preventDefault(); // Блокируем скролл страницы при свайпе слайдера
-            touchEndX = touchCurrentX;
-            if (deltaX > 10) isSwiping = true;
-        };
-
-        container.ontouchend = () => {
-            const swipeThreshold = 50; 
-            if (touchStartX - touchEndX > swipeThreshold) {
-                nextSlide();
-                resetSlideInterval();
-            } else if (touchEndX - touchStartX > swipeThreshold) {
-                prevSlide();
-                resetSlideInterval();
-            }
-            touchStartX = 0;
-            touchStartY = 0;
-        };
-
-        // Показываем актуальный слайд
-        showSlide(currentSlideIndex);
-        resetSlideInterval();
-    }
-
-        function nextSlide() {
-            showSlide(currentSlideIndex + 1);
-        }
-
-        function prevSlide() {
-            showSlide(currentSlideIndex - 1);
-        }
-
-        function resetSlideInterval() {
-            if (slideInterval) clearInterval(slideInterval); // Проверка перед очисткой
-            slideInterval = setInterval(nextSlide, slideDuration);
-        }
-
-        // --- ИСПРАВЛЕНИЕ 2: Очистка старых событий через клонирование кнопок ---
-        // Это удаляет все старые addEventListener, чтобы клики не дублировались
-        const newPrev = prevBtn.cloneNode(true);
-        const newNext = nextBtn.cloneNode(true);
-        prevBtn.parentNode.replaceChild(newPrev, prevBtn);
-        nextBtn.parentNode.replaceChild(newNext, nextBtn);
-
-        newPrev.addEventListener('click', () => {
-            prevSlide();
-            resetSlideInterval();
-        });
-
-        newNext.addEventListener('click', () => {
-            nextSlide();
-            resetSlideInterval();
-        });
-        
-        // Свайпы (для контейнера можно перезаписывать свойства on..., это проще)
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchEndX = 0;
-        let isSwiping = false;
-
-        // Используем on... свойства, чтобы автоматически заменять старые функции
-        container.ontouchstart = (e) => {
-            touchStartX = e.touches[0].clientX;
-            touchEndX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-            isSwiping = false;
-        };
-
-        container.ontouchmove = (e) => {
+        container.addEventListener('touchmove', (e) => {
             if (!touchStartX || !touchStartY) return;
             const touchCurrentX = e.touches[0].clientX;
             const touchCurrentY = e.touches[0].clientY;
@@ -281,9 +225,9 @@ try {
             if (deltaX > deltaY) e.preventDefault();
             touchEndX = touchCurrentX;
             if (deltaX > 10) isSwiping = true;
-        };
+        }, { passive: false });
 
-        container.ontouchend = () => {
+        container.addEventListener('touchend', () => {
             const swipeThreshold = 50; 
             if (touchStartX - touchEndX > swipeThreshold) {
                 nextSlide();
@@ -294,20 +238,17 @@ try {
             }
             touchStartX = 0;
             touchStartY = 0;
-        };
+        });
         
-        // Для кликов по слайдам (предотвращение перехода при свайпе)
         allSlides.forEach(slide => {
-            // Сначала удаляем старый, если был (не обязательно, но чисто)
-            slide.onclick = null; 
-            slide.onclick = (e) => {
+            slide.addEventListener('click', (e) => {
                 if (isSwiping) e.preventDefault();
-            };
+            });
         });
 
-        // --- ИСПРАВЛЕНИЕ 1: Не сбрасывать на 0, а использовать актуальный индекс ---
-        showSlide(currentSlideIndex); 
+        showSlide(0);
         resetSlideInterval();
+    }
     
     const tutorialSteps = [
         {
@@ -1061,27 +1002,22 @@ function renderChallenge(challengeData, isGuest) {
                 userData = dashboardData || {};
                 const challengeData = dashboardData.challenge;
                 const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
-                
-                // 1. Обновление Активного Испытания (Квест)
                 if (activeQuest) {
                     renderActiveAutomaticQuest(activeQuest, userData);
                 }
-                
-                // 2. Обновление Ежедневного Челленджа
                 if (challengeData) {
                     renderChallenge(challengeData, !userData.twitch_id);
                 } else {
                     renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
                 }
-                
-                // 👇👇👇 ВАШ ВЫЗОВ ЗДЕСЬ 👇👇👇
+                // 👇👇👇 ВСТАВИТЬ НУЖНО ЗДЕСЬ 👇👇👇
                 updateShortcutStatuses(userData, allQuests);
             }
         } catch (e) {
             console.error("Ошибка фонового обновления:", e);
         }
     }
-    
+
     async function startChallengeRoulette() {
         const getChallengeBtn = document.getElementById('get-challenge-btn');
         if(getChallengeBtn) getChallengeBtn.disabled = true;
@@ -1663,9 +1599,37 @@ async function openQuestsTab(isSilent = false) {
         }
     }
 
-    // --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ОТРИСОВКИ (Вставь перед main) ---
-    function renderMainPageData(menuContent, dashboardData, weeklyGoalsData, questsData) {
-        // 1. Обработка данных пользователя и админки
+    async function main() {
+    // 1. Принудительно показываем спиннер в самом начале
+    dom.loaderOverlay.classList.remove('hidden');
+    
+    try {
+        console.log("--- 1. main() ЗАПУЩЕНА (Optimized) ---");
+        setTimeout(() => window.scrollTo(0, 0), 0);
+
+        if (!Telegram.WebApp.initData) {
+            document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
+            return;
+        }
+
+        // 2. ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА (Promise.all)
+        // Мы используем 'true' (silent mode) для makeApiRequest, чтобы они не дергали спиннер туда-сюда.
+        // Спиннер мы контролируем вручную в блоке finally.
+        
+        const [menuContent, weeklyGoalsData, dashboardData] = await Promise.all([
+            // Запрос меню (fetch вручную)
+            fetch("/api/v1/content/menu", {
+                headers: { 'Content-Type': 'application/json', 'X-Init-Data': Telegram.WebApp.initData }
+            }).then(res => res.json()),
+
+            // Запрос целей (тихий режим)
+            makeApiRequest("/api/v1/user/weekly_goals", {}, 'POST', true).catch(e => null),
+
+            // Запрос профиля (тихий режим)
+            makeApiRequest("/api/v1/user/me", {}, 'POST', true)
+        ]);
+
+        // --- Обработка данных пользователя ---
         userData = dashboardData || {};
         document.getElementById('ticketStats').textContent = userData.tickets || 0;
 
@@ -1677,22 +1641,17 @@ async function openQuestsTab(isSilent = false) {
             if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
         }
 
-        // 2. Рендер недельных целей
-        if (weeklyGoalsData) {
-            renderWeeklyGoals(weeklyGoalsData);
-            if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
-                dom.weeklyGoalsAccordion.open = true;
-            }
+        // --- Обработка меню и баннеров ---
+        renderWeeklyGoals(weeklyGoalsData);
+        if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
+            dom.weeklyGoalsAccordion.open = true;
         }
 
-        // 3. Обработка меню и баннеров
         if (menuContent) {
             // Баннер недельных целей
             if (menuContent.weekly_goals_banner_url) {
                 const wImg = document.getElementById('weekly-goals-banner-img');
-                if (wImg && wImg.src !== menuContent.weekly_goals_banner_url) {
-                    wImg.src = menuContent.weekly_goals_banner_url;
-                }
+                if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
             }
 
             // Порядок слайдов
@@ -1711,9 +1670,7 @@ async function openQuestsTab(isSilent = false) {
                 skinRaceSlide.style.display = show ? '' : 'none';
                 if (show && menuContent.menu_banner_url) {
                     const img = document.getElementById('menu-banner-img');
-                    if (img && img.src !== menuContent.menu_banner_url) {
-                        img.src = menuContent.menu_banner_url;
-                    }
+                    if (img) img.src = menuContent.menu_banner_url;
                 }
             }
             
@@ -1739,9 +1696,7 @@ async function openQuestsTab(isSilent = false) {
                 checkpointSlide.style.display = showCheck ? '' : 'none';
                 if (showCheck && menuContent.checkpoint_banner_url) {
                     const img = document.getElementById('checkpoint-banner-img');
-                    if (img && img.src !== menuContent.checkpoint_banner_url) {
-                        img.src = menuContent.checkpoint_banner_url;
-                    }
+                    if (img) img.src = menuContent.checkpoint_banner_url;
                 }
             }
 
@@ -1766,150 +1721,81 @@ async function openQuestsTab(isSilent = false) {
             }
         }
 
-        // 4. Обработка Квестов и Челленджей (если переданы)
-        if (questsData) {
-            allQuests = questsData || [];
-            
-            // Фильтр для рулетки
-            let activeQType = 'twitch'; 
-            if (menuContent && menuContent.quest_schedule_override_enabled) activeQType = menuContent.quest_schedule_active_type;
-            else if (new Date().getDay() === 0 || new Date().getDay() === 1) activeQType = 'telegram';
-            
-            questsForRoulette = allQuests.filter(q => 
-                q.quest_type && q.quest_type.startsWith(`automatic_${activeQType}`) && !q.is_completed
-            );
-
-            const activeAutomaticQuest = allQuests.find(q => q.id === userData.active_quest_id);
-            const questChooseWrapper = document.getElementById('quest-choose-wrapper');
-            if (questChooseWrapper) questChooseWrapper.classList.toggle('hidden', !!activeAutomaticQuest);
-            
-            if (activeAutomaticQuest) renderActiveAutomaticQuest(activeAutomaticQuest, userData);
-            else dom.activeAutomaticQuestContainer.innerHTML = '';
-
-            // Обновляем челлендж
-            if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
-            else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
-
-            // Обновляем ярлыки
-            updateShortcutStatuses(userData, allQuests);
-        }
-        // <-- ДОБАВЬТЕ ВОТ ЭТУ СТРОКУ В САМЫЙ КОНЕЦ ФУНКЦИИ:
-            setTimeout(() => setupSlider(true), 0);
-    }
-
-    // --- ПОЛНОСТЬЮ ОБНОВЛЕННАЯ ФУНКЦИЯ MAIN ---
-    async function main() {
-        // 1. OPTIMISTIC UI: Проверяем кэш и рендерим мгновенно
-        const cachedMenu = localStorage.getItem('menu_cache');
-        const cachedUser = localStorage.getItem('user_cache');
-        const cachedGoals = localStorage.getItem('goals_cache');
-        const cachedQuests = localStorage.getItem('quests_cache');
-        
-        let hasRenderedCache = false;
-
-        if (cachedMenu && cachedUser) {
-            try {
-                console.log("--- [main] Загрузка из кэша ---");
-                const parsedMenu = JSON.parse(cachedMenu);
-                const parsedUser = JSON.parse(cachedUser);
-                const parsedGoals = cachedGoals ? JSON.parse(cachedGoals) : null;
-                const parsedQuests = cachedQuests ? JSON.parse(cachedQuests) : [];
-
-                // Рендерим "скелет" интерфейса данными из кэша
-                renderMainPageData(parsedMenu, parsedUser, parsedGoals, parsedQuests);
-                
-                // Сразу показываем контент и скрываем спиннер
-                dom.mainContent.classList.add('visible');
-                dom.loaderOverlay.classList.add('hidden');
-                hasRenderedCache = true;
-            } catch (e) {
-                console.error("Cache parse error:", e);
-                // Если кэш битый, не страшно, загрузим с сети
-            }
-        }
-
-        // Если кэша нет, показываем спиннер
-        if (!hasRenderedCache) {
-            dom.loaderOverlay.classList.remove('hidden');
-        }
-
-        try {
-            console.log("--- [main] Запрос данных с сервера (/api/v1/bootstrap) ---");
-            setTimeout(() => window.scrollTo(0, 0), 0);
-
-            if (!Telegram.WebApp.initData) {
-                document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
-                return;
-            }
-
-            // 2. ЕДИНЫЙ ЗАПРОС (Bootstrap)
-            // Мы используем 'true' (silent mode), если уже отрендерили кэш, чтобы спиннер не мигал
-            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); // true = silent, если нужно
-
-            if (!bootstrapData) throw new Error("Empty bootstrap data received");
-
-            // 3. ОБНОВЛЕНИЕ КЭША
-            localStorage.setItem('menu_cache', JSON.stringify(bootstrapData.menu));
-            localStorage.setItem('user_cache', JSON.stringify(bootstrapData.user));
-            if (bootstrapData.weekly_goals) localStorage.setItem('goals_cache', JSON.stringify(bootstrapData.weekly_goals));
-            if (bootstrapData.quests) localStorage.setItem('quests_cache', JSON.stringify(bootstrapData.quests));
-
-            // 4. ПОВТОРНЫЙ РЕНДЕР (СВЕЖИЕ ДАННЫЕ)
-            console.log("--- [main] Применение свежих данных ---");
-            renderMainPageData(
-                bootstrapData.menu, 
-                bootstrapData.user, 
-                bootstrapData.weekly_goals, 
-                bootstrapData.quests
-            );
-
-            // --- Слайд "Котел" (загружается отдельно) ---
-            fetch('/api/v1/events/cauldron/status', { headers: { 'X-Init-Data': Telegram.WebApp.initData } })
-                .then(res => res.json())
-                .then(eventData => {
-                    const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
-                    if (eventSlide) {
-                        const show = (eventData && eventData.is_visible_to_users) || (userData && userData.is_admin);
-                        eventSlide.style.display = show ? '' : 'none';
-                        if (show) {
-                            eventSlide.href = eventData.event_page_url || '/halloween';
-                            const img = eventSlide.querySelector('img');
-                            if (img && eventData.banner_image_url) img.src = eventData.banner_image_url;
-                        }
+        // --- Котел (отдельный запрос, но не блокирующий критично) ---
+        // Делаем его тихим, чтобы не сбивать логику
+        fetch('/api/v1/events/cauldron/status', { headers: { 'X-Init-Data': Telegram.WebApp.initData } })
+            .then(res => res.json())
+            .then(eventData => {
+                const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
+                if (eventSlide) {
+                    const show = (eventData && eventData.is_visible_to_users) || (userData && userData.is_admin);
+                    eventSlide.style.display = show ? '' : 'none';
+                    if (show) {
+                        eventSlide.href = eventData.event_page_url || '/halloween';
+                        const img = eventSlide.querySelector('img');
+                        if (img && eventData.banner_image_url) img.src = eventData.banner_image_url;
                     }
-                    // Запускаем слайдер с флагом true (сохранить позицию)
-                    setTimeout(() => setupSlider(true), 0); // <--- ВОТ ЗДЕСЬ ИЗМЕНЕНИЕ
-                })
-                .catch((err) => {
-                    console.warn("Cauldron status error:", err);
-                    // Даже при ошибке обновляем, сохраняя позицию
-                    setTimeout(() => setupSlider(true), 0); // <--- И ЗДЕСЬ
-                });
+                }
+                // Запускаем слайдер только после того, как разобрались с видимостью всех слайдов
+                setTimeout(() => setupSlider(), 0);
+            })
+            .catch(() => {
+                // Если ошибка, просто запускаем слайдер
+                setTimeout(() => setupSlider(), 0);
+            });
 
-            // --- Инициализация туториала и уведомлений ---
-            if (!localStorage.getItem('tutorialCompleted')) startTutorial();
-            if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
 
-            // --- Логика перехода по хэшу #quests ---
+        // --- Квесты и Челленджи ---
+        const questsDataResp = await makeApiRequest("/api/v1/quests/list", {}, 'POST', true); // Silent
+        allQuests = questsDataResp || [];
+        
+        // Фильтр для рулетки
+        let activeQType = 'twitch'; 
+        // Повторяем логику определения типа (упрощенно, т.к. переменная выше локальная)
+        if (menuContent && menuContent.quest_schedule_override_enabled) activeQType = menuContent.quest_schedule_active_type;
+        else if (new Date().getDay() === 0 || new Date().getDay() === 1) activeQType = 'telegram';
+        
+        questsForRoulette = allQuests.filter(q => 
+            q.quest_type && q.quest_type.startsWith(`automatic_${activeQType}`) && !q.is_completed
+        );
+
+        const activeAutomaticQuest = allQuests.find(q => q.id === userData.active_quest_id);
+        const questChooseWrapper = document.getElementById('quest-choose-wrapper');
+        if (questChooseWrapper) questChooseWrapper.classList.toggle('hidden', !!activeAutomaticQuest);
+        
+        if (activeAutomaticQuest) renderActiveAutomaticQuest(activeAutomaticQuest, userData);
+        else dom.activeAutomaticQuestContainer.innerHTML = '';
+
+        if (dashboardData.challenge) renderChallenge(dashboardData.challenge, !userData.twitch_id);
+        else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+        }
+
+        // --- 🔥 ВАЖНО: Обновляем цифры на Ярлыках (Магазин, Челленджи, Испытания) ---
+        updateShortcutStatuses(userData, allQuests);
+
+        if (!localStorage.getItem('tutorialCompleted')) startTutorial();
+        if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
+
+        // 3. ЛОГИКА ПЕРЕХОДА ПО ХЭШУ (#quests) ВНУТРИ ЕДИНОЙ ЗАГРУЗКИ
             if (window.location.hash === '#quests') {
-                console.log("Обнаружен хэш #quests. Переход...");
+                console.log("Обнаружен хэш #quests. Загружаем вкладку заданий без мигания...");
+                // Вызываем функцию с isSilent = true, так как спиннер еще висит
                 await openQuestsTab(true);
+
+                // ОЧИЩАЕМ ХЭШ, чтобы не было зацикливания при вызове main() снова
                 history.replaceState(null, null, window.location.pathname + window.location.search);
             }
     
         } catch (e) {
             console.error("Критическая ошибка main:", e);
-            // Если упали и кэша не было, показываем ошибку пользователю
-            if (!hasRenderedCache) {
-                dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки. Попробуйте обновить.</p>`;
-            }
+            dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки.</p>`;
         } finally {
-            // Убеждаемся, что лоадер скрыт
-            console.log("--- [main] Завершено ---");
+            // 4. СКРЫВАЕМ СПИННЕР ТОЛЬКО ОДИН РАЗ В САМОМ КОНЦЕ
+            console.log("--- main() ЗАВЕРШЕНА. Скрываем лоадер. ---");
             dom.mainContent.classList.add('visible');
             dom.loaderOverlay.classList.add('hidden');
         }
-    } // <--- ДОБАВЬТЕ ЭТУ СКОБКУ (она закрывает async function main)
+    }
 
     setupEventListeners();
     main();
