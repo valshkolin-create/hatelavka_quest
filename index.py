@@ -1876,7 +1876,74 @@ async def get_checkpoint_rewards_details_for_admin( # Новое имя функ
         logging.error(f"Ошибка при получении деталей наград Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить детали наград Чекпоинта.")
 # --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
-    
+
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ МАГАЗИНА ---
+@app.post("/api/v1/admin/shop_purchases/details")
+async def get_shop_purchases_details_for_admin(
+    request_data: PendingActionRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает список покупок в магазине (source_type='shop')."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # 1. Получаем награды типа 'shop'
+        rewards_resp = await supabase.get(
+            "/manual_rewards",
+            params={
+                "status": "eq.pending",
+                "source_type": "eq.shop", # Фильтруем именно магазин
+                "select": "id,user_id,reward_details,source_description,created_at"
+            }
+        )
+        rewards_resp.raise_for_status()
+        shop_rewards = rewards_resp.json()
+
+        if not shop_rewards:
+            return []
+
+        # 2. Собираем ID пользователей
+        user_ids = {r["user_id"] for r in shop_rewards}
+        users_resp = await supabase.get(
+            "/users",
+            params={
+                "telegram_id": f"in.({','.join(map(str, user_ids))})",
+                "select": "telegram_id,full_name,trade_link,username"
+            }
+        )
+        users_data = {u["telegram_id"]: u for u in users_resp.json()}
+
+        # 3. Формируем ответ
+        final_rewards = []
+        for reward in shop_rewards:
+            user_details = users_data.get(reward["user_id"], {})
+            
+            # Пытаемся найти URL картинки в описании (если вы его туда кладете)
+            # Или используем заглушку, если картинки нет в базе
+            image_url = "https://placehold.co/100?text=Item"
+            # Если вы будете сохранять URL картинки в source_description (например: "Item Name|http://image.url"),
+            # то можно распарсить это здесь.
+            
+            final_rewards.append({
+                "id": reward.get("id"),
+                "title": reward.get("reward_details"), # Название товара
+                "description": reward.get("source_description"),
+                "user_full_name": user_details.get("full_name", "N/A"),
+                "user_username": user_details.get("username"),
+                "user_trade_link": user_details.get("trade_link"),
+                "created_at": reward.get("created_at"),
+                "image_url": image_url # Можно доработать логику картинок
+            })
+
+        final_rewards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return final_rewards
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении покупок магазина: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить покупки.")
+
 @app.get("/api/v1/auth/check_token")
 async def check_token_auth(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     try:
@@ -1903,6 +1970,21 @@ async def session_check(request: Request):
     return {"is_guest": False}
 
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ СЧЕТЧИКОВ ---
+Конечно! Мы добавим новую категорию "Магазин" (Shop Purchases) в админку. Она будет работать по аналогии с "Чекпоинтом", но с акцентом на отображение товара (картинки) и трейд-ссылки.
+
+Мы будем использовать таблицу manual_rewards, но фильтровать записи по типу shop (нам нужно будет убедиться, что при покупке в базу записывается этот тип).
+
+Вот пошаговая инструкция.
+
+Шаг 1: Обновляем Бэкенд (index.py)
+Нам нужно научить сервер считать количество покупок в магазине и отдавать их детали (с картинкой и трейд-ссылкой).
+
+Найди функцию get_pending_counts.
+
+Замени её на этот обновленный код (добавлен подсчет shop_count):
+
+Python
+
 @app.post("/api/v1/admin/pending_counts")
 async def get_pending_counts(
     request_data: InitDataRequest,
@@ -1918,35 +2000,31 @@ async def get_pending_counts(
         subs_resp = await supabase.get(
             "/quest_submissions",
             params={"status": "eq.pending", "select": "id"},
-            headers={"Prefer": "count=exact"} # Запрашиваем только количество
-        )
-        subs_resp.raise_for_status()
-        submission_count = int(subs_resp.headers.get('content-range', '0').split('/')[-1])
-
-        # 2. Считаем ручные награды (чекпоинт и т.д.)
-        manual_rewards_resp = await supabase.get(
-            "/manual_rewards",
-            params={"status": "eq.pending", "select": "id"},
             headers={"Prefer": "count=exact"}
         )
-        manual_rewards_resp.raise_for_status()
-        manual_reward_count = int(manual_rewards_resp.headers.get('content-range', '0').split('/')[-1])
+        submission_count = int(subs_resp.headers.get('content-range', '0').split('/')[-1])
 
-        # Фильтруем награды чекпоинта внутри Python
+        # 2. Получаем все ручные награды разом
         manual_rewards_details = await supabase.get(
             "/manual_rewards",
-            params={"status": "eq.pending", "select": "source_description"}
+            params={"status": "eq.pending", "select": "source_type, source_description"}
         )
-        checkpoint_prize_count = sum(1 for r in manual_rewards_details.json() if r.get("source_description") and "чекпоинт" in r["source_description"].lower())
+        manual_rewards_list = manual_rewards_details.json()
 
+        # Фильтруем по типам
+        # Чекпоинт: если в описании есть слово "чекпоинт"
+        checkpoint_prize_count = sum(1 for r in manual_rewards_list if r.get("source_description") and "чекпоинт" in r["source_description"].lower())
+        
+        # --- НОВОЕ: Магазин: если source_type == 'shop' ---
+        shop_prize_count = sum(1 for r in manual_rewards_list if r.get("source_type") == "shop")
 
-        # 3. Считаем невыданные призы розыгрышей (сложнее, т.к. данные в JSON)
+        # 3. Считаем невыданные призы розыгрышей
         content_resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.events", "select": "content", "limit": 1}
         )
         event_prize_count = 0
-        if content_resp.is_success and content_resp.json():
+        if content_resp.json():
             content = content_resp.json()[0].get('content', {})
             events = content.get("events", [])
             event_prize_count = sum(1 for event in events if 'winner_id' in event and not event.get('prize_sent_confirmed', False))
@@ -1954,7 +2032,8 @@ async def get_pending_counts(
         return {
             "submissions": submission_count,
             "event_prizes": event_prize_count,
-            "checkpoint_prizes": checkpoint_prize_count
+            "checkpoint_prizes": checkpoint_prize_count,
+            "shop_prizes": shop_prize_count # <-- Добавили это поле
         }
 
     except Exception as e:
