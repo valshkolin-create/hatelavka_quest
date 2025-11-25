@@ -4842,55 +4842,64 @@ if(dom.createRoulettePrizeForm) {
     }
 
     function renderShopPurchases(purchases, targetElement) {
-        if (!targetElement) return;
-        
-        // Ищем внутренний контейнер, если он есть, или используем сам элемент
-        const listContainer = targetElement.querySelector('.pending-actions-grid') || targetElement;
-        listContainer.innerHTML = '';
+    if (!targetElement) return;
+    
+    // Ищем контейнер или используем сам targetElement
+    const listContainer = targetElement.querySelector('.shop-list-container') || 
+                          targetElement.querySelector('.pending-actions-grid') || 
+                          targetElement;
+                          
+    listContainer.innerHTML = '';
 
-        if (!purchases || purchases.length === 0) {
-            listContainer.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">Нет новых покупок.</p>';
-            return;
+    if (!purchases || purchases.length === 0) {
+        listContainer.innerHTML = '<p style="text-align: center; color: var(--text-color-muted); margin-top: 20px;">Нет новых покупок.</p>';
+        return;
+    }
+
+    listContainer.innerHTML = purchases.map(p => {
+        const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
+        const linkHtml = hasLink 
+            ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
+            : '<span style="color: var(--warning-color);">Не указана</span>';
+
+        // Картинка теперь приходит правильно из Python, но на всякий случай оставим фоллбэк
+        let imgUrl = p.image_url || "https://placehold.co/60?text=Shop";
+        
+        // Защита от битых ссылок (если пришел не http)
+        if (!imgUrl.startsWith('http')) {
+            imgUrl = "https://placehold.co/60?text=No+Img";
         }
 
-        listContainer.innerHTML = purchases.map(p => {
-            // Обработка трейд-ссылки
-            const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
-            const linkHtml = hasLink 
-                ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
-                : '<span style="color: var(--warning-color);">Не указана</span>';
-
-            // Если есть картинка в объекте (или заглушка)
-            // Для этого на бэкенде нужно парсить source_description, если там есть URL
-            const imgUrl = p.image_url || "https://placehold.co/60?text=Shop";
-
-            return `
-            <div class="shop-purchase-card" id="shop-card-${p.id}">
-                <img src="${escapeHTML(imgUrl)}" class="shop-item-thumb" alt="Item">
-                
-                <div class="shop-item-info">
-                    <h4 class="shop-item-title">${escapeHTML(p.title || 'Товар из магазина')}</h4>
-                    <p class="shop-user-info">
-                        Покупатель: <strong>${escapeHTML(p.user_full_name)}</strong>
-                        ${p.user_username ? `<br><span style="color:#888; font-size:11px;">@${escapeHTML(p.user_username)}</span>` : ''}
-                    </p>
-                    <div class="shop-trade-link-box">
-                        <span>Трейд:</span>
-                        ${linkHtml}
-                    </div>
+        return `
+        <div class="shop-purchase-card" id="shop-card-${p.id}">
+            <div style="position: relative; width: 60px; height: 60px; flex-shrink: 0;">
+                <img src="${escapeHTML(imgUrl)}" class="shop-item-thumb" alt="Item" 
+                     onerror="this.onerror=null; this.src='https://placehold.co/60?text=Error';">
+            </div>
+            
+            <div class="shop-item-info">
+                <h4 class="shop-item-title">${escapeHTML(p.title || 'Товар')}</h4>
+                <p class="shop-user-info">
+                    Покупатель: <strong>${escapeHTML(p.user_full_name)}</strong>
+                    ${p.user_username ? `<br><span style="color:#888; font-size:11px;">@${escapeHTML(p.user_username)}</span>` : ''}
+                </p>
+                <div class="shop-trade-link-box">
+                    <span>Трейд:</span>
+                    ${linkHtml}
                 </div>
+            </div>
 
-                <div class="shop-actions">
-                    <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve')" title="Подтвердить выдачу">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                    <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject')" title="Отклонить">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-            </div>`;
-        }).join('');
-    }
+            <div class="shop-actions">
+                <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve')" title="Подтвердить выдачу">
+                    <i class="fa-solid fa-check"></i>
+                </button>
+                <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject')" title="Отклонить">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
 
     // Глобальная функция для обработки кликов (так как используется onclick в HTML строке)
     window.handleShopAction = async function(id, action) {
