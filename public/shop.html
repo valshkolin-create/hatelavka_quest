@@ -17,6 +17,14 @@
             --surface-glass-bg: rgba(28, 28, 30, 0.85);
         }
 
+        html, body {
+            height: 100%; /* Фиксация высоты */
+            overflow-x: hidden; /* Запрет гориз. скролла страницы */
+            /* --- АНТИ-СВАП (Fix Rubber Band) --- */
+            overscroll-behavior: none; 
+            -webkit-overflow-scrolling: touch;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -26,9 +34,10 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
+            /* Важно: разрешаем только вертикальный скролл для body, горизонтальный перехватываем */
+            touch-action: pan-y; 
             padding-bottom: 110px !important; 
             padding-bottom: calc(90px + env(safe-area-inset-bottom)) !important;
-            overflow-x: hidden; 
         }
 
         /* --- ШАПКА --- */
@@ -47,6 +56,9 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            /* Запрет выделения в шапке */
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .back-btn {
@@ -127,15 +139,19 @@
             position: relative;
             mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
             -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            /* Указываем браузеру, что здесь будет горизонтальный свайп */
+            touch-action: pan-x; 
         }
 
         .partners-scroll {
             display: flex;
             gap: 10px;
             padding: 0 16px;
-            width: 100%; /* ИСПРАВЛЕНО: Было max-content, стало 100% для работы скролла */
-            overflow-x: hidden; /* Скрываем нативный скроллбар */
+            width: 100%; 
+            overflow-x: hidden; 
             flex-wrap: nowrap;
+            /* Важно для производительности */
+            will-change: scroll-position;
         }
         
         .partner-card {
@@ -147,7 +163,6 @@
             padding: 12px;
             display: flex;
             align-items: center;
-            /* НОВОЕ: Центрируем содержимое карточки по горизонтали */
             justify-content: center; 
             gap: 12px;
             text-decoration: none;
@@ -158,7 +173,9 @@
             -webkit-user-drag: none;
             user-select: none;
             -webkit-user-select: none;
-            cursor: pointer; /* Указываем, что это кликабельно */
+            cursor: pointer;
+            /* Предотвращаем дефолтные действия браузера на карточках */
+            touch-action: pan-x; 
         }
 
         .partner-card.topskin {
@@ -196,10 +213,9 @@
             flex-direction: column; 
             gap: 2px; 
             pointer-events: none;
-            /* НОВОЕ: Центрируем текст внутри блока информации */
             align-items: center; 
             text-align: center;
-            flex-grow: 1; /* Растягиваем блок, чтобы он занял место */
+            flex-grow: 1; 
         }
         
         .partner-title { 
@@ -208,7 +224,6 @@
             color: #fff; 
             display: flex; 
             align-items: center; 
-            /* НОВОЕ: Центрируем элементы заголовка */
             justify-content: center;
             gap: 6px; 
         }
@@ -217,7 +232,6 @@
             font-size: 10px; 
             color: #b0b0b0; 
             line-height: 1.3; 
-            /* НОВОЕ: Явное указание центровки текста */
             text-align: center;
         }
         
@@ -379,6 +393,7 @@
             opacity: 0;
             transition: opacity 0.3s ease;
             backdrop-filter: blur(10px);
+            touch-action: none; /* Блокируем свайпы на модалке */
         }
         .image-modal-overlay.open { display: flex; opacity: 1; }
         
@@ -449,6 +464,8 @@
             
             box-sizing: border-box;
             height: auto;
+            /* Запрет свайпа футера */
+            touch-action: none;
         }
 
         .footer-item {
@@ -593,6 +610,10 @@
         Telegram.WebApp.expand();
         Telegram.WebApp.BackButton.show();
         
+        // Цвет заголовка для интеграции с темой
+        Telegram.WebApp.setHeaderColor('#17212b'); 
+        Telegram.WebApp.setBackgroundColor('#17212b');
+
         let categoryStack = []; 
         let currentCategoryId = 0;
         let itemsCache = {}; 
@@ -603,7 +624,7 @@
             goBack();
         });
 
-        // --- УЛУЧШЕННАЯ ФУНКЦИЯ СКРОЛЛА С ПАУЗОЙ И ЦЕНТРОВКОЙ ---
+        // --- УЛУЧШЕННАЯ ФУНКЦИЯ СКРОЛЛА (ANTI-SWAP LOGIC) ---
         function initPartnersScroll() {
             const container = document.getElementById('partners-scroll');
             if (!container) return;
@@ -616,13 +637,12 @@
                 partnersAnimFrameId = null;
             }
 
-            console.log('>>> [DEBUG] Запуск скролла (Centering + Pause update)');
+            console.log('>>> [DEBUG] Запуск скролла (Anti-Swap + Centering)');
 
             setTimeout(() => {
                 const originalItems = Array.from(container.children);
                 if (originalItems.length === 0) return;
 
-                // Клонирование для бесконечности
                 const screenWidth = window.innerWidth;
                 let loops = 0;
                 while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
@@ -633,29 +653,27 @@
                 }
 
                 let itemWidth = originalItems[0].offsetWidth;
-                if (itemWidth < 100) itemWidth = 260; // Fallback на CSS
+                if (itemWidth < 100) itemWidth = 260; 
 
                 const gap = 10; 
                 const itemFullWidth = itemWidth + gap;
                 const resetPoint = itemFullWidth * originalItems.length;
 
                 let scrollPos = 0;
-                const speed = 1.0; // Чуть увеличил скорость для плавности
+                const speed = 1.0; 
 
-                // Флаги состояния
                 let isDragging = false;
-                let isHovered = false; // Для остановки мышкой
+                let isHovered = false; 
+                
+                // Координаты для расчета свайпа
+                let startX = 0;
+                let startY = 0;
+                let startScrollLeft = 0;
 
-                // --- Слушатели мыши для ПК (пауза при наведении) ---
-                container.addEventListener('mouseenter', () => {
-                    isHovered = true;
-                });
-                container.addEventListener('mouseleave', () => {
-                    isHovered = false;
-                });
+                container.addEventListener('mouseenter', () => { isHovered = true; });
+                container.addEventListener('mouseleave', () => { isHovered = false; });
 
                 function animate() {
-                    // Анимируем только если не тащим пальцем И не навели мышку
                     if (!isDragging && !isHovered) {
                         scrollPos += speed;
                         if (scrollPos >= resetPoint) {
@@ -668,34 +686,43 @@
 
                 animate();
 
-                // --- Touch Logic (Мобилки) ---
-                let startX = 0;
-                let startScrollLeft = 0;
+                // --- Touch Logic (Мобилки с блокировкой вертикального скролла) ---
 
                 container.addEventListener('touchstart', (e) => {
                     isDragging = true;
-                    // Мы не останавливаем requestAnimationFrame полностью,
-                    // просто флаг isDragging остановит инкремент позиции в animate()
+                    // Сохраняем начальные координаты
                     startX = e.touches[0].pageX;
+                    startY = e.touches[0].pageY;
                     startScrollLeft = container.scrollLeft;
                 }, {passive: true});
 
+                // ВАЖНО: passive: false позволяет использовать preventDefault
                 container.addEventListener('touchmove', (e) => {
                     if (!isDragging) return;
+                    
                     const x = e.touches[0].pageX;
-                    const walk = (startX - x) * 1.5;
-                    // Обновляем переменную scrollPos, чтобы при отпускании не дергало
-                    scrollPos = startScrollLeft + walk;
+                    const y = e.touches[0].pageY;
                     
-                    // Защита от ухода в минус (хотя с бесконечностью это редко нужно, но для надежности)
-                    if (scrollPos < 0) scrollPos = 0;
-                    
-                    container.scrollLeft = scrollPos;
-                }, {passive: true});
+                    // Вычисляем, куда больше движется палец: вбок или вверх/вниз
+                    const xDiff = Math.abs(x - startX);
+                    const yDiff = Math.abs(y - startY);
+
+                    // Если движение горизонтальное больше чем вертикальное
+                    if (xDiff > yDiff) {
+                        // БЛОКИРУЕМ поведение браузера (свайп страницы назад/вперед)
+                        if (e.cancelable) e.preventDefault();
+                        
+                        // Двигаем наш слайдер
+                        const walk = (startX - x) * 1.5; 
+                        scrollPos = startScrollLeft + walk;
+                        if (scrollPos < 0) scrollPos = 0;
+                        container.scrollLeft = scrollPos;
+                    }
+                    // Если yDiff > xDiff - ничего не делаем, даем странице скроллиться вертикально
+                }, {passive: false});
 
                 container.addEventListener('touchend', () => {
                     isDragging = false;
-                    // Анимация подхватит текущий scrollPos и продолжит
                 });
 
             }, 50);
@@ -703,8 +730,6 @@
 
         async function initShop() {
             updateNavState();
-            
-            // Запускаем сразу
             initPartnersScroll(); 
             
             Promise.all([
