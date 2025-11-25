@@ -623,12 +623,6 @@ async def log_requests(request: Request, call_next):
     return response
 
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
-async def get_supabase_client():
-    client = httpx.AsyncClient(
-        base_url=f"{SUPABASE_URL}/rest/v1",
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=30.0
-    )
     try:
         yield client
     finally:
@@ -1119,33 +1113,23 @@ async def telegram_webhook(
 
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
-    """
-    Эта функция выполняется в фоне.
-    """
     logging.info(f"🔄 [Background] Начало обработки уведомления Twitch ID: {message_id}")
     
-    # Создаем НОВЫЙ клиент для фоновой задачи
     async with httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
         timeout=30.0
     ) as supabase:
         
-        # --- 🛡️ ЗАЩИТА ОТ ДУБЛЕЙ ЧЕРЕЗ БАЗУ ДАННЫХ (НОВЫЙ БЛОК) 🛡️ ---
+        # === НАЧАЛО ВСТАВКИ ===
         try:
-            # Пытаемся записать ID сообщения в таблицу processed_webhooks.
-            # Если такой ID уже есть (дубль), Supabase вернет 409 Conflict.
-            duplicate_check = await supabase.post("/processed_webhooks", json={"id": message_id})
-            
-            if duplicate_check.status_code == 409:
-                logging.warning(f"🛑 Вебхук {message_id} ЗАБЛОКИРОВАН (Дубликат в БД).")
-                return # <--- ПРЕРЫВАЕМ ВЫПОЛНЕНИЕ, ЧТОБЫ НЕ КРУТИТЬ РУЛЕТКУ
-                
-        except Exception as e_db:
-            logging.error(f"Ошибка при проверке дублей в БД: {e_db}")
-            # Если база недоступна, лучше пропустить, чем заблокировать всё, 
-            # но риск дублей возрастает. Обычно тут просто идем дальше.
-        # -------------------------------------------------------------
+            dup_check = await supabase.post("/processed_webhooks", json={"id": message_id})
+            if dup_check.status_code == 409:
+                logging.warning(f"🛑 [DUPLICATE] Вебхук {message_id} уже был. STOP.")
+                return
+        except Exception as e_dup:
+            logging.error(f"⚠️ Ошибка проверки дубля: {e_dup}")
+        # === КОНЕЦ ВСТАВКИ ===
 
         try:
             event_data = data.get("event", {})
