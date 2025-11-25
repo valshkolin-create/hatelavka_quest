@@ -553,6 +553,10 @@ const showLoader = () => {
                     updateQuestFormUI(dom.createQuestForm);
                     break;
                 }
+                case 'view-admin-shop': {
+                    await loadShopPurchases();
+                    break;
+                }
                 case 'view-admin-cauldron': {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
@@ -1426,65 +1430,75 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
 // --- НОВАЯ ФУНКЦИЯ ЗАГРУЗКИ ОЖИДАЮЩИХ ДЕЙСТВИЙ ---
     // --- ⬇️⬇️⬇️ ЭТО ИЗМЕНЕННАЯ ФУНКЦИЯ ⬇️⬇️⬇️ ---
     async function loadPendingActions() {
-        try {
-            // Запрашиваем ВСЕ данные одновременно (+ Магазин)
-            const [groupedSubmissions, allEventPrizes, allCheckpointPrizes, allShopPurchases] = await Promise.all([
-                makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),
-                makeApiRequest('/api/v1/admin/events/winners/details', {}, 'POST', true),
-                makeApiRequest('/api/v1/admin/checkpoint_rewards/details', {}, 'POST', true),
-                makeApiRequest('/api/v1/admin/shop_purchases/details', {}, 'POST', true)
-            ]);
-            
-            // --- 1. Обновление индикаторов вкладок ---
-            const updateTabText = (tabSelector, hasData) => {
-                const tab = document.querySelector(tabSelector);
-                if (!tab) return;
-                // Сохраняем или восстанавливаем исходный текст без иконки
-                const baseText = tab.dataset.baseText || tab.textContent.trim().replace(/<i.*<\/i>/, '').trim(); 
-                if (!tab.dataset.baseText) tab.dataset.baseText = baseText;
-
-                if (hasData) {
-                    tab.innerHTML = `<i class="${baseText === 'Магазин' ? 'fa-solid fa-cart-shopping' : (baseText === 'Розыгрыши' ? 'fa-solid fa-trophy' : 'fa-solid fa-flag-checkered')}"></i> ${baseText} <i class="fa-solid fa-circle-exclamation" style="font-size: 0.9em; margin-left: 5px; color: var(--danger-color);"></i>`;
-                } else {
-                    tab.innerHTML = `<i class="${baseText === 'Магазин' ? 'fa-solid fa-cart-shopping' : (baseText === 'Розыгрыши' ? 'fa-solid fa-trophy' : 'fa-solid fa-flag-checkered')}"></i> ${baseText}`;
-                }
-            };
-            
-            updateTabText('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]', allEventPrizes?.length > 0);
-            updateTabText('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]', allCheckpointPrizes?.length > 0);
-            updateTabText('#view-admin-pending-actions .tab-button[data-tab="shop-prizes"]', allShopPurchases?.length > 0);
-
-            // Обновляем бейдж в главном меню
-            const shopBadge = document.getElementById('shop-badge-main');
-            if (shopBadge) {
-                const count = allShopPurchases ? allShopPurchases.length : 0;
-                shopBadge.textContent = count;
-                shopBadge.classList.toggle('hidden', count === 0);
-            }
-
-            // --- 2. Рендеринг вкладок ---
-
-            // Вкладка "Проверки"
-            renderGroupedItemsGrid('tab-content-submissions', groupedSubmissions);
-            
-            // Вкладка "Розыгрыши"
-            const eventPrizesContainer = document.getElementById('tab-content-event-prizes');
-            if (eventPrizesContainer) renderWinners(allEventPrizes, eventPrizesContainer);
-
-            // Вкладка "Чекпоинт"
-            const checkpointPrizesContainer = document.getElementById('tab-content-checkpoint-prizes');
-            if (checkpointPrizesContainer) renderCheckpointPrizes(allCheckpointPrizes, checkpointPrizesContainer);
-
-            // Вкладка "Магазин" (НОВОЕ)
-            const shopPrizesContainer = document.getElementById('tab-content-shop-prizes');
-            if (shopPrizesContainer) renderShopPurchases(allShopPurchases, shopPrizesContainer);
+    try {
+        // Запрашиваем данные (магазин можно убрать из запроса, если он тут не нужен, но пока оставим для простоты)
+        const [groupedSubmissions, allEventPrizes, allCheckpointPrizes] = await Promise.all([
+            makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),
+            makeApiRequest('/api/v1/admin/events/winners/details', {}, 'POST', true),
+            makeApiRequest('/api/v1/admin/checkpoint_rewards/details', {}, 'POST', true)
+        ]);
         
-        } catch (e) {
-            console.error("Не удалось загрузить ожидающие действия:", e);
-            // Не показываем алерт при тихой загрузке, только логируем
-        }
+        // 1. Фильтрация: убираем лишнее из списка проверок
+        const filteredSubmissions = (groupedSubmissions || []).filter(item => item.quest_id !== null && item.quest_id !== undefined);
+
+        // 2. Обновление текста вкладок (УБРАЛИ МАГАЗИН)
+        const updateTabText = (tabSelector, hasData) => {
+            const tab = document.querySelector(tabSelector);
+            if (!tab) return;
+            const baseText = tab.dataset.baseText || tab.textContent.trim().replace(/<i.*<\/i>/, '').trim(); 
+            if (!tab.dataset.baseText) tab.dataset.baseText = baseText;
+
+            if (hasData) {
+                tab.innerHTML = `<i class="${baseText === 'Розыгрыши' ? 'fa-solid fa-trophy' : 'fa-solid fa-flag-checkered'}"></i> ${baseText} <i class="fa-solid fa-circle-exclamation" style="font-size: 0.9em; margin-left: 5px; color: var(--danger-color);"></i>`;
+            } else {
+                tab.innerHTML = `<i class="${baseText === 'Розыгрыши' ? 'fa-solid fa-trophy' : 'fa-solid fa-flag-checkered'}"></i> ${baseText}`;
+            }
+        };
+        
+        updateTabText('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]', allEventPrizes?.length > 0);
+        updateTabText('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]', allCheckpointPrizes?.length > 0);
+        // updateTabText для магазина удален
+
+        // 3. Рендеринг (УБРАЛИ РЕНДЕР МАГАЗИНА)
+        renderGroupedItemsGrid('tab-content-submissions', filteredSubmissions);
+        
+        const eventPrizesContainer = document.getElementById('tab-content-event-prizes');
+        if (eventPrizesContainer) renderWinners(allEventPrizes, eventPrizesContainer);
+
+        const checkpointPrizesContainer = document.getElementById('tab-content-checkpoint-prizes');
+        if (checkpointPrizesContainer) renderCheckpointPrizes(allCheckpointPrizes, checkpointPrizesContainer);
+    
+    } catch (e) {
+        console.error("Не удалось загрузить ожидающие действия:", e);
     }
+}
     // --- ⬆️⬆️⬆️ КОНЕЦ ИЗМЕНЕННОЙ ФУНКЦИИ ⬆️⬆️⬆️ ---
+    async function loadShopPurchases() {
+    const container = document.getElementById('shop-purchases-list');
+    if (!container) return;
+    
+    container.innerHTML = '<p style="text-align: center;">Загрузка покупок...</p>';
+    
+    try {
+        // Запрашиваем покупки магазина
+        const purchases = await makeApiRequest('/api/v1/admin/shop_purchases/details', {}, 'POST', true);
+        
+        // Используем ту же функцию рендера, что мы починили в прошлом шаге
+        renderShopPurchases(purchases, container);
+
+        // Обновляем бейдж в меню (на случай если он устарел)
+        const shopBadge = document.getElementById('shop-badge-main');
+        if (shopBadge) {
+            const count = purchases ? purchases.length : 0;
+            shopBadge.textContent = count;
+            shopBadge.classList.toggle('hidden', count === 0);
+        }
+
+    } catch (e) {
+        console.error("Ошибка загрузки магазина:", e);
+        container.innerHTML = `<p class="error-message">Не удалось загрузить список: ${e.message}</p>`;
+    }
+}
     // --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
     
     async function loadAdminGrantLog() {
@@ -4949,14 +4963,24 @@ async function main() {
             try {
                 const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
                 const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                
                 const mainBadge = document.getElementById('main-pending-count');
                 if (mainBadge) {
                     mainBadge.textContent = totalPending;
                     mainBadge.classList.toggle('hidden', totalPending === 0);
                 }
+
+                // --- ДОБАВЛЕНО: Обновление бейджа магазина ---
+                const shopBadge = document.getElementById('shop-badge-main');
+                if (shopBadge) {
+                    const shopCount = counts.shop_prizes || 0;
+                    shopBadge.textContent = shopCount;
+                    shopBadge.classList.toggle('hidden', shopCount === 0);
+                }
+                // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
             } catch (countError) {
                 console.error("Не удалось загрузить счетчики:", countError);
-                // Можно скрыть бейдж или показать ошибку
                 const mainBadge = document.getElementById('main-pending-count');
                 if (mainBadge) mainBadge.classList.add('hidden');
             }
