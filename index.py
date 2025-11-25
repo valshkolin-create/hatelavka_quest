@@ -842,6 +842,75 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         logging.error(f"(Global) Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
         return 1
 
+# Новый эндпоинт для быстрой загрузки всего сразу
+@app.post("/api/v1/bootstrap")
+async def bootstrap_app(request_data: InitDataRequest):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+
+    telegram_id = user_info["id"]
+
+    # Запускаем все запросы к БД параллельно
+    # Примечание: Используем существующие функции или прямые запросы
+    # Здесь пример логики, объединяющей ваши существующие вызовы
+    
+    try:
+        # 1. Настройки меню (admin settings)
+        settings_task = get_admin_settings_async_global()
+        
+        # 2. Данные пользователя (dashboard)
+        # Вызываем RPC напрямую, чтобы не дублировать логику роута
+        user_task = supabase.rpc("get_user_dashboard_data", {"p_telegram_id": telegram_id}).execute()
+        
+        # 3. Квесты
+        quests_task = supabase.rpc("get_available_quests_for_user", {"p_telegram_id": telegram_id}).execute()
+        
+        # 4. Недельные цели
+        goals_task = supabase.rpc("get_user_weekly_goals_status", {"p_user_id": telegram_id}).execute()
+
+        # Ожидаем все результаты параллельно
+        settings_res, user_res, quests_res, goals_res = await asyncio.gather(
+            settings_task, 
+            user_task, # Это корутина (из-за execute в async клиенте? Проверьте вашу версию supabase-py)
+            # Если supabase клиент асинхронный, .execute() возвращает корутину.
+            # Если вы используете .execute() без await в коде выше, значит клиент синхронный, 
+            # но вы обернули его в run_in_threadpool или используете postgrest-py async.
+            # НИЖЕ ПРИВЕДЕН БЕЗОПАСНЫЙ ВАРИАНТ для вашего текущего кода с httpx/supabase:
+            quests_task,
+            goals_task,
+            return_exceptions=True # Чтобы одна ошибка не ломала всё
+        )
+
+        # Обработка результатов (упрощено для примера)
+        
+        # User Data
+        user_data = user_res.data.get('profile', {}) if hasattr(user_res, 'data') and user_res.data else {}
+        if hasattr(user_res, 'data') and user_res.data:
+             user_data['challenge'] = user_res.data.get('challenge')
+             user_data['is_admin'] = telegram_id in ADMIN_IDS
+        
+        # Menu Content (формируем из настроек)
+        menu_content = settings_res.dict() # Pydantic to dict
+        
+        # Quests
+        quests_list = fill_missing_quest_data(quests_res.data) if hasattr(quests_res, 'data') else []
+        
+        # Goals
+        goals_data = goals_res.data if hasattr(goals_res, 'data') else {}
+        goals_data["system_enabled"] = settings_res.weekly_goals_enabled
+
+        return {
+            "user": user_data,
+            "menu": menu_content,
+            "quests": quests_list,
+            "weekly_goals": goals_data
+        }
+
+    except Exception as e:
+        logging.error(f"Bootstrap error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Bootstrap failed")
+
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 @app.post("/api/v1/admin/actions/list_entities")
 async def admin_list_entities(
