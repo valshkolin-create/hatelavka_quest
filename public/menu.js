@@ -308,7 +308,6 @@ try {
         // --- ИСПРАВЛЕНИЕ 1: Не сбрасывать на 0, а использовать актуальный индекс ---
         showSlide(currentSlideIndex); 
         resetSlideInterval();
-    }
     
     const tutorialSteps = [
         {
