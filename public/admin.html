@@ -44,7 +44,7 @@
                         <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
                         <span>Twitch награды</span>
                     </div>
-                  <div class="admin-icon-button" data-view="view-admin-pending-actions" onclick="document.querySelector('[data-tab=\'shop-prizes\']').click()">
+                  <div class="admin-icon-button" data-view="view-admin-shop">
                         <div class="icon-wrapper" style="color: #ffcc00;">
                             <i class="fa-solid fa-cart-shopping"></i>
                             <span class="notification-badge hidden" id="shop-badge-main">0</span>
@@ -247,7 +247,6 @@
                 <button class="tab-button active" data-tab="submissions"><i class="fa-solid fa-user-check"></i> Проверки</button>
                 <button class="tab-button" data-tab="event-prizes"><i class="fa-solid fa-trophy"></i> Розыгрыши</button>
                 <button class="tab-button" data-tab="checkpoint-prizes"><i class="fa-solid fa-flag-checkered"></i> Чекпоинт</button>
-                <button class="tab-button" data-tab="shop-prizes"><i class="fa-solid fa-cart-shopping"></i> Магазин</button>
             </div>
             <div id="tab-content-submissions" class="tab-content active">
                 <div class="pending-actions-grid">
@@ -959,6 +958,18 @@
             </p>
         </div>
     </div>
+      <div id="view-admin-shop" class="view hidden">
+    <div class="page-header">
+        <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+        <h1 class="page-header-title">Магазин</h1>
+        <div style="width: 60px;"></div>
+    </div>
+    <div class="quest-card">
+        <div id="shop-purchases-list" class="shop-list-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <p style="text-align: center; color: var(--text-color-muted);">Загрузка...</p>
+        </div>
+    </div>
+</div>
         </main>
   
     <div id="weekly-goal-entity-select-modal" class="modal-overlay hidden">
