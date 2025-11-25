@@ -1118,7 +1118,7 @@ async def telegram_webhook(
 
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
-    logging.info(f"🔄 [Background] Начало обработки уведомления Twitch ID: {message_id}")
+    logging.info(f"🔄 [Background] Старт. Twitch Message ID: {message_id}")
     
     async with httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
@@ -1126,15 +1126,28 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         timeout=30.0
     ) as supabase:
         
-        # === НАЧАЛО ВСТАВКИ ===
+        # === [ НАЧАЛО УЛУЧШЕННОЙ ЗАЩИТЫ ] ===
         try:
-            dup_check = await supabase.post("/processed_webhooks", json={"id": message_id})
-            if dup_check.status_code == 409:
+            # Пытаемся "застолбить" этот ID в базе
+            dup_resp = await supabase.post("/processed_webhooks", json={"id": message_id})
+            
+            # ЛОГИРУЕМ РЕЗУЛЬТАТ (Это покажет, в чем проблема!)
+            logging.info(f"🛡️ Статус проверки дублей: {dup_resp.status_code} | Ответ: {dup_resp.text}")
+
+            # 1. Если такой ID уже есть (409)
+            if dup_resp.status_code == 409:
                 logging.warning(f"🛑 [DUPLICATE] Вебхук {message_id} уже был. STOP.")
-                return
+                return 
+
+            # 2. Если произошла другая ошибка (например, таблицы нет - 404, или нет прав - 403/401)
+            if dup_resp.status_code not in (200, 201):
+                logging.error(f"⚠️ Ошибка записи в processed_webhooks! Код: {dup_resp.status_code}. Продолжаем на свой страх и риск, но защита не сработала.")
+                # Если хочешь строгую защиту, раскомментируй следующую строку:
+                # return 
+
         except Exception as e_dup:
-            logging.error(f"⚠️ Ошибка проверки дубля: {e_dup}")
-        # === КОНЕЦ ВСТАВКИ ===
+            logging.error(f"❌ Критическая ошибка проверки дубля: {e_dup}")
+        # === [ КОНЕЦ ЗАЩИТЫ ] ===
 
         try:
             event_data = data.get("event", {})
