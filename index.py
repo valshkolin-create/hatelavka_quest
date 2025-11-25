@@ -6913,6 +6913,112 @@ async def complete_manual_reward(
     )
     return {"message": "Награда помечена как выданная."}
 
+# Модель для запроса отмены
+class ManualRewardRejectRequest(BaseModel):
+    initData: str
+    reward_id: int
+    is_silent: Optional[bool] = False
+
+@app.post("/api/v1/admin/manual_rewards/reject")
+async def reject_manual_reward(
+    request_data: ManualRewardRejectRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Отклоняет награду. Если это товар из магазина (shop), делает возврат в Bot-t.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    reward_id = request_data.reward_id
+
+    try:
+        # 1. Получаем данные о награде, чтобы узнать source_type и description
+        reward_resp = await supabase.get(
+            "/manual_rewards", 
+            params={"id": f"eq.{reward_id}", "select": "*"}
+        )
+        reward_resp.raise_for_status()
+        rewards = reward_resp.json()
+        
+        if not rewards:
+            raise HTTPException(status_code=404, detail="Запись не найдена.")
+            
+        reward = rewards[0]
+        
+        # Если это МАГАЗИН, нужно сделать возврат в Bot-t
+        if reward.get("source_type") == "shop":
+            logging.info(f"Попытка отмены заказа магазина ID {reward_id}...")
+            
+            # 2. Парсим Bot-t Order ID из source_description
+            # Формат: "Название|Картинка|OrderID"
+            source_desc = reward.get("source_description", "")
+            parts = source_desc.split("|")
+            
+            bott_order_id = None
+            if len(parts) >= 3:
+                # Пытаемся взять последний элемент как ID
+                try:
+                    bott_order_id = int(parts[2])
+                except ValueError:
+                    pass
+            
+            if not bott_order_id:
+                # Если ID заказа не найден, мы не можем вернуть деньги в Bot-t
+                # Но мы всё равно можем отменить запись у себя (или выдать ошибку)
+                logging.warning("Не найден Bot-t Order ID в описании. Возврат средств в Bot-t невозможен.")
+                # return {"message": "Ошибка: Не найден номер заказа Bot-t. Невозможно вернуть средства."} 
+                # Или продолжаем, чтобы просто закрыть запись у себя
+            else:
+                # 3. Получаем секретные ключи пользователя (они нужны для API Bot-t)
+                user_id = reward.get("user_id")
+                user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "bott_internal_id, bott_secret_key, bot_t_coins"})
+                user_data = user_resp.json()
+                
+                if user_data and user_data[0].get("bott_secret_key"):
+                    user_keys = user_data[0]
+                    
+                    # 4. Отправляем запрос отмены в Bot-t
+                    # Ссылка: https://api.bot-t.com/v1/shopdigital/order-public/cancel 
+                    cancel_url = "https://api.bot-t.com/v1/shopdigital/order-public/cancel"
+                    cancel_payload = {
+                        "bot_id": int(BOTT_BOT_ID),
+                        "order_id": bott_order_id,
+                        "user_id": int(user_keys["bott_internal_id"]),
+                        "secret_user_key": user_keys["bott_secret_key"]
+                    }
+                    
+                    async with httpx.AsyncClient() as client:
+                        cancel_resp = await client.post(cancel_url, json=cancel_payload)
+                        
+                    if cancel_resp.status_code == 200 and cancel_resp.json().get("result") is True:
+                        logging.info(f"✅ Заказ {bott_order_id} успешно отменен в Bot-t. Средства возвращены.")
+                        
+                        # (Опционально) Можно синхронизировать баланс пользователя, так как Bot-t вернул деньги
+                        # Но это не критично, пользователь увидит новый баланс при обновлении
+                    else:
+                        logging.error(f"❌ Ошибка при отмене в Bot-t: {cancel_resp.text}")
+                        raise HTTPException(status_code=400, detail="Bot-t не разрешил отмену заказа (возможно, он уже выполнен или прошел срок).")
+                else:
+                    logging.error("Не найдены ключи пользователя для возврата.")
+                    raise HTTPException(status_code=400, detail="Нет ключей пользователя для возврата.")
+
+        # 5. Обновляем статус у нас в базе на "rejected"
+        await supabase.patch(
+            "/manual_rewards",
+            params={"id": f"eq.{reward_id}"},
+            json={"status": "rejected"}
+        )
+        
+        return {"message": "Заявка отклонена (возврат оформлен, если это магазин)."}
+
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=400, detail="Ошибка базы данных.")
+    except Exception as e:
+        logging.error(f"Ошибка при отклонении: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- МОДИФИЦИРОВАННЫЙ ЭНДПОИНТ ДЛЯ ГРУППИРОВКИ ЗАЯВОК ---
 @app.post("/api/v1/admin/pending_actions")
 async def get_grouped_pending_submissions( # Переименовали функцию для ясности
@@ -7739,7 +7845,7 @@ async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ПОКУПКА v8 (С ЗАПИСЬЮ В АДМИНКУ) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v9 (С ID ЗАКАЗА) ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -7800,7 +7906,12 @@ async def buy_bott_item_proxy(
             err_msg = resp_json.get("message", "Неизвестная ошибка")
             raise HTTPException(status_code=400, detail=f"Магазин отклонил покупку: {err_msg}")
 
-        # 4. Обновляем баланс локально
+        # Получаем ID заказа из ответа Bot-t
+        # Ответ API: {"result": true, "data": {"id": 12345, ...}}
+        bott_order_data = resp_json.get("data", {})
+        bott_order_id = bott_order_data.get("id")
+
+        # 4. Обновляем баланс локально (списываем монеты)
         new_balance = current_balance_kopecks - (price * 100)
         await supabase.patch(
             "/users",
@@ -7808,25 +7919,27 @@ async def buy_bott_item_proxy(
             json={"bot_t_coins": new_balance} 
         )
 
-        # --- 👇👇👇 НОВЫЙ БЛОК: СОХРАНЯЕМ В АДМИНКУ 👇👇👇 ---
+        # 5. Сохраняем лог покупки в админку
         try:
-            # Формируем описание с картинкой: "Название|URL"
-            # Админка (Python код из прошлого шага) умеет это парсить
             item_title = request_data.title or "Товар"
             item_image = request_data.image_url or ""
-            source_desc = f"{item_title}|{item_image}"
+            
+            # Если ID заказа вдруг нет, ставим 0, чтобы не ломать формат строки
+            safe_order_id = bott_order_id if bott_order_id else 0
+            
+            # Формируем строку: Название | Картинка | ID заказа
+            source_desc = f"{item_title}|{item_image}|{safe_order_id}"
 
             await supabase.post("/manual_rewards", json={
                 "user_id": telegram_id,
                 "status": "pending",
-                "source_type": "shop",  # <-- ВАЖНО: Тип "shop"
+                "source_type": "shop",
                 "reward_details": item_title,
                 "source_description": source_desc
             })
-            logging.info(f"[SHOP] Запись о покупке '{item_title}' сохранена для админа.")
+            logging.info(f"[SHOP] Запись о покупке '{item_title}' (Order ID: {safe_order_id}) сохранена.")
         except Exception as e_log:
             logging.error(f"[SHOP] Не удалось сохранить лог покупки: {e_log}")
-        # --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА 👆👆👆 ---
 
     return {"message": "Покупка успешна! Товар выдан."}
 
