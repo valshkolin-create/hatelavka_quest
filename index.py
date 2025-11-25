@@ -4099,7 +4099,7 @@ async def trigger_auctions(
             if winner_data.get('winner_id'):
                 winner_id = winner_data['winner_id']
                 winner_name = winner_data['winner_name']
-                auction_title = winner_data['auction_title']
+                auction_title = winner_data.get('auction_title') or winner_data.get('title') or "Лот"
                 winning_bid = winner_data['winning_bid']
                 
                 # Уведомление победителю
