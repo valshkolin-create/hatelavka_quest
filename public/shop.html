@@ -27,9 +27,8 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* Отступ снизу под фиксированный футер */
             padding-bottom: calc(70px + env(safe-area-inset-bottom));
-            overflow-x: hidden; /* Запрет горизонтального скролла всей страницы */
+            overflow-x: hidden;
         }
 
         /* --- ШАПКА --- */
@@ -131,6 +130,13 @@
         }
         .partners-scroll::-webkit-scrollbar { display: none; }
 
+        /* АНИМАЦИЯ ДВИЖЕНИЯ (FLOAT) */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); } /* Легкий подъем */
+            100% { transform: translateY(0px); }
+        }
+
         .partner-card {
             flex: 0 0 auto;
             width: 260px;
@@ -145,37 +151,90 @@
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            transition: transform 0.1s ease;
+            /* Применяем анимацию */
+            animation: float 4s ease-in-out infinite;
         }
-        .partner-card:active { transform: scale(0.97); }
+        /* Сдвигаем анимацию второй карточки, чтобы они двигались не синхронно */
+        .partner-card:nth-child(2) { animation-delay: 2s; }
+        
+        .partner-card:active { transform: scale(0.97); animation: none; }
 
+        /* СТИЛИ ДЛЯ TOPSKIN (Оранжевый) */
         .partner-card.topskin {
             background: linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(255, 87, 34, 0.05) 100%);
             border-color: rgba(255, 87, 34, 0.3);
         }
+
+        /* СТИЛИ ДЛЯ XPLAY (Серый/Серебряный) */
         .partner-card.xplay {
-            background: linear-gradient(135deg, rgba(0, 122, 255, 0.15) 0%, rgba(0, 122, 255, 0.05) 100%);
-            border-color: rgba(0, 122, 255, 0.3);
+            background: linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 100%);
+            border-color: #555;
         }
 
         .partner-icon {
-            width: 42px;
-            height: 42px;
+            width: 44px;
+            height: 44px;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
             flex-shrink: 0;
+            overflow: hidden; /* Чтобы лого не вылезало */
+            background: rgba(0,0,0,0.3); /* Подложка под лого */
+            padding: 2px;
         }
-        .topskin .partner-icon { background: #ff5722; color: #fff; box-shadow: 0 0 10px rgba(255, 87, 34, 0.4); }
-        .xplay .partner-icon { background: #007aff; color: #fff; box-shadow: 0 0 10px rgba(0, 122, 255, 0.4); }
+        
+        .partner-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
 
         .partner-info { display: flex; flex-direction: column; gap: 2px; }
-        .partner-title { font-size: 14px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+        
+        .partner-title { 
+            font-size: 14px; 
+            font-weight: 700; 
+            color: #fff; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+        }
+        
         .partner-desc { font-size: 10px; color: #b0b0b0; line-height: 1.3; }
-        .partner-highlight { color: #fff; font-weight: 600; background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 4px; font-size: 10px; }
-        .hot-badge { font-size: 9px; background: #ffcc00; color: #000; padding: 1px 5px; border-radius: 4px; font-weight: 800; text-transform: uppercase; }
+        
+        .partner-highlight { 
+            color: #fff; 
+            font-weight: 600; 
+            background: rgba(255,255,255,0.1); 
+            padding: 1px 4px; 
+            border-radius: 4px; 
+            font-size: 10px; 
+            vertical-align: middle;
+        }
+
+        .hot-badge { 
+            font-size: 9px; 
+            background: #ffcc00; 
+            color: #000; 
+            padding: 1px 5px; 
+            border-radius: 4px; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+        }
+
+        /* КНОПКА КОПИРОВАНИЯ */
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            padding: 2px 5px;
+            font-size: 11px;
+            margin-left: 2px;
+            transition: transform 0.1s;
+        }
+        .copy-btn:active { transform: scale(0.8); }
 
         /* --- СЕТКА ТОВАРОВ --- */
         .shop-grid {
@@ -204,7 +263,7 @@
 
         .item-image-wrapper {
             width: 100%;
-            padding-top: 100%; /* Квадрат 1:1 */
+            padding-top: 100%;
             position: relative;
             background: #141416;
             cursor: pointer;
@@ -220,7 +279,6 @@
         }
         .item-image.loaded { opacity: 1; }
 
-        /* --- ИНФО О ТОВАРЕ (ЦЕНТРОВКА + 1 СТРОКА) --- */
         .item-info {
             padding: 10px;
             display: flex;
@@ -235,7 +293,6 @@
             font-weight: 600;
             color: #fff;
             line-height: 1.25;
-            /* Фиксированная высота для выравнивания кнопок */
             min-height: 34px; 
             display: flex;
             flex-direction: column;
@@ -247,7 +304,7 @@
             font-size: 10px;
             color: var(--text-secondary);
             font-weight: 500;
-            display: block; /* Перенос на новую строку */
+            display: block;
             margin-top: 2px;
         }
 
@@ -269,11 +326,10 @@
             font-size: 13px;
         }
 
-        /* --- КНОПКИ --- */
         .action-btn {
-            margin-top: auto; /* Прижимаем к низу */
+            margin-top: auto;
             width: 100%;
-            height: 34px; /* Фиксированная высота */
+            height: 34px;
             border: none;
             border-radius: 8px;
             font-weight: 600;
@@ -302,7 +358,7 @@
             cursor: not-allowed;
         }
 
-        /* --- LIGHTBOX (МОДАЛКА) --- */
+        /* --- LIGHTBOX --- */
         .image-modal-overlay {
             position: fixed;
             top: 0; left: 0;
@@ -345,7 +401,6 @@
             justify-content: center;
         }
 
-        /* --- ЛОАДЕРЫ --- */
         .skeleton {
             background: linear-gradient(90deg, #1c1c1e 25%, #2c2c2e 50%, #1c1c1e 75%);
             background-size: 200% 100%;
@@ -363,17 +418,15 @@
             font-size: 14px;
         }
 
-        /* --- ФУТЕР (Идентичен menu.css) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
-            align-items: center; /* Центрирование по вертикали */
+            align-items: center;
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border-top: 1px solid rgba(58, 58, 60, 0.6);
             width: 100%;
-            /* Те самые отступы из menu.css */
             padding-top: 6px; 
             padding-bottom: calc(6px + env(safe-area-inset-bottom));
             position: fixed;
@@ -407,7 +460,6 @@
             font-size: 22px;
             transition: transform 0.2s ease, color 0.2s ease;
         }
-        /* Активное состояние (опционально) */
         .footer-item:active { color: #ffffff; }
     </style>
 </head>
@@ -434,17 +486,26 @@
 
     <div class="partners-scroll">
         <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
-            <div class="partner-icon"><i class="fa-solid fa-layer-group"></i></div>
+            <div class="partner-icon">
+                <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" alt="Topskin" class="partner-logo-img">
+            </div>
             <div class="partner-info">
                 <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
-                <div class="partner-desc">Прокод: <span class="partner-highlight">HATElove</span><br>Есть система кэшбека в заданиях!</div>
+                <div class="partner-desc">
+                    Код: <span class="partner-highlight">HATElove</span>
+                    <button class="copy-btn" onclick="copyCode(event, 'HATElove')"><i class="fa-regular fa-copy"></i></button>
+                    <br>Кэшбек на заданиях!
+                </div>
             </div>
         </a>
+        
         <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
-            <div class="partner-icon"><i class="fa-solid fa-coins"></i></div>
+            <div class="partner-icon">
+                <img src="https://i.postimg.cc/gJXWJccF/0x0.png" alt="Xplay" class="partner-logo-img">
+            </div>
             <div class="partner-info">
-                <div class="partner-title">Xplay.gg <span class="hot-badge">Game</span></div>
-                <div class="partner-desc">Забирай <span class="partner-highlight">10 монет</span><br>В заданиях.</div>
+                <div class="partner-title">Xplay.gg <span class="hot-badge">Free</span></div>
+                <div class="partner-desc">Забирай <span class="partner-highlight">10 монет</span><br>бесплатно за вход.</div>
             </div>
         </a>
     </div>
@@ -499,14 +560,12 @@
             updateNavState();
 
             Promise.all([
-                // Запрос профиля для трейд-ссылки
                 fetch('/api/v1/user/me', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 }).then(r => r.json()),
 
-                // Запрос баланса
                 fetch('/api/v1/user/sync_bott_balance', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -561,7 +620,6 @@
             container.innerHTML = html;
         }
 
-        // Умное форматирование названия (разделение по скобке)
         function formatItemName(name) {
             const splitIndex = name.indexOf('(');
             if (splitIndex !== -1) {
@@ -591,12 +649,10 @@
                 let clickAction = '';
 
                 if (item.is_folder) {
-                    // ПАПКА
                     stockText = '';
                     buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
                     clickAction = `openFolder(${item.id})`;
                 } else {
-                    // ТОВАР
                     priceText = `<div class="item-price">${item.price} ⭐️</div>`;
                     
                     let isOutOfStock = false;
@@ -615,8 +671,6 @@
                         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Купить</button>`;
                     }
-                    
-                    // Клик по картинке открывает модалку
                     clickAction = `openImageModal('${item.image_url}')`;
                 }
 
@@ -639,13 +693,12 @@
             });
         }
 
-        // --- LIGHTBOX LOGIC ---
         function openImageModal(imageUrl) {
             const modal = document.getElementById('image-modal');
             const img = document.getElementById('full-image');
             img.src = imageUrl;
             modal.classList.add('open');
-            document.body.style.overflow = 'hidden'; // Блокируем скролл фона
+            document.body.style.overflow = 'hidden';
         }
 
         function closeImageModal(event) {
@@ -657,11 +710,30 @@
         function closeImageModalForce() {
             const modal = document.getElementById('image-modal');
             modal.classList.remove('open');
-            document.body.style.overflow = ''; // Разблокируем скролл
+            document.body.style.overflow = '';
         }
 
         function openPartnerLink(url) {
             Telegram.WebApp.openLink(url);
+        }
+
+        // ФУНКЦИЯ КОПИРОВАНИЯ КОДА
+        function copyCode(event, code) {
+            event.stopPropagation(); // Остановить всплытие, чтобы не открылась ссылка
+            event.preventDefault();  // Остановить переход по ссылке
+            
+            navigator.clipboard.writeText(code).then(() => {
+                Telegram.WebApp.showAlert('Промокод скопирован!');
+            }).catch(err => {
+                // Фоллбэк для старых устройств
+                const textArea = document.createElement("textarea");
+                textArea.value = code;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("Copy");
+                textArea.remove();
+                Telegram.WebApp.showAlert('Промокод скопирован!');
+            });
         }
 
         window.openFolder = function(id) {
@@ -690,7 +762,6 @@
         }
 
         window.buyItem = function(id, price, name, imageUrl) {
-            // 🔥 ПРОВЕРКА ТРЕЙД-ССЫЛКИ 🔥
             if (!hasTradeLink) {
                 Telegram.WebApp.showPopup({
                     title: 'Нет трейд-ссылки',
