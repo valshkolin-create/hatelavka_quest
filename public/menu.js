@@ -237,34 +237,42 @@ try {
         }
 
         function resetSlideInterval() {
-            clearInterval(slideInterval);
+            if (slideInterval) clearInterval(slideInterval); // Проверка перед очисткой
             slideInterval = setInterval(nextSlide, slideDuration);
         }
 
-        prevBtn.addEventListener('click', () => {
+        // --- ИСПРАВЛЕНИЕ 2: Очистка старых событий через клонирование кнопок ---
+        // Это удаляет все старые addEventListener, чтобы клики не дублировались
+        const newPrev = prevBtn.cloneNode(true);
+        const newNext = nextBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+        nextBtn.parentNode.replaceChild(newNext, nextBtn);
+
+        newPrev.addEventListener('click', () => {
             prevSlide();
             resetSlideInterval();
         });
 
-        nextBtn.addEventListener('click', () => {
+        newNext.addEventListener('click', () => {
             nextSlide();
             resetSlideInterval();
         });
         
-        // Код для свайпа остается без изменений, он будет работать корректно
+        // Свайпы (для контейнера можно перезаписывать свойства on..., это проще)
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
         let isSwiping = false;
 
-        container.addEventListener('touchstart', (e) => {
+        // Используем on... свойства, чтобы автоматически заменять старые функции
+        container.ontouchstart = (e) => {
             touchStartX = e.touches[0].clientX;
             touchEndX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = false;
-        }, { passive: true });
+        };
 
-        container.addEventListener('touchmove', (e) => {
+        container.ontouchmove = (e) => {
             if (!touchStartX || !touchStartY) return;
             const touchCurrentX = e.touches[0].clientX;
             const touchCurrentY = e.touches[0].clientY;
@@ -273,9 +281,9 @@ try {
             if (deltaX > deltaY) e.preventDefault();
             touchEndX = touchCurrentX;
             if (deltaX > 10) isSwiping = true;
-        }, { passive: false });
+        };
 
-        container.addEventListener('touchend', () => {
+        container.ontouchend = () => {
             const swipeThreshold = 50; 
             if (touchStartX - touchEndX > swipeThreshold) {
                 nextSlide();
@@ -286,15 +294,19 @@ try {
             }
             touchStartX = 0;
             touchStartY = 0;
-        });
+        };
         
+        // Для кликов по слайдам (предотвращение перехода при свайпе)
         allSlides.forEach(slide => {
-            slide.addEventListener('click', (e) => {
+            // Сначала удаляем старый, если был (не обязательно, но чисто)
+            slide.onclick = null; 
+            slide.onclick = (e) => {
                 if (isSwiping) e.preventDefault();
-            });
+            };
         });
 
-        showSlide(0);
+        // --- ИСПРАВЛЕНИЕ 1: Не сбрасывать на 0, а использовать актуальный индекс ---
+        showSlide(currentSlideIndex); 
         resetSlideInterval();
     }
     
