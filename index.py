@@ -2399,6 +2399,7 @@ async def twitch_oauth_start(initData: str):
         f"?response_type=code"
         f"&client_id={TWITCH_CLIENT_ID}"
         f"&redirect_uri={TWITCH_REDIRECT_URI}"
+        f"&scope=user:read:email+channel:read:redemptions"  # <--- ДОБАВИЛИ ПРАВА
         f"&scope=user:read:email"
         f"&state={state}"
     )
