@@ -1782,11 +1782,16 @@ async def admin_finish_auction(
 
         winner_data = winner_data_list[0]
         
-        # 2. Проверяем, есть ли победитель, и отправляем уведомления
+       # 2. Проверяем, есть ли победитель, и отправляем уведомления
         if winner_data.get('winner_id'):
             winner_id = winner_data['winner_id']
             winner_name = winner_data['winner_name']
-            auction_title = winner_data['auction_title']
+            
+            # --- ИСПРАВЛЕНИЕ: Безопасное получение названия ---
+            # Пробуем 'auction_title', если нет - пробуем 'title', если нет - ставим 'Лот'
+            auction_title = winner_data.get('auction_title') or winner_data.get('title') or "Лот"
+            # --------------------------------------------------
+            
             winning_bid = winner_data['winning_bid']
             
             # Уведомление победителю
