@@ -596,78 +596,102 @@
 
         // --- ИСПРАВЛЕННЫЙ СКРИПТ СКРОЛЛА ---
         function initPartnersScroll() {
-            const container = document.getElementById('partners-scroll');
-            if (!container) return;
+    console.log('>>> [DEBUG] Запуск initPartnersScroll');
+    
+    const container = document.getElementById('partners-scroll');
+    if (!container) {
+        console.error('>>> [DEBUG] ОШИБКА: Контейнер #partners-scroll не найден!');
+        return;
+    }
 
-            // Очищаем содержимое перед инициализацией (на случай перезапуска)
-            // Но сохраняем оригинальные элементы для клонирования
-            // Лучший способ: проверяем, клонировали ли мы уже
-            if (container.getAttribute('data-init') === 'true') return;
-            container.setAttribute('data-init', 'true');
+    // Небольшая задержка, чтобы браузер успел отрисовать CSS
+    setTimeout(() => {
+        const originalItems = Array.from(container.children);
+        console.log('>>> [DEBUG] Найдено элементов:', originalItems.length);
 
-            const originalItems = Array.from(container.children);
-            if (originalItems.length === 0) return;
-
-            // Клонируем элементы, пока лента не станет достаточно длинной
-            // (минимум 3 ширины экрана для плавного бесконечного скролла)
-            const screenWidth = window.innerWidth;
-            let loops = 0;
-            while (container.scrollWidth < screenWidth * 3 && loops < 20) {
-                originalItems.forEach(item => {
-                    container.appendChild(item.cloneNode(true));
-                });
-                loops++;
-            }
-
-            // Рассчитываем ширину одного набора элементов для сброса
-            // (Ширина первого элемента + отступ) * количество оригинальных элементов
-            const itemWidth = originalItems[0].offsetWidth + 10; // 10px - это gap
-            const resetPoint = itemWidth * originalItems.length;
-
-            let scrollPos = 0;
-            const speed = 0.5; // Скорость прокрутки
-
-            function animate() {
-                scrollPos += speed;
-                
-                // Если прокрутили длину одного набора, сбрасываем в начало
-                // Это создает иллюзию бесконечности
-                if (scrollPos >= resetPoint) {
-                    scrollPos -= resetPoint;
-                }
-                
-                container.scrollLeft = scrollPos;
-                requestAnimationFrame(animate);
-            }
-
-            // Запускаем анимацию
-            animate();
-            
-            // --- Обработка касаний (чтобы можно было листать пальцем) ---
-            let isDragging = false;
-            let startX;
-            let startScrollLeft;
-
-            container.addEventListener('touchstart', (e) => {
-                isDragging = true;
-                startX = e.touches[0].pageX;
-                startScrollLeft = scrollPos; // Используем scrollPos, а не scrollLeft
-            }, {passive: true});
-
-            container.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                const x = e.touches[0].pageX;
-                const walk = (startX - x); // Сколько протащили
-                scrollPos = startScrollLeft + walk;
-                // Не даем уйти в минус
-                if (scrollPos < 0) scrollPos = 0;
-                container.scrollLeft = scrollPos;
-            }, {passive: true});
-
-            container.addEventListener('touchend', () => {
-                isDragging = false;
-            });
+        if (originalItems.length === 0) {
+            console.warn('>>> [DEBUG] Пустой список партнеров, выход.');
+            return;
         }
+
+        // Логируем размеры первого элемента
+        const firstItemWidth = originalItems[0].offsetWidth;
+        console.log('>>> [DEBUG] Ширина первого элемента:', firstItemWidth, 'px');
+
+        if (firstItemWidth === 0) {
+            console.error('>>> [DEBUG] ОШИБКА: Ширина элемента 0px. Возможно, CSS не прогрузился или display: none.');
+        }
+
+        const screenWidth = window.innerWidth;
+        console.log('>>> [DEBUG] Ширина экрана:', screenWidth);
+
+        // Клонирование
+        let loops = 0;
+        // Защита: клонируем, пока контент не станет хотя бы 1000px (или 3 экрана), чтобы точно был скролл
+        while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
+            originalItems.forEach(item => {
+                container.appendChild(item.cloneNode(true));
+            });
+            loops++;
+        }
+        
+        console.log(`>>> [DEBUG] Клонирование завершено. Циклов: ${loops}. Итоговая ширина: ${container.scrollWidth}`);
+
+        // Расчет точки сброса
+        const itemWidth = firstItemWidth + 10; // 10px gap
+        const resetPoint = itemWidth * originalItems.length;
+        console.log('>>> [DEBUG] Точка сброса (resetPoint):', resetPoint);
+
+        let scrollPos = 0;
+        const speed = 0.5;
+
+        // Анимация
+        function animate() {
+            scrollPos += speed;
+            
+            if (scrollPos >= resetPoint) {
+                console.log('>>> [DEBUG] Сброс позиции в начало');
+                scrollPos -= resetPoint;
+            }
+            
+            container.scrollLeft = scrollPos;
+            requestAnimationFrame(animate);
+        }
+
+        // Запуск анимации
+        console.log('>>> [DEBUG] Запуск анимации...');
+        animate();
+
+        // --- Touch Logic ---
+        let isDragging = false;
+        let startX = 0;
+        let startScrollLeft = 0;
+
+        container.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            startX = e.touches[0].pageX;
+            startScrollLeft = scrollPos;
+            // console.log('Touch Start');
+        }, {passive: true});
+
+        container.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const x = e.touches[0].pageX;
+            const walk = (startX - x) * 1.5; // Ускорение свайпа
+            scrollPos = startScrollLeft + walk;
+            
+            if (scrollPos < 0) scrollPos = 0;
+            container.scrollLeft = scrollPos;
+        }, {passive: true});
+
+        container.addEventListener('touchend', () => {
+            isDragging = false;
+            // console.log('Touch End');
+        });
+
+    }, 100); // 100мс задержка
+}
+        
         async function initShop() {
             updateNavState();
             
