@@ -27,8 +27,9 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            padding-bottom: calc(90px + env(safe-area-inset-bottom));
-            overflow-x: hidden;
+            /* Отступ снизу под фиксированный футер */
+            padding-bottom: calc(70px + env(safe-area-inset-bottom));
+            overflow-x: hidden; /* Запрет горизонтального скролла всей страницы */
         }
 
         /* --- ШАПКА --- */
@@ -118,13 +119,71 @@
             line-height: 1.4;
         }
 
+        /* --- ПАРТНЕРЫ (ГОРИЗОНТАЛЬНЫЙ СКРОЛЛ) --- */
+        .partners-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            padding: 0 16px 15px 16px;
+            margin-top: 5px;
+            -ms-overflow-style: none;  
+            scrollbar-width: none;  
+        }
+        .partners-scroll::-webkit-scrollbar { display: none; }
+
+        .partner-card {
+            flex: 0 0 auto;
+            width: 260px;
+            background: #1c1c1e;
+            border-radius: 14px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: transform 0.1s ease;
+        }
+        .partner-card:active { transform: scale(0.97); }
+
+        .partner-card.topskin {
+            background: linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(255, 87, 34, 0.05) 100%);
+            border-color: rgba(255, 87, 34, 0.3);
+        }
+        .partner-card.xplay {
+            background: linear-gradient(135deg, rgba(0, 122, 255, 0.15) 0%, rgba(0, 122, 255, 0.05) 100%);
+            border-color: rgba(0, 122, 255, 0.3);
+        }
+
+        .partner-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .topskin .partner-icon { background: #ff5722; color: #fff; box-shadow: 0 0 10px rgba(255, 87, 34, 0.4); }
+        .xplay .partner-icon { background: #007aff; color: #fff; box-shadow: 0 0 10px rgba(0, 122, 255, 0.4); }
+
+        .partner-info { display: flex; flex-direction: column; gap: 2px; }
+        .partner-title { font-size: 14px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+        .partner-desc { font-size: 10px; color: #b0b0b0; line-height: 1.3; }
+        .partner-highlight { color: #fff; font-weight: 600; background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 4px; font-size: 10px; }
+        .hot-badge { font-size: 9px; background: #ffcc00; color: #000; padding: 1px 5px; border-radius: 4px; font-weight: 800; text-transform: uppercase; }
+
         /* --- СЕТКА ТОВАРОВ --- */
         .shop-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
             padding: 0 16px;
-            margin-top: 10px;
+            margin-top: 5px;
             width: 100%;
             box-sizing: border-box;
         }
@@ -141,15 +200,14 @@
             border-bottom: 2px solid rgba(255, 255, 255, 0.05);
             min-width: 0; 
         }
-
         .shop-item:active { transform: scale(0.98); }
 
         .item-image-wrapper {
             width: 100%;
-            padding-top: 100%; /* 1:1 */
+            padding-top: 100%; /* Квадрат 1:1 */
             position: relative;
             background: #141416;
-            cursor: pointer; /* Показываем, что можно нажать */
+            cursor: pointer;
         }
 
         .item-image {
@@ -162,43 +220,43 @@
         }
         .item-image.loaded { opacity: 1; }
 
-        /* --- ИНФО О ТОВАРЕ (ЦЕНТРОВКА) --- */
+        /* --- ИНФО О ТОВАРЕ (ЦЕНТРОВКА + 1 СТРОКА) --- */
         .item-info {
             padding: 10px;
             display: flex;
             flex-direction: column;
             flex-grow: 1;
             gap: 4px;
-            text-align: center; /* Центрируем весь текст */
+            text-align: center;
         }
 
         .item-title {
-            font-size: 12px; /* Уменьшили шрифт */
+            font-size: 12px;
             font-weight: 600;
             color: #fff;
             line-height: 1.25;
-            /* Фиксируем высоту под 2 строки, чтобы кнопки были ровно */
-            min-height: 30px; 
+            /* Фиксированная высота для выравнивания кнопок */
+            min-height: 34px; 
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
         }
         
-        /* Стиль для части текста в скобках (Well-Worn) */
         .item-subtitle {
             font-size: 10px;
             color: var(--text-secondary);
             font-weight: 500;
             display: block; /* Перенос на новую строку */
+            margin-top: 2px;
         }
 
         .item-meta {
             display: flex;
-            flex-direction: column; /* Ставим цену и остаток друг под другом */
+            flex-direction: column;
             align-items: center;
             gap: 2px;
-            font-size: 10px; /* Уменьшили шрифт */
+            font-size: 10px;
             margin-bottom: 6px;
         }
 
@@ -211,7 +269,7 @@
             font-size: 13px;
         }
 
-        /* --- КНОПКИ (ЕДИНЫЙ РАЗМЕР) --- */
+        /* --- КНОПКИ --- */
         .action-btn {
             margin-top: auto; /* Прижимаем к низу */
             width: 100%;
@@ -244,24 +302,22 @@
             cursor: not-allowed;
         }
 
-        /* --- МОДАЛКА ДЛЯ КАРТИНКИ (LIGHTBOX) --- */
+        /* --- LIGHTBOX (МОДАЛКА) --- */
         .image-modal-overlay {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 2000; /* Поверх всего */
-            display: none; /* Скрыто по умолчанию */
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            display: none;
             align-items: center;
             justify-content: center;
             opacity: 0;
             transition: opacity 0.3s ease;
             backdrop-filter: blur(10px);
         }
-        .image-modal-overlay.open {
-            display: flex;
-            opacity: 1;
-        }
+        .image-modal-overlay.open { display: flex; opacity: 1; }
+        
         .modal-image-container {
             position: relative;
             width: 90%;
@@ -271,18 +327,18 @@
             width: 100%;
             height: auto;
             border-radius: 12px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
         }
         .modal-close-btn {
             position: absolute;
-            top: -40px;
+            top: -50px;
             right: 0;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
             border: none;
             color: #fff;
-            width: 32px; height: 32px;
+            width: 40px; height: 40px;
             border-radius: 50%;
-            font-size: 18px;
+            font-size: 20px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -307,17 +363,18 @@
             font-size: 14px;
         }
 
-        /* --- ФУТЕР (КАК В MENU.CSS) --- */
+        /* --- ФУТЕР (Идентичен menu.css) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
-            align-items: center;
+            align-items: center; /* Центрирование по вертикали */
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border-top: 1px solid rgba(58, 58, 60, 0.6);
             width: 100%;
-            padding-top: 6px;
+            /* Те самые отступы из menu.css */
+            padding-top: 6px; 
             padding-bottom: calc(6px + env(safe-area-inset-bottom));
             position: fixed;
             bottom: 0;
@@ -350,6 +407,8 @@
             font-size: 22px;
             transition: transform 0.2s ease, color 0.2s ease;
         }
+        /* Активное состояние (опционально) */
+        .footer-item:active { color: #ffffff; }
     </style>
 </head>
 <body>
@@ -369,8 +428,25 @@
         </div>
         <div class="info-text">
             <h3>Магазин Наград</h3>
-            <p>Выполняй челленджи, зарабатывай звезды и обменивай их на уникальные товары.</p>
+            <p>Зарабатывай монеты в челленджах и обменивай их на крутые товары.</p>
         </div>
+    </div>
+
+    <div class="partners-scroll">
+        <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
+            <div class="partner-icon"><i class="fa-solid fa-layer-group"></i></div>
+            <div class="partner-info">
+                <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
+                <div class="partner-desc">Код: <span class="partner-highlight">HATElove</span><br>Кэшбек на заданиях!</div>
+            </div>
+        </a>
+        <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
+            <div class="partner-icon"><i class="fa-solid fa-coins"></i></div>
+            <div class="partner-info">
+                <div class="partner-title">Xplay.gg <span class="hot-badge">Free</span></div>
+                <div class="partner-desc">Забирай <span class="partner-highlight">10 монет</span><br>бесплатно за вход.</div>
+            </div>
+        </a>
     </div>
 
     <div id="shop-grid" class="shop-grid"></div>
@@ -423,12 +499,14 @@
             updateNavState();
 
             Promise.all([
+                // Запрос профиля для трейд-ссылки
                 fetch('/api/v1/user/me', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 }).then(r => r.json()),
 
+                // Запрос баланса
                 fetch('/api/v1/user/sync_bott_balance', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -483,22 +561,14 @@
             container.innerHTML = html;
         }
 
-        // --- ФУНКЦИЯ ФОРМАТИРОВАНИЯ НАЗВАНИЯ ---
+        // Умное форматирование названия (разделение по скобке)
         function formatItemName(name) {
-            // Ищем первую открывающую скобку
             const splitIndex = name.indexOf('(');
-            
             if (splitIndex !== -1) {
                 const mainPart = name.substring(0, splitIndex).trim();
                 const subPart = name.substring(splitIndex).trim();
-                
-                // Экранируем HTML для безопасности
-                const safeMain = escapeHtml(mainPart);
-                const safeSub = escapeHtml(subPart);
-                
-                return `${safeMain}<span class="item-subtitle">${safeSub}</span>`;
+                return `${escapeHtml(mainPart)}<span class="item-subtitle">${escapeHtml(subPart)}</span>`;
             }
-            
             return escapeHtml(name);
         }
 
@@ -523,9 +593,7 @@
                 if (item.is_folder) {
                     // ПАПКА
                     stockText = '';
-                    // Кнопка "Открыть"
-                    buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть</button>`;
-                    // Клик по картинке тоже открывает папку
+                    buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
                     clickAction = `openFolder(${item.id})`;
                 } else {
                     // ТОВАР
@@ -548,11 +616,10 @@
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Купить</button>`;
                     }
                     
-                    // Клик по картинке товара открывает модалку
+                    // Клик по картинке открывает модалку
                     clickAction = `openImageModal('${item.image_url}')`;
                 }
 
-                // Форматируем название с переносом
                 const displayNameHtml = formatItemName(item.name);
 
                 el.innerHTML = `
@@ -572,18 +639,16 @@
             });
         }
 
-        // --- ЛОГИКА МОДАЛКИ (LIGHTBOX) ---
+        // --- LIGHTBOX LOGIC ---
         function openImageModal(imageUrl) {
             const modal = document.getElementById('image-modal');
             const img = document.getElementById('full-image');
             img.src = imageUrl;
             modal.classList.add('open');
-            // Блокируем скролл страницы
-            document.body.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden'; // Блокируем скролл фона
         }
 
         function closeImageModal(event) {
-            // Закрываем, если клик по затемненному фону (не по картинке)
             if (event.target.id === 'image-modal') {
                 closeImageModalForce();
             }
@@ -592,7 +657,11 @@
         function closeImageModalForce() {
             const modal = document.getElementById('image-modal');
             modal.classList.remove('open');
-            document.body.style.overflow = '';
+            document.body.style.overflow = ''; // Разблокируем скролл
+        }
+
+        function openPartnerLink(url) {
+            Telegram.WebApp.openLink(url);
         }
 
         window.openFolder = function(id) {
@@ -621,10 +690,11 @@
         }
 
         window.buyItem = function(id, price, name, imageUrl) {
+            // 🔥 ПРОВЕРКА ТРЕЙД-ССЫЛКИ 🔥
             if (!hasTradeLink) {
                 Telegram.WebApp.showPopup({
                     title: 'Нет трейд-ссылки',
-                    message: 'Чтобы купить этот товар, нужно указать трейд-ссылку в профиле. Перейдите в меню -> Профиль.',
+                    message: 'Для покупки укажите трейд-ссылку в профиле (Меню -> Профиль).',
                     buttons: [{type: 'ok'}]
                 });
                 return;
@@ -666,11 +736,7 @@
 
         function escapeHtml(text) {
             if (!text) return "";
-            return text.replace(/&/g, "&amp;")
-                       .replace(/</g, "&lt;")
-                       .replace(/>/g, "&gt;")
-                       .replace(/"/g, "&quot;")
-                       .replace(/'/g, "&#039;");
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
         initShop();
