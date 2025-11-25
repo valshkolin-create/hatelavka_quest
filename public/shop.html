@@ -37,7 +37,7 @@
             /* Важно: разрешаем только вертикальный скролл для body, горизонтальный перехватываем */
             touch-action: pan-y; 
             padding-bottom: 140px !important; 
-            padding-bottom: calc(90px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important;
         }
 
         /* --- ШАПКА --- */
@@ -293,9 +293,15 @@
 
         .item-image {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
+    
+            top: 10%;      /* Отступ сверху */
+            left: 10%;     /* Отступ слева */
+            width: 80%;    /* Картинка занимает 80% места вместо 100% */
+            height: 80%;   
+    
+            object-fit: cover; /* Или 'contain', если хочешь видеть картинку целиком без обрезки */
+            border-radius: 8px; /* Скругляем углы самой картинки */
+    
             opacity: 0;
             transition: opacity 0.3s ease-in;
         }
