@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Premium Shop</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
@@ -27,8 +27,8 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* Отступ снизу под фиксированный футер (высота ~60px + safe area) */
-            padding-bottom: calc(80px + env(safe-area-inset-bottom));
+            /* Увеличили отступ снизу, чтобы контент не перекрывался высоким футером */
+            padding-bottom: calc(90px + env(safe-area-inset-bottom));
             overflow-x: hidden; 
         }
 
@@ -126,16 +126,24 @@
             margin-top: 5px;
             padding-bottom: 15px;
             position: relative;
+            /* Маска для красивого ухода в прозрачность по краям */
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
         }
 
         .partners-scroll {
             display: flex;
             gap: 10px;
             padding: 0 16px;
-            width: max-content;
-            overflow-x: hidden; /* Скрываем стандартный скроллбар */
+            width: max-content; /* Растягиваем по содержимому */
+            overflow-x: auto; /* Разрешаем нативный скролл */
             cursor: grab;
-            user-select: none; /* Чтобы текст не выделялся при перетаскивании */
+            /* Скрываем скроллбар */
+            scrollbar-width: none; 
+            -ms-overflow-style: none;
+        }
+        .partners-scroll::-webkit-scrollbar { 
+            display: none; 
         }
         
         .partners-scroll:active {
@@ -156,8 +164,8 @@
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            /* Важно: отключаем стандартное поведение ссылок при перетаскивании JS-ом */
-            -webkit-user-drag: none;
+            -webkit-user-drag: none; /* Запрет перетаскивания самого элемента как картинки */
+            user-select: none;
         }
 
         .partner-card.topskin {
@@ -186,7 +194,7 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
-            pointer-events: none; /* Чтобы картинка не мешала свайпу */
+            pointer-events: none;
         }
 
         .partner-info { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
@@ -222,7 +230,7 @@
             padding: 2px 5px;
             font-size: 11px;
             margin-left: 2px;
-            pointer-events: auto; /* Возвращаем кликабельность кнопке */
+            pointer-events: auto;
         }
 
         /* --- СЕТКА ТОВАРОВ --- */
@@ -407,7 +415,7 @@
             font-size: 14px;
         }
 
-        /* --- ЕДИНЫЙ ФИКСИРОВАННЫЙ ФУТЕР (КАК В LEADERBOARD) --- */
+        /* --- ФУТЕР (СТРОГО КАК В LEADERBOARD + FIX для iPhone) --- */
         .app-footer {
             display: flex;
             justify-content: space-around;
@@ -424,8 +432,11 @@
             width: 100%;
             z-index: 9999;
             
+            /* ФИКС ДЛЯ АЙФОНА: */
             padding-top: 8px;
-            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            /* safe-area-inset-bottom обязателен, иначе шторка закроет кнопки */
+            padding-bottom: calc(12px + env(safe-area-inset-bottom)); 
+            
             box-sizing: border-box;
             height: auto;
         }
@@ -468,9 +479,9 @@
 
         .footer-item:active { color: #ffffff; }
 
-        /* Активное состояние (если понадобится, хотя тут нет active класса по умолчанию) */
-        .footer-item.active { color: #FFFFFF; }
-        .footer-item.active span { font-weight: 600; }
+        .footer-item.active {
+            color: #FFFFFF;
+        }
         .footer-item.active .icon-wrapper {
             color: #34c759;
             transform: translateY(-2px);
@@ -585,108 +596,87 @@
 
         // --- НОВАЯ ЛОГИКА СКРОЛЛЕРА ПАРТНЕРОВ ---
         function initPartnersScroll() {
-            const scrollContainer = document.getElementById('partners-scroll');
-            if (!scrollContainer) return;
+            const container = document.getElementById('partners-scroll');
+            if (!container) return;
 
-            // 1. Дублируем контент для "бесконечности" (Original + Clone1 + Clone2)
-            // Достаточно клонировать 2 раза, чтобы всегда был контент справа при скролле
-            const items = Array.from(scrollContainer.children);
-            items.forEach(item => scrollContainer.appendChild(item.cloneNode(true)));
-            items.forEach(item => scrollContainer.appendChild(item.cloneNode(true)));
+            // 1. Принудительное клонирование для создания длинной ленты
+            const items = Array.from(container.children);
+            // Клонируем 3 раза, чтобы точно хватило на любой экран
+            for (let i = 0; i < 3; i++) {
+                items.forEach(item => {
+                    container.appendChild(item.cloneNode(true));
+                });
+            }
 
-            // Вычисляем ширину одного полного набора элементов (с учетом gap)
-            // Мы знаем, что добавили клонов, поэтому берем треть от общей ширины (при условии полной загрузки)
-            // Но надежнее посчитать ширину оригинальных элементов.
-            let singleSetWidth = 0;
-            const gap = 10; // CSS gap
-            items.forEach(item => {
-                singleSetWidth += item.offsetWidth + gap;
-            });
+            // Вычисляем ширину ОДНОГО оригинального сета (примерно)
+            // Это нужно для бесшовного "прыжка" назад
+            const itemWidth = 260 + 10; // ширина карточки + gap
+            const singleSetWidth = itemWidth * items.length;
 
-            let currentScroll = 0;
-            const speed = 0.5; // Скорость авто-скролла
+            let scrollPos = 0;
+            const speed = 0.6; // Скорость движения
             let isDragging = false;
             let startX, startScrollLeft;
             let animationFrameId;
 
-            // Функция авто-анимации
-            function animate() {
+            function step() {
                 if (!isDragging) {
-                    currentScroll += speed;
+                    scrollPos += speed;
                     
-                    // Если прокрутили больше длины одного набора, сбрасываем назад незаметно
-                    if (currentScroll >= singleSetWidth) {
-                        currentScroll -= singleSetWidth;
+                    // Бесшовный сброс в начало при достижении клонированных элементов
+                    if (scrollPos >= singleSetWidth) {
+                        scrollPos -= singleSetWidth;
                     }
-                    
-                    scrollContainer.scrollLeft = currentScroll;
+                    container.scrollLeft = scrollPos;
                 }
-                animationFrameId = requestAnimationFrame(animate);
+                animationFrameId = requestAnimationFrame(step);
             }
 
             // Запускаем анимацию
-            animate();
+            step();
 
-            // --- ОБРАБОТЧИКИ SWIPE / MOUSE DRAG ---
-            
+            // --- ОБРАБОТЧИКИ SWIPE (DRAG) ---
             const startDrag = (e) => {
                 isDragging = true;
-                // Получаем X позицию (для мыши или тача)
                 startX = e.pageX || e.touches[0].pageX;
-                startScrollLeft = scrollContainer.scrollLeft;
-                // Останавливаем инерцию браузера если есть
-                scrollContainer.style.scrollBehavior = 'auto'; 
+                startScrollLeft = container.scrollLeft;
+                // Останавливаем CSS инерцию браузера
+                container.style.scrollBehavior = 'auto';
             };
 
             const doDrag = (e) => {
                 if (!isDragging) return;
-                e.preventDefault(); // Блокируем стандартный скролл страницы если тянем слайдер
+                // Важно: на мобилках это предотвращает вертикальный скролл страницы при горизонтальном свайпе
+                // Но если вы хотите разрешить вертикальный, уберите preventDefault
+                // e.preventDefault(); 
+                
                 const x = e.pageX || e.touches[0].pageX;
-                const walk = (x - startX) * 1.5; // Множитель скорости свайпа
-                
-                // Обновляем позицию скролла
-                let newScroll = startScrollLeft - walk;
-                
-                // Логика зацикливания при ручном перетаскивании
-                if (newScroll < 0) {
-                    // Если утянули влево до упора, перекидываем в конец (на 2-й сет)
-                    newScroll += singleSetWidth;
-                    startScrollLeft += singleSetWidth; // Корректируем старт, чтобы не было скачка
-                } else if (newScroll >= singleSetWidth * 2) {
-                    // Если утянули далеко вправо
-                    newScroll -= singleSetWidth;
-                    startScrollLeft -= singleSetWidth;
-                }
-                
-                scrollContainer.scrollLeft = newScroll;
-                currentScroll = newScroll; // Синхронизируем для авто-скролла
+                const walk = (x - startX) * 1.5; // Чуть быстрее пальца
+                container.scrollLeft = startScrollLeft - walk;
+                scrollPos = container.scrollLeft; // Синхронизируем
             };
 
             const stopDrag = () => {
                 isDragging = false;
-                // При отпускании корректируем currentScroll на случай, если он вышел за границы цикла
-                if (currentScroll >= singleSetWidth) {
-                     currentScroll = currentScroll % singleSetWidth;
-                }
             };
 
-            // Mouse events
-            scrollContainer.addEventListener('mousedown', startDrag);
-            scrollContainer.addEventListener('mousemove', doDrag);
-            scrollContainer.addEventListener('mouseup', stopDrag);
-            scrollContainer.addEventListener('mouseleave', stopDrag);
-
-            // Touch events
-            scrollContainer.addEventListener('touchstart', startDrag);
-            scrollContainer.addEventListener('touchmove', doDrag);
-            scrollContainer.addEventListener('touchend', stopDrag);
+            // Touch Events
+            container.addEventListener('touchstart', startDrag, {passive: true});
+            container.addEventListener('touchmove', doDrag, {passive: true});
+            container.addEventListener('touchend', stopDrag);
+            
+            // Mouse Events (для тестов на ПК)
+            container.addEventListener('mousedown', startDrag);
+            container.addEventListener('mousemove', doDrag);
+            container.addEventListener('mouseup', stopDrag);
+            container.addEventListener('mouseleave', stopDrag);
         }
 
         async function initShop() {
             updateNavState();
             
-            // Запускаем улучшенный скроллер
-            initPartnersScroll();
+            // Запускаем скроллер партнеров после рендера DOM
+            setTimeout(initPartnersScroll, 100);
 
             Promise.all([
                 fetch('/api/v1/user/me', {
@@ -843,7 +833,6 @@
         }
 
         function openPartnerLink(url) {
-            // Разрешаем переход, если это не перетаскивание
             Telegram.WebApp.openLink(url);
         }
 
