@@ -18,9 +18,8 @@
         }
 
         html, body {
-            height: 100%; /* Фиксация высоты */
-            overflow-x: hidden; /* Запрет гориз. скролла страницы */
-            /* --- АНТИ-СВАП (Fix Rubber Band) --- */
+            height: 100%; /* Фиксация высоты для анти-свапа */
+            overflow-x: hidden; 
             overscroll-behavior: none; 
             -webkit-overflow-scrolling: touch;
         }
@@ -34,10 +33,8 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            /* Важно: разрешаем только вертикальный скролл для body, горизонтальный перехватываем */
             touch-action: pan-y; 
-            padding-bottom: 140px !important; 
-            padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+            /* УБРАЛИ padding-bottom отсюда, перенесли в .shop-grid для надежности */
         }
 
         /* --- ШАПКА --- */
@@ -56,7 +53,6 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            /* Запрет выделения в шапке */
             user-select: none;
             -webkit-user-select: none;
         }
@@ -139,7 +135,6 @@
             position: relative;
             mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
             -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-            /* Указываем браузеру, что здесь будет горизонтальный свайп */
             touch-action: pan-x; 
         }
 
@@ -150,7 +145,6 @@
             width: 100%; 
             overflow-x: hidden; 
             flex-wrap: nowrap;
-            /* Важно для производительности */
             will-change: scroll-position;
         }
         
@@ -174,7 +168,6 @@
             user-select: none;
             -webkit-user-select: none;
             cursor: pointer;
-            /* Предотвращаем дефолтные действия браузера на карточках */
             touch-action: pan-x; 
         }
 
@@ -267,6 +260,10 @@
             margin-top: 5px;
             width: 100%;
             box-sizing: border-box;
+            
+            /* !!!!!!!! ВАЖНОЕ ИЗМЕНЕНИЕ: ОТСТУП СНИЗУ ЗДЕСЬ !!!!!!!! */
+            /* 180px запаса. Теперь список товаров сам толкает себя вверх */
+            padding-bottom: calc(180px + env(safe-area-inset-bottom)); 
         }
 
         .shop-item {
@@ -293,15 +290,13 @@
 
         .item-image {
             position: absolute;
-    
-            top: 10%;      /* Отступ сверху */
-            left: 10%;     /* Отступ слева */
-            width: 80%;    /* Картинка занимает 80% места вместо 100% */
+            /* Уменьшаем картинку (80%) и центруем */
+            top: 10%;      
+            left: 10%;     
+            width: 80%;    
             height: 80%;   
-    
-            object-fit: cover; /* Или 'contain', если хочешь видеть картинку целиком без обрезки */
-            border-radius: 8px; /* Скругляем углы самой картинки */
-    
+            object-fit: cover; 
+            border-radius: 8px; 
             opacity: 0;
             transition: opacity 0.3s ease-in;
         }
@@ -317,17 +312,17 @@
         }
 
         .item-title {
-            font-size: 11px;           /* Уменьшили с 12px до 11px */
+            font-size: 11px;           
             font-weight: 600;
             color: #fff;
-            line-height: 1.2;          /* Чуть прижали строки */
+            line-height: 1.2;          
             min-height: 34px; 
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-transform: capitalize; /* Делает "Первую Букву Большой" у всех товаров */
-            text-align: center;         /* Гарантирует центровку текста */
+            text-transform: capitalize; 
+            text-align: center;         
         }
         
         .item-subtitle {
@@ -401,7 +396,7 @@
             opacity: 0;
             transition: opacity 0.3s ease;
             backdrop-filter: blur(10px);
-            touch-action: none; /* Блокируем свайпы на модалке */
+            touch-action: none; 
         }
         .image-modal-overlay.open { display: flex; opacity: 1; }
         
@@ -472,7 +467,6 @@
             
             box-sizing: border-box;
             height: auto;
-            /* Запрет свайпа футера */
             touch-action: none;
         }
 
@@ -618,7 +612,6 @@
         Telegram.WebApp.expand();
         Telegram.WebApp.BackButton.show();
         
-        // Цвет заголовка для интеграции с темой
         Telegram.WebApp.setHeaderColor('#17212b'); 
         Telegram.WebApp.setBackgroundColor('#17212b');
 
@@ -632,7 +625,6 @@
             goBack();
         });
 
-        // --- УЛУЧШЕННАЯ ФУНКЦИЯ СКРОЛЛА (ANTI-SWAP LOGIC) ---
         function initPartnersScroll() {
             const container = document.getElementById('partners-scroll');
             if (!container) return;
@@ -645,7 +637,7 @@
                 partnersAnimFrameId = null;
             }
 
-            console.log('>>> [DEBUG] Запуск скролла (Anti-Swap + Centering)');
+            console.log('>>> [DEBUG] Запуск скролла');
 
             setTimeout(() => {
                 const originalItems = Array.from(container.children);
@@ -673,7 +665,6 @@
                 let isDragging = false;
                 let isHovered = false; 
                 
-                // Координаты для расчета свайпа
                 let startX = 0;
                 let startY = 0;
                 let startScrollLeft = 0;
@@ -694,39 +685,29 @@
 
                 animate();
 
-                // --- Touch Logic (Мобилки с блокировкой вертикального скролла) ---
-
                 container.addEventListener('touchstart', (e) => {
                     isDragging = true;
-                    // Сохраняем начальные координаты
                     startX = e.touches[0].pageX;
                     startY = e.touches[0].pageY;
                     startScrollLeft = container.scrollLeft;
                 }, {passive: true});
 
-                // ВАЖНО: passive: false позволяет использовать preventDefault
                 container.addEventListener('touchmove', (e) => {
                     if (!isDragging) return;
                     
                     const x = e.touches[0].pageX;
                     const y = e.touches[0].pageY;
                     
-                    // Вычисляем, куда больше движется палец: вбок или вверх/вниз
                     const xDiff = Math.abs(x - startX);
                     const yDiff = Math.abs(y - startY);
 
-                    // Если движение горизонтальное больше чем вертикальное
                     if (xDiff > yDiff) {
-                        // БЛОКИРУЕМ поведение браузера (свайп страницы назад/вперед)
                         if (e.cancelable) e.preventDefault();
-                        
-                        // Двигаем наш слайдер
                         const walk = (startX - x) * 1.5; 
                         scrollPos = startScrollLeft + walk;
                         if (scrollPos < 0) scrollPos = 0;
                         container.scrollLeft = scrollPos;
                     }
-                    // Если yDiff > xDiff - ничего не делаем, даем странице скроллиться вертикально
                 }, {passive: false});
 
                 container.addEventListener('touchend', () => {
