@@ -972,3 +972,82 @@ CSS
 .method-DELETE { background-color: var(--danger-color); } /* Красный */
 .method-PATCH, 
 .method-PUT { background-color: var(--warning-color); } /* Оранжевый */
+
+/* --- СТИЛИ ДЛЯ МАГАЗИНА (SHOP) --- */
+.shop-purchase-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background-color: var(--surface-glass-bg);
+    border-radius: 12px;
+    padding: 12px;
+    border: 1px solid var(--divider-glass-color);
+    position: relative;
+}
+
+.shop-item-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+    background-color: rgba(255,255,255,0.1);
+    flex-shrink: 0;
+}
+
+.shop-item-info {
+    flex-grow: 1;
+    min-width: 0; /* Позволяет тексту обрезаться, а не растягивать блок */
+}
+
+.shop-item-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin: 0 0 4px 0;
+    color: var(--primary-color);
+}
+
+.shop-user-info {
+    font-size: 13px;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+}
+
+.shop-trade-link-box {
+    background-color: rgba(0,0,0,0.3);
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: monospace;
+    word-break: break-all;
+    color: var(--text-color-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.shop-trade-link-box a {
+    color: var(--action-color);
+    text-decoration: none;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.shop-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    justify-content: center;
+    margin-left: 5px;
+}
+
+.shop-actions .admin-action-btn {
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    border-radius: 8px;
+}
