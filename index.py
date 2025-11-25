@@ -1117,55 +1117,20 @@ async def telegram_webhook(
     # Сразу же возвращаем ответ
     return JSONResponse(content={"status": "ok", "processed_in_background": True})
 
-@app.post("/api/v1/webhooks/twitch")
-async def handle_twitch_webhook(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """Принимает и обрабатывает вебхуки от Twitch EventSub."""
-    body = await request.body()
-    headers = request.headers
-    message_id = headers.get("Twitch-Eventsub-Message-Id")
-    timestamp = headers.get("Twitch-Eventsub-Message-Timestamp")
-    signature = headers.get("Twitch-Eventsub-Message-Signature")
-
-    if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
-        raise HTTPException(status_code=403, detail="Отсутствуют заголовки подписи.")
-
-    # --- 🛡️ ЗАЩИТА ОТ ДВОЙНОГО СРАБАТЫВАНИЯ (НОВЫЙ КОД) 🛡️ ---
-    current_time = time.time()
+# --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
+async def process_twitch_notification_background(data: dict, message_id: str):
+    """
+    Эта функция выполняется в фоне после того, как мы уже ответили Twitch'у 200 OK.
+    Она создает свое собственное подключение к базе данных.
+    """
+    logging.info(f"🔄 [Background] Начало обработки уведомления Twitch ID: {message_id}")
     
-    # 1. Очистка старого кэша раз в 10 минут (чтобы память не текла)
-    if current_time - webhook_cache["last_cleanup"] > WEBHOOK_CACHE_TTL:
-        webhook_cache["ids"].clear()
-        webhook_cache["last_cleanup"] = current_time
-
-    # 2. Проверка: если ID уже был обработан, сразу отвечаем "OK" и выходим
-    if message_id in webhook_cache["ids"]:
-        logging.info(f"♻️ Дубликат вебхука Twitch (ID: {message_id}). Игнорируем.")
-        return Response(content="Duplicate ignored", status_code=200)
-
-    # 3. Запоминаем ID
-    webhook_cache["ids"].add(message_id)
-    # --- 🛡️ КОНЕЦ ЗАЩИТЫ 🛡️ ---
-
-    hmac_message = (message_id + timestamp).encode() + body
-    expected_signature = "sha256=" + hmac.new(
-        TWITCH_WEBHOOK_SECRET.encode(), hmac_message, hashlib.sha256
-    ).hexdigest()
-
-    if not hmac.compare_digest(expected_signature, signature):
-        raise HTTPException(status_code=403, detail="Неверная подпись.")
-
-    message_type = headers.get("Twitch-Eventsub-Message-Type")
-    data = json.loads(body)
-
-    if message_type == "webhook_callback_verification":
-        challenge = data.get("challenge")
-        return Response(content=challenge, media_type="text/plain")
-
-    if message_type == "notification":
+    # Создаем НОВЫЙ клиент для фоновой задачи (так как клиент из Depends уже закрыт)
+    async with httpx.AsyncClient(
+        base_url=f"{SUPABASE_URL}/rest/v1",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+        timeout=30.0
+    ) as supabase:
         try:
             event_data = data.get("event", {})
             twitch_login = event_data.get("user_login", "unknown_user").lower()
@@ -1173,8 +1138,7 @@ async def handle_twitch_webhook(
             reward_title = reward_data.get("title", "Unknown Reward")
             user_input = event_data.get("user_input")
 
-            # --- 🔽 1. ИЗМЕНЕНИЕ ЗДЕСЬ: Расширяем SELECT 🔽 ---
-            # Запрашиваем всю статистику пользователя для "снимка"
+            # --- 1. Получаем данные пользователя ---
             user_resp = await supabase.get(
                 "/users", 
                 params={
@@ -1183,26 +1147,30 @@ async def handle_twitch_webhook(
                     "limit": 1
                 }
             )
-            # --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
+            # Проверка на ошибку запроса
+            if user_resp.status_code != 200:
+                logging.error(f"Ошибка получения пользователя: {user_resp.text}")
+                return
 
             user_data = user_resp.json()
             user_record = user_data[0] if user_data else None
             user_id = user_record.get("telegram_id") if user_record else None
             user_display_name = user_record.get("full_name") if user_record else twitch_login
 
+            # --- 2. Проверка: Ивент "Ведьминский Котел" ---
             cauldron_resp = await supabase.get(
                 "/pages_content",
                 params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
             )
             cauldron_settings = cauldron_resp.json()[0]['content'] if cauldron_resp.json() and cauldron_resp.json()[0].get('content') else {}
             cauldron_triggers = cauldron_settings.get("twitch_reward_triggers", [])
-
             found_trigger = next((trigger for trigger in cauldron_triggers if trigger.get("title") == reward_title), None)
 
             if cauldron_settings.get("is_visible_to_users", False) and found_trigger:
                 contribution_value = found_trigger.get("value", 0)
-                logging.info(f"🔥 Получен вклад в котел от {twitch_login} ценностью {contribution_value}.")
-                response = await supabase.post(
+                logging.info(f"🔥 Вклад в котел: {twitch_login} -> {contribution_value}")
+                
+                resp = await supabase.post(
                     "/rpc/contribute_to_cauldron",
                     json={
                         "p_user_id": user_id,
@@ -1211,15 +1179,22 @@ async def handle_twitch_webhook(
                         "p_contribution_type": "twitch_points"
                     }
                 )
-                response.raise_for_status()
-                result = response.json()
-                await manager.broadcast(json.dumps({
-                    "type": "cauldron_update",
-                    "new_progress": result.get('new_progress'),
-                    "last_contributor": { "name": user_display_name, "type": "twitch_points", "amount": contribution_value }
-                }))
-                return {"status": "cauldron_contribution_accepted"}
+                if resp.status_code == 200:
+                    result = resp.json()
+                    # WebSocket broadcast здесь не сработает напрямую, так как manager глобальный,
+                    # но мы можем пропустить этот шаг или вызвать manager.broadcast, если он потокобезопасен.
+                    # Для надежности в фоне лучше использовать БД-триггеры, но оставим как есть:
+                    try:
+                        await manager.broadcast(json.dumps({
+                            "type": "cauldron_update",
+                            "new_progress": result.get('new_progress'),
+                            "last_contributor": { "name": user_display_name, "type": "twitch_points", "amount": contribution_value }
+                        }))
+                    except Exception as ws_e:
+                        logging.warning(f"WS Broadcast error in background: {ws_e}")
+                return # Завершаем, если это был котел
 
+            # --- 3. Проверка: Рулетка (Skin Race) ---
             prizes_resp = await supabase.get(
                 "/roulette_prizes",
                 params={
@@ -1227,19 +1202,18 @@ async def handle_twitch_webhook(
                     "select": "id,skin_name,image_url,chance_weight,quantity"
                 }
             )
-            prizes_resp.raise_for_status()
             roulette_definitions = prizes_resp.json() 
 
             if roulette_definitions:
                 in_stock_prizes = [p for p in roulette_definitions if p.get("quantity", 0) > 0]
                 
                 if in_stock_prizes:
-                    logging.info(f"Запуск рулетки для '{reward_title}' от {twitch_login}. Найдено призов в наличии: {len(in_stock_prizes)}")
+                    logging.info(f"🎰 Запуск рулетки для '{reward_title}' от {twitch_login}.")
                     
                     weights = [p['chance_weight'] * p['quantity'] for p in in_stock_prizes]
                     if sum(weights) <= 0:
-                         logging.error(f"Сумма весов для рулетки '{reward_title}' равна нулю. Призы: {in_stock_prizes}")
-                         return {"status": "error_zero_weight"}
+                         logging.error(f"Сумма весов равна нулю.")
+                         return
 
                     winner_prize = random.choices(in_stock_prizes, weights=weights, k=1)[0]
                     winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
@@ -1247,27 +1221,27 @@ async def handle_twitch_webhook(
                     winner_quantity_before_win = winner_prize.get('quantity', 1)
 
                     if winner_prize_id:
-                        try:
-                            decrement_resp = await supabase.post(
-                                "/rpc/decrement_roulette_prize_quantity",
-                                json={"p_prize_id": winner_prize_id}
-                            )
-                            decrement_resp.raise_for_status()
-                            logging.info(f"Количество приза ID {winner_prize_id} уменьшено.")
-                        except Exception as e_dec:
-                             logging.error(f"Не удалось уменьшить количество приза ID {winner_prize_id}: {e_dec}")
+                        await supabase.post(
+                            "/rpc/decrement_roulette_prize_quantity",
+                            json={"p_prize_id": winner_prize_id}
+                        )
 
+                    # Получаем или создаем настройки награды
                     reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
-                    reward_settings = reward_settings_resp.json()
-                    if not reward_settings:
-                        reward_settings = (await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})).json()
+                    reward_settings_list = reward_settings_resp.json()
+                    
+                    if not reward_settings_list:
+                        r_create = await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})
+                        reward_settings = r_create.json()[0]
+                    else:
+                        reward_settings = reward_settings_list[0]
 
                     final_user_input = f"Выигрыш: {winner_skin_name}"
                     if user_input:
                         final_user_input += f" | Сообщение: {user_input}"
 
                     purchase_payload = {
-                        "reward_id": reward_settings[0]["id"],
+                        "reward_id": reward_settings["id"],
                         "username": user_record.get("full_name", twitch_login) if user_record else twitch_login,
                         "twitch_login": twitch_login,
                         "trade_link": user_record.get("trade_link") if user_record else user_input,
@@ -1275,32 +1249,26 @@ async def handle_twitch_webhook(
                         "user_input": final_user_input,
                         "user_id": user_record.get("telegram_id") if user_record else None,
                         
-                        # --- 🔽 2. ИЗМЕНЕНИЕ ЗДЕСЬ: Добавляем "Снимок" для рулетки 🔽 ---
+                        # Snapshot
                         "snapshot_daily_messages": user_record.get("daily_message_count", 0) if user_record else 0,
                         "snapshot_daily_uptime": user_record.get("daily_uptime_minutes", 0) if user_record else 0,
                         "snapshot_weekly_messages": user_record.get("weekly_message_count", 0) if user_record else 0,
                         "snapshot_weekly_uptime": user_record.get("weekly_uptime_minutes", 0) if user_record else 0,
                         "snapshot_monthly_messages": user_record.get("monthly_message_count", 0) if user_record else 0,
                         "snapshot_monthly_uptime": user_record.get("monthly_uptime_minutes", 0) if user_record else 0
-                        # --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
                     }
                     await supabase.post("/twitch_reward_purchases", json=purchase_payload)
                     
+                    # Триггер Забега (Weekly Goal)
                     if user_id: 
-                        try:
-                            logging.info(f"--- [Webhook_Roulette] Запуск триггера 'Забега' для user: {user_id}, task: 'twitch_purchase', entity_id: {reward_settings[0]['id']} ---")
-                            await supabase.post(
-                                "/rpc/increment_weekly_goal_progress",
-                                json={
-                                    "p_user_id": user_id, 
-                                    "p_task_type": "twitch_purchase",
-                                    "p_entity_id": reward_settings[0]["id"] 
-                                }
-                            )
-                        except Exception as trigger_e:
-                            logging.error(f"--- [Webhook_Roulette] ОШИБКА триггера 'Забега': {trigger_e} ---", exc_info=True)
+                        await supabase.post("/rpc/increment_weekly_goal_progress", json={
+                            "p_user_id": user_id, 
+                            "p_task_type": "twitch_purchase",
+                            "p_entity_id": reward_settings["id"] 
+                        })
                     
-                    if ADMIN_NOTIFY_CHAT_ID and reward_settings[0].get("notify_admin", True):
+                    # Уведомление Админу (используем отдельный вызов бота, так как мы в фоне)
+                    if ADMIN_NOTIFY_CHAT_ID and reward_settings.get("notify_admin", True):
                         notification_text = (
                             f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
                             f"<b>Пользователь:</b> {html_decoration.quote(purchase_payload['username'])}\n" 
@@ -1308,11 +1276,10 @@ async def handle_twitch_webhook(
                             f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
                             f"<b>Остаток:</b> {winner_quantity_before_win - 1} шт."
                         )
-                        if purchase_payload["trade_link"]:
-                            notification_text += f"\n<b>Трейд-ссылка:</b> <code>{html_decoration.quote(purchase_payload['trade_link'])}</code>"
-                        notification_text += "\n\nИнформация добавлена в раздел 'TWITCH награды'."
-                        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
+                        # Вызываем безопасную отправку (она создает свою сессию)
+                        await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
 
+                    # Триггер Анимации
                     winner_index_in_filtered_list = next((i for i, prize in enumerate(in_stock_prizes) if prize['id'] == winner_prize_id), 0)
                     animation_payload = {
                         "prizes": in_stock_prizes,
@@ -1323,118 +1290,166 @@ async def handle_twitch_webhook(
                     }
                     await supabase.post("/roulette_triggers", json={"payload": animation_payload})
                     
-                    logging.info(f"Победитель рулетки: {winner_skin_name}. Триггер для анимации отправлен.")
-                    return {"status": "roulette_triggered"}
+                    logging.info(f"✅ Победитель рулетки определен: {winner_skin_name}")
+                    return
 
                 else:
-                    logging.warning(f"Рулетка '{reward_title}' не запущена - все призы закончились.")
+                    logging.warning(f"Рулетка '{reward_title}' не запущена - нет призов.")
                     if ADMIN_NOTIFY_CHAT_ID:
-                        background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, f"⚠️ <b>Закончились призы</b> для рулетки «{html_decoration.quote(reward_title)}»!")
-                    return {"status": "roulette_out_of_stock"}
+                        await safe_send_message(ADMIN_NOTIFY_CHAT_ID, f"⚠️ <b>Закончились призы</b> для рулетки «{html_decoration.quote(reward_title)}»!")
+                    return
 
-            else:
-                logging.info(f"Обычная награда (не рулетка) '{reward_title}' от {twitch_login}.")
-                
-                logging.info(f"Обычная награда (не рулетка) '{reward_title}' от {twitch_login}.")
-
-                reward_settings_resp = await supabase.get(
+            # --- 4. Проверка: Обычная награда (Не рулетка, не котел) ---
+            logging.info(f"📦 Обычная награда '{reward_title}' от {twitch_login}.")
+            
+            reward_settings_resp = await supabase.get(
+                "/twitch_rewards", 
+                params={"title": f"eq.{reward_title}", "select": "*"}
+            )
+            reward_settings_list = reward_settings_resp.json()
+            
+            if not reward_settings_list:
+                # Создаем новую
+                r_create = await supabase.post(
                     "/twitch_rewards", 
-                    params={"title": f"eq.{reward_title}", "select": "*"}
+                    json={
+                        "title": reward_title, 
+                        "is_active": True, 
+                        "notify_admin": True,
+                        "reward_type": "promocode", 
+                        "reward_amount": 10,         
+                        "promocode_amount": 10       
+                    }, 
+                    headers={"Prefer": "return=representation"}
                 )
-                reward_settings_list = reward_settings_resp.json()
-                
-                if not reward_settings_list:
-                    logging.info(f"Создание новой награды '{reward_title}' в базе.")
-                    reward_settings_list = (await supabase.post(
-                        "/twitch_rewards", 
-                        json={
-                            "title": reward_title, 
-                            "is_active": True, 
-                            "notify_admin": True,
-                            "reward_type": "promocode", 
-                            "reward_amount": 10,         
-                            "promocode_amount": 10       
-                        }, 
-                        headers={"Prefer": "return=representation"}
-                    )).json()
-                
+                reward_settings = r_create.json()[0]
+            else:
                 reward_settings = reward_settings_list[0]
 
-                if not reward_settings["is_active"]:
-                    logging.info(f"Награда '{reward_title}' отключена админом. Игнорируем.")
-                    return {"status": "ok", "detail": "Эта награда отключена админом."}
+            if not reward_settings["is_active"]:
+                logging.info(f"Награда '{reward_title}' отключена админом. Игнорируем.")
+                return
 
-                telegram_id = user_record.get("telegram_id") if user_record else None
-                user_display_name = user_record.get("full_name", twitch_login) if user_record else twitch_login
-                user_status = "Привязан" if user_record else "Не привязан"
-                
-                reward_type = reward_settings.get("reward_type", "promocode")
-                reward_amount = reward_settings.get("reward_amount") if reward_settings.get("reward_amount") is not None else reward_settings.get("promocode_amount", 10)
-                
-                log_message = ""
-                if reward_type == "promocode":
-                    log_message = "Создан лог на выдачу ПРОМОКОДА."
-                elif reward_type == "tickets":
-                    log_message = f"Создан лог на РУЧНУЮ выдачу {reward_amount} билетов."
-                elif reward_type == "none":
-                    log_message = f"Создан лог 'Только лог' (тип 'none'). Награда: {reward_settings.get('title')}"
+            reward_type = reward_settings.get("reward_type", "promocode")
+            reward_amount = reward_settings.get("reward_amount") or reward_settings.get("promocode_amount", 10)
+            user_status = "Привязан" if user_record else "Не привязан"
 
-                logging.info(log_message)
-
-                await supabase.post("/twitch_reward_purchases", json={
-                    "reward_id": reward_settings["id"], "user_id": telegram_id,
-                    "username": user_display_name, "twitch_login": twitch_login,
-                    "trade_link": user_record.get("trade_link"), "status": user_status,
-                    "user_input": user_input,
-                    "viewed_by_admin": False,
-                    
-                    # --- 🔽 3. ИЗМЕНЕНИЕ ЗДЕСЬ: Добавляем "Снимок" для обычной награды 🔽 ---
-                    "snapshot_daily_messages": user_record.get("daily_message_count", 0) if user_record else 0,
-                    "snapshot_daily_uptime": user_record.get("daily_uptime_minutes", 0) if user_record else 0,
-                    "snapshot_weekly_messages": user_record.get("weekly_message_count", 0) if user_record else 0,
-                    "snapshot_weekly_uptime": user_record.get("weekly_uptime_minutes", 0) if user_record else 0,
-                    "snapshot_monthly_messages": user_record.get("monthly_message_count", 0) if user_record else 0,
-                    "snapshot_monthly_uptime": user_record.get("monthly_uptime_minutes", 0) if user_record else 0
-                    # --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
+            # Лог покупки
+            await supabase.post("/twitch_reward_purchases", json={
+                "reward_id": reward_settings["id"], "user_id": user_id,
+                "username": user_display_name, "twitch_login": twitch_login,
+                "trade_link": user_record.get("trade_link") if user_record else None, 
+                "status": user_status,
+                "user_input": user_input,
+                "viewed_by_admin": False,
+                # Snapshot
+                "snapshot_daily_messages": user_record.get("daily_message_count", 0) if user_record else 0,
+                "snapshot_daily_uptime": user_record.get("daily_uptime_minutes", 0) if user_record else 0,
+                "snapshot_weekly_messages": user_record.get("weekly_message_count", 0) if user_record else 0,
+                "snapshot_weekly_uptime": user_record.get("weekly_uptime_minutes", 0) if user_record else 0,
+                "snapshot_monthly_messages": user_record.get("monthly_message_count", 0) if user_record else 0,
+                "snapshot_monthly_uptime": user_record.get("monthly_uptime_minutes", 0) if user_record else 0
+            })
+            
+            # Триггер Забега
+            if user_id: 
+                await supabase.post("/rpc/increment_weekly_goal_progress", json={
+                    "p_user_id": user_id,
+                    "p_task_type": "twitch_purchase",
+                    "p_entity_id": reward_settings["id"] 
                 })
-                
-                if telegram_id: 
-                    try:
-                        logging.info(f"--- [Webhook] Запуск триггера 'Забега' для user: {telegram_id}, task: 'twitch_purchase', entity_id: {reward_settings['id']} ---")
-                        await supabase.post(
-                            "/rpc/increment_weekly_goal_progress",
-                            json={
-                                "p_user_id": telegram_id,
-                                "p_task_type": "twitch_purchase",
-                                "p_entity_id": reward_settings["id"] 
-                            }
-                        )
-                    except Exception as trigger_e:
-                        logging.error(f"--- [Webhook] ОШИБКА триггера 'Забега' (Тип: {reward_type}): {trigger_e} ---", exc_info=True)
-                
-                if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
-                    notification_text = (
-                        f"🔔 <b>Новая заявка Twitch!</b>\n\n"
-                        f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
-                        f"<b>Награда:</b> «{html_decoration.quote(reward_title)}»\n"
-                        f"<b>Статус:</b> {user_status}"
-                    )
-                    if reward_type == "tickets":
-                        notification_text += f"\n<b>Запрос на:</b> {reward_amount} билетов (ручная выдача)"
-                    elif reward_type == "promocode":
-                        notification_text += f"\n<b>Запрос на:</b> Промокод ({reward_amount} звёзд)"
-                    elif reward_type == "none":
-                        notification_text += f"\n<b>Тип:</b> Только лог (выдача не требуется)"
+            
+            # Уведомление Админу
+            if ADMIN_NOTIFY_CHAT_ID and reward_settings["notify_admin"]:
+                notification_text = (
+                    f"🔔 <b>Новая заявка Twitch!</b>\n\n"
+                    f"<b>Пользователь:</b> {html_decoration.quote(user_display_name)} ({html_decoration.quote(twitch_login)})\n"
+                    f"<b>Награда:</b> «{html_decoration.quote(reward_title)}»\n"
+                    f"<b>Статус:</b> {user_status}"
+                )
+                if reward_type == "tickets":
+                    notification_text += f"\n<b>Запрос на:</b> {reward_amount} билетов"
+                elif reward_type == "promocode":
+                    notification_text += f"\n<b>Запрос на:</b> Промокод ({reward_amount} звёзд)"
+                elif reward_type == "none":
+                    notification_text += f"\n<b>Тип:</b> Только лог"
 
-                    if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
-                    notification_text += "\n\nЗаявка ждет в админ-панели 'TWITCH награды'."
-                    background_tasks.add_task(safe_send_message, ADMIN_NOTIFY_CHAT_ID, notification_text)
-
-                return {"status": "ok", "detail": "Заявка на награду создана."}
+                if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
+                
+                await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
 
         except Exception as e:
-            logging.error(f"Ошибка обработки уведомления от Twitch: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Internal processing error")
+            logging.error(f"❌ Ошибка фоновой обработки Twitch: {e}", exc_info=True)
+
+# --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
+@app.post("/api/v1/webhooks/twitch")
+async def handle_twitch_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks
+    # Supabase здесь не нужен, так как мы ничего не пишем в базу синхронно
+):
+    """
+    Принимает вебхуки от Twitch. 
+    ПРОВЕРЯЕТ подпись и СРАЗУ возвращает 200 OK.
+    Вся логика перенесена в background_tasks.
+    """
+    # 1. Читаем тело и заголовки
+    body = await request.body()
+    headers = request.headers
+    message_id = headers.get("Twitch-Eventsub-Message-Id")
+    timestamp = headers.get("Twitch-Eventsub-Message-Timestamp")
+    signature = headers.get("Twitch-Eventsub-Message-Signature")
+
+    if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
+        return Response(content="Missing headers", status_code=403)
+
+    # 2. Проверяем подпись (синхронно, это быстро)
+    hmac_message = (message_id + timestamp).encode() + body
+    expected_signature = "sha256=" + hmac.new(
+        TWITCH_WEBHOOK_SECRET.encode(), hmac_message, hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_signature, signature):
+        return Response(content="Invalid signature", status_code=403)
+
+    # 3. Разбираем JSON
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return Response(content="Invalid JSON", status_code=400)
+
+    message_type = headers.get("Twitch-Eventsub-Message-Type")
+
+    # A. Подтверждение подписки (Challenge) - отвечаем сразу
+    if message_type == "webhook_callback_verification":
+        challenge = data.get("challenge")
+        return Response(content=challenge, media_type="text/plain")
+
+    # B. Уведомление (Reward Redemption)
+    if message_type == "notification":
+        # --- ЗАЩИТА ОТ ДУБЛЕЙ ---
+        current_time = time.time()
+        
+        # Очистка старого кэша (раз в 10 минут)
+        if current_time - webhook_cache["last_cleanup"] > WEBHOOK_CACHE_TTL:
+            webhook_cache["ids"].clear()
+            webhook_cache["last_cleanup"] = current_time
+
+        # Если ID уже в кэше — это повтор от Twitch, игнорируем
+        if message_id in webhook_cache["ids"]:
+            logging.info(f"♻️ Дубликат вебхука Twitch (ID: {message_id}). Игнорируем.")
+            return Response(content="Duplicate ignored", status_code=200)
+
+        # Запоминаем ID
+        webhook_cache["ids"].add(message_id)
+
+        # 🔥 ВАЖНО: Добавляем задачу в фон и СРАЗУ отвечаем Twitch'у
+        background_tasks.add_task(process_twitch_notification_background, data, message_id)
+        
+        return Response(content="Processing started", status_code=200)
+
+    # Прочие типы сообщений (на всякий случай отвечаем ОК)
+    return Response(status_code=200)
             
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ ---
 @app.post("/api/v1/admin/events/winners/details")
