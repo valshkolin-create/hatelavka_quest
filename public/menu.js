@@ -1604,40 +1604,9 @@ async function openQuestsTab(isSilent = false) {
         }
     }
 
-    async function main() {
-    // 1. Принудительно показываем спиннер в самом начале
-    dom.loaderOverlay.classList.remove('hidden');
-    
-    try {
-        console.log("--- 1. main() ЗАПУЩЕНА (Optimized) ---");
-        setTimeout(() => window.scrollTo(0, 0), 0);
-
-        if (!Telegram.WebApp.initData) {
-            document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
-            return;
-        }
-
-        // 2. ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА (Promise.all)
-        // Мы используем 'true' (silent mode) для makeApiRequest, чтобы они не дергали спиннер туда-сюда.
-        // Спиннер мы контролируем вручную в блоке finally.
-        
-        const [menuContent, weeklyGoalsData, dashboardData, questsDataResp] = await Promise.all([
-        // 1. Меню
-        fetch("/api/v1/content/menu", {
-            headers: { 'Content-Type': 'application/json', 'X-Init-Data': Telegram.WebApp.initData }
-        }).then(res => res.json()),
-
-        // 2. Недельные цели
-        makeApiRequest("/api/v1/user/weekly_goals", {}, 'POST', true).catch(e => null),
-
-        // 3. Профиль пользователя
-        makeApiRequest("/api/v1/user/me", {}, 'POST', true),
-
-        // 4. СПИСОК КВЕСТОВ (Перенесли сюда!)
-        makeApiRequest("/api/v1/quests/list", {}, 'POST', true).catch(e => []) 
-    ]);
-
-        // --- Обработка данных пользователя ---
+    // --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ОТРИСОВКИ (Вставь перед main) ---
+    function renderMainPageData(menuContent, dashboardData, weeklyGoalsData, questsData) {
+        // 1. Обработка данных пользователя и админки
         userData = dashboardData || {};
         document.getElementById('ticketStats').textContent = userData.tickets || 0;
 
@@ -1649,17 +1618,22 @@ async function openQuestsTab(isSilent = false) {
             if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
         }
 
-        // --- Обработка меню и баннеров ---
-        renderWeeklyGoals(weeklyGoalsData);
-        if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
-            dom.weeklyGoalsAccordion.open = true;
+        // 2. Рендер недельных целей
+        if (weeklyGoalsData) {
+            renderWeeklyGoals(weeklyGoalsData);
+            if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
+                dom.weeklyGoalsAccordion.open = true;
+            }
         }
 
+        // 3. Обработка меню и баннеров
         if (menuContent) {
             // Баннер недельных целей
             if (menuContent.weekly_goals_banner_url) {
                 const wImg = document.getElementById('weekly-goals-banner-img');
-                if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
+                if (wImg && wImg.src !== menuContent.weekly_goals_banner_url) {
+                    wImg.src = menuContent.weekly_goals_banner_url;
+                }
             }
 
             // Порядок слайдов
@@ -1678,7 +1652,9 @@ async function openQuestsTab(isSilent = false) {
                 skinRaceSlide.style.display = show ? '' : 'none';
                 if (show && menuContent.menu_banner_url) {
                     const img = document.getElementById('menu-banner-img');
-                    if (img) img.src = menuContent.menu_banner_url;
+                    if (img && img.src !== menuContent.menu_banner_url) {
+                        img.src = menuContent.menu_banner_url;
+                    }
                 }
             }
             
@@ -1704,7 +1680,9 @@ async function openQuestsTab(isSilent = false) {
                 checkpointSlide.style.display = showCheck ? '' : 'none';
                 if (showCheck && menuContent.checkpoint_banner_url) {
                     const img = document.getElementById('checkpoint-banner-img');
-                    if (img) img.src = menuContent.checkpoint_banner_url;
+                    if (img && img.src !== menuContent.checkpoint_banner_url) {
+                        img.src = menuContent.checkpoint_banner_url;
+                    }
                 }
             }
 
@@ -1729,79 +1707,147 @@ async function openQuestsTab(isSilent = false) {
             }
         }
 
-        // --- Котел (отдельный запрос, но не блокирующий критично) ---
-        // Делаем его тихим, чтобы не сбивать логику
-        fetch('/api/v1/events/cauldron/status', { headers: { 'X-Init-Data': Telegram.WebApp.initData } })
-            .then(res => res.json())
-            .then(eventData => {
-                const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
-                if (eventSlide) {
-                    const show = (eventData && eventData.is_visible_to_users) || (userData && userData.is_admin);
-                    eventSlide.style.display = show ? '' : 'none';
-                    if (show) {
-                        eventSlide.href = eventData.event_page_url || '/halloween';
-                        const img = eventSlide.querySelector('img');
-                        if (img && eventData.banner_image_url) img.src = eventData.banner_image_url;
+        // 4. Обработка Квестов и Челленджей (если переданы)
+        if (questsData) {
+            allQuests = questsData || [];
+            
+            // Фильтр для рулетки
+            let activeQType = 'twitch'; 
+            if (menuContent && menuContent.quest_schedule_override_enabled) activeQType = menuContent.quest_schedule_active_type;
+            else if (new Date().getDay() === 0 || new Date().getDay() === 1) activeQType = 'telegram';
+            
+            questsForRoulette = allQuests.filter(q => 
+                q.quest_type && q.quest_type.startsWith(`automatic_${activeQType}`) && !q.is_completed
+            );
+
+            const activeAutomaticQuest = allQuests.find(q => q.id === userData.active_quest_id);
+            const questChooseWrapper = document.getElementById('quest-choose-wrapper');
+            if (questChooseWrapper) questChooseWrapper.classList.toggle('hidden', !!activeAutomaticQuest);
+            
+            if (activeAutomaticQuest) renderActiveAutomaticQuest(activeAutomaticQuest, userData);
+            else dom.activeAutomaticQuestContainer.innerHTML = '';
+
+            // Обновляем челлендж
+            if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
+            else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+
+            // Обновляем ярлыки
+            updateShortcutStatuses(userData, allQuests);
+        }
+    }
+
+    // --- ПОЛНОСТЬЮ ОБНОВЛЕННАЯ ФУНКЦИЯ MAIN ---
+    async function main() {
+        // 1. OPTIMISTIC UI: Проверяем кэш и рендерим мгновенно
+        const cachedMenu = localStorage.getItem('menu_cache');
+        const cachedUser = localStorage.getItem('user_cache');
+        const cachedGoals = localStorage.getItem('goals_cache');
+        const cachedQuests = localStorage.getItem('quests_cache');
+        
+        let hasRenderedCache = false;
+
+        if (cachedMenu && cachedUser) {
+            try {
+                console.log("--- [main] Загрузка из кэша ---");
+                const parsedMenu = JSON.parse(cachedMenu);
+                const parsedUser = JSON.parse(cachedUser);
+                const parsedGoals = cachedGoals ? JSON.parse(cachedGoals) : null;
+                const parsedQuests = cachedQuests ? JSON.parse(cachedQuests) : [];
+
+                // Рендерим "скелет" интерфейса данными из кэша
+                renderMainPageData(parsedMenu, parsedUser, parsedGoals, parsedQuests);
+                
+                // Сразу показываем контент и скрываем спиннер
+                dom.mainContent.classList.add('visible');
+                dom.loaderOverlay.classList.add('hidden');
+                hasRenderedCache = true;
+            } catch (e) {
+                console.error("Cache parse error:", e);
+                // Если кэш битый, не страшно, загрузим с сети
+            }
+        }
+
+        // Если кэша нет, показываем спиннер
+        if (!hasRenderedCache) {
+            dom.loaderOverlay.classList.remove('hidden');
+        }
+
+        try {
+            console.log("--- [main] Запрос данных с сервера (/api/v1/bootstrap) ---");
+            setTimeout(() => window.scrollTo(0, 0), 0);
+
+            if (!Telegram.WebApp.initData) {
+                document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
+                return;
+            }
+
+            // 2. ЕДИНЫЙ ЗАПРОС (Bootstrap)
+            // Мы используем 'true' (silent mode), если уже отрендерили кэш, чтобы спиннер не мигал
+            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); // true = silent, если нужно
+
+            if (!bootstrapData) throw new Error("Empty bootstrap data received");
+
+            // 3. ОБНОВЛЕНИЕ КЭША
+            localStorage.setItem('menu_cache', JSON.stringify(bootstrapData.menu));
+            localStorage.setItem('user_cache', JSON.stringify(bootstrapData.user));
+            if (bootstrapData.weekly_goals) localStorage.setItem('goals_cache', JSON.stringify(bootstrapData.weekly_goals));
+            if (bootstrapData.quests) localStorage.setItem('quests_cache', JSON.stringify(bootstrapData.quests));
+
+            // 4. ПОВТОРНЫЙ РЕНДЕР (СВЕЖИЕ ДАННЫЕ)
+            console.log("--- [main] Применение свежих данных ---");
+            renderMainPageData(
+                bootstrapData.menu, 
+                bootstrapData.user, 
+                bootstrapData.weekly_goals, 
+                bootstrapData.quests
+            );
+
+            // --- Слайд "Котел" (загружается отдельно, чтобы не блокировать bootstrap, если он медленный) ---
+            fetch('/api/v1/events/cauldron/status', { headers: { 'X-Init-Data': Telegram.WebApp.initData } })
+                .then(res => res.json())
+                .then(eventData => {
+                    const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
+                    if (eventSlide) {
+                        const show = (eventData && eventData.is_visible_to_users) || (userData && userData.is_admin);
+                        eventSlide.style.display = show ? '' : 'none';
+                        if (show) {
+                            eventSlide.href = eventData.event_page_url || '/halloween';
+                            const img = eventSlide.querySelector('img');
+                            if (img && eventData.banner_image_url) img.src = eventData.banner_image_url;
+                        }
                     }
-                }
-                // Запускаем слайдер только после того, как разобрались с видимостью всех слайдов
-                setTimeout(() => setupSlider(), 0);
-            })
-            .catch(() => {
-                // Если ошибка, просто запускаем слайдер
-                setTimeout(() => setupSlider(), 0);
-            });
+                    // Запускаем слайдер после всех проверок
+                    setTimeout(() => setupSlider(), 0);
+                })
+                .catch((err) => {
+                    console.warn("Cauldron status error:", err);
+                    // Даже при ошибке запускаем слайдер, чтобы остальные слайды работали
+                    setTimeout(() => setupSlider(), 0);
+                });
 
+            // --- Инициализация туториала и уведомлений ---
+            if (!localStorage.getItem('tutorialCompleted')) startTutorial();
+            if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
 
-        // --- Квесты и Челленджи ---
-        allQuests = questsDataResp || [];
-        
-        // Фильтр для рулетки
-        let activeQType = 'twitch'; 
-        // Повторяем логику определения типа (упрощенно, т.к. переменная выше локальная)
-        if (menuContent && menuContent.quest_schedule_override_enabled) activeQType = menuContent.quest_schedule_active_type;
-        else if (new Date().getDay() === 0 || new Date().getDay() === 1) activeQType = 'telegram';
-        
-        questsForRoulette = allQuests.filter(q => 
-            q.quest_type && q.quest_type.startsWith(`automatic_${activeQType}`) && !q.is_completed
-        );
-
-        const activeAutomaticQuest = allQuests.find(q => q.id === userData.active_quest_id);
-        const questChooseWrapper = document.getElementById('quest-choose-wrapper');
-        if (questChooseWrapper) questChooseWrapper.classList.toggle('hidden', !!activeAutomaticQuest);
-        
-        if (activeAutomaticQuest) renderActiveAutomaticQuest(activeAutomaticQuest, userData);
-        else dom.activeAutomaticQuestContainer.innerHTML = '';
-
-        if (dashboardData.challenge) renderChallenge(dashboardData.challenge, !userData.twitch_id);
-        else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
-
-        // --- 🔥 ВАЖНО: Обновляем цифры на Ярлыках (Магазин, Челленджи, Испытания) ---
-        updateShortcutStatuses(userData, allQuests);
-
-        if (!localStorage.getItem('tutorialCompleted')) startTutorial();
-        if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
-
-        // 3. ЛОГИКА ПЕРЕХОДА ПО ХЭШУ (#quests) ВНУТРИ ЕДИНОЙ ЗАГРУЗКИ
+            // --- Логика перехода по хэшу #quests ---
             if (window.location.hash === '#quests') {
-                console.log("Обнаружен хэш #quests. Загружаем вкладку заданий без мигания...");
-                // Вызываем функцию с isSilent = true, так как спиннер еще висит
+                console.log("Обнаружен хэш #quests. Переход...");
                 await openQuestsTab(true);
-
-                // ОЧИЩАЕМ ХЭШ, чтобы не было зацикливания при вызове main() снова
                 history.replaceState(null, null, window.location.pathname + window.location.search);
             }
     
         } catch (e) {
             console.error("Критическая ошибка main:", e);
-            dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки.</p>`;
+            // Если упали и кэша не было, показываем ошибку пользователю
+            if (!hasRenderedCache) {
+                dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки. Попробуйте обновить.</p>`;
+            }
         } finally {
-            // 4. СКРЫВАЕМ СПИННЕР ТОЛЬКО ОДИН РАЗ В САМОМ КОНЦЕ
-            console.log("--- main() ЗАВЕРШЕНА. Скрываем лоадер. ---");
+            // Убеждаемся, что лоадер скрыт
+            console.log("--- [main] Завершено ---");
             dom.mainContent.classList.add('visible');
             dom.loaderOverlay.classList.add('hidden');
         }
-    }
 
     setupEventListeners();
     main();
