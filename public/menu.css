@@ -873,3 +873,13 @@
 .shortcut-status.done {
     color: #34c759; /* Зеленый, если выполнено */
 }
+.skeleton {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 0.3; }
+    100% { opacity: 0.6; }
+}
