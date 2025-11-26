@@ -1622,6 +1622,10 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             headerEl.insertBefore(deleteAllBtn, refreshBtn);
         }
         deleteAllBtn.dataset.rewardId = rewardId;
+        
+        // 🔥🔥🔥 ФИКС 1: ВСЕГДА РАЗБЛОКИРОВАТЬ КНОПКУ ПРИ ОТКРЫТИИ 🔥🔥🔥
+        deleteAllBtn.disabled = false; 
+        // 🔥🔥🔥 КОНЕЦ ФИКСА 1 🔥🔥🔥
 
         titleEl.textContent = `Покупки: ${rewardTitle}`;
         body.innerHTML = '<i>Загрузка покупок...</i>';
@@ -3722,9 +3726,15 @@ if (dom.settingQuestScheduleOverride) {
 
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
-                deleteAllBtn.disabled = true; // Немедленно отключаем кнопку
+                // 1. Блокируем кнопку, чтобы не нажать дважды
+                deleteAllBtn.disabled = true; 
+                
                 const rewardId = parseInt(deleteAllBtn.dataset.rewardId);
-                if (!rewardId) return;
+                if (!rewardId) {
+                    // Если ID нет, сразу разблокируем и выходим
+                    deleteAllBtn.disabled = false;
+                    return;
+                }
 
                 tg.showConfirm(`Вы уверены, что хотите удалить ВСЕ покупки для этой награды? Это действие необратимо.`, async (ok) => {
                     if (ok) {
@@ -3735,7 +3745,13 @@ if (dom.settingQuestScheduleOverride) {
                             deleteAllBtn.classList.add('hidden');
                         } catch (err) {
                             tg.showAlert(`Ошибка при удалении: ${err.message}`);
+                        } finally {
+                            // 🔥 ФИКС 2: Разблокируем кнопку после завершения (успех или ошибка)
+                            deleteAllBtn.disabled = false; 
                         }
+                    } else {
+                        // 🔥 ФИКС 3: Разблокируем кнопку, если нажали "Отмена"
+                        deleteAllBtn.disabled = false;
                     }
                 });
                 return;
