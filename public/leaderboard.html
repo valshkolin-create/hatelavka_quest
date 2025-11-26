@@ -7,6 +7,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <style>
+    /* --- СТИЛИ БЕЗ ИЗМЕНЕНИЙ --- */
     :root {
       --bg-color: #000000;
       --surface-color: #1c1c1e;
@@ -18,22 +19,38 @@
       --silver-glow: #c0c0c0;
       --bronze-glow: #cd7f32;
       --surface-glass-bg: rgba(28, 28, 30, 0.75);
+      --accent-green: #34c759;
     }
     body { margin: 0; min-height: 100vh; background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
     .main-content { flex-grow: 1; overflow-y: auto; padding: 15px 15px 90px; }
 
-    /* --- Заголовок и кнопка обновления --- */
     .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .header-controls h2 { margin: 0; font-size: 16px; color: var(--text-color); }
     .refresh-button { background: none; border: none; color: var(--text-color-muted); cursor: pointer; padding: 0; font-size: 18px; transition: color 0.2s ease-in-out; }
     .refresh-button:hover { color: var(--tg-color); }
     .hidden { display: none !important; }
 
-    /* --- инфо-блоки --- */
     .info-box { background-color: var(--surface-color); border-radius: 12px; padding: 15px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; color: var(--text-color-muted); }
     .info-box h2 { margin: 0 0 10px 0; font-size: 16px; color: var(--text-color); }
     .info-box p { margin: 0; }
-    .info-box strong { color: var(--text-color); font-weight: 600; }
+    .info-box a { color: var(--tg-color); text-decoration: none; }
+
+    .personal-stats-container {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .personal-avatar {
+        width: 40px; height: 40px; border-radius: 50%; background: #333;
+        display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .personal-info { flex: 1; }
+    .personal-name { font-weight: 600; color: var(--text-color); font-size: 14px; display: block; }
+    .personal-value { font-size: 13px; color: var(--accent-green); }
+    .personal-value span { font-weight: 700; }
 
     .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
     .source-switcher { display: flex; background-color: #2c2c2e; border-radius: 8px; padding: 4px; }
@@ -44,19 +61,11 @@
     .period-buttons { display: flex; gap: 8px; }
     .period-buttons.hidden { display: none; }
     .period-buttons button {
-        flex: 1; /* <-- ИСПРАВЛЕНИЕ: Это свойство растягивает кнопки */
-        width: 100%;
-        background-color: #333;
-        border: 1px solid #555;
-        color: #ccc;
-        font-size: 13px;
-        padding: 8px;
-        border-radius: 8px;
-        cursor: pointer;
+        flex: 1; width: 100%; background-color: #333; border: 1px solid #555;
+        color: #ccc; font-size: 13px; padding: 8px; border-radius: 8px; cursor: pointer;
     }
     .period-buttons button.active { background-color: var(--tg-color); color: #fff; border-color: var(--tg-color); }
     .period-buttons.twitch-active button.active { background-color: var(--twitch-color); border-color: var(--twitch-color); }
-
 
     table { width: 100%; border-collapse: collapse; background-color: var(--surface-color); border-radius: 12px; overflow: hidden; }
     th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #333; }
@@ -71,122 +80,40 @@
 
     .loader { margin-top: 30px; color: #888; text-align: center; }
 
-    /* --- ЕДИНЫЙ ФИКСИРОВАННЫЙ ФУТЕР (ВСТАВИТЬ ВО ВСЕ ФАЙЛЫ) --- */
-.app-footer {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    
-    /* Жесткие цвета, чтобы не зависеть от переменных разных файлов */
-    background-color: rgba(28, 28, 30, 0.85); 
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    z-index: 9999; /* Поверх всего */
-    
-    /* ФИКСИРОВАННАЯ ВЫСОТА И ОТСТУПЫ */
-    /* Высота контента (иконка + текст) = ~40-44px. 
-       Добавляем паддинги сверху и снизу */
-    padding-top: 8px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
-    box-sizing: border-box; /* Гарантирует, что padding не раздувает ширину */
-    height: auto; /* Высота определяется контентом и паддингами */
-}
+    /* --- ФУТЕР --- */
+    .app-footer {
+        display: flex; justify-content: space-around; align-items: center;
+        background-color: rgba(28, 28, 30, 0.85); 
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        position: fixed; bottom: 0; left: 0; width: 100%; z-index: 9999;
+        padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+        box-sizing: border-box; height: auto;
+    }
+    .footer-item {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+        color: #8E8E93; text-decoration: none; flex: 1; cursor: pointer;
+        background: transparent; border: none; padding: 0; margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-size: 10px; line-height: 1; font-weight: 500; transition: all 0.2s ease;
+    }
+    .footer-item .icon-wrapper {
+        display: flex; justify-content: center; align-items: center;
+        width: 24px; height: 24px; font-size: 22px; position: relative;
+        transition: transform 0.2s ease, color 0.2s ease;
+    }
+    .footer-item.active { color: #FFFFFF; }
+    .footer-item.active span { font-weight: 600; }
+    .footer-item.active .icon-wrapper {
+        color: #34c759; transform: translateY(-2px);
+        text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
+    }
+    .footer-item.active .icon-wrapper::before {
+        content: ''; position: absolute; top: -8px; width: 20px; height: 2px;
+        background-color: #34c759; border-radius: 2px;
+        box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
+    }
 
-.footer-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px; /* Фиксированный отступ между иконкой и текстом */
-    
-    color: #8E8E93; /* Единый серый цвет для всех страниц */
-    text-decoration: none;
-    flex: 1; /* Равномерное распределение по ширине */
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-    
-    /* Сброс стилей текста */
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    font-size: 10px;
-    line-height: 1; 
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.footer-item .icon-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    
-    /* Фиксированный размер контейнера иконки, чтобы они стояли ровно */
-    width: 24px;
-    height: 24px;
-    font-size: 22px; /* Размер самой иконки */
-    
-    position: relative;
-    transition: transform 0.2s ease, color 0.2s ease;
-}
-
-/* --- Активное состояние (выбранная вкладка) --- */
-.footer-item.active {
-    color: #FFFFFF; /* Белый текст */
-}
-
-.footer-item.active span {
-    font-weight: 600;
-}
-
-.footer-item.active .icon-wrapper {
-    color: #34c759; /* Ваш зеленый акцент */
-    transform: translateY(-2px); /* Легкий подскок */
-    text-shadow: 0 0 12px rgba(52, 199, 89, 0.6); /* Свечение */
-}
-
-/* Полоска над активной иконкой */
-.footer-item.active .icon-wrapper::before {
-    content: '';
-    position: absolute;
-    top: -8px; /* Чуть выше иконки */
-    width: 20px; /* Ширина полоски */
-    height: 2px;
-    background-color: #34c759;
-    border-radius: 2px;
-    box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
-}
-
-/* Активное состояние */
-.footer-item.active span {
-    color: #ffffff; /* var(--text-color) */
-    font-weight: 600;
-}
-
-.footer-item.active .icon-wrapper {
-    color: #34c759; /* var(--primary-color) - или gold, если нужно */
-    transform: translateY(-2px);
-    text-shadow: 0 0 10px #34c759; /* Подсветка */
-}
-
-/* Полоска над активной иконкой (как в menu.css) */
-.footer-item.active .icon-wrapper::before {
-    content: '';
-    position: absolute;
-    top: -6px;
-    width: 28px;
-    height: 3px;
-    background-color: #34c759; /* var(--primary-color) */
-    border-radius: 2px;
-}
-
-    /* --- фикс порядка кнопок Twitch --- */
     #twitch-period-buttons button[data-period="session"] { order: 1; }
     #twitch-period-buttons button[data-period="week"]    { order: 2; }
     #twitch-period-buttons button[data-period="month"]   { order: 3; }
@@ -202,6 +129,14 @@
             <button class="refresh-button"><i class="fas fa-sync-alt"></i></button>
         </div>
         <p>Здесь отображается статистика активности на нашем Twitch канале.</p>
+        
+        <div class="personal-stats-container" id="personal-twitch">
+            <div class="personal-avatar"><i class="fa-brands fa-twitch"></i></div>
+            <div class="personal-info">
+                <span class="personal-name" id="twitch-user-name">Загрузка...</span>
+                <span class="personal-value" id="twitch-user-stat">--</span>
+            </div>
+        </div>
     </div>
 
     <div id="info-box-telegram" class="info-box">
@@ -209,7 +144,15 @@
             <h2>Статистика Telegram</h2>
             <button class="refresh-button"><i class="fas fa-sync-alt"></i></button>
         </div>
-        <p>Здесь отображается количество сообщений в нашем Telegram-чате. <a href="https://t.me/hatelovettv" target="_blank" style="color: var(--tg-color);">Перейти в чат</a></p>
+        <p>Здесь отображается количество сообщений в нашем Telegram-чате. <a href="https://t.me/hatelovettv" target="_blank">Перейти в чат</a></p>
+        
+        <div class="personal-stats-container" id="personal-telegram">
+            <div class="personal-avatar"><i class="fa-brands fa-telegram"></i></div>
+            <div class="personal-info">
+                <span class="personal-name" id="tg-user-name">Загрузка...</span>
+                <span class="personal-value" id="tg-user-stat">--</span>
+            </div>
+        </div>
     </div>
 
     <div class="controls">
@@ -295,6 +238,11 @@
     telegramPeriodButtons: document.querySelectorAll('#telegram-periods button'),
     twitchMetricButtonList: document.querySelectorAll('#twitch-metric-buttons button'),
     twitchPeriodButtonList: document.querySelectorAll('#twitch-period-buttons button'),
+
+    tgUserName: document.getElementById('tg-user-name'),
+    tgUserStat: document.getElementById('tg-user-stat'),
+    twitchUserName: document.getElementById('twitch-user-name'),
+    twitchUserStat: document.getElementById('twitch-user-stat'),
   };
   
   let state = {
@@ -304,10 +252,108 @@
       twitchPeriod: 'session',
   };
 
+  let currentUser = null;
+
+  // 1. Загружаем данные пользователя из БД (fallback)
+  async function loadCurrentUser() {
+      try {
+          const response = await fetch('/api/v1/user/me', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ initData: Telegram.WebApp.initData })
+          });
+          if (response.ok) {
+              currentUser = await response.json();
+              updatePersonalStats(null); // Сначала показываем данные из БД
+          }
+      } catch (e) {
+          console.error("Ошибка загрузки профиля:", e);
+          dom.tgUserName.textContent = "Ошибка загрузки";
+      }
+  }
+
+  // 2. Обновляем UI (принимаем realTimeValue если нашли его в списке Wizebot)
+  function updatePersonalStats(realTimeValue = null) {
+      if (!currentUser) return;
+
+      // --- TELEGRAM (Всегда из БД) ---
+      if (state.source === 'telegram') {
+          dom.tgUserName.textContent = `Вы: ${currentUser.full_name || currentUser.username || 'Пользователь'}`;
+          let val = 0;
+          if (state.telegramPeriod === 'day') val = currentUser.telegram_daily_message_count || 0;
+          else if (state.telegramPeriod === 'week') val = currentUser.telegram_weekly_message_count || 0;
+          else if (state.telegramPeriod === 'month') val = currentUser.telegram_monthly_message_count || 0;
+          else if (state.telegramPeriod === 'all') val = currentUser.telegram_total_message_count || 0;
+
+          dom.tgUserStat.innerHTML = `Ваш результат: <span>${val} сообщений</span>`;
+      } 
+      
+      // --- TWITCH (Гибридный режим) ---
+      else {
+          if (!currentUser.twitch_login) {
+              dom.twitchUserName.textContent = "Вы: Twitch не привязан";
+              dom.twitchUserStat.innerHTML = `<a href="/profile" style="color:var(--twitch-color)">Привязать профиль</a>`;
+              return;
+          }
+
+          dom.twitchUserName.textContent = `Вы: ${currentUser.twitch_login}`;
+          
+          let val = 0;
+          let isRealTime = false;
+
+          // Если передано значение из Wizebot (мы нашли себя в списке) - используем его
+          if (realTimeValue !== null) {
+              val = realTimeValue;
+              isRealTime = true;
+          } else {
+              // Иначе берем из базы (задержка)
+              if (state.twitchMetric === 'message') {
+                  if (state.twitchPeriod === 'session') val = currentUser.daily_message_count || 0;
+                  else if (state.twitchPeriod === 'week') val = currentUser.weekly_message_count || 0;
+                  else if (state.twitchPeriod === 'month') val = currentUser.monthly_message_count || 0;
+                  else val = currentUser.total_message_count || 0;
+              } else if (state.twitchMetric === 'uptime') {
+                  if (state.twitchPeriod === 'session') val = currentUser.daily_uptime_minutes || 0;
+                  else if (state.twitchPeriod === 'week') val = currentUser.weekly_uptime_minutes || 0;
+                  else if (state.twitchPeriod === 'month') val = currentUser.monthly_uptime_minutes || 0;
+                  else val = currentUser.total_uptime_minutes || 0;
+              }
+          }
+
+          // Форматирование
+          if (state.twitchMetric === 'message') {
+              dom.twitchUserStat.innerHTML = `Ваш результат: <span>${val} сообщений</span>`;
+          } else if (state.twitchMetric === 'uptime') {
+              // Если данные RealTime (Wizebot), они приходят в СЕКУНДАХ. 
+              // Если из БД (Backfill), они в МИНУТАХ.
+              // Нам нужно привести к одному виду.
+              
+              let displayVal = "";
+              if (isRealTime) {
+                  displayVal = formatUptime(val); // Wizebot дает секунды
+              } else {
+                  displayVal = formatUptime(val * 60); // БД дает минуты, умножаем на 60
+              }
+              dom.twitchUserStat.innerHTML = `Ваш результат: <span>${displayVal}</span>`;
+          } else {
+              dom.twitchUserStat.innerHTML = `<span>Ранги пока не отображаются в профиле</span>`;
+          }
+      }
+  }
+
+  function formatUptime(totalSeconds) {
+      if (totalSeconds < 60) return `~1 мин`;
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      let result = '';
+      if (hours > 0) result += `${hours} ч `;
+      if (minutes > 0) result += `${minutes} мин`;
+      return result.trim() || '0 мин';
+  }
+
   function updateUI() {
       dom.infoBoxTelegram.classList.toggle('hidden', state.source !== 'telegram');
       dom.telegramPeriods.classList.toggle('hidden', state.source !== 'telegram');
-      
       dom.infoBoxTwitch.classList.toggle('hidden', state.source !== 'twitch');
       dom.twitchMetricButtons.classList.toggle('hidden', state.source !== 'twitch');
       
@@ -323,30 +369,19 @@
               case 'ranks': dom.tableHeader.textContent = 'Ранг (PTS)'; break;
           }
       }
+      // При переключении сбрасываем на "базовые" значения из БД, пока грузится список
+      updatePersonalStats(null);
   }
 
-  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ОТОБРАЖЕНИЯ
   async function fetchAndRender() {
     dom.leaderboardBody.innerHTML = '';
     dom.loader.style.display = 'block';
     dom.loader.textContent = 'Загрузка данных...';
 
-    // Вспомогательная функция для конвертации секунд
-    function formatUptime(totalSeconds) {
-        if (totalSeconds < 60) return `~1 мин`;
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        let result = '';
-        if (hours > 0) result += `${hours} ч `;
-        if (minutes > 0) result += `${minutes} мин`;
-        return result.trim() || '0 мин';
-    }
-
     let url = '';
-    
     if (state.source === 'telegram') {
       url = `/api/v1/leaderboard?period=${state.telegramPeriod}`;
-    } else { // Twitch
+    } else {
       if (state.twitchMetric === 'ranks') {
         url = `/api/v1/leaderboard/wizebot?sub_type=ALL&limit=50`;
       } else {
@@ -356,10 +391,27 @@
     
     try {
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`Ошибка сети: ${response.statusText}`);
+      if (!response.ok) throw new Error(`Ошибка сети`);
       const data = await response.json();
-
       const leaderboardData = Array.isArray(data) ? data : data.leaderboard;
+
+      // --- МАГИЯ ЗЕРКАЛИРОВАНИЯ ---
+      // Ищем себя в списке, который пришел от Wizebot
+      let myRealTimeStat = null;
+      if (state.source === 'twitch' && currentUser && currentUser.twitch_login && Array.isArray(leaderboardData)) {
+          const myLogin = currentUser.twitch_login.toLowerCase();
+          // Wizebot отдает user_name
+          const me = leaderboardData.find(entry => 
+              (entry.user_name || entry.username || "").toLowerCase() === myLogin
+          );
+          if (me) {
+              // Нашли себя! Берем значение (value)
+              myRealTimeStat = me.value !== undefined ? parseInt(me.value) : (me.total_activity || 0);
+          }
+      }
+      // Обновляем плашку с учетом найденного (или не найденного) значения
+      updatePersonalStats(myRealTimeStat);
+      // -----------------------------
 
       if (!Array.isArray(leaderboardData) || leaderboardData.length === 0) {
         dom.loader.textContent = 'Нет данных.';
@@ -373,10 +425,9 @@
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        const name = entry.full_name || entry.username || '...';
+        const name = entry.full_name || entry.username || entry.user_name || '...';
         let value = entry.total_activity ?? entry.value ?? entry.messages_count ?? 0;
 
-        // Применяем конвертацию только для метрики 'uptime'
         if (state.source === 'twitch' && state.twitchMetric === 'uptime') {
             value = formatUptime(value);
         }
@@ -395,7 +446,6 @@
     }
   }
   
-  // ✅ ВОССТАНОВЛЕННЫЕ ОБРАБОТЧИКИ КНОПОК
   dom.sourceButtons.forEach(button => {
     button.addEventListener('click', () => {
       state.source = button.dataset.source;
@@ -436,11 +486,12 @@
   
   dom.refreshButtons.forEach(button => {
     button.addEventListener('click', () => {
+      loadCurrentUser(); 
       fetchAndRender();
     });
   });
 
-  // ✅ ВЫЗОВЫ ДЛЯ ПЕРВОНАЧАЛЬНОЙ ЗАГРУЗКИ
+  loadCurrentUser();
   updateUI();
   fetchAndRender();
 </script>
