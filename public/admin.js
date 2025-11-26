@@ -207,6 +207,71 @@ try {
      * @param {function} onSelectCallback - Функция, которая будет вызвана с объектом {id, name}
      * выбранного пользователя.
      */
+     // --- 🎨 УНИВЕРСАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ (HTML) ---
+    function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
+        // 1. Затемнение
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-confirm-overlay'; // Класс для удобства (если нужно)
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px); animation: fadeIn 0.2s;
+        `;
+
+        // 2. Окно
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px; padding: 24px; width: 85%; max-width: 320px;
+            text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            transform: scale(0.95); animation: popIn 0.2s forwards;
+        `;
+
+        // 3. Контент
+        box.innerHTML = `
+            <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3>
+            <div style="display: flex; gap: 12px;">
+                <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button>
+                <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: white; font-size: 16px; font-weight: 600; cursor: pointer;">${btnText}</button>
+            </div>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // 4. Логика
+        const close = () => { 
+            overlay.style.opacity = '0'; // Анимация исчезновения
+            setTimeout(() => overlay.remove(), 200);
+        };
+
+        overlay.querySelector('#custom-cancel-btn').onclick = close;
+        
+        const confirmBtn = overlay.querySelector('#custom-confirm-btn');
+        confirmBtn.onclick = () => {
+            // Визуальный эффект нажатия
+            confirmBtn.style.opacity = '0.7';
+            confirmBtn.textContent = '...';
+            onConfirmCallback(close); // Передаем close, чтобы коллбэк мог закрыть окно сам, если нужно, или мы закроем его тут
+            close();
+        };
+
+        overlay.onclick = (e) => { if(e.target === overlay) close(); };
+    }
+
+    // Стили анимации (добавляем один раз)
+    if (!document.getElementById('custom-confirm-style')) {
+        const styleSheet = document.createElement("style");
+        styleSheet.id = 'custom-confirm-style';
+        styleSheet.innerText = `
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        `;
+        document.head.appendChild(styleSheet);
+    }
+    // --- КОНЕЦ ФУНКЦИИ ---
+    
     function openAdminUserSearchModal(title, onSelectCallback) {
         dom.adminUserSearchTitle.textContent = title;
         onAdminUserSelectCallback = onSelectCallback; // Сохраняем коллбэк
@@ -2753,62 +2818,7 @@ if (dom.weeklyGoalsList) {
             }
         }
     });
-}
-    // --- НОВАЯ ФУНКЦИЯ: СВОЕ ОКНО ПОДТВЕРЖДЕНИЯ (Без лимитов Telegram) ---
-    function showCustomConfirmHTML(text, onConfirmCallback) {
-        // 1. Создаем затемнение фона
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            backdrop-filter: blur(3px); animation: fadeIn 0.2s;
-        `;
-
-        // 2. Создаем само окно
-        const box = document.createElement('div');
-        box.style.cssText = `
-            background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 14px; padding: 20px; width: 80%; max-width: 300px;
-            text-align: center; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            transform: scale(0.95); animation: popIn 0.2s forwards;
-        `;
-
-        // 3. Текст и кнопки
-        box.innerHTML = `
-            <h3 style="margin: 0 0 15px; font-size: 17px; font-weight: 600;">${text}</h3>
-            <div style="display: flex; gap: 10px;">
-                <button id="custom-cancel-btn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: #3a3a3c; color: white; font-size: 16px; font-weight: 500;">Отмена</button>
-                <button id="custom-confirm-btn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: #ff3b30; color: white; font-size: 16px; font-weight: 600;">Удалить</button>
-            </div>
-        `;
-
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-
-        // 4. Обработчики
-        const close = () => { overlay.remove(); };
-
-        overlay.querySelector('#custom-cancel-btn').onclick = close;
-        
-        overlay.querySelector('#custom-confirm-btn').onclick = () => {
-            close();
-            onConfirmCallback(); // Вызываем действие удаления
-        };
-
-        // Закрытие по клику на фон
-        overlay.onclick = (e) => { if(e.target === overlay) close(); };
-    }
-
-    // Добавляем стили анимации
-    const styleSheet = document.createElement("style");
-    styleSheet.innerText = `
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes popIn { from { transform: scale(0.9); } to { transform: scale(1); } }
-    `;
-    document.head.appendChild(styleSheet);
-    // --- КОНЕЦ ФУНКЦИИ ---
-    
+}  
     function setupEventListeners() {
         // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
         console.log('[DEBUG] setupEventListeners() - ФУНКЦИЯ ЗАПУЩЕНА. Начинаем привязку...');
@@ -3046,25 +3056,21 @@ if (dom.weeklyGoalsList) {
         }
 
         if(document.getElementById('delete-twitch-reward-btn')) {
-            document.getElementById('delete-twitch-reward-btn').addEventListener('click', async () => {
+            document.getElementById('delete-twitch-reward-btn').addEventListener('click', () => {
                 const form = document.getElementById('twitch-reward-settings-form');
                 const rewardId = parseInt(form.elements['reward_id'].value);
-                if (!rewardId) {
-                    tg.showAlert('Ошибка: ID награды не найден.');
-                    return;
-                }
+                if (!rewardId) return;
 
-                tg.showConfirm('Вы уверены, что хотите удалить эту награду? Это действие необратимо и удалит ВСЕ связанные с ней покупки.', async (ok) => {
-                    if (ok) {
-                        try {
-                            await makeApiRequest('/api/v1/admin/twitch_rewards/delete', { reward_id: rewardId });
-                            tg.showAlert('Награда успешно удалена.');
+                showCustomConfirmHTML('Удалить награду и ВСЕ ее покупки? Необратимо.', () => {
+                    showLoader();
+                    makeApiRequest('/api/v1/admin/twitch_rewards/delete', { reward_id: rewardId }, 'POST', true)
+                        .then(async () => {
                             document.getElementById('twitch-reward-settings-modal').classList.add('hidden');
                             await loadTwitchRewards();
-                        } catch (e) {
-                            tg.showAlert(`Ошибка при удалении: ${e.message}`);
-                        }
-                    }
+                            hideLoader();
+                            tg.showPopup({ message: 'Награда удалена' });
+                        })
+                        .catch(e => { hideLoader(); tg.showAlert(`Ошибка: ${e.message}`); });
                 });
             });
         }
@@ -3648,106 +3654,65 @@ if (dom.settingQuestScheduleOverride) {
         }
         
 
+        // --- 🔥 ОБНОВЛЕННЫЙ ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ (OPTIMISTIC UI) 🔥 ---
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
 
-            // --- 👇 ИЗМЕНЕНИЕ 3: Добавляем новый обработчик "Связаться" 👇 ---
+            // 1. Кнопка "Связаться" (Копирование)
             const contactBtn = target.closest('.admin-contact-btn');
             if (contactBtn) {
                 const userId = contactBtn.dataset.userId;
-                const userUsername = contactBtn.dataset.userUsername; // Получаем username
-                
-                if (userId && window.Telegram && window.Telegram.WebApp) {
+                const userUsername = contactBtn.dataset.userUsername;
+                if (userId) {
+                    let textToCopy = (userUsername && userUsername !== 'null' && userUsername.trim() !== '') ? `@${userUsername}` : userId;
+                    let message = textToCopy.startsWith('@') ? `Username ${textToCopy} скопирован!` : 'ID скопирован!';
                     try {
-                        let textToCopy = '';
-                        let message = '';
-
-                        if (userUsername && userUsername !== 'null' && userUsername !== 'undefined' && userUsername.trim() !== '') {
-                            // Если есть @username, копируем его
-                            textToCopy = `@${userUsername}`;
-                            message = 'Username @' + userUsername + ' скопирован!';
-                        } else {
-                            // Если нет @username, копируем ID (как запасной вариант)
-                            textToCopy = userId;
-                            message = 'Username не найден. ID пользователя скопирован!';
-                        }
-                        
-                        // --- 👇 ВОТ ИСПРАВЛЕНИЕ (v6) 👇 ---
-                        // Используем стандартный Web API для буфера обмена
                         await navigator.clipboard.writeText(textToCopy);
-                        // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
-                        // Показываем всплывающее уведомление
                         tg.showPopup({message: message});
-
-                    } catch (e) {
-                        console.error('Ошибка копирования в буфер:', e);
-                        tg.showAlert('Не удалось скопировать. Ошибка в консоли.');
-                    }
-                }
-                return; // Останавливаем выполнение
-            }
-            // --- 👆 КОНЕЦ НОВОГО БЛОКА 👆 ---
-            
-            // --- Новые обработчики для Котла ---
-            const addRewardBtn = target.closest('[id^="add-top-reward-btn-"]');
-            if (addRewardBtn) {
-                const level = addRewardBtn.dataset.level;
-                const container = document.getElementById(`top-rewards-container-${level}`);
-                if (container) {
-                    container.appendChild(createTopRewardRow());
+                    } catch (e) { tg.showAlert('Ошибка копирования.'); }
                 }
                 return;
             }
 
-            const removeRewardBtn = target.closest('.remove-reward-btn');
-            if (removeRewardBtn) {
-                removeRewardBtn.closest('.top-reward-row').remove();
+            // 2. Управление полями наград (Котел)
+            if (target.closest('[id^="add-top-reward-btn-"]')) {
+                const level = target.closest('[id^="add-top-reward-btn-"]').dataset.level;
+                document.getElementById(`top-rewards-container-${level}`)?.appendChild(createTopRewardRow());
                 return;
             }
-            // --- Конец новых обработчиков ---
-
-            const closeButton = target.closest('[data-close-modal]');
-            if (closeButton) {
-                const modalId = closeButton.dataset.closeModal;
-                const modal = document.getElementById(modalId);
-                if (modal) {
-                    modal.classList.add('hidden');
-                }
+            if (target.closest('.remove-reward-btn')) {
+                target.closest('.top-reward-row').remove();
                 return;
             }
-            
-            // --- ИСПРАВЛЕННЫЙ ПОРЯДОК ---
 
-            // Клик по шестеренке (Настройки)
+            // 3. Закрытие модалок
+            if (target.closest('[data-close-modal]')) {
+                document.getElementById(target.closest('[data-close-modal]').dataset.closeModal)?.classList.add('hidden');
+                return;
+            }
+
+            // 4. Настройки награды Twitch (Шестеренка)
             const settingsBtn = target.closest('.reward-settings-btn');
             if (settingsBtn) {
                 const rewardData = JSON.parse(settingsBtn.dataset.reward);
-                
-                if (hasAdminAccess) {
-                    // 1. Пароль уже введен, просто открываем
-                    openTwitchRewardSettings(rewardData);
-                } else {
-                    // 2. Пароль не введен. Запрашиваем его.
-                    // Сохраняем действие, которое нужно выполнить ПОСЛЕ ввода пароля
-                    afterPasswordCallback = () => {
-                        openTwitchRewardSettings(rewardData);
-                    };
-                    // Показываем окно ввода пароля
+                if (hasAdminAccess) openTwitchRewardSettings(rewardData);
+                else {
+                    afterPasswordCallback = () => openTwitchRewardSettings(rewardData);
                     dom.passwordPromptOverlay.classList.remove('hidden');
                     dom.passwordPromptInput.focus();
                 }
                 return;
             }
-            // Клик по иконке (Покупки)
+
+            // 5. Покупки Twitch (Клик по иконке)
             const purchasesLink = target.closest('.reward-purchases-link');
             if (purchasesLink) {
-                event.preventDefault(); // Предотвратить переход по ссылке #
-                const { rewardId, rewardTitle } = purchasesLink.dataset;
-                await openTwitchPurchases(rewardId, rewardTitle);
+                event.preventDefault();
+                await openTwitchPurchases(purchasesLink.dataset.rewardId, purchasesLink.dataset.rewardTitle);
                 return;
             }
-            
-            // Общий клик по иконке (Навигация) - должен быть ПОСЛЕ кнопок
+
+            // 6. Навигация
             const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
             if (navButton && navButton.tagName.toLowerCase() !== 'a') {
                 event.preventDefault();
@@ -3764,280 +3729,164 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
 
-           // --- 🛡️ САМЫЙ НАДЕЖНЫЙ ВАРИАНТ УДАЛЕНИЯ (ЧЕРЕЗ GLOBAL LOADER) ---
+            // --- 🛡️ УДАЛЕНИЕ ПОКУПКИ (TWITCH) ---
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
-                event.preventDefault();
+                event.preventDefault(); 
                 event.stopPropagation();
-
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
 
-                // ИСПОЛЬЗУЕМ НАШЕ HTML ОКНО (Оно никогда не блокируется Telegram)
                 showCustomConfirmHTML('Удалить эту покупку навсегда?', () => {
-                    
-                    // 1. 🔥 МГНОВЕННОЕ ВИЗУАЛЬНОЕ УДАЛЕНИЕ
+                    // Визуально удаляем
                     const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
                     if (itemDiv) {
                         itemDiv.style.transition = 'all 0.3s ease-out';
                         itemDiv.style.transform = 'translateX(100%)';
                         itemDiv.style.opacity = '0';
-                        setTimeout(() => {
-                            if (itemDiv) itemDiv.remove();
-                            // Проверка пустого списка
-                            const container = document.getElementById('twitch-purchases-body');
-                            if (container && !container.querySelector('.purchase-item')) {
-                                container.innerHTML = '<p style="text-align: center;">Нет покупок.</p>';
-                            }
-                        }, 300);
+                        setTimeout(() => itemDiv.remove(), 300);
                     }
-
-                    // 2. 🔥 МГНОВЕННО ОБНОВЛЯЕМ СЧЕТЧИК
+                    // Обновляем бейдж
                     const refreshBtn = document.getElementById('refresh-purchases-btn');
-                    const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
-                    
-                    if (currentRewardId) {
-                        const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
-                        if (rewardIcon) {
-                            const badge = rewardIcon.querySelector('.notification-badge');
-                            if (badge) {
-                                let count = parseInt(badge.textContent) || 0;
-                                count = Math.max(0, count - 1);
-                                badge.textContent = count;
-                                if (count === 0) badge.classList.add('hidden');
-                            }
+                    if (refreshBtn) {
+                        const currentRewardId = refreshBtn.dataset.rewardId;
+                        const badge = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"] .notification-badge`);
+                        if (badge) {
+                            let c = Math.max(0, (parseInt(badge.textContent) || 0) - 1);
+                            badge.textContent = c;
+                            if (c === 0) badge.classList.add('hidden');
                         }
                     }
-
-                    // 3. 🔥 ОТПРАВЛЯЕМ ЗАПРОС В ФОНЕ (Без await, без loader)
-                    makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { 
-                        purchase_id: parseInt(purchaseId) 
-                    }, 'POST', true)
-                    .then(() => {
-                        console.log(`Purchase ${purchaseId} deleted.`);
-                        // Опционально: tg.showPopup({ message: 'Удалено' });
-                    })
-                    .catch((err) => {
-                        console.error('Ошибка удаления на сервере:', err);
-                        tg.showAlert(`Ошибка на сервере: ${err.message}. Обновите список.`);
-                    });
+                    // Запрос в фоне
+                    makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) }, 'POST', true)
+                        .then(() => tg.showPopup({ message: '✅ Удалено' }))
+                        .catch(e => tg.showAlert(`Ошибка сервера: ${e.message}`));
                 });
-                
                 return;
             }
-            // --- 🚀 КОНЕЦ БЛОКА ---
 
+            // --- 🛡️ УДАЛЕНИЕ ВСЕХ ПОКУПОК (TWITCH) ---
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
-                // 1. Блокируем кнопку, чтобы не нажать дважды
-                deleteAllBtn.disabled = true; 
-                
                 const rewardId = parseInt(deleteAllBtn.dataset.rewardId);
-                if (!rewardId) {
-                    // Если ID нет, сразу разблокируем и выходим
-                    deleteAllBtn.disabled = false;
-                    return;
-                }
-
-                tg.showConfirm(`Вы уверены, что хотите удалить ВСЕ покупки для этой награды? Это действие необратимо.`, async (ok) => {
-                    if (ok) {
-                        try {
-                            await makeApiRequest('/api/v1/admin/twitch_rewards/purchases/delete_all', { reward_id: rewardId });
-                            tg.showAlert('Все покупки были успешно удалены.');
-                            document.getElementById('twitch-purchases-body').innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
-                            deleteAllBtn.classList.add('hidden');
-                        } catch (err) {
-                            tg.showAlert(`Ошибка при удалении: ${err.message}`);
-                        } finally {
-                            // 🔥 ФИКС 2: Разблокируем кнопку после завершения (успех или ошибка)
-                            deleteAllBtn.disabled = false; 
-                        }
-                    } else {
-                        // 🔥 ФИКС 3: Разблокируем кнопку, если нажали "Отмена"
-                        deleteAllBtn.disabled = false;
-                    }
+                showCustomConfirmHTML('Удалить ВСЕ покупки для этой награды? Необратимо.', () => {
+                    // Визуально очищаем
+                    document.getElementById('twitch-purchases-body').innerHTML = '<p style="text-align: center;">Нет покупок.</p>';
+                    deleteAllBtn.classList.add('hidden');
+                    
+                    // Запрос в фоне
+                    makeApiRequest('/api/v1/admin/twitch_rewards/purchases/delete_all', { reward_id: rewardId }, 'POST', true)
+                        .then(() => tg.showPopup({ message: '✅ Все удалено' }))
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
                 });
                 return;
             }
 
-            // --- 🔽 НАЧАЛО НОВОГО БЛОКА (issue-promo-btn) 🔽 ---
-        const issuePromoBtn = target.closest('.issue-promo-btn');
-        if (issuePromoBtn) {
-            const purchaseId = issuePromoBtn.dataset.purchaseId;
-            if (!purchaseId) return;
-
-            const purchaseItem = issuePromoBtn.closest('.purchase-item');
-            // Считываем, было ли выполнено условие, из data-атрибута
-            const isConditionMet = purchaseItem.dataset.conditionMet === 'true';
-
-            let confirmMessage = 'Вы уверены, что хотите выдать эту награду?';
-            if (!isConditionMet) {
-                confirmMessage = "ВНИМАНИЕ: Условие не выполнено! Вы уверены, что хотите выдать награду вручную?";
+            // --- 🛡️ ВЫДАЧА ПРОМОКОДА ---
+            const issuePromoBtn = target.closest('.issue-promo-btn');
+            if (issuePromoBtn) {
+                const purchaseId = issuePromoBtn.dataset.purchaseId;
+                const isConditionMet = issuePromoBtn.closest('.purchase-item').dataset.conditionMet === 'true';
+                const msg = isConditionMet ? 'Выдать награду (промокод)?' : '⚠️ Условие не выполнено! Выдать все равно?';
+                
+                showCustomConfirmHTML(msg, () => {
+                    // Визуально удаляем
+                    document.getElementById(`purchase-item-${purchaseId}`)?.remove();
+                    
+                    makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', { purchase_id: parseInt(purchaseId) }, 'POST', true)
+                        .then(res => tg.showPopup({ message: res.message || 'Награда выдана' }))
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+                }, 'Выдать', '#ff9500');
+                return;
             }
-            
-            issuePromoBtn.disabled = true;
-            
-            tg.showConfirm(confirmMessage, async (ok) => {
-                // --- 👇 ИЗМЕНИ ЭТОТ БЛОК 'if' 👇 ---
-                if (!ok) {
-                    issuePromoBtn.disabled = false; // Включаем обратно
-                    return; // Выходим
-                }
-                // --- 👆 КОНЕЦ 👆 -- 
 
-                issuePromoBtn.disabled = true; 
-                issuePromoBtn.innerHTML = '<i>Выдача...</i>';
-                let hasError = false; 
+            // --- 🛡️ ВЫДАЧА БИЛЕТОВ ---
+            const issueTicketsBtn = target.closest('.issue-tickets-btn');
+            if (issueTicketsBtn) {
+                const purchaseId = issueTicketsBtn.dataset.purchaseId;
+                const amount = issueTicketsBtn.dataset.amount;
+                const isConditionMet = issueTicketsBtn.closest('.purchase-item').dataset.conditionMet === 'true';
+                const msg = isConditionMet ? `Выдать ${amount} 🎟️ билетов?` : `⚠️ Условие не выполнено! Выдать ${amount} 🎟️?`;
 
-                try {
-                    // Вызываем бэкенд, который (после Этапа 2.2) больше не проверяет Wizebot
-                    const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', {
-                        purchase_id: parseInt(purchaseId)
-                    });
-
-                    tg.showAlert(result.message); 
-
-                    const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                    if (itemDiv) itemDiv.remove();
-
-                    // updateTwitchBadgeCount(); // (Мы удалили эту функцию, можно вернуть, если нужна)
-
-                } catch (e) {
-                    hasError = true; 
-                    console.error('Ошибка при выдаче промокода:', e);
-                    tg.showAlert(`Ошибка: ${e.message}`); 
-                } finally {
-                    if (hasError && document.getElementById(`purchase-item-${purchaseId}`)) {
-                        issuePromoBtn.disabled = false;
-                        // Восстанавливаем текст кнопки (у вас может быть иконка звезды)
-                        const amount = issuePromoBtn.dataset.amount || 0;
-                        issuePromoBtn.innerHTML = `Выдать ${amount} ⭐`; 
-                    }
-                }
-            }); 
-
-            return; 
-        }
-// --- 🔼 КОНЕЦ НОВОГО БЛОКА (issue-promo-btn) 🔼 ---
-
-            // --- ↓↓↓ ВСТАВЬ НОВЫЙ БЛОК СЮДА ↓↓↓ ---
-        // --- 🔽 НАЧАЛО НОВОГО БЛОКА (issue-tickets-btn) 🔽 ---
-    const issueTicketsBtn = target.closest('.issue-tickets-btn');
-    if (issueTicketsBtn) {
-        const purchaseId = issueTicketsBtn.dataset.purchaseId;
-        const amount = issueTicketsBtn.dataset.amount || 0;
-        if (!purchaseId) return;
-
-        const purchaseItem = issueTicketsBtn.closest('.purchase-item');
-        // Считываем, было ли выполнено условие, из data-атрибута
-        const isConditionMet = purchaseItem.dataset.conditionMet === 'true';
-
-        let confirmMessage = `Вы уверены, что хотите выдать ${amount} 🎟️ билетов?`;
-        if (!isConditionMet) {
-            confirmMessage = `ВНИМАНИЕ: Условие не выполнено! Вы уверены, что хотите выдать ${amount} 🎟️ билетов вручную?`;
-        }
-        
-        issueTicketsBtn.disabled = true;
-        
-        tg.showConfirm(confirmMessage, async (ok) => {
-            // --- 👇 ИЗМЕНИ ЭТОТ БЛОК 'if' 👇 ---
-            if (!ok) {
-                issueTicketsBtn.disabled = false; // Включаем обратно
-                return; // Выходим
+                showCustomConfirmHTML(msg, () => {
+                    document.getElementById(`purchase-item-${purchaseId}`)?.remove();
+                    
+                    makeApiRequest('/api/v1/admin/twitch_rewards/issue_tickets', { purchase_id: parseInt(purchaseId) }, 'POST', true)
+                        .then(res => tg.showPopup({ message: 'Билеты выданы' }))
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+                }, 'Выдать', '#007aff');
+                return;
             }
-            // --- 👆 КОНЕЦ 👆 ---
 
-            issueTicketsBtn.disabled = true;
-            issueTicketsBtn.innerHTML = '<i>Выдача...</i>';
-            let hasError = false;
-
-            try {
-                const result = await makeApiRequest('/api/v1/admin/twitch_rewards/issue_tickets', {
-                    purchase_id: parseInt(purchaseId)
-                });
-
-                tg.showAlert(result.message); 
-
-                const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                if (itemDiv) itemDiv.remove();
-
-                // updateTwitchBadgeCount(); // (Мы удалили эту функцию, можно вернуть, если нужна)
-
-            } catch (e) {
-                hasError = true;
-                console.error('Ошибка при выдаче билетов:', e);
-                tg.showAlert(`Ошибка: ${e.message}`);
-            } finally {
-                if (hasError && document.getElementById(`purchase-item-${purchaseId}`)) {
-                    issueTicketsBtn.disabled = false;
-                    issueTicketsBtn.innerHTML = `Выдать ${amount} 🎟️`;
-                }
-            }
-        });
-
-        return;
-    }
-// --- 🔼 КОНЕЦ НОВОГО БЛОКА (issue-tickets-btn) 🔼 ---
-            
+            // --- 🛡️ ПРОВЕРКА WIZEBOT ---
             const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
             if (checkBtn) {
                 const nickname = checkBtn.dataset.nickname;
                 const period = checkBtn.dataset.period || 'session';
-
-                const card = checkBtn.closest('.admin-submission-card, .purchase-item');
-                let resultDiv;
-                if(checkBtn.classList.contains('wizebot-check-btn')){
-                   const purchaseId = card.id.split('-')[2];
-                   resultDiv = card.querySelector(`#wizebot-result-${purchaseId}`);
-                } else {
-                   resultDiv = card.querySelector('.wizebot-stats-result');
+                const resultDiv = checkBtn.classList.contains('wizebot-check-btn') 
+                    ? checkBtn.closest('.purchase-item').querySelector('.purchase-warning') 
+                    : checkBtn.closest('.admin-submission-card').querySelector('.wizebot-stats-result');
+                
+                if (!resultDiv && checkBtn.classList.contains('wizebot-check-btn')) {
+                     // Если некуда писать, используем Popup
+                     checkBtn.disabled = true;
+                     checkBtn.textContent = '...';
+                     makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: period }, 'POST', true)
+                        .then(stats => {
+                            const msg = stats.found ? `✅ ${stats.messages} сообщ. (Ранг ${stats.rank})` : `⚠️ Не найден в топе`;
+                            tg.showPopup({message: msg});
+                        })
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`))
+                        .finally(() => { checkBtn.disabled = false; checkBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> Проверить'; });
+                     return;
                 }
 
-                if (!nickname) { resultDiv.innerHTML = `<p style="color: var(--danger-color);">Никнейм не найден.</p>`; return; }
-
-                resultDiv.innerHTML = '<i>Проверяем...</i>';
-                checkBtn.disabled = true;
-                try {
-                    const stats = await makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: period }, 'POST', true);
-                    if (stats.found) resultDiv.innerHTML = `<p style="color: var(--primary-color);">✅ ${stats.messages} сообщений (ранг ${stats.rank})</p>`;
-                    else resultDiv.innerHTML = `<p style="color: var(--warning-color);">⚠️ Не найден в топ-100</p>`;
-                } catch (e) {
-                    console.error('Ошибка Wizebot:', e);
-                    resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка: ${e.message}</p>`;
+                if (resultDiv) {
+                    resultDiv.innerHTML = '<i>Проверяем...</i>';
+                    checkBtn.disabled = true;
+                    makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: period }, 'POST', true)
+                        .then(stats => {
+                            resultDiv.innerHTML = stats.found 
+                                ? `<p style="color: var(--primary-color);">✅ ${stats.messages} сообщ. (Ранг ${stats.rank})</p>`
+                                : `<p style="color: var(--warning-color);">⚠️ Не найден в топ-100</p>`;
+                        })
+                        .catch(e => resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка: ${e.message}</p>`)
+                        .finally(() => checkBtn.disabled = false);
                 }
-                finally { checkBtn.disabled = false; }
                 return;
             }
 
+            // --- 🛡️ ПОДТВЕРЖДЕНИЕ ВЫДАЧИ ПРИЗА (ПОБЕДИТЕЛЬ) ---
             const confirmWinnerBtn = target.closest('.confirm-winner-prize-btn');
             if (confirmWinnerBtn) {
-                const eventId = confirmWinnerBtn.dataset.eventId;
-                tg.showConfirm('Вы уверены, что выдали этот приз победителю?', async (ok) => {
-                    if (ok) {
-                        await makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(eventId) });
-                        tg.showAlert('Выдача приза подтверждена.');
-                        confirmWinnerBtn.closest('.admin-submission-card')?.remove();
-                    }
-                });
+                showCustomConfirmHTML('Выдать приз и закрыть заявку?', () => {
+                    confirmWinnerBtn.closest('.admin-submission-card').remove();
+                    makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(confirmWinnerBtn.dataset.eventId) }, 'POST', true)
+                        .then(() => tg.showPopup({ message: '✅ Приз выдан' }))
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+                }, 'Подтвердить', '#34c759');
                 return;
             }
 
-            const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn'); // REMOVED: .sort-btn, .sort-quest-btn
+            // --- 🛡️ ДЕЙСТВИЯ ИЗ СПИСКОВ ---
+            const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn');
             if (!actionButton) return;
 
             const id = actionButton.dataset.id;
 
+            // 1. Редактировать категорию
             if (actionButton.matches('.edit-category-btn')) {
                 showGenericPrompt('Редактировать категорию', actionButton.dataset.name, id);
-
-            } else if (actionButton.matches('.delete-category-btn')) {
-                tg.showConfirm('Вы уверены, что хотите удалить эту категорию?', async (ok) => {
-                    if (ok) {
-                        await makeApiRequest('/api/v1/admin/categories/delete', { category_id: parseInt(id) });
-                        await switchView('view-admin-categories');
-                    }
+            } 
+            // 2. Удалить категорию
+            else if (actionButton.matches('.delete-category-btn')) {
+                showCustomConfirmHTML('Удалить категорию?', () => {
+                    actionButton.closest('.category-card').remove();
+                    makeApiRequest('/api/v1/admin/categories/delete', { category_id: parseInt(id) }, 'POST', true)
+                        .catch(e => { tg.showAlert(`Ошибка: ${e.message}`); loadCategories(); });
                 });
-
-            } else if (actionButton.matches('.admin-edit-challenge-btn')) {
+            } 
+            // 3. Редактировать челлендж
+            else if (actionButton.matches('.admin-edit-challenge-btn')) {
                 const c = JSON.parse(actionButton.dataset.challenge);
                 const form = dom.challengeForm;
                 let condType = c.condition_type, period = 'session';
@@ -4057,18 +3906,17 @@ if (dom.settingQuestScheduleOverride) {
                 updateChallengeFormUI(form);
                 dom.challengeFormTitle.textContent = 'Редактирование';
                 await switchView('view-admin-challenge-form');
-
-            } else if (actionButton.matches('.admin-delete-challenge-btn')) {
-                 tg.showConfirm(`Удалить челлендж ID ${id}?`, async (ok) => {
-                    if (ok) {
-                        await makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) });
-                        await switchView('view-admin-challenges');
-                    }
+            } 
+            // 4. Удалить челлендж
+            else if (actionButton.matches('.admin-delete-challenge-btn')) {
+                showCustomConfirmHTML(`Удалить челлендж ID ${id}?`, () => {
+                    actionButton.closest('.manage-quest-card').remove();
+                    makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) }, 'POST', true)
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
                 });
-
-} else if (actionButton.matches('.edit-roulette-prize-btn')) {
-                // Твой код для открытия модального окна редактирования приза рулетки
-                // (тот, что мы добавляли раньше, использует data-prize)
+            } 
+            // 5. Редактировать приз рулетки
+            else if (actionButton.matches('.edit-roulette-prize-btn')) {
                 if (editPrizeModal && editPrizeForm) {
                     const prizeData = JSON.parse(actionButton.dataset.prize);
                     editPrizeForm.elements['prize_id'].value = prizeData.id;
@@ -4079,41 +3927,30 @@ if (dom.settingQuestScheduleOverride) {
                     editPrizeForm.elements['quantity'].value = prizeData.quantity;
                     editPrizeModal.classList.remove('hidden');
                 }
-
-} else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.edit-category-btn') && !actionButton.matches('.edit-weekly-goal-btn')) {
-                 const idStr = actionButton.dataset.id;
-                 // --- >>> ДОБАВЛЕНО ЛОГИРОВАНИЕ <<< ---
-                 console.log("[DEBUG] Raw data-id from button:", idStr, "(type:", typeof idStr, ")");
-
-                 // Более строгая проверка: idStr должен существовать и быть парсибельным в конечное число
-                 const potentialId = parseInt(idStr);
-                 if (idStr === null || idStr === undefined || idStr.trim() === '' || isNaN(potentialId) || !isFinite(potentialId)) {
-                     console.error("[DEBUG] Invalid or missing quest ID found:", idStr);
-                     tg.showAlert("Ошибка: Неверный или отсутствующий ID квеста.");
-                     return; // Прерываем, если ID плохой
-                 }
-                 const questIdInt = potentialId; // Используем уже распарсенное значение
-                 console.log("[DEBUG] Parsed quest_id:", questIdInt, "(type:", typeof questIdInt, ")");
-                 // --- >>> КОНЕЦ ЛОГИРОВАНИЯ <<< ---
-
-                 // Используем questIdInt при вызове makeApiRequest
-                 const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: questIdInt });
-
-                 // --- >>> Проверка ответа от API <<<---
-                  if (!quest) {
-                      console.error("[DEBUG] API returned null/undefined for quest details");
-                      tg.showAlert("Ошибка: Не удалось получить детали квеста от сервера.");
-                      return;
-                  }
-                  console.log("[DEBUG] Received quest details:", quest);
-                  // --- >>> Конец проверки ответа <<<---
-
-
+            } 
+            // 6. Удалить приз рулетки
+            else if (actionButton.matches('.delete-roulette-prize-btn')) {
+                 showCustomConfirmHTML('Удалить этот приз?', () => {
+                    // Тут сложная структура, лучше перегрузить список в фоне
+                    makeApiRequest('/api/v1/admin/roulette/delete', { prize_id: parseInt(actionButton.dataset.id) }, 'POST', true)
+                        .then(async () => {
+                            const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                            renderRoulettePrizes(prizes);
+                            tg.showPopup({ message: 'Приз удален' });
+                        })
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+                });
+            }
+            // 7. Редактировать квест
+            else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.edit-category-btn') && !actionButton.matches('.edit-weekly-goal-btn')) {
+                 const questId = parseInt(actionButton.dataset.id);
+                 showLoader(); // Тут нужен лоадер, т.к. мы грузим данные для формы
+                 const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: questId }, 'POST', true);
                  await fetchAndCacheCategories(true);
                  populateCategorySelects(quest.category_id);
                  const form = dom.editQuestForm;
                  let questType = quest.quest_type, twitchPeriod = 'session';
-                 if (quest.quest_type && quest.quest_type.startsWith('automatic_twitch_')) { // Добавлена проверка quest.quest_type
+                 if (quest.quest_type && quest.quest_type.startsWith('automatic_twitch_')) {
                      const parts = quest.quest_type.split('_');
                      if (parts.length > 3) { questType = parts.slice(0, 3).join('_'); twitchPeriod = parts[3]; }
                  }
@@ -4131,184 +3968,82 @@ if (dom.settingQuestScheduleOverride) {
                  form.elements['is_active'].value = quest.is_active.toString();
                  form.elements['is_repeatable'].value = quest.is_repeatable.toString();
                  updateQuestFormUI(form);
+                 hideLoader();
                  await switchView('view-admin-edit');
-            } else if (actionButton.matches('.admin-delete-quest-btn') && !actionButton.matches('.delete-category-btn')) {
-                tg.showConfirm(`Удалить задание ID ${id}?`, async (ok) => {
-                    if (ok) {
-                        await makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) });
-                        await switchView('view-admin-quests');
-                    }
+            } 
+            // 8. Удалить квест
+            else if (actionButton.matches('.admin-delete-quest-btn') && !actionButton.matches('.delete-category-btn') && !actionButton.matches('.delete-auction-btn') && !actionButton.matches('.delete-weekly-goal-btn')) {
+                showCustomConfirmHTML(`Удалить квест ID ${id}?`, () => {
+                    actionButton.closest('.manage-quest-card').remove();
+                    makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) }, 'POST', true)
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
                 });
-
-            } else if (actionButton.matches('.admin-view-subs-btn')) {
-                const submissions = await makeApiRequest('/api/v1/admin/quest/submissions', { quest_id: parseInt(id) });
+            } 
+            // 9. Аукцион: Удалить
+            else if (actionButton.matches('.delete-auction-btn')) {
+                showCustomConfirmHTML(`Удалить лот ID ${id}?`, () => {
+                    actionButton.closest('.manage-quest-card').remove();
+                    makeApiRequest('/api/v1/admin/auctions/delete', { id: parseInt(id) }, 'POST', true)
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+                });
+            }
+            // 10. Недельный забег: Удалить
+            else if (actionButton.matches('.delete-weekly-goal-btn')) {
+                const goalId = actionButton.dataset.goalId;
+                showCustomConfirmHTML('Удалить эту задачу?', () => {
+                    actionButton.closest('.weekly-goal-card').remove();
+                    makeApiRequest('/api/v1/admin/weekly_goals/delete', { goal_id: goalId }, 'POST', true)
+                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+                });
+            }
+            // 11. Просмотр заявок квеста
+            else if (actionButton.matches('.admin-view-subs-btn')) {
+                showLoader();
+                const submissions = await makeApiRequest('/api/v1/admin/quest/submissions', { quest_id: parseInt(id) }, 'POST', true);
+                hideLoader();
                 renderSubmissionsInModal(submissions, actionButton.dataset.title);
                 dom.submissionsModal.classList.remove('hidden');
-
-            // --- 👇 ИЗМЕНЕНИЕ 4: Возвращаем эту строку к оригиналу 👇 ---
-            } else if (actionButton.matches('.admin-action-btn')) {
-            // --- 👆 КОНЕЦ ИЗМЕНЕНИЯ 4 👆 ---
-                actionButton.disabled = true;
+            } 
+            // 12. ОБРАБОТКА ЗАЯВКИ (Одобрить/Отклонить/Тихо)
+            else if (actionButton.matches('.admin-action-btn')) {
                 const action = actionButton.dataset.action;
                 const card = actionButton.closest('.admin-submission-card');
-                const id = actionButton.dataset.id; // Получаем ID
+                const subId = parseInt(actionButton.dataset.id);
+                if (!subId) return;
 
-                if (!id) return; // Прерываем, если ID не найден
-
-                // --- Общая функция для обновления и закрытия, если нужно (ВЕРСЯ 3) ---
-                const handleCompletion = async () => {
-                    // Проверяем наличие карточки перед действиями
-                    if (!card) {
-                        console.warn("handleCompletion: card element not found.");
-                        // Попробуем обновить главный счетчик и вид в любом случае
-                        try {
-                            const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
-                            const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
-                            const mainBadge = document.getElementById('main-pending-count');
-                            if (mainBadge) {
-                                mainBadge.textContent = totalPending;
-                                mainBadge.classList.toggle('hidden', totalPending === 0);
-                            }
-                            // Если модалка открыта, но карточки нет (странно), закроем
-                            if (!dom.submissionsModal.classList.contains('hidden')) {
-                                dom.submissionsModal.classList.add('hidden');
-                            }
-                            await switchView('view-admin-pending-actions');
-                        } catch (err) {
-                             console.error("Error during fallback refresh in handleCompletion:", err);
-                        }
-                        return;
-                    }
-
-                    card.remove(); // Удаляем карточку из модального окна
-                    const remainingCards = dom.modalBody.querySelectorAll('.admin-submission-card');
-
-                    if (remainingCards.length === 0) {
-                        // Если карточек не осталось
-                        dom.submissionsModal.classList.add('hidden'); // Закрываем модалку
-                        tg.showPopup({message: 'Обработка завершена. Обновление...'});
-
-                        // Ставим небольшую задержку
-                        await new Promise(resolve => setTimeout(resolve, 300));
-
-                        // Обновляем главный счетчик
-                        try {
-                            console.log("Updating main count...");
-                            const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
-                            const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
-                            const mainBadge = document.getElementById('main-pending-count');
-                            if (mainBadge) {
-                                mainBadge.textContent = totalPending;
-                                mainBadge.classList.toggle('hidden', totalPending === 0);
-                                console.log("Main count updated:", totalPending);
-                            }
-                        } catch (countError) {
-                            console.error("Не удалось обновить главный счетчик после проверки:", countError);
-                        }
-
-                        // Перезагружаем вид (сетку иконок)
-                        console.log("Calling switchView('view-admin-pending-actions')...");
-                        try {
-                             await switchView('view-admin-pending-actions');
-                             console.log("switchView call finished successfully.");
-                        } catch (switchError) {
-                             console.error("Error during switchView call:", switchError);
-                             tg.showAlert("Не удалось обновить список.");
-                        }
-
-                    } else {
-                         // Если карточки еще остались, обновляем главный счетчик И счетчик на иконке
-                         try {
-                            console.log("Updating main count (cards remaining)...");
-                            const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
-                            const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
-                            const mainBadge = document.getElementById('main-pending-count');
-                            if (mainBadge) {
-                                mainBadge.textContent = totalPending;
-                                mainBadge.classList.toggle('hidden', totalPending === 0);
-                            }
-                            
-                            // --- НОВЫЙ КОД (ЗАДАЧА 2) ---
-                            // Обновляем бейдж на конкретной иконке
-                            const { sourceType, sourceId } = dom.submissionsModal.dataset;
-                            let iconToUpdate;
-                            if (sourceType === 'submission') {
-                                iconToUpdate = document.querySelector(`.admin-icon-button[data-type="submission"][data-quest-id="${sourceId}"]`);
-                            } else {
-                                iconToUpdate = document.querySelector(`.admin-icon-button[data-type="${sourceType}"]`);
-                            }
-                            
-                            if (iconToUpdate) {
-                                const badge = iconToUpdate.querySelector('.notification-badge');
-                                if (badge) {
-                                    let count = parseInt(badge.textContent || '1') - 1;
-                                    badge.textContent = count;
-                                    badge.classList.toggle('hidden', count <= 0);
-                                    console.log(`Icon badge ${sourceType} updated to ${count}`);
-                                }
-                            }
-                            // --- КОНЕЦ НОВОГО КОДА ---
-
-                        } catch (countError) {
-                            console.error("Не удалось обновить счетчики (карточки остались):", countError);
-                        }
-                    }
-                };
-                // --- Конец общей функции (ВЕРСИЯ 3) --
-
-                // --- 👇👇👇 НАЧАЛО ИСПРАВЛЕНИЯ ---
-                try {
-                    const parsedId = parseInt(id); // ID нам нужен как число
-                    
-                    // --- Логика для ЗАЯВОК (submissions) ---
-                    if (card && card.id.startsWith('submission-card-')) {
-                        // Используем эндпоинт из admin (7).js
-                        await makeApiRequest('/api/v1/admin/submission/update', { 
-                            submission_id: parsedId, 
-                            action: action // action - это 'approved', 'rejected' или 'rejected_silent'
-                        });
-                    } 
-                    // --- Логика для ПРИЗОВ ЧЕКПОИНТА (prizes) ---
-                    else if (card && card.id.startsWith('prize-card-')) {
-                        
-                        if (action === 'approved') {
-                            // 'approved' - это то же, что 'confirm_prize' в admin (7).js
-                            await makeApiRequest('/api/v1/admin/manual_rewards/complete', { 
-                                reward_id: parsedId 
-                            });
-                        } 
-                        else if (action === 'rejected' || action === 'rejected_silent') {
-                            // ВНИМАНИЕ: В файле admin (7).js НЕ БЫЛО логики для
-                            // отклонения призов чекпоинта.
-                            // Я предполагаю, что эндпоинт называется '/reject'.
-                            // Пожалуйста, проверьте это на своем бэкенде.
-                            
-                            // ⚠️ ПРОВЕРЬТЕ, СУЩЕСТВУЕТ ЛИ ЭТОТ ЭНДПОИНТ НА БЭКЕНДЕ ⚠️
-                            await makeApiRequest('/api/v1/admin/manual_rewards/reject', { 
-                                reward_id: parsedId, 
-                                is_silent: (action === 'rejected_silent') 
-                            });
-                        } else {
-                            throw new Error(`Неизвестное действие '${action}' для приза.`);
-                        }
-                    } 
-                    else {
-                        throw new Error("Не удалось определить тип карточки для действия.");
-                    }
-
-                    // Если все API вызовы прошли успешно, обновляем UI
-                    await handleCompletion();
-
-                } catch (e) {
-                    console.error('Ошибка при обработке действия:', e);
-                    tg.showAlert(`Ошибка: ${e.message}`);
-                    if(actionButton) {
-                        actionButton.disabled = false;
-                    }
-                }
-                // --- 👆👆👆 КОНЕЦ ИСПРАВЛЕНИЯ ---
+                // Оптимистично скрываем карточку
+                card.style.opacity = '0.5'; 
                 
+                // Функция восстановления при ошибке
+                const rollback = () => { card.style.opacity = '1'; };
+
+                try {
+                    if (card.id.startsWith('submission-card-')) {
+                        makeApiRequest('/api/v1/admin/submission/update', { submission_id: subId, action: action }, 'POST', true)
+                            .then(() => { card.remove(); checkEmptyList(); })
+                            .catch(e => { rollback(); tg.showAlert(`Ошибка: ${e.message}`); });
+                    } 
+                    else if (card.id.startsWith('prize-card-')) {
+                        const endpoint = action === 'approved' ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
+                        const payload = { reward_id: subId };
+                        if(action === 'rejected_silent') payload.is_silent = true;
+
+                        makeApiRequest(endpoint, payload, 'POST', true)
+                            .then(() => { card.remove(); checkEmptyList(); })
+                            .catch(e => { rollback(); tg.showAlert(`Ошибка: ${e.message}`); });
+                    }
+                } catch (e) { rollback(); }
+
+                // Функция проверки на пустоту
+                function checkEmptyList() {
+                    if (dom.modalBody.querySelectorAll('.admin-submission-card').length === 0) {
+                        dom.submissionsModal.classList.add('hidden');
+                        tg.showPopup({message: '✅ Все обработано'});
+                        // Фоновое обновление счетчика
+                        loadPendingActions();
+                    }
                 }
+            }
         });
 
 // --- NEW Event Listener for Sort Order Inputs ---
@@ -5020,44 +4755,30 @@ if(dom.createRoulettePrizeForm) {
 }
 
     // Глобальная функция для обработки кликов (так как используется onclick в HTML строке)
-    window.handleShopAction = async function(id, action) {
-        // Используем нативный confirm или tg.showConfirm
+    window.handleShopAction = function(id, action) {
         const confirmMsg = action === 'approve' ? 'Подтвердить выдачу товара?' : 'Отклонить покупку?';
-        
-        // Используем обертку Promise для tg.showConfirm, чтобы код был линейным
-        const userConfirmed = await new Promise(resolve => {
-            tg.showConfirm(confirmMsg, resolve);
-        });
+        const btnText = action === 'approve' ? 'Выдать' : 'Отклонить';
+        const btnColor = action === 'approve' ? '#34c759' : '#ff3b30';
 
-        if (!userConfirmed) return;
-
-        try {
-            // Используем тот же эндпоинт, что и для чекпоинта/квестов
-            if (action === 'approve') {
-                await makeApiRequest('/api/v1/admin/manual_rewards/complete', { reward_id: id });
-            } else {
-                // Reject просто меняет статус в БД на rejected (деньги не возвращает автоматически, если логики нет на бэке)
-                await makeApiRequest('/api/v1/admin/manual_rewards/reject', { reward_id: id }); 
-            }
+        showCustomConfirmHTML(confirmMsg, () => {
+            showLoader();
+            const endpoint = action === 'approve' ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
             
-            // Удаляем карточку из UI
-            const card = document.getElementById(`shop-card-${id}`);
-            if (card) card.remove();
-            
-            // Обновляем счетчик в меню
-            const shopBadge = document.getElementById('shop-badge-main');
-            if (shopBadge) {
-                let current = parseInt(shopBadge.textContent) || 0;
-                const newCount = Math.max(0, current - 1);
-                shopBadge.textContent = newCount;
-                if (newCount <= 0) shopBadge.classList.add('hidden');
-            }
-            
-            tg.showAlert(action === 'approve' ? 'Выдача подтверждена!' : 'Покупка отклонена.');
-
-        } catch (e) {
-            tg.showAlert('Ошибка: ' + e.message);
-        }
+            makeApiRequest(endpoint, { reward_id: id }, 'POST', true)
+                .then(() => {
+                    document.getElementById(`shop-card-${id}`)?.remove();
+                    // Обновляем бейдж магазина
+                    const shopBadge = document.getElementById('shop-badge-main');
+                    if (shopBadge) {
+                        let c = Math.max(0, (parseInt(shopBadge.textContent) || 0) - 1);
+                        shopBadge.textContent = c;
+                        if (c === 0) shopBadge.classList.add('hidden');
+                    }
+                    hideLoader();
+                    tg.showPopup({ message: action === 'approve' ? '✅ Выдано' : '❌ Отклонено' });
+                })
+                .catch(e => { hideLoader(); tg.showAlert(`Ошибка: ${e.message}`); });
+        }, btnText, btnColor);
     };
 
 async function main() {
