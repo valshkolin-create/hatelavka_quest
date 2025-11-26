@@ -558,13 +558,34 @@ TEMPLATES_DIR = BASE_DIR / "public"
 # Создаем один асинхронный клиент, который будет жить все время работы приложения
 supabase: AsyncClient = create_client(SUPABASE_URL, SUPABASE_KEY) # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
 
+global_http_client: Optional[httpx.AsyncClient] = None
+
 # --- FastAPI app ---
-@asynccontextmanager
+asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Объявляем, что используем глобальную переменную
+    global global_http_client 
+    
     logging.info("🚀 Приложение запускается...")
-    yield
+    
+    # 1. Создаем быстрый HTTP-клиент один раз при старте
+    # Мы увеличиваем лимиты соединений, чтобы Vercel не захлебнулся
+    limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
+    
+    global_http_client = httpx.AsyncClient(
+        base_url=f"{SUPABASE_URL}/rest/v1",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+        timeout=30.0,
+        limits=limits
+    )
+    
+    yield # В этот момент приложение работает
+    
     logging.info("👋 Приложение останавливается...")
-    # await bot.session.close() # <-- Просто удалите или закомментируйте эту строку
+    
+    # 2. Правильно закрываем соединение при выключении
+    if global_http_client:
+        await global_http_client.aclose()
 
 app = FastAPI(title="Quest Bot API")
 # app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
@@ -573,15 +594,23 @@ app = FastAPI(title="Quest Bot API")
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
     path = request.url.path
-    # Пропускаем проверку для админки и самого переключателя
-    if path.startswith("/api/v1/admin") or path == "/admin" or path == "/api/v1/admin/toggle_sleep_mode":
+    
+    # 1. БЫСТРЫЙ ВЫХОД: Пропускаем статику, админку, вебхуки и фавикон
+    # Это экономит CPU, пропуская логику сна для служебных запросов
+    if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico")):
         return await call_next(request)
 
-    # Проверяем, не истек ли срок действия кеша
+    # 2. Старая логика проверки кэша (только для обычных пользователей)
     if time.time() - sleep_cache["last_checked"] > CACHE_DURATION_SECONDS:
-        logging.info("--- 😴 Кеш режима сна истек, проверяем базу данных... ---")
+        # Логируем только реальные проверки базы, чтобы не засорять консоль
+        # logging.info("--- 😴 Кеш режима сна истек, проверяем базу... ---") 
         try:
-            async with httpx.AsyncClient(base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1", headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}) as client:
+            # Используем глобальный клиент, если он уже настроен (или создаем временный, как было)
+            # Для надежности пока оставим httpx.AsyncClient, но без yield
+            async with httpx.AsyncClient(
+                base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1", 
+                headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}
+            ) as client:
                 resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
                 settings = resp.json()
                 if settings:
@@ -593,16 +622,22 @@ async def sleep_mode_check(request: Request, call_next):
                 sleep_cache["last_checked"] = time.time() 
         except Exception as e:
             logging.error(f"Ошибка проверки режима сна: {e}")
+            # Если ошибка БД, лучше пропустить пользователя, чем блокировать
             pass
 
-    # Теперь используем значения из кеша
+    # 3. Проверка времени пробуждения
     is_sleeping = sleep_cache["is_sleeping"]
     wake_up_at_str = sleep_cache["wake_up_at"]
 
     if is_sleeping and wake_up_at_str:
-        wake_up_time = datetime.fromisoformat(wake_up_at_str)
-        if datetime.now(timezone.utc) > wake_up_time:
-            is_sleeping = False 
+        try:
+            wake_up_time = datetime.fromisoformat(wake_up_at_str)
+            if datetime.now(timezone.utc) > wake_up_time:
+                is_sleeping = False 
+                # Можно обновить кэш, чтобы не парсить дату каждый раз
+                sleep_cache["is_sleeping"] = False
+        except ValueError:
+            pass # Если формат даты битый, игнорируем
 
     if is_sleeping:
         return JSONResponse(
@@ -610,28 +645,22 @@ async def sleep_mode_check(request: Request, call_next):
             content={"detail": "Ботик спит, набирается сил"}
         )
 
-    response = await call_next(request)
-    return response
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    logging.info(f"🔹 Path: {request.url.path}")
-    logging.info(f"🔹 Method: {request.method}")
-    response = await call_next(request)
-    logging.info(f"🔹 Response status: {response.status_code}")
-    return response
-
+    return await call_next(request)
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
-async def get_supabase_client():
-    client = httpx.AsyncClient(
-        base_url=f"{SUPABASE_URL}/rest/v1",
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=30.0
-    )
-    try:
-        yield client
-    finally:
-        await client.aclose()
+async def get_supabase_client() -> httpx.AsyncClient:
+    # Если вдруг lifespan не сработал (редкость, но защита для Serverless)
+    global global_http_client
+    
+    if global_http_client is None or global_http_client.is_closed:
+        logging.warning("⚠️ Глобальный клиент был закрыт или не создан. Создаем аварийный.")
+        global_http_client = httpx.AsyncClient(
+            base_url=f"{SUPABASE_URL}/rest/v1",
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+            timeout=30.0
+        )
+        
+    # Просто возвращаем готовый клиент. Никаких yield и aclose здесь!
+    return global_http_client
 
 # --- Utils ---
 def encode_cookie(value: dict) -> str:
