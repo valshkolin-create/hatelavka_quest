@@ -3713,72 +3713,77 @@ if (dom.settingQuestScheduleOverride) {
            // --- 🛡️ САМЫЙ НАДЕЖНЫЙ ВАРИАНТ УДАЛЕНИЯ (ЧЕРЕЗ GLOBAL LOADER) ---
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
-                // Предотвращаем лишние клики
                 event.preventDefault();
                 event.stopPropagation();
 
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
 
-                // 1. Задержка 100мс (лечит баг Telegram с залипанием тача)
+                // Задержка 100мс для корректной работы тача в Telegram
                 setTimeout(() => {
-                    tg.showConfirm('Удалить эту покупку безвозвратно?', async (ok) => {
-                        if (!ok) return; // Если передумал — выходим моментально
+                    tg.showConfirm('Удалить безвозвратно?', (ok) => {
+                        if (!ok) return;
 
-                        // 2. Включаем защиту экрана
-                        showLoader();
-
-                        try {
-                            // 3. Отправляем запрос на удаление
-                            // Мы НЕ ждем перезагрузки списка, только подтверждение удаления
-                            await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { 
-                                purchase_id: parseInt(purchaseId) 
-                            }, 'POST', true);
+                        // 1. 🔥 МГНОВЕННОЕ ВИЗУАЛЬНОЕ УДАЛЕНИЕ (Не ждем сервера!)
+                        const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                        if (itemDiv) {
+                            // Анимация ухода вправо
+                            itemDiv.style.transition = 'all 0.3s ease-out';
+                            itemDiv.style.transform = 'translateX(100%)'; // Улетает вправо
+                            itemDiv.style.opacity = '0';
                             
-                            // 4. 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ:
-                            // Мы НЕ вызываем openTwitchPurchases(). Это убивало базу.
-                            // Мы просто удаляем элемент из HTML.
-                            const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                            if (itemDiv) {
-                                // Красивая анимация удаления
-                                itemDiv.style.transition = 'all 0.3s ease';
-                                itemDiv.style.opacity = '0';
-                                itemDiv.style.transform = 'translateX(20px)';
-                                setTimeout(() => itemDiv.remove(), 300);
-                            }
+                            // Удаляем из DOM через 300мс (время анимации)
+                            setTimeout(() => {
+                                if (itemDiv) itemDiv.remove();
+                                
+                                // Проверка: если список пуст, показать заглушку
+                                const container = document.getElementById('twitch-purchases-body');
+                                if (container && !container.querySelector('.purchase-item')) {
+                                    container.innerHTML = '<p style="text-align: center;">Нет покупок.</p>';
+                                }
+                            }, 300);
+                        }
 
-                            // 5. Обновляем счетчик (красный круг) локально
-                            const refreshBtn = document.getElementById('refresh-purchases-btn');
-                            const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
-                            
-                            if (currentRewardId) {
-                                const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
-                                if (rewardIcon) {
-                                    const badge = rewardIcon.querySelector('.notification-badge');
-                                    if (badge) {
-                                        let count = parseInt(badge.textContent) || 0;
-                                        count = Math.max(0, count - 1);
-                                        badge.textContent = count;
-                                        if (count === 0) badge.classList.add('hidden');
-                                    }
+                        // 2. 🔥 МГНОВЕННО ОБНОВЛЯЕМ СЧЕТЧИК (БЕЙДЖ)
+                        const refreshBtn = document.getElementById('refresh-purchases-btn');
+                        const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
+                        
+                        if (currentRewardId) {
+                            const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
+                            if (rewardIcon) {
+                                const badge = rewardIcon.querySelector('.notification-badge');
+                                if (badge) {
+                                    let count = parseInt(badge.textContent) || 0;
+                                    count = Math.max(0, count - 1);
+                                    badge.textContent = count;
+                                    if (count === 0) badge.classList.add('hidden');
                                 }
                             }
-
-                            // 6. Снимаем защиту
-                            hideLoader();
-                            tg.showPopup({ message: '✅ Удалено' });
-
-                        } catch (e) {
-                            console.error('Ошибка при удалении:', e);
-                            hideLoader();
-                            // Используем Popup вместо Alert, чтобы не конфликтовать с окнами
-                            tg.showPopup({ message: `Ошибка: ${e.message}` });
                         }
+
+                        // 3. 🔥 ОТПРАВЛЯЕМ ЗАПРОС В ФОНЕ (FIRE AND FORGET)
+                        // Мы НЕ ставим 'await', мы не блокируем интерфейс.
+                        // isSilent = true (без лоадера)
+                        makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { 
+                            purchase_id: parseInt(purchaseId) 
+                        }, 'POST', true)
+                        .then(() => {
+                            // Все отлично, сервер подтвердил удаление.
+                            // Можно показать маленький тост, если хочется, но необязательно.
+                            console.log(`Purchase ${purchaseId} deleted on server.`);
+                        })
+                        .catch((err) => {
+                            // ОШИБКА! Сервер не смог удалить.
+                            console.error('Ошибка удаления на сервере:', err);
+                            // Сообщаем админу, что данные рассинхронизированы
+                            tg.showAlert(`⚠️ Ошибка на сервере: ${err.message}. Обновите список.`);
+                        });
+                        
                     });
                 }, 100);
                 
                 return;
             }
-            // --- 🛡️ КОНЕЦ ---
+            // --- 🚀 КОНЕЦ БЛОКА ---
 
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
