@@ -3705,10 +3705,6 @@ if (dom.settingQuestScheduleOverride) {
                             if (itemDiv) itemDiv.remove();
                             tg.showAlert('Покупка успешно удалена.');
 
-                            // --- ДОБАВЬТЕ ЭТУ СТРОКУ ---
-                            updateTwitchBadgeCount(); 
-                            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
                         } catch (e) {
                             console.error('Ошибка при удалении покупки:', e);
                             tg.showAlert(`Ошибка при удалении: ${e.message}`);
