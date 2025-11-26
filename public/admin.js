@@ -3710,32 +3710,67 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
 
+           // --- 🔥 ИСПРАВЛЕННЫЙ БЛОК УДАЛЕНИЯ (С ПОЛНЫМ ОБНОВЛЕНИЕМ) ---
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
+                // 1. Блокируем кнопку, чтобы не нажать дважды
                 deletePurchaseBtn.disabled = true;
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
+                
                 tg.showConfirm('Вы уверены, что хотите удалить эту покупку? Действие необратимо.', async (ok) => {
                     if (ok) {
                         try {
+                            // 2. Удаляем на сервере
                             await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) });
-                            const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                            if (itemDiv) itemDiv.remove();
                             tg.showAlert('Покупка успешно удалена.');
+
+                            // 3. ПОЛУЧАЕМ ID НАГРАДЫ (чтобы обновить список)
+                            // Мы берем его из кнопки "Обновить", так как она хранит контекст текущего окна
+                            const refreshBtn = document.getElementById('refresh-purchases-btn');
+                            const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
+                            const currentRewardTitle = refreshBtn ? refreshBtn.dataset.rewardTitle : null;
+
+                            // 4. ПОЛНОСТЬЮ ПЕРЕЗАГРУЖАЕМ СПИСОК ПОКУПОК
+                            // Это создаст новые кнопки и сбросит любые зависания
+                            if (currentRewardId && currentRewardTitle) {
+                                await openTwitchPurchases(currentRewardId, currentRewardTitle);
+                            } else {
+                                // Фоллбэк: если вдруг ID не нашли, просто удаляем строку (старый метод)
+                                const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                                if (itemDiv) itemDiv.remove();
+                            }
+
+                            // 5. ОБНОВЛЯЕМ СЧЕТЧИК (БЕЙДЖ) НА ИКОНКЕ В МЕНЮ
+                            if (currentRewardId) {
+                                // Ищем иконку этой награды в сетке
+                                const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
+                                if (rewardIcon) {
+                                    const badge = rewardIcon.querySelector('.notification-badge');
+                                    if (badge) {
+                                        let count = parseInt(badge.textContent) || 0;
+                                        // Уменьшаем на 1, но не ниже 0
+                                        count = Math.max(0, count - 1);
+                                        badge.textContent = count;
+                                        // Если стало 0, скрываем бейдж
+                                        if (count === 0) badge.classList.add('hidden');
+                                    }
+                                }
+                            }
 
                         } catch (e) {
                             console.error('Ошибка при удалении покупки:', e);
                             tg.showAlert(`Ошибка при удалении: ${e.message}`);
+                            // Если ошибка, разблокируем кнопку (т.к. перезагрузки списка не произошло)
                             deletePurchaseBtn.disabled = false;
                         }
-                    }
-                    // --- 👇 ДОБАВЬ ЭТОТ БЛОК 'else' 👇 ---
-                    else {
+                    } else {
+                        // Если нажали "Отмена", обязательно разблокируем кнопку!
                         deletePurchaseBtn.disabled = false;
                     }
-                    // --- 👆 КОНЕЦ 👆 ---
                 });
                 return;
             }
+            // --- 🔥 КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
 
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
