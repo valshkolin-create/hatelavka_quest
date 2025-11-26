@@ -4855,7 +4855,8 @@ async def get_user_rewards(
             "/manual_grants",
             params={
                 "user_id": f"eq.{user_id}",
-                "select": "created_at, grant_type, amount"
+                # 👇 ДОБАВЛЕНО 'id' В ЗАПРОС 👇
+                "select": "id, created_at, grant_type, amount"
             }
         )
         grants = grants_resp.json()
