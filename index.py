@@ -4879,6 +4879,26 @@ async def get_user_rewards(
 # --- ИСПРАВЛЕННЫЙ ЭНДПОИНТ ДЛЯ КВЕСТОВ ---
 # --- ИСПРАВЛЕННАЯ ВЕРСИЯ ФУНКЦИИ (УДАЛЕНА ПРОВЕРКА .error) ---
 
+@app.post("/api/v1/user/grants/delete-all")
+async def delete_all_manual_grants(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Удаляет ВСЕ записи о ручной выдаче для текущего пользователя."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    
+    # Удаляем все записи из manual_grants для этого юзера
+    await supabase.delete(
+        "/manual_grants",
+        params={"user_id": f"eq.{telegram_id}"}
+    )
+    
+    return {"message": "Все записи о выдаче удалены."}
+
 @app.post("/api/v1/user/grants/delete")
 async def delete_manual_grant(
     request_data: GrantDeleteRequest,
