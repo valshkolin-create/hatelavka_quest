@@ -4873,6 +4873,33 @@ async def get_user_rewards(
 
 # --- ИСПРАВЛЕННЫЙ ЭНДПОИНТ ДЛЯ КВЕСТОВ ---
 # --- ИСПРАВЛЕННАЯ ВЕРСИЯ ФУНКЦИИ (УДАЛЕНА ПРОВЕРКА .error) ---
+
+class GrantDeleteRequest(BaseModel):
+    initData: str
+    id: int
+
+@app.post("/api/v1/user/grants/delete")
+async def delete_manual_grant(
+    request_data: GrantDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    
+    # Удаляем запись о гранте, но только если она принадлежит этому пользователю
+    await supabase.delete(
+        "/manual_grants",
+        params={
+            "id": f"eq.{request_data.id}",
+            "user_id": f"eq.{telegram_id}"
+        }
+    )
+    
+    return {"message": "Запись удалена."}
+
 @app.post("/api/v1/promocode")
 async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали Depends
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
