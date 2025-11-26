@@ -69,6 +69,25 @@ twitch_settings_cache = {
 }
 TWITCH_CACHE_TTL = 300  # Обновлять кэш раз в 5 минут
 
+# --- Глобальный клиент для фоновых задач (ВСТАВИТЬ В НАЧАЛО ФАЙЛА) ---
+_background_supabase_client: Optional[httpx.AsyncClient] = None
+
+async def get_background_client():
+    """Возвращает живучий клиент для фоновых задач"""
+    global _background_supabase_client
+    
+    # Если клиента нет или он закрыт — создаем новый
+    if _background_supabase_client is None or _background_supabase_client.is_closed:
+        # keepalive_expiry=60 держит соединение открытым 60 секунд
+        limits = httpx.Limits(max_keepalive_connections=5, max_connections=10, keepalive_expiry=60)
+        _background_supabase_client = httpx.AsyncClient(
+            base_url=f"{SUPABASE_URL}/rest/v1",
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+            timeout=10.0, 
+            limits=limits
+        )
+    return _background_supabase_client
+
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
     initData: str
@@ -5084,11 +5103,24 @@ async def get_or_assign_user_challenge(
             error_msg = error_json.get("message", "")
             
             if "COOLDOWN" in error_msg:
-                # Сообщение вида: "COOLDOWN: 2025-11-27 10:00:00+00"
                 date_part = error_msg.split(": ", 1)[1] if ": " in error_msg else ""
+                
+                # Попробуем сделать дату читаемой
+                readable_date = date_part
+                try:
+                    # Парсим строку времени
+                    dt = datetime.fromisoformat(date_part.replace('Z', '+00:00'))
+                    # Конвертируем в читаемый формат (ДД.ММ.ГГГГ ЧЧ:ММ)
+                    readable_date = dt.strftime("%d.%m.%Y %H:%M")
+                except ValueError:
+                    pass # Если не вышло, оставляем как есть
+
                 return JSONResponse(
                     status_code=429, 
-                    content={"detail": "Кулдаун активен", "cooldown_until": date_part}
+                    content={
+                        "detail": f"Следующий челлендж можно взять: {readable_date} (UTC)",
+                        "cooldown_until": date_part
+                    }
                 )
             if "NO_CHALLENGES_AVAILABLE" in error_msg:
                 return JSONResponse(status_code=404, content={"message": "Для вас пока нет новых челленджей."})
