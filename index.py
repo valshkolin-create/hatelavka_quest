@@ -4433,7 +4433,9 @@ async def claim_challenge(
 
         # 2. Начисляем билет из таблицы reward_rules
         try:
-             ticket_amount = await get_ticket_reward_amount("challenge_completion", supabase)
+             # ИСПРАВЛЕНИЕ: используем _global и убираем аргумент supabase
+             ticket_amount = await get_ticket_reward_amount_global("challenge_completion")
+             
              if ticket_amount > 0:
                  await supabase.post(
                      "/rpc/increment_tickets",
