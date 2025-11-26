@@ -305,7 +305,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* --- Кастомное диалоговое окно --- */
+        /* --- Кастомное диалоговое окно (Trade Link и др.) --- */
         .custom-popup-overlay {
             position: fixed;
             top: 0;
@@ -429,7 +429,17 @@
         }
         .reward-how-to-use-btn:active {
             transform: scale(0.96);
-        }   
+        }
+
+        /* --- Анимации и стили для кастомного конфирма (из admin.js) --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .custom-confirm-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px); animation: fadeIn 0.2s;
+        }
     </style>
 </head>
 <body>
@@ -522,6 +532,52 @@ try {
 
     const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
     const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
+
+    // --- 🎨 УНИВЕРСАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ (Как в admin.js) ---
+    function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
+        // 1. Затемнение
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-confirm-overlay';
+        
+        // 2. Окно
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px; padding: 24px; width: 85%; max-width: 320px;
+            text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            transform: scale(0.95); animation: popIn 0.2s forwards;
+        `;
+
+        // 3. Контент
+        box.innerHTML = `
+            <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3>
+            <div style="display: flex; gap: 12px;">
+                <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button>
+                <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: white; font-size: 16px; font-weight: 600; cursor: pointer;">${btnText}</button>
+            </div>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // 4. Логика
+        const close = () => { 
+            overlay.style.opacity = '0'; // Анимация исчезновения
+            setTimeout(() => overlay.remove(), 200);
+        };
+
+        overlay.querySelector('#custom-cancel-btn').onclick = close;
+        
+        const confirmBtn = overlay.querySelector('#custom-confirm-btn');
+        confirmBtn.onclick = () => {
+            // Визуальный эффект нажатия
+            confirmBtn.style.opacity = '0.7';
+            confirmBtn.textContent = '...';
+            onConfirmCallback(close);
+        };
+
+        overlay.onclick = (e) => { if(e.target === overlay) close(); };
+    }
 
     async function makeApiRequest(url, body = {}) {
         const loaderTimeout = setTimeout(showLoader, 300);
@@ -619,7 +675,6 @@ try {
             return;
         }
         
-        // Показываем кнопку "Удалить все", если есть хоть какие-то награды
         dom.deleteAllRewardsBtn.style.display = 'block';
 
         rewards.forEach(rewardItem => {
@@ -656,9 +711,8 @@ try {
                     </div>`;
             } 
             else if (rewardType === 'grant') {
-                // Добавляем ID и тип для ручной выдачи
                 card.dataset.type = 'grant';
-                card.dataset.id = rewardData.id; // Предполагаем, что у гранта есть ID
+                card.dataset.id = rewardData.id; // ID записи для удаления
 
                 const grantType = rewardData.grant_type === 'tickets' ? 'билетов' : 'звёзд';
                 const icon = rewardData.grant_type === 'tickets' ? 'fa-ticket' : 'fa-star';
@@ -713,16 +767,16 @@ try {
 
     // --- Обработчики событий ---
     dom.deleteAllRewardsBtn.addEventListener('click', () => {
-        tg.showConfirm("Вы уверены, что хотите удалить ВСЕ свои промокоды и записи о наградах?", async (ok) => {
-            if (ok) {
-                // Сначала удаляем промокоды
-                await makeApiRequest('/api/v1/user/promocodes/delete-all');
-                // Затем удаляем гранты (нужен соответствующий эндпоинт на бэкенде)
-                // await makeApiRequest('/api/v1/user/grants/delete-all'); 
-                
-                renderRewards([]);
-                tg.showAlert('История наград очищена.');
-            }
+        showCustomConfirmHTML("Вы уверены, что хотите удалить ВСЕ свои промокоды и записи о наградах?", async (close) => {
+            // Сначала удаляем промокоды
+            await makeApiRequest('/api/v1/user/promocodes/delete-all');
+            // Затем удаляем гранты (если есть такой эндпоинт массового удаления, 
+            // но в базовой версии его нет, поэтому пока только промокоды)
+            // await makeApiRequest('/api/v1/user/grants/delete-all'); 
+            
+            renderRewards([]);
+            close();
+            tg.showAlert('История наград очищена.');
         });
     });
 
@@ -757,26 +811,22 @@ try {
             return;
         }
         
-        // --- ИСПРАВЛЕННЫЙ ОБРАБОТЧИК УДАЛЕНИЯ ---
         const deleteBtn = target.closest('.reward-card-delete-btn');
         if (deleteBtn) {
             const card = deleteBtn.closest('.reward-card');
-            const type = card.dataset.type; // Получаем тип (promocode или grant)
+            const type = card.dataset.type;
 
             if (type === 'promocode') {
-                tg.showConfirm("Удалить этот промокод?", async (ok) => {
-                    if (ok) {
-                        await makeApiRequest('/api/v1/user/promocodes/delete', { code: card.dataset.code });
-                        removeCardFromDom(card);
-                    }
+                showCustomConfirmHTML("Удалить этот промокод?", async (close) => {
+                    await makeApiRequest('/api/v1/user/promocodes/delete', { code: card.dataset.code });
+                    removeCardFromDom(card);
+                    close();
                 });
             } else if (type === 'grant') {
-                tg.showConfirm("Скрыть эту запись о выдаче?", async (ok) => {
-                    if (ok) {
-                        // ВЫЗЫВАЕМ НОВЫЙ ЭНДПОИНТ (Его нужно добавить в Python)
-                        await makeApiRequest('/api/v1/user/grants/delete', { id: card.dataset.id });
-                        removeCardFromDom(card);
-                    }
+                showCustomConfirmHTML("Скрыть эту запись о выдаче?", async (close) => {
+                    await makeApiRequest('/api/v1/user/grants/delete', { id: parseInt(card.dataset.id) });
+                    removeCardFromDom(card);
+                    close();
                 });
             }
             return;
@@ -784,13 +834,12 @@ try {
         
         const unlinkBtn = target.closest('#unlink-twitch-btn');
         if (unlinkBtn) {
-            tg.showConfirm("Отвязать аккаунт Twitch?", async (ok) => {
-                if (ok) {
-                    await makeApiRequest('/api/v1/user/twitch/unlink');
-                    main();
-                    tg.showAlert('Аккаунт Twitch отвязан.');
-                }
-            });
+            showCustomConfirmHTML("Отвязать аккаунт Twitch?", async (close) => {
+                await makeApiRequest('/api/v1/user/twitch/unlink');
+                main();
+                close();
+                tg.showAlert('Аккаунт Twitch отвязан.');
+            }, 'Отвязать');
             return;
         }
 
