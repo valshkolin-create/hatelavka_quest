@@ -493,6 +493,10 @@ class WeeklyRunSettingsUpdateRequest(BaseModel):
     initData: str
     # 🔽 v3: Модель настроек теперь отдельная 🔽
     settings: WeeklyRunSettings
+
+class GrantDeleteRequest(BaseModel):
+    initData: str
+    id: int
 # --- 🔼 КОНЕЦ НОВЫХ МОДЕЛЕЙ 🔼 ---
 
 
@@ -4873,10 +4877,6 @@ async def get_user_rewards(
 
 # --- ИСПРАВЛЕННЫЙ ЭНДПОИНТ ДЛЯ КВЕСТОВ ---
 # --- ИСПРАВЛЕННАЯ ВЕРСИЯ ФУНКЦИИ (УДАЛЕНА ПРОВЕРКА .error) ---
-
-class GrantDeleteRequest(BaseModel):
-    initData: str
-    id: int
 
 @app.post("/api/v1/user/grants/delete")
 async def delete_manual_grant(
