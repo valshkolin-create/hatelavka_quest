@@ -6835,8 +6835,7 @@ async def grant_stars_to_user(
         raise HTTPException(status_code=500, detail="Не удалось выдать билеты.")
 
 @app.get("/api/v1/content/menu")
-async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)): 
-    # logging.info("--- 1. ЗАПУСК /api/v1/content/menu ---") # Отключаем лишние логи для экономии IO
+async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png",
@@ -6855,7 +6854,7 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
     
     is_admin = False
     
-    # Оптимизация 1: Проверка админа (быстрая, без запросов)
+    # 1. Быстрая проверка админа (синхронно)
     try:
         init_data_header = request.headers.get("X-Init-Data")
         if init_data_header:
@@ -6866,16 +6865,38 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         pass
 
     try:
-        # Оптимизация 2: Параллельный запуск запросов
-        # Мы готовим задачи, но не ждем их по очереди
-        settings_task = supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
+        # --- 2. ПОДГОТОВКА И ЗАПУСК ПАРАЛЛЕЛЬНЫХ ЗАПРОСОВ ---
         
-        # Получаем настройки
-        settings_resp = await settings_task
-        settings = settings_resp.json()[0].get('value', {}) if settings_resp.json() else {}
+        # A. Настройки аукциона (должны быть выполнены в отдельном запросе)
+        auction_params = {
+            "select": "id,title,image_url",
+            "order": "created_at.desc",
+            "limit": 1
+        }
+        if not is_admin:
+            auction_params["is_active"] = "eq.true"
+            auction_params["is_visible"] = "eq.true"
+            
+        # Запускаем две асинхронные задачи ПАРАЛЛЕЛЬНО:
+        # 1. Получение настроек (с использованием кэша!)
+        settings_task = get_admin_settings_async_global()
+        # 2. Получение данных аукциона (безусловно, для скорости)
+        auction_task = supabase.get("auctions", params=auction_params)
 
-        # Формируем ответ из настроек
-        # Используем твой "чистый" код с циклом здесь
+        # Ждем завершения обеих задач
+        admin_settings_pydantic, auction_resp = await asyncio.gather(settings_task, auction_task)
+
+        # --- 3. ОБРАБОТКА РЕЗУЛЬТАТОВ ---
+        
+        # A. Настройки (из Pydantic модели)
+        settings = admin_settings_pydantic.dict() if admin_settings_pydantic else defaults
+        
+        # B. Данные аукциона
+        auction_resp.raise_for_status() # Проверяем, что запрос аукциона успешен
+        auction_data = auction_resp.json()
+        auction_slide_data = auction_data[0] if auction_data else None
+
+        # C. Логика формирования slider_order (Ваш существующий код)
         loaded_order = settings.get("slider_order", defaults["slider_order"])
         all_known_slides = ["skin_race", "cauldron", "auction", "checkpoint", "weekly_goals"]
         existing_slides_set = set(loaded_order)
@@ -6885,24 +6906,7 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
 
         auction_enabled = settings.get("auction_enabled", defaults["auction_enabled"])
 
-        # Оптимизация 3: Запрос аукциона только если реально нужно
-        auction_slide_data = None
-        if auction_enabled or is_admin:
-            auction_params = {
-                "select": "id,title,image_url",
-                "order": "created_at.desc",
-                "limit": 1
-            }
-            if not is_admin:
-                auction_params["is_active"] = "eq.true"
-                auction_params["is_visible"] = "eq.true"
-            
-            # Делаем запрос только сейчас
-            auction_resp = await supabase.get("auctions", params=auction_params)
-            auction_data = auction_resp.json()
-            if auction_data:
-                auction_slide_data = auction_data[0]
-
+        # --- 4. ВОЗВРАТ РЕЗУЛЬТАТА ---
         return {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
             "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
@@ -6919,7 +6923,9 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
         }
 
     except Exception as e:
-        logging.error(f"[content/menu] Error: {e}")
+        # Логируем ошибку, если она произошла
+        logging.error(f"[content/menu] Error: {e}", exc_info=True)
+        # И возвращаем дефолтные значения, чтобы меню не сломалось
         return defaults
 
 @app.post("/api/v1/user/weekly_goals")
