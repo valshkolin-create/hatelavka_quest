@@ -3694,28 +3694,35 @@ async def get_twitch_reward_purchases(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Получает список покупок напрямую из таблицы (чтобы видеть все новые поля, включая viewed_by_admin_name).
+    Получает список покупок напрямую через HTTP-запрос к таблице
+    (чтобы видеть все новые поля, включая viewed_by_admin_name).
     """
     try:
-        # 1. 🔥 ИЗМЕНЕНИЕ: Запрашиваем таблицу НАПРЯМУЮ вместо RPC
-        # Это гарантирует, что мы получим поле 'viewed_by_admin_name' и любые другие новые поля
-        purchases_response = await supabase.from_("twitch_reward_purchases") \
-            .select("*") \
-            .eq("reward_id", reward_id) \
-            .order("created_at", desc=True) \
-            .execute()
-        
-        # В новой версии библиотеки httpx/postgrest данные лежат в .data
-        purchases_data = purchases_response.data
+        # 1. 🔥 ИЗМЕНЕНИЕ: Используем .get() вместо .from_()
+        # Запрашиваем таблицу twitch_reward_purchases
+        purchases_response = await supabase.get(
+            "/twitch_reward_purchases",
+            params={
+                "reward_id": f"eq.{reward_id}",
+                "select": "*",               # Забираем ВСЕ колонки
+                "order": "created_at.desc"   # Сортируем: новые сверху
+            }
+        )
+        purchases_response.raise_for_status()
+        purchases_data = purchases_response.json()
 
-        # 2. Получаем настройки награды
-        reward_settings_response = await supabase.from_("twitch_rewards") \
-            .select("*") \
-            .eq("id", reward_id) \
-            .limit(1) \
-            .execute()
+        # 2. Запрашиваем настройки награды (тоже через .get)
+        reward_settings_response = await supabase.get(
+            "/twitch_rewards",
+            params={
+                "id": f"eq.{reward_id}",
+                "select": "*",
+                "limit": 1
+            }
+        )
+        reward_settings_response.raise_for_status()
         
-        reward_settings_data = reward_settings_response.data
+        reward_settings_data = reward_settings_response.json()
         if not reward_settings_data:
             raise HTTPException(status_code=404, detail="Настройки для этой награды не найдены.")
         
