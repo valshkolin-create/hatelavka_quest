@@ -254,7 +254,7 @@
 
   let currentUser = null;
 
-  // 1. Загружаем данные пользователя из БД (fallback)
+  // 1. Загружаем данные пользователя из БД (базовые данные)
   async function loadCurrentUser() {
       try {
           const response = await fetch('/api/v1/user/me', {
@@ -264,7 +264,8 @@
           });
           if (response.ok) {
               currentUser = await response.json();
-              updatePersonalStats(null); // Сначала показываем данные из БД
+              // Первичная отрисовка (пока грузится таблица, показываем то, что есть в базе)
+              updatePersonalStats(null); 
           }
       } catch (e) {
           console.error("Ошибка загрузки профиля:", e);
@@ -272,23 +273,35 @@
       }
   }
 
-  // 2. Обновляем UI (принимаем realTimeValue если нашли его в списке Wizebot)
+  // 2. Обновляем плашку статистики
+  // realTimeValue - это значение, найденное прямо в таблице лидерборда.
+  // Если оно передано (не null), мы используем ЕГО (приоритет).
+  // Если null — используем данные из currentUser (база данных).
   function updatePersonalStats(realTimeValue = null) {
       if (!currentUser) return;
 
-      // --- TELEGRAM (Всегда из БД) ---
+      // --- TELEGRAM ---
       if (state.source === 'telegram') {
           dom.tgUserName.textContent = `Вы: ${currentUser.full_name || currentUser.username || 'Пользователь'}`;
+          
           let val = 0;
-          if (state.telegramPeriod === 'day') val = currentUser.telegram_daily_message_count || 0;
-          else if (state.telegramPeriod === 'week') val = currentUser.telegram_weekly_message_count || 0;
-          else if (state.telegramPeriod === 'month') val = currentUser.telegram_monthly_message_count || 0;
-          else if (state.telegramPeriod === 'all') val = currentUser.telegram_total_message_count || 0;
+          let isFromTable = false;
+
+          if (realTimeValue !== null) {
+              val = realTimeValue;
+              isFromTable = true;
+          } else {
+              // Фолбек на базу данных (если в топе не нашли)
+              if (state.telegramPeriod === 'day') val = currentUser.telegram_daily_message_count || 0;
+              else if (state.telegramPeriod === 'week') val = currentUser.telegram_weekly_message_count || 0;
+              else if (state.telegramPeriod === 'month') val = currentUser.telegram_monthly_message_count || 0;
+              else if (state.telegramPeriod === 'all') val = currentUser.telegram_total_message_count || 0;
+          }
 
           dom.tgUserStat.innerHTML = `Ваш результат: <span>${val} сообщений</span>`;
       } 
       
-      // --- TWITCH (Гибридный режим) ---
+      // --- TWITCH ---
       else {
           if (!currentUser.twitch_login) {
               dom.twitchUserName.textContent = "Вы: Twitch не привязан";
@@ -299,20 +312,20 @@
           dom.twitchUserName.textContent = `Вы: ${currentUser.twitch_login}`;
           
           let val = 0;
-          let isRealTime = false;
+          let isFromTable = false;
 
-          // Если передано значение из Wizebot (мы нашли себя в списке) - используем его
           if (realTimeValue !== null) {
               val = realTimeValue;
-              isRealTime = true;
+              isFromTable = true;
           } else {
-              // Иначе берем из базы (задержка)
+              // Фолбек на базу данных
               if (state.twitchMetric === 'message') {
                   if (state.twitchPeriod === 'session') val = currentUser.daily_message_count || 0;
                   else if (state.twitchPeriod === 'week') val = currentUser.weekly_message_count || 0;
                   else if (state.twitchPeriod === 'month') val = currentUser.monthly_message_count || 0;
                   else val = currentUser.total_message_count || 0;
               } else if (state.twitchMetric === 'uptime') {
+                  // В базе храним минуты
                   if (state.twitchPeriod === 'session') val = currentUser.daily_uptime_minutes || 0;
                   else if (state.twitchPeriod === 'week') val = currentUser.weekly_uptime_minutes || 0;
                   else if (state.twitchPeriod === 'month') val = currentUser.monthly_uptime_minutes || 0;
@@ -320,19 +333,20 @@
               }
           }
 
-          // Форматирование
+          // Форматирование вывода
           if (state.twitchMetric === 'message') {
               dom.twitchUserStat.innerHTML = `Ваш результат: <span>${val} сообщений</span>`;
           } else if (state.twitchMetric === 'uptime') {
-              // Если данные RealTime (Wizebot), они приходят в СЕКУНДАХ. 
-              // Если из БД (Backfill), они в МИНУТАХ.
-              // Нам нужно привести к одному виду.
+              // Если данные из таблицы (Wizebot), они обычно в секундах.
+              // Если из базы (наши), они в минутах.
+              // Но если вы используете мой код для Twitch, там уже идет конвертация.
+              // Для надежности: если из таблицы (realTime) - считаем секундами. Если из базы - минутами.
               
               let displayVal = "";
-              if (isRealTime) {
-                  displayVal = formatUptime(val); // Wizebot дает секунды
+              if (isFromTable) {
+                  displayVal = formatUptime(val); // Wizebot (секунды)
               } else {
-                  displayVal = formatUptime(val * 60); // БД дает минуты, умножаем на 60
+                  displayVal = formatUptime(val * 60); // База (минуты -> секунды)
               }
               dom.twitchUserStat.innerHTML = `Ваш результат: <span>${displayVal}</span>`;
           } else {
@@ -354,6 +368,7 @@
   function updateUI() {
       dom.infoBoxTelegram.classList.toggle('hidden', state.source !== 'telegram');
       dom.telegramPeriods.classList.toggle('hidden', state.source !== 'telegram');
+      
       dom.infoBoxTwitch.classList.toggle('hidden', state.source !== 'twitch');
       dom.twitchMetricButtons.classList.toggle('hidden', state.source !== 'twitch');
       
@@ -369,7 +384,7 @@
               case 'ranks': dom.tableHeader.textContent = 'Ранг (PTS)'; break;
           }
       }
-      // При переключении сбрасываем на "базовые" значения из БД, пока грузится список
+      // При переключении вкладок сбрасываем "найденное" значение, показываем из БД
       updatePersonalStats(null);
   }
 
@@ -395,23 +410,37 @@
       const data = await response.json();
       const leaderboardData = Array.isArray(data) ? data : data.leaderboard;
 
-      // --- МАГИЯ ЗЕРКАЛИРОВАНИЯ ---
-      // Ищем себя в списке, который пришел от Wizebot
+      // --- УНИВЕРСАЛЬНОЕ ЗЕРКАЛИРОВАНИЕ ---
+      // Ищем текущего юзера в загруженном списке
       let myRealTimeStat = null;
-      if (state.source === 'twitch' && currentUser && currentUser.twitch_login && Array.isArray(leaderboardData)) {
-          const myLogin = currentUser.twitch_login.toLowerCase();
-          // Wizebot отдает user_name
-          const me = leaderboardData.find(entry => 
-              (entry.user_name || entry.username || "").toLowerCase() === myLogin
-          );
+      
+      if (currentUser && Array.isArray(leaderboardData)) {
+          const myTgId = currentUser.telegram_id; // Наш ID из базы
+          const myTwitchLogin = currentUser.twitch_login ? currentUser.twitch_login.toLowerCase() : null;
+
+          const me = leaderboardData.find(entry => {
+              // 1. Поиск в TELEGRAM (сравниваем ID)
+              if (state.source === 'telegram' && myTgId) {
+                  // API может возвращать разные поля ID, проверяем все возможные
+                  return (entry.telegram_id == myTgId) || (entry.user_id == myTgId) || (entry.id == myTgId);
+              }
+              // 2. Поиск в TWITCH (сравниваем Логин)
+              if (state.source === 'twitch' && myTwitchLogin) {
+                  const entryName = (entry.user_name || entry.username || "").toLowerCase();
+                  return entryName === myTwitchLogin;
+              }
+              return false;
+          });
+
           if (me) {
-              // Нашли себя! Берем значение (value)
-              myRealTimeStat = me.value !== undefined ? parseInt(me.value) : (me.total_activity || 0);
+              // Если нашли себя в списке — берем значение оттуда!
+              myRealTimeStat = me.total_activity ?? me.value ?? me.messages_count ?? 0;
           }
       }
-      // Обновляем плашку с учетом найденного (или не найденного) значения
+      
+      // Обновляем плашку. Если myRealTimeStat !== null, то покажет правильное число из таблицы.
       updatePersonalStats(myRealTimeStat);
-      // -----------------------------
+      // --------------------------------------
 
       if (!Array.isArray(leaderboardData) || leaderboardData.length === 0) {
         dom.loader.textContent = 'Нет данных.';
