@@ -7656,19 +7656,45 @@ async def delete_twitch_reward_purchase(
     request_data: TwitchPurchaseDeleteRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Удаляет одну конкретную покупку Twitch награды."""
+    """(Админ) Удаляет одну покупку с замером времени."""
+    
+    # 1. Засекаем время старта
+    start_time = time.time()
+    purchase_id = request_data.purchase_id
+    
+    logging.info(f"🗑️ [DELETE START] Поступил запрос на удаление ID: {purchase_id}")
+
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
+        logging.warning(f"⛔ [DELETE ACCESS DENIED] User: {user_info.get('id') if user_info else 'None'}")
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    purchase_id_to_delete = request_data.purchase_id
+    try:
+        # 2. Отправляем запрос в базу
+        logging.info(f"⏳ [DELETE DB] Отправляю запрос в Supabase для ID: {purchase_id}...")
+        
+        db_start = time.time()
+        response = await supabase.delete(
+            "/twitch_reward_purchases",
+            params={"id": f"eq.{purchase_id}"}
+        )
+        db_duration = time.time() - db_start
+        
+        # 3. Проверяем ответ базы
+        if response.status_code not in range(200, 300):
+            logging.error(f"❌ [DELETE ERROR] Supabase ответил ошибкой: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=response.status_code, detail=f"DB Error: {response.text}")
 
-    await supabase.delete(
-        "/twitch_reward_purchases",
-        params={"id": f"eq.{purchase_id_to_delete}"}
-    )
-    
-    return {"message": "Покупка успешно удалена."}
+        # 4. Фиксируем общее время
+        total_duration = time.time() - start_time
+        
+        logging.info(f"✅ [DELETE SUCCESS] Удалено ID: {purchase_id}. DB time: {db_duration:.4f}s. Total API time: {total_duration:.4f}s")
+        
+        return {"message": "Покупка успешно удалена."}
+
+    except Exception as e:
+        logging.error(f"🔥 [DELETE CRITICAL] Исключение при удалении ID {purchase_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/admin/roulette/prizes")
 async def get_roulette_prizes(
