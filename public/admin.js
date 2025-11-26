@@ -3710,67 +3710,66 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
 
-           // --- 🔥 ИСПРАВЛЕННЫЙ БЛОК УДАЛЕНИЯ (С ПОЛНЫМ ОБНОВЛЕНИЕМ) ---
+           // --- 🛡️ САМЫЙ НАДЕЖНЫЙ ВАРИАНТ УДАЛЕНИЯ (ЧЕРЕЗ GLOBAL LOADER) ---
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
-                // 1. Блокируем кнопку, чтобы не нажать дважды
-                deletePurchaseBtn.disabled = true;
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
                 
+                // 1. Спрашиваем подтверждение
                 tg.showConfirm('Вы уверены, что хотите удалить эту покупку? Действие необратимо.', async (ok) => {
-                    if (ok) {
-                        try {
-                            // 2. Удаляем на сервере
-                            await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) });
-                            tg.showAlert('Покупка успешно удалена.');
+                    if (!ok) return; // Если нажали "Отмена" — просто выходим, ничего не блокируя
 
-                            // 3. ПОЛУЧАЕМ ID НАГРАДЫ (чтобы обновить список)
-                            // Мы берем его из кнопки "Обновить", так как она хранит контекст текущего окна
-                            const refreshBtn = document.getElementById('refresh-purchases-btn');
-                            const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
-                            const currentRewardTitle = refreshBtn ? refreshBtn.dataset.rewardTitle : null;
+                    // 2. Если нажали "ОК" — ВКЛЮЧАЕМ ГЛОБАЛЬНУЮ БЛОКИРОВКУ
+                    // Это не даст нажать что-то еще, пока мы не закончим
+                    showLoader(); 
 
-                            // 4. ПОЛНОСТЬЮ ПЕРЕЗАГРУЖАЕМ СПИСОК ПОКУПОК
-                            // Это создаст новые кнопки и сбросит любые зависания
-                            if (currentRewardId && currentRewardTitle) {
-                                await openTwitchPurchases(currentRewardId, currentRewardTitle);
-                            } else {
-                                // Фоллбэк: если вдруг ID не нашли, просто удаляем строку (старый метод)
-                                const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                                if (itemDiv) itemDiv.remove();
-                            }
+                    try {
+                        // 3. Удаляем на сервере (передаем true, чтобы не дублировать лоадер внутри)
+                        await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) }, 'POST', true);
+                        
+                        // 4. Определяем контекст для обновления
+                        const refreshBtn = document.getElementById('refresh-purchases-btn');
+                        const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
+                        const currentRewardTitle = refreshBtn ? refreshBtn.dataset.rewardTitle : null;
 
-                            // 5. ОБНОВЛЯЕМ СЧЕТЧИК (БЕЙДЖ) НА ИКОНКЕ В МЕНЮ
-                            if (currentRewardId) {
-                                // Ищем иконку этой награды в сетке
-                                const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
-                                if (rewardIcon) {
-                                    const badge = rewardIcon.querySelector('.notification-badge');
-                                    if (badge) {
-                                        let count = parseInt(badge.textContent) || 0;
-                                        // Уменьшаем на 1, но не ниже 0
-                                        count = Math.max(0, count - 1);
-                                        badge.textContent = count;
-                                        // Если стало 0, скрываем бейдж
-                                        if (count === 0) badge.classList.add('hidden');
-                                    }
+                        // 5. ОБНОВЛЯЕМ СПИСОК
+                        if (currentRewardId && currentRewardTitle) {
+                            // Это перерисует весь HTML, создав новые, чистые кнопки
+                            await openTwitchPurchases(currentRewardId, currentRewardTitle);
+                        } else {
+                            // Фоллбэк (если вдруг контекст потерян)
+                            const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                            if (itemDiv) itemDiv.remove();
+                        }
+
+                        // 6. ОБНОВЛЯЕМ СЧЕТЧИК НА ГЛАВНОЙ (Бейдж)
+                        if (currentRewardId) {
+                            const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
+                            if (rewardIcon) {
+                                const badge = rewardIcon.querySelector('.notification-badge');
+                                if (badge) {
+                                    let count = parseInt(badge.textContent) || 0;
+                                    count = Math.max(0, count - 1);
+                                    badge.textContent = count;
+                                    if (count === 0) badge.classList.add('hidden');
                                 }
                             }
-
-                        } catch (e) {
-                            console.error('Ошибка при удалении покупки:', e);
-                            tg.showAlert(`Ошибка при удалении: ${e.message}`);
-                            // Если ошибка, разблокируем кнопку (т.к. перезагрузки списка не произошло)
-                            deletePurchaseBtn.disabled = false;
                         }
-                    } else {
-                        // Если нажали "Отмена", обязательно разблокируем кнопку!
-                        deletePurchaseBtn.disabled = false;
+
+                        tg.showAlert('Покупка успешно удалена.');
+
+                    } catch (e) {
+                        console.error('Ошибка при удалении:', e);
+                        tg.showAlert(`Ошибка: ${e.message}`);
+                    } finally {
+                        // 7. ВСЕГДА СНИМАЕМ БЛОКИРОВКУ В КОНЦЕ
+                        // Неважно, была ошибка или успех — интерфейс снова станет доступным
+                        hideLoader();
                     }
                 });
                 return;
             }
-            // --- 🔥 КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
+            // --- 🛡️ КОНЕЦ НАДЕЖНОГО БЛОКА ---
 
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
