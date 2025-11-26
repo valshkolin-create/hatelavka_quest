@@ -3685,30 +3685,70 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
             // Клик по иконке (Покупки)
-            const purchasesLink = target.closest('.reward-purchases-link');
-            if (purchasesLink) {
-                event.preventDefault(); // Предотвратить переход по ссылке #
-                const { rewardId, rewardTitle } = purchasesLink.dataset;
-                await openTwitchPurchases(rewardId, rewardTitle);
-                return;
-            }
-            
-            // Общий клик по иконке (Навигация) - должен быть ПОСЛЕ кнопок
-            const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
-            if (navButton && navButton.tagName.toLowerCase() !== 'a') {
+            const deletePurchaseBtn = target.closest('.delete-purchase-btn');
+            if (deletePurchaseBtn) {
+                // 1. Предотвращаем стандартное поведение и всплытие
                 event.preventDefault();
-                const view = navButton.dataset.view;
-                if (view) await switchView(view);
-                else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
-                else if (navButton.id === 'go-create-challenge') {
-                    dom.challengeForm.reset();
-                    dom.challengeForm.elements['challenge_id'].value = '';
-                    updateChallengeFormUI(dom.challengeForm);
-                    dom.challengeFormTitle.textContent = 'Новый челлендж';
-                    await switchView('view-admin-challenge-form');
-                }
+                event.stopPropagation();
+
+                const purchaseId = deletePurchaseBtn.dataset.purchaseId;
+
+                // 2. 🔥 ЗАДЕРЖКА 100мс: Лечит баг Telegram, когда окно не открывается с первого раза
+                setTimeout(() => {
+                    tg.showConfirm('Удалить эту покупку безвозвратно?', async (ok) => {
+                        if (!ok) return; // Если отмена — просто выходим, ничего не зависает
+
+                        // 3. Включаем глобальный лоадер (вместо блокировки кнопки)
+                        showLoader();
+
+                        try {
+                            // 4. Отправляем запрос на удаление
+                            await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { 
+                                purchase_id: parseInt(purchaseId) 
+                            }, 'POST', true);
+                            
+                            // 5. 🔥 ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ (Мгновенно удаляем строку)
+                            // Мы НЕ делаем перезагрузку всего списка (openTwitchPurchases), чтобы не ждать и не грузить сеть.
+                            const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                            if (itemDiv) {
+                                itemDiv.style.opacity = '0'; // Красивое исчезновение
+                                setTimeout(() => itemDiv.remove(), 300);
+                            }
+
+                            // 6. Обновляем красный кружок (бейдж) в меню
+                            const refreshBtn = document.getElementById('refresh-purchases-btn');
+                            const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
+                            
+                            if (currentRewardId) {
+                                const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
+                                if (rewardIcon) {
+                                    const badge = rewardIcon.querySelector('.notification-badge');
+                                    if (badge) {
+                                        let count = parseInt(badge.textContent) || 0;
+                                        count = Math.max(0, count - 1); // Уменьшаем на 1
+                                        badge.textContent = count;
+                                        if (count === 0) badge.classList.add('hidden');
+                                    }
+                                }
+                            }
+
+                            // 7. Снимаем лоадер
+                            hideLoader();
+                            
+                            // 8. Показываем легкое уведомление (не блокирующее)
+                            tg.showPopup({ message: '✅ Удалено' });
+
+                        } catch (e) {
+                            console.error('Ошибка при удалении:', e);
+                            hideLoader(); // Обязательно снимаем лоадер при ошибке
+                            tg.showPopup({ message: `Ошибка: ${e.message}` }); // Используем Popup, а не Alert, чтобы не было конфликтов
+                        }
+                    });
+                }, 100); // <-- Та самая задержка
+                
                 return;
             }
+            // --- 🛡️ КОНЕЦ ФИКСА ---
 
            // --- 🛡️ ИСПРАВЛЕННЫЙ БЛОК УДАЛЕНИЯ (БЕЗ КОНФЛИКТА ОКОН) ---
            const deletePurchaseBtn = target.closest('.delete-purchase-btn');
