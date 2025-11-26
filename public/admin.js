@@ -3711,64 +3711,70 @@ if (dom.settingQuestScheduleOverride) {
             }
 
            // --- 🛡️ ИСПРАВЛЕННЫЙ БЛОК УДАЛЕНИЯ (БЕЗ КОНФЛИКТА ОКОН) ---
-            const deletePurchaseBtn = target.closest('.delete-purchase-btn');
+           const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
+                // 1. Останавливаем всплытие событий, чтобы не было конфликтов
+                event.preventDefault();
+                event.stopPropagation();
+
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
-                
-                tg.showConfirm('Удалить эту покупку безвозвратно?', async (ok) => {
-                    if (!ok) return; 
 
-                    // Включаем защиту от кликов
-                    showLoader(); 
+                // 2. 🔥 МАГИЯ: Делаем небольшую паузу перед открытием окна.
+                // Это позволяет интерфейсу "разлипнуть" перед блокировкой.
+                setTimeout(() => {
+                    tg.showConfirm('Удалить эту покупку? Действие необратимо.', async (ok) => {
+                        if (!ok) return; // Если отмена - ничего не делаем, кнопка и так активна
 
-                    try {
-                        // 1. Удаляем
-                        await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) }, 'POST', true);
-                        
-                        // 2. Обновляем список (перерисовываем HTML)
-                        const refreshBtn = document.getElementById('refresh-purchases-btn');
-                        const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
-                        const currentRewardTitle = refreshBtn ? refreshBtn.dataset.rewardTitle : null;
+                        showLoader(); // Блокируем экран лоадером
 
-                        if (currentRewardId && currentRewardTitle) {
-                            await openTwitchPurchases(currentRewardId, currentRewardTitle);
-                        } else {
-                            const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                            if (itemDiv) itemDiv.remove();
-                        }
+                        try {
+                            // 3. Удаляем на сервере
+                            await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) }, 'POST', true);
+                            
+                            // 4. Получаем данные для перезагрузки списка
+                            const refreshBtn = document.getElementById('refresh-purchases-btn');
+                            const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
+                            const currentRewardTitle = refreshBtn ? refreshBtn.dataset.rewardTitle : null;
 
-                        // 3. Обновляем красный кружок (бейдж)
-                        if (currentRewardId) {
-                            const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
-                            if (rewardIcon) {
-                                const badge = rewardIcon.querySelector('.notification-badge');
-                                if (badge) {
-                                    let count = parseInt(badge.textContent) || 0;
-                                    count = Math.max(0, count - 1);
-                                    badge.textContent = count;
-                                    if (count === 0) badge.classList.add('hidden');
+                            // 5. 🔥 ПОЛНАЯ ПЕРЕЗАГРУЗКА СПИСКА
+                            // Это обновит HTML и создаст новые, чистые кнопки
+                            if (currentRewardId && currentRewardTitle) {
+                                await openTwitchPurchases(currentRewardId, currentRewardTitle);
+                            } else {
+                                // Если вдруг мы потеряли контекст, удаляем просто строку
+                                const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                                if (itemDiv) itemDiv.remove();
+                            }
+
+                            // 6. Обновляем счетчик на иконке
+                            if (currentRewardId) {
+                                const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
+                                if (rewardIcon) {
+                                    const badge = rewardIcon.querySelector('.notification-badge');
+                                    if (badge) {
+                                        let count = parseInt(badge.textContent) || 0;
+                                        count = Math.max(0, count - 1);
+                                        badge.textContent = count;
+                                        if (count === 0) badge.classList.add('hidden');
+                                    }
                                 }
                             }
+
+                            hideLoader(); // Снимаем лоадер
+                            tg.showPopup({ message: '✅ Удалено' });
+
+                        } catch (e) {
+                            console.error('Ошибка при удалении:', e);
+                            hideLoader();
+                            tg.showAlert(`Ошибка: ${e.message}`);
                         }
-
-                        // 4. 🔥 ВАЖНО: Сначала убираем лоадер!
-                        hideLoader();
-
-                        // 5. 🔥 ИСПОЛЬЗУЕМ showPopup (Тост) ВМЕСТО showAlert
-                        // Это не блокирует экран и не вызывает ошибку WebAppPopupOpened
-                        tg.showPopup({ message: '✅ Покупка удалена' });
-
-                    } catch (e) {
-                        console.error('Ошибка при удалении:', e);
-                        hideLoader(); // Скрываем лоадер перед показом ошибки
-                        tg.showAlert(`Ошибка: ${e.message}`);
-                    } 
-                    // finally здесь не нужен, так как мы вызываем hideLoader явно в try и catch
-                });
+                    });
+                }, 100); // <-- 100мс задержка решает проблему "10 кликов"
+                
                 return;
             }
-            // --- 🛡️ КОНЕЦ БЛОКА ---
-
+            // --- 🛡️ КОНЕЦ ФИКСА ---
+            
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
                 // 1. Блокируем кнопку, чтобы не нажать дважды
