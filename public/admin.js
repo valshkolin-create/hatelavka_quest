@@ -3685,108 +3685,46 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
             // Клик по иконке (Покупки)
+           // --- 🛡️ ФИНАЛЬНЫЙ ВАРИАНТ: ОПТИМИСТИЧНОЕ УДАЛЕНИЕ (БЕЗ ПЕРЕЗАГРУЗКИ) ---
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
-                // 1. Предотвращаем стандартное поведение и всплытие
+                // Предотвращаем лишние клики
                 event.preventDefault();
                 event.stopPropagation();
 
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
 
-                // 2. 🔥 ЗАДЕРЖКА 100мс: Лечит баг Telegram, когда окно не открывается с первого раза
+                // 1. Задержка 100мс (лечит баг Telegram с залипанием тача)
                 setTimeout(() => {
                     tg.showConfirm('Удалить эту покупку безвозвратно?', async (ok) => {
-                        if (!ok) return; // Если отмена — просто выходим, ничего не зависает
+                        if (!ok) return; // Если передумал — выходим моментально
 
-                        // 3. Включаем глобальный лоадер (вместо блокировки кнопки)
+                        // 2. Включаем защиту экрана
                         showLoader();
 
                         try {
-                            // 4. Отправляем запрос на удаление
+                            // 3. Отправляем запрос на удаление
+                            // Мы НЕ ждем перезагрузки списка, только подтверждение удаления
                             await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { 
                                 purchase_id: parseInt(purchaseId) 
                             }, 'POST', true);
                             
-                            // 5. 🔥 ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ (Мгновенно удаляем строку)
-                            // Мы НЕ делаем перезагрузку всего списка (openTwitchPurchases), чтобы не ждать и не грузить сеть.
+                            // 4. 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ:
+                            // Мы НЕ вызываем openTwitchPurchases(). Это убивало базу.
+                            // Мы просто удаляем элемент из HTML.
                             const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
                             if (itemDiv) {
-                                itemDiv.style.opacity = '0'; // Красивое исчезновение
+                                // Красивая анимация удаления
+                                itemDiv.style.transition = 'all 0.3s ease';
+                                itemDiv.style.opacity = '0';
+                                itemDiv.style.transform = 'translateX(20px)';
                                 setTimeout(() => itemDiv.remove(), 300);
                             }
 
-                            // 6. Обновляем красный кружок (бейдж) в меню
+                            // 5. Обновляем счетчик (красный круг) локально
                             const refreshBtn = document.getElementById('refresh-purchases-btn');
                             const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
                             
-                            if (currentRewardId) {
-                                const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
-                                if (rewardIcon) {
-                                    const badge = rewardIcon.querySelector('.notification-badge');
-                                    if (badge) {
-                                        let count = parseInt(badge.textContent) || 0;
-                                        count = Math.max(0, count - 1); // Уменьшаем на 1
-                                        badge.textContent = count;
-                                        if (count === 0) badge.classList.add('hidden');
-                                    }
-                                }
-                            }
-
-                            // 7. Снимаем лоадер
-                            hideLoader();
-                            
-                            // 8. Показываем легкое уведомление (не блокирующее)
-                            tg.showPopup({ message: '✅ Удалено' });
-
-                        } catch (e) {
-                            console.error('Ошибка при удалении:', e);
-                            hideLoader(); // Обязательно снимаем лоадер при ошибке
-                            tg.showPopup({ message: `Ошибка: ${e.message}` }); // Используем Popup, а не Alert, чтобы не было конфликтов
-                        }
-                    });
-                }, 100); // <-- Та самая задержка
-                
-                return;
-            }
-            // --- 🛡️ КОНЕЦ ФИКСА ---
-
-           // --- 🛡️ ИСПРАВЛЕННЫЙ БЛОК УДАЛЕНИЯ (БЕЗ КОНФЛИКТА ОКОН) ---
-           const deletePurchaseBtn = target.closest('.delete-purchase-btn');
-            if (deletePurchaseBtn) {
-                // 1. Останавливаем всплытие событий, чтобы не было конфликтов
-                event.preventDefault();
-                event.stopPropagation();
-
-                const purchaseId = deletePurchaseBtn.dataset.purchaseId;
-
-                // 2. 🔥 МАГИЯ: Делаем небольшую паузу перед открытием окна.
-                // Это позволяет интерфейсу "разлипнуть" перед блокировкой.
-                setTimeout(() => {
-                    tg.showConfirm('Удалить эту покупку? Действие необратимо.', async (ok) => {
-                        if (!ok) return; // Если отмена - ничего не делаем, кнопка и так активна
-
-                        showLoader(); // Блокируем экран лоадером
-
-                        try {
-                            // 3. Удаляем на сервере
-                            await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) }, 'POST', true);
-                            
-                            // 4. Получаем данные для перезагрузки списка
-                            const refreshBtn = document.getElementById('refresh-purchases-btn');
-                            const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
-                            const currentRewardTitle = refreshBtn ? refreshBtn.dataset.rewardTitle : null;
-
-                            // 5. 🔥 ПОЛНАЯ ПЕРЕЗАГРУЗКА СПИСКА
-                            // Это обновит HTML и создаст новые, чистые кнопки
-                            if (currentRewardId && currentRewardTitle) {
-                                await openTwitchPurchases(currentRewardId, currentRewardTitle);
-                            } else {
-                                // Если вдруг мы потеряли контекст, удаляем просто строку
-                                const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                                if (itemDiv) itemDiv.remove();
-                            }
-
-                            // 6. Обновляем счетчик на иконке
                             if (currentRewardId) {
                                 const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
                                 if (rewardIcon) {
@@ -3800,20 +3738,22 @@ if (dom.settingQuestScheduleOverride) {
                                 }
                             }
 
-                            hideLoader(); // Снимаем лоадер
+                            // 6. Снимаем защиту
+                            hideLoader();
                             tg.showPopup({ message: '✅ Удалено' });
 
                         } catch (e) {
                             console.error('Ошибка при удалении:', e);
                             hideLoader();
-                            tg.showAlert(`Ошибка: ${e.message}`);
+                            // Используем Popup вместо Alert, чтобы не конфликтовать с окнами
+                            tg.showPopup({ message: `Ошибка: ${e.message}` });
                         }
                     });
-                }, 100); // <-- 100мс задержка решает проблему "10 кликов"
+                }, 100);
                 
                 return;
             }
-            // --- 🛡️ КОНЕЦ ФИКСА ---
+            // --- 🛡️ КОНЕЦ ---
             
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
