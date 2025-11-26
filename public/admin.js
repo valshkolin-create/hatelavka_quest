@@ -1697,11 +1697,17 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
                 }
                 // --- 🔼 КОНЕЦ НОВОЙ ЛОГИКИ 🔼 ---
 
-                const isViewed = viewedPurchases.has(p.id);
+                // --- ЛОГИКА СТАТУСА ПРОСМОТРА (ОБНОВЛЕНА) ---
+                const isViewed = p.viewed_by_admin; // Берем из базы
+                const viewerName = p.viewed_by_admin_name ? ` (${p.viewed_by_admin_name})` : '';
+                
                 const viewedStatusClass = isViewed ? 'status-viewed' : 'status-not-viewed';
-                const viewedStatusText = isViewed ? 'Просмотрено' : 'Не просмотрено';
+                // Если просмотрено, пишем кем. Если нет — "Не просмотрено"
+                const viewedStatusText = isViewed ? `Просмотрено${escapeHTML(viewerName)}` : 'Не просмотрено';
+                
                 const viewStatusHtml = `<p class="purchase-view-status ${viewedStatusClass}">${viewedStatusText}</p>`;
-
+                // --- КОНЕЦ ОБНОВЛЕНИЯ ---
+                
                 let userInputHtml = '';
                 let rouletteWinHtml = '';
                 if (reward_settings.show_user_input && p.user_input) {
@@ -2793,7 +2799,8 @@ if (dom.weeklyGoalsList) {
         }
         // --- КОНЕЦ НОВОГО КОДА ---
         if(document.getElementById('twitch-purchases-body')) {
-            document.getElementById('twitch-purchases-body').addEventListener('click', (e) => {
+            document.getElementById('twitch-purchases-body').addEventListener('click', async (e) => {
+                // Ищем клик по ссылке или по изображению внутри ссылки
                 const link = e.target.closest('a');
                 if (!link) return;
 
@@ -2803,22 +2810,32 @@ if (dom.weeklyGoalsList) {
                 const purchaseId = parseInt(purchaseItem.dataset.purchaseId);
                 if (!purchaseId) return;
 
+                // Проверяем, не просмотрено ли уже
                 const statusEl = purchaseItem.querySelector('.purchase-view-status');
                 if (statusEl && !statusEl.classList.contains('status-viewed')) {
-                    statusEl.textContent = 'Просмотрено';
-                    statusEl.classList.remove('status-not-viewed');
-                    statusEl.classList.add('status-viewed');
-
+                    
+                    // 1. Визуально обновляем сразу (чтобы не ждать)
+                    statusEl.textContent = 'Отмечаю...';
+                    
                     try {
-                        const viewedRaw = localStorage.getItem('viewed_purchases') || '[]';
-                        const viewedArray = JSON.parse(viewedRaw);
-                        const viewedSet = new Set(viewedArray);
-                        viewedSet.add(purchaseId);
-                        localStorage.setItem('viewed_purchases', JSON.stringify([...viewedSet]));
+                        // 2. Отправляем запрос на сервер
+                        const result = await makeApiRequest('/api/v1/admin/twitch_rewards/purchase/mark_viewed', { 
+                            purchase_id: purchaseId 
+                        }, 'POST', true); // true = без лоадера
+
+                        // 3. Обновляем текст именем админа
+                        const viewerName = result.viewer || 'Вами';
+                        statusEl.innerHTML = `Просмотрено (${viewerName})`;
+                        statusEl.classList.remove('status-not-viewed');
+                        statusEl.classList.add('status-viewed');
+
                     } catch (err) {
-                        console.error("Failed to update viewed status in localStorage:", err);
+                        console.error("Ошибка маркировки просмотра:", err);
+                        statusEl.textContent = 'Ошибка метки';
                     }
                 }
+                // Мы НЕ отменяем переход по ссылке (нет e.preventDefault()), 
+                // чтобы ссылка открылась в новой вкладке, как и задумано.
             });
         }
         // --- 🔽 НОВЫЙ КОД ДЛЯ СБРОСА ПРОГРЕССА 1 ЮЗЕРА 🔽 ---
