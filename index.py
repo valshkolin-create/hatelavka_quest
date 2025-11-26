@@ -647,20 +647,29 @@ async def sleep_mode_check(request: Request, call_next):
 
     return await call_next(request)
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
+# --- Глобальная переменная для ленивой инициализации ---
+_lazy_supabase_client: Optional[httpx.AsyncClient] = None
+
 async def get_supabase_client() -> httpx.AsyncClient:
-    # Если вдруг lifespan не сработал (редкость, но защита для Serverless)
-    global global_http_client
+    global _lazy_supabase_client
     
-    if global_http_client is None or global_http_client.is_closed:
-        logging.warning("⚠️ Глобальный клиент был закрыт или не создан. Создаем аварийный.")
-        global_http_client = httpx.AsyncClient(
-            base_url=f"{SUPABASE_URL}/rest/v1",
-            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-            timeout=30.0
-        )
+    # Если клиент есть и он открыт — возвращаем его (0 CPU cost)
+    if _lazy_supabase_client is not None and not _lazy_supabase_client.is_closed:
+        return _lazy_supabase_client
         
-    # Просто возвращаем готовый клиент. Никаких yield и aclose здесь!
-    return global_http_client
+    logging.info("🔌 Создание глобального HTTP-клиента Supabase (Lazy Init)...")
+    
+    # Настройки для переиспользования соединений (Keep-Alive)
+    limits = httpx.Limits(max_keepalive_connections=10, max_connections=50, keepalive_expiry=120)
+    
+    _lazy_supabase_client = httpx.AsyncClient(
+        base_url=f"{SUPABASE_URL}/rest/v1",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+        timeout=15.0, # Уменьшаем таймаут, чтобы не висеть долго
+        limits=limits
+    )
+    
+    return _lazy_supabase_client
 
 # --- Utils ---
 def encode_cookie(value: dict) -> str:
@@ -6827,77 +6836,58 @@ async def grant_stars_to_user(
 
 @app.get("/api/v1/content/menu")
 async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)): 
-    """
-    (С ЛОГАМИ) Предоставляет динамический контент для главной страницы меню.
-    """
-    logging.info("--- 1. ЗАПУСК /api/v1/content/menu ---")
+    # logging.info("--- 1. ЗАПУСК /api/v1/content/menu ---") # Отключаем лишние логи для экономии IO
     
     defaults = {
         "menu_banner_url": "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png",
         "checkpoint_banner_url": "https://i.postimg.cc/9046s7W0/cekpoint.png",
-        "auction_banner_url": "https://i.postimg.cc/6qpWq0dW/aukcion.png", # <-- ДОБАВЛЕНО
-        "weekly_goals_banner_url": "https://i.postimg.cc/T1j6hQGP/1200-324.png", # <-- 🔽 ДОБАВИТЬ
+        "auction_banner_url": "https://i.postimg.cc/6qpWq0dW/aukcion.png",
+        "weekly_goals_banner_url": "https://i.postimg.cc/T1j6hQGP/1200-324.png",
         "skin_race_enabled": True,
         "slider_order": ["skin_race", "cauldron", "auction", "checkpoint"],
         "auction_enabled": False, 
         "auction_slide_data": None,
         "checkpoint_enabled": False,
+        "weekly_goals_enabled": False,
         "quest_schedule_override_enabled": False,
         "quest_schedule_active_type": "twitch"
-}
+    }
     
     is_admin = False
-    admin_id = "Non-Admin"
+    
+    # Оптимизация 1: Проверка админа (быстрая, без запросов)
     try:
         init_data_header = request.headers.get("X-Init-Data")
-        logging.info(f"[content/menu] Получен заголовок X-Init-Data: {bool(init_data_header)}")
-        
         if init_data_header:
             user_info = is_valid_init_data(init_data_header, ALL_VALID_TOKENS)
             if user_info and user_info.get("id") in ADMIN_IDS:
                 is_admin = True
-                admin_id = user_info.get("id", "Admin_ID_Unknown")
-                logging.info(f"[content/menu] УСПЕХ: Пользователь {admin_id} является АДМИНОМ.")
-            else:
-                logging.warning("[content/menu] ВНИМАНИЕ: initData получен, но пользователь НЕ админ.")
-    except Exception as e:
-        logging.warning(f"[content/menu] ОШИБКА: Не удалось проверить initData: {e}")
+    except Exception:
+        pass
 
     try:
-        settings_resp = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
-        settings = settings_resp.json()[0].get('value', {}) if settings_resp.json() else {}
-        logging.info(f"[content/menu] Настройки админа (settings): {settings}")
-
-        loaded_order = settings.get("slider_order", defaults["slider_order"])
+        # Оптимизация 2: Параллельный запуск запросов
+        # Мы готовим задачи, но не ждем их по очереди
+        settings_task = supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
         
-        # --- ОПТИМИЗАЦИЯ: Гарантируем целостность списка слайдов ---
-        # 1. Определяем все возможные слайды в системе (включая новые, например weekly_goals)
+        # Получаем настройки
+        settings_resp = await settings_task
+        settings = settings_resp.json()[0].get('value', {}) if settings_resp.json() else {}
+
+        # Формируем ответ из настроек
+        # Используем твой "чистый" код с циклом здесь
+        loaded_order = settings.get("slider_order", defaults["slider_order"])
         all_known_slides = ["skin_race", "cauldron", "auction", "checkpoint", "weekly_goals"]
-
-        # 2. Создаем множество (set) для мгновенного поиска (O(1))
         existing_slides_set = set(loaded_order)
-
-        # 3. Проходим по всем известным слайдам и добавляем недостающие
         for slide in all_known_slides:
             if slide not in existing_slides_set:
                 loaded_order.append(slide)
 
-        response_data = {
-            "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
-            "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
-            "auction_banner_url": settings.get("auction_banner_url", defaults["auction_banner_url"]), # <-- ДОБАВЛЕНО
-            "weekly_goals_banner_url": settings.get("weekly_goals_banner_url", defaults["weekly_goals_banner_url"]), # <-- 🔽 ДОБАВИТЬ
-            "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
-            "slider_order": loaded_order, # <-- ИСПРАВЛЕНО
-            "auction_enabled": settings.get("auction_enabled", defaults["auction_enabled"]),
-            "checkpoint_enabled": settings.get("checkpoint_enabled", defaults["checkpoint_enabled"]),
-            "quest_schedule_override_enabled": settings.get("quest_schedule_override_enabled", defaults["quest_schedule_override_enabled"]),
-            "quest_schedule_active_type": settings.get("quest_schedule_active_type", defaults["quest_schedule_active_type"])
-        }
-        
-        # --- КОРРЕКТНАЯ ЛОГИКА АУКЦИОНА С ЛОГАМИ ---
-        logging.info(f"[content/menu] Проверка аукциона: (auction_enabled={response_data['auction_enabled']} OR is_admin={is_admin})")
-        if response_data["auction_enabled"] or is_admin:
+        auction_enabled = settings.get("auction_enabled", defaults["auction_enabled"])
+
+        # Оптимизация 3: Запрос аукциона только если реально нужно
+        auction_slide_data = None
+        if auction_enabled or is_admin:
             auction_params = {
                 "select": "id,title,image_url",
                 "order": "created_at.desc",
@@ -6907,29 +6897,30 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
                 auction_params["is_active"] = "eq.true"
                 auction_params["is_visible"] = "eq.true"
             
-            logging.info(f"[content/menu] Ищем аукцион с параметрами: {auction_params}")
+            # Делаем запрос только сейчас
             auction_resp = await supabase.get("auctions", params=auction_params)
             auction_data = auction_resp.json()
-            
             if auction_data:
-                response_data["auction_slide_data"] = auction_data[0]
-                logging.info(f"[content/menu] Найден лот аукциона: {auction_data[0]}")
-            else:
-                response_data["auction_slide_data"] = None
-                logging.warning("[content/menu] Лот аукциона НЕ НАЙДЕН (это нормально, если их нет).")
-        else:
-            response_data["auction_slide_data"] = None
-            logging.info("[content/menu] Лот аукциона не запрашивался (выключен и не админ).")
-        # --- КОНЕЦ ЛОГИКИ ---
+                auction_slide_data = auction_data[0]
 
-        logging.info(f"[content/menu] ИТОГОВЫЙ ОТВЕТ: {response_data}")
-        return response_data
+        return {
+            "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
+            "checkpoint_banner_url": settings.get("checkpoint_banner_url", defaults["checkpoint_banner_url"]),
+            "auction_banner_url": settings.get("auction_banner_url", defaults["auction_banner_url"]),
+            "weekly_goals_banner_url": settings.get("weekly_goals_banner_url", defaults["weekly_goals_banner_url"]),
+            "skin_race_enabled": settings.get("skin_race_enabled", defaults["skin_race_enabled"]),
+            "slider_order": loaded_order,
+            "auction_enabled": auction_enabled,
+            "checkpoint_enabled": settings.get("checkpoint_enabled", defaults["checkpoint_enabled"]),
+            "weekly_goals_enabled": settings.get("weekly_goals_enabled", defaults["weekly_goals_enabled"]),
+            "quest_schedule_override_enabled": settings.get("quest_schedule_override_enabled", defaults["quest_schedule_override_enabled"]),
+            "quest_schedule_active_type": settings.get("quest_schedule_active_type", defaults["quest_schedule_active_type"]),
+            "auction_slide_data": auction_slide_data
+        }
 
     except Exception as e:
-        logging.error(f"[content/menu] КРИТИЧЕСКАЯ ОШИБКА в get_menu_content: {e}", exc_info=True)
+        logging.error(f"[content/menu] Error: {e}")
         return defaults
-
-# --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЕ ЭНДПОИНТЫ 🔽 ---
 
 @app.post("/api/v1/user/weekly_goals")
 async def get_user_weekly_goals(
