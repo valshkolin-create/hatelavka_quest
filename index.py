@@ -58,6 +58,14 @@ webhook_cache = {
 }
 WEBHOOK_CACHE_TTL = 600 # Хранить ID 10 минут
 # ------------------------------------------------------------------
+# --- КЭШ ДЛЯ TWITCH (ОПТИМИЗАЦИЯ) ---
+twitch_settings_cache = {
+    "last_updated": 0,
+    "rewards_map": {},      # title -> {id, is_active, ...}
+    "cauldron_titles": set(),
+    "roulette_titles": set()
+}
+TWITCH_CACHE_TTL = 300  # Обновлять кэш раз в 5 минут
 
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
@@ -1163,77 +1171,121 @@ async def telegram_webhook(
     # Сразу же возвращаем ответ
     return JSONResponse(content={"status": "ok", "processed_in_background": True})
 
-# --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
-async def process_twitch_notification_background(data: dict, message_id: str):
-    print(f"🔄 [START] Обработка Twitch ID: {message_id}") # print виден в Vercel лучше
-    
-    if not message_id:
-        print("❌ [ERROR] Нет message_id! Выход.")
+async def ensure_twitch_cache(supabase: httpx.AsyncClient):
+    """Обновляет кэш настроек Twitch, если он устарел."""
+    now = time.time()
+    if now - twitch_settings_cache["last_updated"] < TWITCH_CACHE_TTL:
         return
 
+    # Запрашиваем все настройки ПАРАЛЛЕЛЬНО (это ускоряет загрузку в 3 раза)
+    logging.info("🔄 Обновление кэша настроек Twitch...")
+    
+    task_rewards = supabase.get("/twitch_rewards", params={"select": "title,id,is_active,notify_admin,reward_type,reward_amount"})
+    task_cauldron = supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content"})
+    task_roulette = supabase.get("/roulette_prizes", params={"select": "reward_title"})
+
+    # Ждем все ответы
+    try:
+        r_rewards, r_cauldron, r_roulette = await asyncio.gather(task_rewards, task_cauldron, task_roulette)
+
+        # 1. Обычные награды
+        twitch_settings_cache["rewards_map"] = {
+            r["title"]: r for r in r_rewards.json()
+        } if r_rewards.status_code == 200 else {}
+
+        # 2. Котел
+        cauldron_titles = set()
+        if r_cauldron.status_code == 200 and r_cauldron.json():
+            content = r_cauldron.json()[0].get("content", {})
+            triggers = content.get("twitch_reward_triggers", [])
+            cauldron_titles = {t.get("title") for t in triggers}
+        twitch_settings_cache["cauldron_titles"] = cauldron_titles
+
+        # 3. Рулетка
+        roulette_titles = set()
+        if r_roulette.status_code == 200:
+             roulette_titles = {p.get("reward_title") for p in r_roulette.json()}
+        twitch_settings_cache["roulette_titles"] = roulette_titles
+
+        twitch_settings_cache["last_updated"] = now
+        logging.info("✅ Кэш Twitch обновлен.")
+        
+    except Exception as e:
+        logging.error(f"Ошибка обновления кэша Twitch: {e}")
+
+# --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
+async def process_twitch_notification_background(data: dict, message_id: str):
+    # print(f"🔄 [START] Обработка Twitch ID: {message_id}") 
+    
+    if not message_id: return
+
+    # Используем глобальный клиент
     async with httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
         timeout=30.0
     ) as supabase:
         
-        # === [ ЗАЩИТА ОТ ДУБЛЕЙ ] ===
+        # 1. ЗАЩИТА ОТ ДУБЛЕЙ
         try:
-            # Пытаемся записать ID. Используем minimal, чтобы ответ был легким.
-            # Если ID уже есть, Supabase ОБЯЗАН вернуть 409.
             dup_resp = await supabase.post(
                 "/processed_webhooks", 
                 json={"id": message_id},
                 headers={"Prefer": "return=minimal"}
             )
-            
-            print(f"🛡️ DB Check Status: {dup_resp.status_code}")
+            if dup_resp.status_code == 409: return # Дубликат
+            if dup_resp.status_code not in (200, 201, 204): return # Ошибка БД
+        except Exception: return
 
-            # 1. Если такой ID уже есть (409 Conflict)
-            if dup_resp.status_code == 409:
-                print(f"🛑 [DUPLICATE] Вебхук {message_id} уже был. ОСТАНОВКА.")
-                return 
+        # 2. 🔥 ОПТИМИЗАЦИЯ: Обновляем и читаем кэш
+        await ensure_twitch_cache(supabase)
+        
+        event_data = data.get("event", {})
+        reward_title = event_data.get("reward", {}).get("title", "Unknown")
+        
+        # --- БЫСТРАЯ ПРОВЕРКА ЧЕРЕЗ КЭШ ---
+        
+        # А. Проверка на "Котел" (быстро)
+        is_cauldron = reward_title in twitch_settings_cache["cauldron_titles"]
+        
+        # Б. Проверка на "Рулетку" (быстро)
+        is_roulette = reward_title in twitch_settings_cache["roulette_titles"]
+        
+        # В. Проверка обычных наград (МГНОВЕННЫЙ ОТСЕВ)
+        cached_reward = twitch_settings_cache["rewards_map"].get(reward_title)
+        
+        # Если это НЕ котел, НЕ рулетка, и мы знаем эту награду, но она ОТКЛЮЧЕНА
+        if not is_cauldron and not is_roulette and cached_reward:
+            if not cached_reward.get("is_active"):
+                logging.info(f"⛔ [CACHE] Награда '{reward_title}' отключена. Игнорируем (без запросов к юзеру).")
+                return # <--- ВЫХОДИМ ТУТ, ЭКОНОМИМ ВРЕМЯ
 
-            # 2. Если любая другая ошибка (например 401, 403, 500)
-            # МЫ ДОЛЖНЫ ОСТАНОВИТЬСЯ, иначе защита не имеет смысла.
-            if dup_resp.status_code not in (200, 201, 204):
-                print(f"⚠️ [DB ERROR] Ошибка записи ID! Код: {dup_resp.status_code}. Текст: {dup_resp.text}")
-                print("🛑 Аварийная остановка во избежание дублей.")
-                return
+        # ==========================================
+        # Только если проверка прошла, грузим юзера (это тяжелый запрос)
+        # ==========================================
+        
+        twitch_login = event_data.get("user_login", "unknown").lower()
+        user_input = event_data.get("user_input")
 
-        except Exception as e_dup:
-            print(f"❌ [CRITICAL] Исключение при проверке дубля: {e_dup}")
-            return # Останавливаемся даже при ошибке кода
-        # ============================
+        # 3. Получаем данные пользователя
+        user_resp = await supabase.get(
+            "/users", 
+            params={
+                "twitch_login": f"ilike.{twitch_login}", 
+                "select": "telegram_id, full_name, trade_link, daily_message_count, daily_uptime_minutes, weekly_message_count, weekly_uptime_minutes, monthly_message_count, monthly_uptime_minutes", 
+                "limit": 1
+            }
+        )
+        user_data = user_resp.json()
+        user_record = user_data[0] if user_data else None
+        user_id = user_record.get("telegram_id") if user_record else None
+        user_display_name = user_record.get("full_name") if user_record else twitch_login
 
-        try:
-            # Дальше ваш старый код (event_data = ...)
-            event_data = data.get("event", {})
-            twitch_login = event_data.get("user_login", "unknown_user").lower()
-            reward_data = event_data.get("reward", {})
-            reward_title = reward_data.get("title", "Unknown Reward")
-            user_input = event_data.get("user_input")
+        # --- 4. ЛОГИКА ОБРАБОТКИ (С ИСПОЛЬЗОВАНИЕМ КЭША) ---
 
-            # --- 1. Получаем данные пользователя ---
-            user_resp = await supabase.get(
-                "/users", 
-                params={
-                    "twitch_login": f"ilike.{twitch_login}", 
-                    "select": "telegram_id, full_name, trade_link, daily_message_count, daily_uptime_minutes, weekly_message_count, weekly_uptime_minutes, monthly_message_count, monthly_uptime_minutes", 
-                    "limit": 1
-                }
-            )
-            # Проверка на ошибку запроса
-            if user_resp.status_code != 200:
-                logging.error(f"Ошибка получения пользователя: {user_resp.text}")
-                return
-
-            user_data = user_resp.json()
-            user_record = user_data[0] if user_data else None
-            user_id = user_record.get("telegram_id") if user_record else None
-            user_display_name = user_record.get("full_name") if user_record else twitch_login
-
-            # --- 2. Проверка: Ивент "Ведьминский Котел" ---
+        # === ВЕТКА 1: ВЕДЬМИНСКИЙ КОТЕЛ ===
+        if is_cauldron:
+            # Запрашиваем настройки котла ТОЛЬКО если знаем, что это котел
             cauldron_resp = await supabase.get(
                 "/pages_content",
                 params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1}
@@ -1257,9 +1309,6 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                 )
                 if resp.status_code == 200:
                     result = resp.json()
-                    # WebSocket broadcast здесь не сработает напрямую, так как manager глобальный,
-                    # но мы можем пропустить этот шаг или вызвать manager.broadcast, если он потокобезопасен.
-                    # Для надежности в фоне лучше использовать БД-триггеры, но оставим как есть:
                     try:
                         await manager.broadcast(json.dumps({
                             "type": "cauldron_update",
@@ -1270,7 +1319,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                         logging.warning(f"WS Broadcast error in background: {ws_e}")
                 return # Завершаем, если это был котел
 
-            # --- 3. Проверка: Рулетка (Skin Race) ---
+        # === ВЕТКА 2: РУЛЕТКА (SKIN RACE) ===
+        elif is_roulette:
             prizes_resp = await supabase.get(
                 "/roulette_prizes",
                 params={
@@ -1288,8 +1338,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                     
                     weights = [p['chance_weight'] * p['quantity'] for p in in_stock_prizes]
                     if sum(weights) <= 0:
-                         logging.error(f"Сумма весов равна нулю.")
-                         return
+                            logging.error(f"Сумма весов равна нулю.")
+                            return
 
                     winner_prize = random.choices(in_stock_prizes, weights=weights, k=1)[0]
                     winner_skin_name = winner_prize.get('skin_name', 'Неизвестный скин')
@@ -1302,15 +1352,18 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                             json={"p_prize_id": winner_prize_id}
                         )
 
-                    # Получаем или создаем настройки награды
-                    reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
-                    reward_settings_list = reward_settings_resp.json()
-                    
-                    if not reward_settings_list:
-                        r_create = await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})
-                        reward_settings = r_create.json()[0]
+                    # Получаем настройки награды (или берем из кэша)
+                    if cached_reward:
+                        reward_settings = cached_reward
                     else:
-                        reward_settings = reward_settings_list[0]
+                        reward_settings_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id,notify_admin"})
+                        reward_settings_list = reward_settings_resp.json()
+                        if not reward_settings_list:
+                             # Создаем, если нет (хотя если is_roulette=True, она должна быть, но на всякий случай)
+                             r_create = await supabase.post("/twitch_rewards", json={"title": reward_title}, headers={"Prefer": "return=representation"})
+                             reward_settings = r_create.json()[0]
+                        else:
+                             reward_settings = reward_settings_list[0]
 
                     final_user_input = f"Выигрыш: {winner_skin_name}"
                     if user_input:
@@ -1343,7 +1396,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                             "p_entity_id": reward_settings["id"] 
                         })
                     
-                    # Уведомление Админу (используем отдельный вызов бота, так как мы в фоне)
+                    # Уведомление Админу
                     if ADMIN_NOTIFY_CHAT_ID and reward_settings.get("notify_admin", True):
                         notification_text = (
                             f"🎰 <b>Выигрыш в рулетке!</b>\n\n"
@@ -1352,7 +1405,6 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                             f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
                             f"<b>Остаток:</b> {winner_quantity_before_win - 1} шт."
                         )
-                        # Вызываем безопасную отправку (она создает свою сессию)
                         await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
 
                     # Триггер Анимации
@@ -1375,32 +1427,38 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                         await safe_send_message(ADMIN_NOTIFY_CHAT_ID, f"⚠️ <b>Закончились призы</b> для рулетки «{html_decoration.quote(reward_title)}»!")
                     return
 
-            # --- 4. Проверка: Обычная награда (Не рулетка, не котел) ---
+        # === ВЕТКА 3: ОБЫЧНАЯ НАГРАДА ===
+        else:
             logging.info(f"📦 Обычная награда '{reward_title}' от {twitch_login}.")
             
-            reward_settings_resp = await supabase.get(
-                "/twitch_rewards", 
-                params={"title": f"eq.{reward_title}", "select": "*"}
-            )
-            reward_settings_list = reward_settings_resp.json()
-            
-            if not reward_settings_list:
-                # Создаем новую
-                r_create = await supabase.post(
-                    "/twitch_rewards", 
-                    json={
-                        "title": reward_title, 
-                        "is_active": True, 
-                        "notify_admin": True,
-                        "reward_type": "promocode", 
-                        "reward_amount": 10,         
-                        "promocode_amount": 10       
-                    }, 
-                    headers={"Prefer": "return=representation"}
-                )
-                reward_settings = r_create.json()[0]
+            # Используем данные из КЭША, если есть
+            if cached_reward:
+                reward_settings = cached_reward
             else:
-                reward_settings = reward_settings_list[0]
+                # Если в кэше нет, запрашиваем из БД (создаем новую)
+                reward_settings_resp = await supabase.get(
+                    "/twitch_rewards", 
+                    params={"title": f"eq.{reward_title}", "select": "*"}
+                )
+                reward_settings_list = reward_settings_resp.json()
+                
+                if not reward_settings_list:
+                    # Создаем новую
+                    r_create = await supabase.post(
+                        "/twitch_rewards", 
+                        json={
+                            "title": reward_title, 
+                            "is_active": True, 
+                            "notify_admin": True,
+                            "reward_type": "promocode", 
+                            "reward_amount": 10,         
+                            "promocode_amount": 10       
+                        }, 
+                        headers={"Prefer": "return=representation"}
+                    )
+                    reward_settings = r_create.json()[0]
+                else:
+                    reward_settings = reward_settings_list[0]
 
             if not reward_settings["is_active"]:
                 logging.info(f"Награда '{reward_title}' отключена админом. Игнорируем.")
@@ -1453,9 +1511,6 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                 if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
                 
                 await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
-
-        except Exception as e:
-            logging.error(f"❌ Ошибка фоновой обработки Twitch: {e}", exc_info=True)
 
 # --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
 @app.post("/api/v1/webhooks/twitch")
