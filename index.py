@@ -6870,16 +6870,17 @@ async def get_menu_content(request: Request, supabase: httpx.AsyncClient = Depen
 
         loaded_order = settings.get("slider_order", defaults["slider_order"])
         
-        # --- ИСПРАВЛЕНИЕ: Гарантируем, что все ключи есть в списке для сортировки ---
-        # Это предотвратит "призрачные" слайды, остающиеся в начале
-        if "skin_race" not in loaded_order:
-             loaded_order.append("skin_race")
-        if "cauldron" not in loaded_order:
-             loaded_order.append("cauldron")
-        if "auction" not in loaded_order:
-             loaded_order.append("auction")
-        if "checkpoint" not in loaded_order:
-             loaded_order.append("checkpoint")
+        # --- ОПТИМИЗАЦИЯ: Гарантируем целостность списка слайдов ---
+        # 1. Определяем все возможные слайды в системе (включая новые, например weekly_goals)
+        all_known_slides = ["skin_race", "cauldron", "auction", "checkpoint", "weekly_goals"]
+
+        # 2. Создаем множество (set) для мгновенного поиска (O(1))
+        existing_slides_set = set(loaded_order)
+
+        # 3. Проходим по всем известным слайдам и добавляем недостающие
+        for slide in all_known_slides:
+            if slide not in existing_slides_set:
+                loaded_order.append(slide)
 
         response_data = {
             "menu_banner_url": settings.get("menu_banner_url", defaults["menu_banner_url"]),
