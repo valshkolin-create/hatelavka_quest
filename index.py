@@ -653,19 +653,20 @@ _lazy_supabase_client: Optional[httpx.AsyncClient] = None
 async def get_supabase_client() -> httpx.AsyncClient:
     global _lazy_supabase_client
     
-    # Если клиент есть и он открыт — возвращаем его (0 CPU cost)
     if _lazy_supabase_client is not None and not _lazy_supabase_client.is_closed:
         return _lazy_supabase_client
         
-    logging.info("🔌 Создание глобального HTTP-клиента Supabase (Lazy Init)...")
+    logging.info("🔌 (Re)Creating global Supabase client...")
     
-    # Настройки для переиспользования соединений (Keep-Alive)
-    limits = httpx.Limits(max_keepalive_connections=10, max_connections=50, keepalive_expiry=120)
+    # 🔥 ИЗМЕНЕНИЕ: Добавляем keepalive_expiry=10
+    # Это заставит клиент закрывать соединения, которые висят без дела больше 10 секунд.
+    # Это предотвратит попытки использования "мертвых" соединений.
+    limits = httpx.Limits(max_keepalive_connections=5, max_connections=20, keepalive_expiry=10)
     
     _lazy_supabase_client = httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=15.0, # Уменьшаем таймаут, чтобы не висеть долго
+        timeout=10.0, # 🔥 Уменьшаем таймаут до 10 секунд (15 это много)
         limits=limits
     )
     
