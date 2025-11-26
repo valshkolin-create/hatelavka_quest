@@ -2754,6 +2754,60 @@ if (dom.weeklyGoalsList) {
         }
     });
 }
+    // --- НОВАЯ ФУНКЦИЯ: СВОЕ ОКНО ПОДТВЕРЖДЕНИЯ (Без лимитов Telegram) ---
+    function showCustomConfirmHTML(text, onConfirmCallback) {
+        // 1. Создаем затемнение фона
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(3px); animation: fadeIn 0.2s;
+        `;
+
+        // 2. Создаем само окно
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; padding: 20px; width: 80%; max-width: 300px;
+            text-align: center; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            transform: scale(0.95); animation: popIn 0.2s forwards;
+        `;
+
+        // 3. Текст и кнопки
+        box.innerHTML = `
+            <h3 style="margin: 0 0 15px; font-size: 17px; font-weight: 600;">${text}</h3>
+            <div style="display: flex; gap: 10px;">
+                <button id="custom-cancel-btn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: #3a3a3c; color: white; font-size: 16px; font-weight: 500;">Отмена</button>
+                <button id="custom-confirm-btn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: #ff3b30; color: white; font-size: 16px; font-weight: 600;">Удалить</button>
+            </div>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // 4. Обработчики
+        const close = () => { overlay.remove(); };
+
+        overlay.querySelector('#custom-cancel-btn').onclick = close;
+        
+        overlay.querySelector('#custom-confirm-btn').onclick = () => {
+            close();
+            onConfirmCallback(); // Вызываем действие удаления
+        };
+
+        // Закрытие по клику на фон
+        overlay.onclick = (e) => { if(e.target === overlay) close(); };
+    }
+
+    // Добавляем стили анимации
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = `
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { transform: scale(0.9); } to { transform: scale(1); } }
+    `;
+    document.head.appendChild(styleSheet);
+    // --- КОНЕЦ ФУНКЦИИ ---
     
     function setupEventListeners() {
         // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
@@ -3718,68 +3772,55 @@ if (dom.settingQuestScheduleOverride) {
 
                 const purchaseId = deletePurchaseBtn.dataset.purchaseId;
 
-                // Задержка 100мс для корректной работы тача в Telegram
-                setTimeout(() => {
-                    tg.showConfirm('Удалить безвозвратно?', (ok) => {
-                        if (!ok) return;
+                // ИСПОЛЬЗУЕМ НАШЕ HTML ОКНО (Оно никогда не блокируется Telegram)
+                showCustomConfirmHTML('Удалить эту покупку навсегда?', () => {
+                    
+                    // 1. 🔥 МГНОВЕННОЕ ВИЗУАЛЬНОЕ УДАЛЕНИЕ
+                    const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+                    if (itemDiv) {
+                        itemDiv.style.transition = 'all 0.3s ease-out';
+                        itemDiv.style.transform = 'translateX(100%)';
+                        itemDiv.style.opacity = '0';
+                        setTimeout(() => {
+                            if (itemDiv) itemDiv.remove();
+                            // Проверка пустого списка
+                            const container = document.getElementById('twitch-purchases-body');
+                            if (container && !container.querySelector('.purchase-item')) {
+                                container.innerHTML = '<p style="text-align: center;">Нет покупок.</p>';
+                            }
+                        }, 300);
+                    }
 
-                        // 1. 🔥 МГНОВЕННОЕ ВИЗУАЛЬНОЕ УДАЛЕНИЕ (Не ждем сервера!)
-                        const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
-                        if (itemDiv) {
-                            // Анимация ухода вправо
-                            itemDiv.style.transition = 'all 0.3s ease-out';
-                            itemDiv.style.transform = 'translateX(100%)'; // Улетает вправо
-                            itemDiv.style.opacity = '0';
-                            
-                            // Удаляем из DOM через 300мс (время анимации)
-                            setTimeout(() => {
-                                if (itemDiv) itemDiv.remove();
-                                
-                                // Проверка: если список пуст, показать заглушку
-                                const container = document.getElementById('twitch-purchases-body');
-                                if (container && !container.querySelector('.purchase-item')) {
-                                    container.innerHTML = '<p style="text-align: center;">Нет покупок.</p>';
-                                }
-                            }, 300);
-                        }
-
-                        // 2. 🔥 МГНОВЕННО ОБНОВЛЯЕМ СЧЕТЧИК (БЕЙДЖ)
-                        const refreshBtn = document.getElementById('refresh-purchases-btn');
-                        const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
-                        
-                        if (currentRewardId) {
-                            const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
-                            if (rewardIcon) {
-                                const badge = rewardIcon.querySelector('.notification-badge');
-                                if (badge) {
-                                    let count = parseInt(badge.textContent) || 0;
-                                    count = Math.max(0, count - 1);
-                                    badge.textContent = count;
-                                    if (count === 0) badge.classList.add('hidden');
-                                }
+                    // 2. 🔥 МГНОВЕННО ОБНОВЛЯЕМ СЧЕТЧИК
+                    const refreshBtn = document.getElementById('refresh-purchases-btn');
+                    const currentRewardId = refreshBtn ? refreshBtn.dataset.rewardId : null;
+                    
+                    if (currentRewardId) {
+                        const rewardIcon = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"]`);
+                        if (rewardIcon) {
+                            const badge = rewardIcon.querySelector('.notification-badge');
+                            if (badge) {
+                                let count = parseInt(badge.textContent) || 0;
+                                count = Math.max(0, count - 1);
+                                badge.textContent = count;
+                                if (count === 0) badge.classList.add('hidden');
                             }
                         }
+                    }
 
-                        // 3. 🔥 ОТПРАВЛЯЕМ ЗАПРОС В ФОНЕ (FIRE AND FORGET)
-                        // Мы НЕ ставим 'await', мы не блокируем интерфейс.
-                        // isSilent = true (без лоадера)
-                        makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { 
-                            purchase_id: parseInt(purchaseId) 
-                        }, 'POST', true)
-                        .then(() => {
-                            // Все отлично, сервер подтвердил удаление.
-                            // Можно показать маленький тост, если хочется, но необязательно.
-                            console.log(`Purchase ${purchaseId} deleted on server.`);
-                        })
-                        .catch((err) => {
-                            // ОШИБКА! Сервер не смог удалить.
-                            console.error('Ошибка удаления на сервере:', err);
-                            // Сообщаем админу, что данные рассинхронизированы
-                            tg.showAlert(`⚠️ Ошибка на сервере: ${err.message}. Обновите список.`);
-                        });
-                        
+                    // 3. 🔥 ОТПРАВЛЯЕМ ЗАПРОС В ФОНЕ (Без await, без loader)
+                    makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { 
+                        purchase_id: parseInt(purchaseId) 
+                    }, 'POST', true)
+                    .then(() => {
+                        console.log(`Purchase ${purchaseId} deleted.`);
+                        // Опционально: tg.showPopup({ message: 'Удалено' });
+                    })
+                    .catch((err) => {
+                        console.error('Ошибка удаления на сервере:', err);
+                        tg.showAlert(`Ошибка на сервере: ${err.message}. Обновите список.`);
                     });
-                }, 100);
+                });
                 
                 return;
             }
