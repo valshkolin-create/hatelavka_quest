@@ -19,12 +19,24 @@ body[data-theme="halloween"] {
   --action-color: #bf5af2;
   --glow-color: rgba(255, 149, 0, 0.4);
 }
+
+/* --- НОВОГОДНЯЯ ТЕМА (ОБНОВЛЕНА) --- */
 body[data-theme="new_year"] {
-  --bg-image: url('https://i.postimg.cc/fT4nLKDK/f93acc97afccb488268433623ce95ef3.jpg');
-  --primary-color: #4edcf0;
-  --action-color: #fdbb2d;
-  --glow-color: rgba(78, 220, 240, 0.5);
+  --bg-image: url('https://i.postimg.cc/fT4nLKDK/f93acc97afccb488268433623ce95ef3.jpg'); /* Твой фон */
+  
+  /* Морозно-золотая палитра */
+  --primary-color: #b3e5fc;       /* Ледяной голубой */
+  --action-color: #ffca28;        /* Золото */
+  --glow-color: rgba(179, 229, 252, 0.6); /* Ледяное свечение */
+  --text-color: #ffffff;
+  --text-color-muted: #d1d9e6;
+  
+  /* Цвета поверхностей для эффекта льда */
+  --surface-primary: rgba(20, 40, 65, 0.65); 
+  --surface-secondary: rgba(255, 255, 255, 0.1);
+  --border-color: rgba(179, 229, 252, 0.3);
 }
+
 body[data-theme="classic"] {
   --bg-image: url('https://i.postimg.cc/PqQ0Fsw6/b4118ce3d4125c4588267c1c75de9a1a.jpg');
   --primary-color: #00f2ea;
@@ -32,12 +44,12 @@ body[data-theme="classic"] {
   --glow-color: rgba(0, 242, 234, 0.4);
 }
 
-/* --- ИСПРАВЛЕНИЕ РАСТЯГИВАНИЯ ФОНА (с размытием) --- */
+/* --- ИСПРАВЛЕНИЕ РАСТЯГИВАНИЯ ФОНА --- */
 body {
     margin: 0;
     min-height: 100vh;
     padding: 0 15px 120px;
-    background-color: #0d0b1f; /* Цвет-подложка */
+    background-color: #0d0b1f;
     color: var(--text-color);
     font-family: var(--font-main);
     overflow-x: hidden;
@@ -45,7 +57,6 @@ body {
     z-index: 1;
 }
 
-/* Черная полупрозрачная завеса (z-index: -1) */
 body::before {
     content: '';
     position: fixed;
@@ -57,7 +68,6 @@ body::before {
     z-index: -1;
 }
 
-/* Сам фон (z-index: -2) */
 body::after {
     content: '';
     position: fixed;
@@ -66,20 +76,19 @@ body::after {
     width: 100%;
     height: 100%;
     background-image: var(--bg-image);
-    background-size: cover; /* Растягиваем */
+    background-size: cover;
     background-position: center;
     background-attachment: fixed;
-    filter: blur(2px); /* Размываем */
+    filter: blur(2px);
     z-index: -2;
     transition: background-image 0.5s ease;
 }
-/* --- КОНЕЦ ИСПРАВЛЕНИЯ ФОНА --- */
-
 
 /* --- Стили частиц --- */
 .particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; overflow: hidden; pointer-events: none; }
 .particle { position: absolute; background: var(--primary-color); border-radius: 50%; animation: fall 15s infinite linear; opacity: 0; box-shadow: 0 0 10px var(--glow-color), 0 0 15px var(--glow-color); }
 @keyframes fall { 0% { transform: translateY(-10vh) translateX(0) scale(1); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(100vh) translateX(var(--drift, 0px)) scale(0.5); opacity: 0; } }
+/* Настройки частиц остались прежними для совместимости */
 .particle:nth-child(1) { width: 4px; height: 4px; left: 10%; animation-duration: 12s; animation-delay: 1s; --drift: 50px; }
 .particle:nth-child(2) { width: 2px; height: 2px; left: 20%; animation-duration: 18s; animation-delay: 3s; --drift: -30px; }
 .particle:nth-child(3) { width: 5px; height: 5px; left: 30%; animation-duration: 10s; animation-delay: 5s; --drift: 40px; }
@@ -117,7 +126,7 @@ body::after {
 .rules-button.highlight { animation: pulse-glow 1.5s infinite; }
 @keyframes pulse-glow { 0% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); } 50% { box-shadow: 0 0 20px var(--glow-color), 0 0 30px var(--glow-color); } 100% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); } }
 
-/* ===== СТИЛИ ДЛЯ МИНИМАЛИСТИЧНЫХ ДАТ ===== */
+/* --- ДАТЫ --- */
 .event-timer {
     text-align: center;
     font-size: 0.8em;
@@ -130,9 +139,6 @@ body::after {
     align-items: center;
     gap: 8px;
     padding: 10px;
-    /* background-color: var(--surface-primary); */
-    /* border: 1px solid var(--border-color); */
-    /* border-radius: 12px; */
 }
 .event-timer .loader-spinner {
     width: 20px;
@@ -142,18 +148,13 @@ body::after {
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
-.event-timer i {
-    color: var(--text-color-muted);
-}
-.event-timer span {
-    color: var(--text-color);
-}
-/* ===== КОНЕЦ СТИЛЕЙ ДЛЯ ДАТ ===== */
+.event-timer i { color: var(--text-color-muted); }
+.event-timer span { color: var(--text-color); }
 
 .page-layout { display: flex; flex-direction: column; gap: 15px; }
 .subsection-title { text-align: center; font-weight: 600; font-size: 14px; margin: 0 0 10px 0; color: var(--text-color-muted); }
 
-/* --- Секция с котлом (ОРИГИНАЛ) --- */
+/* --- Секция с котлом --- */
 .top-section { text-align: center; }
 .cauldron-image-wrapper img {
     max-height: 35vh;
@@ -168,7 +169,6 @@ body::after {
     animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out;
 }
 @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-12px); } 100% { transform: translateY(0px); } }
-/* --- Конец секции с котлом --- */
 
 .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.3); border-radius: 8px; height: 10px; border: 1px solid var(--border-color); overflow: hidden; }
 .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--action-color), var(--primary-color)); border-radius: 8px; transition: width 0.5s ease-out, background 0.5s ease; box-shadow: 0 0 10px var(--glow-color); }
@@ -212,8 +212,17 @@ body::after {
 .reward-card img { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; }
 .reward-card p { margin: 0; font-weight: 600; font-size: 16px; }
 .admin-notice { background-color: rgba(191, 90, 242, 0.2); color: var(--action-color); padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; margin-bottom: 15px; border: 1px solid var(--action-color); display: flex; align-items: center; justify-content: center; gap: 8px; }
-.theme-switcher { display: none; gap: 8px; background-color: var(--surface-primary); padding: 6px; border-radius: 20px; margin: 0 auto 15px; width: fit-content; border: 1px solid var(--border-color); }
-body.is-admin .theme-switcher { display: flex; }
+
+/* --- ПЕРЕКЛЮЧАТЕЛЬ ТЕМ (Адаптирован для админ-панели) --- */
+.theme-switcher { 
+    display: flex; 
+    gap: 8px; 
+    background-color: transparent; 
+    padding: 0; 
+    border-radius: 20px; 
+    border: none;
+    margin: 0;
+}
 .theme-btn { background-color: transparent; border: 2px solid transparent; color: var(--text-color-muted); font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
 .theme-btn:hover { color: var(--text-color); background-color: rgba(255, 255, 255, 0.1); }
 .theme-btn.active { border-color: var(--primary-color); color: var(--primary-color); }
@@ -238,7 +247,7 @@ body.is-admin .theme-switcher { display: flex; }
     display: flex;
     flex-direction: column;
     max-height: 90vh;
-    transform: translateX(-13px); /* <-- ДОБАВЬТЕ ЭТУ СТРОКУ */
+    transform: translateX(-13px);
 }
 .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
 .modal-header h3 { margin: 0; color: var(--primary-color); }
@@ -258,7 +267,7 @@ body.is-admin .theme-switcher { display: flex; }
     color: var(--text-color);
     font-size: 16px;
     font-family: var(--font-main);
-    color-scheme: dark; /* Для темного календаря */
+    color-scheme: dark;
 }
 .modal-form button {
     background: var(--primary-color);
@@ -271,15 +280,8 @@ body.is-admin .theme-switcher { display: flex; }
     cursor: pointer;
     transition: filter 0.2s ease;
 }
-.modal-form button:hover {
-    filter: brightness(1.1);
-}
-.modal-form label {
-    font-size: 14px;
-    color: var(--text-color-muted);
-    margin-bottom: -10px;
-}
-/* --- КОНЕЦ СТИЛЕЙ МОДАЛЬНЫХ ФОРМ --- */
+.modal-form button:hover { filter: brightness(1.1); }
+.modal-form label { font-size: 14px; color: var(--text-color-muted); margin-bottom: -10px; }
 
 /* --- Оверлей для обучения --- */
 .tutorial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 200; transition: opacity 0.3s ease; }
@@ -306,7 +308,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 /* --- Адаптация заголовка --- */
 @media (max-width: 768px) { .page-header-title { font-size: 17px; } }
 
-/* ===== СТИЛИ АДМИНА (Обновленные) ===== */
+/* ===== СТИЛИ АДМИНА (ОБНОВЛЕНЫ для переключателя) ===== */
 .admin-controls {
     position: fixed;
     bottom: calc(60px + env(safe-area-inset-bottom) + 15px);
@@ -338,25 +340,23 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     justify-content: center;
     flex-shrink: 0;
 }
-.admin-toggle-btn:hover {
-    transform: scale(1.1);
-}
-.admin-toggle-btn i {
-    transition: transform 0.3s ease;
-}
+.admin-toggle-btn:hover { transform: scale(1.1); }
+.admin-toggle-btn i { transition: transform 0.3s ease; }
 
 .admin-action-buttons {
     display: none; /* Скрыты по умолчанию */
+    align-items: center;
+    gap: 5px;
 }
 
 .admin-controls.expanded .admin-action-buttons {
-    display: block; /* Показываем кнопки */
+    display: flex; /* Показываем кнопки flex'ом */
 }
 .admin-controls.expanded .admin-toggle-btn i {
-    transform: rotate(180deg); /* Поворачиваем шеврон вверх */
+    transform: rotate(180deg);
 }
 
-.admin-action-buttons button {
+.admin-action-buttons button:not(.theme-btn) {
     background: linear-gradient(90deg, var(--accent-secondary), #ff70ab);
     color: white;
     padding: 8px 18px;
@@ -367,11 +367,8 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     font-weight: 600;
     cursor: pointer;
     transition: transform 0.2s ease;
-    margin-left: 5px; /* Небольшой отступ между кнопками, если их будет несколько */
 }
-.admin-action-buttons button:hover {
-    transform: scale(1.05);
-}
+.admin-action-buttons button:hover { transform: scale(1.05); }
 
 /* Логика показа/скрытия Edit/Save */
 #save-btn { display: none; }
@@ -387,16 +384,35 @@ body.edit-mode [data-editable] {
     padding-right: 8px;
     transition: background-color 0.2s ease;
 }
-body.edit-mode [data-editable]:hover {
-    background-color: rgba(212, 51, 255, 0.1);
+body.edit-mode [data-editable]:hover { background-color: rgba(212, 51, 255, 0.1); }
+
+/* --- АДАПТАЦИЯ МОРОЗНОГО ДИЗАЙНА --- */
+/* Этот блок добавляет эффект стекла и золотые кнопки ТОЛЬКО для новогодней темы */
+body[data-theme="new_year"] .contribution-section, 
+body[data-theme="new_year"] .leaderboard-section, 
+body[data-theme="new_year"] .default-reward-section,
+body[data-theme="new_year"] .event-timer {
+    background: linear-gradient(135deg, rgba(30, 60, 90, 0.7), rgba(20, 40, 60, 0.8));
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 10, 30, 0.5), inset 0 0 20px rgba(179, 229, 252, 0.05);
+    backdrop-filter: blur(15px);
+}
+
+body[data-theme="new_year"] button,
+body[data-theme="new_year"] .rules-button {
+    background: linear-gradient(180deg, #ffd54f 0%, #ffca28 100%);
+    color: #3e2723; /* Темный текст на золоте */
+    text-shadow: none;
+    box-shadow: 0 4px 15px rgba(255, 202, 40, 0.4);
+    border: 1px solid #fff8e1;
+}
+
+body[data-theme="new_year"] .progress-bar-fill {
+    background: linear-gradient(90deg, #4fc3f7, #ffffff);
+    box-shadow: 0 0 15px var(--primary-color);
 }
 /* ===== КОНЕЦ СТИЛЕЙ АДМИНА ===== */
-/* --- ИСПРАВЛЕНИЕ ФОНА НА МОБИЛЬНЫХ --- */
+
 @media (max-width: 768px) {
-    body::after {
-        /* Отменяем 'fixed', чтобы исправить баг на iOS/Android. 
-           Фон все равно останется 'приклеенным', 
-           так как сам элемент body::after имеет position: fixed. */
-        background-attachment: scroll; 
-    }
+    body::after { background-attachment: scroll; }
 }
