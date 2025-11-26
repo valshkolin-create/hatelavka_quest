@@ -768,11 +768,11 @@ try {
     // --- Обработчики событий ---
     dom.deleteAllRewardsBtn.addEventListener('click', () => {
         showCustomConfirmHTML("Вы уверены, что хотите удалить ВСЕ свои промокоды и записи о наградах?", async (close) => {
-            // Сначала удаляем промокоды
+            // 1. Удаляем промокоды
             await makeApiRequest('/api/v1/user/promocodes/delete-all');
-            // Затем удаляем гранты (если есть такой эндпоинт массового удаления, 
-            // но в базовой версии его нет, поэтому пока только промокоды)
-            // await makeApiRequest('/api/v1/user/grants/delete-all'); 
+            
+            // 2. Удаляем гранты (теперь эндпоинт существует)
+            await makeApiRequest('/api/v1/user/grants/delete-all'); 
             
             renderRewards([]);
             close();
