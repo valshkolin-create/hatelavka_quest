@@ -5152,129 +5152,63 @@ async def close_expired_challenge(
         raise HTTPException(status_code=500, detail="Не удалось закрыть челлендж.")
     
 @app.post("/api/v1/user/challenge")
-async def get_or_assign_user_challenge(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_or_assign_user_challenge(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Доступ запрещен")
+    
     telegram_id = user_info["id"]
 
-    # --- Проверка настроек админа ---
-    admin_settings = await get_admin_settings_async_global() # <-- ИСПРАВЛЕНО
+    # 1. Проверка настроек админа (кэш, очень быстро)
+    admin_settings = await get_admin_settings_async_global()
     if not admin_settings.challenges_enabled:
-        return JSONResponse(
-            status_code=403,
-            content={"message": "Система челленджей временно отключена."}
-        )
+        return JSONResponse(status_code=403, content={"message": "Система челленджей временно отключена."})
 
-    # --- Проверка кулдауна ---
-    user_resp = await supabase.get(
-        "/users",
-        params={"telegram_id": f"eq.{telegram_id}", "select": "challenge_cooldown_until"}
-    )
-    user_data = user_resp.json()
-    
-    if user_data and user_data[0].get("challenge_cooldown_until"):
-        cooldown_until_str = user_data[0]["challenge_cooldown_until"]
-        cooldown_until_utc = datetime.fromisoformat(cooldown_until_str.replace('Z', '+00:00'))
-        
-        if cooldown_until_utc > datetime.now(timezone.utc):
-            return JSONResponse(
-                status_code=429, 
-                content={
-                    "detail": "Вы уже выполнили челлендж. Новый будет доступен позже.",
-                    "cooldown_until": cooldown_until_utc.isoformat()
-                }
-            )
-
-    # --- 1. Проверяем, есть ли уже активный ('pending') челлендж ---
-    # 
-    # !!! ИЗМЕНЕНИЕ ЗДЕСЬ !!!
-    # Мы больше не проверяем expires_at. Эта функция теперь
-    # просто возвращает 'pending' челлендж, если он есть.
-    # Логика закрытия (expired) перенесена ИСКЛЮЧИТЕЛЬНО
-    # в эндпоинт /close_expired
-    #
-    pending_resp = await supabase.get(
-        "/user_challenges",
-        params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "*,challenges(*)"}
-    )
-    pending_challenges = pending_resp.json()
-    if pending_challenges:
-        # Если челлендж активен, возвращаем его
-        return pending_challenges[0]
-    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
-
-    # --- 2. Логика назначения нового челленджа (остается без изменений) ---
-    user_resp = await supabase.get(
-        "/users",
-        params={"telegram_id": f"eq.{telegram_id}", "select": "*", "limit": 1}
-    )
-    user_resp.raise_for_status()
-    user_stats = user_resp.json()[0] if user_resp.json() else {}
-
-    user_has_twitch = user_stats.get("twitch_id") is not None
-    completed_resp = await supabase.get(
-        "/user_challenges",
-        params={"user_id": f"eq.{telegram_id}", "status": "in.(claimed,expired)", "select": "challenge_id"}
-    )
-    completed_ids = {c['challenge_id'] for c in completed_resp.json()}
-    
-    available_resp = await supabase.get(
-        "/challenges",
-        params={"is_active": "eq.true", "select": "id,condition_type"}
-    )
-    all_available = [c for c in available_resp.json() if c['id'] not in completed_ids]
-
-    # Фильтруем челленджи, если у пользователя не привязан Twitch
-    final_available = [c for c in all_available if "twitch" not in c.get("condition_type", "")] if not user_has_twitch else all_available
-
-    if not final_available:
-        return JSONResponse(status_code=404, content={"message": "Для вас пока нет новых челленджей."})
-
-    chosen_challenge_id = random.choice(final_available)['id']
-    details_resp = await supabase.get("/challenges", params={"id": f"eq.{chosen_challenge_id}", "select": "*"})
-    challenge_details = details_resp.json()[0]
-
-    duration_in_hours = challenge_details['duration_days']
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_in_hours)).isoformat()
-    
-    condition_type = challenge_details['condition_type']
-    start_value = user_stats.get(CONDITION_TO_COLUMN.get(condition_type), 0)
-
-    payload = {
-        "user_id": telegram_id,
-        "challenge_id": chosen_challenge_id,
-        "status": "pending",
-        "assigned_at": datetime.now(timezone.utc).isoformat(),
-        "expires_at": expires_at,
-        "progress_value": 0,
-        "start_value": start_value,
-        "baseline_value": 0
-    }
-    
-    logging.info(f"Отправка данных в Supabase для нового челленджа: {payload}")
-
+    # 2. Вызываем RPC (Мозг)
     try:
-        new_user_challenge_resp = await supabase.post(
-            "/user_challenges",
-            json=payload,
-            headers={"Prefer": "return=representation"}
+        rpc_resp = await supabase.post(
+            "/rpc/assign_user_challenge",
+            json={"p_user_id": telegram_id}
         )
-        new_user_challenge_resp.raise_for_status()
         
-        new_user_challenge = new_user_challenge_resp.json()[0]
-        new_user_challenge['challenges'] = challenge_details
+        # Обработка логических ошибок от базы данных
+        if rpc_resp.status_code == 400: # Ошибка 400, если сработал RAISE EXCEPTION
+            error_json = rpc_resp.json()
+            error_msg = error_json.get("message", "")
+            
+            if "COOLDOWN" in error_msg:
+                # Сообщение вида: "COOLDOWN: 2025-11-27 10:00:00+00"
+                date_part = error_msg.split(": ", 1)[1] if ": " in error_msg else ""
+                return JSONResponse(
+                    status_code=429, 
+                    content={"detail": "Кулдаун активен", "cooldown_until": date_part}
+                )
+            if "NO_CHALLENGES_AVAILABLE" in error_msg:
+                return JSONResponse(status_code=404, content={"message": "Для вас пока нет новых челленджей."})
+            
+            # Любая другая ошибка
+            raise HTTPException(status_code=400, detail=error_msg)
 
-        return new_user_challenge
+        rpc_resp.raise_for_status()
+        return rpc_resp.json()
 
     except httpx.HTTPStatusError as e:
-        logging.error(f"Ошибка при создании челленджа в Supabase: {e.response.text}")
-        raise HTTPException(status_code=500, detail=f"Ошибка сервера: {e.response.text}")
-    except Exception as e:
-        logging.error(f"Неизвестная ошибка: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+        # Ловим, если RPC упала с 500 или другой ошибкой HTTP
+        error_txt = e.response.text
+        try:
+             error_txt = e.response.json().get("message", error_txt)
+        except: pass
+        
+        logging.error(f"RPC assign_user_challenge Error: {error_txt}")
+        raise HTTPException(status_code=400, detail=f"Ошибка: {error_txt}")
 
+    except Exception as e:
+        logging.error(f"Assignment critical error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+        
 @app.post("/api/v1/user/challenge/check")
 async def check_challenge_progress(
     request_data: InitDataRequest,
