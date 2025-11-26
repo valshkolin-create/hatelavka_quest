@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from supabase import create_client
 from supabase.client import AsyncClient # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
 
+
 import requests
 from fastapi.concurrency import run_in_threadpool
 import warnings
@@ -27,6 +28,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import Update, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode
 from aiogram.client.bot import DefaultBotProperties
+from aiogram.exceptions import TelegramForbiddenError
 from fastapi import FastAPI, Request, HTTPException, Query, Depends, Body, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -2652,15 +2654,19 @@ async def send_admin_notification_task(quest_title: str, user_info: dict, submit
 
 async def safe_send_message(chat_id: int, text: str, **kwargs):
     """
-    Универсальная и надежная функция для отправки сообщений,
-    которая создает временную сессию бота для каждой отправки.
+    Универсальная и надежная функция для отправки сообщений.
+    Обрабатывает блокировку бота пользователем.
     """
     temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     try:
         await temp_bot.send_message(chat_id=chat_id, text=text, **kwargs)
-        logging.info(f"Безопасная отправка сообщения в чат {chat_id} выполнена.")
+        logging.info(f"✅ Безопасная отправка сообщения в чат {chat_id} выполнена.")
+    except TelegramForbiddenError:
+        # Это случается, если пользователь заблокировал бота
+        logging.warning(f"⚠️ Не удалось отправить сообщение {chat_id}: пользователь заблокировал бота.")
     except Exception as e:
-        logging.error(f"ОШИБКА безопасной отправки в чат {chat_id}: {e}", exc_info=True)
+        # Остальные ошибки (например, проблемы с сетью)
+        logging.error(f"❌ ОШИБКА отправки в чат {chat_id}: {e}", exc_info=True)
     finally:
         await temp_bot.session.close()
 
