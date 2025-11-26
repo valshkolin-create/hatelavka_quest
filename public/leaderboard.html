@@ -254,7 +254,7 @@
 
   let currentUser = null;
 
-  // 1. Загружаем данные пользователя из БД (базовые данные)
+  // 1. Загрузка профиля
   async function loadCurrentUser() {
       try {
           const response = await fetch('/api/v1/user/me', {
@@ -264,8 +264,8 @@
           });
           if (response.ok) {
               currentUser = await response.json();
-              // Первичная отрисовка (пока грузится таблица, показываем то, что есть в базе)
-              updatePersonalStats(null); 
+              console.log("👤 [DEBUG] Мой профиль загружен:", currentUser);
+              // Не обновляем плашку здесь, подождем загрузки таблицы
           }
       } catch (e) {
           console.error("Ошибка загрузки профиля:", e);
@@ -273,10 +273,7 @@
       }
   }
 
-  // 2. Обновляем плашку статистики
-  // realTimeValue - это значение, найденное прямо в таблице лидерборда.
-  // Если оно передано (не null), мы используем ЕГО (приоритет).
-  // Если null — используем данные из currentUser (база данных).
+  // 2. Обновление плашки
   function updatePersonalStats(realTimeValue = null) {
       if (!currentUser) return;
 
@@ -285,17 +282,17 @@
           dom.tgUserName.textContent = `Вы: ${currentUser.full_name || currentUser.username || 'Пользователь'}`;
           
           let val = 0;
-          let isFromTable = false;
-
+          
           if (realTimeValue !== null) {
               val = realTimeValue;
-              isFromTable = true;
+              console.log("✅ [DEBUG] Использовано значение из таблицы:", val);
           } else {
-              // Фолбек на базу данных (если в топе не нашли)
+              // Fallback на базу
               if (state.telegramPeriod === 'day') val = currentUser.telegram_daily_message_count || 0;
               else if (state.telegramPeriod === 'week') val = currentUser.telegram_weekly_message_count || 0;
               else if (state.telegramPeriod === 'month') val = currentUser.telegram_monthly_message_count || 0;
               else if (state.telegramPeriod === 'all') val = currentUser.telegram_total_message_count || 0;
+              console.log("⚠️ [DEBUG] Использовано значение из БД (Fallback):", val);
           }
 
           dom.tgUserStat.innerHTML = `Ваш результат: <span>${val} сообщений</span>`;
@@ -318,14 +315,12 @@
               val = realTimeValue;
               isFromTable = true;
           } else {
-              // Фолбек на базу данных
               if (state.twitchMetric === 'message') {
                   if (state.twitchPeriod === 'session') val = currentUser.daily_message_count || 0;
                   else if (state.twitchPeriod === 'week') val = currentUser.weekly_message_count || 0;
                   else if (state.twitchPeriod === 'month') val = currentUser.monthly_message_count || 0;
                   else val = currentUser.total_message_count || 0;
               } else if (state.twitchMetric === 'uptime') {
-                  // В базе храним минуты
                   if (state.twitchPeriod === 'session') val = currentUser.daily_uptime_minutes || 0;
                   else if (state.twitchPeriod === 'week') val = currentUser.weekly_uptime_minutes || 0;
                   else if (state.twitchPeriod === 'month') val = currentUser.monthly_uptime_minutes || 0;
@@ -333,24 +328,18 @@
               }
           }
 
-          // Форматирование вывода
           if (state.twitchMetric === 'message') {
               dom.twitchUserStat.innerHTML = `Ваш результат: <span>${val} сообщений</span>`;
           } else if (state.twitchMetric === 'uptime') {
-              // Если данные из таблицы (Wizebot), они обычно в секундах.
-              // Если из базы (наши), они в минутах.
-              // Но если вы используете мой код для Twitch, там уже идет конвертация.
-              // Для надежности: если из таблицы (realTime) - считаем секундами. Если из базы - минутами.
-              
               let displayVal = "";
               if (isFromTable) {
-                  displayVal = formatUptime(val); // Wizebot (секунды)
+                  displayVal = formatUptime(val); 
               } else {
-                  displayVal = formatUptime(val * 60); // База (минуты -> секунды)
+                  displayVal = formatUptime(val * 60);
               }
               dom.twitchUserStat.innerHTML = `Ваш результат: <span>${displayVal}</span>`;
           } else {
-              dom.twitchUserStat.innerHTML = `<span>Ранги пока не отображаются в профиле</span>`;
+              dom.twitchUserStat.innerHTML = `<span>Ранги пока не отображаются</span>`;
           }
       }
   }
@@ -384,7 +373,6 @@
               case 'ranks': dom.tableHeader.textContent = 'Ранг (PTS)'; break;
           }
       }
-      // При переключении вкладок сбрасываем "найденное" значение, показываем из БД
       updatePersonalStats(null);
   }
 
@@ -410,35 +398,48 @@
       const data = await response.json();
       const leaderboardData = Array.isArray(data) ? data : data.leaderboard;
 
-      // --- УНИВЕРСАЛЬНОЕ ЗЕРКАЛИРОВАНИЕ ---
-      // Ищем текущего юзера в загруженном списке
+      // --- ПОИСК СЕБЯ С ОТЛАДКОЙ ---
       let myRealTimeStat = null;
       
       if (currentUser && Array.isArray(leaderboardData)) {
-          const myTgId = currentUser.telegram_id; // Наш ID из базы
+          // Приводим всё к строкам для надежности
+          const myTgId = String(currentUser.telegram_id); 
           const myTwitchLogin = currentUser.twitch_login ? currentUser.twitch_login.toLowerCase() : null;
+          const myUsername = currentUser.username ? currentUser.username.toLowerCase().replace('@', '') : null;
+
+          console.log(`🔍 [DEBUG] Ищу себя. Мой ID: ${myTgId}, Login: ${myTwitchLogin}, Username: ${myUsername}`);
 
           const me = leaderboardData.find(entry => {
-              // 1. Поиск в TELEGRAM (сравниваем ID)
-              if (state.source === 'telegram' && myTgId) {
-                  // API может возвращать разные поля ID, проверяем все возможные
-                  return (entry.telegram_id == myTgId) || (entry.user_id == myTgId) || (entry.id == myTgId);
+              if (state.source === 'telegram') {
+                  const entryId = entry.telegram_id || entry.user_id || entry.id;
+                  const entryUser = entry.username ? entry.username.toLowerCase().replace('@', '') : null;
+                  
+                  // Сравниваем ID
+                  if (entryId && String(entryId) === myTgId) {
+                      console.log(`🎯 [DEBUG] Нашел совпадение по ID! (Row ID: ${entryId})`);
+                      return true;
+                  }
+                  // Сравниваем Username (запасной вариант)
+                  if (entryUser && myUsername && entryUser === myUsername) {
+                      console.log(`🎯 [DEBUG] Нашел совпадение по Username! (Row User: ${entryUser})`);
+                      return true;
+                  }
               }
-              // 2. Поиск в TWITCH (сравниваем Логин)
+              
               if (state.source === 'twitch' && myTwitchLogin) {
                   const entryName = (entry.user_name || entry.username || "").toLowerCase();
-                  return entryName === myTwitchLogin;
+                  if (entryName === myTwitchLogin) return true;
               }
               return false;
           });
 
           if (me) {
-              // Если нашли себя в списке — берем значение оттуда!
               myRealTimeStat = me.total_activity ?? me.value ?? me.messages_count ?? 0;
+          } else {
+              console.log("❌ [DEBUG] Не нашел себя в топ-50.");
           }
       }
       
-      // Обновляем плашку. Если myRealTimeStat !== null, то покажет правильное число из таблицы.
       updatePersonalStats(myRealTimeStat);
       // --------------------------------------
 
@@ -515,14 +516,19 @@
   
   dom.refreshButtons.forEach(button => {
     button.addEventListener('click', () => {
-      loadCurrentUser(); 
-      fetchAndRender();
+      initPage(); // Перезагрузка всего
     });
   });
 
-  loadCurrentUser();
-  updateUI();
-  fetchAndRender();
+  // ГЛАВНАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ
+  // Сначала ждем профиль, потом грузим таблицу.
+  async function initPage() {
+      await loadCurrentUser();
+      updateUI();
+      fetchAndRender();
+  }
+
+  initPage();
 </script>
 </body>
 </html>
