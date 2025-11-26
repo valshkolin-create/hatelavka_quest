@@ -3685,7 +3685,32 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
             // Клик по иконке (Покупки)
-           // --- 🛡️ ФИНАЛЬНЫЙ ВАРИАНТ: ОПТИМИСТИЧНОЕ УДАЛЕНИЕ (БЕЗ ПЕРЕЗАГРУЗКИ) ---
+            const purchasesLink = target.closest('.reward-purchases-link');
+            if (purchasesLink) {
+                event.preventDefault(); // Предотвратить переход по ссылке #
+                const { rewardId, rewardTitle } = purchasesLink.dataset;
+                await openTwitchPurchases(rewardId, rewardTitle);
+                return;
+            }
+            
+            // Общий клик по иконке (Навигация) - должен быть ПОСЛЕ кнопок
+            const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
+            if (navButton && navButton.tagName.toLowerCase() !== 'a') {
+                event.preventDefault();
+                const view = navButton.dataset.view;
+                if (view) await switchView(view);
+                else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
+                else if (navButton.id === 'go-create-challenge') {
+                    dom.challengeForm.reset();
+                    dom.challengeForm.elements['challenge_id'].value = '';
+                    updateChallengeFormUI(dom.challengeForm);
+                    dom.challengeFormTitle.textContent = 'Новый челлендж';
+                    await switchView('view-admin-challenge-form');
+                }
+                return;
+            }
+
+           // --- 🛡️ САМЫЙ НАДЕЖНЫЙ ВАРИАНТ УДАЛЕНИЯ (ЧЕРЕЗ GLOBAL LOADER) ---
             const deletePurchaseBtn = target.closest('.delete-purchase-btn');
             if (deletePurchaseBtn) {
                 // Предотвращаем лишние клики
@@ -3754,7 +3779,7 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
             // --- 🛡️ КОНЕЦ ---
-            
+
             const deleteAllBtn = target.closest('#delete-all-purchases-btn');
             if (deleteAllBtn) {
                 // 1. Блокируем кнопку, чтобы не нажать дважды
