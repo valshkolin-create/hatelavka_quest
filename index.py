@@ -3694,52 +3694,42 @@ async def get_twitch_reward_purchases(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    (ИСПРАВЛЕНО v2) Получает покупки И принудительно обновляет настройки.
+    Получает список покупок напрямую из таблицы (чтобы видеть все новые поля, включая viewed_by_admin_name).
     """
     try:
-        # 1. (КАК РАНЬШЕ) Вызываем RPC, которая возвращает {"purchases": [...], "reward_settings": {...}}
-        purchases_response = await supabase.post(
-            "/rpc/get_twitch_reward_purchases_for_admin",
-            json={"p_reward_id": reward_id}
-        )
-        purchases_response.raise_for_status()
+        # 1. 🔥 ИЗМЕНЕНИЕ: Запрашиваем таблицу НАПРЯМУЮ вместо RPC
+        # Это гарантирует, что мы получим поле 'viewed_by_admin_name' и любые другие новые поля
+        purchases_response = await supabase.from_("twitch_reward_purchases") \
+            .select("*") \
+            .eq("reward_id", reward_id) \
+            .order("created_at", desc=True) \
+            .execute()
         
-        # rpc_data - это {"purchases": [...], "reward_settings": {...}}
-        rpc_data = purchases_response.json()
-        
-        # (Новая проверка) Если RPC вернула массив, а не объект (на всякий случай)
-        if isinstance(rpc_data, list):
-             logging.warning("RPC (get_twitch_reward_purchases_for_admin) вернула массив, а не объект.")
-             # Создаем объект, который ожидает JS
-             rpc_data = {"purchases": rpc_data, "reward_settings": {}}
+        # В новой версии библиотеки httpx/postgrest данные лежат в .data
+        purchases_data = purchases_response.data
 
-        # 2. (КАК В ПРОШЛОМ ФИКСЕ) Снова запрашиваем настройки
-        reward_settings_response = await supabase.get(
-            "/twitch_rewards",
-            params={"id": f"eq.{reward_id}", "select": "*", "limit": 1}
-        )
-        reward_settings_response.raise_for_status()
+        # 2. Получаем настройки награды
+        reward_settings_response = await supabase.from_("twitch_rewards") \
+            .select("*") \
+            .eq("id", reward_id) \
+            .limit(1) \
+            .execute()
         
-        reward_settings_data = reward_settings_response.json()
+        reward_settings_data = reward_settings_response.data
         if not reward_settings_data:
             raise HTTPException(status_code=404, detail="Настройки для этой награды не найдены.")
         
-        # 3. (НОВЫЙ ФИКС) Принудительно заменяем настройки в rpc_data
-        # Мы берем свежие, полные настройки (fresh_settings)
         fresh_settings = reward_settings_data[0]
-        # ...и заменяем ими те настройки, что вернула RPC.
-        rpc_data["reward_settings"] = fresh_settings
         
-        # 4. Возвращаем исправленный объект {"purchases": [...], "reward_settings": {... (свежие)} }
-        return rpc_data
+        # 3. Формируем ответ
+        return {
+            "purchases": purchases_data,
+            "reward_settings": fresh_settings
+        }
 
-    except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Ошибка базы данных")
-        logging.error(f"HTTP-ошибка при получении покупок (v2 fix): {error_details}")
-        raise HTTPException(status_code=500, detail=f"Не удалось загрузить покупки: {error_details}")
     except Exception as e:
-        logging.error(f"Критическая ошибка при получении покупок (v2 fix): {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при получении покупок.")
+        logging.error(f"Критическая ошибка при получении покупок: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 # 🔼🔼🔼 КОНЕЦ БЛОКА ДЛЯ ЗАМЕНЫ 🔼🔼🔼
         
