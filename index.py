@@ -518,6 +518,10 @@ CONDITION_TO_COLUMN = {
 load_dotenv()
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO)
+# Отключаем информационные логи от библиотек запросов, оставляем только предупреждения и ошибки
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+# -----------------------------------------
 
 # --- ЗАГРУЖАЕМ ВСЕ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -7657,44 +7661,31 @@ async def delete_twitch_reward_purchase(
     request_data: TwitchPurchaseDeleteRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Удаляет одну покупку с замером времени."""
+    """(Админ) Удаляет одну покупку. Пишет логи только при ошибках."""
     
-    # 1. Засекаем время старта
-    start_time = time.time()
-    purchase_id = request_data.purchase_id
-    
-    logging.info(f"🗑️ [DELETE START] Поступил запрос на удаление ID: {purchase_id}")
-
+    # Проверка прав
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
-        logging.warning(f"⛔ [DELETE ACCESS DENIED] User: {user_info.get('id') if user_info else 'None'}")
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 2. Отправляем запрос в базу
-        logging.info(f"⏳ [DELETE DB] Отправляю запрос в Supabase для ID: {purchase_id}...")
-        
-        db_start = time.time()
+        # Просто отправляем запрос
         response = await supabase.delete(
             "/twitch_reward_purchases",
-            params={"id": f"eq.{purchase_id}"}
+            params={"id": f"eq.{request_data.purchase_id}"}
         )
-        db_duration = time.time() - db_start
         
-        # 3. Проверяем ответ базы
+        # Если статус не 2xx — это ошибка, её надо записать
         if response.status_code not in range(200, 300):
-            logging.error(f"❌ [DELETE ERROR] Supabase ответил ошибкой: {response.status_code} - {response.text}")
+            logging.error(f"❌ Ошибка удаления ID {request_data.purchase_id}: {response.status_code} - {response.text}")
             raise HTTPException(status_code=response.status_code, detail=f"DB Error: {response.text}")
 
-        # 4. Фиксируем общее время
-        total_duration = time.time() - start_time
-        
-        logging.info(f"✅ [DELETE SUCCESS] Удалено ID: {purchase_id}. DB time: {db_duration:.4f}s. Total API time: {total_duration:.4f}s")
-        
+        # При успехе — тишина и покой 🤫
         return {"message": "Покупка успешно удалена."}
 
     except Exception as e:
-        logging.error(f"🔥 [DELETE CRITICAL] Исключение при удалении ID {purchase_id}: {e}", exc_info=True)
+        # Критические ошибки (падение кода) записываем
+        logging.error(f"🔥 Критическая ошибка при удалении: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/admin/roulette/prizes")
