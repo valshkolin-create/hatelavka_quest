@@ -481,18 +481,41 @@ body[data-theme="new_year"] .event-timer {
     backdrop-filter: blur(15px);
 }
 
-body[data-theme="new_year"] button,
+/* --- КНОПКИ ДЛЯ НОВОГО ГОДА (Желтые с черным текстом и белым свечением) --- */
+body[data-theme="new_year"] #contribution-form button,
 body[data-theme="new_year"] .rules-button {
+    /* Желтый градиент (фигура) */
     background: linear-gradient(180deg, #ffd54f 0%, #ffca28 100%);
-    color: #3e2723; /* Темный текст на золоте */
+    
+    /* Текст внутри черный */
+    color: #000000; 
+    font-weight: 700;
     text-shadow: none;
-    box-shadow: 0 4px 15px rgba(255, 202, 40, 0.4);
-    border: 1px solid #fff8e1;
+    
+    /* Белая подсветка (рамка + свечение) */
+    border: 2px solid #ffffff; 
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 4px 10px rgba(0, 0, 0, 0.2);
+    
+    /* Небольшие правки для красоты */
+    transform: translateY(0);
+    transition: all 0.2s ease;
 }
 
-body[data-theme="new_year"] .progress-bar-fill {
-    background: linear-gradient(90deg, #4fc3f7, #ffffff);
-    box-shadow: 0 0 15px var(--primary-color);
+/* Эффект нажатия/наведения для этих кнопок */
+body[data-theme="new_year"] #contribution-form button:hover,
+body[data-theme="new_year"] .rules-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(255, 255, 255, 0.8);
+    filter: brightness(1.1);
+}
+
+/* Отключенная кнопка (если нет билетов) */
+body[data-theme="new_year"] #contribution-form button:disabled {
+    background: #555;
+    color: #aaa;
+    border: 1px solid #777;
+    box-shadow: none;
+    transform: none;
 }
 /* ===== КОНЕЦ СТИЛЕЙ АДМИНА ===== */
 
