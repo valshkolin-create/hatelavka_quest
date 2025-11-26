@@ -29,18 +29,12 @@
             <span>Режим администратора: ивент скрыт для обычных пользователей.</span>
         </div>
 
-        <div id="theme-switcher" class="theme-switcher">
-            <button class="theme-btn" data-theme-set="halloween" title="Хэллоуин">🎃</button>
-            <button class="theme-btn" data-theme-set="new_year" title="Новый Год">🎄</button>
-            <button class="theme-btn" data-theme-set="classic" title="Классика">🔮</button>
-        </div>
-
         <header class="page-header">
             <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
         </header>
 
         <div id="event-dates-display" class="event-timer" data-editable="dates">
-            </div>
+        </div>
 
         <div class="rules-button-container">
             <button id="rules-button" class="rules-button">КАК ИГРАТЬ?</button>
@@ -98,11 +92,19 @@
         <button id="toggle-edit-btn" class="admin-toggle-btn" title="Показать/скрыть кнопки">
             <i class="fa-solid fa-chevron-down"></i>
         </button>
+        
         <div class="admin-action-buttons">
+            <div id="theme-switcher" class="theme-switcher">
+                <button class="theme-btn" data-theme-set="halloween" title="Хэллоуин">🎃</button>
+                <button class="theme-btn" data-theme-set="new_year" title="Новый Год">🎄</button>
+                <button class="theme-btn" data-theme-set="classic" title="Классика">🔮</button>
+            </div>
+            
             <button id="edit-btn">Редактировать</button>
             <button id="save-btn">Сохранить</button>
         </div>
     </div>
+    
     <div id="rules-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
