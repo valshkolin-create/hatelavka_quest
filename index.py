@@ -1890,6 +1890,7 @@ async def get_event_winners_details_for_admin(
 @app.post("/api/v1/auctions/bid")
 async def make_auction_bid(
     request_data: AuctionBidRequest,
+    background_tasks: BackgroundTasks, # <--- ⚠️ ВОТ ЭТО НУЖНО ДОБАВИТЬ
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
