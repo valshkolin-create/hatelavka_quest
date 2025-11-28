@@ -2766,6 +2766,59 @@ class BottWebhookModel(BaseModel):
 # ------------------------------------------------------------------
 # 1. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВСПОМОГАТЕЛЬНУЮ ФУНКЦИЮ НА ЭТУ ВЕРСИЮ
 # ------------------------------------------------------------------
+async def broadcast_notification_task(text: str, setting_key: str):
+    """
+    Фоновая задача: Находит всех активных пользователей с включенной настройкой
+    и отправляет им сообщение.
+    """
+    try:
+        # 1. Получаем список пользователей из базы
+        client = await get_background_client()
+        
+        # Запрашиваем тех, кто нажал /start (is_bot_active=true) И включил конкретную настройку
+        resp = await client.get(
+            "/users", 
+            params={
+                "is_bot_active": "eq.true", # Только активные
+                setting_key: "eq.true",     # Только подписавшиеся на этот тип
+                "select": "telegram_id"
+            }
+        )
+        users = resp.json()
+        
+        if not users:
+            logging.info(f"Нет получателей для рассылки {setting_key}")
+            return
+
+        logging.info(f"📢 Начинаем рассылку ({setting_key}) для {len(users)} чел.")
+
+        # 2. Создаем временного бота для массовой отправки
+        temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        
+        try:
+            for user in users:
+                user_id = user.get("telegram_id")
+                if not user_id: continue
+
+                try:
+                    await temp_bot.send_message(chat_id=user_id, text=text)
+                    # Маленькая задержка, чтобы Телеграм не забанил за спам (30 сообщений в секунду - лимит)
+                    await asyncio.sleep(0.05) 
+                except TelegramForbiddenError:
+                    # Если пользователь заблокировал бота — можно пометить в базе (опционально)
+                    logging.warning(f"Пользователь {user_id} заблокировал бота.")
+                except Exception as e:
+                    logging.warning(f"Ошибка отправки {user_id}: {e}")
+                    
+        finally:
+            # Обязательно закрываем сессию
+            await temp_bot.session.close()
+            
+        logging.info("✅ Рассылка завершена.")
+
+    except Exception as e:
+        logging.error(f"Критическая ошибка рассылки: {e}")
+
 async def send_admin_notification_task(quest_title: str, user_info: dict, submitted_data: str):
     """
     Отправляет уведомление администратору в фоновом режиме
@@ -4047,6 +4100,7 @@ async def admin_get_auctions(
 @app.post("/api/v1/admin/auctions/create")
 async def admin_create_auction(
     request_data: AuctionCreateRequest,
+    background_tasks: BackgroundTasks, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -4056,9 +4110,6 @@ async def admin_create_auction(
     duration_hours = request_data.bid_cooldown_hours
     end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
 
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-    
-    # 1. Формируем JSON для отправки
     payload = {
         "title": request_data.title,
         "image_url": request_data.image_url,
@@ -4067,31 +4118,37 @@ async def admin_create_auction(
         "bid_cooldown_ends_at": end_time.isoformat(),
         "is_active": request_data.is_active,
         "is_visible": request_data.is_visible,
-        
-        # ⬇️ ИСПРАВЛЕННАЯ ЛОГИКА ⬇️
-        # Если пришел 0, делаем его None, чтобы Supabase сохранил NULL
         "min_required_tickets": request_data.min_required_tickets,
         "max_allowed_tickets": request_data.max_allowed_tickets if request_data.max_allowed_tickets and request_data.max_allowed_tickets > 0 else None
-        # ⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️
     }
 
     try:
-        # 2. Отправляем запрос и СОХРАНЯЕМ ответ в переменную
+        # 1. Создаем лот в базе
         response = await supabase.post("/auctions", json=payload)
+        response.raise_for_status()
         
-        # 3. ПРОВЕРЯЕМ ответ. Если была ошибка (4xx или 5xx), эта строка "выбросит" исключение
-        response.raise_for_status() 
-        
+        # 2. ЗАПУСКАЕМ РАССЫЛКУ ПО ЛИЧКАМ (если лот активен)
+        if request_data.is_active and request_data.is_visible:
+            msg = (
+                f"📢 <b>Новый аукцион!</b>\n\n"
+                f"Лот: «{html_decoration.quote(request_data.title)}»\n"
+                f"Начальная цена: 1 🎟️\n\n" 
+                f"Делайте ваши ставки в приложении!"
+            )
+            
+            # Используем нашу новую функцию broadcast_notification_task
+            # Передаем ключ настройки 'notify_auction_start'
+            background_tasks.add_task(broadcast_notification_task, msg, "notify_auction_start")
+            
     except httpx.HTTPStatusError as e:
-        # 4. Если raise_for_status() поймал ошибку, логируем ее и возвращаем клиенту
         error_details = e.response.json().get("message", e.response.text)
-        logging.error(f"❌ ОШИБКА SUPABASE при создании лота: {error_details}")
-        logging.error(f"❌ Payload, который не понравился Supabase: {payload}")
-        raise HTTPException(status_code=400, detail=f"Ошибка Supabase: {error_details}")
+        logging.error(f"❌ ОШИБКА SUPABASE: {error_details}")
+        raise HTTPException(status_code=400, detail=f"Ошибка: {error_details}")
     except Exception as e:
-        # 5. Ловим любые другие непредвиденные ошибки
-        logging.error(f"❌ Неизвестная ошибка при создании лота: {e}", exc_info=True)
+        logging.error(f"❌ Ошибка создания лота: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+    return {"message": "Лот создан, рассылка запущена."}
 
     # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     
