@@ -132,127 +132,69 @@
             font-size: 14px;
         }
 
-        /* --- БЛОК УВЕДОМЛЕНИЙ --- */
-        .notify-section {
-            background-color: var(--surface-glass-bg);
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-        .notify-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .notify-title {
-            font-size: 17px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .notify-status-badge {
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .notify-status-badge.active {
-            background-color: rgba(52, 199, 89, 0.2);
-            color: var(--primary-color);
-        }
-        .notify-status-badge.inactive {
-            background-color: rgba(255, 59, 48, 0.2);
-            color: var(--danger-color);
-        }
-
-        /* --- Стейт: Бот не подключен --- */
-        .notify-connect-state {
-            text-align: center;
-            padding: 10px 0;
-        }
-        .notify-connect-desc {
-            font-size: 13px;
-            color: var(--text-color-muted);
-            margin-bottom: 15px;
-            line-height: 1.4;
-        }
-        .notify-connect-btn {
-            background: var(--primary-color);
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        /* --- Стейт: Настройки (Тогглы) --- */
-        .notify-settings-list {
-            display: flex;
-            flex-direction: column;
+        /* --- Стили списка уведомлений (Popup) --- */
+        .notify-list { 
+            display: flex; 
+            flex-direction: column; 
             gap: 0; 
+            text-align: left; 
+            margin-bottom: 20px; 
         }
         .notify-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; /* Выравнивание по верху */
+            padding: 14px 0; 
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        .notify-item:last-child {
-            border-bottom: none;
-        }
-        .notify-item-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .notify-item-text {
-            display: flex;
-            flex-direction: column;
-        }
-        .notify-item-label {
-            font-size: 15px;
-            font-weight: 500;
-        }
-        .notify-item-sub {
-            font-size: 11px;
-            color: var(--text-color-muted);
-            display: block;
-            margin-top: 2px;
+        .notify-item:last-child { 
+            border-bottom: none; 
         }
         
-        /* Кнопка Теста (Колокольчик) */
-        .test-mini-btn {
-            background: rgba(255,255,255,0.1);
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            color: var(--action-color);
-            display: flex;
-            align-items: center;
+        .notify-item-left {
+            display: flex; 
+            flex-direction: column;
+            flex-grow: 1; 
+            padding-right: 15px;
             justify-content: center;
-            cursor: pointer;
-            transition: background 0.2s;
+            min-height: 31px; /* Высота тумблера */
         }
-        .test-mini-btn:active {
-            background: rgba(255,255,255,0.2);
-            transform: scale(0.9);
+        .notify-label { 
+            font-size: 15px; 
+            font-weight: 600; 
+            color: #fff; 
+            margin-bottom: 3px; 
+        }
+        .notify-sub { 
+            font-size: 12px; 
+            color: var(--text-color-muted); 
+            line-height: 1.3; 
+        }
+        
+        .notify-item-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
         }
 
-        /* --- iOS Toggle Switch --- */
+        /* Кнопка "Тест" под тумблером */
+        .test-text-btn {
+            background: none;
+            border: none;
+            color: var(--action-color);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 2px 5px;
+            opacity: 0.9;
+            transition: opacity 0.2s;
+        }
+        .test-text-btn:active {
+            opacity: 0.5;
+        }
+
+        /* Toggle Switch (iOS Style) */
         .toggle-switch {
             position: relative;
             width: 51px;
@@ -741,7 +683,7 @@ try {
                 <p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений и наград нужно активировать нашего бота.</p>
                 <p style="text-align: center; font-size: 12px; color: var(--primary-color);">Это одноразовое действие.</p>
                 <div style="display: flex; justify-content: center; margin-top: 20px;">
-                    <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
+                    <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
                         Перейти и нажать Старт
                     </a>
                 </div>
@@ -750,11 +692,11 @@ try {
             // Бот активен
             dom.notifyContent.innerHTML = `
                 <div class="notify-list">
-                    ${createToggle('notify_auction_start', 'Аукцион: Старт', 'Новые лоты', settings.notify_auction_start)}
-                    ${createToggle('notify_auction_outbid', 'Аукцион: Перебили', 'Ваша ставка перебита', settings.notify_auction_outbid)}
-                    ${createToggle('notify_rewards', 'Награды', 'Коды и билеты', settings.notify_rewards)}
-                    ${createToggle('notify_stream_start', 'Трансляция', 'Начало стрима', settings.notify_stream_start)}
-                    ${createToggle('notify_daily_grind', 'Монетка', 'Гринд-награда', settings.notify_daily_grind)}
+                    ${createToggle('notify_auction_start', 'Аукцион', 'Старт новых лотов', settings.notify_auction_start)}
+                    ${createToggle('notify_auction_outbid', 'Ставки', 'Если вашу ставку перебили', settings.notify_auction_outbid)}
+                    ${createToggle('notify_rewards', 'Награды', 'Призы, коды и билеты', settings.notify_rewards)}
+                    ${createToggle('notify_stream_start', 'Трансляция', 'Уведомление о начале стрима', settings.notify_stream_start)}
+                    ${createToggle('notify_daily_grind', 'Монетка', 'Напоминание о награде', settings.notify_daily_grind)}
                     ${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука с 23:00 до 08:00', settings.notify_dnd_enabled)}
                 </div>
             `;
@@ -769,20 +711,30 @@ try {
             });
 
             // Логика кнопок теста
-            document.querySelectorAll('.test-mini-btn').forEach(btn => {
+            document.querySelectorAll('.test-text-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const type = e.currentTarget.dataset.type;
-                    const original = e.currentTarget.innerHTML;
-                    e.currentTarget.innerHTML = '<div class="spinner" style="width:14px; height:14px; border-width:2px;"></div>';
+                    const original = e.currentTarget.innerText;
+                    e.currentTarget.innerText = 'Отправка...';
+                    e.currentTarget.style.opacity = '0.5';
                     
                     try {
                         await makeApiRequest('/api/v1/user/notification/test', { type: type });
+                        e.currentTarget.innerText = 'Отправлено!';
                         e.currentTarget.style.color = 'var(--primary-color)';
-                        e.currentTarget.innerHTML = '<i class="fa-solid fa-check"></i>';
-                        setTimeout(() => { e.currentTarget.style.color = ''; e.currentTarget.innerHTML = original; }, 2000);
+                        e.currentTarget.style.opacity = '1';
+                        setTimeout(() => { 
+                            e.currentTarget.innerText = original; 
+                            e.currentTarget.style.color = ''; 
+                        }, 2000);
                     } catch(err) {
-                        e.currentTarget.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-                        setTimeout(() => { e.currentTarget.innerHTML = original; }, 2000);
+                        e.currentTarget.innerText = 'Ошибка';
+                        e.currentTarget.style.color = 'var(--danger-color)';
+                        setTimeout(() => { 
+                            e.currentTarget.innerText = original; 
+                            e.currentTarget.style.color = '';
+                            e.currentTarget.style.opacity = '1';
+                        }, 2000);
                     }
                 });
             });
@@ -790,23 +742,20 @@ try {
     }
 
     function createToggle(key, title, sub, checked) {
-        // Default true for everything except DND
         const isChecked = checked ?? (key !== 'notify_dnd_enabled');
         return `
             <div class="notify-item">
                 <div class="notify-item-left">
-                    <button class="test-mini-btn" data-type="${key}" title="Тест">
-                        <i class="fa-regular fa-bell"></i>
-                    </button>
-                    <div class="notify-item-text">
-                        <span class="notify-label">${title}</span>
-                        <span class="notify-sub">${sub}</span>
-                    </div>
+                    <span class="notify-label">${title}</span>
+                    <span class="notify-sub">${sub}</span>
                 </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}>
-                    <span class="slider"></span>
-                </label>
+                <div class="notify-item-right">
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                    <button class="test-text-btn" data-type="${key}">📩 Тест</button>
+                </div>
             </div>
         `;
     }
