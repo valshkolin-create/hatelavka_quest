@@ -873,13 +873,8 @@ async def cmd_start(
 # --- 1. Обработчик для КНОПКИ (из /start) ---
 @router.callback_query(F.data == "open_settings_menu")
 async def callback_open_settings_menu(callback: types.CallbackQuery):
-    """
-    Обрабатывает нажатие кнопки '🔔 Настройка уведомлений' в меню /start.
-    """
-    # Убираем часики загрузки у кнопки
+    print(f"DEBUG: Кнопка меню нажата пользователем {callback.from_user.id}") # ОТЛАДКА
     await callback.answer()
-    
-    # Запускаем логику открытия меню. Передаем callback.message, чтобы бот знал куда отвечать.
     await _open_settings_logic(callback.message)
 
 
@@ -887,21 +882,19 @@ async def callback_open_settings_menu(callback: types.CallbackQuery):
 @router.message(Command("settings"))
 @router.message(F.text == "🔔 Настройка уведомлений")
 async def cmd_open_settings(message: types.Message):
-    """
-    Обрабатывает команду /settings или текст.
-    """
+    print(f"DEBUG: Команда /settings от {message.from_user.id}") # ОТЛАДКА
     await _open_settings_logic(message)
 
 
-# --- 3. ОБЩАЯ ЛОГИКА ОТКРЫТИЯ МЕНЮ (Внутренняя функция) ---
+# --- 3. ВНУТРЕННЯЯ ЛОГИКА (С ОТЛАДКОЙ) ---
 async def _open_settings_logic(message: types.Message):
     user_id = message.chat.id
     
-    # ВАЖНО: Получаем клиент вручную, убрав Depends
-    supabase = await get_supabase_client()
-    
     try:
-        # Запрашиваем настройки пользователя
+        print("DEBUG: Запрашиваем клиент БД...") 
+        supabase = await get_supabase_client()
+        
+        print("DEBUG: Отправляем запрос в Supabase...")
         response = await supabase.get(
             "/users", 
             params={
@@ -910,73 +903,84 @@ async def _open_settings_logic(message: types.Message):
             }
         )
         
+        # Если база вернула ошибку (например, неверное имя колонки), выводим её
+        if response.status_code != 200:
+            print(f"ERROR: Ошибка БД {response.status_code}: {response.text}")
+            await message.answer("Ошибка базы данных. Сообщите администратору.")
+            return
+
         data = response.json()
         if not data:
-            # Если юзера нет в базе (редкий случай), просим нажать старт
-            await message.answer("Профиль не найден. Пожалуйста, нажмите /start")
+            await message.answer("Профиль не найден. Нажмите /start для регистрации.")
             return
 
         user_settings = data[0]
         
         text = (
             "<b>⚙️ Настройка уведомлений</b>\n\n"
-            "Здесь вы можете включить или выключить уведомления.\n"
-            "🌙 <b>Тихий режим:</b> Если включен, бот не будет беспокоить вас ночью (23:00 - 08:00 МСК)."
+            "Управляйте тем, какие сообщения присылает бот.\n"
+            "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас с 23:00 до 08:00 (МСК)."
         )
         
-        # Отправляем новое сообщение с клавиатурой
         await message.answer(text, reply_markup=get_notification_settings_keyboard(user_settings))
+        print("DEBUG: Меню успешно отправлено")
 
     except Exception as e:
-        logging.error(f"Ошибка открытия настроек: {e}")
-        await message.answer("⚠️ Не удалось загрузить настройки. Попробуйте позже.")
+        print(f"CRITICAL ERROR в _open_settings_logic: {e}") # ПРИНУДИТЕЛЬНЫЙ ВЫВОД ОШИБКИ
+        await message.answer("⚠️ Критическая ошибка при открытии настроек.")
 
 
-# --- 4. ОБРАБОТЧИК КЛИКОВ ПО ГАЛОЧКАМ (ТОГГЛЫ) ---
+# --- 4. ОБРАБОТЧИК ГАЛОЧЕК (С ОТЛАДКОЙ) ---
 @router.callback_query(F.data.startswith("toggle_notify:"))
 async def toggle_notification_setting(callback: types.CallbackQuery):
-    """
-    Обрабатывает переключение конкретной настройки (галочки).
-    """
-    # ВАЖНО: Получаем клиент вручную
-    supabase = await get_supabase_client()
-    
-    # Парсим имя колонки из callback_data (например, toggle_notify:notify_rewards)
-    column_name = callback.data.split(":")[1]
     user_id = callback.from_user.id
+    column_name = callback.data.split(":")[1]
     
-    # Список разрешенных полей для безопасности
+    print(f"DEBUG: Клик по настройке {column_name} от {user_id}") # ОТЛАДКА
+
     allowed_columns = [
         "notify_auction_start", "notify_auction_outbid", "notify_auction_end", 
         "notify_rewards", "notify_stream_start", "notify_daily_grind", "notify_dnd_enabled"
     ]
     
     if column_name not in allowed_columns:
+        print(f"WARNING: Неизвестная колонка {column_name}")
         await callback.answer("Неизвестная настройка", show_alert=True)
         return
 
     try:
-        # 1. Получаем текущее значение этой настройки
+        supabase = await get_supabase_client()
+
+        # 1. Получаем текущее значение
         resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": column_name})
-        data = resp.json()
         
-        if not data:
-            await callback.answer("Ошибка профиля", show_alert=True)
+        if resp.status_code != 200:
+            print(f"ERROR GET: {resp.text}")
+            await callback.answer("Ошибка чтения настройки", show_alert=True)
             return
 
-        # Получаем значение (True/False). Если None, ставим дефолт.
+        data = resp.json()
+        if not data:
+            await callback.answer("Профиль не найден", show_alert=True)
+            return
+
         current_value = data[0].get(column_name)
+        # Если NULL -> ставим True (включено), кроме DND (выключено)
         if current_value is None:
-             # Для тихого режима дефолт выкл, для остальных вкл
              current_value = False if column_name == "notify_dnd_enabled" else True
 
-        # 2. Переворачиваем значение (было True -> стало False)
         new_value = not current_value
         
-        # 3. Сохраняем в базу
-        await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={column_name: new_value})
+        # 2. Обновляем
+        print(f"DEBUG: Меням {column_name} на {new_value}")
+        patch_resp = await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={column_name: new_value})
         
-        # 4. Чтобы обновить клавиатуру (поменять галочку на крестик), нужно получить ВСЕ настройки заново
+        if patch_resp.status_code not in (200, 204):
+            print(f"ERROR PATCH: {patch_resp.text}")
+            await callback.answer("Не удалось сохранить", show_alert=True)
+            return
+        
+        # 3. Обновляем клавиатуру (запрашиваем все поля заново)
         full_resp = await supabase.get(
             "/users", 
             params={
@@ -986,27 +990,18 @@ async def toggle_notification_setting(callback: types.CallbackQuery):
         )
         
         if full_resp.json():
-            new_settings_block = full_resp.json()[0]
-            # Редактируем клавиатуру в сообщении
+            new_settings = full_resp.json()[0]
             await callback.message.edit_reply_markup(
-                reply_markup=get_notification_settings_keyboard(new_settings_block)
+                reply_markup=get_notification_settings_keyboard(new_settings)
             )
         
-        # Всплывающее уведомление пользователю
         status = "Включено ✅" if new_value else "Выключено ❌"
         await callback.answer(f"Настройка изменена: {status}")
         
     except Exception as e:
-        logging.error(f"Ошибка переключения настройки: {e}")
-        await callback.answer("Не удалось изменить настройку", show_alert=True)
-@router.callback_query(F.data == "close_settings")
-async def close_settings_menu(callback: types.CallbackQuery):
-    await callback.message.delete()
-
-@router.callback_query(F.data == "ignore")
-async def ignore_callback(callback: types.CallbackQuery):
-    await callback.answer() # Просто убирает часики загрузки
-
+        print(f"CRITICAL ERROR в toggle: {e}") # ПРИНУДИТЕЛЬНЫЙ ВЫВОД
+        await callback.answer("Сбой бота. Попробуйте позже.", show_alert=True)
+        
 # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
 @router.message(F.text & ~F.command)
