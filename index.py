@@ -4108,7 +4108,7 @@ async def admin_get_auctions(
 @app.post("/api/v1/admin/auctions/create")
 async def admin_create_auction(
     request_data: AuctionCreateRequest,
-    background_tasks: BackgroundTasks, 
+    background_tasks: BackgroundTasks, # <--- ВАЖНО: background_tasks добавлен в аргументы
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -4135,7 +4135,7 @@ async def admin_create_auction(
         response = await supabase.post("/auctions", json=payload)
         response.raise_for_status()
         
-        # 2. ЗАПУСКАЕМ РАССЫЛКУ ПО ЛИЧКАМ (если лот активен)
+        # 2. ЗАПУСКАЕМ МАССОВУЮ РАССЫЛКУ (если лот активен и виден)
         if request_data.is_active and request_data.is_visible:
             msg = (
                 f"📢 <b>Новый аукцион!</b>\n\n"
@@ -4144,8 +4144,8 @@ async def admin_create_auction(
                 f"Делайте ваши ставки в приложении!"
             )
             
-            # Используем нашу новую функцию broadcast_notification_task
-            # Передаем ключ настройки 'notify_auction_start'
+            # Запускаем фоновую задачу рассылки
+            # Она найдет всех, у кого включено 'notify_auction_start' и is_bot_active=True
             background_tasks.add_task(broadcast_notification_task, msg, "notify_auction_start")
             
     except httpx.HTTPStatusError as e:
