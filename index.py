@@ -498,6 +498,14 @@ class GrantDeleteRequest(BaseModel):
     initData: str
     id: int
 # --- 🔼 КОНЕЦ НОВЫХ МОДЕЛЕЙ 🔼 ---
+# --- Модели для настроек уведомлений ---
+class UserSettingsUpdate(BaseModel):
+    initData: str
+    key: str   # Имя настройки (например, notify_auction_start)
+    value: bool # Значение (true/false)
+
+class TestNotificationRequest(BaseModel):
+    initData: str
 
 
 
@@ -8489,6 +8497,83 @@ async def fix_twitch_subs(
         }
 
 #### https://hatelavka-quest-nine.vercel.app/api/v1/debug/fix_twitch_subs <- ссылка для фикса
+
+@app.post("/api/v1/user/settings/get")
+async def get_user_settings_api(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Возвращает текущие настройки уведомлений пользователя."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    
+    # Запрашиваем только поля настроек
+    resp = await supabase.get(
+        "/users", 
+        params={
+            "telegram_id": f"eq.{telegram_id}",
+            "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
+        }
+    )
+    
+    if not resp.json():
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return resp.json()[0]
+
+@app.post("/api/v1/user/settings/update")
+async def update_user_setting_api(
+    request_data: UserSettingsUpdate,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обновляет одну конкретную настройку."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    telegram_id = user_info["id"]
+    
+    # Список разрешенных полей (Security)
+    allowed_keys = [
+        "notify_auction_start", "notify_auction_outbid", "notify_auction_end", 
+        "notify_rewards", "notify_stream_start", "notify_daily_grind", "notify_dnd_enabled"
+    ]
+    
+    if request_data.key not in allowed_keys:
+        raise HTTPException(status_code=400, detail="Invalid setting key")
+        
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{telegram_id}"},
+        json={request_data.key: request_data.value}
+    )
+    
+    return {"status": "updated", "key": request_data.key, "value": request_data.value}
+
+@app.post("/api/v1/user/notification/test")
+async def send_test_notification_api(
+    request_data: TestNotificationRequest,
+    background_tasks: BackgroundTasks
+):
+    """Отправляет тестовое сообщение пользователю."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    telegram_id = user_info["id"]
+    
+    msg = (
+        "🔔 <b>Тестовое уведомление</b>\n\n"
+        "Если вы читаете это — значит, бот настроен правильно и может присылать вам награды и оповещения! ✅"
+    )
+    
+    # Используем background task для отправки
+    background_tasks.add_task(safe_send_message, telegram_id, msg)
+    
+    return {"message": "Test sent"}
 
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
