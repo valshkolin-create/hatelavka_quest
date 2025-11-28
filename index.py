@@ -885,7 +885,8 @@ async def cmd_start(
 
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
-@router.message((F.text == "🔔 Настройка уведомлений") | Command("settings"))
+@router.message(F.text == "🔔 Настройка уведомлений")
+@router.message(Command("settings"))
 async def open_notification_settings(message: types.Message, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_id = message.from_user.id
     
@@ -1338,22 +1339,22 @@ async def process_webhook_in_background(update: dict):
         last_name = from_user.get("last_name", "")
         full_name = f"{first_name} {last_name}".strip() or "Без имени"
 
-        # Логируем только если это текстовое сообщение, чтобы не засорять логи
         if message.get("text"):
              logging.info(f"Сообщение от {telegram_id}: {message.get('text')[:20]}...")
 
-        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ `supabase` для статистики
-        # (Обернул в try/except, чтобы ошибка БД не влияла на работу бота)
+        # --- ИСПРАВЛЕНИЕ: Используем асинхронный клиент вместо глобального sync supabase ---
         try:
-            await supabase.rpc(
-                "handle_user_message",
-                {
+            client = await get_background_client() # Получаем быстрый async клиент
+            await client.post(
+                "/rpc/handle_user_message",
+                json={
                     "p_telegram_id": int(telegram_id),
                     "p_full_name": full_name,
                 }
-            ).execute()
+            )
         except Exception as db_e:
             logging.warning(f"Ошибка записи статистики в БД: {db_e}")
+        # -----------------------------------------------------------------------------------
         
     except Exception as e:
         logging.error(f"Ошибка в фоновой задаче process_webhook_in_background: {e}", exc_info=True)
