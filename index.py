@@ -1240,27 +1240,45 @@ async def ensure_twitch_cache(supabase: httpx.AsyncClient):
 
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
-    # print(f"🔄 [START] Обработка Twitch ID: {message_id}") 
-    
     if not message_id: return
 
-    # Используем глобальный клиент
+    # Целевой чат для уведомлений (Жестко задан по твоей просьбе)
+    TARGET_CHAT_ID = -1002996604964 
+
     async with httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
         timeout=30.0
     ) as supabase:
         
-        # 1. ЗАЩИТА ОТ ДУБЛЕЙ
+        # 1. Защита от дублей
         try:
-            dup_resp = await supabase.post(
-                "/processed_webhooks", 
-                json={"id": message_id},
-                headers={"Prefer": "return=minimal"}
-            )
-            if dup_resp.status_code == 409: return # Дубликат
-            if dup_resp.status_code not in (200, 201, 204): return # Ошибка БД
+            dup_resp = await supabase.post("/processed_webhooks", json={"id": message_id}, headers={"Prefer": "return=minimal"})
+            if dup_resp.status_code == 409: return 
         except Exception: return
+
+        # 2. Определяем тип события
+        subscription = data.get("subscription", {})
+        event_type = subscription.get("type")
+        event_data = data.get("event", {})
+
+        # --- ЛОГИКА ДЛЯ СТАТУСА СТРИМА ---
+        if event_type == "stream.online":
+            logging.info("🟣 Стрим ONLINE! Обновляем статус и шлем уведомление.")
+            # 1. Сохраняем статус в settings
+            await supabase.post("/settings", json={"key": "twitch_stream_status", "value": True}, headers={"Prefer": "resolution=merge-duplicates"})
+            
+            # 2. Шлем уведомление в беседу
+            await safe_send_message(
+                TARGET_CHAT_ID,
+                "🟣 <b>Стрим НАЧАЛСЯ!</b>\n\nЗалетайте на трансляцию, лутайте баллы и участвуйте в ивентах! 🚀\n\nhttps://www.twitch.tv/hatelove_ttv"
+            )
+            return
+
+        elif event_type == "stream.offline":
+            logging.info("⚫ Стрим OFFLINE.")
+            await supabase.post("/settings", json={"key": "twitch_stream_status", "value": False}, headers={"Prefer": "resolution=merge-duplicates"})
+            return
 
         # 2. 🔥 ОПТИМИЗАЦИЯ: Обновляем и читаем кэш
         await ensure_twitch_cache(supabase)
@@ -2992,6 +3010,13 @@ async def get_current_user_data(request_data: InitDataRequest): # <<< Убрал
         admin_settings = await get_admin_settings_async_global()
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
         final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
+        # --- Добавляем статус стрима ---
+        stream_status_resp = supabase.table("settings").select("value").eq("key", "twitch_stream_status").execute()
+        is_stream_online = False
+        if stream_status_resp.data:
+            is_stream_online = stream_status_resp.data[0].get('value', False)
+        
+        final_response['is_stream_online'] = is_stream_online
 
         return JSONResponse(content=final_response)
 
@@ -8186,14 +8211,13 @@ async def buy_dynamic_promo_endpoint(
 @app.get("/api/v1/debug/fix_twitch_subs")
 async def fix_twitch_subs(
     request: Request,
-    # Используем ваши переменные окружения
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Удаляет старые подписки и создает новую на ТЕКУЩИЙ адрес приложения.
+    Удаляет старые подписки и создает новые: Награды + СТРИМ (Online/Offline).
     """
-    # 1. Получаем токен приложения (App Access Token)
     async with httpx.AsyncClient() as client:
+        # 1. Получаем токен
         token_resp = await client.post(
             "https://id.twitch.tv/oauth2/token",
             data={
@@ -8203,7 +8227,7 @@ async def fix_twitch_subs(
             }
         )
         if token_resp.status_code != 200:
-            return {"error": "Не удалось получить токен Twitch", "details": token_resp.json()}
+            return {"error": "Twitch Auth Failed", "details": token_resp.json()}
         
         access_token = token_resp.json()["access_token"]
         headers = {
@@ -8212,10 +8236,7 @@ async def fix_twitch_subs(
             "Content-Type": "application/json"
         }
 
-        # 2. Получаем текущий ID канала (Broadcaster ID) из базы или хардкода
-        # ВАЖНО: Twitch требует ID стримера (число), а не логин. 
-        # Если он есть в базе users - берем оттуда. Если нет - нужно указать вручную.
-        # Попробуем найти админа:
+        # 2. Ищем ID админа (стримера)
         admin_user = None
         for admin_id in ADMIN_IDS:
             u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "twitch_id"})
@@ -8224,43 +8245,45 @@ async def fix_twitch_subs(
                 break
         
         if not admin_user:
-            return {"error": "Не найден Twitch ID администратора в базе. Войдите через Twitch в боте."}
+            return {"error": "Не найден Twitch ID админа. Зайдите в профиль бота и привяжите Twitch."}
         
         broadcaster_id = admin_user["twitch_id"]
+        callback_url = f"{WEB_APP_URL}/api/v1/webhooks/twitch"
 
-        # 3. Удаляем ВСЕ старые подписки (чтобы очистить мусор на старых хостах)
+        # 3. Удаляем ВСЕ старые подписки
         subs_resp = await client.get("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers)
         if subs_resp.status_code == 200:
             for sub in subs_resp.json().get("data", []):
-                if sub["status"] != "enabled" or "quest" in sub["transport"]["callback"]: # Удаляем все или по критерию
-                    print(f"Удаляю подписку {sub['id']} -> {sub['transport']['callback']}")
+                # Удаляем вообще все, чтобы пересоздать чисто
+                if sub["status"] != "enabled" or callback_url in sub["transport"]["callback"]:
                     await client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
 
-        # 4. Создаем НОВУЮ подписку на правильный адрес
-        # Ваш новый адрес (берем из WEB_APP_URL или собираем сами)
-        # ВАЖНО: Убедитесь, что WEB_APP_URL в .env правильный (https://hatelavka-quest-nine.vercel.app)
-        callback_url = f"{WEB_APP_URL}/api/v1/webhooks/twitch" 
+        # 4. Создаем НОВЫЕ подписки (Награды + Online + Offline)
+        event_types = [
+            "channel.channel_points_custom_reward_redemption.add",
+            "stream.online",
+            "stream.offline"
+        ]
         
-        sub_payload = {
-            "type": "channel.channel_points_custom_reward_redemption.add",
-            "version": "1",
-            "condition": {
-                "broadcaster_user_id": broadcaster_id
-            },
-            "transport": {
-                "method": "webhook",
-                "callback": callback_url,
-                "secret": TWITCH_WEBHOOK_SECRET
+        created_subs = []
+        for event_type in event_types:
+            sub_payload = {
+                "type": event_type,
+                "version": "1",
+                "condition": {"broadcaster_user_id": broadcaster_id},
+                "transport": {
+                    "method": "webhook",
+                    "callback": callback_url,
+                    "secret": TWITCH_WEBHOOK_SECRET
+                }
             }
-        }
+            create_resp = await client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json=sub_payload)
+            created_subs.append({event_type: create_resp.status_code})
 
-        create_resp = await client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json=sub_payload)
-        
         return {
-            "message": "Переподписка выполнена!",
-            "deleted_old": True,
-            "new_subscription": create_resp.json(),
-            "target_url": callback_url
+            "message": "Подписки обновлены (Rewards + Stream Online/Offline)!",
+            "broadcaster_id": broadcaster_id,
+            "results": created_subs
         }
 
 #### https://hatelavka-quest-nine.vercel.app/api/v1/debug/fix_twitch_subs <- ссылка для фикса
