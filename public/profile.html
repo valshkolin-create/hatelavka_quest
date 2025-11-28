@@ -865,6 +865,25 @@ try {
     dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
     dom.notifyOverlay.onclick = (e) => { if(e.target === dom.notifyOverlay) dom.notifyOverlay.classList.remove('visible'); };
     
+    // 👇👇👇 ВСТАВИЛИ СЮДА 👇👇👇
+    dom.deleteAllRewardsBtn.addEventListener('click', () => {
+        showCustomConfirmHTML("Вы уверены, что хотите удалить ВСЕ свои промокоды и записи о наградах?", async (close) => {
+            try {
+                await makeApiRequest('/api/v1/user/promocodes/delete-all');
+                await makeApiRequest('/api/v1/user/grants/delete-all'); 
+                renderRewards([]);
+                close();
+                tg.showAlert('История наград очищена.');
+            } catch (e) {
+                close();
+                tg.showAlert('Ошибка при удалении.');
+            }
+        });
+    });
+    // 👆👆👆 ВСТАВИЛИ СЮДА 👆👆👆
+
+    
+    
     // Copy/Delete/Popup Logic
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
