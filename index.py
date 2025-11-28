@@ -830,34 +830,62 @@ dp.include_router(router)
 
 # --- Telegram handlers ---
 @router.message(Command("start"))
-async def cmd_start(message: types.Message, command: CommandObject, background_tasks: BackgroundTasks, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def cmd_start(
+    message: types.Message, 
+    command: CommandObject
+):
+    """
+    Обработчик команды /start.
+    Исправлено: убраны несовместимые с aiogram зависимости FastAPI.
+    """
     token = command.args or ""
     user_id = message.from_user.id
+    
+    # 1. Если есть токен (пользователь пришел с сайта для авторизации)
     if token:
         try:
+            # Используем глобальный клиент supabase напрямую
             await supabase.patch(
                 "/auth_tokens",
                 params={"token": f"eq.{token}", "telegram_id": "is.null", "used": "is.false"},
                 json={"telegram_id": user_id, "used": True}
             )
+            
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="🚀 Открыть приложение", web_app=WebAppInfo(url=WEB_APP_URL))
             ]])
-            # Используем фоновую задачу для надежности
-            background_tasks.add_task(safe_send_message, chat_id=user_id, text="✅ Авторизация завершена! Можете вернуться на сайт.", reply_markup=keyboard)
+            
+            # Используем asyncio.create_task вместо background_tasks
+            asyncio.create_task(safe_send_message(
+                chat_id=user_id, 
+                text="✅ Авторизация завершена! Можете вернуться на сайт.", 
+                reply_markup=keyboard
+            ))
+            
         except Exception as e:
             logging.error(f"Ошибка привязки токена {token}: {e}")
-            background_tasks.add_task(safe_send_message, chat_id=user_id, text="⚠️ Произошла ошибка при авторизации.")
+            asyncio.create_task(safe_send_message(
+                chat_id=user_id, 
+                text="⚠️ Произошла ошибка при авторизации."
+            ))
+            
+    # 2. Обычный старт (без токена)
     else:
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🚀 Открыть приложение", web_app=WebAppInfo(url=WEB_APP_URL))
-        ]])
-        # Используем фоновую задачу для надежности
-        background_tasks.add_task(safe_send_message, chat_id=user_id, text="👋 Привет! Открой наше веб-приложение:", reply_markup=keyboard)
+        # Добавляем кнопку настроек уведомлений в приветственное сообщение
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🚀 Открыть приложение", web_app=WebAppInfo(url=WEB_APP_URL))],
+            [InlineKeyboardButton(text="🔔 Настройка уведомлений", callback_data="open_settings_menu")]
+        ])
+        
+        asyncio.create_task(safe_send_message(
+            chat_id=user_id, 
+            text="👋 Привет! Открой наше веб-приложение:", 
+            reply_markup=keyboard
+        ))
 
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
-@router.message(F.text == "🔔 Настройка уведомлений")
+@router.message((F.text == "🔔 Настройка уведомлений") | Command("settings"))
 async def open_notification_settings(message: types.Message, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_id = message.from_user.id
     
