@@ -529,6 +529,53 @@ class ShopBuyRequest(BaseModel):
     title: Optional[str] = "Товар магазина"
     image_url: Optional[str] = None
 
+# ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
+
+def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
+    """Генерирует клавиатуру настроек с галочками"""
+    
+    def btn(key, title):
+        # Если True - показываем галочку, иначе крестик
+        is_active = settings.get(key, True)
+        icon = "✅" if is_active else "❌"
+        return f"{icon} {title}"
+
+    # Для тихого режима логика обратная: если включен - значит "Тихо"
+    dnd_active = settings.get("notify_dnd_enabled", False)
+    dnd_icon = "🌙" if dnd_active else "☀️"
+    dnd_text = f"{dnd_icon} Тихий режим (23:00-08:00)"
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        # Блок Аукциона
+        [InlineKeyboardButton(text="📢 --- АУКЦИОН ---", callback_data="ignore")],
+        [
+            InlineKeyboardButton(text=btn("notify_auction_start", "Старт"), callback_data="toggle_notify:notify_auction_start"),
+            InlineKeyboardButton(text=btn("notify_auction_outbid", "Перебили"), callback_data="toggle_notify:notify_auction_outbid"),
+        ],
+        [InlineKeyboardButton(text=btn("notify_auction_end", "Завершение"), callback_data="toggle_notify:notify_auction_end")],
+        
+        # Блок Наград и Ивентов
+        [InlineKeyboardButton(text="🎁 --- НАГРАДЫ ---", callback_data="ignore")],
+        [
+            InlineKeyboardButton(text=btn("notify_rewards", "Призы (Коды/Билеты)"), callback_data="toggle_notify:notify_rewards"),
+            InlineKeyboardButton(text=btn("notify_daily_grind", "Монетка (Гринд)"), callback_data="toggle_notify:notify_daily_grind")
+        ],
+        
+        # Блок Стрима
+        [InlineKeyboardButton(text="🟣 --- ТРАНСЛЯЦИЯ ---", callback_data="ignore")],
+        [InlineKeyboardButton(text=btn("notify_stream_start", "Начало стрима"), callback_data="toggle_notify:notify_stream_start")],
+
+        # Тихий режим
+        [InlineKeyboardButton(text="💤 --- РЕЖИМ ---", callback_data="ignore")],
+        [InlineKeyboardButton(text=dnd_text, callback_data="toggle_notify:notify_dnd_enabled")],
+        
+        # Кнопка закрытия
+        [InlineKeyboardButton(text="Закрыть настройки", callback_data="close_settings")]
+    ])
+    return keyboard
+
+# ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
+
 manager = ConnectionManager()
 
 # соответствие condition_type ↔ колонка из users
@@ -807,6 +854,100 @@ async def cmd_start(message: types.Message, command: CommandObject, background_t
         ]])
         # Используем фоновую задачу для надежности
         background_tasks.add_task(safe_send_message, chat_id=user_id, text="👋 Привет! Открой наше веб-приложение:", reply_markup=keyboard)
+
+# ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
+
+@router.message(F.text == "🔔 Настройка уведомлений")
+async def open_notification_settings(message: types.Message, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_id = message.from_user.id
+    
+    # ОПТИМИЗАЦИЯ: Запрашиваем только нужные колонки, а не весь профиль (*)
+    response = await supabase.get(
+        "/users", 
+        params={
+            "telegram_id": f"eq.{user_id}", 
+            "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
+        }
+    )
+    
+    if not response.json():
+        await message.answer("Профиль не найден. Введите /start")
+        return
+
+    user_settings = response.json()[0]
+    
+    await message.answer(
+        "<b>⚙️ Настройка уведомлений</b>\n\n"
+        "Управляйте тем, какие сообщения присылает бот.\n"
+        "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас с 23:00 до 08:00 (МСК).",
+        reply_markup=get_notification_settings_keyboard(user_settings)
+    )
+
+@router.callback_query(F.data.startswith("toggle_notify:"))
+async def toggle_notification_setting(callback: types.CallbackQuery, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Получаем имя колонки из callback data (например, notify_auction_start)
+    column_name = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+    
+    # Защита: разрешаем менять только эти поля
+    allowed_columns = [
+        "notify_auction_start", "notify_auction_outbid", "notify_auction_end", 
+        "notify_rewards", "notify_stream_start", "notify_daily_grind", "notify_dnd_enabled"
+    ]
+    
+    if column_name not in allowed_columns:
+        await callback.answer("Ошибка настройки", show_alert=True)
+        return
+
+    try:
+        # 1. Получаем текущее значение (ОПТИМИЗАЦИЯ: только 1 поле)
+        resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": column_name})
+        data = resp.json()
+        
+        if not data:
+            await callback.answer("Ошибка пользователя", show_alert=True)
+            return
+
+        # По умолчанию True (кроме dnd, он False), но берем реальное значение из базы
+        current_value = data[0].get(column_name)
+        if current_value is None:
+             # Если поле в базе NULL, ставим дефолт: False для DND, True для остальных
+             current_value = False if column_name == "notify_dnd_enabled" else True
+
+        # 2. Инвертируем значение
+        new_value = not current_value
+        
+        # 3. Сохраняем (PATCH запрос)
+        await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={column_name: new_value})
+        
+        # 4. Обновляем клавиатуру (нужен повторный запрос всех настроек для перерисовки)
+        full_resp = await supabase.get(
+            "/users", 
+            params={
+                "telegram_id": f"eq.{user_id}", 
+                "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
+            }
+        )
+        new_settings = full_resp.json()[0]
+        
+        await callback.message.edit_reply_markup(reply_markup=get_notification_settings_keyboard(new_settings))
+        
+        status_text = "Включено" if new_value else "Выключено"
+        await callback.answer(f"Настройка изменена: {status_text}")
+        
+    except Exception as e:
+        logging.error(f"Ошибка переключения настройки: {e}")
+        await callback.answer("Не удалось изменить настройку", show_alert=True)
+
+@router.callback_query(F.data == "close_settings")
+async def close_settings_menu(callback: types.CallbackQuery):
+    await callback.message.delete()
+
+@router.callback_query(F.data == "ignore")
+async def ignore_callback(callback: types.CallbackQuery):
+    await callback.answer() # Просто убирает часики загрузки
+
+# ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -1773,6 +1914,26 @@ async def make_auction_bid(
              raise HTTPException(status_code=400, detail="Пожалуйста, укажите вашу трейд-ссылку в профиле для участия.")
         # --- КОНЕЦ ПРОВЕРКИ ---
 
+        # ⬇️⬇️⬇️ ВСТАВЛЯЕМ НОВЫЙ БЛОК: ПОЛУЧЕНИЕ ПРЕДЫДУЩЕГО ЛИДЕРА ⬇️⬇️⬇️
+        # Нам нужно узнать, кого мы сейчас перебьем, чтобы уведомить его
+        prev_bidder_id = None
+        prev_bidder_name = None
+        auction_title = "Лот"
+
+        try:
+            # Получаем текущее состояние аукциона перед ставкой
+            auc_check = await supabase.get(
+                "/auctions", 
+                params={"id": f"eq.{request_data.auction_id}", "select": "current_highest_bidder_id, title"}
+            )
+            if auc_check.json():
+                auc_data = auc_check.json()[0]
+                prev_bidder_id = auc_data.get("current_highest_bidder_id")
+                auction_title = auc_data.get("title", "Лот")
+        except Exception:
+            pass # Если не удалось узнать лидера, не страшно, просто не уведомим
+        # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
+
         # 2. Вызываем "мозг" (RPC-функцию)
         response = await supabase.post(
             "/rpc/place_auction_bid",
@@ -1836,6 +1997,24 @@ async def make_auction_bid(
                         display_name = get_display_name(bid.get("user"))
                         top_bidders.append({"name": display_name, "amount": bid["bid_amount"]})
                         seen_user_ids.add(user_id)
+
+            # ⬇️⬇️⬇️ ВСТАВЛЯЕМ УВЕДОМЛЕНИЕ В ФОН ⬇️⬇️⬇️
+        # Если был лидер и это не мы сами -> отправляем уведомление "Вас перебили"
+        if prev_bidder_id and prev_bidder_id != telegram_id:
+            msg_text = (
+                f"⚠️ <b>Вашу ставку перебили!</b>\n\n"
+                f"Аукцион: «{html_decoration.quote(auction_title)}»\n"
+                f"Новая ставка: {request_data.bid_amount} 🎟️\n\n"
+                f"Успейте сделать новую ставку!"
+            )
+            # Используем "notify_auction_outbid"
+            background_tasks.add_task(
+                check_and_send_notification,
+                prev_bidder_id,
+                msg_text,
+                "notify_auction_outbid"
+            )
+        # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
             
             # Формируем payload для OBS
             trigger_payload = {
@@ -1953,13 +2132,20 @@ async def admin_finish_auction(
             
             winning_bid = winner_data['winning_bid']
             
-            # Уведомление победителю
-            await safe_send_message(
-                winner_id,
+            # ⬇️ ЗАМЕНЯЕМ ЭТОТ БЛОК ⬇️
+            msg_text = (
                 f"🎉 Поздравляем, {html_decoration.quote(winner_name)}!\n\n"
                 f"Вы победили в аукционе за лот «{html_decoration.quote(auction_title)}» со ставкой {winning_bid} 🎟️.\n\n"
                 f"Билеты были списаны с вашего баланса. Администратор скоро свяжется с вами для выдачи приза!"
             )
+
+            # Используем "notify_auction_end"
+            await check_and_send_notification(
+                winner_id,
+                msg_text,
+                "notify_auction_end"
+            )
+            # ⬆️ КОНЕЦ ЗАМЕНЫ ⬆️
             
             # Уведомление админу
             if ADMIN_NOTIFY_CHAT_ID:
@@ -2710,6 +2896,52 @@ async def safe_send_message(chat_id: int, text: str, **kwargs):
         logging.error(f"❌ ОШИБКА отправки в чат {chat_id}: {e}", exc_info=True)
     finally:
         await temp_bot.session.close()
+
+async def check_and_send_notification(
+    user_id: int, 
+    message_text: str, 
+    setting_key: str, 
+    reply_markup=None
+):
+    """
+    Умная отправка уведомлений. Проверяет настройки пользователя перед отправкой.
+    Использует глобальный клиент Supabase для скорости.
+    """
+    try:
+        # 1. Проверяем настройки пользователя (Один быстрый запрос)
+        # Нам нужно знать: включен ли DND и включена ли конкретная настройка (setting_key)
+        resp = supabase.table("users").select(f"notify_dnd_enabled, {setting_key}").eq("telegram_id", user_id).execute()
+        
+        if not resp.data:
+            return # Пользователь не найден
+
+        settings = resp.data[0]
+        is_notify_enabled = settings.get(setting_key, True) # По умолчанию шлем, если настройки нет
+        is_dnd_enabled = settings.get("notify_dnd_enabled", False)
+
+        # 2. Проверка: Если настройка выключена пользователем -> НЕ ШЛЕМ
+        if not is_notify_enabled:
+            logging.info(f"🔕 Уведомление ({setting_key}) для {user_id} отключено в настройках.")
+            return
+
+        # 3. Проверка: Тихий режим (DND)
+        if is_dnd_enabled:
+            # Получаем текущее время в Москве (UTC+3)
+            tz_msk = timezone(timedelta(hours=3))
+            now_hour = datetime.now(tz_msk).hour
+            
+            # Если время от 23:00 до 08:00
+            if now_hour >= 23 or now_hour < 8:
+                logging.info(f"🌙 Тихий режим для {user_id}: уведомление пропущено (время {now_hour}:00).")
+                return
+
+        # 4. Если все проверки пройдены -> Шлем через безопасную функцию
+        await safe_send_message(user_id, message_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logging.error(f"Ошибка в check_and_send_notification: {e}")
+
+# ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
 # ------------------------------------------------------------------
 # 2. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ НА ЭТУ
@@ -4257,11 +4489,17 @@ async def trigger_auctions(
                 
                 # Уведомление победителю
                 # (Используем вашу функцию safe_send_message)
-                await safe_send_message(
-                    winner_id,
+                msg_text = (
                     f"🎉 Поздравляем, {html_decoration.quote(winner_name)}!\n\n"
                     f"Вы победили в аукционе за лот «{html_decoration.quote(auction_title)}» со ставкой {winning_bid} 🎟️.\n\n"
                     f"Билеты были списаны с вашего баланса. Администратор скоро свяжется с вами для выдачи приза!"
+                )
+
+                # Используем "notify_auction_end"
+                await check_and_send_notification(
+                    winner_id,
+                    msg_text,
+                    "notify_auction_end"
                 )
                 
                 # Уведомление админу
@@ -4618,13 +4856,30 @@ async def send_approval_notification(user_id: int, quest_title: str, promo_code:
         safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
         activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
         notification_text = (
-            f"<b>🎉 Твоя награда за квест «{quest_title}»!</b>\n\n"
+            f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
             f"Скопируй промокод и используй его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
-            f"Твой промокод:\n<code>{promo_code}</code>\n\n"
-            f"<i>Нажми на кнопку ниже, чтобы активировать.</i>"
+            f"Твой промокод:\n<code>{promo_code}</code>"
         )
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)]])
-        await safe_send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        
+        # Клавиатура
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
+            [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
+        ])
+
+        # 👇 ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ОТПРАВКИ С ПРОВЕРКОЙ НАСТРОЕК 👇
+        # Передаем ключ настройки 'notify_rewards'
+        await check_and_send_notification(
+            user_id, 
+            notification_text, 
+            "notify_rewards", 
+            reply_markup=keyboard
+        )
+        # 👆 -------------------------------------------------------- 👆
+
+        logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
+    except Exception as e:
+        logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
         logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
     except Exception as e:
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
@@ -6711,7 +6966,7 @@ async def grant_checkpoint_stars_to_user(
 
         # 4. Отправляем уведомление пользователю в фоне
         notification_text = (
-            f"⭐ Вам начислено <b>{amount} звёзд</b> Чекпоинта!\n\n"
+            f"🔋 Вам начислено <b>{amount} процентов</b> Чекпоинта!\n\n"
             f"Награда выдана администратором и уже доступна на вашем балансе в профиле."
         )
         background_tasks.add_task(safe_send_message, user_id_to_grant, notification_text)
@@ -6719,7 +6974,7 @@ async def grant_checkpoint_stars_to_user(
         return {"message": f"{amount} звезд Чекпоинта успешно выдано пользователю {user_name}."}
     except Exception as e:
         logging.error(f"Ошибка при выдаче звезд Чекпоинта: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось выдать звезды Чекпоинта.")
+        raise HTTPException(status_code=500, detail="Не удалось выдать процент Чекпоинта.")
 
 
 # --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАМОРОЗКИ ЗВЕЗД ЧЕКПОИНТА ---
