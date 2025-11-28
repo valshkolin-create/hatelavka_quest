@@ -501,13 +501,12 @@ class GrantDeleteRequest(BaseModel):
 # --- Модели для настроек уведомлений ---
 class UserSettingsUpdate(BaseModel):
     initData: str
-    key: str   # Имя настройки (например, notify_auction_start)
-    value: bool # Значение (true/false)
+    key: str    # например: notify_auction_start
+    value: bool # true/false
 
 class TestNotificationRequest(BaseModel):
     initData: str
-    type: str # Добавили поле типа (auction, reward, etc)
-
+    type: str   # какой тип уведомления тестируем
 
 class ConnectionManager:
     def __init__(self):
@@ -839,44 +838,45 @@ dp.include_router(router)
 # --- Telegram handlers ---
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
-    """
-    Активирует бота для пользователя.
-    """
     user_id = message.from_user.id
-    username = message.from_user.username
     full_name = message.from_user.full_name
-
+    username = message.from_user.username
+    
     try:
         client = await get_background_client()
+        # Ставим is_bot_active = True
+        await client.post("/users", json={
+            "telegram_id": user_id, "username": username, "full_name": full_name, "is_bot_active": True
+        }, headers={"Prefer": "resolution=merge-duplicates"})
         
-        # 1. Обновляем или создаем пользователя, ставим is_bot_active = True
-        # Используем upsert, чтобы сразу создать, если нет, или обновить
-        await client.post(
-            "/users",
-            json={
-                "telegram_id": user_id,
-                "username": username,
-                "full_name": full_name,
-                "is_bot_active": True # <--- ГЛАВНОЕ ИЗМЕНЕНИЕ
-            },
-            headers={"Prefer": "resolution=merge-duplicates"}
-        )
-        
-        # 2. Отвечаем
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📱 Открыть профиль", web_app=WebAppInfo(url=f"{WEB_APP_URL}/profile"))]
-        ])
-        
-        await message.answer(
-            "✅ <b>Бот активирован!</b>\n\n"
-            "Теперь вы сможете получать уведомления о победах и наградах.\n"
-            "Перейдите в профиль, чтобы настроить, какие именно уведомления вы хотите получать.",
-            reply_markup=keyboard
-        )
-        
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📱 Открыть профиль", web_app=WebAppInfo(url=f"{WEB_APP_URL}/profile"))]])
+        await message.answer("✅ <b>Бот активирован!</b>\nТеперь уведомления будут приходить.", reply_markup=kb)
     except Exception as e:
-        logging.error(f"Ошибка /start: {e}")
-        await message.answer("Произошла ошибка при активации. Попробуйте позже.")
+        logging.error(f"/start error: {e}")
+
+@router.message(F.text & ~F.command)
+async def track_message(message: types.Message):
+    if ALLOWED_CHAT_ID != 0 and message.chat.id != ALLOWED_CHAT_ID: return
+    if message.chat.type == 'private':
+        # В личке проверяем активность
+        await check_active_and_reply(message)
+        return
+
+    # В чате - просто считаем, если активен (логика внутри БД или тут)
+    # Для простоты считаем всегда, так как проверка is_bot_active нужна в основном для уведомлений
+    user = message.from_user
+    try:
+        client = await get_background_client()
+        await client.post("/rpc/handle_user_message", json={"p_telegram_id": user.id, "p_full_name": user.full_name})
+    except: pass
+
+async def check_active_and_reply(message: types.Message):
+    try:
+        client = await get_background_client()
+        resp = await client.get("/users", params={"telegram_id": f"eq.{message.from_user.id}", "select": "is_bot_active"})
+        if resp.json() and not resp.json()[0].get("is_bot_active"):
+             await message.answer("⛔️ Бот не активирован. Нажмите /start")
+    except: pass
 
 
 @router.message(F.text & ~F.command)
@@ -8426,19 +8426,24 @@ async def fix_twitch_subs(
 
 #### https://hatelavka-quest-nine.vercel.app/api/v1/debug/fix_twitch_subs <- ссылка для фикса
 
+# --- API УВЕДОМЛЕНИЙ (WEB APP) ---
+
+# --- API УВЕДОМЛЕНИЙ (WEB APP) ---
+
 @app.post("/api/v1/user/settings/get")
 async def get_user_settings_api(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает текущие настройки уведомлений пользователя."""
+    """Возвращает настройки и статус активности бота."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        # Возвращаем дефолт, чтобы профиль не ломался, если что-то не так с авторизацией
+        return {"is_bot_active": False}
     
     telegram_id = user_info["id"]
     
-    # ВАЖНО: Добавлено поле is_bot_active в начало списка select!
+    # Запрашиваем статус активности и настройки
     resp = await supabase.get(
         "/users", 
         params={
@@ -8447,47 +8452,46 @@ async def get_user_settings_api(
         }
     )
     
-    if not resp.json():
-        # Если пользователя нет, возвращаем дефолт (не активен)
+    data = resp.json()
+    if not data:
         return {"is_bot_active": False}
         
-    return resp.json()[0]
+    return data[0]
 
 @app.post("/api/v1/user/settings/update")
 async def update_user_setting_api(
     request_data: UserSettingsUpdate,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Обновляет одну конкретную настройку."""
+    """Переключает тумблер настройки."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     telegram_id = user_info["id"]
     
-    # Список разрешенных полей (Security)
-    allowed_keys = [
+    # Разрешенные поля
+    allowed = [
         "notify_auction_start", "notify_auction_outbid", "notify_auction_end", 
         "notify_rewards", "notify_stream_start", "notify_daily_grind", "notify_dnd_enabled"
     ]
     
-    if request_data.key not in allowed_keys:
-        raise HTTPException(status_code=400, detail="Invalid setting key")
+    if request_data.key not in allowed:
+        raise HTTPException(status_code=400, detail="Invalid setting")
         
     await supabase.patch(
         "/users",
         params={"telegram_id": f"eq.{telegram_id}"},
         json={request_data.key: request_data.value}
     )
-    
-    return {"status": "updated", "key": request_data.key, "value": request_data.value}
+    return {"status": "ok"}
 
 @app.post("/api/v1/user/notification/test")
 async def send_test_notification_api(
     request_data: TestNotificationRequest,
     background_tasks: BackgroundTasks
 ):
-    """Отправляет тестовое сообщение конкретного типа."""
+    """Отправляет тест конкретного типа."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -8495,24 +8499,23 @@ async def send_test_notification_api(
     telegram_id = user_info["id"]
     n_type = request_data.type
     
-    msg = ""
-    # Разный текст для разных типов
+    # Тексты для тестов
+    msg = "🔔 Тест уведомления."
     if n_type == 'notify_auction_start':
-        msg = "📢 <b>Аукцион начался!</b>\n\nЛот: «AWP | Dragon Lore»\nНачальная цена: 10 билетов.\n\nУспейте сделать ставку!"
+        msg = "📢 <b>Аукцион:</b> Начался новый лот!\n«AWP | Dragon Lore» (Пример)"
     elif n_type == 'notify_auction_outbid':
-        msg = "⚠️ <b>Вашу ставку перебили!</b>\n\nЛот: «AK-47 | Redline»\nНовая ставка лидера: 550 билетов.\n\nСделайте новую ставку, чтобы победить!"
+        msg = "⚠️ <b>Аукцион:</b> Вашу ставку перебили!\nПоставьте новую, чтобы победить."
     elif n_type == 'notify_rewards':
-        msg = "🎁 <b>Вам выдана награда!</b>\n\nТип: Промокод на 50 звезд.\nКод: <code>TEST-CODE-123</code>\n\nАктивируйте в главном меню!"
+        msg = "🎁 <b>Награда:</b> Вы получили промокод!\nКод: <code>TEST-CODE</code>"
     elif n_type == 'notify_stream_start':
-        msg = "🟣 <b>Стрим НАЧАЛСЯ!</b>\n\nЗалетайте на трансляцию, лутайте баллы и участвуйте в ивентах! 🚀"
+        msg = "🟣 <b>Стрим:</b> Трансляция началась! Ждем вас."
     elif n_type == 'notify_daily_grind':
-        msg = "💰 <b>Ежедневная награда!</b>\n\nВам начислено 100 монет за активность в чате."
-    else:
-        msg = "🔔 Это тестовое уведомление. Бот работает исправно!"
+        msg = "💰 <b>Гринд:</b> Вам начислено 100 монет за активность."
+    elif n_type == 'notify_dnd_enabled':
+        msg = "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас ночью."
 
     background_tasks.add_task(safe_send_message, telegram_id, msg)
-    
-    return {"message": "Test sent"}
+    return {"status": "sent"}
 
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
