@@ -681,17 +681,20 @@ try {
     }
 
     // --- ЛОГИКА УВЕДОМЛЕНИЙ (ПОПАП) ---
+    let batchTimeout;       // Таймер ожидания
+    let pendingUpdates = {}; // Очередь изменений
+
     function openNotifyModal(isActive, settings) {
         dom.notifyOverlay.classList.add('visible');
         
         if (!isActive) {
-            // Бот НЕ активен
+            // Бот НЕ активен (код без изменений)
             dom.notifyContent.innerHTML = `
                 <div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div>
                 <p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений и наград нужно активировать нашего бота.</p>
                 <p style="text-align: center; font-size: 12px; color: var(--primary-color);">Это одноразовое действие.</p>
                 <div style="display: flex; justify-content: center; margin-top: 20px;">
-                    <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
+                    <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
                         Перейти и нажать Старт
                     </a>
                 </div>
@@ -700,25 +703,46 @@ try {
             // Бот активен
             dom.notifyContent.innerHTML = `
                 <div class="notify-list">
-                    ${createToggle('notify_auction_start', 'Аукцион', 'Старт новых лотов', settings.notify_auction_start)}
-                    ${createToggle('notify_auction_outbid', 'Ставки', 'Если вашу ставку перебили', settings.notify_auction_outbid)}
-                    ${createToggle('notify_rewards', 'Награды', 'Призы, коды и билеты', settings.notify_rewards)}
-                    ${createToggle('notify_stream_start', 'Трансляция', 'Уведомление о начале стрима', settings.notify_stream_start)}
-                    ${createToggle('notify_daily_grind', 'Монетка', 'Напоминание о награде', settings.notify_daily_grind)}
+                    ${createToggle('notify_auction_start', 'Аукцион', 'Новые лоты и завершение', settings.notify_auction_start)}
+                    ${createToggle('notify_auction_outbid', 'Аукцион (Ставки)', 'Если вашу ставку перебили', settings.notify_auction_outbid)}
+                    ${createToggle('notify_rewards', 'Награды', 'Коды и билеты', settings.notify_rewards)}
+                    ${createToggle('notify_stream_start', 'Трансляция', 'Начало стрима', settings.notify_stream_start)}
+                    ${createToggle('notify_daily_grind', 'Монетка', 'Гринд-награда', settings.notify_daily_grind)}
                     ${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука с 23:00 до 08:00', settings.notify_dnd_enabled)}
                 </div>
             `;
 
-            // Логика переключателей
+            // --- НОВАЯ ЛОГИКА: ПАКЕТНАЯ ОТПРАВКА ---
             document.querySelectorAll('.toggle-input').forEach(input => {
-                input.addEventListener('change', async (e) => {
-                    try {
-                        await makeApiRequest('/api/v1/user/settings/update', { key: e.target.dataset.key, value: e.target.checked });
-                    } catch (err) { e.target.checked = !e.target.checked; }
+                input.addEventListener('change', (e) => {
+                    const key = e.target.dataset.key;
+                    const value = e.target.checked;
+                    
+                    // 1. Добавляем изменение в очередь
+                    pendingUpdates[key] = value;
+
+                    // 2. Сбрасываем предыдущий таймер (если пользователь все еще кликает)
+                    if (batchTimeout) clearTimeout(batchTimeout);
+
+                    // 3. Заводим новый таймер на 1.5 секунды
+                    // Запрос уйдет только если пользователь ничего не трогал 1.5 сек
+                    batchTimeout = setTimeout(async () => {
+                        try {
+                            // Отправляем ВСЕ накопленные изменения одним махом
+                            console.log('Sending batch updates:', pendingUpdates);
+                            await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates });
+                            
+                            // Очищаем очередь после успеха
+                            pendingUpdates = {}; 
+                        } catch (err) {
+                            tg.showAlert('Ошибка сохранения настроек.');
+                        }
+                    }, 1500); 
                 });
             });
+            // ---------------------------------------
 
-            // Логика кнопок теста
+            // Логика кнопок теста (без изменений)
             document.querySelectorAll('.test-text-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const type = e.currentTarget.dataset.type;
