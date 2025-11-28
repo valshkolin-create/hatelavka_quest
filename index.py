@@ -2768,56 +2768,64 @@ class BottWebhookModel(BaseModel):
 # ------------------------------------------------------------------
 async def broadcast_notification_task(text: str, setting_key: str):
     """
-    Фоновая задача: Находит всех активных пользователей с включенной настройкой
-    и отправляет им сообщение.
+    ОПТИМИЗИРОВАННАЯ ФОНОВАЯ ЗАДАЧА (Batch sending).
+    Отправляет сообщения пачками по 25 штук, чтобы успеть до тайм-аута Vercel.
     """
     try:
-        # 1. Получаем список пользователей из базы
         client = await get_background_client()
         
-        # Запрашиваем тех, кто нажал /start (is_bot_active=true) И включил конкретную настройку
+        # 1. Получаем пользователей
         resp = await client.get(
             "/users", 
             params={
-                "is_bot_active": "eq.true", # Только активные
-                setting_key: "eq.true",     # Только подписавшиеся на этот тип
+                "is_bot_active": "eq.true",
+                setting_key: "eq.true",
                 "select": "telegram_id"
             }
         )
         users = resp.json()
         
         if not users:
-            logging.info(f"Нет получателей для рассылки {setting_key}")
             return
 
-        logging.info(f"📢 Начинаем рассылку ({setting_key}) для {len(users)} чел.")
-
-        # 2. Создаем временного бота для массовой отправки
+        logging.info(f"📢 Рассылка ({setting_key}): {len(users)} чел.")
         temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
         
         try:
-            for user in users:
-                user_id = user.get("telegram_id")
-                if not user_id: continue
-
-                try:
-                    await temp_bot.send_message(chat_id=user_id, text=text)
-                    # Маленькая задержка, чтобы Телеграм не забанил за спам (30 сообщений в секунду - лимит)
-                    await asyncio.sleep(0.05) 
-                except TelegramForbiddenError:
-                    # Если пользователь заблокировал бота — можно пометить в базе (опционально)
-                    logging.warning(f"Пользователь {user_id} заблокировал бота.")
-                except Exception as e:
-                    logging.warning(f"Ошибка отправки {user_id}: {e}")
+            # 2. Разбиваем на пачки по 25 пользователей
+            batch_size = 25
+            
+            for i in range(0, len(users), batch_size):
+                batch = users[i:i + batch_size]
+                tasks = []
+                
+                # Создаем задачи для всей пачки
+                for user in batch:
+                    user_id = user.get("telegram_id")
+                    if user_id:
+                        # Добавляем задачу отправки в список (без await здесь!)
+                        tasks.append(safe_send_one(temp_bot, user_id, text))
+                
+                # 3. Отправляем всю пачку ОДНОВРЕМЕННО
+                await asyncio.gather(*tasks)
+                
+                # Ждем 1.1 секунду между пачками (защита от спам-бана ТГ)
+                await asyncio.sleep(1.1)
                     
         finally:
-            # Обязательно закрываем сессию
             await temp_bot.session.close()
             
         logging.info("✅ Рассылка завершена.")
 
     except Exception as e:
-        logging.error(f"Критическая ошибка рассылки: {e}")
+        logging.error(f"Ошибка рассылки: {e}")
+
+# Вспомогательная функция для отправки одного (чтобы гасить ошибки внутри пачки)
+async def safe_send_one(bot, chat_id, text):
+    try:
+        await bot.send_message(chat_id=chat_id, text=text)
+    except Exception:
+        pass # Игнорируем ошибки (блок, удален), чтобы не сбить рассылку
 
 async def send_admin_notification_task(quest_title: str, user_info: dict, submitted_data: str):
     """
