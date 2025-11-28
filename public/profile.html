@@ -67,7 +67,7 @@
             gap: 12px; 
         }
 
-        /* --- Карточки настроек (Steam, Twitch) --- */
+        /* --- Карточки настроек (Steam, Twitch, Notify) --- */
         .settings-card {
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
@@ -78,6 +78,11 @@
             justify-content: space-between;
             align-items: center;
             gap: 15px;
+            cursor: pointer; 
+            transition: background-color 0.2s;
+        }
+        .settings-card:active {
+            background-color: rgba(255,255,255,0.1);
         }
         .settings-card-info {
             flex-grow: 1;
@@ -93,6 +98,8 @@
         }
         .settings-card-info p i {
             font-size: 18px;
+            width: 20px;
+            text-align: center;
         }
         .settings-card-info span {
             font-size: 12px;
@@ -117,11 +124,13 @@
             transition: transform 0.15s ease, background-color 0.15s ease;
             flex-shrink: 0;
         }
-        .settings-card-btn:active {
-            transform: scale(0.96);
-        }
+        .settings-card-btn:active { transform: scale(0.96); }
         .settings-card-btn.unlink { background-color: var(--danger-color); }
         .settings-card-btn.twitch { background-color: #9146ff; }
+        .card-arrow {
+            color: var(--text-color-muted);
+            font-size: 14px;
+        }
 
         /* --- БЛОК УВЕДОМЛЕНИЙ (НОВЫЙ ДИЗАЙН) --- */
         .notify-section {
@@ -192,7 +201,7 @@
         .notify-settings-list {
             display: flex;
             flex-direction: column;
-            gap: 0; /* Gap убрали, делаем разделители */
+            gap: 0; 
         }
         .notify-item {
             display: flex;
@@ -204,6 +213,15 @@
         .notify-item:last-child {
             border-bottom: none;
         }
+        .notify-item-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .notify-item-text {
+            display: flex;
+            flex-direction: column;
+        }
         .notify-item-label {
             font-size: 15px;
             font-weight: 500;
@@ -213,6 +231,25 @@
             color: var(--text-color-muted);
             display: block;
             margin-top: 2px;
+        }
+        
+        /* Кнопка Теста (Колокольчик) */
+        .test-mini-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            color: var(--action-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .test-mini-btn:active {
+            background: rgba(255,255,255,0.2);
+            transform: scale(0.9);
         }
 
         /* --- iOS Toggle Switch --- */
@@ -252,23 +289,6 @@
         }
         input:checked + .slider:before {
             transform: translateX(20px);
-        }
-
-        .test-notify-btn {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: var(--action-color);
-            border: none;
-            width: 100%;
-            padding: 12px;
-            border-radius: 10px;
-            font-weight: 500;
-            font-size: 14px;
-            margin-top: 15px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .test-notify-btn:active {
-            background-color: rgba(255, 255, 255, 0.1);
         }
 
         /* --- Секция наград --- */
@@ -362,6 +382,31 @@
         .reward-card-delete-btn:hover {
             color: var(--danger-color);
         }
+        .reward-how-to-use-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--action-color);
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.15s ease;
+            text-decoration: none;
+            margin-top: 8px; 
+        }
+        .reward-how-to-use-btn i {
+            font-size: 13px;
+        }
+        .reward-how-to-use-btn:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        .reward-how-to-use-btn:active {
+            transform: scale(0.96);
+        }
         
         /* --- Загрузчик --- */
         .loader-overlay { 
@@ -379,7 +424,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* --- Кастомное диалоговое окно (Trade Link и др.) --- */
+        /* --- Попапы (Общие стили) --- */
         .custom-popup-overlay {
             position: fixed;
             top: 0;
@@ -474,33 +519,8 @@
             background-color: #3a3a3c;
             color: white;
         }
-        .reward-how-to-use-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background-color: rgba(255, 255, 255, 0.08);
-            color: var(--action-color);
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 5px 10px;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.15s ease;
-            text-decoration: none;
-            margin-top: 8px; 
-        }
-        .reward-how-to-use-btn i {
-            font-size: 13px;
-        }
-        .reward-how-to-use-btn:hover {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-        .reward-how-to-use-btn:active {
-            transform: scale(0.96);
-        }
 
-        /* --- Анимации --- */
+        /* Анимации */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .custom-confirm-overlay { 
@@ -639,8 +659,6 @@ try {
     }
 
     async function makeApiRequest(url, body = {}) {
-        // Убрали таймаут лоадера для мелких запросов (например, переключение тогглов),
-        // чтобы интерфейс казался быстрее. Лоадер включаем вручную там, где надо.
         try {
             const response = await fetch(url, {
                 method: 'POST',
@@ -661,19 +679,8 @@ try {
     let userSettingsState = {}; // Храним состояние настроек локально
 
     function renderNotifySection(userData) {
-        // Проверяем, активен ли бот для юзера. 
-        // Если флага нет в userData (пока не обновили бэк), считаем активным, если есть chat_id
-        // или используем временную логику.
-        // Для теста: предположим, если daily_message_count > -1 (всегда), то активен.
-        // В ИДЕАЛЕ: бэкенд должен вернуть поле is_bot_active.
-        
-        // Временная логика определения "Активировал ли бота":
-        // Обычно если user.telegram_id есть, значит он запускал бота.
-        // Но для красоты сделаем вид, что нужно активировать, если, например, нет TradeLink (для примера)
-        // Или добавим поле в БД. Сейчас считаем, что is_bot_active = true по умолчанию.
-        
-        // --- ДЛЯ ТЕСТА: Меняйте false на true, чтобы увидеть экран подключения ---
-        const isBotActive = true; 
+        // Мы используем данные из базы: is_bot_active
+        const isBotActive = userData.is_bot_active;
 
         if (!isBotActive) {
             // СТЭЙТ 1: Бот не подключен
@@ -693,17 +700,17 @@ try {
                 dom.activateBotPopup.classList.add('visible');
             });
         } else {
-            // СТЭЙТ 2: Настройки
+            // СТЭЙТ 2: Настройки активны
             dom.notifyStatusBadge.className = 'notify-status-badge active';
             dom.notifyStatusBadge.textContent = 'Активно';
             
-            // Сохраняем текущие настройки
             userSettingsState = {
-                auction: userData.notify_auction_start ?? true, // Дефолт true
+                auction: userData.notify_auction_start ?? true,
                 outbid: userData.notify_auction_outbid ?? true,
                 rewards: userData.notify_rewards ?? true,
                 stream: userData.notify_stream_start ?? true,
-                dnd: userData.notify_dnd_enabled ?? false // Дефолт false
+                dnd: userData.notify_dnd_enabled ?? false,
+                daily: userData.notify_daily_grind ?? true
             };
 
             dom.notifyContent.innerHTML = `
@@ -712,65 +719,65 @@ try {
                     ${renderToggleItem('notify_auction_outbid', 'Перебили ставку', 'Если вашу ставку перебили', userSettingsState.outbid)}
                     ${renderToggleItem('notify_rewards', 'Награды', 'Призы, коды и билеты', userSettingsState.rewards)}
                     ${renderToggleItem('notify_stream_start', 'Трансляция', 'Уведомление о начале стрима', userSettingsState.stream)}
+                    ${renderToggleItem('notify_daily_grind', 'Монетка (Гринд)', 'Уведомление о монете', userSettingsState.daily)}
                     ${renderToggleItem('notify_dnd_enabled', 'Тихий режим', 'Без звука с 23:00 до 08:00', userSettingsState.dnd)}
                 </div>
-                <button id="test-notify-btn" class="test-notify-btn">🔔 Отправить тестовое уведомление</button>
             `;
 
-            // Навешиваем обработчики на тогглы
+            // Обработчики переключения тогглов
             document.querySelectorAll('.toggle-input').forEach(input => {
                 input.addEventListener('change', async (e) => {
                     const key = e.target.dataset.key;
                     const newValue = e.target.checked;
-                    
-                    // Оптимистичное обновление UI уже произошло (браузер переключил тоггл)
                     try {
-                        // Отправляем запрос на сервер (здесь используем существующий эндпоинт или логику)
-                        // В вашем боте есть callback toggle_notify, но для WebApp нужен REST endpoint.
-                        // Пока что сделаем "фэйковый" запрос или если есть эндпоинт /user/settings/update
-                        
-                        // ПРИМЕР ЗАПРОСА (нужно реализовать на бэке, если нет)
-                        // await makeApiRequest('/api/v1/user/settings/update', { [key]: newValue });
-                        
-                        // Если нет эндпоинта, пока просто выводим алерт для теста
-                        console.log(`Setting ${key} changed to ${newValue}`);
-                        
+                        // Обновляем настройку на бэке
+                        await makeApiRequest('/api/v1/user/settings/update', { key: key, value: newValue });
                     } catch (err) {
-                        // Если ошибка, возвращаем тоггл обратно
                         e.target.checked = !newValue;
                         tg.showAlert('Не удалось сохранить настройку.');
                     }
                 });
             });
 
-            document.getElementById('test-notify-btn').addEventListener('click', async () => {
-                const btn = document.getElementById('test-notify-btn');
-                btn.textContent = 'Отправка...';
-                btn.style.opacity = '0.7';
-                try {
-                    // Эндпоинт для теста (нужно добавить в Python)
-                    // await makeApiRequest('/api/v1/user/notification/test');
+            // Обработчики кнопок теста
+            document.querySelectorAll('.test-mini-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const type = e.currentTarget.dataset.type;
                     
-                    // Имитация успеха
-                    setTimeout(() => {
-                        tg.showAlert('Тестовое сообщение отправлено в бот!');
-                        btn.textContent = '🔔 Отправить тестовое уведомление';
-                        btn.style.opacity = '1';
-                    }, 800);
-                } catch(e) {
-                    btn.textContent = 'Ошибка';
-                    setTimeout(() => { btn.textContent = '🔔 Отправить тестовое уведомление'; btn.style.opacity = '1';}, 2000);
-                }
+                    // Визуальный отклик
+                    const originalIcon = e.currentTarget.innerHTML;
+                    e.currentTarget.innerHTML = '<div class="spinner" style="width:14px; height:14px; border-width:2px;"></div>';
+                    
+                    try {
+                        await makeApiRequest('/api/v1/user/notification/test', { type: type });
+                        e.currentTarget.style.color = 'var(--primary-color)';
+                        e.currentTarget.innerHTML = '<i class="fa-solid fa-check"></i>';
+                        setTimeout(() => {
+                            e.currentTarget.style.color = '';
+                            e.currentTarget.innerHTML = originalIcon;
+                        }, 2000);
+                        tg.showAlert('Тестовое сообщение отправлено!');
+                    } catch(err) {
+                        e.currentTarget.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                        setTimeout(() => { e.currentTarget.innerHTML = originalIcon; }, 2000);
+                    }
+                });
             });
         }
     }
 
     function renderToggleItem(key, title, subtitle, isChecked) {
+        // Добавлена кнопка теста (колокольчик)
         return `
             <div class="notify-item">
-                <div>
-                    <div class="notify-item-label">${title}</div>
-                    <span class="notify-item-sub">${subtitle}</span>
+                <div class="notify-item-left">
+                    <button class="test-mini-btn" data-type="${key}" title="Протестировать">
+                        <i class="fa-regular fa-bell"></i>
+                    </button>
+                    <div class="notify-item-text">
+                        <span class="notify-item-label">${title}</span>
+                        <span class="notify-item-sub">${subtitle}</span>
+                    </div>
                 </div>
                 <label class="toggle-switch">
                     <input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}>
@@ -780,7 +787,6 @@ try {
         `;
     }
 
-    // --- ОСТАЛЬНОЙ РЕНДЕР (Steam, Twitch, Rewards) ---
     function renderSettings(userData) {
         dom.settingsList.innerHTML = '';
         
@@ -828,6 +834,7 @@ try {
             dom.deleteAllRewardsBtn.style.display = 'none';
             return;
         }
+        
         dom.deleteAllRewardsBtn.style.display = 'block';
 
         rewards.forEach(rewardItem => {
@@ -862,9 +869,11 @@ try {
                         </div>
                         <button class="reward-card-delete-btn" title="Удалить промокод"><i class="fa-solid fa-trash-can"></i></button>
                     </div>`;
-            } else if (rewardType === 'grant') {
+            } 
+            else if (rewardType === 'grant') {
                 card.dataset.type = 'grant';
-                card.dataset.id = rewardData.id;
+                card.dataset.id = rewardData.id; 
+
                 const grantType = rewardData.grant_type === 'tickets' ? 'билетов' : 'звёзд';
                 const icon = rewardData.grant_type === 'tickets' ? 'fa-ticket' : 'fa-star';
                 
@@ -875,17 +884,19 @@ try {
                                 <i class="fa-solid ${icon}" style="color: var(--primary-color); margin-right: 8px; width: 16px; text-align: center;"></i>
                                 Начислено: ${rewardData.amount} ${grantType}
                             </p>
-                            <span style="font-size: 12px; color: var(--text-color-muted); display: block;">(Выдача администратором)</span>
+                            <span style="font-size: 12px; color: var(--text-color-muted); display: block;">
+                                (Выдача администратором)
+                            </span>
                             <p class="reward-card-meta" style="margin-top: 10px;">Дата: ${formattedDateTime}</p>
                         </div>
                         <button class="reward-card-delete-btn" title="Скрыть из истории"><i class="fa-solid fa-trash-can"></i></button>
                     </div>`;
             }
+            
             dom.rewardsList.appendChild(card);
         });
     }
 
-    // --- MAIN ---
     async function main() {
         if (!tg.initData) {
             document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
@@ -893,11 +904,26 @@ try {
         }
         showLoader();
         try {
-            const [userData, rewards] = await Promise.all([ makeApiRequest("/api/v1/user/me"), makeApiRequest("/api/v1/user/rewards") ]);
-            dom.profileName.textContent = userData.is_guest ? "Гость" : (userData.full_name || 'Профиль');
+            // ВАЖНО: Запрашиваем /api/v1/user/me, где теперь должны приходить и настройки (is_bot_active)
+            // Но чтобы не ломать логику, мы запросим настройки отдельным запросом в renderNotifySection
+            // Или используем то, что пришло в me, если там есть.
             
-            renderNotifySection(userData);
-            renderSettings(userData);
+            // Чтобы быть уверенным, что мы получим is_bot_active, лучше добавить его в /api/v1/user/me в python
+            // ИЛИ запросить настройки здесь. Для надежности запросим settings.
+            
+            const [userData, rewards, settings] = await Promise.all([ 
+                makeApiRequest("/api/v1/user/me"), 
+                makeApiRequest("/api/v1/user/rewards"),
+                makeApiRequest("/api/v1/user/settings/get") // Добавили запрос настроек
+            ]);
+            
+            // Объединяем userData и settings для удобства
+            const fullUserData = { ...userData, ...settings };
+            
+            dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+            
+            renderNotifySection(fullUserData);
+            renderSettings(fullUserData);
             renderRewards(rewards);
         } catch (e) {
             dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
@@ -906,14 +932,14 @@ try {
         }
     }
     
-    // --- Обработчики попапов ---
+    // --- Функции окон ---
     function showTradeLinkPopup(currentLink) {
         dom.popupTradeLinkInput.value = (currentLink && currentLink !== 'Ссылка не привязана') ? currentLink : '';
         dom.customPopupOverlay.classList.add('visible');
     }
     function hideTradeLinkPopup() { dom.customPopupOverlay.classList.remove('visible'); }
 
-    // --- События ---
+    // --- Обработчики событий ---
     dom.deleteAllRewardsBtn.addEventListener('click', () => {
         showCustomConfirmHTML("Вы уверены, что хотите удалить ВСЕ свои промокоды и записи о наградах?", async (close) => {
             await makeApiRequest('/api/v1/user/promocodes/delete-all');
@@ -955,6 +981,7 @@ try {
         if (deleteBtn) {
             const card = deleteBtn.closest('.reward-card');
             const type = card.dataset.type;
+
             if (type === 'promocode') {
                 showCustomConfirmHTML("Удалить этот промокод?", async (close) => {
                     await makeApiRequest('/api/v1/user/promocodes/delete', { code: card.dataset.code });
@@ -1021,7 +1048,7 @@ try {
     });
     dom.activateCheckBtn.addEventListener('click', () => {
         dom.activateBotPopup.classList.remove('visible');
-        main(); // Перезагружаем профиль, чтобы проверить статус
+        main(); // Перезагружаем, чтобы проверить статус (в реале он обновится после нажатия /start в боте)
     });
 
     document.addEventListener("DOMContentLoaded", () => {
