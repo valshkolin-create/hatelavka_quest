@@ -883,3 +883,36 @@
     50% { opacity: 0.3; }
     100% { opacity: 0.6; }
 }
+/* Статус стрима в карточке */
+.stream-status-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.stream-status-badge.online {
+    background-color: #e91e63; /* Яркий цвет для Live */
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    animation: pulse-live 2s infinite;
+}
+
+.stream-status-badge.offline {
+    background-color: rgba(0, 0, 0, 0.4);
+    color: #aaa;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+@keyframes pulse-live {
+    0% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0.4); }
+    70% { box-shadow: 0 0 0 5px rgba(233, 30, 99, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0); }
+}
