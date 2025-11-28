@@ -968,19 +968,17 @@ async def ignore_callback(callback: types.CallbackQuery):
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message):
     """
-    Исправленный трекинг сообщений. 
-    Использует асинхронный HTTP-клиент, чтобы не вызывать ошибок await и Depends.
+    Единственное место, где мы считаем сообщения.
+    Использует асинхронный клиент для скорости.
     """
-    # logging.info("--- ЗАПУЩЕНА ФИНАЛЬНАЯ ВЕРСИЯ ОБРАБОТЧИКА track_message ---")
-    
     user = message.from_user
     full_name = f"{user.first_name} {user.last_name or ''}".strip()
 
     try:
-        # Получаем асинхронный клиент (httpx), который точно поддерживает await
+        # Получаем быстрый асинхронный клиент (без await/Depends ошибок)
         client = await get_background_client()
         
-        # Делаем запрос к RPC функции напрямую через POST
+        # Отправляем запрос в БД
         await client.post(
             "/rpc/handle_user_message",
             json={
@@ -989,7 +987,6 @@ async def track_message(message: types.Message):
             }
         )
     except Exception as e:
-        # Логируем тихо, чтобы не спамить ошибками в консоль, если БД занята
         logging.warning(f"Не удалось записать сообщение от {user.id}: {e}")
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
@@ -1303,55 +1300,18 @@ async def verify_admin_password(request: Request, data: dict = Body(...)):
 # ЭТО НОВАЯ ФУНКЦИЯ, КОТОРУЮ НУЖНО ДОБАВИТЬ
 async def process_webhook_in_background(update: dict):
     """
-    Эта функция содержит логику обработки вебхука в фоне.
+    Фоновая обработка: просто передает данные в Aiogram.
+    Логику записи берет на себя функция track_message.
     """
-    logging.info("--- ЗАПУЩЕНА ФОНОВАЯ ОБРАБОТКА webhook ---")
+    # logging.info("--- ЗАПУЩЕНА ФОНОВАЯ ОБРАБОТКА webhook ---")
     
-    # 1. СНАЧАЛА передаем обновление в бота (Aiogram), чтобы работали команды!
+    # 1. Передаем обновление в бота (Aiogram)
+    # Это запустит нужные хендлеры: cmd_start, open_notification_settings или track_message
     try:
         telegram_update = types.Update(**update)
         await dp.feed_update(bot, telegram_update)
     except Exception as e:
-        logging.error(f"Ошибка при передаче обновления в Aiogram: {e}")
-
-    # 2. ДАЛЕЕ выполняем твою логику трекинга сообщений в Supabase
-    SERVICE_ACCOUNT_IDS = {777000, 1087968824, 136817688}
-
-    try:
-        message = update.get("message")
-        if not message:
-            return
-
-        from_user = message.get("from", {})
-        telegram_id = from_user.get("id")
-        
-        if not telegram_id or telegram_id in SERVICE_ACCOUNT_IDS:
-            return
-
-        first_name = from_user.get("first_name", "")
-        last_name = from_user.get("last_name", "")
-        full_name = f"{first_name} {last_name}".strip() or "Без имени"
-
-        if message.get("text"):
-             logging.info(f"Сообщение от {telegram_id}: {message.get('text')[:20]}...")
-
-        # --- ИСПРАВЛЕНИЕ: Используем асинхронный клиент вместо глобального sync supabase ---
-        try:
-            client = await get_background_client() # Получаем быстрый async клиент
-            await client.post(
-                "/rpc/handle_user_message",
-                json={
-                    "p_telegram_id": int(telegram_id),
-                    "p_full_name": full_name,
-                }
-            )
-        except Exception as db_e:
-            logging.warning(f"Ошибка записи статистики в БД: {db_e}")
-        # -----------------------------------------------------------------------------------
-        
-    except Exception as e:
-        logging.error(f"Ошибка в фоновой задаче process_webhook_in_background: {e}", exc_info=True)
-    # --- КОНЕЦ ВАШЕЙ ЛОГИКИ ---
+        logging.error(f"Ошибка в process_webhook_in_background: {e}")
 
 @app.post("/api/v1/webhook")
 async def telegram_webhook(
