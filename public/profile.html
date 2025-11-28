@@ -544,42 +544,25 @@
             <div style="width: 50px;"></div> 
         </div>
         
-        <div id="notify-container" class="notify-section">
-            <div class="notify-header">
-                <div class="notify-title">
-                    <i class="fa-solid fa-bell"></i> Уведомления
-                </div>
-                <div id="notify-status-badge" class="notify-status-badge inactive">Откл</div>
-            </div>
-            
-            <div id="notify-content">
-                <p style="text-align: center; color: var(--text-color-muted);">Загрузка...</p>
-            </div>
-        </div>
-
         <div id="settings-list" class="card-container"></div>
         
         <div class="rewards-header">
             <h2>Мои награды</h2>
             <button id="delete-all-rewards-btn">Удалить все</button>
         </div>
-
         <div id="rewards-list" class="card-container">
-            <p style="text-align: center; color: var(--text-color-muted);">Загрузка наград...</p>
+            <p style="text-align: center; color: var(--text-color-muted);">Загрузка...</p>
         </div>
     </main>
 
-    <div id="activate-bot-popup" class="custom-popup-overlay">
-        <div class="custom-popup">
-            <div style="font-size: 40px; margin-bottom: 15px;">🤖</div>
-            <h3>Подключение бота</h3>
-            <p>Чтобы получать уведомления о победах и наградах, вам нужно активировать нашего бота.</p>
-            <p style="font-size: 13px; color: var(--primary-color);">Это нужно сделать всего один раз.</p>
-            
-            <div class="popup-actions" style="display: flex; justify-content: center; margin-top: 20px;">
-                <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
-                    Перейти и нажать Старт
-                </a>
+    <div id="notify-popup-overlay" class="custom-popup-overlay">
+        <div class="custom-popup" style="max-width: 380px;">
+            <h3><i class="fa-solid fa-bell"></i> Уведомления</h3>
+            <div id="notify-content-area">
+                <div class="spinner" style="margin: 20px auto;"></div>
+            </div>
+            <div class="popup-actions" style="margin-top: 20px; display: flex; justify-content: center;">
+                <button id="notify-close-btn" class="popup-btn secondary" style="width: 100%;">Закрыть</button>
             </div>
         </div>
     </div>
@@ -587,10 +570,10 @@
     <div id="custom-popup-overlay" class="custom-popup-overlay">
         <div class="custom-popup">
             <h3>Steam Trade ссылка</h3>
-            <p>Вставьте вашу полную ссылку для получения наград.</p>
-            <input type="url" id="popup-trade-link-input" placeholder="https://steamcommunity.com/tradeoffer/new/...">
+            <p>Вставьте ссылку для обмена.</p>
+            <input type="url" id="popup-trade-link-input" placeholder="https://steamcommunity.com...">
             <div class="popup-help">
-                <a href="https://steamcommunity.com/id/me/tradeoffers/privacy#trade_offer_access_url" target="_blank" rel="noopener noreferrer">
+                <a href="https://steamcommunity.com/id/me/tradeoffers/privacy#trade_offer_access_url" target="_blank">
                     <i class="fa-solid fa-circle-question"></i> Где найти?
                 </a>
             </div>
@@ -604,9 +587,7 @@
     <div id="how-to-use-popup" class="custom-popup-overlay">
         <div class="custom-popup">
             <h3>Как использовать код?</h3>
-            <p style="margin-bottom:10px;">
-                Активируйте свой промокод через бота: нажмите <strong>❤️ Активировать промокод</strong> в главном меню и введите код, чтобы получить награду.
-            </p>
+            <p>Активируйте промокод в боте.</p>
             <img id="how-to-use-gif" src="" alt="Инструкция" style="width:100%; border-radius:10px;">
             <div class="popup-actions" style="margin-top:15px;">
                 <button id="how-to-use-close" class="popup-btn primary">Понятно</button>
@@ -617,39 +598,31 @@
 <script>
 try {
     const tg = window.Telegram.WebApp;
-    
-    // Элементы DOM
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
         profileName: document.getElementById('profileName'),
         rewardsList: document.getElementById('rewards-list'),
         settingsList: document.getElementById('settings-list'),
         deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
-        
         // Уведомления
-        notifyContainer: document.getElementById('notify-container'),
-        notifyStatusBadge: document.getElementById('notify-status-badge'),
-        notifyContent: document.getElementById('notify-content'),
-        activateBotPopup: document.getElementById('activate-bot-popup'),
-
-        // Попапы
+        notifyOverlay: document.getElementById('notify-popup-overlay'),
+        notifyContent: document.getElementById('notify-content-area'),
+        notifyCloseBtn: document.getElementById('notify-close-btn'),
+        // Trade
         customPopupOverlay: document.getElementById('custom-popup-overlay'),
         popupTradeLinkInput: document.getElementById('popup-trade-link-input'),
         popupSaveBtn: document.getElementById('popup-save-btn'),
-        popupCancelBtn: document.getElementById('popup-cancel-btn'),
+        popupCancelBtn: document.getElementById('popup-cancel-btn')
     };
 
     const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
     const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
 
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
-        const overlay = document.createElement('div');
-        overlay.className = 'custom-confirm-overlay';
-        const box = document.createElement('div');
-        box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+        const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+        const box = document.createElement('div'); box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
         box.innerHTML = `<h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3><div style="display: flex; gap: 12px;"><button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button><button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: white; font-size: 16px; font-weight: 600; cursor: pointer;">${btnText}</button></div>`;
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
+        overlay.appendChild(box); document.body.appendChild(overlay);
         const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
         overlay.querySelector('#custom-cancel-btn').onclick = close;
         overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
@@ -658,136 +631,67 @@ try {
 
     async function makeApiRequest(url, body = {}) {
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...body, initData: tg.initData })
-            });
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, initData: tg.initData }) });
             if (response.status === 204) return null;
             const result = await response.json();
             if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
             return result;
+        } catch (e) { tg.showAlert(`Ошибка: ${e.message}`); throw e; }
+    }
+
+    // --- ГЛАВНАЯ ЛОГИКА ---
+    async function main() {
+        if (!tg.initData) { document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите из Telegram.</p></div>`; hideLoader(); return; }
+        showLoader();
+        try {
+            // ВАЖНО: Запрашиваем настройки сразу, чтобы получить is_bot_active
+            const [userData, rewards, settings] = await Promise.all([ 
+                makeApiRequest("/api/v1/user/me"), 
+                makeApiRequest("/api/v1/user/rewards"),
+                makeApiRequest("/api/v1/user/settings/get")
+            ]);
+            
+            // Мержим данные (settings содержит is_bot_active и настройки уведомлений)
+            const fullUserData = { ...userData, ...settings };
+            
+            dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+            
+            // Рендерим список, передавая объединенные данные
+            renderSettingsList(fullUserData);
+            renderRewards(rewards);
+
+            // Сохраняем настройки в глобальную переменную для модалки (чтобы не грузить каждый раз)
+            window.currentUserSettings = fullUserData;
+
         } catch (e) {
-            tg.showAlert(`Ошибка: ${e.message}`);
-            throw e;
-        }
+            dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
+        } finally { hideLoader(); }
     }
 
-    // --- ЛОГИКА УВЕДОМЛЕНИЙ ---
-    let userSettingsState = {}; // Храним состояние настроек локально
-
-    function renderNotifySection(userData) {
-        // Мы используем данные из базы: is_bot_active
-        const isBotActive = userData.is_bot_active === true; // Добавлено === true для надежности
-
-        if (!isBotActive) {
-            // СТЭЙТ 1: Бот не подключен
-            dom.notifyStatusBadge.className = 'notify-status-badge inactive';
-            dom.notifyStatusBadge.textContent = 'Откл';
-            
-            dom.notifyContent.innerHTML = `
-                <div class="notify-connect-state">
-                    <p class="notify-connect-desc">Подключите бота, чтобы получать уведомления о выигрышах, смене ставок и начале трансляций.</p>
-                    <button id="connect-bot-btn" class="notify-connect-btn">
-                        Включить уведомления <i class="fa-solid fa-chevron-right" style="font-size:12px;"></i>
-                    </button>
-                </div>
-            `;
-            
-            document.getElementById('connect-bot-btn').addEventListener('click', () => {
-                dom.activateBotPopup.classList.add('visible');
-            });
-        } else {
-            // СТЭЙТ 2: Настройки активны
-            dom.notifyStatusBadge.className = 'notify-status-badge active';
-            dom.notifyStatusBadge.textContent = 'Активно';
-            
-            userSettingsState = {
-                auction: userData.notify_auction_start ?? true,
-                outbid: userData.notify_auction_outbid ?? true,
-                rewards: userData.notify_rewards ?? true,
-                stream: userData.notify_stream_start ?? true,
-                dnd: userData.notify_dnd_enabled ?? false,
-                daily: userData.notify_daily_grind ?? true
-            };
-
-            dom.notifyContent.innerHTML = `
-                <div class="notify-settings-list">
-                    ${renderToggleItem('notify_auction_start', 'Аукцион', 'Старт и завершение лотов', userSettingsState.auction)}
-                    ${renderToggleItem('notify_auction_outbid', 'Перебили ставку', 'Если вашу ставку перебили', userSettingsState.outbid)}
-                    ${renderToggleItem('notify_rewards', 'Награды', 'Призы, коды и билеты', userSettingsState.rewards)}
-                    ${renderToggleItem('notify_stream_start', 'Трансляция', 'Уведомление о начале стрима', userSettingsState.stream)}
-                    ${renderToggleItem('notify_daily_grind', 'Монетка (Гринд)', 'Уведомление о монете', userSettingsState.daily)}
-                    ${renderToggleItem('notify_dnd_enabled', 'Тихий режим', 'Без звука с 23:00 до 08:00', userSettingsState.dnd)}
-                </div>
-            `;
-
-            // Обработчики переключения тогглов
-            document.querySelectorAll('.toggle-input').forEach(input => {
-                input.addEventListener('change', async (e) => {
-                    const key = e.target.dataset.key;
-                    const newValue = e.target.checked;
-                    try {
-                        // Обновляем настройку на бэке
-                        await makeApiRequest('/api/v1/user/settings/update', { key: key, value: newValue });
-                    } catch (err) {
-                        e.target.checked = !newValue;
-                        tg.showAlert('Не удалось сохранить настройку.');
-                    }
-                });
-            });
-
-            // Обработчики кнопок теста
-            document.querySelectorAll('.test-mini-btn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const type = e.currentTarget.dataset.type;
-                    
-                    // Визуальный отклик
-                    const originalIcon = e.currentTarget.innerHTML;
-                    e.currentTarget.innerHTML = '<div class="spinner" style="width:14px; height:14px; border-width:2px;"></div>';
-                    
-                    try {
-                        await makeApiRequest('/api/v1/user/notification/test', { type: type });
-                        e.currentTarget.style.color = 'var(--primary-color)';
-                        e.currentTarget.innerHTML = '<i class="fa-solid fa-check"></i>';
-                        setTimeout(() => {
-                            e.currentTarget.style.color = '';
-                            e.currentTarget.innerHTML = originalIcon;
-                        }, 2000);
-                        tg.showAlert('Тестовое сообщение отправлено!');
-                    } catch(err) {
-                        e.currentTarget.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-                        setTimeout(() => { e.currentTarget.innerHTML = originalIcon; }, 2000);
-                    }
-                });
-            });
-        }
-    }
-
-    function renderToggleItem(key, title, sub, checked) {
-        // Добавлена кнопка теста (колокольчик)
-        return `
-            <div class="notify-item">
-                <div class="notify-item-left">
-                    <button class="test-mini-btn" data-type="${key}" title="Протестировать">
-                        <i class="fa-regular fa-bell"></i>
-                    </button>
-                    <div class="notify-item-text">
-                        <span class="notify-item-label">${title}</span>
-                        <span class="notify-item-sub">${subtitle}</span>
-                    </div>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" class="toggle-input" data-key="${key}" ${checked ? 'checked' : ''}>
-                    <span class="slider"></span>
-                </label>
-            </div>
-        `;
-    }
-
-    function renderSettings(userData) {
+    // --- РЕНДЕР НАСТРОЕК (ГЛАВНЫЙ СПИСОК) ---
+    function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
+        const isBotActive = userData.is_bot_active === true;
         
+        // Статус-бэйдж для кнопки
+        const badgeHTML = isBotActive 
+            ? `<span style="background: rgba(52,199,89,0.2); color: var(--primary-color); font-size:10px; padding:2px 6px; border-radius:6px;">ВКЛ</span>`
+            : `<span style="background: rgba(255,59,48,0.2); color: var(--danger-color); font-size:10px; padding:2px 6px; border-radius:6px;">ОТКЛ</span>`;
+
+        // 1. Кнопка Уведомлений
+        const notifyCard = document.createElement('div');
+        notifyCard.className = 'settings-card';
+        notifyCard.innerHTML = `
+            <div class="settings-card-info">
+                <p><i class="fa-solid fa-bell" style="color: #ff9f0a;"></i> Уведомления ${badgeHTML}</p>
+                <span>Настроить оповещения</span>
+            </div>
+            <i class="fa-solid fa-chevron-right card-arrow"></i>
+        `;
+        notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
+        dom.settingsList.appendChild(notifyCard);
+
+        // 2. Steam
         const steamCard = document.createElement('div');
         steamCard.className = 'settings-card';
         const hasTradeLink = !!userData.trade_link;
@@ -802,6 +706,7 @@ try {
         `;
         dom.settingsList.appendChild(steamCard);
 
+        // 3. Twitch
         const twitchCard = document.createElement('div');
         twitchCard.className = 'settings-card';
         if (userData.twitch_login) {
@@ -817,12 +722,93 @@ try {
             twitchCard.innerHTML = `
                 <div class="settings-card-info">
                      <p><i class="fa-brands fa-twitch" style="color: #9146ff;"></i> Twitch</p>
-                    <span>Привяжите аккаунт для наград</span>
+                    <span>Привяжите аккаунт</span>
                 </div>
                 <a href="${authUrl}" class="settings-card-btn twitch">Привязать</a>
             `;
         }
         dom.settingsList.appendChild(twitchCard);
+    }
+
+    // --- ЛОГИКА УВЕДОМЛЕНИЙ (ПОПАП) ---
+    function openNotifyModal(isActive, settings) {
+        dom.notifyOverlay.classList.add('visible');
+        
+        if (!isActive) {
+            // Бот НЕ активен
+            dom.notifyContent.innerHTML = `
+                <div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div>
+                <p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений и наград нужно активировать нашего бота.</p>
+                <p style="text-align: center; font-size: 12px; color: var(--primary-color);">Это одноразовое действие.</p>
+                <div style="display: flex; justify-content: center; margin-top: 20px;">
+                    <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
+                        Перейти и нажать Старт
+                    </a>
+                </div>
+            `;
+        } else {
+            // Бот активен
+            dom.notifyContent.innerHTML = `
+                <div class="notify-list">
+                    ${createToggle('notify_auction_start', 'Аукцион: Старт', 'Новые лоты', settings.notify_auction_start)}
+                    ${createToggle('notify_auction_outbid', 'Аукцион: Перебили', 'Ваша ставка перебита', settings.notify_auction_outbid)}
+                    ${createToggle('notify_rewards', 'Награды', 'Коды и билеты', settings.notify_rewards)}
+                    ${createToggle('notify_stream_start', 'Трансляция', 'Начало стрима', settings.notify_stream_start)}
+                    ${createToggle('notify_daily_grind', 'Монетка', 'Гринд-награда', settings.notify_daily_grind)}
+                    ${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука с 23:00 до 08:00', settings.notify_dnd_enabled)}
+                </div>
+            `;
+
+            // Логика переключателей
+            document.querySelectorAll('.toggle-input').forEach(input => {
+                input.addEventListener('change', async (e) => {
+                    try {
+                        await makeApiRequest('/api/v1/user/settings/update', { key: e.target.dataset.key, value: e.target.checked });
+                    } catch (err) { e.target.checked = !e.target.checked; }
+                });
+            });
+
+            // Логика кнопок теста
+            document.querySelectorAll('.test-mini-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const type = e.currentTarget.dataset.type;
+                    const original = e.currentTarget.innerHTML;
+                    e.currentTarget.innerHTML = '<div class="spinner" style="width:14px; height:14px; border-width:2px;"></div>';
+                    
+                    try {
+                        await makeApiRequest('/api/v1/user/notification/test', { type: type });
+                        e.currentTarget.style.color = 'var(--primary-color)';
+                        e.currentTarget.innerHTML = '<i class="fa-solid fa-check"></i>';
+                        setTimeout(() => { e.currentTarget.style.color = ''; e.currentTarget.innerHTML = original; }, 2000);
+                    } catch(err) {
+                        e.currentTarget.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                        setTimeout(() => { e.currentTarget.innerHTML = original; }, 2000);
+                    }
+                });
+            });
+        }
+    }
+
+    function createToggle(key, title, sub, checked) {
+        // Default true for everything except DND
+        const isChecked = checked ?? (key !== 'notify_dnd_enabled');
+        return `
+            <div class="notify-item">
+                <div class="notify-item-left">
+                    <button class="test-mini-btn" data-type="${key}" title="Тест">
+                        <i class="fa-regular fa-bell"></i>
+                    </button>
+                    <div class="notify-item-text">
+                        <span class="notify-label">${title}</span>
+                        <span class="notify-sub">${sub}</span>
+                    </div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        `;
     }
 
     function renderRewards(rewards) {
@@ -832,232 +818,74 @@ try {
             dom.deleteAllRewardsBtn.style.display = 'none';
             return;
         }
-        
         dom.deleteAllRewardsBtn.style.display = 'block';
 
-        rewards.forEach(rewardItem => {
-            const card = document.createElement('div');
-            card.className = 'reward-card';
+        rewards.forEach(r => {
+            const card = document.createElement('div'); card.className = 'reward-card';
+            const date = new Date(r.date).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' в');
             
-            const rewardType = rewardItem.type;
-            const rewardData = rewardItem.data;
-            const rewardDate = new Date(rewardItem.date);
-            const formattedDateTime = rewardDate.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' в');
-
-            if (rewardType === 'promocode') {
-                card.dataset.type = 'promocode';
-                card.dataset.code = rewardData.code;
-                const isNew = (Date.now() - rewardDate.getTime()) < 24 * 60 * 60 * 1000;
-                const newBadgeHtml = isNew ? `<span style="background-color: var(--primary-color); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 5px; margin-left: 8px;">NEW</span>` : '';
-                
-                card.innerHTML = `
-                    <div class="reward-card-info">
-                        <div class="reward-card-details">
-                            <p class="reward-card-description">
-                                ${rewardData.description || `Награда на ${rewardData.reward_value} звёзд`} ⭐ ${newBadgeHtml}
-                            </p>
-                            <div class="reward-card-code-wrapper">
-                                <input type="text" class="reward-card-code-input" value="${rewardData.code}" readonly>
-                                <button class="reward-card-copy-btn" title="Копировать"><i class="fa-regular fa-copy"></i></button>
-                            </div>
-                        <button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif">
-                            <i class="fa-solid fa-circle-question"></i> Где использовать?
-                        </button>
-                            <p class="reward-card-meta">Получено: ${formattedDateTime}</p>
-                        </div>
-                        <button class="reward-card-delete-btn" title="Удалить промокод"><i class="fa-solid fa-trash-can"></i></button>
-                    </div>`;
-            } 
-            else if (rewardType === 'grant') {
-                card.dataset.type = 'grant';
-                card.dataset.id = rewardData.id; 
-
-                const grantType = rewardData.grant_type === 'tickets' ? 'билетов' : 'звёзд';
-                const icon = rewardData.grant_type === 'tickets' ? 'fa-ticket' : 'fa-star';
-                
-                card.innerHTML = `
-                    <div class="reward-card-info">
-                        <div class="reward-card-details">
-                            <p class="reward-card-description" style="font-weight: 600; color: var(--text-color); margin-bottom: 5px;">
-                                <i class="fa-solid ${icon}" style="color: var(--primary-color); margin-right: 8px; width: 16px; text-align: center;"></i>
-                                Начислено: ${rewardData.amount} ${grantType}
-                            </p>
-                            <span style="font-size: 12px; color: var(--text-color-muted); display: block;">
-                                (Выдача администратором)
-                            </span>
-                            <p class="reward-card-meta" style="margin-top: 10px;">Дата: ${formattedDateTime}</p>
-                        </div>
-                        <button class="reward-card-delete-btn" title="Скрыть из истории"><i class="fa-solid fa-trash-can"></i></button>
-                    </div>`;
+            if (r.type === 'promocode') {
+                card.dataset.type = 'promocode'; card.dataset.code = r.data.code;
+                const isNew = (Date.now() - new Date(r.date).getTime()) < 86400000 ? '<span style="background:var(--primary-color);color:white;font-size:10px;padding:2px 6px;border-radius:5px;margin-left:5px;">NEW</span>' : '';
+                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description">${r.data.description || `Награда на ${r.data.reward_value} звёзд`} ⭐ ${isNew}</p><div class="reward-card-code-wrapper"><input type="text" class="reward-card-code-input" value="${r.data.code}" readonly><button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button></div><button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif"><i class="fa-solid fa-circle-question"></i> Где использовать?</button><p class="reward-card-meta">Получено: ${date}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
+            } else {
+                card.dataset.type = 'grant'; card.dataset.id = r.data.id;
+                const icon = r.data.grant_type === 'tickets' ? 'fa-ticket' : 'fa-star';
+                const typeText = r.data.grant_type === 'tickets' ? 'билетов' : 'звёзд';
+                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description" style="font-weight:600;color:var(--text-color);"><i class="fa-solid ${icon}" style="color:var(--primary-color);margin-right:8px;"></i> Начислено: ${r.data.amount} ${typeText}</p><span style="font-size:12px;color:var(--text-color-muted);">(Выдача администратором)</span><p class="reward-card-meta" style="margin-top:10px;">Дата: ${date}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
             }
-            
             dom.rewardsList.appendChild(card);
         });
     }
 
-    async function main() {
-        if (!tg.initData) {
-            document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
-            hideLoader(); return;
-        }
-        showLoader();
-        try {
-            // ВАЖНО: Запрашиваем /api/v1/user/me, где теперь должны приходить и настройки (is_bot_active)
-            // Но чтобы не ломать логику, мы запросим настройки отдельным запросом в renderNotifySection
-            // Или используем то, что пришло в me, если там есть.
-            
-            // Чтобы быть уверенным, что мы получим is_bot_active, лучше добавить его в /api/v1/user/me в python
-            // ИЛИ запросить настройки здесь. Для надежности запросим settings.
-            
-            const [userData, rewards, settings] = await Promise.all([ 
-                makeApiRequest("/api/v1/user/me"), 
-                makeApiRequest("/api/v1/user/rewards"),
-                makeApiRequest("/api/v1/user/settings/get") // Добавили запрос настроек
-            ]);
-            
-            // Объединяем userData и settings для удобства
-            const fullUserData = { ...userData, ...settings };
-            
-            dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
-            
-            renderNotifySection(fullUserData);
-            renderSettings(fullUserData);
-            renderRewards(rewards);
-        } catch (e) {
-            dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
-        } finally {
-            hideLoader();
-        }
-    }
+    // --- Events ---
+    dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
+    dom.notifyOverlay.onclick = (e) => { if(e.target === dom.notifyOverlay) dom.notifyOverlay.classList.remove('visible'); };
     
-    // --- Функции окон ---
-    function showTradeLinkPopup(currentLink) {
-        dom.popupTradeLinkInput.value = (currentLink && currentLink !== 'Ссылка не привязана') ? currentLink : '';
-        dom.customPopupOverlay.classList.add('visible');
-    }
-    function hideTradeLinkPopup() { dom.customPopupOverlay.classList.remove('visible'); }
-
-    // --- Обработчики событий ---
-    dom.deleteAllRewardsBtn.addEventListener('click', () => {
-        showCustomConfirmHTML("Вы уверены, что хотите удалить ВСЕ свои промокоды и записи о наградах?", async (close) => {
-            await makeApiRequest('/api/v1/user/promocodes/delete-all');
-            await makeApiRequest('/api/v1/user/grants/delete-all'); 
-            renderRewards([]);
-            close();
-            tg.showAlert('История наград очищена.');
-        });
-    });
-
-    document.body.addEventListener('click', async (event) => {
-        const target = event.target;
-        
+    // Copy/Delete/Popup Logic
+    document.body.addEventListener('click', async (e) => {
+        const target = e.target;
+        // Edit Trade Link
+        if (target.closest('#edit-trade-link-btn')) { showTradeLinkPopup(document.getElementById('trade-link-display').textContent); return; }
+        // Unlink Twitch
+        if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); return; }
+        // Copy Code
         const copyBtn = target.closest('.reward-card-copy-btn');
         if (copyBtn) {
-            const input = copyBtn.parentElement.querySelector('.reward-card-code-input');
-            navigator.clipboard.writeText(input.value).then(() => {
-                const icon = copyBtn.querySelector('i');
-                icon.classList.replace('fa-copy', 'fa-check');
-                copyBtn.style.backgroundColor = 'var(--primary-color)';
-                setTimeout(() => {
-                    icon.classList.replace('fa-check', 'fa-copy');
-                    copyBtn.style.backgroundColor = 'var(--action-color)';
-                }, 2000);
-            });
-            return;
+            navigator.clipboard.writeText(copyBtn.parentElement.querySelector('input').value);
+            const i = copyBtn.querySelector('i'); i.className = 'fa-solid fa-check'; copyBtn.style.background = 'var(--primary-color)';
+            setTimeout(() => { i.className = 'fa-regular fa-copy'; copyBtn.style.background = ''; }, 2000); return;
         }
-
-        const howToUseBtn = target.closest('.reward-how-to-use-btn');
-        if (howToUseBtn) {
-            event.preventDefault();
-            const gifUrl = howToUseBtn.dataset.gif;
-            document.getElementById('how-to-use-gif').src = gifUrl;
-            document.getElementById('how-to-use-popup').classList.add('visible');
-            return;
+        // Delete Reward
+        const delBtn = target.closest('.reward-card-delete-btn');
+        if (delBtn) {
+            const card = delBtn.closest('.reward-card');
+            const action = card.dataset.type === 'promocode' ? 
+                () => makeApiRequest('/api/v1/user/promocodes/delete', {code:card.dataset.code}) : 
+                () => makeApiRequest('/api/v1/user/grants/delete', {id:parseInt(card.dataset.id)});
+            showCustomConfirmHTML("Удалить награду?", async (c)=>{ await action(); removeCardFromDom(card); c(); }); return;
         }
-        
-        const deleteBtn = target.closest('.reward-card-delete-btn');
-        if (deleteBtn) {
-            const card = deleteBtn.closest('.reward-card');
-            const type = card.dataset.type;
-
-            if (type === 'promocode') {
-                showCustomConfirmHTML("Удалить этот промокод?", async (close) => {
-                    await makeApiRequest('/api/v1/user/promocodes/delete', { code: card.dataset.code });
-                    removeCardFromDom(card);
-                    close();
-                });
-            } else if (type === 'grant') {
-                showCustomConfirmHTML("Скрыть эту запись о выдаче?", async (close) => {
-                    await makeApiRequest('/api/v1/user/grants/delete', { id: parseInt(card.dataset.id) });
-                    removeCardFromDom(card);
-                    close();
-                });
-            }
-            return;
-        }
-        
-        const unlinkBtn = target.closest('#unlink-twitch-btn');
-        if (unlinkBtn) {
-            showCustomConfirmHTML("Отвязать аккаунт Twitch?", async (close) => {
-                await makeApiRequest('/api/v1/user/twitch/unlink');
-                main();
-                close();
-                tg.showAlert('Аккаунт Twitch отвязан.');
-            }, 'Отвязать');
-            return;
-        }
-
-        const editTradeLinkBtn = target.closest('#edit-trade-link-btn');
-        if (editTradeLinkBtn) {
-            const currentLink = document.getElementById('trade-link-display').textContent;
-            showTradeLinkPopup(currentLink);
-        }
+        // How to use
+        const howToBtn = target.closest('.reward-how-to-use-btn');
+        if (howToBtn) { document.getElementById('how-to-use-gif').src = howToBtn.dataset.gif; document.getElementById('how-to-use-popup').classList.add('visible'); return; }
     });
 
-    function removeCardFromDom(card) {
-        card.style.transition = 'opacity 0.3s, transform 0.3s';
-        card.style.opacity = '0';
-        card.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            card.remove();
-            if (dom.rewardsList.children.length === 0) {
-                renderRewards([]);
-            }
-        }, 300);
-    }
-
-    dom.popupCancelBtn.addEventListener('click', hideTradeLinkPopup);
-    dom.customPopupOverlay.addEventListener('click', (event) => {
-        if (event.target === dom.customPopupOverlay) hideTradeLinkPopup();
-    });
-    dom.popupSaveBtn.addEventListener('click', async () => {
-        const link = dom.popupTradeLinkInput.value.trim();
-        if (!link) { tg.showAlert('Вы не ввели ссылку.'); return; }
-        if (!link.startsWith('https://steamcommunity.com/tradeoffer/new/')) { tg.showAlert('Пожалуйста, вставьте корректную ссылку.'); return; }
-        hideTradeLinkPopup();
-        await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: link });
+    function showTradeLinkPopup(v) { dom.popupTradeLinkInput.value = (v && v.includes('http')) ? v : ''; dom.customPopupOverlay.classList.add('visible'); }
+    dom.popupCancelBtn.onclick = () => dom.customPopupOverlay.classList.remove('visible');
+    dom.popupSaveBtn.onclick = async () => {
+        const v = dom.popupTradeLinkInput.value.trim();
+        if(!v.includes('steamcommunity')) { tg.showAlert('Некорректная ссылка'); return; }
+        dom.customPopupOverlay.classList.remove('visible');
+        await makeApiRequest('/api/v1/user/trade_link/save', {trade_link:v});
         main();
-        tg.showAlert('Ссылка сохранена!');
-    });
+    };
+    document.getElementById('how-to-use-close').onclick = () => document.getElementById('how-to-use-popup').classList.remove('visible');
+    
+    function removeCardFromDom(card) { card.style.opacity='0'; setTimeout(()=>card.remove(),300); }
 
-    // Активация
-    dom.activateBotPopup.addEventListener('click', (e) => {
-        if (e.target === dom.activateBotPopup) dom.activateBotPopup.classList.remove('visible');
-    });
+    document.addEventListener("DOMContentLoaded", () => { tg.ready(); tg.expand(); main(); });
 
-    document.addEventListener("DOMContentLoaded", () => {
-        tg.ready(); tg.expand(); main();
-        const howToCloseBtn = document.getElementById('how-to-use-close');
-        if (howToCloseBtn) {
-            howToCloseBtn.addEventListener('click', () => {
-                document.getElementById('how-to-use-popup').classList.remove('visible');
-            });
-        }
-    });
-
-} catch (e) {
-    document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Критическая ошибка</h1><p>${e.message}</p></div>`;
-}
+} catch (e) { document.body.innerHTML = `<h1 style="text-align:center">Error: ${e.message}</h1>`; }
 </script>
 </body>
 </html>
