@@ -870,16 +870,30 @@ async def cmd_start(
         
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
+# --- 1. Обработчик для КНОПКИ (из /start) ---
+@router.callback_query(F.data == "open_settings_menu")
+async def callback_open_settings(callback: types.CallbackQuery):
+    # Этот хендлер ловит нажатие на кнопку "🔔 Настройка уведомлений"
+    # Удаляем часики загрузки
+    await callback.answer()
+    # Вызываем функцию настроек, передавая сообщение, к которому привязана кнопка
+    await open_notification_settings_logic(callback.message)
+
+# --- 2. Обработчик для КОМАНДЫ (/settings) и ТЕКСТА ---
 @router.message(F.text == "🔔 Настройка уведомлений")
 @router.message(Command("settings"))
-async def open_notification_settings(message: types.Message):
-    # УБРАЛИ Depends из аргументов ^
-    user_id = message.from_user.id
+async def cmd_open_settings(message: types.Message):
+    await open_notification_settings_logic(message)
+
+# --- 3. ОБЩАЯ ЛОГИКА (БЕЗ DEPENDS) ---
+async def open_notification_settings_logic(message: types.Message):
+    user_id = message.chat.id # Используем chat.id, это надежнее для отправки ответа
     
-    # ПОЛУЧАЕМ КЛИЕНТ ВРУЧНУЮ
-    supabase = await get_supabase_client() 
+    # ⚠️ ПОЛУЧАЕМ КЛИЕНТ ВРУЧНУЮ (исправляет ошибку Depends)
+    supabase = await get_supabase_client()
     
     try:
+        # Запрашиваем настройки
         response = await supabase.get(
             "/users", 
             params={
@@ -888,29 +902,34 @@ async def open_notification_settings(message: types.Message):
             }
         )
         
+        # Если пользователя нет или ошибка
         if not response.json():
-            await message.answer("Профиль не найден. Введите /start")
+            await message.answer("Профиль не найден. Попробуйте ввести /start")
             return
 
         user_settings = response.json()[0]
         
-        await message.answer(
+        text = (
             "<b>⚙️ Настройка уведомлений</b>\n\n"
             "Управляйте тем, какие сообщения присылает бот.\n"
-            "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас с 23:00 до 08:00 (МСК).",
-            reply_markup=get_notification_settings_keyboard(user_settings)
+            "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас с 23:00 до 08:00 (МСК)."
         )
+
+        # Если сообщение пришло от кнопки (Inline), лучше отредактировать его, а не слать новое
+        # Но для простоты пока просто отправляем новое, это работает всегда.
+        await message.answer(text, reply_markup=get_notification_settings_keyboard(user_settings))
+            
     except Exception as e:
-        logging.error(f"Ошибка в settings: {e}")
-        await message.answer("Произошла ошибка при загрузке настроек.")
+        logging.error(f"Ошибка открытия настроек: {e}")
+        await message.answer("⚠️ Не удалось загрузить настройки. Попробуйте позже.")
 
 
 # --- ИСПРАВЛЕННЫЙ ХЕНДЛЕР ПЕРЕКЛЮЧЕНИЯ НАСТРОЕК ---
 @router.callback_query(F.data.startswith("toggle_notify:"))
+# --- 4. ПЕРЕКЛЮЧЕНИЕ НАСТРОЕК (БЕЗ DEPENDS) ---
+@router.callback_query(F.data.startswith("toggle_notify:"))
 async def toggle_notification_setting(callback: types.CallbackQuery):
-    # УБРАЛИ Depends из аргументов ^
-    
-    # ПОЛУЧАЕМ КЛИЕНТ ВРУЧНУЮ
+    # ⚠️ ПОЛУЧАЕМ КЛИЕНТ ВРУЧНУЮ
     supabase = await get_supabase_client()
 
     column_name = callback.data.split(":")[1]
@@ -931,20 +950,21 @@ async def toggle_notification_setting(callback: types.CallbackQuery):
         data = resp.json()
         
         if not data:
-            await callback.answer("Ошибка пользователя", show_alert=True)
+            await callback.answer("Ошибка: профиль не найден", show_alert=True)
             return
 
         current_value = data[0].get(column_name)
+        # Если в базе NULL, считаем за True (кроме DND)
         if current_value is None:
              current_value = False if column_name == "notify_dnd_enabled" else True
 
-        # 2. Инвертируем значение
+        # 2. Инвертируем
         new_value = not current_value
         
         # 3. Сохраняем
         await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={column_name: new_value})
         
-        # 4. Обновляем клавиатуру
+        # 4. Получаем ВСЕ настройки заново для обновления клавиатуры
         full_resp = await supabase.get(
             "/users", 
             params={
@@ -954,6 +974,7 @@ async def toggle_notification_setting(callback: types.CallbackQuery):
         )
         new_settings = full_resp.json()[0]
         
+        # Обновляем кнопки
         await callback.message.edit_reply_markup(reply_markup=get_notification_settings_keyboard(new_settings))
         
         status_text = "Включено" if new_value else "Выключено"
