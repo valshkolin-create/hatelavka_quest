@@ -836,14 +836,13 @@ async def cmd_start(
 ):
     """
     Обработчик /start.
-    1. Тихо авторизует (если есть токен).
-    2. Показывает кнопку перехода в основного бота.
-    3. Показывает кнопку настроек уведомлений.
+    Всегда отправляет пользователя в основного бота @HATElavka_bot.
+    Если есть токен с сайта — сохраняет его.
     """
     token = command.args
     user_id = message.from_user.id
     
-    # 1. Тихая авторизация (если пользователь перешел с сайта)
+    # 1. Если передан токен с сайта — авторизуем тихо
     if token:
         try:
             await supabase.patch(
@@ -854,13 +853,13 @@ async def cmd_start(
         except Exception as e:
             logging.error(f"Auth error (silent): {e}")
 
-    # 2. Формируем клавиатуру с ДВУМЯ кнопками
+    # 2. Клавиатура с переходом
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👉 Перейти в HATElavka_bot", url="https://t.me/HATElavka_bot")],
         [InlineKeyboardButton(text="🔔 Настройка уведомлений", callback_data="open_settings_menu")]
     ])
     
-    # 3. Отправляем сообщение
+    # 3. Отправляем сообщение (через asyncio, чтобы не тормозить)
     asyncio.create_task(safe_send_message(
         chat_id=user_id, 
         text="👋 Привет! Для работы используйте нашего основного бота, но здесь вы можете настроить уведомления:", 
@@ -963,24 +962,26 @@ async def ignore_callback(callback: types.CallbackQuery):
 # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
 @router.message(F.text & ~F.command)
-async def track_message(message: types.Message, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # ✅ ДОБАВЬ ЭТУ СТРОЧКУ
-    logging.info("--- ЗАПУЩЕНА ФИНАЛЬНАЯ ВЕРСИЯ ОБРАБОТЧИКА track_message ---")
+async def track_message(message: types.Message):
+    """
+    Исправленный обработчик сообщений.
+    Использует глобальную переменную supabase вместо Depends.
+    """
+    # logging.info("--- ЗАПУЩЕНА ФИНАЛЬНАЯ ВЕРСИЯ ОБРАБОТЧИКА track_message ---")
     
     user = message.from_user
     full_name = f"{user.first_name} {user.last_name or ''}".strip()
 
     try:
-        # Этот блок должен быть с отступом
+        # Используем ГЛОБАЛЬНЫЙ клиент supabase (объявлен в начале файла)
         await supabase.rpc(
             "handle_user_message",
             {
-                "p_telegram_id": user.id, # <-- Исправлено
+                "p_telegram_id": user.id,
                 "p_full_name": full_name,
             }
         ).execute()
     except Exception as e:
-        # Этот блок должен быть на том же уровне, что и 'try'
         logging.error(f"Ошибка в handle_user_message для user_id={user.id}: {e}", exc_info=True)
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
