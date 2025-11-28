@@ -4151,9 +4151,6 @@ async def admin_create_auction(
     return {"message": "Лот создан, рассылка запущена."}
 
     # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-    
-    # Эта строка выполнится, ТОЛЬКО если response.raise_for_status() прошел успешно
-    return {"message": "Лот создан."}
 
 @app.post("/api/v1/admin/auctions/update")
 async def admin_update_auction(
