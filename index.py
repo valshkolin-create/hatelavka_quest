@@ -1309,43 +1309,52 @@ async def verify_admin_password(request: Request, data: dict = Body(...)):
 # ЭТО НОВАЯ ФУНКЦИЯ, КОТОРУЮ НУЖНО ДОБАВИТЬ
 async def process_webhook_in_background(update: dict):
     """
-    Эта функция содержит ВАШУ логику и безопасно выполняется в фоне.
+    Эта функция содержит логику обработки вебхука в фоне.
     """
-    # --- НАЧАЛО ВАШЕЙ ЛОГИКИ ---
     logging.info("--- ЗАПУЩЕНА ФОНОВАЯ ОБРАБОТКА webhook ---")
     
+    # 1. СНАЧАЛА передаем обновление в бота (Aiogram), чтобы работали команды!
+    try:
+        telegram_update = types.Update(**update)
+        await dp.feed_update(bot, telegram_update)
+    except Exception as e:
+        logging.error(f"Ошибка при передаче обновления в Aiogram: {e}")
+
+    # 2. ДАЛЕЕ выполняем твою логику трекинга сообщений в Supabase
     SERVICE_ACCOUNT_IDS = {777000, 1087968824, 136817688}
 
     try:
         message = update.get("message")
         if not message:
-            logging.info("Фоновая задача: пропущено, нет поля 'message'")
             return
 
         from_user = message.get("from", {})
         telegram_id = from_user.get("id")
         
         if not telegram_id or telegram_id in SERVICE_ACCOUNT_IDS:
-            logging.info(f"Фоновая задача: пропущено сообщение от служебного аккаунта ID {telegram_id}")
             return
 
         first_name = from_user.get("first_name", "")
         last_name = from_user.get("last_name", "")
         full_name = f"{first_name} {last_name}".strip() or "Без имени"
 
-        logging.info(f"Фоновая задача: получено сообщение от ID: {telegram_id}, Имя: '{full_name}'")
+        # Логируем только если это текстовое сообщение, чтобы не засорять логи
+        if message.get("text"):
+             logging.info(f"Сообщение от {telegram_id}: {message.get('text')[:20]}...")
 
-        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ `supabase`
-        supabase.rpc(
-            "handle_user_message",
-            {
-                "p_telegram_id": int(telegram_id),
-                "p_full_name": full_name,
-            }
-        ).execute()
+        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ `supabase` для статистики
+        # (Обернул в try/except, чтобы ошибка БД не влияла на работу бота)
+        try:
+            await supabase.rpc(
+                "handle_user_message",
+                {
+                    "p_telegram_id": int(telegram_id),
+                    "p_full_name": full_name,
+                }
+            ).execute()
+        except Exception as db_e:
+            logging.warning(f"Ошибка записи статистики в БД: {db_e}")
         
-        logging.info(f"Фоновая задача для ID {telegram_id} успешно завершена.")
-
     except Exception as e:
         logging.error(f"Ошибка в фоновой задаче process_webhook_in_background: {e}", exc_info=True)
     # --- КОНЕЦ ВАШЕЙ ЛОГИКИ ---
