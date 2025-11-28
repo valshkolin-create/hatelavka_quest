@@ -836,9 +836,6 @@ async def cmd_start(
 ):
     """
     Обработчик /start.
-    1. Тихо авторизует (если есть токен).
-    2. Показывает кнопку перехода в основного бота.
-    3. Показывает кнопку настроек уведомлений.
     """
     token = command.args
     user_id = message.from_user.id
@@ -846,9 +843,7 @@ async def cmd_start(
     # 1. Тихая авторизация (для сайта)
     if token:
         try:
-            # Используем глобальный supabase (синхронный) без await, но оборачиваем, чтобы не блокировать
-            # Либо используем httpx для скорости:
-            client = await get_background_client()
+            client = await get_background_client() # Используем глобальный клиент, это правильно
             await client.patch(
                 "/auth_tokens",
                 params={"token": f"eq.{token}", "telegram_id": "is.null", "used": "is.false"},
@@ -857,55 +852,70 @@ async def cmd_start(
         except Exception as e:
             logging.error(f"Auth error (silent): {e}")
 
-    # 2. Формируем клавиатуру: Переход в бота + Настройки
+    # 2. Формируем клавиатуру
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👉 Перейти в HATElavka_bot", url="https://t.me/HATElavka_bot")],
-        [InlineKeyboardButton(text="🔔 Настройка уведомлений", callback_data="open_settings_menu")]
+        [InlineKeyboardButton(text="🔔 Настройка уведомлений", callback_data="open_settings_menu")] # Тут callback на наш исправленный хендлер
     ])
     
     # 3. Отправляем сообщение
-    asyncio.create_task(safe_send_message(
-        chat_id=user_id, 
-        text="👋 Привет! Основной функционал находится в главном боте. Здесь вы можете настроить уведомления.", 
-        reply_markup=keyboard
-    ))
-
+    # Для /start лучше использовать обычный answer, а не safe_send_message, чтобы пользователь точно получил ответ
+    try:
+        await message.answer(
+            "👋 Привет! Основной функционал находится в главном боте. Здесь вы можете настроить уведомления.", 
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        logging.error(f"Ошибка /start: {e}")
+        
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 @router.message(F.text == "🔔 Настройка уведомлений")
 @router.message(Command("settings"))
-async def open_notification_settings(message: types.Message, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def open_notification_settings(message: types.Message):
+    # УБРАЛИ Depends из аргументов ^
     user_id = message.from_user.id
     
-    # ОПТИМИЗАЦИЯ: Запрашиваем только нужные колонки, а не весь профиль (*)
-    response = await supabase.get(
-        "/users", 
-        params={
-            "telegram_id": f"eq.{user_id}", 
-            "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
-        }
-    )
+    # ПОЛУЧАЕМ КЛИЕНТ ВРУЧНУЮ
+    supabase = await get_supabase_client() 
     
-    if not response.json():
-        await message.answer("Профиль не найден. Введите /start")
-        return
+    try:
+        response = await supabase.get(
+            "/users", 
+            params={
+                "telegram_id": f"eq.{user_id}", 
+                "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
+            }
+        )
+        
+        if not response.json():
+            await message.answer("Профиль не найден. Введите /start")
+            return
 
-    user_settings = response.json()[0]
-    
-    await message.answer(
-        "<b>⚙️ Настройка уведомлений</b>\n\n"
-        "Управляйте тем, какие сообщения присылает бот.\n"
-        "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас с 23:00 до 08:00 (МСК).",
-        reply_markup=get_notification_settings_keyboard(user_settings)
-    )
+        user_settings = response.json()[0]
+        
+        await message.answer(
+            "<b>⚙️ Настройка уведомлений</b>\n\n"
+            "Управляйте тем, какие сообщения присылает бот.\n"
+            "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас с 23:00 до 08:00 (МСК).",
+            reply_markup=get_notification_settings_keyboard(user_settings)
+        )
+    except Exception as e:
+        logging.error(f"Ошибка в settings: {e}")
+        await message.answer("Произошла ошибка при загрузке настроек.")
 
+
+# --- ИСПРАВЛЕННЫЙ ХЕНДЛЕР ПЕРЕКЛЮЧЕНИЯ НАСТРОЕК ---
 @router.callback_query(F.data.startswith("toggle_notify:"))
-async def toggle_notification_setting(callback: types.CallbackQuery, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # Получаем имя колонки из callback data (например, notify_auction_start)
+async def toggle_notification_setting(callback: types.CallbackQuery):
+    # УБРАЛИ Depends из аргументов ^
+    
+    # ПОЛУЧАЕМ КЛИЕНТ ВРУЧНУЮ
+    supabase = await get_supabase_client()
+
     column_name = callback.data.split(":")[1]
     user_id = callback.from_user.id
     
-    # Защита: разрешаем менять только эти поля
     allowed_columns = [
         "notify_auction_start", "notify_auction_outbid", "notify_auction_end", 
         "notify_rewards", "notify_stream_start", "notify_daily_grind", "notify_dnd_enabled"
@@ -916,7 +926,7 @@ async def toggle_notification_setting(callback: types.CallbackQuery, supabase: h
         return
 
     try:
-        # 1. Получаем текущее значение (ОПТИМИЗАЦИЯ: только 1 поле)
+        # 1. Получаем текущее значение
         resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": column_name})
         data = resp.json()
         
@@ -924,19 +934,17 @@ async def toggle_notification_setting(callback: types.CallbackQuery, supabase: h
             await callback.answer("Ошибка пользователя", show_alert=True)
             return
 
-        # По умолчанию True (кроме dnd, он False), но берем реальное значение из базы
         current_value = data[0].get(column_name)
         if current_value is None:
-             # Если поле в базе NULL, ставим дефолт: False для DND, True для остальных
              current_value = False if column_name == "notify_dnd_enabled" else True
 
         # 2. Инвертируем значение
         new_value = not current_value
         
-        # 3. Сохраняем (PATCH запрос)
+        # 3. Сохраняем
         await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={column_name: new_value})
         
-        # 4. Обновляем клавиатуру (нужен повторный запрос всех настроек для перерисовки)
+        # 4. Обновляем клавиатуру
         full_resp = await supabase.get(
             "/users", 
             params={
@@ -969,16 +977,29 @@ async def ignore_callback(callback: types.CallbackQuery):
 async def track_message(message: types.Message):
     """
     Единственное место, где мы считаем сообщения.
-    Использует асинхронный клиент для скорости.
+    Жесткая фильтрация: считает ТОЛЬКО в чате ALLOWED_CHAT_ID.
     """
+    
+    # --- ЛОГИКА ФИЛЬТРАЦИИ ---
+    
+    # 1. Если ALLOWED_CHAT_ID задан (не 0) И текущий чат не равен ему — игнорируем
+    if ALLOWED_CHAT_ID != 0 and message.chat.id != ALLOWED_CHAT_ID:
+        return
+
+    # 2. Дополнительная защита: на всякий случай игнорируем ЛС 
+    # (хотя проверка выше уже это отсечет, но оставим для надежности)
+    if message.chat.type == 'private':
+        return
+
+    # -------------------------
+
     user = message.from_user
     full_name = f"{user.first_name} {user.last_name or ''}".strip()
 
     try:
-        # Получаем быстрый асинхронный клиент (без await/Depends ошибок)
+        # Используем глобальный клиент для скорости
         client = await get_background_client()
         
-        # Отправляем запрос в БД
         await client.post(
             "/rpc/handle_user_message",
             json={
@@ -987,6 +1008,7 @@ async def track_message(message: types.Message):
             }
         )
     except Exception as e:
+        # Логируем warning, чтобы не засорять консоль, если БД на секунду отвалилась
         logging.warning(f"Не удалось записать сообщение от {user.id}: {e}")
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
