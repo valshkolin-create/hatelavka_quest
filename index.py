@@ -506,7 +506,7 @@ class UserSettingsUpdate(BaseModel):
 
 class TestNotificationRequest(BaseModel):
     initData: str
-
+    type: str # Добавили поле типа (auction, reward, etc)
 
 
 class ConnectionManager:
@@ -838,177 +838,105 @@ dp.include_router(router)
 
 # --- Telegram handlers ---
 @router.message(Command("start"))
-async def cmd_start(
-    message: types.Message, 
-    command: CommandObject
-):
+async def cmd_start(message: types.Message):
     """
-    Обработчик /start.
+    Активирует бота для пользователя.
     """
-    token = command.args
     user_id = message.from_user.id
-    
-    # 1. Тихая авторизация (для сайта)
-    if token:
-        try:
-            client = await get_background_client() # Используем глобальный клиент, это правильно
-            await client.patch(
-                "/auth_tokens",
-                params={"token": f"eq.{token}", "telegram_id": "is.null", "used": "is.false"},
-                json={"telegram_id": user_id, "used": True}
-            )
-        except Exception as e:
-            logging.error(f"Auth error (silent): {e}")
+    username = message.from_user.username
+    full_name = message.from_user.full_name
 
-    # 2. Формируем клавиатуру
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👉 Перейти в HATElavka_bot", url="https://t.me/HATElavka_bot")],
-        [InlineKeyboardButton(text="🔔 Настройка уведомлений", callback_data="open_settings_menu")] # Тут callback на наш исправленный хендлер
-    ])
-    
-    # 3. Отправляем сообщение
-    # Для /start лучше использовать обычный answer, а не safe_send_message, чтобы пользователь точно получил ответ
     try:
+        client = await get_background_client()
+        
+        # 1. Обновляем или создаем пользователя, ставим is_bot_active = True
+        # Используем upsert, чтобы сразу создать, если нет, или обновить
+        await client.post(
+            "/users",
+            json={
+                "telegram_id": user_id,
+                "username": username,
+                "full_name": full_name,
+                "is_bot_active": True # <--- ГЛАВНОЕ ИЗМЕНЕНИЕ
+            },
+            headers={"Prefer": "resolution=merge-duplicates"}
+        )
+        
+        # 2. Отвечаем
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📱 Открыть профиль", web_app=WebAppInfo(url=f"{WEB_APP_URL}/profile"))]
+        ])
+        
         await message.answer(
-            "👋 Привет! Основной функционал находится в главном боте. Здесь вы можете настроить уведомления.", 
+            "✅ <b>Бот активирован!</b>\n\n"
+            "Теперь вы сможете получать уведомления о победах и наградах.\n"
+            "Перейдите в профиль, чтобы настроить, какие именно уведомления вы хотите получать.",
             reply_markup=keyboard
         )
+        
     except Exception as e:
         logging.error(f"Ошибка /start: {e}")
-        
-# ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
-
-# --- 1. Обработчик для КНОПКИ (из /start) ---
-@router.callback_query(F.data == "open_settings_menu")
-async def callback_open_settings_menu(callback: types.CallbackQuery):
-    print(f"DEBUG: Кнопка меню нажата пользователем {callback.from_user.id}") # ОТЛАДКА
-    await callback.answer()
-    await _open_settings_logic(callback.message)
+        await message.answer("Произошла ошибка при активации. Попробуйте позже.")
 
 
-# --- 2. ЛОВИМ КОМАНДУ /settings ---
-@router.message(Command("settings"))
-@router.message(F.text == "🔔 Настройка уведомлений")
-async def cmd_open_settings(message: types.Message):
-    print(f"DEBUG: Команда /settings от {message.from_user.id}") # ОТЛАДКА
-    await _open_settings_logic(message)
-
-
-# --- 3. ВНУТРЕННЯЯ ЛОГИКА (С ОТЛАДКОЙ) ---
-async def _open_settings_logic(message: types.Message):
-    user_id = message.chat.id
-    
-    try:
-        print("DEBUG: Запрашиваем клиент БД...") 
-        supabase = await get_supabase_client()
-        
-        print("DEBUG: Отправляем запрос в Supabase...")
-        response = await supabase.get(
-            "/users", 
-            params={
-                "telegram_id": f"eq.{user_id}", 
-                "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
-            }
-        )
-        
-        # Если база вернула ошибку (например, неверное имя колонки), выводим её
-        if response.status_code != 200:
-            print(f"ERROR: Ошибка БД {response.status_code}: {response.text}")
-            await message.answer("Ошибка базы данных. Сообщите администратору.")
-            return
-
-        data = response.json()
-        if not data:
-            await message.answer("Профиль не найден. Нажмите /start для регистрации.")
-            return
-
-        user_settings = data[0]
-        
-        text = (
-            "<b>⚙️ Настройка уведомлений</b>\n\n"
-            "Управляйте тем, какие сообщения присылает бот.\n"
-            "🌙 <b>Тихий режим:</b> Бот не будет беспокоить вас с 23:00 до 08:00 (МСК)."
-        )
-        
-        await message.answer(text, reply_markup=get_notification_settings_keyboard(user_settings))
-        print("DEBUG: Меню успешно отправлено")
-
-    except Exception as e:
-        print(f"CRITICAL ERROR в _open_settings_logic: {e}") # ПРИНУДИТЕЛЬНЫЙ ВЫВОД ОШИБКИ
-        await message.answer("⚠️ Критическая ошибка при открытии настроек.")
-
-
-# --- 4. ОБРАБОТЧИК ГАЛОЧЕК (С ОТЛАДКОЙ) ---
-@router.callback_query(F.data.startswith("toggle_notify:"))
-async def toggle_notification_setting(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    column_name = callback.data.split(":")[1]
-    
-    print(f"DEBUG: Клик по настройке {column_name} от {user_id}") # ОТЛАДКА
-
-    allowed_columns = [
-        "notify_auction_start", "notify_auction_outbid", "notify_auction_end", 
-        "notify_rewards", "notify_stream_start", "notify_daily_grind", "notify_dnd_enabled"
-    ]
-    
-    if column_name not in allowed_columns:
-        print(f"WARNING: Неизвестная колонка {column_name}")
-        await callback.answer("Неизвестная настройка", show_alert=True)
+@router.message(F.text & ~F.command)
+async def track_message(message: types.Message):
+    """
+    Считает сообщения ТОЛЬКО если пользователь активен.
+    Иначе просит нажать /start.
+    """
+    # 1. Проверка чата (как мы делали раньше)
+    if ALLOWED_CHAT_ID != 0 and message.chat.id != ALLOWED_CHAT_ID:
+        return
+    if message.chat.type == 'private':
+        # Если пишут в личку всякую ерунду, проверяем статус
+        await check_active_and_reply(message)
         return
 
+    user = message.from_user
+    
     try:
-        supabase = await get_supabase_client()
-
-        # 1. Получаем текущее значение
-        resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": column_name})
+        client = await get_background_client()
         
-        if resp.status_code != 200:
-            print(f"ERROR GET: {resp.text}")
-            await callback.answer("Ошибка чтения настройки", show_alert=True)
-            return
-
+        # 2. Проверяем, активен ли пользователь (is_bot_active)
+        # Это дополнительный запрос, но необходимый для вашей логики
+        resp = await client.get("/users", params={"telegram_id": f"eq.{user.id}", "select": "is_bot_active"})
         data = resp.json()
-        if not data:
-            await callback.answer("Профиль не найден", show_alert=True)
-            return
-
-        current_value = data[0].get(column_name)
-        # Если NULL -> ставим True (включено), кроме DND (выключено)
-        if current_value is None:
-             current_value = False if column_name == "notify_dnd_enabled" else True
-
-        new_value = not current_value
         
-        # 2. Обновляем
-        print(f"DEBUG: Меням {column_name} на {new_value}")
-        patch_resp = await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={column_name: new_value})
-        
-        if patch_resp.status_code not in (200, 204):
-            print(f"ERROR PATCH: {patch_resp.text}")
-            await callback.answer("Не удалось сохранить", show_alert=True)
-            return
-        
-        # 3. Обновляем клавиатуру (запрашиваем все поля заново)
-        full_resp = await supabase.get(
-            "/users", 
-            params={
-                "telegram_id": f"eq.{user_id}", 
-                "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
-            }
-        )
-        
-        if full_resp.json():
-            new_settings = full_resp.json()[0]
-            await callback.message.edit_reply_markup(
-                reply_markup=get_notification_settings_keyboard(new_settings)
+        is_active = False
+        if data:
+            is_active = data[0].get("is_bot_active", False)
+            
+        if is_active:
+            # Если активен - считаем статистику
+            full_name = f"{user.first_name} {user.last_name or ''}".strip()
+            await client.post(
+                "/rpc/handle_user_message",
+                json={"p_telegram_id": user.id, "p_full_name": full_name}
             )
-        
-        status = "Включено ✅" if new_value else "Выключено ❌"
-        await callback.answer(f"Настройка изменена: {status}")
-        
+        else:
+            # Если НЕ активен и пишет в чат - можно игнорировать или мягко напоминать.
+            # Обычно в общем чате спамить "нажми старт" не стоит.
+            # Но если это ЛС (обработано выше), то мы ответим.
+            pass
+
     except Exception as e:
-        print(f"CRITICAL ERROR в toggle: {e}") # ПРИНУДИТЕЛЬНЫЙ ВЫВОД
-        await callback.answer("Сбой бота. Попробуйте позже.", show_alert=True)
+        logging.warning(f"Ошибка track_message: {e}")
+
+async def check_active_and_reply(message: types.Message):
+    """Вспомогательная функция для ответов в ЛС"""
+    try:
+        client = await get_background_client()
+        resp = await client.get("/users", params={"telegram_id": f"eq.{message.from_user.id}", "select": "is_bot_active"})
+        data = resp.json()
+        
+        is_active = False
+        if data: is_active = data[0].get("is_bot_active", False)
+        
+        if not is_active:
+            await message.answer("⛔️ Бот не активирован.\nЧтобы получить доступ к функциям, введите команду /start")
+    except:
+        pass
         
 # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
@@ -8558,19 +8486,29 @@ async def send_test_notification_api(
     request_data: TestNotificationRequest,
     background_tasks: BackgroundTasks
 ):
-    """Отправляет тестовое сообщение пользователю."""
+    """Отправляет тестовое сообщение конкретного типа."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     telegram_id = user_info["id"]
+    n_type = request_data.type
     
-    msg = (
-        "🔔 <b>Тестовое уведомление</b>\n\n"
-        "Если вы читаете это — значит, бот настроен правильно и может присылать вам награды и оповещения! ✅"
-    )
-    
-    # Используем background task для отправки
+    msg = ""
+    # Разный текст для разных типов
+    if n_type == 'notify_auction_start':
+        msg = "📢 <b>Аукцион начался!</b>\n\nЛот: «AWP | Dragon Lore»\nНачальная цена: 10 билетов.\n\nУспейте сделать ставку!"
+    elif n_type == 'notify_auction_outbid':
+        msg = "⚠️ <b>Вашу ставку перебили!</b>\n\nЛот: «AK-47 | Redline»\nНовая ставка лидера: 550 билетов.\n\nСделайте новую ставку, чтобы победить!"
+    elif n_type == 'notify_rewards':
+        msg = "🎁 <b>Вам выдана награда!</b>\n\nТип: Промокод на 50 звезд.\nКод: <code>TEST-CODE-123</code>\n\nАктивируйте в главном меню!"
+    elif n_type == 'notify_stream_start':
+        msg = "🟣 <b>Стрим НАЧАЛСЯ!</b>\n\nЗалетайте на трансляцию, лутайте баллы и участвуйте в ивентах! 🚀"
+    elif n_type == 'notify_daily_grind':
+        msg = "💰 <b>Ежедневная награда!</b>\n\nВам начислено 100 монет за активность в чате."
+    else:
+        msg = "🔔 Это тестовое уведомление. Бот работает исправно!"
+
     background_tasks.add_task(safe_send_message, telegram_id, msg)
     
     return {"message": "Test sent"}
