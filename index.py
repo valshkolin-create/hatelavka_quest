@@ -8509,7 +8509,7 @@ async def update_user_settings_batch(
     request_data: UserSettingsBatch,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Обновляет сразу несколько настроек одним запросом."""
+    """Обновляет сразу несколько настроек одним запросом (Debounce)."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -8517,26 +8517,30 @@ async def update_user_settings_batch(
     telegram_id = user_info["id"]
     updates = request_data.updates
     
-    # Фильтрация разрешенных полей (Security)
+    # Фильтрация разрешенных полей (Защита)
     allowed_keys = {
         "notify_auction_start", "notify_auction_outbid", "notify_auction_end", 
         "notify_rewards", "notify_stream_start", "notify_daily_grind", "notify_dnd_enabled"
     }
     
-    # Оставляем только безопасные ключи
+    # Оставляем только безопасные ключи, которые есть в allowed_keys
     safe_updates = {k: v for k, v in updates.items() if k in allowed_keys}
     
     if not safe_updates:
         return {"status": "no_changes"}
 
-    # Отправляем ОДИН запрос в базу
-    await supabase.patch(
-        "/users",
-        params={"telegram_id": f"eq.{telegram_id}"},
-        json=safe_updates
-    )
-    
-    return {"status": "updated", "count": len(safe_updates)}
+    try:
+        # Отправляем ОДИН запрос в базу на обновление всех полей
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json=safe_updates
+        )
+        return {"status": "updated", "count": len(safe_updates)}
+        
+    except Exception as e:
+        logging.error(f"Ошибка batch update: {e}")
+        raise HTTPException(status_code=500, detail="DB Error")
 
 @app.post("/api/v1/user/settings/get")
 async def get_user_settings_api(
