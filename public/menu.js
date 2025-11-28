@@ -582,20 +582,31 @@ try {
 
 function renderChallenge(challengeData, isGuest) {
         dom.challengeContainer.innerHTML = '';
+        
+        // --- ПОЛУЧАЕМ СТАТУС СТРИМА ИЗ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ---
+        // (userData - глобальная переменная в menu.js)
+        const isOnline = userData.is_stream_online === true;
+        
+        // Формируем HTML бейджика
+        const streamBadgeHtml = isOnline 
+            ? `<div class="stream-status-badge online"><i class="fa-solid fa-circle" style="font-size:6px; vertical-align:middle; margin-right:3px;"></i> СТРИМ ОНЛАЙН</div>`
+            : `<div class="stream-status-badge offline">СТРИМ ОФФЛАЙН</div>`;
+
         if (isGuest) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card quest-locked">
-                    <div class="quest-icon"><i class="fa-brands fa-twitch"></i></div>
+                    ${streamBadgeHtml} <div class="quest-icon"><i class="fa-brands fa-twitch"></i></div>
                     <h2 class="quest-title">Случайный челлендж</h2>
                     <p class="quest-subtitle">Для доступа к челленджам требуется привязка Twitch-аккаунта.</p>
                     <a href="/profile" class="perform-quest-button" style="text-decoration: none;">Привязать Twitch</a>
                 </div>`;
             return;
         }
+        
         if (challengeData && challengeData.cooldown_until) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
-                    <div class="quest-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                    ${streamBadgeHtml} <div class="quest-icon"><i class="fa-solid fa-hourglass-half"></i></div>
                     <h2 class="quest-title">Следующий челлендж</h2>
                     <p class="quest-subtitle">Новое задание будет доступно после окончания таймера.</p>
                     <div id="challenge-cooldown-timer" class="challenge-timer" style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-top: 10px;">...</div>
@@ -605,10 +616,11 @@ function renderChallenge(challengeData, isGuest) {
             }
             return;
         }
+
         if (!challengeData || !challengeData.description) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
-                    <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
+                    ${streamBadgeHtml} <div class="quest-icon"><i class="fa-solid fa-dice"></i></div>
                     <h2 class="quest-title">Случайный челлендж</h2>
                     <p class="quest-subtitle">Испытай удачу! Получи случайное задание и выполни его.</p>
                     <button id="get-challenge-btn" class="claim-reward-button">
@@ -617,6 +629,7 @@ function renderChallenge(challengeData, isGuest) {
                 </div>`;
             return;
         }
+
         const challenge = challengeData; 
         const currentProgress = challenge.progress_value || 0;
         const target = challenge.target_value || 1;
@@ -642,10 +655,9 @@ function renderChallenge(challengeData, isGuest) {
             progressTextContent = `✉️ ${currentProgress} / ${target}`;
         }
         
-        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
         dom.challengeContainer.innerHTML = `
             <div class="quest-card challenge-card">
-                <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
+                ${streamBadgeHtml} <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
                 <h2 class="quest-title">${challenge.description || ''}</h2>
                 ${statusText}
                 
@@ -660,7 +672,7 @@ function renderChallenge(challengeData, isGuest) {
                 ${twitchNotice}
                 ${claimButton}
             </div>`;
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+        
         if (challenge.expires_at) {
             startCountdown(document.getElementById('challenge-timer'), challenge.expires_at, 'challenge');
         }
