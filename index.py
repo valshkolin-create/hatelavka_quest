@@ -835,53 +835,37 @@ async def cmd_start(
     command: CommandObject
 ):
     """
-    Обработчик команды /start.
-    Исправлено: убраны несовместимые с aiogram зависимости FastAPI.
+    Обработчик /start.
+    1. Тихо авторизует (если есть токен).
+    2. Показывает кнопку перехода в основного бота.
+    3. Показывает кнопку настроек уведомлений.
     """
-    token = command.args or ""
+    token = command.args
     user_id = message.from_user.id
     
-    # 1. Если есть токен (пользователь пришел с сайта для авторизации)
+    # 1. Тихая авторизация (если пользователь перешел с сайта)
     if token:
         try:
-            # Используем глобальный клиент supabase напрямую
             await supabase.patch(
                 "/auth_tokens",
                 params={"token": f"eq.{token}", "telegram_id": "is.null", "used": "is.false"},
                 json={"telegram_id": user_id, "used": True}
             )
-            
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🚀 Открыть приложение", web_app=WebAppInfo(url=WEB_APP_URL))
-            ]])
-            
-            # Используем asyncio.create_task вместо background_tasks
-            asyncio.create_task(safe_send_message(
-                chat_id=user_id, 
-                text="✅ Авторизация завершена! Можете вернуться на сайт.", 
-                reply_markup=keyboard
-            ))
-            
         except Exception as e:
-            logging.error(f"Ошибка привязки токена {token}: {e}")
-            asyncio.create_task(safe_send_message(
-                chat_id=user_id, 
-                text="⚠️ Произошла ошибка при авторизации."
-            ))
-            
-    # 2. Обычный старт (без токена)
-    else:
-        # Добавляем кнопку настроек уведомлений в приветственное сообщение
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Открыть приложение", web_app=WebAppInfo(url=WEB_APP_URL))],
-            [InlineKeyboardButton(text="🔔 Настройка уведомлений", callback_data="open_settings_menu")]
-        ])
-        
-        asyncio.create_task(safe_send_message(
-            chat_id=user_id, 
-            text="👋 Привет! Открой наше веб-приложение:", 
-            reply_markup=keyboard
-        ))
+            logging.error(f"Auth error (silent): {e}")
+
+    # 2. Формируем клавиатуру с ДВУМЯ кнопками
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👉 Перейти в HATElavka_bot", url="https://t.me/HATElavka_bot")],
+        [InlineKeyboardButton(text="🔔 Настройка уведомлений", callback_data="open_settings_menu")]
+    ])
+    
+    # 3. Отправляем сообщение
+    asyncio.create_task(safe_send_message(
+        chat_id=user_id, 
+        text="👋 Привет! Для работы используйте нашего основного бота, но здесь вы можете настроить уведомления:", 
+        reply_markup=keyboard
+    ))
 
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
