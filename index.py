@@ -1890,19 +1890,18 @@ async def get_event_winners_details_for_admin(
 @app.post("/api/v1/auctions/bid")
 async def make_auction_bid(
     request_data: AuctionBidRequest,
-    background_tasks: BackgroundTasks, # <--- ⚠️ ВОТ ЭТО НУЖНО ДОБАВИТЬ
+    background_tasks: BackgroundTasks, # <--- ✅ ОБЯЗАТЕЛЬНО ДОБАВЛЕНО
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
     Принимает ставку от пользователя, проверяет трейд-ссылку,
-    вызывает RPC-функцию и отправляет триггер для OBS. (ИСПРАВЛЕНО)
+    вызывает RPC-функцию и отправляет триггер для OBS.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
-    # Имя из TG используется как фоллбэк
     user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Пользователь")
 
     try:
@@ -1913,16 +1912,12 @@ async def make_auction_bid(
 
         if not user_data or not user_data[0].get("trade_link"):
              raise HTTPException(status_code=400, detail="Пожалуйста, укажите вашу трейд-ссылку в профиле для участия.")
-        # --- КОНЕЦ ПРОВЕРКИ ---
 
-        # ⬇️⬇️⬇️ ВСТАВЛЯЕМ НОВЫЙ БЛОК: ПОЛУЧЕНИЕ ПРЕДЫДУЩЕГО ЛИДЕРА ⬇️⬇️⬇️
-        # Нам нужно узнать, кого мы сейчас перебьем, чтобы уведомить его
+        # --- 2. ПОЛУЧЕНИЕ ПРЕДЫДУЩЕГО ЛИДЕРА (ДО СТАВКИ) ---
         prev_bidder_id = None
-        prev_bidder_name = None
         auction_title = "Лот"
 
         try:
-            # Получаем текущее состояние аукциона перед ставкой
             auc_check = await supabase.get(
                 "/auctions", 
                 params={"id": f"eq.{request_data.auction_id}", "select": "current_highest_bidder_id, title"}
@@ -1932,75 +1927,22 @@ async def make_auction_bid(
                 prev_bidder_id = auc_data.get("current_highest_bidder_id")
                 auction_title = auc_data.get("title", "Лот")
         except Exception:
-            pass # Если не удалось узнать лидера, не страшно, просто не уведомим
-        # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
+            pass 
 
-        # 2. Вызываем "мозг" (RPC-функцию)
+        # --- 3. ВЫЗОВ RPC (СТАВКА) ---
         response = await supabase.post(
             "/rpc/place_auction_bid",
             json={
                 "p_auction_id": request_data.auction_id,
                 "p_user_id": telegram_id,
-                "p_user_name": user_name, # RPC использует это имя, если в `users` нет twitch_login
+                "p_user_name": user_name,
                 "p_bid_amount": request_data.bid_amount
             }
         )
         response.raise_for_status() 
 
-        # --- 3. ОТПРАВКА ТРИГГЕРА ДЛЯ OBS (ИСПРАВЛЕННАЯ ЛОГИКА) ---
-        try:
-            # Получаем свежие данные аукциона
-            auction_resp = await supabase.get(
-                "/auctions",
-                params={"id": f"eq.{request_data.auction_id}", "select": "*"},
-                headers={"Prefer": "count=exact"} 
-            )
-            auction_data = auction_resp.json()[0] if auction_resp.json() else {}
-
-            # --- ИСПРАВЛЕНИЕ ЗАПРОСА ---
-            # Получаем топ-10 ставок, чтобы найти 3 уникальных (с user_id и twitch_login)
-            history_resp = await supabase.get(
-                "/auction_bids",
-                params={
-                    "auction_id": f"eq.{request_data.auction_id}",
-                    "select": "bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)", # <-- РЕШЕНИЕ
-                    "order": "created_at.desc",
-                    "limit": 10 # Берем 10, чтобы найти 3 уникальных
-                }
-            )
-            history_data = history_resp.json()
-            
-            # --- ИСПРАВЛЕНИЕ ЛОГИКИ ---
-            # Формируем топ-3 для OBS (с приоритетом Twitch)
-            top_bidders = []
-            last_bidder_display_name = user_name # Fallback to TG name
-            
-            if history_data:
-                seen_user_ids = set()
-                
-                # Функция-хелпер для выбора имени
-                def get_display_name(user_data):
-                    if not user_data:
-                        return "Аноним"
-                    # ПРИОРИТЕТ: Twitch, затем TG
-                    return user_data.get("twitch_login") or user_data.get("full_name") or "Аноним"
-
-                # Имя последнего (текущего) биддера (history_data[0])
-                if history_data[0].get("user"):
-                     last_bidder_display_name = get_display_name(history_data[0]["user"])
-                
-                for bid in history_data:
-                    if len(top_bidders) >= 3:
-                        break
-                    
-                    user_id = bid.get("user_id")
-                    if user_id and user_id not in seen_user_ids:
-                        display_name = get_display_name(bid.get("user"))
-                        top_bidders.append({"name": display_name, "amount": bid["bid_amount"]})
-                        seen_user_ids.add(user_id)
-
-            # ⬇️⬇️⬇️ ВСТАВЛЯЕМ УВЕДОМЛЕНИЕ В ФОН ⬇️⬇️⬇️
-        # Если был лидер и это не мы сами -> отправляем уведомление "Вас перебили"
+        # --- 4. УВЕДОМЛЕНИЕ ТОГО, КОГО ПЕРЕБИЛИ (В ФОНЕ) ---
+        # Вставляем это ПОСЛЕ успешной ставки, но ДО блока OBS
         if prev_bidder_id and prev_bidder_id != telegram_id:
             msg_text = (
                 f"⚠️ <b>Вашу ставку перебили!</b>\n\n"
@@ -2008,31 +1950,66 @@ async def make_auction_bid(
                 f"Новая ставка: {request_data.bid_amount} 🎟️\n\n"
                 f"Успейте сделать новую ставку!"
             )
-            # Используем "notify_auction_outbid"
             background_tasks.add_task(
                 check_and_send_notification,
                 prev_bidder_id,
                 msg_text,
                 "notify_auction_outbid"
             )
-        # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
+
+        # --- 5. ОТПРАВКА ТРИГГЕРА ДЛЯ OBS ---
+        try:
+            # Получаем свежие данные
+            auction_resp = await supabase.get(
+                "/auctions",
+                params={"id": f"eq.{request_data.auction_id}", "select": "*"},
+                headers={"Prefer": "count=exact"} 
+            )
+            auction_data = auction_resp.json()[0] if auction_resp.json() else {}
+
+            # Получаем историю
+            history_resp = await supabase.get(
+                "/auction_bids",
+                params={
+                    "auction_id": f"eq.{request_data.auction_id}",
+                    "select": "bid_amount, user_id, user:users(telegram_id, full_name, twitch_login)",
+                    "order": "created_at.desc",
+                    "limit": 10
+                }
+            )
+            history_data = history_resp.json()
             
-            # Формируем payload для OBS
+            top_bidders = []
+            last_bidder_display_name = user_name
+            
+            if history_data:
+                seen_user_ids = set()
+                def get_display_name(ud):
+                    if not ud: return "Аноним"
+                    return ud.get("twitch_login") or ud.get("full_name") or "Аноним"
+
+                if history_data[0].get("user"):
+                     last_bidder_display_name = get_display_name(history_data[0]["user"])
+                
+                for bid in history_data:
+                    if len(top_bidders) >= 3: break
+                    uid = bid.get("user_id")
+                    if uid and uid not in seen_user_ids:
+                        display_name = get_display_name(bid.get("user"))
+                        top_bidders.append({"name": display_name, "amount": bid["bid_amount"]})
+                        seen_user_ids.add(uid)
+            
             trigger_payload = {
                 "auction_data": auction_data,
-                "last_bidder_name": last_bidder_display_name, # <-- РЕШЕНИЕ
+                "last_bidder_name": last_bidder_display_name,
                 "top_bidders": top_bidders 
             }
-            # --- КОНЕЦ ИСПРАВЛЕНИЯ ЛОГИКИ ---
             
-            # Вставляем в новую таблицу 
             await supabase.post("/auction_triggers", json={"payload": trigger_payload})
-            logging.info(f"✅ Триггер для OBS (Аукцион {request_data.auction_id}) успешно отправлен.")
+            logging.info(f"✅ Триггер для OBS успешно отправлен.")
 
         except Exception as obs_e:
-            logging.error(f"❌ Не удалось отправить триггер для OBS: {obs_e}", exc_info=True)
-            # Не прерываем основной запрос из-за ошибки OBS
-        # --- КОНЕЦ ТРИГГЕРА OBS ---
+            logging.error(f"❌ Ошибка триггера OBS: {obs_e}")
 
         return {"message": "Ваша ставка принята!"}
 
@@ -2044,14 +2021,12 @@ async def make_auction_bid(
         except Exception:
             error_details = e.response.text
             
-        # --- ИСПРАВЛЕНИЕ: Перехват ошибки удаленного аукциона ---
-        if "violates foreign key constraint" in error_details and "auction_bids_auction_id_fkey" in error_details:
-             error_details = "Лот был перезапущен или удален администратором. Пожалуйста, обновите страницу."
-        # -------------------------------------------------------
+        if "violates foreign key constraint" in error_details:
+             error_details = "Лот был перезапущен или удален администратором."
             
-        logging.warning(f"Ошибка RPC place_auction_bid: {error_details}")
+        logging.warning(f"Ошибка ставки: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
-
+        
 @app.get("/api/v1/auctions/history/{auction_id}")
 async def get_auction_history(
     auction_id: int,
@@ -2094,6 +2069,7 @@ async def get_auction_history(
 @app.post("/api/v1/admin/auctions/finish_manual")
 async def admin_finish_auction(
     request_data: AdminAuctionFinishRequest,
+    background_tasks: BackgroundTasks, # <--- ✅ ВАЖНО
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
@@ -2104,87 +2080,53 @@ async def admin_finish_auction(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     auction_id = request_data.id
-    logging.info(f"АДМИН: Принудительное завершение аукциона ID {auction_id}...")
     
     try:
-        # 1. Вызываем RPC-функцию, которая завершает аукцион и возвращает победителя
-        rpc_resp = await supabase.post(
-            "/rpc/finish_auction",
-            json={"p_auction_id": auction_id}
-        )
+        rpc_resp = await supabase.post("/rpc/finish_auction", json={"p_auction_id": auction_id})
         rpc_resp.raise_for_status()
         
         winner_data_list = rpc_resp.json()
         if not winner_data_list:
-            logging.warning(f"АДМИН: RPC-функция для {auction_id} вернула пустой ответ.")
-            return {"message": "Аукцион завершен, победитель не определен (нет ставок)."}
+            return {"message": "Аукцион завершен, ставок не было."}
 
         winner_data = winner_data_list[0]
         
-       # 2. Проверяем, есть ли победитель, и отправляем уведомления
         if winner_data.get('winner_id'):
             winner_id = winner_data['winner_id']
             winner_name = winner_data['winner_name']
-            
-            # --- ИСПРАВЛЕНИЕ: Безопасное получение названия ---
-            # Пробуем 'auction_title', если нет - пробуем 'title', если нет - ставим 'Лот'
             auction_title = winner_data.get('auction_title') or winner_data.get('title') or "Лот"
-            # --------------------------------------------------
-            
             winning_bid = winner_data['winning_bid']
             
-            # ⬇️ ЗАМЕНЯЕМ ЭТОТ БЛОК ⬇️
+            # Уведомление победителю
             msg_text = (
-                f"🎉 Поздравляем, {html_decoration.quote(winner_name)}!\n\n"
-                f"Вы победили в аукционе за лот «{html_decoration.quote(auction_title)}» со ставкой {winning_bid} 🎟️.\n\n"
-                f"Билеты были списаны с вашего баланса. Администратор скоро свяжется с вами для выдачи приза!"
+                f"🎉 <b>Поздравляем, {html_decoration.quote(winner_name)}!</b>\n\n"
+                f"Вы победили в аукционе за лот «{html_decoration.quote(auction_title)}»!\n"
+                f"Ставка: <b>{winning_bid} билетов</b> (списаны).\n\n"
+                f"Администратор свяжется с вами для выдачи приза."
             )
-
-            # Используем "notify_auction_end"
-            await check_and_send_notification(
+            background_tasks.add_task(
+                check_and_send_notification,
                 winner_id,
                 msg_text,
                 "notify_auction_end"
             )
-            # ⬆️ КОНЕЦ ЗАМЕНЫ ⬆️
             
-            # Уведомление админу
+            # Уведомление админу (всегда шлем)
             if ADMIN_NOTIFY_CHAT_ID:
                 await safe_send_message(
                     ADMIN_NOTIFY_CHAT_ID,
                     f"🏆 <b>Аукцион завершен! (Вручную)</b>\n\n"
-                    f"<b>Лот:</b> {html_decoration.quote(auction_title)}\n"
-                    f"<b>Победитель:</b> {html_decoration.quote(winner_name)} (ID: <code>{winner_id}</code>)\n"
-                    f"<b>Ставка:</b> {winning_bid} билетов\n\n"
-                    f"Билеты списаны. Пожалуйста, свяжитесь с победителем для выдачи приза."
+                    f"Лот: {html_decoration.quote(auction_title)}\n"
+                    f"Победитель: {html_decoration.quote(winner_name)} (ID: {winner_id})\n"
+                    f"Ставка: {winning_bid}"
                 )
             return {"message": f"Аукцион {auction_id} завершен, победитель {winner_id}."}
         else:
-            # Случай, когда нет победителя
             return {"message": f"Аукцион {auction_id} завершен, победитель не определен."}
     
-    except httpx.HTTPStatusError as e:
-        # По умолчанию ставим общее сообщение
-        error_details = "Не удалось забрать награду." 
-        try:
-            # Пытаемся достать детальную ошибку из Supabase
-            error_details = e.response.json().get("message", "Не удалось забрать награду.")
-        except Exception:
-            pass # Если не получилось, оставляем сообщение по умолчанию
-        
-        # Логируем ПОЛНУЮ ошибку, чтобы вы ее видели
-        logging.error(f"--- [claim_weekly_task_reward] ОШИБКА RPC: {error_details} ---")
-        
-        # --- 🔽🔽🔽 ВОТ ИСПРАВЛЕНИЕ 🔽🔽🔽 ---
-        # Проверяем, является ли это той самой ошибкой
-        if "invalid input syntax for type integer" in error_details:
-            # Если да, заменяем ее на понятное сообщение для пользователя
-            user_friendly_error = "Ошибка данных задачи (неверное кол-во награды). Свяжитесь с админом."
-            logging.error(f"--- [claim_weekly_task_reward] Перехвачена ошибка integer. Отправка клиенту: {user_friendly_error} ---")
-            raise HTTPException(status_code=400, detail=user_friendly_error)
-        else:
-            # Если это другая ошибка (например, "Награда уже получена"), показываем ее
-            raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Ошибка завершения аукциона: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при завершении аукциона.")
     # --- 🔼🔼🔼 КОНЕЦ ИСПРАВЛЕНИЯ 🔼🔼🔼 ---
 
 @app.post("/api/v1/admin/auctions/clear_participants")
@@ -4427,100 +4369,60 @@ async def trigger_draws(
 @app.get("/api/v1/cron/trigger_auctions")
 async def trigger_auctions(
     request: Request,
+    background_tasks: BackgroundTasks, # <--- ✅ ВАЖНО
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Защита, как в trigger_draws
     cron_secret = os.getenv("CRON_SECRET")
     auth_header = request.headers.get("Authorization")
     if not cron_secret or auth_header != f"Bearer {cron_secret}":
         raise HTTPException(status_code=403, detail="Forbidden: Invalid secret")
 
-    logging.info("🚀 CRON (Аукцион): Проверка аукционов для завершения...")
+    logging.info("🚀 CRON (Аукцион): Проверка аукционов...")
 
     try:
-        # 2. Находим все аукционы, у которых 4-часовой таймер истек
         now_utc_iso = datetime.now(timezone.utc).isoformat()
-        
         resp = await supabase.get(
             "/auctions",
             params={
                 "is_active": "eq.true",
                 "ended_at": "is.null",
-                "bid_cooldown_ends_at": "not.is.null", # Убедимся, что таймер был запущен
-                "bid_cooldown_ends_at": f"lt.{now_utc_iso}", # 'lt' = less than (меньше чем)
-                "select": "id, title" # Нам нужны только ID и title
+                "bid_cooldown_ends_at": f"lt.{now_utc_iso}",
+                "select": "id"
             }
         )
-        resp.raise_for_status()
         auctions_to_finish = resp.json()
 
         if not auctions_to_finish:
-            logging.info("CRON (Аукцион): Нет аукционов для завершения.")
             return {"message": "No auctions to finish."}
         
-        logging.info(f"CRON (Аукцион): Найдено {len(auctions_to_finish)} аукцион(ов) для завершения.")
-        
         results = []
-        
-        # 3. Завершаем каждый аукцион, вызывая нашу SQL-функцию
-        for auction in auctions_to_finish:
-            auction_id = auction['id']
-            logging.info(f"CRON (Аукцион): Завершаем аукцион ID {auction_id}...")
+        for auc in auctions_to_finish:
+            rpc_resp = await supabase.post("/rpc/finish_auction", json={"p_auction_id": auc['id']})
+            data = rpc_resp.json()
             
-            # Вызываем "мозг" (SQL-функцию), который атомарно все сделает
-            rpc_resp = await supabase.post(
-                "/rpc/finish_auction",
-                json={"p_auction_id": auction_id}
-            )
-            rpc_resp.raise_for_status()
-            
-            winner_data_list = rpc_resp.json()
-            if not winner_data_list:
-                logging.warning(f"CRON (Аукцион): RPC-функция для {auction_id} вернула пустой ответ.")
-                continue
-
-            winner_data = winner_data_list[0] # RPC возвращает TABLE, берем первую строку
-            
-            # 4. Отправляем уведомления
-            if winner_data.get('winner_id'):
-                winner_id = winner_data['winner_id']
-                winner_name = winner_data['winner_name']
-                auction_title = winner_data.get('auction_title') or winner_data.get('title') or "Лот"
-                winning_bid = winner_data['winning_bid']
-                
-                # Уведомление победителю
-                # (Используем вашу функцию safe_send_message)
+            if data and data[0].get('winner_id'):
+                res = data[0]
                 msg_text = (
-                    f"🎉 Поздравляем, {html_decoration.quote(winner_name)}!\n\n"
-                    f"Вы победили в аукционе за лот «{html_decoration.quote(auction_title)}» со ставкой {winning_bid} 🎟️.\n\n"
-                    f"Билеты были списаны с вашего баланса. Администратор скоро свяжется с вами для выдачи приза!"
+                    f"🎉 <b>Поздравляем!</b> Вы выиграли лот «{res.get('auction_title')}»!\n"
+                    f"Ставка: {res.get('winning_bid')} билетов."
                 )
-
-                # Используем "notify_auction_end"
-                await check_and_send_notification(
-                    winner_id,
+                background_tasks.add_task(
+                    check_and_send_notification,
+                    res['winner_id'],
                     msg_text,
                     "notify_auction_end"
                 )
                 
-                # Уведомление админу
-                # (Используем ваши переменные ADMIN_NOTIFY_CHAT_ID и safe_send_message)
                 if ADMIN_NOTIFY_CHAT_ID:
                     await safe_send_message(
                         ADMIN_NOTIFY_CHAT_ID,
-                        f"🏆 <b>Аукцион завершен!</b>\n\n"
-                        f"<b>Лот:</b> {html_decoration.quote(auction_title)}\n"
-                        f"<b>Победитель:</b> {html_decoration.quote(winner_name)} (ID: <code>{winner_id}</code>)\n"
-                        f"<b>Ставка:</b> {winning_bid} билетов\n\n"
-                        f"Билеты списаны. Пожалуйста, свяжитесь с победителем для выдачи приза."
+                        f"🏆 <b>Аукцион завершен (Авто)!</b>\nЛот: {res.get('auction_title')}\nПобедитель: {res.get('winner_name')}"
                     )
-                results.append(f"Auction {auction_id} finished, winner {winner_id}.")
+                results.append(f"Auc {auc['id']} won by {res['winner_id']}")
             else:
-                # Случай, когда нет победителя
-                logging.info(f"CRON (Аукцион): Аукцион {auction['title']} (ID: {auction_id}) завершен без ставок.")
-                results.append(f"Auction {auction_id} finished, no winner.")
+                results.append(f"Auc {auc['id']} finished (no bids)")
 
-        return {"message": "Auction check completed.", "results": results}
+        return {"results": results}
 
     except Exception as e:
         logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА в cron-задаче (Аукцион): {e}", exc_info=True)
