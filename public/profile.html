@@ -470,6 +470,18 @@
             color: white;
         }
 
+        /* Стили для отключенной кнопки */
+        .popup-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+        /* Отключенные тумблеры */
+        .toggle-input:disabled + .slider {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
         /* Анимации */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -688,7 +700,7 @@ try {
         dom.notifyOverlay.classList.add('visible');
         
         if (!isActive) {
-            // Если бот не активен
+            // (Код для неактивного бота без изменений)
             dom.notifyContent.innerHTML = `
                 <div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div>
                 <p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений и наград нужно активировать нашего бота.</p>
@@ -700,8 +712,7 @@ try {
                 </div>
             `;
         } else {
-            // Если бот активен - показываем настройки
-            // Добавили индикатор "status-indicator" в заголовок
+            // Если бот активен
             dom.notifyContent.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <span style="font-size:12px; color:var(--text-color-muted);">Настройки</span>
@@ -718,6 +729,7 @@ try {
             `;
 
             const statusEl = document.getElementById('save-status');
+            const closeBtn = document.getElementById('notify-close-btn'); // Ссылка на кнопку закрытия
 
             // ЛОГИКА ПАКЕТНОЙ ОТПРАВКИ
             document.querySelectorAll('.toggle-input').forEach(input => {
@@ -725,56 +737,74 @@ try {
                     const key = e.target.dataset.key;
                     const value = e.target.checked;
                     
-                    // Показываем "Сохранение..."
-                    statusEl.textContent = 'Сохранение...';
-                    statusEl.style.color = '#ffcc00'; // Желтый
+                    // 1. Визуальная индикация "Ждем..."
+                    statusEl.textContent = 'Ожидание...';
+                    statusEl.style.color = '#8e8e93'; // Серый
                     statusEl.style.opacity = '1';
 
-                    // 1. Запоминаем изменение
+                    // 2. Добавляем в очередь
                     pendingUpdates[key] = value;
 
-                    // 2. Сбрасываем старый таймер
+                    // 3. Сбрасываем старый таймер
                     if (batchTimeout) clearTimeout(batchTimeout);
 
-                    // 3. Ставим новый таймер на 1 секунду
+                    // 4. Заводим таймер (1 секунда)
                     batchTimeout = setTimeout(async () => {
+                        // --- БЛОКИРУЕМ ИНТЕРФЕЙС ПЕРЕД ОТПРАВКОЙ ---
+                        statusEl.textContent = 'Сохранение...';
+                        statusEl.style.color = '#ffcc00'; // Желтый
+                        
+                        // Блокируем кнопку закрытия
+                        if(closeBtn) {
+                            closeBtn.disabled = true;
+                            closeBtn.textContent = 'Сохраняем...';
+                        }
+                        
+                        // Блокируем все тумблеры
+                        const allInputs = document.querySelectorAll('.toggle-input');
+                        allInputs.forEach(el => el.disabled = true);
+
                         try {
-                            // Отправляем
+                            // Отправляем запрос
                             await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates });
                             
                             // Очищаем очередь
                             pendingUpdates = {}; 
                             
-                            // Показываем "Сохранено"
+                            // Успех
                             statusEl.textContent = 'Сохранено';
                             statusEl.style.color = 'var(--primary-color)';
                             setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
                             
                         } catch (err) {
+                            // Ошибка
                             statusEl.textContent = 'Ошибка!';
                             statusEl.style.color = 'var(--danger-color)';
-                            // Возвращаем тумблер обратно при ошибке (визуально)
+                            // Визуально возвращаем тумблер (только последний), если ошибка
                             e.target.checked = !value; 
+                        } finally {
+                            // --- РАЗБЛОКИРУЕМ ИНТЕРФЕЙС ---
+                            if(closeBtn) {
+                                closeBtn.disabled = false;
+                                closeBtn.textContent = 'Закрыть';
+                            }
+                            allInputs.forEach(el => el.disabled = false);
                         }
-                    }, 1000); // 1 секунда задержки
+                    }, 1000); 
                 });
             });
 
-            // Кнопки тестов
+            // Кнопки тестов (оставляем как есть)
             document.querySelectorAll('.test-text-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const type = e.currentTarget.dataset.type;
                     const original = e.currentTarget.innerText;
                     e.currentTarget.innerText = '...';
-                    
                     try {
                         await makeApiRequest('/api/v1/user/notification/test', { type: type });
                         e.currentTarget.innerText = 'Ок';
                         e.currentTarget.style.color = 'var(--primary-color)';
-                        setTimeout(() => { 
-                            e.currentTarget.innerText = original; 
-                            e.currentTarget.style.color = ''; 
-                        }, 2000);
+                        setTimeout(() => { e.currentTarget.innerText = original; e.currentTarget.style.color = ''; }, 2000);
                     } catch(err) {
                         e.currentTarget.innerText = 'Err';
                         e.currentTarget.style.color = 'var(--danger-color)';
