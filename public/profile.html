@@ -67,7 +67,7 @@
             gap: 12px; 
         }
 
-        /* --- Карточки настроек (Steam, Twitch, Notify) --- */
+        /* --- Карточки настроек --- */
         .settings-card {
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
@@ -132,7 +132,7 @@
             font-size: 14px;
         }
 
-        /* --- БЛОК УВЕДОМЛЕНИЙ (НОВЫЙ ДИЗАЙН) --- */
+        /* --- БЛОК УВЕДОМЛЕНИЙ --- */
         .notify-section {
             background-color: var(--surface-glass-bg);
             border-radius: 16px;
@@ -576,11 +576,10 @@
             <p>Чтобы получать уведомления о победах и наградах, вам нужно активировать нашего бота.</p>
             <p style="font-size: 13px; color: var(--primary-color);">Это нужно сделать всего один раз.</p>
             
-            <div class="popup-actions" style="grid-template-columns: 1fr;">
-                <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
+            <div class="popup-actions" style="display: flex; justify-content: center; margin-top: 20px;">
+                <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
                     Перейти и нажать Старт
                 </a>
-                <button id="activate-check-btn" class="popup-btn secondary">Я уже нажал</button>
             </div>
         </div>
     </div>
@@ -632,7 +631,6 @@ try {
         notifyStatusBadge: document.getElementById('notify-status-badge'),
         notifyContent: document.getElementById('notify-content'),
         activateBotPopup: document.getElementById('activate-bot-popup'),
-        activateCheckBtn: document.getElementById('activate-check-btn'),
 
         // Попапы
         customPopupOverlay: document.getElementById('custom-popup-overlay'),
@@ -680,7 +678,7 @@ try {
 
     function renderNotifySection(userData) {
         // Мы используем данные из базы: is_bot_active
-        const isBotActive = userData.is_bot_active;
+        const isBotActive = userData.is_bot_active === true; // Добавлено === true для надежности
 
         if (!isBotActive) {
             // СТЭЙТ 1: Бот не подключен
@@ -766,7 +764,7 @@ try {
         }
     }
 
-    function renderToggleItem(key, title, subtitle, isChecked) {
+    function renderToggleItem(key, title, sub, checked) {
         // Добавлена кнопка теста (колокольчик)
         return `
             <div class="notify-item">
@@ -780,7 +778,7 @@ try {
                     </div>
                 </div>
                 <label class="toggle-switch">
-                    <input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}>
+                    <input type="checkbox" class="toggle-input" data-key="${key}" ${checked ? 'checked' : ''}>
                     <span class="slider"></span>
                 </label>
             </div>
@@ -1045,10 +1043,6 @@ try {
     // Активация
     dom.activateBotPopup.addEventListener('click', (e) => {
         if (e.target === dom.activateBotPopup) dom.activateBotPopup.classList.remove('visible');
-    });
-    dom.activateCheckBtn.addEventListener('click', () => {
-        dom.activateBotPopup.classList.remove('visible');
-        main(); // Перезагружаем, чтобы проверить статус (в реале он обновится после нажатия /start в боте)
     });
 
     document.addEventListener("DOMContentLoaded", () => {
