@@ -8438,17 +8438,18 @@ async def get_user_settings_api(
     
     telegram_id = user_info["id"]
     
-    # Запрашиваем только поля настроек
+    # ВАЖНО: Добавлено поле is_bot_active в начало списка select!
     resp = await supabase.get(
         "/users", 
         params={
             "telegram_id": f"eq.{telegram_id}",
-            "select": "notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
+            "select": "is_bot_active,notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
         }
     )
     
     if not resp.json():
-        raise HTTPException(status_code=404, detail="User not found")
+        # Если пользователя нет, возвращаем дефолт (не активен)
+        return {"is_bot_active": False}
         
     return resp.json()[0]
 
