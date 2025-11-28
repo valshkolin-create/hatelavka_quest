@@ -393,16 +393,24 @@
             background-color: #1c1c1e;
             border-radius: 14px;
             padding: 20px;
-            width: 100%;
-            max-width: 340px;
+            
+            /* ИСПРАВЛЕННЫЕ РАЗМЕРЫ */
+            width: 90%; /* Занимает 90% ширины экрана, оставляя отступы */
+            max-width: 340px; /* Не становится шире 340px на больших экранах */
+            max-height: 85vh; /* Максимальная высота - 85% от высоты экрана */
+            overflow-y: auto; /* Включает скролл внутри, если контент длинный */
+            
             box-shadow: 0 10px 30px rgba(0,0,0,0.4);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transform: scale(0.95);
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             text-align: center;
+            
+            /* Скрываем полосу прокрутки для красоты (но скролл работает) */
+            scrollbar-width: none; 
         }
-        .custom-popup-overlay.visible .custom-popup {
-            transform: scale(1);
+        .custom-popup::-webkit-scrollbar { 
+            display: none; 
         }
         .custom-popup h3 {
             margin: 0 0 10px 0;
@@ -498,7 +506,7 @@
     </main>
 
     <div id="notify-popup-overlay" class="custom-popup-overlay">
-        <div class="custom-popup" style="max-width: 380px;">
+        <div class="custom-popup">
             <h3><i class="fa-solid fa-bell"></i> Уведомления</h3>
             <div id="notify-content-area">
                 <div class="spinner" style="margin: 20px auto;"></div>
