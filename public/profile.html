@@ -674,30 +674,43 @@ try {
 
     // --- ГЛАВНАЯ ЛОГИКА ---
     async function main() {
-        if (!tg.initData) { document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите из Telegram.</p></div>`; hideLoader(); return; }
+        if (!tg.initData) { 
+            document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите из Telegram.</p></div>`; 
+            hideLoader(); 
+            return; 
+        }
         showLoader();
         try {
-            // ВАЖНО: Запрашиваем настройки сразу, чтобы получить is_bot_active
+            // 1. Сначала дергаем синхронизацию с Bot-t, чтобы обновить ID и баланс
+            // Это гарантирует, что в базу попадет bott_internal_id для рефералки
+            try {
+                await makeApiRequest("/api/v1/user/sync_bott_balance");
+            } catch (e) {
+                console.warn("Sync failed, continuing...", e);
+            }
+
+            // 2. Теперь запрашиваем свежие данные (они уже будут с ID из базы)
             const [userData, rewards, settings] = await Promise.all([ 
                 makeApiRequest("/api/v1/user/me"), 
                 makeApiRequest("/api/v1/user/rewards"),
                 makeApiRequest("/api/v1/user/settings/get")
             ]);
             
-            // Мержим данные (settings содержит is_bot_active и настройки уведомлений)
+            // Мержим данные
             const fullUserData = { ...userData, ...settings };
             
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
             
-            // Рендерим список, передавая объединенные данные
+            // Рендерим список
             renderSettingsList(fullUserData);
             renderRewards(rewards);
 
-            // Сохраняем настройки в глобальную переменную для модалки (чтобы не грузить каждый раз)
+            // Сохраняем настройки глобально
             window.currentUserSettings = fullUserData;
 
         } catch (e) {
             dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
+            console.error(e);
         } finally { hideLoader(); }
     }
 
