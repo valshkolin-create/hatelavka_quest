@@ -739,7 +739,6 @@ try {
         `;
         dom.settingsList.appendChild(steamCard);
 
-        // 3. Twitch
         const twitchCard = document.createElement('div');
         twitchCard.className = 'settings-card';
         if (userData.twitch_login) {
@@ -761,12 +760,13 @@ try {
             `;
         }
         dom.settingsList.appendChild(twitchCard);
-    }
-    // --- РЕФЕРАЛЬНАЯ КАРТОЧКА ---
+
+        // --- 👇 ВОТ СЮДА ВСТАВЛЯЕМ РЕФЕРАЛКУ 👇 ---
+        
+        // 4. Реферальная программа
         const refCard = document.createElement('div');
         refCard.className = 'settings-card ref-card-gradient';
         
-        // Получаем кол-во рефералов (если бэкенд еще не отдает, ставим 0)
         const activeRefs = userData.active_referrals_count || 0; 
         
         refCard.innerHTML = `
@@ -778,11 +778,10 @@ try {
         `;
         refCard.onclick = () => openRefModal(userData);
         dom.settingsList.appendChild(refCard);
-        // -----------------------------
         
         // Вызов проверки приветствия (для Миши)
         checkWelcomeBonus(userData);
-
+    }
     // --- ЛОГИКА УВЕДОМЛЕНИЙ (С ПАКЕТНОЙ ОТПРАВКОЙ) ---
     let batchTimeout;       
     let pendingUpdates = {}; 
