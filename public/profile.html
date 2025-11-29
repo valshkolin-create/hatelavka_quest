@@ -1018,8 +1018,17 @@ try {
     // --- ФУНКЦИИ РЕФЕРАЛЬНОЙ СИСТЕМЫ ---
 
     function openRefModal(userData) {
-        // Формируем ссылку
-        const link = `https://t.me/HATElavka_bot?start=${userData.telegram_id}`;
+        // 1. Пытаемся найти ID от Bot-t
+        let refPayload = userData.telegram_id; // Запасной вариант (если вдруг ID нет)
+
+        // Если у пользователя есть bott_internal_id (а он есть в базе), используем правильный формат
+        if (userData.bott_internal_id) {
+            refPayload = `r_${userData.bott_internal_id}`;
+        }
+
+        // 2. Формируем правильную ссылку для Bot-t
+        const link = `https://t.me/HATElavka_bot?start=${refPayload}`;
+        
         document.getElementById('ref-link-input').value = link;
         
         // Обновляем статистику в попапе
