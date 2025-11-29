@@ -541,6 +541,10 @@ class UserSettingsBatch(BaseModel):
     initData: str
     updates: Dict[str, bool] # Словарь: {"настройка": true, "другая": false}
 
+# --- Pydantic модели (добавь в начало) ---
+class ReferralActivateRequest(BaseModel):
+    initData: str
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -5246,6 +5250,92 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
     except Exception as e:
         logging.error(f"Критическая ошибка при получении награды за квест для user {user_id}, quest {quest_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить награду.")
+
+# --- Эндпоинт 1: Проверка (вызывать при старте приложения) ---
+@app.post("/api/v1/user/referral/sync")
+async def sync_referral_with_bott(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: return {"status": "error"}
+    
+    user_id = user_info["id"]
+    
+    # 1. Проверяем, есть ли уже реферер в нашей базе
+    resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id"})
+    if resp.json() and resp.json()[0].get("referrer_id"):
+        return {"status": "exists"}
+
+    # 2. Стучимся в Bot-t API
+    url = f"https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "token": BOTT_PUBLIC_KEY, # Используем токен (публичный или приватный, проверь доку Bot-t)
+        "telegram_id": user_id
+    }
+    
+    # ВАЖНО: Bot-t может требовать GET или POST. В доке написано:
+    # "Обязательные данные: token (GET string)". Но обычно API принимают JSON.
+    # Реализуем как GET с параметрами, судя по доке.
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            bott_resp = await client.post(url, json=payload) # Bot-t обычно POST
+            data = bott_resp.json()
+            
+            # Структура ответа Bot-t (BotUser -> ref)
+            ref_user = data.get("ref")
+            if ref_user and ref_user.get("telegram_id"):
+                referrer_tg_id = ref_user.get("telegram_id")
+                
+                # Записываем реферера к нам в базу
+                await supabase.patch(
+                    "/users",
+                    params={"telegram_id": f"eq.{user_id}"},
+                    json={"referrer_id": referrer_tg_id}
+                )
+                return {"status": "linked", "referrer": referrer_tg_id}
+        except Exception as e:
+            logging.error(f"Bot-t sync error: {e}")
+            
+    return {"status": "no_ref"}
+
+# --- Эндпоинт 2: Активация бонуса (Миша нажимает кнопку) ---
+@app.post("/api/v1/user/referral/activate")
+async def activate_referral_bonus(
+    request_data: ReferralActivateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    user_id = user_info["id"]
+
+    # 1. Получаем данные юзера
+    u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id, twitch_id, referral_activated_at"})
+    user = u_resp.json()[0]
+
+    # 2. Проверки
+    if not user.get("referrer_id"):
+        raise HTTPException(status_code=400, detail="Вас никто не приглашал 😢")
+    
+    if user.get("referral_activated_at"):
+        raise HTTPException(status_code=400, detail="Вы уже забрали бонус!")
+
+    if not user.get("twitch_id"):
+        raise HTTPException(status_code=400, detail="Сначала привяжите Twitch в настройках!")
+
+    # 3. Выдаем награду (10 монет) и ставим дату активации
+    await supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": 10})
+    
+    # Ставим дату активации (от неё пойдет отсчет недели бонусов)
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{user_id}"},
+        json={"referral_activated_at": datetime.now(timezone.utc).isoformat()}
+    )
+
+    return {"message": "Бонус получен! +10 монет и буст на неделю активированы."}
     
 # --- Пользовательские эндпоинты ---
 @app.post("/api/v1/user/challenge/available")
