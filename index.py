@@ -3237,6 +3237,22 @@ async def get_current_user_data(request_data: InitDataRequest): # <<< Убрал
                  final_response['tickets'] = 0
                  logging.error(f"Не удалось найти админа {telegram_id} в таблице users для получения билетов.")
 
+        # =================================================================
+        # 🔥 ВСТАВИТЬ ЭТОТ БЛОК ПЕРЕД return JSONResponse 🔥
+        # =================================================================
+        
+        # Добавляем bott_internal_id, если его не вернула SQL-функция
+        if 'bott_internal_id' not in final_response:
+            try:
+                # Прямой запрос к таблице, чтобы точно достать ID
+                u_extra = supabase.table("users").select("bott_internal_id").eq("telegram_id", telegram_id).execute()
+                if u_extra.data:
+                    final_response['bott_internal_id'] = u_extra.data[0].get('bott_internal_id')
+            except Exception as e:
+                logging.warning(f"Не удалось подгрузить bott_internal_id: {e}")
+
+        # =================================================================
+
         # --- ИЗМЕНЕНИЕ: Вызываем вспомогательную функцию, адаптированную под глобальный клиент ---
         # Убедись, что такая функция существует и использует глобальный supabase
         admin_settings = await get_admin_settings_async_global()
