@@ -3252,6 +3252,17 @@ async def get_current_user_data(request_data: InitDataRequest): # <<< Убрал
             except Exception as e:
                 logging.warning(f"Не удалось подгрузить bott_internal_id: {e}")
 
+        # Если ключа нет, пробуем подгрузить
+        if final_response.get('bott_ref_id') is None:
+            try:
+                # Запрашиваем оба ID
+                u_extra = supabase.table("users").select("bott_internal_id, bott_ref_id").eq("telegram_id", telegram_id).execute()
+                if u_extra.data:
+                    final_response['bott_internal_id'] = u_extra.data[0].get('bott_internal_id')
+                    final_response['bott_ref_id'] = u_extra.data[0].get('bott_ref_id') # <--- ДОБАВИЛ
+            except Exception as e:
+                logging.warning(f"Error loading extra IDs: {e}")
+
         # =================================================================
 
         # --- ИЗМЕНЕНИЕ: Вызываем вспомогательную функцию, адаптированную под глобальный клиент ---
@@ -8316,6 +8327,13 @@ async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """
+    1. Идет в Bot-t (check-hash).
+    2. Берет 'id' -> в bott_internal_id (для магазина).
+    3. Берет 'user'->'id' -> в bott_ref_id (для правильной ссылки r_).
+    4. Берет баланс и ключи.
+    5. Сохраняет все в Supabase.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -8334,31 +8352,39 @@ async def sync_bott_balance(
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload)
         
+        # Если статус не 200, просто возвращаем 0, не ломая приложение
         if resp.status_code != 200:
             return {"bot_t_coins": 0}
 
         data = resp.json()
+        
+        # ВАЖНО: Вся полезная нагрузка лежит внутри поля "data"
         response_data = data.get("data", {})
         
         if not response_data:
              return {"bot_t_coins": 0}
 
-        # 1. Баланс
+        # 1. Основной ID (BotUser ID - нужен для покупок в магазине)
+        internal_id = response_data.get("id")
+
+        # 2. Реферальный ID (Global User ID - нужен для ссылки r_...)
+        # Он находится внутри вложенного объекта 'user'
+        ref_id = None
+        if response_data.get("user"):
+            ref_id = response_data["user"].get("id") 
+
+        # 3. Баланс
         money_raw = response_data.get("money", 0)
         current_balance = int(float(money_raw))
 
-        # 2. Внутренний ID
-        internal_id = response_data.get("id")
-
-        # 3. Секретный ключ (Самое важное!)
+        # 4. Секретный ключ
         secret_key = response_data.get("secret_user_key")
 
-        # Сохраняем всё в базу
+        # Сохраняем в базу (добавляем bott_ref_id)
         update_data = {"bot_t_coins": current_balance}
-        if internal_id:
-            update_data["bott_internal_id"] = internal_id
-        if secret_key:
-            update_data["bott_secret_key"] = secret_key # Сохраняем ключ
+        if internal_id: update_data["bott_internal_id"] = internal_id
+        if ref_id: update_data["bott_ref_id"] = ref_id  # <--- ВОТ ЭТО ИСПРАВИТ ССЫЛКУ
+        if secret_key: update_data["bott_secret_key"] = secret_key
 
         await supabase.patch(
             "/users",
@@ -8366,7 +8392,7 @@ async def sync_bott_balance(
             json=update_data
         )
         
-        return {"bot_t_coins": current_balance}
+        return {"bot_t_coins": current_balance, "bott_ref_id": ref_id}
 
     except Exception as e:
         logging.error(f"[SYNC] Ошибка: {e}", exc_info=True)
