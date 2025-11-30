@@ -682,22 +682,24 @@ try {
         }
         showLoader();
         try {
-            // !!! ВСТАВИТЬ ВОТ ЭТОТ БЛОК (СИНХРОНИЗАЦИЯ) !!!
+            // 1. СНАЧАЛА получаем профиль (это создаст юзера в базе, если он новый)
+            // Мы ждем завершения этого запроса перед тем, как идти дальше
+            const userData = await makeApiRequest("/api/v1/user/me");
+
+            // 2. ТЕПЕРЬ, когда юзер точно есть, синхронизируем баланс и РЕФЕРАЛОВ
             try {
                 await makeApiRequest("/api/v1/user/sync_bott_balance");
             } catch (e) {
                 console.warn("Sync failed, continuing...", e);
             }
-            // !!! КОНЕЦ БЛОКА !!!
 
-            // Запрашиваем данные
-            const [userData, rewards, settings] = await Promise.all([ 
-                makeApiRequest("/api/v1/user/me"), 
+            // 3. Догружаем остальное (награды и настройки)
+            const [rewards, settings] = await Promise.all([ 
                 makeApiRequest("/api/v1/user/rewards"),
                 makeApiRequest("/api/v1/user/settings/get")
             ]);
             
-            // ... (дальше код без изменений)
+            // ... дальше код без изменений ...
             const fullUserData = { ...userData, ...settings };
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
             renderSettingsList(fullUserData);
