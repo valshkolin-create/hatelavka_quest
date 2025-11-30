@@ -8328,7 +8328,7 @@ async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Проверка авторизации
+    # 1. Валидация (пропускаем только своих)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -8339,16 +8339,16 @@ async def sync_bott_balance(
     current_balance = 0
     internal_id = None
     secret_key = None
-    ref_id = None
-    referrer_tg_id = None # Сюда запишем найденного реферала
+    ref_id = None       # Это ID самого пользователя (для его ссылки)
+    referrer_tg_id = None # Это ID того, КТО пригласил (найдем ниже)
 
-    # --- ЧАСТЬ 1: Спрашиваем баланс у Bot-T (Публичный API, работает всегда) ---
+    # --- ЧАСТЬ 1: Спрашиваем Bot-T (Нужно для МАГАЗИНА и Баланса) ---
+    # Этот запрос использует BOTT_BOT_ID (он публичный), поэтому он работает.
     url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
     headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
     
     async with httpx.AsyncClient(timeout=5.0) as client:
         try:
-            # Этот запрос использует ID бота, приватный токен тут не нужен
             resp = await client.post(
                 url_hash, 
                 json={"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}, 
@@ -8359,20 +8359,22 @@ async def sync_bott_balance(
                 data = resp.json()
                 response_data = data.get("data", {})
                 
-                # Забираем данные
+                # 1. Баланс
                 money_raw = response_data.get("money", 0)
                 current_balance = int(float(money_raw))
-                internal_id = response_data.get("id") # Это ID типа 106597615
+                
+                # 2. Данные для магазина (ID и Ключ)
+                internal_id = response_data.get("id") 
                 secret_key = response_data.get("secret_user_key")
                 
-                # Это ID для рефералки (23662302) - ВАЖНО!
+                # 3. ID для создания реферальной ссылки пользователя (например 23662302)
                 if response_data.get("user"):
                     ref_id = response_data["user"].get("id")
 
         except Exception as e:
-            logging.error(f"[SYNC] Ошибка получения баланса: {e}")
+            logging.error(f"[SYNC] Ошибка связи с Bot-T: {e}")
 
-    # --- ЧАСТЬ 2: Ищем реферала сами в start_param (Магия Direct Link) ---
+    # --- ЧАСТЬ 2: Ищем реферала САМИ через прямую ссылку (План Б) ---
     try:
         # Разбираем строку initData, которую прислал Telegram
         parsed_init = dict(parse_qsl(request_data.initData))
@@ -8380,15 +8382,16 @@ async def sync_bott_balance(
         # Telegram кладет параметр ссылки ?startapp=... в поле 'start_param'
         start_param = parsed_init.get("start_param") 
         
+        # Если ссылка вида ...?startapp=r_23662302
         if start_param and start_param.startswith("r_"):
-            target_ref_id_str = start_param[2:] # Отрезаем "r_", получаем цифры
+            target_ref_id_str = start_param[2:] # Отрезаем "r_", получаем "23662302"
             
             if target_ref_id_str.isdigit():
                 target_ref_id = int(target_ref_id_str)
-                logging.info(f"[SYNC] Пришел по ссылке! Ищем владельца кода: {target_ref_id}")
+                logging.info(f"[SYNC] Переход по ссылке! Код приглашения: {target_ref_id}")
 
-                # Ищем в базе: чей это код?
-                # (Валентин должен был зайти раньше, чтобы его ID сохранился)
+                # Ищем в НАШЕЙ базе: кому принадлежит этот код?
+                # Мы ищем пользователя, у которого bott_ref_id или bott_internal_id совпадает с кодом
                 res = await supabase.table("users") \
                     .select("telegram_id") \
                     .or_(f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}") \
@@ -8400,11 +8403,11 @@ async def sync_bott_balance(
                     # Нельзя пригласить самого себя
                     if found_referrer != telegram_id:
                         referrer_tg_id = found_referrer
-                        logging.info(f"✅ [SYNC] РЕФЕРАЛ НАЙДЕН: {referrer_tg_id}")
+                        logging.info(f"✅ [SYNC] РЕФЕРАЛ НАЙДЕН в базе: {referrer_tg_id}")
                     else:
-                        logging.warning("[SYNC] Само-реферал.")
+                        logging.warning("[SYNC] Пользователь перешел по своей же ссылке.")
                 else:
-                    logging.warning(f"[SYNC] Владелец кода {target_ref_id} не найден в базе.")
+                    logging.warning(f"[SYNC] Владелец кода {target_ref_id} не найден в базе (возможно, он еще не заходил в приложение).")
     
     except Exception as e:
         logging.error(f"[SYNC] Ошибка обработки ссылки: {e}")
@@ -8412,11 +8415,14 @@ async def sync_bott_balance(
     # --- ЧАСТЬ 3: Сохраняем всё в базу ---
     update_data = {"bot_t_coins": current_balance}
     
+    # Сохраняем ключи для магазина
     if internal_id: update_data["bott_internal_id"] = internal_id
     if secret_key: update_data["bott_secret_key"] = secret_key
-    if ref_id: update_data["bott_ref_id"] = ref_id # Сохраняем ID Валентина, чтобы его ссылка работала
     
-    # Если нашли реферала по ссылке - записываем!
+    # Сохраняем ID пользователя, чтобы ОН мог приглашать других
+    if ref_id: update_data["bott_ref_id"] = ref_id 
+    
+    # Если нашли, кто пригласил ЭТОГО пользователя - записываем
     if referrer_tg_id: 
         update_data["referrer_id"] = referrer_tg_id
 
@@ -8427,7 +8433,7 @@ async def sync_bott_balance(
             json=update_data
         )
     except Exception as e:
-        logging.error(f"❌ [SYNC] Ошибка БД: {e}")
+        logging.error(f"❌ [SYNC] Ошибка записи в БД: {e}")
 
     return {
         "bot_t_coins": current_balance, 
