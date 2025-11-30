@@ -8323,6 +8323,7 @@ async def get_bott_goods_proxy(
 # --- [2] ДОБАВЛЯЕМ НОВЫЙ ЭНДПОИНТ СИНХРОНИЗАЦИИ БАЛАНСА ---
 # Вставь это где-то рядом с другими эндпоинтами магазина
 
+@app.post("/api/v1/user/sync_bott_balance")
 async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
