@@ -8584,46 +8584,66 @@ async def buy_dynamic_promo_endpoint(
         logging.error(f"Buy promo error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@app.get("/api/v1/debug/check_valentin_referrals")
-async def check_valentin_referrals_debug():
+@app.get("/api/v1/debug/test_all_tokens")
+async def debug_test_all_tokens():
     """
-    ТЕСТ: Пытаемся получить рефералов, используя SECRET KEY пользователя вместо токена бота.
+    Проверяет все 3 доступных ключа на эндпоинте /referrals.
     """
-    # Данные Валентина
-    VALENTIN_INTERNAL_ID = 106597615 
-    VALENTIN_SECRET_KEY = "8b4ddc03c34915808b4d56e279964e1fbc3956e23de3d89e" # Тот самый ключ
+    # 1. Данные для теста
+    VALENTIN_INTERNAL_ID = 106597615
+    URL = "https://api.bot-t.com/v1/bot/user/referrals"
     
-    url = "https://api.bot-t.com/v1/bot/user/referrals"
-    
-    # Вставляем ключ пользователя вместо токена бота
-    params = {
-        "token": VALENTIN_SECRET_KEY 
-    }
-    
-    payload = {
-        "bot_id": int(BOTT_BOT_ID),
-        "user_id": VALENTIN_INTERNAL_ID,
-        "limit": 50
-    }
-    
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "QuestBot-Debug/1.0"
-    }
+    # 2. Список ключей для проверки
+    tokens_to_test = [
+        {
+            "name": "PUBLIC KEY (Магазин)",
+            "key": "3ff90f7d9067e067dc6bcd7440e3f860" 
+        },
+        {
+            "name": "PRIVATE KEY (Старый)",
+            "key": "a514e99bd44087724a23b4ebb3812381"
+        },
+        {
+            "name": "USER SECRET (Валентин)",
+            "key": "8b4ddc03c34915808b4d56e279964e1fbc3956e23de3d89e"
+        }
+    ]
 
-    logging.info(f"🔍 DEBUG: Пробуем ключ пользователя {VALENTIN_SECRET_KEY[:5]}...")
+    results = []
 
     async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(url, params=params, json=payload, headers=headers)
-            
-            return {
-                "status_code": resp.status_code,
-                "used_token": "USER_SECRET_KEY (8b4d...)",
-                "bot_t_response": resp.json()
-            }
-        except Exception as e:
-            return {"error": str(e)}
+        for item in tokens_to_test:
+            try:
+                # Параметры запроса
+                params = {"token": item["key"]}
+                payload = {
+                    "bot_id": int(BOTT_BOT_ID),
+                    "user_id": VALENTIN_INTERNAL_ID,
+                    "limit": 5
+                }
+                
+                # Делаем запрос
+                resp = await client.post(URL, params=params, json=payload)
+                
+                # Анализируем ответ
+                data = resp.json()
+                is_success = data.get("result") is True
+                
+                results.append({
+                    "token_type": item["name"],
+                    "status_code": resp.status_code,
+                    "success": is_success,
+                    "response_message": data.get("message", "No message"),
+                    "data_preview": str(data.get("data"))[:100] if "data" in data else "No data"
+                })
+                
+            except Exception as e:
+                results.append({
+                    "token_type": item["name"],
+                    "error": str(e)
+                })
+
+    return {"test_results": results}
 
 # --- 🛠️ РЕМОНТ ПОДПИСОК TWITCH ---
 @app.get("/api/v1/debug/fix_twitch_subs")
