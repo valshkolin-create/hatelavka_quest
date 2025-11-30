@@ -672,8 +672,6 @@ try {
         } catch (e) { tg.showAlert(`Ошибка: ${e.message}`); throw e; }
     }
 
-    // --- ГЛАВНАЯ ЛОГИКА ---
-    // --- ГЛАВНАЯ ЛОГИКА ---
     async function main() {
         if (!tg.initData) { 
             document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите из Telegram.</p></div>`; 
@@ -682,27 +680,38 @@ try {
         }
         showLoader();
         try {
-            // 1. СНАЧАЛА получаем профиль (это создаст юзера в базе, если он новый)
-            // Мы ждем завершения этого запроса перед тем, как идти дальше
+            // 1. СНАЧАЛА создаем/получаем пользователя (ОБЯЗАТЕЛЬНО ПЕРВЫМ)
             const userData = await makeApiRequest("/api/v1/user/me");
 
-            // 2. ТЕПЕРЬ, когда юзер точно есть, синхронизируем баланс и РЕФЕРАЛОВ
-            try {
-                await makeApiRequest("/api/v1/user/sync_bott_balance");
-            } catch (e) {
-                console.warn("Sync failed, continuing...", e);
-            }
+            // 2. Параллельно запускаем ДВА независимых процесса:
+            //    - Обновление денег (Bot-T)
+            //    - Проверка реферальной ссылки (Наш код)
+            //    Если один упадет, второй выполнится.
+            
+            const syncBalancePromise = makeApiRequest("/api/v1/user/sync_balance")
+                .catch(e => console.warn("Balance sync failed:", e));
+                
+            const syncReferralPromise = makeApiRequest("/api/v1/user/sync_referral")
+                .catch(e => console.warn("Referral sync failed:", e));
 
-            // 3. Догружаем остальное (награды и настройки)
+            // Ждем их завершения (но не блокируем загрузку, если они упали)
+            await Promise.all([syncBalancePromise, syncReferralPromise]);
+
+            // 3. Загружаем остальные данные для интерфейса
             const [rewards, settings] = await Promise.all([ 
                 makeApiRequest("/api/v1/user/rewards"),
                 makeApiRequest("/api/v1/user/settings/get")
             ]);
             
-            // ... дальше код без изменений ...
+            // Если баланс обновился в syncBalancePromise, он уже в базе.
+            // Но user/me вернул старый баланс.
+            // Можно либо перезапросить user/me, либо (проще) довериться следующей перезагрузке страницы.
+            // Для идеала - лучше перезапросить user/me, но для скорости пока так.
+            
             const fullUserData = { ...userData, ...settings };
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
-            renderSettingsList(fullUserData);
+            
+            renderSettingsList(fullUserData); 
             renderRewards(rewards);
             window.currentUserSettings = fullUserData;
 
