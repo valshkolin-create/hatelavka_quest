@@ -8416,7 +8416,7 @@ async def sync_user_referral(
 ):
     """
     Проверяет ТОЛЬКО прямую ссылку (start_param) и записывает реферала.
-    Не трогает баланс.
+    Использует синтаксис httpx (PostgREST).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info: return {"status": "ignored"}
@@ -8434,17 +8434,25 @@ async def sync_user_referral(
             if target_ref_id_str.isdigit():
                 target_ref_id = int(target_ref_id_str)
                 
-                # Ищем владельца ссылки
-                res = await supabase.table("users") \
-                    .select("telegram_id") \
-                    .or_(f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}") \
-                    .limit(1) \
-                    .execute()
+                # --- ИСПРАВЛЕНИЕ: Используем .get() вместо .table() ---
+                res = await supabase.get(
+                    "/users",
+                    params={
+                        "select": "telegram_id",
+                        # Синтаксис PostgREST для OR фильтра:
+                        "or": f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}",
+                        "limit": 1
+                    }
+                )
                 
-                if res.data:
-                    found_referrer = res.data[0]['telegram_id']
+                # Проверяем ответ (PostgREST возвращает список)
+                data = res.json()
+                
+                if data:
+                    found_referrer = data[0]['telegram_id']
+                    
                     if found_referrer != telegram_id:
-                        # Записываем реферала
+                        # Записываем реферала (используем .patch)
                         await supabase.patch(
                             "/users",
                             params={"telegram_id": f"eq.{telegram_id}"},
