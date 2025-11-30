@@ -8323,11 +8323,18 @@ async def get_bott_goods_proxy(
 # --- [2] ДОБАВЛЯЕМ НОВЫЙ ЭНДПОИНТ СИНХРОНИЗАЦИИ БАЛАНСА ---
 # Вставь это где-то рядом с другими эндпоинтами магазина
 
-@app.post("/api/v1/user/sync_bott_balance")
+app.post("/api/v1/user/sync_bott_balance")
 async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """
+    1. Идет в Bot-t (view-by-telegram-id).
+    2. Берет 'id' -> в bott_internal_id.
+    3. Берет 'user'->'id' -> в bott_ref_id (для рефералки).
+    4. Берет баланс.
+    5. Сохраняет все в Supabase.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -8350,7 +8357,9 @@ async def sync_bott_balance(
             # Если юзера нет в Bot-t или ошибка, возвращаем 0
             return {"bot_t_coins": 0}
 
-        data = resp.json()@app.post("/api/v1/user/sync_bott_balance")
+        data = resp.json()
+        # ВАЖНО: В Bot-t данные лежат в поле "data"
+        # Ответ: {"result": true, "data": { ... }}
         response_data = data.get("data", {})
         
         if not response_data:
