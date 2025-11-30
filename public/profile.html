@@ -673,6 +673,7 @@ try {
     }
 
     // --- ГЛАВНАЯ ЛОГИКА ---
+    // --- ГЛАВНАЯ ЛОГИКА ---
     async function main() {
         if (!tg.initData) { 
             document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите из Telegram.</p></div>`; 
@@ -681,31 +682,26 @@ try {
         }
         showLoader();
         try {
-            // 1. Сначала дергаем синхронизацию с Bot-t, чтобы обновить ID и баланс
-            // Это гарантирует, что в базу попадет bott_internal_id для рефералки
+            // !!! ВСТАВИТЬ ВОТ ЭТОТ БЛОК (СИНХРОНИЗАЦИЯ) !!!
             try {
                 await makeApiRequest("/api/v1/user/sync_bott_balance");
             } catch (e) {
                 console.warn("Sync failed, continuing...", e);
             }
+            // !!! КОНЕЦ БЛОКА !!!
 
-            // 2. Теперь запрашиваем свежие данные (они уже будут с ID из базы)
+            // Запрашиваем данные
             const [userData, rewards, settings] = await Promise.all([ 
                 makeApiRequest("/api/v1/user/me"), 
                 makeApiRequest("/api/v1/user/rewards"),
                 makeApiRequest("/api/v1/user/settings/get")
             ]);
             
-            // Мержим данные
+            // ... (дальше код без изменений)
             const fullUserData = { ...userData, ...settings };
-            
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
-            
-            // Рендерим список
             renderSettingsList(fullUserData);
             renderRewards(rewards);
-
-            // Сохраняем настройки глобально
             window.currentUserSettings = fullUserData;
 
         } catch (e) {
@@ -713,7 +709,7 @@ try {
             console.error(e);
         } finally { hideLoader(); }
     }
-
+    
     // --- РЕНДЕР НАСТРОЕК (ГЛАВНЫЙ СПИСОК) ---
     function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
