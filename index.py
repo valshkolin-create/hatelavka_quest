@@ -8584,7 +8584,7 @@ async def buy_dynamic_promo_endpoint(
         logging.error(f"Buy promo error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@@app.get("/api/v1/debug/check_valentin_referrals")
+@app.get("/api/v1/debug/check_valentin_referrals")
 async def check_valentin_referrals_debug():
     """
     ТЕСТ: Пытаемся получить рефералов, используя SECRET KEY пользователя вместо токена бота.
