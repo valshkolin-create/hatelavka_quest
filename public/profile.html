@@ -1027,18 +1027,20 @@ try {
     // --- ФУНКЦИИ РЕФЕРАЛЬНОЙ СИСТЕМЫ ---
 
     function openRefModal(userData) {
-        let refPayload = userData.telegram_id; // Запасной вариант
+        let refPayload = userData.telegram_id; // Запасной вариант (если ID нет)
 
-        // Ищем ПРАВИЛЬНЫЙ ID (bott_ref_id)
+        // 1. Ищем ПРАВИЛЬНЫЙ ID (bott_ref_id), который мы сохранили из Bot-T
         if (userData.bott_ref_id) {
-            refPayload = `r_${userData.bott_ref_id}`; // r_23662302
+            refPayload = `r_${userData.bott_ref_id}`; // Пример: r_23662302
         } 
-        // Если вдруг его нет, но есть старый (на всякий случай)
+        // Если вдруг его нет, но есть внутренний (на всякий случай)
         else if (userData.bott_internal_id) {
             refPayload = `r_${userData.bott_internal_id}`;
         }
 
-        const link = `https://t.me/HATElavka_bot?start=${refPayload}`;
+        // 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Формируем прямую ссылку на приложение (Direct Link)
+        // t.me/BOT_NAME/SHORT_NAME?startapp=PARAM
+        const link = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
         
         document.getElementById('ref-link-input').value = link;
         
@@ -1049,32 +1051,6 @@ try {
         
         document.getElementById('referral-popup').classList.add('visible');
     }
-
-    // Кнопка "Закрыть" в рефералке
-    document.getElementById('close-ref-modal-btn').onclick = () => {
-        document.getElementById('referral-popup').classList.remove('visible');
-    };
-
-    // Кнопка "Копировать" ссылку
-    document.getElementById('copy-ref-btn').onclick = () => {
-        const input = document.getElementById('ref-link-input');
-        navigator.clipboard.writeText(input.value);
-        tg.showAlert("Ссылка скопирована!");
-        
-        // Анимация иконки
-        const btn = document.getElementById('copy-ref-btn');
-        const icon = btn.querySelector('i');
-        icon.className = 'fa-solid fa-check';
-        setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
-    };
-
-    // Кнопка "Пригласить друга" (Native Share)
-    document.getElementById('share-ref-link-btn').onclick = () => {
-        const link = document.getElementById('ref-link-input').value;
-        const text = "Залетай в HATElavka! Получи 10 монет и буст на старте 🚀";
-        const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-        tg.openTelegramLink(url);
-    };
 
     // --- ЛОГИКА ПРИВЕТСТВИЯ (ONBOARDING) ---
 
