@@ -8331,33 +8331,27 @@ async def get_bott_goods_proxy(
 # --- [2] ДОБАВЛЯЕМ НОВЫЙ ЭНДПОИНТ СИНХРОНИЗАЦИИ БАЛАНСА ---
 # Вставь это где-то рядом с другими эндпоинтами магазина
 
-@app.post("/api/v1/user/sync_bott_balance")
-async def sync_bott_balance(
+# --- ЭНДПОИНТ 1: ТОЛЬКО БАЛАНС И КЛЮЧИ (Для магазина) ---
+@app.post("/api/v1/user/sync_balance")
+async def sync_user_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Валидация
+    """
+    Синхронизирует ТОЛЬКО баланс и ключи доступа для магазина.
+    Никакой реферальной логики, чтобы не сбрасывать деньги в 0 при ошибках.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
     
-    # Собираем данные для обновления в этот словарь
-    update_payload = {}
-    
-    # Результат для фронтенда
-    result_data = {
-        "bot_t_coins": 0,
-        "bott_ref_id": None,
-        "referrer_found": False
-    }
-
-    # --- ЧАСТЬ 1: Спрашиваем Bot-T (Баланс и ключи) ---
+    # Запрос к Bot-T
     url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
     headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
     
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             resp = await client.post(
                 url_hash, 
@@ -8369,42 +8363,67 @@ async def sync_bott_balance(
                 data = resp.json()
                 response_data = data.get("data", {})
                 
-                # 1. Баланс (Обновляем только если получили данные!)
+                update_payload = {}
+                
+                # 1. Баланс (Обязательно проверяем наличие поля 'money')
                 if "money" in response_data:
                     money_raw = response_data.get("money", 0)
                     current_balance = int(float(money_raw))
-                    
                     update_payload["bot_t_coins"] = current_balance
-                    result_data["bot_t_coins"] = current_balance
                 
-                # 2. Ключи
+                # 2. Ключи (нужны для покупок)
                 if response_data.get("id"):
                     update_payload["bott_internal_id"] = response_data.get("id")
-                
                 if response_data.get("secret_user_key"):
                     update_payload["bott_secret_key"] = response_data.get("secret_user_key")
                 
-                # 3. ID для рефералки (23662302)
+                # 3. ID для СОБСТВЕННОЙ реферальной ссылки пользователя (чтобы он мог приглашать)
+                # Это НЕ referrer_id (кто пригласил), а bott_ref_id (кто Я)
                 if response_data.get("user") and response_data["user"].get("id"):
-                    ref_id = response_data["user"].get("id")
-                    update_payload["bott_ref_id"] = ref_id
-                    result_data["bott_ref_id"] = ref_id
+                    update_payload["bott_ref_id"] = response_data["user"].get("id")
+
+                # Записываем в базу
+                if update_payload:
+                    await supabase.patch(
+                        "/users",
+                        params={"telegram_id": f"eq.{telegram_id}"},
+                        json=update_payload
+                    )
+                    return {"success": True, "balance": update_payload.get("bot_t_coins")}
+            
+            return {"success": False, "error": "Bot-T API returned bad status"}
 
         except Exception as e:
-            logging.error(f"[SYNC] Ошибка связи с Bot-T (баланс не трогаем): {e}")
+            logging.error(f"[SYNC BALANCE] Ошибка: {e}")
+            return {"success": False, "error": str(e)}
 
-    # --- ЧАСТЬ 2: Ищем реферала в start_param ---
+
+# --- ЭНДПОИНТ 2: ТОЛЬКО РЕФЕРАЛЫ (По ссылке) ---
+@app.post("/api/v1/user/sync_referral")
+async def sync_user_referral(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Проверяет ТОЛЬКО прямую ссылку (start_param) и записывает реферала.
+    Не трогает баланс.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: return {"status": "ignored"}
+    
+    telegram_id = user_info["id"]
+    
     try:
         parsed_init = dict(parse_qsl(request_data.initData))
         start_param = parsed_init.get("start_param") 
         
+        # Если есть параметр r_XXXXX
         if start_param and start_param.startswith("r_"):
             target_ref_id_str = start_param[2:]
             
             if target_ref_id_str.isdigit():
                 target_ref_id = int(target_ref_id_str)
-                logging.info(f"[SYNC] Переход по ссылке ID: {target_ref_id}")
-
+                
                 # Ищем владельца ссылки
                 res = await supabase.table("users") \
                     .select("telegram_id") \
@@ -8414,30 +8433,22 @@ async def sync_bott_balance(
                 
                 if res.data:
                     found_referrer = res.data[0]['telegram_id']
-                    
-                    # Проверка на само-реферала
                     if found_referrer != telegram_id:
-                        update_payload["referrer_id"] = found_referrer
-                        result_data["referrer_found"] = True
-                        logging.info(f"✅ [SYNC] Найден реферал: {found_referrer}")
+                        # Записываем реферала
+                        await supabase.patch(
+                            "/users",
+                            params={"telegram_id": f"eq.{telegram_id}"},
+                            json={"referrer_id": found_referrer}
+                        )
+                        logging.info(f"✅ [REFERRAL] Записан реферал: {found_referrer}")
+                        return {"status": "success", "referrer": found_referrer}
                     else:
-                        logging.warning(f"[SYNC] Пользователь {telegram_id} перешел по своей же ссылке.")
-    
+                        logging.warning("[REFERRAL] Само-реферал")
+                        
     except Exception as e:
-        logging.error(f"[SYNC] Ошибка обработки ссылки: {e}")
-
-    # --- ЧАСТЬ 3: Записываем в базу только то, что реально получили ---
-    if update_payload:
-        try:
-            await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{telegram_id}"},
-                json=update_payload
-            )
-        except Exception as e:
-            logging.error(f"❌ [SYNC] Ошибка записи в БД: {e}")
-
-    return result_data
+        logging.error(f"[REFERRAL] Ошибка: {e}")
+        
+    return {"status": "no_change"}
         
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
