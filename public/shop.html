@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Premium Shop</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
         :root {
             --primary-color: #ffcc00;
@@ -33,7 +33,6 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
             touch-action: pan-y; 
-            /* УБРАЛИ padding-bottom отсюда, перенесли в .shop-grid для надежности */
         }
 
         /* --- ШАПКА --- */
@@ -259,9 +258,6 @@
             margin-top: 5px;
             width: 100%;
             box-sizing: border-box;
-            
-            /* !!!!!!!! ВАЖНОЕ ИЗМЕНЕНИЕ: ОТСТУП СНИЗУ ЗДЕСЬ !!!!!!!! */
-            /* 180px запаса. Теперь список товаров сам толкает себя вверх */
             padding-bottom: calc(180px + env(safe-area-inset-bottom)); 
         }
 
@@ -289,7 +285,6 @@
 
         .item-image {
             position: absolute;
-            /* Уменьшаем картинку (80%) и центруем */
             top: 10%;      
             left: 10%;     
             width: 80%;    
@@ -625,140 +620,133 @@
         });
 
         function initPartnersScroll() {
-    const container = document.getElementById('partners-scroll');
-    if (!container) return;
+            const container = document.getElementById('partners-scroll');
+            if (!container) return;
 
-    // Защита от повторного запуска
-    if (container.getAttribute('data-init-done') === 'true') return;
-    container.setAttribute('data-init-done', 'true');
+            if (container.getAttribute('data-init-done') === 'true') return;
+            container.setAttribute('data-init-done', 'true');
 
-    // Очистка старой анимации
-    if (partnersAnimFrameId) {
-        cancelAnimationFrame(partnersAnimFrameId);
-        partnersAnimFrameId = null;
-    }
+            if (partnersAnimFrameId) {
+                cancelAnimationFrame(partnersAnimFrameId);
+                partnersAnimFrameId = null;
+            }
 
-    console.log('>>> [DEBUG] Запуск Anti-Jerk скролла');
+            setTimeout(() => {
+                const originalItems = Array.from(container.children);
+                if (originalItems.length === 0) return;
 
-    setTimeout(() => {
-        const originalItems = Array.from(container.children);
-        if (originalItems.length === 0) return;
+                const screenWidth = window.innerWidth;
+                let loops = 0;
+                while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
+                    originalItems.forEach(item => {
+                        container.appendChild(item.cloneNode(true));
+                    });
+                    loops++;
+                }
 
-        // 1. Клонируем элементы для бесконечности
-        const screenWidth = window.innerWidth;
-        let loops = 0;
-        while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
-            originalItems.forEach(item => {
-                container.appendChild(item.cloneNode(true));
-            });
-            loops++;
+                let itemWidth = originalItems[0].offsetWidth;
+                if (itemWidth < 100) itemWidth = 260; 
+                const gap = 10;
+                const itemFullWidth = itemWidth + gap;
+                const resetPoint = itemFullWidth * originalItems.length;
+
+                let scrollPos = 0;
+                const speed = 0.5;
+
+                let isDragging = false;
+                let isHovered = false;
+                let startX = 0;
+                let startY = 0;
+                let startScrollLeft = 0;
+
+                container.addEventListener('mouseenter', () => { isHovered = true; });
+                container.addEventListener('mouseleave', () => { isHovered = false; });
+
+                function animate() {
+                    if (!isDragging && !isHovered) {
+                        scrollPos += speed;
+                        if (scrollPos >= resetPoint) {
+                            scrollPos -= resetPoint;
+                        }
+                        container.scrollLeft = scrollPos;
+                    }
+                    partnersAnimFrameId = requestAnimationFrame(animate);
+                }
+                animate();
+
+                container.addEventListener('touchstart', (e) => {
+                    isDragging = true;
+                    startX = e.touches[0].pageX;
+                    startY = e.touches[0].pageY;
+                    startScrollLeft = container.scrollLeft;
+                    container.style.scrollBehavior = 'auto';
+                }, {passive: true});
+
+                container.addEventListener('touchmove', (e) => {
+                    if (!isDragging) return;
+
+                    const x = e.touches[0].pageX;
+                    const y = e.touches[0].pageY;
+                    
+                    const deltaX = startX - x;
+                    const deltaY = startY - y;
+
+                    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                        if (e.cancelable) {
+                            e.preventDefault(); 
+                        }
+                        scrollPos = startScrollLeft + deltaX;
+                        if (scrollPos >= resetPoint) scrollPos -= resetPoint;
+                        if (scrollPos < 0) scrollPos += resetPoint;
+                        container.scrollLeft = scrollPos;
+                    }
+                }, {passive: false}); 
+
+                container.addEventListener('touchend', () => {
+                    isDragging = false;
+                });
+
+            }, 50);
         }
 
-        // 2. Расчет точки сброса
-        let itemWidth = originalItems[0].offsetWidth;
-        if (itemWidth < 100) itemWidth = 260; // Страховка
-        const gap = 10;
-        const itemFullWidth = itemWidth + gap;
-        const resetPoint = itemFullWidth * originalItems.length;
-
-        let scrollPos = 0;
-        const speed = 0.5; // Скорость автопрокрутки
-
-        // Состояния
-        let isDragging = false;
-        let isHovered = false;
-        let startX = 0;
-        let startY = 0;
-        let startScrollLeft = 0;
-
-        // Пауза мышкой (для ПК)
-        container.addEventListener('mouseenter', () => { isHovered = true; });
-        container.addEventListener('mouseleave', () => { isHovered = false; });
-
-        // 3. Главный цикл анимации
-        function animate() {
-            if (!isDragging && !isHovered) {
-                scrollPos += speed;
-                if (scrollPos >= resetPoint) {
-                    scrollPos -= resetPoint;
-                }
-                container.scrollLeft = scrollPos;
-            }
-            partnersAnimFrameId = requestAnimationFrame(animate);
-        }
-        animate();
-
-        // 4. ЛОГИКА ТАЧА (Главное исправление дергания)
-        
-        container.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            startX = e.touches[0].pageX;
-            startY = e.touches[0].pageY;
-            startScrollLeft = container.scrollLeft;
-            
-            // Останавливаем инерцию браузера
-            container.style.scrollBehavior = 'auto';
-        }, {passive: true});
-
-        container.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-
-            const x = e.touches[0].pageX;
-            const y = e.touches[0].pageY;
-            
-            const deltaX = startX - x;
-            const deltaY = startY - y;
-
-            // Проверяем: движение больше горизонтальное или вертикальное?
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Это ГОРИЗОНТАЛЬНЫЙ свайп -> Блокируем скролл страницы
-                if (e.cancelable) {
-                    e.preventDefault(); 
-                }
-                
-                // Двигаем слайдер сами
-                scrollPos = startScrollLeft + deltaX;
-                
-                // Бесконечная прокрутка при ручном свайпе
-                if (scrollPos >= resetPoint) scrollPos -= resetPoint;
-                if (scrollPos < 0) scrollPos += resetPoint;
-                
-                container.scrollLeft = scrollPos;
-            }
-            // Если движение вертикальное -> ничего не делаем, страница скроллится сама
-        }, {passive: false}); // Важно: passive: false разрешает preventDefault
-
-        container.addEventListener('touchend', () => {
-            isDragging = false;
-        });
-
-    }, 50);
-}
-
+        // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ ---
         async function initShop() {
             updateNavState();
             initPartnersScroll(); 
             
-            Promise.all([
-                fetch('/api/v1/user/me', {
+            try {
+                // 1. СНАЧАЛА создаем/получаем пользователя (чтобы он точно был в базе)
+                const userData = await fetch('/api/v1/user/me', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
-                }).then(r => r.json()),
+                }).then(r => r.json());
 
-                fetch('/api/v1/user/sync_bott_balance', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
-                }).then(r => r.json())
-            ]).then(([userData, balanceData]) => {
                 if (userData && userData.trade_link) {
                     hasTradeLink = true;
                 }
-                let balance = (balanceData.bot_t_coins || 0) / 100;
-                document.getElementById('user-balance').textContent = balance.toFixed(0);
-            }).catch(console.error);
 
+                // 2. ЗАТЕМ синхронизируем баланс (новый эндпоинт, который НЕ трогает рефералов)
+                const balanceData = await fetch('/api/v1/user/sync_balance', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
+                }).then(r => r.json());
+
+                // Получаем баланс из правильного поля (в sync_balance мы возвращаем ключ "balance")
+                // Но на всякий случай проверяем и старый "bot_t_coins"
+                let rawBalance = balanceData.balance !== undefined ? balanceData.balance : (balanceData.bot_t_coins || 0);
+                
+                // Делим на 100, так как в базе копейки
+                let balance = rawBalance / 100;
+                document.getElementById('user-balance').textContent = balance.toFixed(0);
+
+            } catch (e) {
+                console.error("Ошибка загрузки магазина:", e);
+                // Можно показать уведомление об ошибке, если нужно
+            }
+
+            // Загружаем товары (категория 0 - корень)
             loadCategory(0);
         }
 
