@@ -8584,6 +8584,41 @@ async def buy_dynamic_promo_endpoint(
         logging.error(f"Buy promo error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+@app.get("/api/v1/debug/check_valentin_referrals")
+async def check_valentin_referrals_debug():
+    """
+    Тестовый эндпоинт для проверки рефералов конкретно Валентина.
+    """
+    # ID Валентина из вашего скриншота
+    VALENTIN_INTERNAL_ID = 106597615 
+    
+    url = "https://api.bot-t.com/v1/bot/user/referrals"
+    
+    # Параметры согласно документации 
+    params = {
+        "token": BOTT_PRIVATE_KEY # GET параметр
+    }
+    
+    payload = {
+        "bot_id": int(BOTT_BOT_ID), # POST параметр
+        "user_id": VALENTIN_INTERNAL_ID, # У кого ищем рефералов
+        "limit": 50
+    }
+    
+    headers = {"Content-Type": "application/json"}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(url, params=params, json=payload, headers=headers)
+            
+            # Возвращаем то, что ответил Bot-T
+            return {
+                "status_code": resp.status_code,
+                "raw_response": resp.json()
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
 # --- 🛠️ РЕМОНТ ПОДПИСОК TWITCH ---
 @app.get("/api/v1/debug/fix_twitch_subs")
 async def fix_twitch_subs(
@@ -8833,6 +8868,8 @@ async def send_test_notification_api(
     background_tasks.add_task(safe_send_message, telegram_id, msg)
     
     return {"status": "sent"}
+
+
 
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
