@@ -8338,8 +8338,8 @@ async def sync_user_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Синхронизирует ТОЛЬКО баланс и ключи доступа для магазина.
-    Никакой реферальной логики, чтобы не сбрасывать деньги в 0 при ошибках.
+    Синхронизирует баланс.
+    FIX: Если Bot-T недоступен или отклоняет запрос, возвращаем баланс из кэша БД, а не 0.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -8347,11 +8347,20 @@ async def sync_user_balance(
     
     telegram_id = user_info["id"]
     
-    # Запрос к Bot-T
+    # 1. СНАЧАЛА получаем текущий баланс из базы (Backup)
+    db_balance = 0
+    try:
+        db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins"})
+        if db_resp.status_code == 200 and db_resp.json():
+            db_balance = db_resp.json()[0].get("bot_t_coins", 0)
+    except Exception as e:
+        logging.error(f"[SYNC] Не удалось получить баланс из БД: {e}")
+
+    # 2. Пытаемся обновить через Bot-T
     url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
     headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
     
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=8.0) as client:
         try:
             resp = await client.post(
                 url_hash, 
@@ -8363,39 +8372,40 @@ async def sync_user_balance(
                 data = resp.json()
                 response_data = data.get("data", {})
                 
-                update_payload = {}
-                
-                # 1. Баланс (Обязательно проверяем наличие поля 'money')
+                # Если получили деньги - обновляем
                 if "money" in response_data:
                     money_raw = response_data.get("money", 0)
-                    current_balance = int(float(money_raw))
-                    update_payload["bot_t_coins"] = current_balance
-                
-                # 2. Ключи (нужны для покупок)
-                if response_data.get("id"):
-                    update_payload["bott_internal_id"] = response_data.get("id")
-                if response_data.get("secret_user_key"):
-                    update_payload["bott_secret_key"] = response_data.get("secret_user_key")
-                
-                # 3. ID для СОБСТВЕННОЙ реферальной ссылки пользователя (чтобы он мог приглашать)
-                # Это НЕ referrer_id (кто пригласил), а bott_ref_id (кто Я)
-                if response_data.get("user") and response_data["user"].get("id"):
-                    update_payload["bott_ref_id"] = response_data["user"].get("id")
+                    new_balance = int(float(money_raw))
+                    
+                    update_payload = {"bot_t_coins": new_balance}
+                    
+                    # Ключи
+                    if response_data.get("id"):
+                        update_payload["bott_internal_id"] = response_data.get("id")
+                    if response_data.get("secret_user_key"):
+                        update_payload["bott_secret_key"] = response_data.get("secret_user_key")
+                    if response_data.get("user") and response_data["user"].get("id"):
+                        update_payload["bott_ref_id"] = response_data["user"].get("id")
 
-                # Записываем в базу
-                if update_payload:
+                    # Сохраняем в базу
                     await supabase.patch(
                         "/users",
                         params={"telegram_id": f"eq.{telegram_id}"},
                         json=update_payload
                     )
-                    return {"success": True, "balance": update_payload.get("bot_t_coins")}
+                    
+                    # Возвращаем НОВЫЙ баланс
+                    return {"success": True, "balance": new_balance}
             
-            return {"success": False, "error": "Bot-T API returned bad status"}
+            logging.warning(f"[SYNC] Bot-T вернул ошибку или некорректные данные. Status: {resp.status_code}")
 
         except Exception as e:
-            logging.error(f"[SYNC BALANCE] Ошибка: {e}")
-            return {"success": False, "error": str(e)}
+            logging.error(f"[SYNC] Ошибка запроса к Bot-T: {e}")
+
+    # 3. ЕСЛИ ВСЁ СЛОМАЛОСЬ — Возвращаем старый баланс из базы!
+    # Это спасет от отображения "0" в магазине
+    logging.info(f"[SYNC] Возвращаем fallback-баланс из БД: {db_balance}")
+    return {"success": False, "balance": db_balance, "is_fallback": True}
 
 
 # --- ЭНДПОИНТ 2: ТОЛЬКО РЕФЕРАЛЫ (По ссылке) ---
