@@ -3242,11 +3242,12 @@ async def get_current_user_data(request_data: InitDataRequest): # <<< Убрал
         # =================================================================
         
         # Добавляем bott_internal_id, если его не вернула SQL-функция
-        if 'bott_internal_id' not in final_response:
+        if final_response.get('bott_internal_id') is None:
             try:
-                # Прямой запрос к таблице, чтобы точно достать ID
+                # Принудительно достаем ID из базы
                 u_extra = supabase.table("users").select("bott_internal_id").eq("telegram_id", telegram_id).execute()
                 if u_extra.data:
+                    # Записываем в ответ (даже если там было None)
                     final_response['bott_internal_id'] = u_extra.data[0].get('bott_internal_id')
             except Exception as e:
                 logging.warning(f"Не удалось подгрузить bott_internal_id: {e}")
