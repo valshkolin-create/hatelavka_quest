@@ -8334,82 +8334,90 @@ async def sync_bott_balance(
     
     telegram_id = user_info["id"]
     
-    # Публичный метод для получения данных (ТВОЙ РАБОЧИЙ МЕТОД)
-    url = "https://api.bot-t.com/v1/module/bot/check-hash"
-    
-    payload = {
+    # 1. Запрос к check-hash (Получаем баланс и ключи)
+    url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
+    payload_hash = {
         "bot_id": int(BOTT_BOT_ID),
         "userData": request_data.initData 
     }
 
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload)
-        
-        if resp.status_code != 200:
-            return {"bot_t_coins": 0}
+    current_balance = 0
+    internal_id = None
+    secret_key = None
+    ref_id = None
+    referrer_tg_id = None
 
-        data = resp.json()
-        # Данные пользователя лежат внутри поля "data"
-        response_data = data.get("data", {})
-        
-        if not response_data:
-             return {"bot_t_coins": 0}
+    async with httpx.AsyncClient() as client:
+        try:
+            # --- ШАГ 1: Базовые данные и баланс ---
+            resp = await client.post(url_hash, json=payload_hash)
+            if resp.status_code == 200:
+                data = resp.json()
+                response_data = data.get("data", {})
+                
+                # Получаем данные
+                money_raw = response_data.get("money", 0)
+                current_balance = int(float(money_raw))
+                internal_id = response_data.get("id")
+                secret_key = response_data.get("secret_user_key")
+                
+                if response_data.get("user"):
+                    ref_id = response_data["user"].get("id")
 
-        # --- СТАРЫЕ ПОЛЯ (КАК БЫЛО У ТЕБЯ) ---
-        
-        # 1. Баланс
-        money_raw = response_data.get("money", 0)
-        current_balance = int(float(money_raw))
-
-        # 2. Внутренний ID (для магазина)
-        internal_id = response_data.get("id")
-
-        # 3. Секретный ключ
-        secret_key = response_data.get("secret_user_key")
-
-        # --- НОВЫЕ ПОЛЯ (АККУРАТНО ДОБАВЛЯЕМ) ---
-
-        # 4. Глобальный ID (для правильной ссылки r_23662302)
-        ref_id = None
-        if response_data.get("user"):
-            ref_id = response_data["user"].get("id")
-
-        # 5. Кто пригласил? (Проверяем поле 'ref')
-        referrer_tg_id = None
-        if response_data.get("ref"):
-            referrer_tg_id = response_data["ref"].get("telegram_id")
-            logging.info(f"Нашли реферала для {telegram_id}: пригласил {referrer_tg_id}")
-
-        # --- СОХРАНЯЕМ ВСЁ В БАЗУ ---
-        update_data = {"bot_t_coins": current_balance}
-        
-        if internal_id: 
-            update_data["bott_internal_id"] = internal_id
-        if secret_key: 
-            update_data["bott_secret_key"] = secret_key
+            # --- ШАГ 2: Получаем РЕФЕРАЛА через Admin API ---
+            # check-hash не отдает 'ref', поэтому делаем запрос к view-by-telegram-id
+            # См. документацию пункт "Просмотр пользователя по Telegram_id" 
+            url_view = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+            payload_view = {
+                "bot_id": int(BOTT_BOT_ID),
+                "token": BOTT_PUBLIC_KEY, # Используем публичный ключ из конфига
+                "telegram_id": telegram_id
+            }
             
-        # Новые данные
-        if ref_id: 
-            update_data["bott_ref_id"] = ref_id
-        if referrer_tg_id:
-            update_data["referrer_id"] = referrer_tg_id
+            resp_view = await client.post(url_view, json=payload_view)
+            if resp_view.status_code == 200:
+                user_full_data = resp_view.json() # Это объект BotUser 
+                
+                # Проверяем наличие поля ref 
+                ref_obj = user_full_data.get("ref")
+                if ref_obj and isinstance(ref_obj, dict):
+                    found_ref_id = ref_obj.get("telegram_id")
+                    if found_ref_id:
+                        referrer_tg_id = found_ref_id
+                        logging.info(f"✅ Нашли реферала через API Bot-t: {referrer_tg_id}")
 
+        except Exception as e:
+            logging.error(f"[SYNC] Ошибка запросов к Bot-t: {e}", exc_info=True)
+            # Не прерываем выполнение, чтобы сохранить хотя бы баланс, если он получен
+
+    # --- ШАГ 3: Сохраняем в Supabase ---
+    update_data = {"bot_t_coins": current_balance}
+    
+    if internal_id: 
+        update_data["bott_internal_id"] = internal_id
+    if secret_key: 
+        update_data["bott_secret_key"] = secret_key
+    if ref_id: 
+        update_data["bott_ref_id"] = ref_id
+        
+    # САМОЕ ГЛАВНОЕ: Записываем реферера, если нашли
+    if referrer_tg_id:
+        update_data["referrer_id"] = referrer_tg_id
+
+    try:
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json=update_data
         )
-        
-        return {
-            "bot_t_coins": current_balance, 
-            "bott_ref_id": ref_id,
-            "referrer_found": bool(referrer_tg_id)
-        }
-
     except Exception as e:
-        logging.error(f"[SYNC] Ошибка: {e}", exc_info=True)
-        return {"bot_t_coins": 0}
+        logging.error(f"[SYNC] Ошибка записи в БД: {e}")
+
+    return {
+        "bot_t_coins": current_balance, 
+        "bott_ref_id": ref_id,
+        "referrer_found": bool(referrer_tg_id)
+    }
         
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
