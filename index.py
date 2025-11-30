@@ -8584,37 +8584,43 @@ async def buy_dynamic_promo_endpoint(
         logging.error(f"Buy promo error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@app.get("/api/v1/debug/check_valentin_referrals")
+@@app.get("/api/v1/debug/check_valentin_referrals")
 async def check_valentin_referrals_debug():
     """
-    Тестовый эндпоинт для проверки рефералов конкретно Валентина.
+    ТЕСТ: Пытаемся получить рефералов, используя SECRET KEY пользователя вместо токена бота.
     """
-    # ID Валентина из вашего скриншота
+    # Данные Валентина
     VALENTIN_INTERNAL_ID = 106597615 
+    VALENTIN_SECRET_KEY = "8b4ddc03c34915808b4d56e279964e1fbc3956e23de3d89e" # Тот самый ключ
     
     url = "https://api.bot-t.com/v1/bot/user/referrals"
     
-    # Параметры согласно документации 
+    # Вставляем ключ пользователя вместо токена бота
     params = {
-        "token": BOTT_PRIVATE_KEY # GET параметр
+        "token": VALENTIN_SECRET_KEY 
     }
     
     payload = {
-        "bot_id": int(BOTT_BOT_ID), # POST параметр
-        "user_id": VALENTIN_INTERNAL_ID, # У кого ищем рефералов
+        "bot_id": int(BOTT_BOT_ID),
+        "user_id": VALENTIN_INTERNAL_ID,
         "limit": 50
     }
     
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "QuestBot-Debug/1.0"
+    }
+
+    logging.info(f"🔍 DEBUG: Пробуем ключ пользователя {VALENTIN_SECRET_KEY[:5]}...")
 
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(url, params=params, json=payload, headers=headers)
             
-            # Возвращаем то, что ответил Bot-T
             return {
                 "status_code": resp.status_code,
-                "raw_response": resp.json()
+                "used_token": "USER_SECRET_KEY (8b4d...)",
+                "bot_t_response": resp.json()
             }
         except Exception as e:
             return {"error": str(e)}
