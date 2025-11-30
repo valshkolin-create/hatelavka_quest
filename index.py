@@ -787,17 +787,25 @@ def decode_cookie(value: str | None) -> dict | None:
 
 def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
     try:
-        # 1. УБИРАЕМ unquote()! parse_qsl сам раскодирует проценты,
-        # но корректно разделит параметры по основным амперсандам.
+        # --- 🔍 DEBUG LOGS ---
+        if not init_data:
+            logging.error("❌ Validation Error: initData is EMPTY or None!")
+            return None
+            
+        # Логируем первые 50 символов, чтобы понять, что пришло (не паля весь хеш)
+        # logging.info(f"🔍 Validating initData (start): {init_data[:50]}...") 
+        # ---------------------
+
         parsed_data = dict(parse_qsl(init_data))
         
         if "hash" not in parsed_data:
-            logging.error("❌ Validation Error: 'hash' not found in initData")
+            # 🔥 ВОТ ТУТ МЫ УВИДИМ, ЧТО ПРИШЛО, ЕСЛИ НЕТ ХЕША
+            logging.error(f"❌ Validation Error: 'hash' not found. Raw data: {init_data}")
             return None
             
         received_hash = parsed_data.pop("hash")
         
-        # 2. Сортируем ключи и собираем строку проверки
+        # Сортируем и собираем строку для проверки
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items()))
         
         for token in valid_tokens:
@@ -808,7 +816,7 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
             if calculated_hash == received_hash:
                 return json.loads(parsed_data.get("user", "{}"))
                 
-        logging.error("❌ HASH MISMATCH - initData validation FAILED.")
+        logging.error("❌ HASH MISMATCH - Подпись не совпала (проверьте BOT_TOKEN).")
         return None
     except Exception as e:
         logging.error(f"Error checking hash: {e}")
