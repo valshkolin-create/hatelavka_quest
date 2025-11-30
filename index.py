@@ -8328,25 +8328,18 @@ async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    1. Идет в Bot-t (view-by-telegram-id).
-    2. Берет 'id' -> в bott_internal_id.
-    3. Берет 'user'->'id' -> в bott_ref_id (для рефералки).
-    4. Берет баланс.
-    5. Сохраняет все в Supabase.
-    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
     
-    # 1. Запрашиваем полную инфу о юзере в Bot-t
-    url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+    # Публичный метод для получения данных (ТВОЙ РАБОЧИЙ МЕТОД)
+    url = "https://api.bot-t.com/v1/module/bot/check-hash"
+    
     payload = {
         "bot_id": int(BOTT_BOT_ID),
-        "token": BOTT_PRIVATE_KEY, # Обязательно приватный ключ для этого метода
-        "telegram_id": telegram_id
+        "userData": request_data.initData 
     }
 
     try:
@@ -8354,47 +8347,51 @@ async def sync_bott_balance(
             resp = await client.post(url, json=payload)
         
         if resp.status_code != 200:
-            # Если юзера нет в Bot-t или ошибка, возвращаем 0
             return {"bot_t_coins": 0}
 
         data = resp.json()
-        # ВАЖНО: В Bot-t данные лежат в поле "data"
-        # Ответ: {"result": true, "data": { ... }}
+        # Данные пользователя лежат внутри поля "data"
         response_data = data.get("data", {})
         
         if not response_data:
              return {"bot_t_coins": 0}
 
-        # --- СОБИРАЕМ ДАННЫЕ ---
+        # --- СТАРЫЕ ПОЛЯ (КАК БЫЛО У ТЕБЯ) ---
+        
+        # 1. Баланс
+        money_raw = response_data.get("money", 0)
+        current_balance = int(float(money_raw))
 
-        # 1. Внутренний ID (для магазина)
+        # 2. Внутренний ID (для магазина)
         internal_id = response_data.get("id")
 
-        # 2. Глобальный ID юзера (для ЕГО реферальной ссылки r_...)
+        # 3. Секретный ключ
+        secret_key = response_data.get("secret_user_key")
+
+        # --- НОВЫЕ ПОЛЯ (АККУРАТНО ДОБАВЛЯЕМ) ---
+
+        # 4. Глобальный ID (для правильной ссылки r_23662302)
         ref_id = None
         if response_data.get("user"):
             ref_id = response_data["user"].get("id")
 
-        # 3. БАЛАНС
-        money_raw = response_data.get("money", 0)
-        current_balance = int(float(money_raw))
-        secret_key = response_data.get("secret_user_key")
-
-        # 4. 🔥 КТО ЕГО ПРИГЛАСИЛ? (Достаем из Bot-t) 🔥
+        # 5. Кто пригласил? (Проверяем поле 'ref')
         referrer_tg_id = None
         if response_data.get("ref"):
-            # В поле 'ref' лежит объект User, берем его telegram_id
             referrer_tg_id = response_data["ref"].get("telegram_id")
             logging.info(f"Нашли реферала для {telegram_id}: пригласил {referrer_tg_id}")
 
-        # --- ОБНОВЛЯЕМ SUPABASE ---
+        # --- СОХРАНЯЕМ ВСЁ В БАЗУ ---
         update_data = {"bot_t_coins": current_balance}
         
-        if internal_id: update_data["bott_internal_id"] = internal_id
-        if ref_id: update_data["bott_ref_id"] = ref_id
-        if secret_key: update_data["bott_secret_key"] = secret_key
-        
-        # Если Bot-t говорит, что есть пригласивший — записываем его к нам!
+        if internal_id: 
+            update_data["bott_internal_id"] = internal_id
+        if secret_key: 
+            update_data["bott_secret_key"] = secret_key
+            
+        # Новые данные
+        if ref_id: 
+            update_data["bott_ref_id"] = ref_id
         if referrer_tg_id:
             update_data["referrer_id"] = referrer_tg_id
 
@@ -8406,7 +8403,7 @@ async def sync_bott_balance(
         
         return {
             "bot_t_coins": current_balance, 
-            "bott_ref_id": ref_id, 
+            "bott_ref_id": ref_id,
             "referrer_found": bool(referrer_tg_id)
         }
 
