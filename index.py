@@ -8336,22 +8336,24 @@ async def sync_bott_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Валидация (пропускаем только своих)
+    # 1. Валидация
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
     
-    # Переменные для данных
-    current_balance = 0
-    internal_id = None
-    secret_key = None
-    ref_id = None       # Это ID самого пользователя (для его ссылки)
-    referrer_tg_id = None # Это ID того, КТО пригласил (найдем ниже)
+    # Собираем данные для обновления в этот словарь
+    update_payload = {}
+    
+    # Результат для фронтенда
+    result_data = {
+        "bot_t_coins": 0,
+        "bott_ref_id": None,
+        "referrer_found": False
+    }
 
-    # --- ЧАСТЬ 1: Спрашиваем Bot-T (Нужно для МАГАЗИНА и Баланса) ---
-    # Этот запрос использует BOTT_BOT_ID (он публичный), поэтому он работает.
+    # --- ЧАСТЬ 1: Спрашиваем Bot-T (Баланс и ключи) ---
     url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
     headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
     
@@ -8367,39 +8369,43 @@ async def sync_bott_balance(
                 data = resp.json()
                 response_data = data.get("data", {})
                 
-                # 1. Баланс
-                money_raw = response_data.get("money", 0)
-                current_balance = int(float(money_raw))
+                # 1. Баланс (Обновляем только если получили данные!)
+                if "money" in response_data:
+                    money_raw = response_data.get("money", 0)
+                    current_balance = int(float(money_raw))
+                    
+                    update_payload["bot_t_coins"] = current_balance
+                    result_data["bot_t_coins"] = current_balance
                 
-                # 2. Данные для магазина (ID и Ключ)
-                internal_id = response_data.get("id") 
-                secret_key = response_data.get("secret_user_key")
+                # 2. Ключи
+                if response_data.get("id"):
+                    update_payload["bott_internal_id"] = response_data.get("id")
                 
-                # 3. ID для создания реферальной ссылки пользователя (например 23662302)
-                if response_data.get("user"):
+                if response_data.get("secret_user_key"):
+                    update_payload["bott_secret_key"] = response_data.get("secret_user_key")
+                
+                # 3. ID для рефералки (23662302)
+                if response_data.get("user") and response_data["user"].get("id"):
                     ref_id = response_data["user"].get("id")
+                    update_payload["bott_ref_id"] = ref_id
+                    result_data["bott_ref_id"] = ref_id
 
         except Exception as e:
-            logging.error(f"[SYNC] Ошибка связи с Bot-T: {e}")
+            logging.error(f"[SYNC] Ошибка связи с Bot-T (баланс не трогаем): {e}")
 
-    # --- ЧАСТЬ 2: Ищем реферала САМИ через прямую ссылку (План Б) ---
+    # --- ЧАСТЬ 2: Ищем реферала в start_param ---
     try:
-        # Разбираем строку initData, которую прислал Telegram
         parsed_init = dict(parse_qsl(request_data.initData))
-        
-        # Telegram кладет параметр ссылки ?startapp=... в поле 'start_param'
         start_param = parsed_init.get("start_param") 
         
-        # Если ссылка вида ...?startapp=r_23662302
         if start_param and start_param.startswith("r_"):
-            target_ref_id_str = start_param[2:] # Отрезаем "r_", получаем "23662302"
+            target_ref_id_str = start_param[2:]
             
             if target_ref_id_str.isdigit():
                 target_ref_id = int(target_ref_id_str)
-                logging.info(f"[SYNC] Переход по ссылке! Код приглашения: {target_ref_id}")
+                logging.info(f"[SYNC] Переход по ссылке ID: {target_ref_id}")
 
-                # Ищем в НАШЕЙ базе: кому принадлежит этот код?
-                # Мы ищем пользователя, у которого bott_ref_id или bott_internal_id совпадает с кодом
+                # Ищем владельца ссылки
                 res = await supabase.table("users") \
                     .select("telegram_id") \
                     .or_(f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}") \
@@ -8408,46 +8414,30 @@ async def sync_bott_balance(
                 
                 if res.data:
                     found_referrer = res.data[0]['telegram_id']
-                    # Нельзя пригласить самого себя
+                    
+                    # Проверка на само-реферала
                     if found_referrer != telegram_id:
-                        referrer_tg_id = found_referrer
-                        logging.info(f"✅ [SYNC] РЕФЕРАЛ НАЙДЕН в базе: {referrer_tg_id}")
+                        update_payload["referrer_id"] = found_referrer
+                        result_data["referrer_found"] = True
+                        logging.info(f"✅ [SYNC] Найден реферал: {found_referrer}")
                     else:
-                        logging.warning("[SYNC] Пользователь перешел по своей же ссылке.")
-                else:
-                    logging.warning(f"[SYNC] Владелец кода {target_ref_id} не найден в базе (возможно, он еще не заходил в приложение).")
+                        logging.warning(f"[SYNC] Пользователь {telegram_id} перешел по своей же ссылке.")
     
     except Exception as e:
         logging.error(f"[SYNC] Ошибка обработки ссылки: {e}")
 
-    # --- ЧАСТЬ 3: Сохраняем всё в базу ---
-    update_data = {"bot_t_coins": current_balance}
-    
-    # Сохраняем ключи для магазина
-    if internal_id: update_data["bott_internal_id"] = internal_id
-    if secret_key: update_data["bott_secret_key"] = secret_key
-    
-    # Сохраняем ID пользователя, чтобы ОН мог приглашать других
-    if ref_id: update_data["bott_ref_id"] = ref_id 
-    
-    # Если нашли, кто пригласил ЭТОГО пользователя - записываем
-    if referrer_tg_id: 
-        update_data["referrer_id"] = referrer_tg_id
+    # --- ЧАСТЬ 3: Записываем в базу только то, что реально получили ---
+    if update_payload:
+        try:
+            await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{telegram_id}"},
+                json=update_payload
+            )
+        except Exception as e:
+            logging.error(f"❌ [SYNC] Ошибка записи в БД: {e}")
 
-    try:
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{telegram_id}"},
-            json=update_data
-        )
-    except Exception as e:
-        logging.error(f"❌ [SYNC] Ошибка записи в БД: {e}")
-
-    return {
-        "bot_t_coins": current_balance, 
-        "bott_ref_id": ref_id,
-        "referrer_found": bool(referrer_tg_id)
-    }
+    return result_data
         
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
