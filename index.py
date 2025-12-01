@@ -3172,6 +3172,7 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
     
 # --- ПРАВИЛЬНО ---
 @app.post("/api/v1/user/me")
+@app.post("/api/v1/user/me")
 async def get_current_user_data(request_data: InitDataRequest): # <<< Убрали Depends(get_supabase_client)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -3230,6 +3231,24 @@ async def get_current_user_data(request_data: InitDataRequest): # <<< Убрал
         # Проверяем, является ли пользователь админом
         is_admin = telegram_id in ADMIN_IDS
         final_response['is_admin'] = is_admin
+        
+        # =================================================================
+        # 🔥 ФИКС: СЧИТАЕМ РЕФЕРАЛОВ ВРУЧНУЮ (Добавлено) 🔥
+        # =================================================================
+        try:
+            # Запрашиваем количество строк, где referrer_id == telegram_id
+            # head=True означает, что мы не просим сами данные, только count
+            count_resp = supabase.table("users") \
+                .select("telegram_id", count="exact", head=True) \
+                .eq("referrer_id", telegram_id) \
+                .execute()
+            
+            # Записываем точное число в ответ
+            final_response['active_referrals_count'] = count_resp.count
+        except Exception as e:
+            logging.warning(f"Error counting referrals: {e}")
+            final_response['active_referrals_count'] = 0
+        # =================================================================
 
         # --- Логика для админа, если RPC не вернула билеты ---
         if is_admin and 'tickets' not in final_response:
@@ -3246,7 +3265,7 @@ async def get_current_user_data(request_data: InitDataRequest): # <<< Убрал
                  logging.error(f"Не удалось найти админа {telegram_id} в таблице users для получения билетов.")
 
         # =================================================================
-        # 🔥 ВСТАВИТЬ ЭТОТ БЛОК ПЕРЕД return JSONResponse 🔥
+        # 🔥 ПОДГРУЗКА ДОП. ID (Сохранено из вашего кода) 🔥
         # =================================================================
         
         # Добавляем bott_internal_id, если его не вернула SQL-функция
