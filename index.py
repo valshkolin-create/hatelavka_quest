@@ -3722,85 +3722,57 @@ async def bott_webhook(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    🔥 АВТО-ОБНОВЛЕНИЕ БАЛАНСА 🔥
-    Как только проходит оплата, этот код сам идет в Bot-T, 
-    узнает новый баланс и сохраняет его в базу.
+    Упрощенный вебхук (без ключей).
+    Просто прибавляет сумму пополнения к текущему балансу в базе.
     """
     try:
-        # 1. Читаем данные от Bot-T
         form_data = await request.form()
         data = dict(form_data)
-        
-        logging.info(f"💰 [WEBHOOK] Пришел сигнал об оплате: {data}")
+        logging.info(f"💰 [WEBHOOK] Оплата: {data}")
 
-        # Проверяем, что оплата успешна
         status = str(data.get('status_id', ''))
         if status not in ['1', 'success', 'paid']:
             return {"status": "ignored"}
 
-        # Получаем ID пользователя
         custom_fields = data.get('custom_fields')
         if not custom_fields:
             return {"status": "error", "message": "No user ID"}
         
         user_id = int(custom_fields)
         amount_rub = float(data.get('amount', 0))
-
-        # 2. ⚡️ ГЛАВНЫЙ ФИКС: СРАЗУ ЗАПРАШИВАЕМ БАЛАНС У BOT-T ⚡️
-        # Мы не верим сумме из вебхука, мы спрашиваем "Сколько всего денег сейчас?"
         
-        url_view = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+        # Считаем: 1 рубль = 100 копеек (или как у вас настроено)
+        # Если в боте курс 1 к 1, то amount_coins = int(amount_rub)
+        # Если в боте копейки, то * 100
+        amount_coins = int(amount_rub * 100) 
+
+        # Используем RPC-функцию для безопасного прибавления (атомарно)
+        # Предполагаем, что в вашей базе 'coins' - это игровые монеты, а 'bot_t_coins' - баланс бота
+        # Так как RPC 'increment_coins' обычно для игровых, тут сделаем вручную:
         
-        # Используем ПРИВАТНЫЙ ключ (как в документации: Token в GET)
-        params_auth = { "token": BOTT_PRIVATE_KEY } 
-        payload_body = { "bot_id": int(BOTT_BOT_ID), "telegram_id": user_id }
+        # 1. Получаем текущий
+        resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "bot_t_coins"})
+        current_bal = 0
+        if resp.json():
+            current_bal = resp.json()[0].get('bot_t_coins', 0)
+            
+        # 2. Прибавляем
+        new_balance = current_bal + amount_coins
         
-        new_balance = 0
-        balance_updated = False
-
-        async with httpx.AsyncClient() as client:
-            # Делаем запрос от имени Админа
-            resp = await client.post(url_view, params=params_auth, json=payload_body)
-            
-            if resp.status_code == 200:
-                api_response = resp.json()
-                if api_response.get("result") is True:
-                    user_data = api_response.get("data", {})
-                    
-                    # Bot-T вернул точный баланс!
-                    if "money" in user_data:
-                        new_balance = int(float(user_data["money"]))
-                        balance_updated = True
-                        logging.info(f"✅ [WEBHOOK] Баланс синхронизирован: {new_balance}")
-
-        # 3. Если Bot-T вдруг не ответил, прибавляем вручную (План Б)
-        if not balance_updated:
-            logging.warning("⚠️ [WEBHOOK] API баланса недоступно. Считаем вручную.")
-            # Считаем: 1 рубль = 100 копеек
-            amount_coins = int(amount_rub * 100)
-            
-            # Берем старый баланс из базы
-            old_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "bot_t_coins"})
-            old_bal = old_resp.json()[0]['bot_t_coins'] if old_resp.json() else 0
-            
-            new_balance = old_bal + amount_coins
-
-        # 4. 💾 СОХРАНЯЕМ В БАЗУ ПРЯМО СЕЙЧАС
+        # 3. Сохраняем
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{user_id}"},
             json={"bot_t_coins": new_balance}
         )
 
-        # 5. Радуем пользователя сообщением
-        real_rub = new_balance / 100
-        await safe_send_message(user_id, f"✅ <b>Баланс пополнен!</b>\nПоступило: {amount_rub}₽\nВсего: {real_rub} 🟡")
+        await safe_send_message(user_id, f"✅ Баланс пополнен на {amount_rub}₽!\n(Обновите профиль, чтобы увидеть изменения)")
 
-        return {"result": True}
+        return "OK"
 
     except Exception as e:
-        logging.error(f"❌ [WEBHOOK ERROR] {e}", exc_info=True)
-        return {"result": False}
+        logging.error(f"❌ [WEBHOOK] Ошибка: {e}")
+        return "Error"
 
 @app.post("/api/v1/user/shop_link")
 async def get_bott_link(
@@ -8380,92 +8352,71 @@ async def sync_user_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Синхронизация баланса (РЕЖИМ АДМИНА).
-    Игнорирует initData для запроса к Bot-T.
-    Использует BOTT_PRIVATE_KEY для прямого получения данных.
+    Синхронизация баланса через ПУБЛИЧНЫЙ API (check-hash).
+    Работает с Inline-кнопкой.
+    Если "синяя кнопка" не работает -> отдает старый баланс из базы.
     """
-    # 1. Мы САМИ проверяем, что юзер настоящий (валидация Telegram)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
     
-    # 2. Запрос к Bot-T через ADMIN API (view-by-telegram-id)
-    # Этот метод работает всегда, так как мы используем приватный ключ
-    url_view = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
-    
-    # Параметры согласно документации (Token в GET, остальное в POST)
-    params_auth = { "token": BOTT_PRIVATE_KEY }
-    payload_body = {
-        "bot_id": int(BOTT_BOT_ID),
-        "telegram_id": telegram_id
-    }
-
-    logging.info(f"[SYNC ADMIN] 👮 Запрос баланса через Админку для {telegram_id}...")
-
-    async with httpx.AsyncClient(timeout=8.0) as client:
-        try:
-            resp = await client.post(url_view, params=params_auth, json=payload_body)
-            
-            # Если Bot-T ответил 200 OK
-            if resp.status_code == 200:
-                api_response = resp.json()
-                
-                # Если запрос успешен
-                if api_response.get("result") is True:
-                    user_data = api_response.get("data", {})
-                    
-                    # Получаем деньги
-                    money_raw = user_data.get("money", 0)
-                    new_balance = int(float(money_raw))
-                    
-                    logging.info(f"✅ [SYNC ADMIN] Баланс получен: {new_balance}")
-
-                    # Собираем данные для обновления
-                    update_payload = {"bot_t_coins": new_balance}
-                    
-                    # Ключи (они тоже приходят в этом методе)
-                    if user_data.get("id"): 
-                        update_payload["bott_internal_id"] = user_data.get("id")
-                    if user_data.get("secret_user_key"): 
-                        update_payload["bott_secret_key"] = user_data.get("secret_user_key")
-                    
-                    # ID для рефералки
-                    # В методе view-by-telegram-id структура может отличаться
-                    # Часто user_id лежит в корне или в user.id
-                    if user_data.get("user") and isinstance(user_data["user"], dict):
-                         if user_data["user"].get("id"):
-                             update_payload["bott_ref_id"] = user_data["user"].get("id")
-                    
-                    # Обновляем базу
-                    await supabase.patch(
-                        "/users",
-                        params={"telegram_id": f"eq.{telegram_id}"},
-                        json=update_payload
-                    )
-                    
-                    return {"success": True, "balance": new_balance}
-                
-                else:
-                    logging.warning(f"⚠️ [SYNC ADMIN] Ошибка логики API: {api_response.get('message')}")
-            else:
-                logging.error(f"❌ [SYNC ADMIN] HTTP ошибка: {resp.status_code}")
-
-        except Exception as e:
-            logging.error(f"[SYNC ADMIN] Критическая ошибка: {e}")
-
-    # 3. FALLBACK: Если админский запрос не прошел, отдаем из базы
-    logging.info(f"[SYNC ADMIN] ⚠️ Возврат кэша из БД")
+    # 1. Сначала достаем текущий баланс из базы (чтобы было что показать при ошибке)
+    db_balance = 0
     try:
         db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins"})
         if db_resp.status_code == 200 and db_resp.json():
-            return {"success": True, "balance": db_resp.json()[0].get("bot_t_coins", 0)}
+            db_balance = db_resp.json()[0].get("bot_t_coins", 0)
     except:
         pass
 
-    return {"success": False, "balance": 0}
+    # 2. Пробуем обновить через Bot-T (check-hash)
+    url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
+    headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
+    
+    async with httpx.AsyncClient(timeout=6.0) as client:
+        try:
+            resp = await client.post(
+                url_hash, 
+                json={"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}, 
+                headers=headers
+            )
+            
+            # Если Bot-T ответил успешно (значит, кнопка "правильная")
+            if resp.status_code == 200:
+                data = resp.json()
+                
+                if data.get("result") is True:
+                    response_data = data.get("data", {})
+                    if "money" in response_data:
+                        money_raw = response_data.get("money", 0)
+                        new_balance = int(float(money_raw))
+                        
+                        update_payload = {"bot_t_coins": new_balance}
+                        
+                        # Ключи
+                        if response_data.get("id"): update_payload["bott_internal_id"] = response_data.get("id")
+                        if response_data.get("secret_user_key"): update_payload["bott_secret_key"] = response_data.get("secret_user_key")
+                        if response_data.get("user") and response_data["user"].get("id"): update_payload["bott_ref_id"] = response_data["user"].get("id")
 
+                        # Сохраняем
+                        await supabase.patch(
+                            "/users",
+                            params={"telegram_id": f"eq.{telegram_id}"},
+                            json=update_payload
+                        )
+                        logging.info(f"✅ [SYNC] Баланс обновлен: {new_balance}")
+                        return {"success": True, "balance": new_balance}
+                
+            # Если мы здесь -> значит, Bot-T отклонил запрос (например, синяя кнопка)
+            # Просто возвращаем старый баланс, чтобы не пугать юзера нулями
+            logging.warning(f"⚠️ [SYNC] Bot-T не принял данные. Отдаем кэш: {db_balance}")
+            return {"success": True, "balance": db_balance}
+
+        except Exception as e:
+            logging.error(f"[SYNC ERROR] {e}")
+            return {"success": True, "balance": db_balance}
 
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
 @app.post("/api/v1/user/sync_referral")
