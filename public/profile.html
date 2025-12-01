@@ -393,106 +393,34 @@
             background-color: #1c1c1e;
             border-radius: 14px;
             padding: 20px;
-            
-            /* ИСПРАВЛЕННЫЕ РАЗМЕРЫ */
-            width: 90%; /* Занимает 90% ширины экрана, оставляя отступы */
-            max-width: 340px; /* Не становится шире 340px на больших экранах */
-            max-height: 85vh; /* Максимальная высота - 85% от высоты экрана */
-            overflow-y: auto; /* Включает скролл внутри, если контент длинный */
-            
+            width: 90%; 
+            max-width: 340px; 
+            max-height: 85vh; 
+            overflow-y: auto;
             box-shadow: 0 10px 30px rgba(0,0,0,0.4);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transform: scale(0.95);
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             text-align: center;
-            
-            /* Скрываем полосу прокрутки для красоты (но скролл работает) */
             scrollbar-width: none; 
         }
-        .custom-popup::-webkit-scrollbar { 
-            display: none; 
-        }
-        .custom-popup h3 {
-            margin: 0 0 10px 0;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        .custom-popup p {
-            margin: 0 0 20px 0;
-            font-size: 14px;
-            color: var(--text-color-muted);
-            line-height: 1.4;
-        }
-        .custom-popup input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #3a3a3c;
-            background-color: #2c2c2e;
-            color: white;
-            font-size: 14px;
-            box-sizing: border-box;
-            margin-bottom: 12px;
-        }
-        .custom-popup .popup-help {
-            margin-bottom: 20px;
-        }
-        .custom-popup .popup-help a {
-            color: var(--action-color);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-        }
-        .custom-popup .popup-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .custom-popup .popup-btn {
-            width: 100%;
-            border: none;
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.15s ease, background-color 0.2s ease;
-        }
-        .custom-popup .popup-btn:active {
-            transform: scale(0.97);
-        }
-        .custom-popup .popup-btn.primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        .custom-popup .popup-btn.secondary {
-            background-color: #3a3a3c;
-            color: white;
-        }
-
-        /* Стили для отключенной кнопки */
-        .popup-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            filter: grayscale(100%);
-        }
-        /* Отключенные тумблеры */
-        .toggle-input:disabled + .slider {
-            opacity: 0.6;
-            cursor: wait;
-        }
+        .custom-popup::-webkit-scrollbar { display: none; }
+        .custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; }
+        .custom-popup p { margin: 0 0 20px 0; font-size: 14px; color: var(--text-color-muted); line-height: 1.4; }
+        .custom-popup input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #3a3a3c; background-color: #2c2c2e; color: white; font-size: 14px; box-sizing: border-box; margin-bottom: 12px; }
+        .custom-popup .popup-help { margin-bottom: 20px; }
+        .custom-popup .popup-help a { color: var(--action-color); text-decoration: none; font-size: 13px; font-weight: 500; }
+        .custom-popup .popup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .custom-popup .popup-btn { width: 100%; border: none; padding: 12px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.15s ease, background-color 0.2s ease; }
+        .custom-popup .popup-btn:active { transform: scale(0.97); }
+        .custom-popup .popup-btn.primary { background-color: var(--primary-color); color: white; }
+        .custom-popup .popup-btn.secondary { background-color: #3a3a3c; color: white; }
+        .popup-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(100%); }
+        .toggle-input:disabled + .slider { opacity: 0.6; cursor: wait; }
+        
         /* --- Стили для Реферальной системы --- */
-        .ref-card-gradient {
-            background: linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(0,0,0,0));
-            border: 1px solid rgba(52, 199, 89, 0.3);
-        }
-        .ref-stat-box {
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-            padding: 10px;
-            text-align: center;
-            flex: 1;
-        }
+        .ref-card-gradient { background: linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(0,0,0,0)); border: 1px solid rgba(52, 199, 89, 0.3); }
+        .ref-stat-box { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; text-align: center; flex: 1; }
         .ref-stat-val { font-size: 18px; font-weight: 700; color: #fff; }
         .ref-stat-lbl { font-size: 10px; color: #aaa; text-transform: uppercase; }
 
@@ -570,6 +498,7 @@
             </div>
         </div>
     </div>
+
     <div id="referral-popup" class="custom-popup-overlay">
         <div class="custom-popup" style="text-align: left;">
             <h3 style="text-align: center; margin-bottom: 5px;">🤝 Партнерская программа</h3>
@@ -612,15 +541,12 @@
             <div style="font-size: 40px; margin-bottom: 10px;">👋</div>
             <h3>Привет, Новичок!</h3>
             <p>Ты пришел от друга? У нас для тебя подарок!</p>
-            
             <div style="background: rgba(145, 70, 255, 0.15); border: 1px solid #9146ff; padding: 15px; border-radius: 12px; margin: 20px 0;">
                 <div style="color: #fff; font-weight: 600; margin-bottom: 5px;">Твой Стартовый Пак:</div>
                 <div style="font-size: 24px; font-weight: 800; color: #FFD700;">+10 МОНЕТ</div>
                 <div style="font-size: 12px; color: #ccc;">+ Неделя VIP статуса 🚀</div>
             </div>
-
             <p style="font-size: 12px; color: var(--text-color-muted);">Чтобы забрать, привяжи Twitch.</p>
-
             <button id="claim-welcome-btn" class="popup-btn primary" style="background: #9146ff;">
                 <i class="fa-brands fa-twitch"></i> Проверить и Забрать
             </button>
@@ -637,23 +563,43 @@ try {
         rewardsList: document.getElementById('rewards-list'),
         settingsList: document.getElementById('settings-list'),
         deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
-        // Уведомления
+        
         notifyOverlay: document.getElementById('notify-popup-overlay'),
         notifyContent: document.getElementById('notify-content-area'),
         notifyCloseBtn: document.getElementById('notify-close-btn'),
-        // Trade
+        
         customPopupOverlay: document.getElementById('custom-popup-overlay'),
         popupTradeLinkInput: document.getElementById('popup-trade-link-input'),
         popupSaveBtn: document.getElementById('popup-save-btn'),
-        popupCancelBtn: document.getElementById('popup-cancel-btn')
+        popupCancelBtn: document.getElementById('popup-cancel-btn'),
+        
+        referralPopup: document.getElementById('referral-popup'),
+        refLinkInput: document.getElementById('ref-link-input'),
+        refCountDisplay: document.getElementById('ref-count-display'),
+        refBonusDisplay: document.getElementById('ref-bonus-display'),
+        closeRefModalBtn: document.getElementById('close-ref-modal-btn'),
+        copyRefBtn: document.getElementById('copy-ref-btn'),
+        shareRefLinkBtn: document.getElementById('share-ref-link-btn'),
+
+        welcomePopup: document.getElementById('welcome-popup'),
+        claimWelcomeBtn: document.getElementById('claim-welcome-btn'),
+        closeWelcomeBtn: document.getElementById('close-welcome-btn')
     };
 
     const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
     const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
 
+    // --- Safe Event Listener Helper ---
+    function addSafeListener(elementId, eventType, handler) {
+        const el = document.getElementById(elementId);
+        if (el) el.addEventListener(eventType, handler);
+    }
+
+    // --- HELPER: Confirm Dialog ---
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
         const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
-        const box = document.createElement('div'); box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+        const box = document.createElement('div'); 
+        box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
         box.innerHTML = `<h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3><div style="display: flex; gap: 12px;"><button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button><button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: white; font-size: 16px; font-weight: 600; cursor: pointer;">${btnText}</button></div>`;
         overlay.appendChild(box); document.body.appendChild(overlay);
         const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
@@ -662,16 +608,23 @@ try {
         overlay.onclick = (e) => { if(e.target === overlay) close(); };
     }
 
-    async function makeApiRequest(url, body = {}) {
+    async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
+        if (!isSilent) showLoader();
         try {
-            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, initData: tg.initData }) });
+            const response = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, initData: tg.initData }) });
             if (response.status === 204) return null;
             const result = await response.json();
             if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
             return result;
-        } catch (e) { tg.showAlert(`Ошибка: ${e.message}`); throw e; }
+        } catch (e) { 
+            if(!isSilent) tg.showAlert(`Ошибка: ${e.message}`); 
+            throw e; 
+        } finally { 
+            if (!isSilent) hideLoader(); 
+        }
     }
 
+    // --- MAIN ---
     async function main() {
         if (!tg.initData) { 
             document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите из Telegram.</p></div>`; 
@@ -680,129 +633,169 @@ try {
         }
         showLoader();
         try {
-            // 1. СНАЧАЛА создаем/получаем пользователя (ОБЯЗАТЕЛЬНО ПЕРВЫМ)
+            // 1. Создаем/получаем пользователя (Это вернет и active_referrals_count)
             const userData = await makeApiRequest("/api/v1/user/me");
 
-            // 2. Параллельно запускаем ДВА независимых процесса:
-            //    - Обновление денег (Bot-T)
-            //    - Проверка реферальной ссылки (Наш код)
-            //    Если один упадет, второй выполнится.
-            
-            const syncBalancePromise = makeApiRequest("/api/v1/user/sync_balance")
-                .catch(e => console.warn("Balance sync failed:", e));
-                
-            const syncReferralPromise = makeApiRequest("/api/v1/user/sync_referral")
-                .catch(e => console.warn("Referral sync failed:", e));
+            // 2. Параллельно: деньги + реферал (тихо)
+            const syncBalancePromise = makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(e => console.warn("BalSync err:", e));
+            const syncReferralPromise = makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn("RefSync err:", e));
 
-            // Ждем их завершения (но не блокируем загрузку, если они упали)
-            await Promise.all([syncBalancePromise, syncReferralPromise]);
+            // Не блокируем интерфейс ожиданием синхронизации, но запускаем её
+            Promise.all([syncBalancePromise, syncReferralPromise]).then(() => {
+                 // Опционально: можно обновить UI после завершения, если нужно
+            });
 
-            // 3. Загружаем остальные данные для интерфейса
+            // 3. Загружаем награды и настройки
             const [rewards, settings] = await Promise.all([ 
                 makeApiRequest("/api/v1/user/rewards"),
                 makeApiRequest("/api/v1/user/settings/get")
             ]);
             
-            // Если баланс обновился в syncBalancePromise, он уже в базе.
-            // Но user/me вернул старый баланс.
-            // Можно либо перезапросить user/me, либо (проще) довериться следующей перезагрузке страницы.
-            // Для идеала - лучше перезапросить user/me, но для скорости пока так.
-            
             const fullUserData = { ...userData, ...settings };
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+            window.currentUserSettings = fullUserData;
             
             renderSettingsList(fullUserData); 
             renderRewards(rewards);
-            window.currentUserSettings = fullUserData;
+            checkWelcomeBonus(fullUserData);
 
         } catch (e) {
             dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
             console.error(e);
         } finally { hideLoader(); }
     }
-    
-    // --- РЕНДЕР НАСТРОЕК (ГЛАВНЫЙ СПИСОК) ---
+
     function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
         const isBotActive = userData.is_bot_active === true;
-        
-        // Статус-бэйдж для кнопки
-        const badgeHTML = isBotActive 
-            ? `<span style="background: rgba(52,199,89,0.2); color: var(--primary-color); font-size:10px; padding:2px 6px; border-radius:6px;">ВКЛ</span>`
-            : `<span style="background: rgba(255,59,48,0.2); color: var(--danger-color); font-size:10px; padding:2px 6px; border-radius:6px;">ОТКЛ</span>`;
+        const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
 
-        // 1. Кнопка Уведомлений
-        const notifyCard = document.createElement('div');
-        notifyCard.className = 'settings-card';
-        notifyCard.innerHTML = `
-            <div class="settings-card-info">
-                <p><i class="fa-solid fa-bell" style="color: #ff9f0a;"></i> Уведомления ${badgeHTML}</p>
-                <span>Настроить оповещения</span>
-            </div>
-            <i class="fa-solid fa-chevron-right card-arrow"></i>
-        `;
+        // Уведомления
+        const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
+        notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
         notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
         dom.settingsList.appendChild(notifyCard);
 
-        // 2. Steam
-        const steamCard = document.createElement('div');
-        steamCard.className = 'settings-card';
+        // Steam
+        const steamCard = document.createElement('div'); steamCard.className = 'settings-card';
         const hasTradeLink = !!userData.trade_link;
-        steamCard.innerHTML = `
-            <div class="settings-card-info">
-                <p><i class="fa-brands fa-steam" style="color: #66c0f4;"></i> Steam Trade</p>
-                <span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span>
-            </div>
-            <button id="edit-trade-link-btn" class="settings-card-btn">
-                ${hasTradeLink ? 'Изменить' : 'Привязать'}
-            </button>
-        `;
+        steamCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-steam" style="color:#66c0f4;"></i> Steam Trade</p><span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span></div><button id="edit-trade-link-btn" class="settings-card-btn">${hasTradeLink ? 'Изменить' : 'Привязать'}</button>`;
         dom.settingsList.appendChild(steamCard);
 
-        const twitchCard = document.createElement('div');
-        twitchCard.className = 'settings-card';
+        // Twitch
+        const twitchCard = document.createElement('div'); twitchCard.className = 'settings-card';
         if (userData.twitch_login) {
-            twitchCard.innerHTML = `
-                <div class="settings-card-info">
-                    <p><i class="fa-brands fa-twitch" style="color: #9146ff;"></i> Twitch</p>
-                    <span>Привязан как: <b>${userData.twitch_login}</b></span>
-                </div>
-                <button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>
-            `;
+            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
         } else {
             const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
-            twitchCard.innerHTML = `
-                <div class="settings-card-info">
-                     <p><i class="fa-brands fa-twitch" style="color: #9146ff;"></i> Twitch</p>
-                    <span>Привяжите аккаунт</span>
-                </div>
-                <a href="${authUrl}" class="settings-card-btn twitch">Привязать</a>
-            `;
+            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span></div><a href="${authUrl}" class="settings-card-btn twitch">Привязать</a>`;
         }
         dom.settingsList.appendChild(twitchCard);
 
-        // --- 👇 ВОТ СЮДА ВСТАВЛЯЕМ РЕФЕРАЛКУ 👇 ---
-
-        // 4. Реферальная программа
-        const refCard = document.createElement('div');
-        refCard.className = 'settings-card ref-card-gradient';
-        
+        // Рефералка
+        const refCard = document.createElement('div'); refCard.className = 'settings-card ref-card-gradient';
         const activeRefs = userData.active_referrals_count || 0; 
-        
-        refCard.innerHTML = `
-            <div class="settings-card-info">
-                <p><i class="fa-solid fa-user-group" style="color: #34c759;"></i> Рефералка</p>
-                <span>Друзей: <b>${activeRefs}</b> (Бонус: +${(activeRefs * 0.1).toFixed(1)}x)</span>
-            </div>
-            <i class="fa-solid fa-chevron-right card-arrow"></i>
-        `;
+        refCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Рефералка</p><span>Друзей: <b>${activeRefs}</b> (Бонус: +${(activeRefs * 0.1).toFixed(1)}x)</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
         refCard.onclick = () => openRefModal(userData);
         dom.settingsList.appendChild(refCard);
-        
-        // Вызов проверки приветствия (для Миши)
-        checkWelcomeBonus(userData); 
     }
-    // --- ЛОГИКА УВЕДОМЛЕНИЙ (С ПАКЕТНОЙ ОТПРАВКОЙ) ---
+
+    // --- REFERRAL LOGIC ---
+    function openRefModal(userData) {
+        let refPayload = userData.telegram_id;
+        if (userData.bott_ref_id) refPayload = `r_${userData.bott_ref_id}`;
+        else if (userData.bott_internal_id) refPayload = `r_${userData.bott_internal_id}`;
+
+        const link = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+        dom.refLinkInput.value = link;
+        
+        const count = userData.active_referrals_count || 0;
+        dom.refCountDisplay.textContent = count;
+        dom.refBonusDisplay.textContent = '+' + (count * 0.1).toFixed(1) + 'x';
+        
+        dom.referralPopup.classList.add('visible');
+    }
+
+    // Handlers for Referral Buttons (USING SAFE LISTENER)
+    addSafeListener('close-ref-modal-btn', 'click', () => {
+        dom.referralPopup.classList.remove('visible');
+    });
+
+    addSafeListener('copy-ref-btn', 'click', () => {
+        navigator.clipboard.writeText(dom.refLinkInput.value);
+        tg.showAlert("Ссылка скопирована!");
+        const btn = document.getElementById('copy-ref-btn');
+        const icon = btn.querySelector('i');
+        if(icon) {
+            icon.className = 'fa-solid fa-check';
+            setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
+        }
+    });
+
+    addSafeListener('share-ref-link-btn', 'click', () => {
+        const link = dom.refLinkInput.value;
+        const text = "Залетай в HATElavka! Получи 10 монет и буст на старте 🚀";
+        const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+        tg.openTelegramLink(url);
+    });
+
+    // --- WELCOME LOGIC ---
+    async function checkWelcomeBonus(userData) {
+        if (userData.referrer_id && !userData.referral_activated_at) {
+            dom.welcomePopup.classList.add('visible');
+        } else {
+            // Если реферера нет, пробуем тихую синхронизацию на будущее
+            if (!userData.referrer_id) {
+                 fetch('/api/v1/user/referral/sync', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ initData: tg.initData })
+                 }).catch(e => console.log("Ref sync silent fail:", e));
+            }
+        }
+    }
+
+    addSafeListener('claim-welcome-btn', 'click', async () => {
+        if (!window.currentUserSettings || !window.currentUserSettings.twitch_id) {
+            const redirectUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
+            window.location.href = redirectUrl;
+            return;
+        }
+        try {
+            const res = await makeApiRequest('/api/v1/user/referral/activate');
+            tg.showAlert(res.message);
+            dom.welcomePopup.classList.remove('visible');
+            setTimeout(() => main(), 1000);
+        } catch (e) { tg.showAlert(e.message); }
+    });
+    
+    addSafeListener('close-welcome-btn', 'click', () => dom.welcomePopup.classList.remove('visible'));
+
+    // --- OTHER LOGIC (Rewards, Trade, etc) ---
+    function renderRewards(rewards) {
+        dom.rewardsList.innerHTML = '';
+        if (!rewards || rewards.length === 0) {
+            dom.rewardsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">У вас пока нет наград.</p>';
+            dom.deleteAllRewardsBtn.style.display = 'none';
+            return;
+        }
+        dom.deleteAllRewardsBtn.style.display = 'block';
+        rewards.forEach(r => {
+            const card = document.createElement('div'); card.className = 'reward-card';
+            const date = new Date(r.date).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            if (r.type === 'promocode') {
+                card.dataset.type = 'promocode'; card.dataset.code = r.data.code;
+                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description">${r.data.description || `Награда`} ⭐</p><div class="reward-card-code-wrapper"><input type="text" class="reward-card-code-input" value="${r.data.code}" readonly><button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button></div><p class="reward-card-meta">Получено: ${date}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
+            } else {
+                card.dataset.type = 'grant'; card.dataset.id = r.data.id;
+                const typeText = r.data.grant_type === 'tickets' ? 'билетов' : 'звёзд';
+                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description" style="font-weight:600;color:#fff;">Начислено: ${r.data.amount} ${typeText}</p><span style="font-size:12px;color:#aaa;">(Админ)</span><p class="reward-card-meta">Дата: ${date}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
+            }
+            dom.rewardsList.appendChild(card);
+        });
+    }
+
+    // --- Notifications Logic ---
     let batchTimeout;       
     let pendingUpdates = {}; 
 
@@ -810,116 +803,58 @@ try {
         dom.notifyOverlay.classList.add('visible');
         
         if (!isActive) {
-            // (Код для неактивного бота без изменений)
             dom.notifyContent.innerHTML = `
                 <div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div>
-                <p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений и наград нужно активировать нашего бота.</p>
-                <p style="text-align: center; font-size: 12px; color: var(--primary-color);">Это одноразовое действие.</p>
+                <p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений нужно активировать бота.</p>
                 <div style="display: flex; justify-content: center; margin-top: 20px;">
-                    <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: auto; min-width: 180px; padding: 10px 20px;">
-                        Перейти и нажать Старт
-                    </a>
-                </div>
-            `;
+                    <a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; text-align:center;">Перейти</a>
+                </div>`;
         } else {
-            // Если бот активен
             dom.notifyContent.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <span style="font-size:12px; color:var(--text-color-muted);">Настройки</span>
                     <span id="save-status" style="font-size:12px; color:var(--primary-color); opacity:0; transition:opacity 0.3s;">Сохранено</span>
                 </div>
                 <div class="notify-list">
-                    ${createToggle('notify_auction_start', 'Аукцион', 'Новые лоты и завершение', settings.notify_auction_start)}
-                    ${createToggle('notify_auction_outbid', 'Ставки', 'Если вашу ставку перебили', settings.notify_auction_outbid)}
+                    ${createToggle('notify_auction_start', 'Аукцион', 'Новые лоты', settings.notify_auction_start)}
+                    ${createToggle('notify_auction_outbid', 'Ставки', 'Если перебили', settings.notify_auction_outbid)}
                     ${createToggle('notify_rewards', 'Награды', 'Коды и билеты', settings.notify_rewards)}
                     ${createToggle('notify_stream_start', 'Трансляция', 'Начало стрима', settings.notify_stream_start)}
-                    ${createToggle('notify_daily_grind', 'Монетка', 'Гринд-награда', settings.notify_daily_grind)}
-                    ${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука с 23:00 до 08:00', settings.notify_dnd_enabled)}
-                </div>
-            `;
+                    ${createToggle('notify_daily_grind', 'Монетка', 'Гринд', settings.notify_daily_grind)}
+                    ${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука (23-08)', settings.notify_dnd_enabled)}
+                </div>`;
 
             const statusEl = document.getElementById('save-status');
-            const closeBtn = document.getElementById('notify-close-btn'); // Ссылка на кнопку закрытия
-
-            // ЛОГИКА ПАКЕТНОЙ ОТПРАВКИ
             document.querySelectorAll('.toggle-input').forEach(input => {
                 input.addEventListener('change', (e) => {
                     const key = e.target.dataset.key;
                     const value = e.target.checked;
-                    
-                    // 1. Визуальная индикация "Ждем..."
-                    statusEl.textContent = 'Ожидание...';
-                    statusEl.style.color = '#8e8e93'; // Серый
-                    statusEl.style.opacity = '1';
-
-                    // 2. Добавляем в очередь
+                    statusEl.textContent = 'Ожидание...'; statusEl.style.opacity = '1';
                     pendingUpdates[key] = value;
-
-                    // 3. Сбрасываем старый таймер
                     if (batchTimeout) clearTimeout(batchTimeout);
-
-                    // 4. Заводим таймер (1 секунда)
                     batchTimeout = setTimeout(async () => {
-                        // --- БЛОКИРУЕМ ИНТЕРФЕЙС ПЕРЕД ОТПРАВКОЙ ---
-                        statusEl.textContent = 'Сохранение...';
-                        statusEl.style.color = '#ffcc00'; // Желтый
-                        
-                        // Блокируем кнопку закрытия
-                        if(closeBtn) {
-                            closeBtn.disabled = true;
-                            closeBtn.textContent = 'Сохраняем...';
-                        }
-                        
-                        // Блокируем все тумблеры
-                        const allInputs = document.querySelectorAll('.toggle-input');
-                        allInputs.forEach(el => el.disabled = true);
-
                         try {
-                            // Отправляем запрос
                             await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates });
-                            
-                            // Очищаем очередь
                             pendingUpdates = {}; 
-                            
-                            // Успех
                             statusEl.textContent = 'Сохранено';
-                            statusEl.style.color = 'var(--primary-color)';
                             setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
-                            
                         } catch (err) {
-                            // Ошибка
                             statusEl.textContent = 'Ошибка!';
-                            statusEl.style.color = 'var(--danger-color)';
-                            // Визуально возвращаем тумблер (только последний), если ошибка
                             e.target.checked = !value; 
-                        } finally {
-                            // --- РАЗБЛОКИРУЕМ ИНТЕРФЕЙС ---
-                            if(closeBtn) {
-                                closeBtn.disabled = false;
-                                closeBtn.textContent = 'Закрыть';
-                            }
-                            allInputs.forEach(el => el.disabled = false);
                         }
                     }, 1000); 
                 });
             });
 
-            // Кнопки тестов (оставляем как есть)
             document.querySelectorAll('.test-text-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const type = e.currentTarget.dataset.type;
-                    const original = e.currentTarget.innerText;
                     e.currentTarget.innerText = '...';
                     try {
                         await makeApiRequest('/api/v1/user/notification/test', { type: type });
                         e.currentTarget.innerText = 'Ок';
-                        e.currentTarget.style.color = 'var(--primary-color)';
-                        setTimeout(() => { e.currentTarget.innerText = original; e.currentTarget.style.color = ''; }, 2000);
-                    } catch(err) {
-                        e.currentTarget.innerText = 'Err';
-                        e.currentTarget.style.color = 'var(--danger-color)';
-                        setTimeout(() => { e.currentTarget.innerText = original; e.currentTarget.style.color = ''; }, 2000);
-                    }
+                    } catch(err) { e.currentTarget.innerText = 'Err'; }
+                    setTimeout(() => { btn.innerText = 'Тест'; }, 2000);
                 });
             });
         }
@@ -929,187 +864,52 @@ try {
         const isChecked = checked ?? (key !== 'notify_dnd_enabled');
         return `
             <div class="notify-item">
-                <div class="notify-item-left">
-                    <span class="notify-label">${title}</span>
-                    <span class="notify-sub">${sub}</span>
-                </div>
-                <div class="notify-item-right">
-                    <label class="toggle-switch">
-                        <input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                    <button class="test-text-btn" data-type="${key}">📩 Тест</button>
-                </div>
-            </div>
-        `;
+                <div class="notify-item-left"><span class="notify-label">${title}</span><span class="notify-sub">${sub}</span></div>
+                <div class="notify-item-right"><label class="toggle-switch"><input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label><button class="test-text-btn" data-type="${key}">📩 Тест</button></div>
+            </div>`;
     }
 
-    function renderRewards(rewards) {
-        dom.rewardsList.innerHTML = '';
-        if (!rewards || rewards.length === 0) {
-            dom.rewardsList.innerHTML = '<p style="text-align: center; color: var(--text-color-muted);">У вас пока нет наград.</p>';
-            dom.deleteAllRewardsBtn.style.display = 'none';
-            return;
-        }
-        dom.deleteAllRewardsBtn.style.display = 'block';
-
-        rewards.forEach(r => {
-            const card = document.createElement('div'); card.className = 'reward-card';
-            const date = new Date(r.date).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' в');
-            
-            if (r.type === 'promocode') {
-                card.dataset.type = 'promocode'; card.dataset.code = r.data.code;
-                const isNew = (Date.now() - new Date(r.date).getTime()) < 86400000 ? '<span style="background:var(--primary-color);color:white;font-size:10px;padding:2px 6px;border-radius:5px;margin-left:5px;">NEW</span>' : '';
-                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description">${r.data.description || `Награда на ${r.data.reward_value} звёзд`} ⭐ ${isNew}</p><div class="reward-card-code-wrapper"><input type="text" class="reward-card-code-input" value="${r.data.code}" readonly><button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button></div><button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif"><i class="fa-solid fa-circle-question"></i> Где использовать?</button><p class="reward-card-meta">Получено: ${date}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
-            } else {
-                card.dataset.type = 'grant'; card.dataset.id = r.data.id;
-                const icon = r.data.grant_type === 'tickets' ? 'fa-ticket' : 'fa-star';
-                const typeText = r.data.grant_type === 'tickets' ? 'билетов' : 'звёзд';
-                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description" style="font-weight:600;color:var(--text-color);"><i class="fa-solid ${icon}" style="color:var(--primary-color);margin-right:8px;"></i> Начислено: ${r.data.amount} ${typeText}</p><span style="font-size:12px;color:var(--text-color-muted);">(Выдача администратором)</span><p class="reward-card-meta" style="margin-top:10px;">Дата: ${date}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
-            }
-            dom.rewardsList.appendChild(card);
-        });
-    }
-
-    // --- Events ---
-    dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
-    dom.notifyOverlay.onclick = (e) => { if(e.target === dom.notifyOverlay) dom.notifyOverlay.classList.remove('visible'); };
-    
-    // 👇👇👇 ВСТАВИЛИ СЮДА 👇👇👇
-    dom.deleteAllRewardsBtn.addEventListener('click', () => {
-        showCustomConfirmHTML("Вы уверены, что хотите удалить ВСЕ свои промокоды и записи о наградах?", async (close) => {
-            try {
-                await makeApiRequest('/api/v1/user/promocodes/delete-all');
-                await makeApiRequest('/api/v1/user/grants/delete-all'); 
-                renderRewards([]);
-                close();
-                tg.showAlert('История наград очищена.');
-            } catch (e) {
-                close();
-                tg.showAlert('Ошибка при удалении.');
-            }
-        });
-    });
-    // 👆👆👆 ВСТАВИЛИ СЮДА 👆👆👆
-
-    
-    
-    // Copy/Delete/Popup Logic
+    // Global Listeners
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
-        // Edit Trade Link
-        if (target.closest('#edit-trade-link-btn')) { showTradeLinkPopup(document.getElementById('trade-link-display').textContent); return; }
-        // Unlink Twitch
+        if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
         if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); return; }
-        // Copy Code
+        
         const copyBtn = target.closest('.reward-card-copy-btn');
         if (copyBtn) {
             navigator.clipboard.writeText(copyBtn.parentElement.querySelector('input').value);
-            const i = copyBtn.querySelector('i'); i.className = 'fa-solid fa-check'; copyBtn.style.background = 'var(--primary-color)';
-            setTimeout(() => { i.className = 'fa-regular fa-copy'; copyBtn.style.background = ''; }, 2000); return;
+            tg.HapticFeedback.notificationOccurred('success');
+            return;
         }
-        // Delete Reward
         const delBtn = target.closest('.reward-card-delete-btn');
         if (delBtn) {
             const card = delBtn.closest('.reward-card');
             const action = card.dataset.type === 'promocode' ? 
                 () => makeApiRequest('/api/v1/user/promocodes/delete', {code:card.dataset.code}) : 
                 () => makeApiRequest('/api/v1/user/grants/delete', {id:parseInt(card.dataset.id)});
-            showCustomConfirmHTML("Удалить награду?", async (c)=>{ await action(); removeCardFromDom(card); c(); }); return;
+            showCustomConfirmHTML("Удалить награду?", async (c)=>{ await action(); card.remove(); c(); }); return;
         }
-        // How to use
         const howToBtn = target.closest('.reward-how-to-use-btn');
         if (howToBtn) { document.getElementById('how-to-use-gif').src = howToBtn.dataset.gif; document.getElementById('how-to-use-popup').classList.add('visible'); return; }
     });
 
-    function showTradeLinkPopup(v) { dom.popupTradeLinkInput.value = (v && v.includes('http')) ? v : ''; dom.customPopupOverlay.classList.add('visible'); }
     dom.popupCancelBtn.onclick = () => dom.customPopupOverlay.classList.remove('visible');
     dom.popupSaveBtn.onclick = async () => {
         const v = dom.popupTradeLinkInput.value.trim();
-        if(!v.includes('steamcommunity')) { tg.showAlert('Некорректная ссылка'); return; }
         dom.customPopupOverlay.classList.remove('visible');
         await makeApiRequest('/api/v1/user/trade_link/save', {trade_link:v});
         main();
     };
+    dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
     document.getElementById('how-to-use-close').onclick = () => document.getElementById('how-to-use-popup').classList.remove('visible');
     
-    function removeCardFromDom(card) { card.style.opacity='0'; setTimeout(()=>card.remove(),300); }
-
-    // --- ФУНКЦИИ РЕФЕРАЛЬНОЙ СИСТЕМЫ ---
-
-    function openRefModal(userData) {
-        let refPayload = userData.telegram_id; // Запасной вариант (если ID нет)
-
-        // 1. Ищем ПРАВИЛЬНЫЙ ID (bott_ref_id), который мы сохранили из Bot-T
-        if (userData.bott_ref_id) {
-            refPayload = `r_${userData.bott_ref_id}`; // Пример: r_23662302
-        } 
-        // Если вдруг его нет, но есть внутренний (на всякий случай)
-        else if (userData.bott_internal_id) {
-            refPayload = `r_${userData.bott_internal_id}`;
-        }
-
-        // 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Формируем прямую ссылку на приложение (Direct Link)
-        // t.me/BOT_NAME/SHORT_NAME?startapp=PARAM
-        const link = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
-        
-        document.getElementById('ref-link-input').value = link;
-        
-        // Обновляем статистику в попапе
-        const count = userData.active_referrals_count || 0;
-        document.getElementById('ref-count-display').textContent = count;
-        document.getElementById('ref-bonus-display').textContent = '+' + (count * 0.1).toFixed(1) + 'x';
-        
-        document.getElementById('referral-popup').classList.add('visible');
-    }
-
-    // --- ЛОГИКА ПРИВЕТСТВИЯ (ONBOARDING) ---
-
-    async function checkWelcomeBonus(userData) {
-        // Логика: Если у юзера есть referrer_id, НО нет referral_activated_at -> Показываем попап
-        if (userData.referrer_id && !userData.referral_activated_at) {
-            document.getElementById('welcome-popup').classList.add('visible');
-        } else {
-            // Если реферера в базе нет, пробуем синхронизироваться с Bot-t (один раз)
-            if (!userData.referrer_id) {
-                 try {
-                     // Делаем тихий запрос на синхронизацию
-                     await makeApiRequest('/api/v1/user/referral/sync');
-                     // Если нашелся реферер, при следующем заходе (или обновлении) появится попап
-                 } catch(e) {
-                     console.log("Sync skipped or failed", e);
-                 }
-            }
-        }
-    }
-
-    // Кнопка "Проверить и Забрать" (Миша)
-    document.getElementById('claim-welcome-btn').onclick = async () => {
-        // Проверяем наличие Twitch ID в глобальном объекте настроек
-        if (!window.currentUserSettings || !window.currentUserSettings.twitch_id) {
-            // Если Twitch не привязан -> отправляем на авторизацию
-            const redirectUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
-            window.location.href = redirectUrl;
-            return;
-        }
-
-        try {
-            // Если Twitch есть, пробуем активировать бонус
-            const res = await makeApiRequest('/api/v1/user/referral/activate');
-            tg.showAlert(res.message);
-            document.getElementById('welcome-popup').classList.remove('visible');
-            
-            // Перезагружаем данные профиля, чтобы обновить баланс
-            setTimeout(() => main(), 1000);
-        } catch (e) {
-            // Ошибки (например, "Уже получено" или "Нет реферера")
-            tg.showAlert(e.message);
-        }
-    };
-
-    // Кнопка "Позже" в приветствии
-    document.getElementById('close-welcome-btn').onclick = () => {
-        document.getElementById('welcome-popup').classList.remove('visible');
+    dom.deleteAllRewardsBtn.onclick = () => {
+        showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
+             await makeApiRequest('/api/v1/user/promocodes/delete-all');
+             await makeApiRequest('/api/v1/user/grants/delete-all');
+             renderRewards([]);
+             c();
+        });
     };
 
     document.addEventListener("DOMContentLoaded", () => { tg.ready(); tg.expand(); main(); });
