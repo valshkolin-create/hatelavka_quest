@@ -3180,77 +3180,60 @@ async def get_current_user_data(request_data: InitDataRequest):
     telegram_id = user_info["id"]
 
     try:
-        # 1. Основные данные профиля (RPC)
-        # Используем execute() без await, так как глобальный клиент синхронный (судя по ошибке SyncRequestBuilder)
-        response = supabase.rpc(
-            "get_user_dashboard_data",
-            {"p_telegram_id": telegram_id}
-        ).execute()
-        
+        # 1. Основные данные (RPC)
+        response = supabase.rpc("get_user_dashboard_data", {"p_telegram_id": telegram_id}).execute()
         data = response.data 
 
-        # Если профиль не создан, создаем
         if not data or not data.get('profile'):
+            # Создаем юзера, если нет
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
             supabase.table("users").insert(
                  {"telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg},
                  returning='minimal'
             ).execute()
-            
-            # Повторный запрос
             response = supabase.rpc("get_user_dashboard_data", {"p_telegram_id": telegram_id}).execute()
             data = response.data
 
-        if not data:
-             raise HTTPException(status_code=500, detail="Не удалось получить данные профиля.")
+        if not data: raise HTTPException(status_code=500, detail="Profile error")
 
         final_response = data.get('profile', {})
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
         final_response['is_admin'] = telegram_id in ADMIN_IDS
 
-        # =================================================================
-        # 🔥 ФИКС: СЧИТАЕМ РЕФЕРАЛОВ ВРУЧНУЮ (ИСПРАВЛЕНО) 🔥
-        # =================================================================
+        # --- 🔥 ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ ДЛЯ БОНУСОВ 🔥 ---
         try:
-            # Мы убрали head=True, так как он вызывал ошибку.
-            # Используем только count="exact".
-            count_resp = supabase.table("users") \
-                .select("telegram_id", count="exact") \
-                .eq("referrer_id", telegram_id) \
+            # Запрашиваем кол-во рефералов И дату активации бонуса
+            user_extra = supabase.table("users") \
+                .select("referral_activated_at, bott_internal_id, bott_ref_id") \
+                .eq("telegram_id", telegram_id) \
                 .execute()
             
-            # Берем количество из ответа (count)
-            referral_count = count_resp.count
-            
-            # Записываем в ответ
-            final_response['active_referrals_count'] = referral_count if referral_count is not None else 0
+            if user_extra.data:
+                final_response['referral_activated_at'] = user_extra.data[0].get('referral_activated_at')
+                final_response['bott_internal_id'] = user_extra.data[0].get('bott_internal_id')
+                final_response['bott_ref_id'] = user_extra.data[0].get('bott_ref_id')
+
+            # Считаем количество приглашенных
+            count_resp = supabase.table("users") \
+                .select("telegram_id", count="exact", head=True) \
+                .eq("referrer_id", telegram_id) \
+                .execute()
+            final_response['active_referrals_count'] = count_resp.count or 0
             
         except Exception as e:
-            logging.warning(f"Error counting referrals: {e}")
+            logging.warning(f"Error fetching extra bonus data: {e}")
             final_response['active_referrals_count'] = 0
-        # =================================================================
+        # ------------------------------------------------
 
-        # Догружаем настройки (асинхронно, так как httpx)
+        # Настройки
         admin_settings = await get_admin_settings_async_global()
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
         final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
         
-        # Статус стрима
+        # Стрим
         stream_status_resp = supabase.table("settings").select("value").eq("key", "twitch_stream_status").execute()
-        is_stream_online = False
-        if stream_status_resp.data:
-            is_stream_online = stream_status_resp.data[0].get('value', False)
-        final_response['is_stream_online'] = is_stream_online
-
-        # Подгрузка ID для рефералки (если нет)
-        if final_response.get('bott_ref_id') is None:
-             try:
-                u_extra = supabase.table("users").select("bott_internal_id, bott_ref_id").eq("telegram_id", telegram_id).execute()
-                if u_extra.data:
-                    final_response['bott_internal_id'] = u_extra.data[0].get('bott_internal_id')
-                    final_response['bott_ref_id'] = u_extra.data[0].get('bott_ref_id')
-             except: pass
+        final_response['is_stream_online'] = stream_status_resp.data[0].get('value', False) if stream_status_resp.data else False
 
         return JSONResponse(content=final_response)
 
