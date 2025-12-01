@@ -3214,9 +3214,9 @@ async def get_current_user_data(request_data: InitDataRequest):
                 final_response['bott_internal_id'] = user_extra.data[0].get('bott_internal_id')
                 final_response['bott_ref_id'] = user_extra.data[0].get('bott_ref_id')
 
-            # Считаем количество приглашенных
+            # Считаем количество приглашенных (ИСПРАВЛЕНО)
             count_resp = supabase.table("users") \
-                .select("telegram_id", count="exact", head=True) \
+                .select("telegram_id", count="exact") \
                 .eq("referrer_id", telegram_id) \
                 .execute()
             final_response['active_referrals_count'] = count_resp.count or 0
