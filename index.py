@@ -3219,8 +3219,9 @@ async def get_current_user_data(request_data: InitDataRequest):
             count_resp = supabase.table("users") \
                 .select("telegram_id", count="exact") \
                 .eq("referrer_id", telegram_id) \
-                .neq("referral_activated_at", "null") \
+                .not_.is_("referral_activated_at", "null") \
                 .execute()
+            
             final_response['active_referrals_count'] = count_resp.count or 0
             
         except Exception as e:
