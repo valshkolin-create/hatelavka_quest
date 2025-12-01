@@ -1291,46 +1291,53 @@ function showTopBonusNotification(userData) {
 // Функция открытия и управления попапом
 function openWelcomePopup(userData) {
     const popup = document.getElementById('welcome-popup');
-    const iconTwitch = document.getElementById('icon-twitch');
-    const iconTg = document.getElementById('icon-tg');
+    if (!popup) return;
+
     const stepTwitch = document.getElementById('step-twitch');
     const stepTg = document.getElementById('step-tg');
+    const iconTwitch = document.getElementById('icon-twitch');
+    const iconTg = document.getElementById('icon-tg');
     const actionBtn = document.getElementById('action-btn');
-    const subLinkBtn = document.getElementById('sub-link-btn');
 
-    if (!popup) return; // Защита, если HTML не добавлен
+    // 1. Настраиваем клики по плашкам
+    
+    // Клик по Twitch -> Авторизация
+    stepTwitch.onclick = () => {
+        // Если уже привязан, просто радуем глаз, иначе ведем на авторизацию
+        if (!userData.twitch_id) {
+            const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
+            window.location.href = authUrl;
+        } else {
+            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
+    };
+
+    // Клик по Telegram -> Канал
+    stepTg.onclick = () => {
+        Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv');
+    };
 
     popup.classList.add('visible');
 
-    // --- 1. Мгновенная визуальная проверка (Локально) ---
+    // 2. Визуальная проверка при открытии (Только Twitch, т.к. он в userData)
     let twitchReady = false;
-    
-    // Проверка Twitch по данным профиля
     if (userData.twitch_id) {
         twitchReady = true;
         markStepDone(stepTwitch, iconTwitch);
     } else {
         markStepPending(stepTwitch, iconTwitch);
     }
-
-    // Telegram пока не знаем (надо проверять через бэкенд)
+    
+    // Telegram пока нейтральный
     markStepPending(stepTg, iconTg);
 
-    // --- 2. Авто-проверка на сервере (Попытка активации) ---
+    // 3. Логика кнопки "Проверить"
     const attemptActivation = async () => {
         actionBtn.disabled = true;
         actionBtn.textContent = "Проверка...";
 
         try {
-            // Если Twitch нет, просим привязать
-            if (!twitchReady) {
-                actionBtn.textContent = "Привязать Twitch";
-                actionBtn.onclick = () => { window.location.href = '/profile'; };
-                actionBtn.disabled = false;
-                return; 
-            }
-
-            // Отправляем запрос на активацию
+            // Делаем запрос
             const response = await fetch('/api/v1/user/referral/activate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1340,17 +1347,17 @@ function openWelcomePopup(userData) {
             const res = await response.json();
 
             if (response.ok) {
-                // УСПЕХ!
-                markStepDone(stepTg, iconTg); // Значит подписка есть
-                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                // --- УСПЕХ (Оба условия выполнены) ---
+                markStepDone(stepTwitch, iconTwitch); // На всякий случай
+                markStepDone(stepTg, iconTg);
                 
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 actionBtn.textContent = "Успешно!";
                 actionBtn.style.background = "#34c759";
-
-                // 👇 ДОБАВИТЬ ЭТУ СТРОКУ 👇
-                document.getElementById('open-bonus-btn')?.classList.add('hidden'); 
-                // 👆 Скрываем кнопку в меню, так как бонус получен
                 
+                // Прячем кнопку "Бонус" в меню
+                document.getElementById('open-bonus-btn')?.classList.add('hidden');
+
                 setTimeout(() => {
                     popup.classList.remove('visible');
                     Telegram.WebApp.showPopup({
@@ -1358,25 +1365,29 @@ function openWelcomePopup(userData) {
                         message: '🎁 Награда получена!\n+10 Монет\nVIP статус активирован',
                         buttons: [{type: 'ok'}]
                     });
-                    // Обновляем баланс на экране, если он изменился
-                    main(); 
+                    main(); // Обновляем баланс
                 }, 1000);
 
             } else {
-                // ОШИБКА (Чего-то не хватает)
+                // --- ОШИБКА (Какое-то условие не выполнено) ---
                 actionBtn.disabled = false;
                 actionBtn.textContent = "Проверить снова";
+                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
                 
                 const msg = res.detail || "";
                 
+                // Анализируем текст ошибки от Python
                 if (msg.includes("канал") || msg.includes("подпишитесь")) {
-                    // Нет подписки
-                    markStepDone(stepTwitch, iconTwitch); 
-                    markStepError(stepTg, iconTg);
-                    subLinkBtn.style.display = "block"; // Показываем кнопку подписки
-                    Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                } else if (msg.includes("Twitch")) {
+                    // Значит Twitch прошел проверку (иначе код упал бы раньше), а ТГ нет
+                    markStepDone(stepTwitch, iconTwitch);
+                    markStepError(stepTg, iconTg); // Красим ТГ в красный
+                    
+                } else if (msg.includes("Twitch") || msg.includes("привяжите")) {
+                    // Ошибка на этапе Twitch
                     markStepError(stepTwitch, iconTwitch);
+                    // ТГ сбрасываем в нейтральный, так как до него не дошли
+                    markStepPending(stepTg, iconTg);
+                    
                 } else {
                     Telegram.WebApp.showAlert(msg);
                 }
@@ -1388,13 +1399,28 @@ function openWelcomePopup(userData) {
         }
     };
 
-    // Вешаем обработчик на кнопку (для ручной проверки)
     actionBtn.onclick = attemptActivation;
+}
 
-    // --- 3. ЗАПУСКАЕМ АВТО-ПРОВЕРКУ СРАЗУ ---
-    if (twitchReady) {
-        attemptActivation();
+// Вспомогательные функции стилей (Обновил цвета рамок)
+function markStepDone(el, icon) {
+    if(el) { el.style.borderColor = "#34c759"; el.style.background = "rgba(52, 199, 89, 0.1)"; }
+    if(icon) { icon.className = "fa-solid fa-circle-check"; icon.style.color = "#34c759"; }
+}
+
+function markStepError(el, icon) {
+    if(el) el.style.borderColor = "#ff3b30";
+    if(icon) { icon.className = "fa-solid fa-circle-xmark"; icon.style.color = "#ff3b30"; }
+}
+
+function markStepPending(el, icon) {
+    // Возвращаем дефолтные цвета (Twitch фиолетовый, ТГ синий)
+    if(el) { 
+        el.style.borderColor = "transparent"; 
+        if(el.id === 'step-twitch') el.style.background = "rgba(145, 70, 255, 0.15)";
+        if(el.id === 'step-tg') el.style.background = "rgba(0, 136, 204, 0.15)";
     }
+    if(icon) { icon.className = "fa-regular fa-circle"; icon.style.color = "#aaa"; }
 }
 
 // Вспомогательные функции стилей
