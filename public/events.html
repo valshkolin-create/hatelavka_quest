@@ -473,51 +473,53 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function calculateBoosts() {
+        // Базовая награда за серию (0.1 ... 1.0)
         let baseReward = (userState.streakDays * 0.1);
         if (baseReward > 1.0) baseReward = 1.0;
         
-        let multiplier = 1.0;
+        let totalBonus = 0;
         let boostsHTML = "";
         
         // 1. Буст от друзей (+0.1 за каждого)
         if (userState.active_referrals_count > 0) {
             const refBoost = userState.active_referrals_count * 0.1;
-            multiplier += refBoost;
-            boostsHTML += `<div class="boost-row"><span>🚀 Друзья (${userState.active_referrals_count}):</span><span>+${refBoost.toFixed(1)}x</span></div>`;
+            totalBonus += refBoost;
+            boostsHTML += `<div class="boost-row"><span>🚀 Друзья (${userState.active_referrals_count}):</span><span class="boost-active">+${refBoost.toFixed(1)}</span></div>`;
         }
         
-        // 2. VIP статус новичка (7 дней)
+        // 2. VIP статус новичка (+0.2)
         if (userState.referral_activated_at) {
             const activatedTime = new Date(userState.referral_activated_at).getTime();
             const now = new Date().getTime();
             const sevenDays = 7 * 24 * 60 * 60 * 1000;
             
             if ((now - activatedTime) < sevenDays) {
-                multiplier += 0.2;
-                boostsHTML += `<div class="boost-row"><span>⚡ VIP Новичок:</span><span>+0.2x</span></div>`;
+                totalBonus += 0.2;
+                boostsHTML += `<div class="boost-row"><span class="boost-vip">⚡ VIP Новичок:</span><span class="boost-vip">+0.2</span></div>`;
             }
         }
         
-        return { multiplier, boostsHTML, baseReward };
-    }
-
-    function isVipActive() {
-        if (!userState.referral_activated_at) return false;
-        const activatedTime = new Date(userState.referral_activated_at).getTime();
-        const now = new Date().getTime();
-        return (now - activatedTime) < (7 * 24 * 60 * 60 * 1000);
+        return { totalBonus, boostsHTML, baseReward };
     }
 
     function updateUI() {
+        // Отображаем баланс с 1 знаком после запятой
         dom.coinsDisplay.textContent = userState.coins.toFixed(1);
         dom.ticketsDisplay.textContent = userState.tickets;
         dom.streakDayDisplay.textContent = userState.streakDays;
         
-        // Расчет награды с учетом бустов
-        const { multiplier, boostsHTML, baseReward } = calculateBoosts();
-        const totalReward = (baseReward * multiplier).toFixed(2);
+        // Расчет: База + Бонусы
+        const { totalBonus, boostsHTML, baseReward } = calculateBoosts();
+        const totalReward = (baseReward + totalBonus).toFixed(1); // <-- ВАЖНО: toFixed(1)
         
-        dom.todayRewardDisplay.textContent = `+${totalReward} (${multiplier.toFixed(1)}x)`;
+        // Если бонусов нет, просто показываем награду
+        if (totalBonus > 0) {
+            dom.todayRewardDisplay.textContent = `+${totalReward} (с бонусом)`;
+            dom.todayRewardDisplay.style.color = "#FFD700"; // Золотой цвет, если есть бонус
+        } else {
+            dom.todayRewardDisplay.textContent = `+${totalReward}`;
+            dom.todayRewardDisplay.style.color = "#fff";
+        }
         
         if (boostsHTML) {
             dom.boostContainer.innerHTML = boostsHTML;
@@ -526,6 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.boostContainer.style.display = 'none';
         }
 
+        // ... (код таймера остается прежним) ...
         const now = new Date().getTime();
         const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
         const diff = now - last;
@@ -541,13 +544,12 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
         
-        // Обновление подписи к билету (VIP)
         if (isVipActive()) {
             dom.ticketSubtitle.textContent = "VIP: +2 билета / 24ч";
             dom.ticketSubtitle.style.color = "#FFD700";
         }
     }
-
+  
     function renderStreakVisuals() {
         dom.streakSteps.innerHTML = '';
         let percent = ((userState.streakDays - 1) / (MAX_STREAK - 1)) * 100;
