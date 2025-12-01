@@ -5307,31 +5307,48 @@ async def activate_referral_bonus(
     if not user_info: raise HTTPException(status_code=401)
     user_id = user_info["id"]
 
-    # 1. Получаем данные юзера
+    # 1. Получаем данные
     u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id, twitch_id, referral_activated_at"})
     user = u_resp.json()[0]
 
-    # 2. Проверки
-    if not user.get("referrer_id"):
-        raise HTTPException(status_code=400, detail="Вас никто не приглашал 😢")
-    
+    # Если уже активировал
     if user.get("referral_activated_at"):
-        raise HTTPException(status_code=400, detail="Вы уже забрали бонус!")
+        return {"message": "Бонус уже активирован ранее!", "already_done": True}
 
+    # Если нет реферала (пришел не по ссылке), но пытается нажать кнопку
+    if not user.get("referrer_id"):
+        raise HTTPException(status_code=400, detail="У вас нет пригласителя.")
+
+    # 2. Проверка TWITCH
     if not user.get("twitch_id"):
-        raise HTTPException(status_code=400, detail="Сначала привяжите Twitch в настройках!")
+        raise HTTPException(status_code=400, detail="Сначала привяжите Twitch аккаунт!")
 
-    # 3. Выдаем награду (10 монет) и ставим дату активации
+    # 3. Проверка ПОДПИСКИ НА КАНАЛ
+    try:
+        temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        # ВАЖНО: Замени @YOUR_CHANNEL на свой канал (и добавь бота туда админом)
+        chat_member = await temp_bot.get_chat_member(chat_id="@YOUR_CHANNEL", user_id=user_id)
+        await temp_bot.session.close()
+
+        if chat_member.status in ['left', 'kicked', 'restricted']:
+             raise HTTPException(status_code=400, detail="Сначала подпишитесь на наш канал!")
+    except Exception as e:
+        logging.error(f"Sub check error: {e}")
+        # Если не смогли проверить (ошибка сети/бота), лучше не блокировать, или выдать ошибку
+        raise HTTPException(status_code=400, detail="Не удалось проверить подписку. Убедитесь, что вы подписаны.")
+
+    # 4. Выдача награды
+    # +10 монет
     await supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": 10})
     
-    # Ставим дату активации (от неё пойдет отсчет недели бонусов)
+    # Ставим дату активации
     await supabase.patch(
         "/users",
         params={"telegram_id": f"eq.{user_id}"},
         json={"referral_activated_at": datetime.now(timezone.utc).isoformat()}
     )
 
-    return {"message": "Бонус получен! +10 монет и буст на неделю активированы."}
+    return {"message": "Успех! +10 монет и VIP-статус получены.", "success": True}
     
 # --- Пользовательские эндпоинты ---
 @app.post("/api/v1/user/challenge/available")
