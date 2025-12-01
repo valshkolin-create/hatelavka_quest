@@ -206,7 +206,66 @@
     @keyframes questChosen { to { transform: scale(0.1) translateY(-100px); opacity: 0; } }
     @keyframes fadeOut { to { opacity: 0; transform: scale(0.9); } }
     .twitch-update-notice { font-size: 10px; color: var(--text-color-muted); margin-top: 8px; padding: 4px; background-color: rgba(0,0,0,0.2); border-radius: 4px; }
-    .promo-notification { background-color: var(--primary-color); color: white; padding: 10px 15px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; animation: fadeInDown 0.5s ease-out; }
+    .promo-notification {
+    /* Золотой градиент */
+    background: linear-gradient(135deg, #FFD700 0%, #FDB931 50%, #FFD700 100%);
+    color: #1c1c1e; /* Темный текст для контраста с золотом */
+    padding: 12px 16px;
+    border-radius: 16px; /* Более скругленные углы */
+    margin: 10px 15px 15px; /* Отступы по бокам */
+    
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    font-size: 14px;
+    font-weight: 700; /* Жирный шрифт */
+    
+    /* Дорогая тень и свечение */
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: slideDownFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+/* Эффект блика (Shine) */
+.promo-notification::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shine 3s infinite;
+}
+
+.promo-notification.hidden {
+    display: none !important;
+}
+
+.promo-notification-close {
+    background: rgba(0,0,0,0.1);
+    border: none;
+    color: #1c1c1e;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+@keyframes slideDownFade {
+    from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
     @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
     .promo-notification-close { background: none; border: none; color: white; font-size: 18px; cursor: pointer; opacity: 0.7; }
     
