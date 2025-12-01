@@ -5298,6 +5298,8 @@ async def sync_referral_with_bott(
     return {"status": "no_ref"}
 
 # --- Эндпоинт 2: Активация бонуса (Миша нажимает кнопку) ---
+REQUIRED_CHANNEL_ID = "@hatelove_ttv"
+
 @app.post("/api/v1/user/referral/activate")
 async def activate_referral_bonus(
     request_data: ReferralActivateRequest,
