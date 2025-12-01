@@ -502,6 +502,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return { totalBonus, boostsHTML, baseReward };
     }
 
+    // 👇👇👇 ДОБАВЬТЕ ЭТУ ФУНКЦИЮ, ЕЁ НЕ ХВАТАЛО 👇👇👇
+    function isVipActive() {
+        if (!userState.referral_activated_at) return false;
+        const activatedTime = new Date(userState.referral_activated_at).getTime();
+        const now = new Date().getTime();
+        return (now - activatedTime) < (7 * 24 * 60 * 60 * 1000);
+    }
+    // 👆👆👆 ------------------------------------- 👆👆👆
+
     function updateUI() {
         // Отображаем баланс с 1 знаком после запятой
         dom.coinsDisplay.textContent = userState.coins.toFixed(1);
@@ -510,12 +519,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Расчет: База + Бонусы
         const { totalBonus, boostsHTML, baseReward } = calculateBoosts();
-        const totalReward = (baseReward + totalBonus).toFixed(1); // <-- ВАЖНО: toFixed(1)
+        const totalReward = (baseReward + totalBonus).toFixed(1); 
         
         // Если бонусов нет, просто показываем награду
         if (totalBonus > 0) {
             dom.todayRewardDisplay.textContent = `+${totalReward} (с бонусом)`;
-            dom.todayRewardDisplay.style.color = "#FFD700"; // Золотой цвет, если есть бонус
+            dom.todayRewardDisplay.style.color = "#FFD700"; 
         } else {
             dom.todayRewardDisplay.textContent = `+${totalReward}`;
             dom.todayRewardDisplay.style.color = "#fff";
@@ -528,7 +537,6 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.boostContainer.style.display = 'none';
         }
 
-        // ... (код таймера остается прежним) ...
         const now = new Date().getTime();
         const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
         const diff = now - last;
@@ -544,6 +552,7 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
         
+        // Теперь эта строка не вызовет ошибку
         if (isVipActive()) {
             dom.ticketSubtitle.textContent = "VIP: +2 билета / 24ч";
             dom.ticketSubtitle.style.color = "#FFD700";
