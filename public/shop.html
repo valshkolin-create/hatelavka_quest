@@ -732,17 +732,16 @@
         // --- ОПТИМИЗИРОВАННЫЙ РЕНДЕР (DocumentFragment) ---
         function renderItems(items) {
             const container = document.getElementById('shop-grid');
-            
-            // 1. Очищаем контейнер
             container.innerHTML = '';
 
-            // 2. Если пусто - показываем сообщение и выходим
+            // Если товаров нет
             if (!items || items.length === 0) {
                 container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
                 return;
             }
 
-            // 3. Создаем фрагмент (это "виртуальный" контейнер, работа с ним не тормозит страницу)
+            // 🔥 ОПТИМИЗАЦИЯ: Создаем фрагмент в памяти
+            // Мы сложим все товары сюда, а потом добавим на страницу 1 раз
             const fragment = document.createDocumentFragment();
 
             items.forEach(item => {
@@ -754,20 +753,19 @@
                 let priceText = '';
                 let clickAction = '';
 
-                // --- ЛОГИКА ДЛЯ ПАПКИ ---
+                // --- ЛОГИКА: ЭТО ПАПКА? ---
                 if (item.is_folder) {
-                    stockText = ''; // У папок нет остатка
-                    // Кнопка "Открыть"
+                    stockText = ''; 
+                    // Кнопка открытия папки
                     buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
-                    // Клик по картинке тоже открывает папку
                     clickAction = `openFolder(${item.id})`;
                 } 
-                // --- ЛОГИКА ДЛЯ ТОВАРА ---
+                // --- ЛОГИКА: ЭТО ТОВАР? ---
                 else {
                     priceText = `<div class="item-price">${item.price} 🟡️</div>`;
                     
-                    // Логика остатков
                     let isOutOfStock = false;
+                    // Обработка количества
                     if (item.count === null) {
                         stockText = `<div class="item-stock">∞ шт.</div>`;
                     } else if (item.count === 0) {
@@ -777,25 +775,27 @@
                         stockText = `<div class="item-stock">${item.count} шт.</div>`;
                     }
 
-                    // Кнопка Купить / Раскуплено
+                    // Кнопка покупки
                     if (isOutOfStock) {
                         buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
                     } else {
-                        // Экранируем кавычки в названии, чтобы JS не сломался при клике
+                        // Экранируем кавычки для безопасности JS вызова
                         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Купить</button>`;
                     }
-                    // Клик по картинке открывает зум
+                    
+                    // Клик по картинке
                     clickAction = `openImageModal('${item.image_url}')`;
                 }
 
-                // Форматируем название (убираем теги в скобках [RU] и т.д.)
+                // Форматируем имя (отделяем [RU] и прочее)
                 const displayNameHtml = formatItemName(item.name);
                 
-                // Заглушка, если картинки нет
+                // Заглушка
                 const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
 
-                // Собираем HTML карточки
+                // HTML карточки
+                // Важно: decoding="async" и loading="lazy" ускоряют отрисовку
                 el.innerHTML = `
                     <div class="item-image-wrapper" onclick="${clickAction}">
                         <img src="${imgUrl}" 
@@ -815,11 +815,11 @@
                     </div>
                 `;
                 
-                // Добавляем карточку во фрагмент
+                // Добавляем во фрагмент (в память, не на экран)
                 fragment.appendChild(el);
             });
 
-            // 4. Вставляем весь фрагмент в DOM за одну операцию (очень быстро)
+            // 🔥 ФИНАЛ: Вставляем всё на страницу за ОДНУ операцию
             container.appendChild(fragment);
         }
         
