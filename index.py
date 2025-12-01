@@ -8331,15 +8331,15 @@ async def get_bott_goods_proxy(
 # --- [2] ДОБАВЛЯЕМ НОВЫЙ ЭНДПОИНТ СИНХРОНИЗАЦИИ БАЛАНСА ---
 # Вставь это где-то рядом с другими эндпоинтами магазина
 
-# --- ЭНДПОИНТ 1: ТОЛЬКО БАЛАНС И КЛЮЧИ (Для магазина) ---
+# --- ЭНДПОИНТ 1: БАЛАНС (С ГЛУБОКИМ ЛОГИРОВАНИЕМ) ---
 @app.post("/api/v1/user/sync_balance")
 async def sync_user_balance(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Синхронизирует баланс.
-    FIX: Если Bot-T недоступен или отклоняет запрос, возвращаем баланс из кэша БД, а не 0.
+    Синхронизирует баланс с Bot-T.
+    Добавлены логи, чтобы понять, почему "Синяя кнопка" не работает.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -8347,124 +8347,155 @@ async def sync_user_balance(
     
     telegram_id = user_info["id"]
     
-    # 1. СНАЧАЛА получаем текущий баланс из базы (Backup)
+    # 1. Получаем текущий баланс из базы (на случай сбоя)
     db_balance = 0
     try:
         db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins"})
         if db_resp.status_code == 200 and db_resp.json():
             db_balance = db_resp.json()[0].get("bot_t_coins", 0)
-    except Exception as e:
-        logging.error(f"[SYNC] Не удалось получить баланс из БД: {e}")
+    except Exception:
+        pass
 
-    # 2. Пытаемся обновить через Bot-T
+    # 2. Запрос к Bot-T
     url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
     headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
     
-    async with httpx.AsyncClient(timeout=8.0) as client:
+    logging.info(f"[SYNC BALANCE] ⏳ Запрос баланса для {telegram_id}...")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
         try:
+            # Логируем, что именно мы отправляем (без палева initData целиком, только начало)
+            # logging.info(f"[SYNC DEBUG] Отправляем initData (первые 50 симв): {request_data.initData[:50]}...")
+            
             resp = await client.post(
                 url_hash, 
                 json={"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}, 
                 headers=headers
             )
             
-            if resp.status_code == 200:
-                data = resp.json()
-                response_data = data.get("data", {})
-                
-                # Если получили деньги - обновляем
-                if "money" in response_data:
-                    money_raw = response_data.get("money", 0)
-                    new_balance = int(float(money_raw))
-                    
-                    update_payload = {"bot_t_coins": new_balance}
-                    
-                    # Ключи
-                    if response_data.get("id"):
-                        update_payload["bott_internal_id"] = response_data.get("id")
-                    if response_data.get("secret_user_key"):
-                        update_payload["bott_secret_key"] = response_data.get("secret_user_key")
-                    if response_data.get("user") and response_data["user"].get("id"):
-                        update_payload["bott_ref_id"] = response_data["user"].get("id")
+            # 🔥 ГЛАВНЫЙ ЛОГ ДЛЯ ОТЛАДКИ "СИНЕЙ КНОПКИ" 🔥
+            if resp.status_code != 200:
+                logging.error(f"❌ [SYNC FAIL] Bot-T ответил ошибкой: {resp.status_code} | {resp.text}")
+                return {"success": False, "balance": db_balance, "error": "Bot-T Error", "code": resp.status_code}
 
-                    # Сохраняем в базу
-                    await supabase.patch(
-                        "/users",
-                        params={"telegram_id": f"eq.{telegram_id}"},
-                        json=update_payload
-                    )
-                    
-                    # Возвращаем НОВЫЙ баланс
-                    return {"success": True, "balance": new_balance}
+            data = resp.json()
             
-            logging.warning(f"[SYNC] Bot-T вернул ошибку или некорректные данные. Status: {resp.status_code}")
+            # Проверяем успешность внутри JSON (бывает 200 OK, но result: false)
+            if data.get("result") is False:
+                logging.error(f"❌ [SYNC FAIL] Bot-T вернул result: false. Причина: {data.get('message')}")
+                # Скорее всего, здесь будет "hash invalid" для синей кнопки
+                return {"success": False, "balance": db_balance}
+
+            response_data = data.get("data", {})
+            
+            if "money" in response_data:
+                money_raw = response_data.get("money", 0)
+                new_balance = int(float(money_raw))
+                
+                logging.info(f"✅ [SYNC SUCCESS] Баланс получен: {new_balance} (Старый: {db_balance})")
+
+                update_payload = {"bot_t_coins": new_balance}
+                
+                if response_data.get("id"):
+                    update_payload["bott_internal_id"] = response_data.get("id")
+                if response_data.get("secret_user_key"):
+                    update_payload["bott_secret_key"] = response_data.get("secret_user_key")
+                if response_data.get("user") and response_data["user"].get("id"):
+                    update_payload["bott_ref_id"] = response_data["user"].get("id")
+
+                await supabase.patch(
+                    "/users",
+                    params={"telegram_id": f"eq.{telegram_id}"},
+                    json=update_payload
+                )
+                return {"success": True, "balance": new_balance}
+            
+            else:
+                logging.warning(f"⚠️ [SYNC WARN] Ответ 200, но нет поля 'money': {data}")
+                return {"success": False, "balance": db_balance}
 
         except Exception as e:
-            logging.error(f"[SYNC] Ошибка запроса к Bot-T: {e}")
-
-    # 3. ЕСЛИ ВСЁ СЛОМАЛОСЬ — Возвращаем старый баланс из базы!
-    # Это спасет от отображения "0" в магазине
-    logging.info(f"[SYNC] Возвращаем fallback-баланс из БД: {db_balance}")
-    return {"success": False, "balance": db_balance, "is_fallback": True}
+            logging.error(f"[SYNC ERROR] Исключение: {e}")
+            return {"success": False, "balance": db_balance}
 
 
-# --- ЭНДПОИНТ 2: ТОЛЬКО РЕФЕРАЛЫ (По ссылке) ---
+# --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
 @app.post("/api/v1/user/sync_referral")
 async def sync_user_referral(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Проверяет ТОЛЬКО прямую ссылку (start_param) и записывает реферала.
-    Использует синтаксис httpx (PostgREST).
+    Ловит start_param и записывает реферала.
+    Пишет в логи каждое действие, чтобы найти ошибку.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info: return {"status": "ignored"}
+    if not user_info: 
+        logging.warning("[REF] InitData невалидна")
+        return {"status": "ignored"}
     
     telegram_id = user_info["id"]
     
     try:
+        # 1. Парсим параметры
         parsed_init = dict(parse_qsl(request_data.initData))
-        start_param = parsed_init.get("start_param") 
+        start_param = parsed_init.get("start_param")
         
-        # Если есть параметр r_XXXXX
-        if start_param and start_param.startswith("r_"):
+        # 🔥 ЛОГ 1: Что пришло?
+        if start_param:
+            logging.info(f"🔍 [REF CHECK] Получен start_param: '{start_param}' для юзера {telegram_id}")
+        else:
+            # Если start_param пустой, значит переход был НЕ по ссылке
+            # logging.info(f"[REF INFO] start_param отсутствует (простой вход).")
+            return {"status": "no_param"}
+
+        # 2. Проверяем формат r_XXXXX
+        if start_param.startswith("r_"):
             target_ref_id_str = start_param[2:]
             
             if target_ref_id_str.isdigit():
                 target_ref_id = int(target_ref_id_str)
                 
-                # --- ИСПРАВЛЕНИЕ: Используем .get() вместо .table() ---
-                res = await supabase.get(
-                    "/users",
-                    params={
-                        "select": "telegram_id",
-                        # Синтаксис PostgREST для OR фильтра:
-                        "or": f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}",
-                        "limit": 1
-                    }
-                )
+                # 3. Ищем владельца в базе
+                logging.info(f"[REF SEARCH] Ищем владельца кода: {target_ref_id}...")
                 
-                # Проверяем ответ (PostgREST возвращает список)
-                data = res.json()
+                res = await supabase.table("users") \
+                    .select("telegram_id") \
+                    .or_(f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}") \
+                    .limit(1) \
+                    .execute()
                 
-                if data:
-                    found_referrer = data[0]['telegram_id']
+                if res.data:
+                    found_referrer = res.data[0]['telegram_id']
                     
                     if found_referrer != telegram_id:
-                        # Записываем реферала (используем .patch)
+                        # 4. Пробуем записать
+                        logging.info(f"[REF FOUND] Владелец: {found_referrer}. Пытаемся записать...")
+                        
+                        # Проверяем, есть ли уже реферал (чтобы не перезаписывать, если не надо)
+                        check_user = await supabase.table("users").select("referrer_id").eq("telegram_id", telegram_id).execute()
+                        if check_user.data and check_user.data[0].get("referrer_id"):
+                             logging.info(f"⚠️ [REF SKIP] У пользователя {telegram_id} УЖЕ есть реферал.")
+                             return {"status": "already_has_ref"}
+
                         await supabase.patch(
                             "/users",
                             params={"telegram_id": f"eq.{telegram_id}"},
                             json={"referrer_id": found_referrer}
                         )
-                        logging.info(f"✅ [REFERRAL] Записан реферал: {found_referrer}")
+                        logging.info(f"✅ [REF SUCCESS] УСПЕХ! Реферал {found_referrer} записан пользователю {telegram_id}")
                         return {"status": "success", "referrer": found_referrer}
                     else:
-                        logging.warning("[REFERRAL] Само-реферал")
+                        logging.warning(f"⚠️ [REF FAIL] Само-реферал (ID совпадают).")
+                else:
+                    logging.warning(f"⚠️ [REF FAIL] Владелец кода {target_ref_id} НЕ НАЙДЕН в базе.")
+            else:
+                logging.warning(f"⚠️ [REF FAIL] Код '{target_ref_id_str}' не является числом.")
+        else:
+             logging.info(f"[REF INFO] Параметр '{start_param}' не начинается на 'r_'.")
                         
     except Exception as e:
-        logging.error(f"[REFERRAL] Ошибка: {e}")
+        logging.error(f"❌ [REF ERROR] Ошибка внутри функции: {e}", exc_info=True)
         
     return {"status": "no_change"}
         
