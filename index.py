@@ -663,33 +663,43 @@ TEMPLATES_DIR = BASE_DIR / "public"
 supabase: AsyncClient = create_client(SUPABASE_URL, SUPABASE_KEY) # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
 
 global_http_client: Optional[httpx.AsyncClient] = None
+global_shop_client: Optional[httpx.AsyncClient] = None # <--- ДОБАВИТЬ ЭТУ СТРОКУ
+    
 
 # --- FastAPI app ---
-asynccontextmanager
+@asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Объявляем, что используем глобальную переменную
+    # Объявляем глобальные переменные
     global global_http_client 
+    global global_shop_client # <--- ДОБАВИТЬ
     
     logging.info("🚀 Приложение запускается...")
     
-    # 1. Создаем быстрый HTTP-клиент один раз при старте
-    # Мы увеличиваем лимиты соединений, чтобы Vercel не захлебнулся
+    # Лимиты для Supabase
     limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
     
+    # Клиент для Supabase
     global_http_client = httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
         timeout=30.0,
         limits=limits
     )
+
+    # Клиент для МАГАЗИНА (Bot-t) - создаем один раз!
+    # Используем стандартные лимиты
+    global_shop_client = httpx.AsyncClient(timeout=30.0)
     
-    yield # В этот момент приложение работает
+    yield # Приложение работает
     
     logging.info("👋 Приложение останавливается...")
     
-    # 2. Правильно закрываем соединение при выключении
+    # Закрываем соединения
     if global_http_client:
         await global_http_client.aclose()
+        
+    if global_shop_client: # <--- ДОБАВИТЬ ЗАКРЫТИЕ
+        await global_shop_client.aclose()
 
 app = FastAPI(title="Quest Bot API")
 # app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
@@ -8266,9 +8276,15 @@ async def get_bott_goods_proxy(
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
 
     try:
-        # ИЗМЕНЕНИЕ: Увеличили таймаут до 30.0 секунд, так как API магазина может тупить
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+        # 🔥 ИСПРАВЛЕНИЕ: Используем глобального клиента (Keep-Alive)
+        # Вместо создания нового каждый раз
+        if global_shop_client is None:
+             # На всякий случай (если lifespan не сработал), но в FastAPI должно работать
+             async with httpx.AsyncClient(timeout=30.0) as client:
+                 resp = await client.post(url, json=payload, headers=headers)
+        else:
+             # Быстрый запрос через открытый канал
+             resp = await global_shop_client.post(url, json=payload, headers=headers)
             
         if resp.status_code != 200:
             logging.error(f"[SHOP] Ошибка API: {resp.status_code}")
@@ -8277,16 +8293,16 @@ async def get_bott_goods_proxy(
         data = resp.json().get("data", [])
         mapped_items = []
 
+        # ... (дальше код парсинга товаров остается без изменений) ...
         for item in data:
             is_folder = (item.get("type") == 0)
-
+            # ... (тут твой код картинок и цен) ...
             image_url = "https://placehold.co/150?text=No+Image"
             if item.get("design") and item["design"].get("image"):
                 image_url = item["design"]["image"]
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
 
-            # ЦЕНЫ: Bot-t отдает в копейках. Делим на 100
             price = 0
             if item.get("price"):
                 amount = item["price"].get("amount", 0)
@@ -8296,7 +8312,6 @@ async def get_bott_goods_proxy(
             if item.get("design"):
                 name = item["design"].get("title", "Без названия")
 
-            # Получаем остаток
             count = None 
             if item.get("setting"):
                 raw_count = item["setting"].get("count")
