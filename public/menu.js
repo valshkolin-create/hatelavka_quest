@@ -1823,6 +1823,10 @@ async function openQuestsTab(isSilent = false) {
         userData = dashboardData || {};
         document.getElementById('ticketStats').textContent = userData.tickets || 0;
 
+        // 👇 ВСТАВИТЬ ВОТ ЭТУ СТРОКУ СЮДА 👇
+        checkReferralAndWelcome(userData); 
+        // 👆 ---------------------------- 👆
+
         const isGuest = !userData || !userData.full_name;
         if (isGuest) {
             dom.fullName.textContent = "Гость";
