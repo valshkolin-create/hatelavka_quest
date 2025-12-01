@@ -8344,9 +8344,8 @@ async def sync_user_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Синхронизация баланса через ПУБЛИЧНЫЙ API (check-hash).
-    Работает с Inline-кнопкой.
-    Если "синяя кнопка" не работает -> отдает старый баланс из базы.
+    Синхронизация для магазина (Bot-t).
+    Использует глобальный клиент для скорости + твою проверенную логику парсинга.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -8354,61 +8353,68 @@ async def sync_user_balance(
     
     telegram_id = user_info["id"]
     
-    # 1. Сначала достаем текущий баланс из базы (чтобы было что показать при ошибке)
-    db_balance = 0
-    try:
-        db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins"})
-        if db_resp.status_code == 200 and db_resp.json():
-            db_balance = db_resp.json()[0].get("bot_t_coins", 0)
-    except:
-        pass
-
-    # 2. Пробуем обновить через Bot-T (check-hash)
-    url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
-    headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
+    # Публичный метод для получения данных
+    url = "https://api.bot-t.com/v1/module/bot/check-hash"
     
-    async with httpx.AsyncClient(timeout=6.0) as client:
-        try:
-            resp = await client.post(
-                url_hash, 
-                json={"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}, 
-                headers=headers
-            )
-            
-            # Если Bot-T ответил успешно (значит, кнопка "правильная")
-            if resp.status_code == 200:
-                data = resp.json()
-                
-                if data.get("result") is True:
-                    response_data = data.get("data", {})
-                    if "money" in response_data:
-                        money_raw = response_data.get("money", 0)
-                        new_balance = int(float(money_raw))
-                        
-                        update_payload = {"bot_t_coins": new_balance}
-                        
-                        # Ключи
-                        if response_data.get("id"): update_payload["bott_internal_id"] = response_data.get("id")
-                        if response_data.get("secret_user_key"): update_payload["bott_secret_key"] = response_data.get("secret_user_key")
-                        if response_data.get("user") and response_data["user"].get("id"): update_payload["bott_ref_id"] = response_data["user"].get("id")
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "userData": request_data.initData 
+    }
 
-                        # Сохраняем
-                        await supabase.patch(
-                            "/users",
-                            params={"telegram_id": f"eq.{telegram_id}"},
-                            json=update_payload
-                        )
-                        logging.info(f"✅ [SYNC] Баланс обновлен: {new_balance}")
-                        return {"success": True, "balance": new_balance}
-                
-            # Если мы здесь -> значит, Bot-T отклонил запрос (например, синяя кнопка)
-            # Просто возвращаем старый баланс, чтобы не пугать юзера нулями
-            logging.warning(f"⚠️ [SYNC] Bot-T не принял данные. Отдаем кэш: {db_balance}")
-            return {"success": True, "balance": db_balance}
+    try:
+        # 🔥 ИСПРАВЛЕНИЕ СКОРОСТИ: Используем global_shop_client (Keep-Alive)
+        if global_shop_client is None:
+             # На всякий случай (если вдруг глобальный не создался)
+             async with httpx.AsyncClient(timeout=10.0) as client:
+                 resp = await client.post(url, json=payload)
+        else:
+             # Быстрый запрос через открытый канал
+             resp = await global_shop_client.post(url, json=payload)
+        
+        # Если статус не 200, просто возвращаем 0
+        if resp.status_code != 200:
+            return {"bot_t_coins": 0}
 
-        except Exception as e:
-            logging.error(f"[SYNC ERROR] {e}")
-            return {"success": True, "balance": db_balance}
+        data = resp.json()
+        
+        # --- ТВОЯ ЛОГИКА ПАРСИНГА ---
+        response_data = data.get("data", {})
+        
+        if not response_data:
+             return {"bot_t_coins": 0}
+
+        # 1. Основной ID (BotUser ID - нужен для покупок в магазине)
+        internal_id = response_data.get("id")
+
+        # 2. Реферальный ID (Global User ID - нужен для ссылки r_...)
+        ref_id = None
+        if response_data.get("user"):
+            ref_id = response_data["user"].get("id") 
+
+        # 3. Баланс
+        money_raw = response_data.get("money", 0)
+        current_balance = int(float(money_raw))
+
+        # 4. Секретный ключ
+        secret_key = response_data.get("secret_user_key")
+
+        # Сохраняем в базу
+        update_data = {"bot_t_coins": current_balance}
+        if internal_id: update_data["bott_internal_id"] = internal_id
+        if ref_id: update_data["bott_ref_id"] = ref_id
+        if secret_key: update_data["bott_secret_key"] = secret_key
+
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json=update_data
+        )
+        
+        return {"bot_t_coins": current_balance, "bott_ref_id": ref_id}
+
+    except Exception as e:
+        logging.error(f"[SYNC] Ошибка: {e}", exc_info=True)
+        return {"bot_t_coins": 0}
 
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
 @app.post("/api/v1/user/sync_referral")
