@@ -8646,10 +8646,13 @@ async def buy_bott_item_proxy(
         "secret_user_key": bott_secret_key
     }
 
-    async with httpx.AsyncClient() as client:
+    # --- ИСПРАВЛЕНИЕ ЗДЕСЬ (timeout=60.0) ---
+    async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(url, json=payload)
         
         if resp.status_code != 200:
+            # Логируем текст ошибки для отладки
+            logging.error(f"[SHOP] Ошибка магазина {resp.status_code}: {resp.text}")
             raise HTTPException(status_code=500, detail=f"Ошибка магазина: {resp.text}")
 
         resp_json = resp.json()
@@ -8659,7 +8662,6 @@ async def buy_bott_item_proxy(
             raise HTTPException(status_code=400, detail=f"Магазин отклонил покупку: {err_msg}")
 
         # Получаем ID заказа из ответа Bot-t
-        # Ответ API: {"result": true, "data": {"id": 12345, ...}}
         bott_order_data = resp_json.get("data", {})
         bott_order_id = bott_order_data.get("id")
 
@@ -8676,10 +8678,7 @@ async def buy_bott_item_proxy(
             item_title = request_data.title or "Товар"
             item_image = request_data.image_url or ""
             
-            # Если ID заказа вдруг нет, ставим 0, чтобы не ломать формат строки
             safe_order_id = bott_order_id if bott_order_id else 0
-            
-            # Формируем строку: Название | Картинка | ID заказа
             source_desc = f"{item_title}|{item_image}|{safe_order_id}"
 
             await supabase.post("/manual_rewards", json={
