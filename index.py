@@ -8260,7 +8260,6 @@ class ShopCategoryRequest(BaseModel):
     initData: str
     category_id: int = 0  # По умолчанию 0 (главная)
 
-@app.post("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
     request_data: ShopCategoryRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -8276,14 +8275,13 @@ async def get_bott_goods_proxy(
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
 
     try:
-        # 🔥 ИСПРАВЛЕНИЕ: Используем глобального клиента (Keep-Alive)
-        # Вместо создания нового каждый раз
+        # 🔥 ИСПРАВЛЕНИЕ: Используем global_shop_client (быстрое соединение)
         if global_shop_client is None:
-             # На всякий случай (если lifespan не сработал), но в FastAPI должно работать
+             # Резервный вариант, если глобальный клиент не создался
              async with httpx.AsyncClient(timeout=30.0) as client:
                  resp = await client.post(url, json=payload, headers=headers)
         else:
-             # Быстрый запрос через открытый канал
+             # Основной быстрый вариант
              resp = await global_shop_client.post(url, json=payload, headers=headers)
             
         if resp.status_code != 200:
@@ -8293,16 +8291,16 @@ async def get_bott_goods_proxy(
         data = resp.json().get("data", [])
         mapped_items = []
 
-        # ... (дальше код парсинга товаров остается без изменений) ...
         for item in data:
             is_folder = (item.get("type") == 0)
-            # ... (тут твой код картинок и цен) ...
+
             image_url = "https://placehold.co/150?text=No+Image"
             if item.get("design") and item["design"].get("image"):
                 image_url = item["design"]["image"]
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
 
+            # ЦЕНЫ: Bot-t отдает в копейках. Делим на 100
             price = 0
             if item.get("price"):
                 amount = item["price"].get("amount", 0)
@@ -8312,6 +8310,7 @@ async def get_bott_goods_proxy(
             if item.get("design"):
                 name = item["design"].get("title", "Без названия")
 
+            # Получаем остаток
             count = None 
             if item.get("setting"):
                 raw_count = item["setting"].get("count")
@@ -8344,8 +8343,7 @@ async def sync_user_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Синхронизация для магазина (Bot-t).
-    Использует глобальный клиент для скорости + твою проверенную логику парсинга.
+    Синхронизация баланса (через глобальный клиент для скорости).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -8353,68 +8351,47 @@ async def sync_user_balance(
     
     telegram_id = user_info["id"]
     
-    # Публичный метод для получения данных
-    url = "https://api.bot-t.com/v1/module/bot/check-hash"
-    
-    payload = {
-        "bot_id": int(BOTT_BOT_ID),
-        "userData": request_data.initData 
-    }
-
+    # Берем кэш из базы на случай ошибки
+    db_balance = 0
     try:
-        # 🔥 ИСПРАВЛЕНИЕ СКОРОСТИ: Используем global_shop_client (Keep-Alive)
+        db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins"})
+        if db_resp.status_code == 200 and db_resp.json():
+            db_balance = db_resp.json()[0].get("bot_t_coins", 0)
+    except:
+        pass
+
+    url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
+    headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
+    payload = {"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}
+    
+    try:
+        # 🔥 ИСПРАВЛЕНИЕ: Используем global_shop_client
         if global_shop_client is None:
-             # На всякий случай (если вдруг глобальный не создался)
              async with httpx.AsyncClient(timeout=10.0) as client:
-                 resp = await client.post(url, json=payload)
+                 resp = await client.post(url_hash, json=payload, headers=headers)
         else:
-             # Быстрый запрос через открытый канал
-             resp = await global_shop_client.post(url, json=payload)
+             resp = await global_shop_client.post(url_hash, json=payload, headers=headers)
+            
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("result") is True:
+                response_data = data.get("data", {})
+                if "money" in response_data:
+                    new_balance = int(float(response_data.get("money", 0)))
+                    
+                    update_payload = {"bot_t_coins": new_balance}
+                    if response_data.get("id"): update_payload["bott_internal_id"] = response_data.get("id")
+                    if response_data.get("secret_user_key"): update_payload["bott_secret_key"] = response_data.get("secret_user_key")
+                    if response_data.get("user") and response_data["user"].get("id"): update_payload["bott_ref_id"] = response_data["user"].get("id")
+
+                    await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_payload)
+                    return {"success": True, "balance": new_balance}
         
-        # Если статус не 200, просто возвращаем 0
-        if resp.status_code != 200:
-            return {"bot_t_coins": 0}
-
-        data = resp.json()
-        
-        # --- ТВОЯ ЛОГИКА ПАРСИНГА ---
-        response_data = data.get("data", {})
-        
-        if not response_data:
-             return {"bot_t_coins": 0}
-
-        # 1. Основной ID (BotUser ID - нужен для покупок в магазине)
-        internal_id = response_data.get("id")
-
-        # 2. Реферальный ID (Global User ID - нужен для ссылки r_...)
-        ref_id = None
-        if response_data.get("user"):
-            ref_id = response_data["user"].get("id") 
-
-        # 3. Баланс
-        money_raw = response_data.get("money", 0)
-        current_balance = int(float(money_raw))
-
-        # 4. Секретный ключ
-        secret_key = response_data.get("secret_user_key")
-
-        # Сохраняем в базу
-        update_data = {"bot_t_coins": current_balance}
-        if internal_id: update_data["bott_internal_id"] = internal_id
-        if ref_id: update_data["bott_ref_id"] = ref_id
-        if secret_key: update_data["bott_secret_key"] = secret_key
-
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{telegram_id}"},
-            json=update_data
-        )
-        
-        return {"bot_t_coins": current_balance, "bott_ref_id": ref_id}
+        return {"success": True, "balance": db_balance}
 
     except Exception as e:
-        logging.error(f"[SYNC] Ошибка: {e}", exc_info=True)
-        return {"bot_t_coins": 0}
+        logging.error(f"[SYNC ERROR] {e}")
+        return {"success": True, "balance": db_balance}
 
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
 @app.post("/api/v1/user/sync_referral")
