@@ -18,8 +18,8 @@
         }
 
         html, body {
-            height: 100%;
-            overflow-x: hidden;
+            height: 100%; /* Фиксация высоты для анти-свапа */
+            overflow-x: hidden; 
             -webkit-overflow-scrolling: touch;
         }
 
@@ -32,7 +32,7 @@
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-            touch-action: pan-y;
+            touch-action: pan-y; 
         }
 
         /* --- ШАПКА --- */
@@ -53,7 +53,6 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             user-select: none;
             -webkit-user-select: none;
-            will-change: transform;
         }
 
         .back-btn {
@@ -96,8 +95,6 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             box-sizing: border-box;
             width: calc(100% - 32px);
-            /* Оптимизация рендеринга */
-            content-visibility: auto; 
         }
 
         .info-icon {
@@ -127,61 +124,49 @@
             line-height: 1.4;
         }
 
-        /* --- ПАРТНЕРЫ (ОПТИМИЗИРОВАНО НА CSS) --- */
+        /* --- ПАРТНЕРЫ (БЕГУЩАЯ СТРОКА) --- */
         .partners-wrapper {
             width: 100%;
-            overflow: hidden;
+            overflow: hidden; 
             margin-top: 5px;
             padding-bottom: 15px;
             position: relative;
             mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
             -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-            touch-action: pan-x;
+            touch-action: pan-x; 
         }
 
-        /* Контейнер для CSS анимации */
-        .partners-track {
+        .partners-scroll {
             display: flex;
             gap: 10px;
             padding: 0 16px;
-            width: max-content; /* Ширина по контенту */
-            /* GPU ускорение */
-            will-change: transform;
-            /* Анимация */
-            animation: scroll-partners 30s linear infinite;
+            width: 100%; 
+            overflow-x: hidden; 
+            flex-wrap: nowrap;
+            will-change: scroll-position;
         }
         
-        /* Пауза при наведении или таче */
-        .partners-wrapper:active .partners-track,
-        .partners-wrapper:hover .partners-track {
-            animation-play-state: paused;
-        }
-
-        @keyframes scroll-partners {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); } /* Сдвигаем на 50%, так как контент дублирован */
-        }
-
         .partner-card {
-            flex: 0 0 auto;
-            width: 260px;
+            flex: 0 0 auto; 
+            width: 260px; 
             min-width: 260px;
             background: #1c1c1e;
             border-radius: 14px;
             padding: 12px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: center; 
             gap: 12px;
             text-decoration: none;
             position: relative;
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            -webkit-user-drag: none;
             user-select: none;
             -webkit-user-select: none;
             cursor: pointer;
-            /* Убрали transform отсюда, чтобы не конфликтовал с анимацией трека */
+            touch-action: pan-x; 
         }
 
         .partner-card.topskin {
@@ -205,48 +190,49 @@
             background: rgba(0,0,0,0.3);
             padding: 2px;
         }
-
+        
         .partner-logo-img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             pointer-events: none;
+            -webkit-user-drag: none;
         }
 
-        .partner-info {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
+        .partner-info { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 2px; 
             pointer-events: none;
-            align-items: center;
+            align-items: center; 
             text-align: center;
-            flex-grow: 1;
+            flex-grow: 1; 
         }
-
-        .partner-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: #fff;
-            display: flex;
-            align-items: center;
+        
+        .partner-title { 
+            font-size: 14px; 
+            font-weight: 700; 
+            color: #fff; 
+            display: flex; 
+            align-items: center; 
             justify-content: center;
-            gap: 6px;
+            gap: 6px; 
         }
-
-        .partner-desc {
-            font-size: 10px;
-            color: #b0b0b0;
-            line-height: 1.3;
+        
+        .partner-desc { 
+            font-size: 10px; 
+            color: #b0b0b0; 
+            line-height: 1.3; 
             text-align: center;
         }
-
-        .partner-highlight {
-            color: #fff;
-            font-weight: 600;
-            background: rgba(255,255,255,0.1);
-            padding: 1px 4px;
-            border-radius: 4px;
-            font-size: 10px;
+        
+        .partner-highlight { 
+            color: #fff; 
+            font-weight: 600; 
+            background: rgba(255,255,255,0.1); 
+            padding: 1px 4px; 
+            border-radius: 4px; 
+            font-size: 10px; 
             vertical-align: middle;
         }
 
@@ -272,10 +258,7 @@
             margin-top: 5px;
             width: 100%;
             box-sizing: border-box;
-            padding-bottom: calc(180px + env(safe-area-inset-bottom));
-            /* Оптимизация списка */
-            content-visibility: auto; 
-            contain-intrinsic-size: 1000px; /* Примерная высота */
+            padding-bottom: calc(180px + env(safe-area-inset-bottom)); 
         }
 
         .shop-item {
@@ -288,9 +271,7 @@
             transition: transform 0.1s;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             border-bottom: 2px solid rgba(255, 255, 255, 0.05);
-            min-width: 0;
-            /* Ускорение отрисовки */
-            will-change: transform; 
+            min-width: 0; 
         }
         .shop-item:active { transform: scale(0.98); }
 
@@ -304,14 +285,14 @@
 
         .item-image {
             position: absolute;
-            top: 10%;
-            left: 10%;
-            width: 80%;
-            height: 80%;
-            object-fit: cover;
-            border-radius: 8px;
+            top: 10%;      
+            left: 10%;     
+            width: 80%;    
+            height: 80%;   
+            object-fit: cover; 
+            border-radius: 8px; 
             opacity: 0;
-            transition: opacity 0.2s ease-in; /* Ускорили анимацию */
+            transition: opacity 0.3s ease-in;
         }
         .item-image.loaded { opacity: 1; }
 
@@ -325,19 +306,19 @@
         }
 
         .item-title {
-            font-size: 11px;
+            font-size: 11px;           
             font-weight: 600;
             color: #fff;
-            line-height: 1.2;
-            min-height: 34px;
+            line-height: 1.2;          
+            min-height: 34px; 
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-transform: capitalize;
-            text-align: center;
+            text-transform: capitalize; 
+            text-align: center;         
         }
-
+        
         .item-subtitle {
             font-size: 10px;
             color: var(--text-secondary);
@@ -389,7 +370,7 @@
             background: rgba(255, 255, 255, 0.1);
             color: #fff;
         }
-
+        
         .btn-disabled {
             background: rgba(255, 255, 255, 0.05);
             color: rgba(255, 255, 255, 0.3);
@@ -407,12 +388,12 @@
             align-items: center;
             justify-content: center;
             opacity: 0;
-            transition: opacity 0.2s ease; /* Ускорили */
+            transition: opacity 0.3s ease;
             backdrop-filter: blur(10px);
-            touch-action: none;
+            touch-action: none; 
         }
         .image-modal-overlay.open { display: flex; opacity: 1; }
-
+        
         .modal-image-container {
             position: relative;
             width: 90%;
@@ -440,26 +421,14 @@
             justify-content: center;
         }
 
-        /* --- SKELETON (Упрощенная анимация) --- */
         .skeleton {
-            background: #2c2c2e; /* Статичный фон легче для рендера */
+            background: linear-gradient(90deg, #1c1c1e 25%, #2c2c2e 50%, #1c1c1e 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
             border-radius: 12px;
             height: 220px;
-            position: relative;
-            overflow: hidden;
         }
-        /* Блик через псевдоэлемент, чтобы не перерисовывать весь блок */
-        .skeleton::after {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-            transform: translateX(-100%);
-            animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer {
-            100% { transform: translateX(100%); }
-        }
+        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         .empty-msg {
             grid-column: 1 / -1;
@@ -474,17 +443,22 @@
             display: flex;
             justify-content: space-around;
             align-items: center;
-            background-color: rgba(28, 28, 30, 0.95); /* Меньше блюра для скорости */
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            
+            background-color: rgba(28, 28, 30, 0.85); 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
+            
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
             z-index: 9999;
+            
             padding-top: 8px;
+            padding-bottom: 20px; 
             padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            
             box-sizing: border-box;
             height: auto;
             touch-action: none;
@@ -496,6 +470,7 @@
             align-items: center;
             justify-content: center;
             gap: 4px;
+            
             color: #8E8E93;
             text-decoration: none;
             flex: 1;
@@ -504,21 +479,25 @@
             border: none;
             padding: 0;
             margin: 0;
+            
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             font-size: 10px;
-            line-height: 1;
+            line-height: 1; 
             font-weight: 500;
-            transition: color 0.1s ease; /* Убрали трансформации для скорости */
+            transition: all 0.2s ease;
         }
 
         .footer-item .icon-wrapper {
             display: flex;
             justify-content: center;
             align-items: center;
+            
             width: 24px;
             height: 24px;
             font-size: 22px;
+            
             position: relative;
+            transition: transform 0.2s ease, color 0.2s ease;
         }
 
         .footer-item:active { color: #ffffff; }
@@ -526,7 +505,18 @@
         .footer-item.active { color: #FFFFFF; }
         .footer-item.active .icon-wrapper {
             color: #34c759;
-            text-shadow: 0 0 10px rgba(52, 199, 89, 0.4);
+            transform: translateY(-2px);
+            text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
+        }
+        .footer-item.active .icon-wrapper::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            width: 20px;
+            height: 2px;
+            background-color: #34c759;
+            border-radius: 2px;
+            box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
         }
     </style>
 </head>
@@ -552,7 +542,7 @@
     </div>
 
     <div class="partners-wrapper">
-        <div class="partners-track" id="partners-track">
+        <div class="partners-scroll" id="partners-scroll">
             <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
                 <div class="partner-icon">
                     <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" loading="eager" alt="Topskin" class="partner-logo-img">
@@ -562,7 +552,7 @@
                     <div class="partner-desc">
                         Код: <span class="partner-highlight">HATElove</span>
                         <button class="copy-btn" onclick="copyCode(event, 'HATElove')"><i class="fa-regular fa-copy"></i></button>
-                        <br>Получи кэшбек в ручных заданиях!
+                        <br>Получи кэшбек в ручных заданиях (вкладка задания)!
                     </div>
                 </div>
             </a>
@@ -573,7 +563,7 @@
                 </div>
                 <div class="partner-info">
                     <div class="partner-title">Xplay.gg <span class="hot-badge">Game</span></div>
-                    <div class="partner-desc">Получи <span class="partner-highlight">10 монет</span><br>в заданиях за регистрацию!</div>
+                    <div class="partner-desc">Получи <span class="partner-highlight">10 монет</span><br>в ручных заданиях за регистрацию (вкладка задания)!</div>
                 </div>
             </a>
         </div>
@@ -623,40 +613,109 @@
         let currentCategoryId = 0;
         let itemsCache = {}; 
         let hasTradeLink = false;
+        let partnersAnimFrameId = null; 
 
         Telegram.WebApp.BackButton.onClick(() => {
             goBack();
         });
 
-        // --- ОПТИМИЗИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ ПАРТНЕРОВ (CSS ANIMATION) ---
         function initPartnersScroll() {
-            const track = document.getElementById('partners-track');
-            if (!track || track.children.length === 0) return;
+            const container = document.getElementById('partners-scroll');
+            if (!container) return;
 
-            // Клонируем элементы ОДИН раз для бесшовной CSS анимации
-            const items = Array.from(track.children);
-            items.forEach(item => {
-                const clone = item.cloneNode(true);
-                track.appendChild(clone);
-            });
-            // Еще раз клонируем для широких экранов, если нужно
-            if (window.innerWidth > 500) {
-                 items.forEach(item => {
-                    const clone = item.cloneNode(true);
-                    track.appendChild(clone);
-                });
+            if (container.getAttribute('data-init-done') === 'true') return;
+            container.setAttribute('data-init-done', 'true');
+
+            if (partnersAnimFrameId) {
+                cancelAnimationFrame(partnersAnimFrameId);
+                partnersAnimFrameId = null;
             }
+
+            setTimeout(() => {
+                const originalItems = Array.from(container.children);
+                if (originalItems.length === 0) return;
+
+                const screenWidth = window.innerWidth;
+                let loops = 0;
+                while (container.scrollWidth < Math.max(screenWidth * 3, 1000) && loops < 50) {
+                    originalItems.forEach(item => {
+                        container.appendChild(item.cloneNode(true));
+                    });
+                    loops++;
+                }
+
+                let itemWidth = originalItems[0].offsetWidth;
+                if (itemWidth < 100) itemWidth = 260; 
+                const gap = 10;
+                const itemFullWidth = itemWidth + gap;
+                const resetPoint = itemFullWidth * originalItems.length;
+
+                let scrollPos = 0;
+                const speed = 0.5;
+
+                let isDragging = false;
+                let isHovered = false;
+                let startX = 0;
+                let startY = 0;
+                let startScrollLeft = 0;
+
+                container.addEventListener('mouseenter', () => { isHovered = true; });
+                container.addEventListener('mouseleave', () => { isHovered = false; });
+
+                function animate() {
+                    if (!isDragging && !isHovered) {
+                        scrollPos += speed;
+                        if (scrollPos >= resetPoint) {
+                            scrollPos -= resetPoint;
+                        }
+                        container.scrollLeft = scrollPos;
+                    }
+                    partnersAnimFrameId = requestAnimationFrame(animate);
+                }
+                animate();
+
+                container.addEventListener('touchstart', (e) => {
+                    isDragging = true;
+                    startX = e.touches[0].pageX;
+                    startY = e.touches[0].pageY;
+                    startScrollLeft = container.scrollLeft;
+                    container.style.scrollBehavior = 'auto';
+                }, {passive: true});
+
+                container.addEventListener('touchmove', (e) => {
+                    if (!isDragging) return;
+
+                    const x = e.touches[0].pageX;
+                    const y = e.touches[0].pageY;
+                    
+                    const deltaX = startX - x;
+                    const deltaY = startY - y;
+
+                    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                        if (e.cancelable) {
+                            e.preventDefault(); 
+                        }
+                        scrollPos = startScrollLeft + deltaX;
+                        if (scrollPos >= resetPoint) scrollPos -= resetPoint;
+                        if (scrollPos < 0) scrollPos += resetPoint;
+                        container.scrollLeft = scrollPos;
+                    }
+                }, {passive: false}); 
+
+                container.addEventListener('touchend', () => {
+                    isDragging = false;
+                });
+
+            }, 50);
         }
 
+        // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ ---
         async function initShop() {
             updateNavState();
-            initPartnersScroll(); // Запускаем CSS анимацию
+            initPartnersScroll(); 
             
-            // Загружаем товары СРАЗУ, не дожидаясь юзера (для скорости)
-            loadCategory(0);
-
             try {
-                // 1. СНАЧАЛА создаем/получаем пользователя
+                // 1. СНАЧАЛА создаем/получаем пользователя (чтобы он точно был в базе)
                 const userData = await fetch('/api/v1/user/me', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -667,20 +726,28 @@
                     hasTradeLink = true;
                 }
 
-                // 2. ЗАТЕМ синхронизируем баланс (фоном, не блокируя UI)
-                fetch('/api/v1/user/sync_balance', {
+                // 2. ЗАТЕМ синхронизируем баланс (новый эндпоинт, который НЕ трогает рефералов)
+                const balanceData = await fetch('/api/v1/user/sync_balance', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
-                }).then(r => r.json()).then(balanceData => {
-                    let rawBalance = balanceData.balance !== undefined ? balanceData.balance : (balanceData.bot_t_coins || 0);
-                    let balance = rawBalance / 100;
-                    document.getElementById('user-balance').textContent = balance.toFixed(0);
-                }).catch(err => console.warn("Balance sync error:", err));
+                }).then(r => r.json());
+
+                // Получаем баланс из правильного поля (в sync_balance мы возвращаем ключ "balance")
+                // Но на всякий случай проверяем и старый "bot_t_coins"
+                let rawBalance = balanceData.balance !== undefined ? balanceData.balance : (balanceData.bot_t_coins || 0);
+                
+                // Делим на 100, так как в базе копейки
+                let balance = rawBalance / 100;
+                document.getElementById('user-balance').textContent = balance.toFixed(0);
 
             } catch (e) {
-                console.error("User init error:", e);
+                console.error("Ошибка загрузки магазина:", e);
+                // Можно показать уведомление об ошибке, если нужно
             }
+
+            // Загружаем товары (категория 0 - корень)
+            loadCategory(0);
         }
 
         async function loadCategory(catId) {
@@ -688,7 +755,6 @@
             currentCategoryId = catId;
             updateNavState();
 
-            // Если есть кэш - рендерим мгновенно
             if (itemsCache[catId]) {
                 renderItems(itemsCache[catId]);
                 return;
@@ -715,8 +781,11 @@
 
         function renderSkeleton() {
             const container = document.getElementById('shop-grid');
-            // Генерируем HTML строку сразу, быстрее чем createElement в цикле
-            container.innerHTML = Array(6).fill('<div class="shop-item skeleton"></div>').join('');
+            let html = '';
+            for(let i=0; i<6; i++) {
+                html += '<div class="shop-item skeleton"></div>';
+            }
+            container.innerHTML = html;
         }
 
         function formatItemName(name) {
@@ -729,20 +798,14 @@
             return escapeHtml(name);
         }
 
-        // --- ОПТИМИЗИРОВАННЫЙ РЕНДЕР (DocumentFragment) ---
         function renderItems(items) {
             const container = document.getElementById('shop-grid');
             container.innerHTML = '';
 
-            // Если товаров нет
             if (!items || items.length === 0) {
                 container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
                 return;
             }
-
-            // 🔥 ОПТИМИЗАЦИЯ: Создаем фрагмент в памяти
-            // Мы сложим все товары сюда, а потом добавим на страницу 1 раз
-            const fragment = document.createDocumentFragment();
 
             items.forEach(item => {
                 const el = document.createElement('div');
@@ -753,19 +816,14 @@
                 let priceText = '';
                 let clickAction = '';
 
-                // --- ЛОГИКА: ЭТО ПАПКА? ---
                 if (item.is_folder) {
-                    stockText = ''; 
-                    // Кнопка открытия папки
+                    stockText = '';
                     buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
                     clickAction = `openFolder(${item.id})`;
-                } 
-                // --- ЛОГИКА: ЭТО ТОВАР? ---
-                else {
+                } else {
                     priceText = `<div class="item-price">${item.price} 🟡️</div>`;
                     
                     let isOutOfStock = false;
-                    // Обработка количества
                     if (item.count === null) {
                         stockText = `<div class="item-stock">∞ шт.</div>`;
                     } else if (item.count === 0) {
@@ -775,35 +833,20 @@
                         stockText = `<div class="item-stock">${item.count} шт.</div>`;
                     }
 
-                    // Кнопка покупки
                     if (isOutOfStock) {
                         buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
                     } else {
-                        // Экранируем кавычки для безопасности JS вызова
                         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Купить</button>`;
                     }
-                    
-                    // Клик по картинке
                     clickAction = `openImageModal('${item.image_url}')`;
                 }
 
-                // Форматируем имя (отделяем [RU] и прочее)
                 const displayNameHtml = formatItemName(item.name);
-                
-                // Заглушка
-                const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
 
-                // HTML карточки
-                // Важно: decoding="async" и loading="lazy" ускоряют отрисовку
                 el.innerHTML = `
                     <div class="item-image-wrapper" onclick="${clickAction}">
-                        <img src="${imgUrl}" 
-                             class="item-image" 
-                             decoding="async" 
-                             loading="lazy" 
-                             onload="this.classList.add('loaded')" 
-                             alt="${escapeHtml(item.name)}">
+                        <img src="${item.image_url}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" alt="${escapeHtml(item.name)}">
                     </div>
                     <div class="item-info">
                         <div class="item-title">${displayNameHtml}</div>
@@ -814,15 +857,10 @@
                         ${buttonHtml}
                     </div>
                 `;
-                
-                // Добавляем во фрагмент (в память, не на экран)
-                fragment.appendChild(el);
+                container.appendChild(el);
             });
-
-            // 🔥 ФИНАЛ: Вставляем всё на страницу за ОДНУ операцию
-            container.appendChild(fragment);
         }
-        
+
         function openImageModal(imageUrl) {
             const modal = document.getElementById('image-modal');
             const img = document.getElementById('full-image');
@@ -922,12 +960,7 @@
                         } else {
                             Telegram.WebApp.showAlert("✅ Покупка успешна! Товар выдан.");
                             delete itemsCache[currentCategoryId];
-                            // Обновляем баланс локально
-                            let currentBal = parseFloat(document.getElementById('user-balance').textContent);
-                            if (!isNaN(currentBal)) {
-                                document.getElementById('user-balance').textContent = (currentBal - price).toFixed(0);
-                            }
-                            initShop(); // Перезагружаем контент
+                            initShop(); 
                         }
                     })
                     .catch(err => {
