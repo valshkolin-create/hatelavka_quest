@@ -502,28 +502,30 @@
     <div id="referral-popup" class="custom-popup-overlay">
         <div class="custom-popup" style="text-align: left;">
             <h3 style="text-align: center; margin-bottom: 5px;">Реферальная система</h3>
-            <p style="text-align: center; font-size: 12px; margin-bottom: 20px;">Зови друзей и получай бонусы!</p>
+            <p style="text-align: center; font-size: 12px; margin-bottom: 20px; color:#aaa;">
+                Зови друзей и получай бонусы!<br>
+                <span style="font-size:10px; color:#777;">(Учитываются только забравшие бонус)</span>
+            </p>
             
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <div class="ref-stat-box">
                     <div class="ref-stat-val" id="ref-count-display">0</div>
-                    <div class="ref-stat-lbl">Друзей</div>
+                    <div class="ref-stat-lbl">Активных</div>
                 </div>
                 <div class="ref-stat-box">
-                    <div class="ref-stat-val" style="color: #FFD700;" id="ref-bonus-display">+0.0x</div>
-                    <div class="ref-stat-lbl">Буст Гринда</div>
+                    <div class="ref-stat-val" style="color: #FFD700;" id="ref-bonus-display">+0.00</div>
+                    <div class="ref-stat-lbl">Буст (монет)</div>
                 </div>
             </div>
 
             <div style="text-align: left; font-size: 13px; color: #ccc; margin-bottom: 20px; line-height: 1.5;">
                 <div style="margin-bottom: 8px;"><b>Твои бонусы (за каждого):</b></div>
-                ✅ <b>+0.1x</b> к Гринду монет (навсегда)<br>
+                ✅ <b>+0.1</b> гринд-монет (к ежедневной награде)<br>
                 ✅ <b>+1 Билет</b> ежедневно (на 30 дней)<br>
                 <br>
                 <div style="margin-bottom: 8px;"><b>Бонусы друга:</b></div>
-                🎁 <b>10 гринд монет</b> на старт<br>
-                🚀 <b>Новичок статус</b> на 7 дней (буст гринд монет + 0.2 + 2 билета ежедневно)<br>
-                <i style="font-size: 11px; color: #777;">*При условии привязки Twitch и подписки TG канала</i>
+                🎁 <b>10 гринд-монет</b> на старт<br>
+                🚀 <b>VIP статус</b> на 7 дней (+0.2 монет + 2 билета)<br>
             </div>
 
             <div class="reward-card-code-wrapper" style="margin-bottom: 15px;">
@@ -669,12 +671,24 @@ try {
         }
         dom.settingsList.appendChild(twitchCard);
 
-        // Рефералка
-        const refCard = document.createElement('div'); refCard.className = 'settings-card ref-card-gradient';
+        // --- 👇 ОБНОВЛЕННАЯ КАРТОЧКА РЕФЕРАЛКИ 👇 ---
+        const refCard = document.createElement('div'); 
+        refCard.className = 'settings-card ref-card-gradient';
         const activeRefs = userData.active_referrals_count || 0; 
-        refCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p><span>Друзей: <b>${activeRefs}</b> (Бонус: +${(activeRefs * 0.1).toFixed(1)}x)</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
+        
+        // Считаем бонус (теперь это сложение: кол-во * 0.1)
+        const currentBoost = (activeRefs * 0.1).toFixed(1);
+
+        refCard.innerHTML = `
+            <div class="settings-card-info">
+                <p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p>
+                <span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span>
+            </div>
+            <i class="fa-solid fa-chevron-right card-arrow"></i>`;
+            
         refCard.onclick = () => openRefModal(userData);
         dom.settingsList.appendChild(refCard);
+        // --- 👆 ---------------------------------- 👆 ---
     }
 
     // --- REFERRAL LOGIC ---
@@ -688,7 +702,9 @@ try {
         
         const count = userData.active_referrals_count || 0;
         dom.refCountDisplay.textContent = count;
-        dom.refBonusDisplay.textContent = '+' + (count * 0.1).toFixed(1) + 'x';
+        
+        // 👇 Исправлено отображение бонуса (было 'x', стало просто число)
+        dom.refBonusDisplay.textContent = '+' + (count * 0.1).toFixed(1);
         
         dom.referralPopup.classList.add('visible');
     }
