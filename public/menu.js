@@ -1216,15 +1216,15 @@ async function buyItem(itemId, price, name) {
     });
 }
 
-// Функция проверки: нужно ли показывать попап
+// Функция проверки: нужно ли показывать попап и кнопку
 async function checkReferralAndWelcome(userData) {
-    // 1. Проверяем, пришел ли юзер по реф. ссылке ПРЯМО СЕЙЧАС (start_param)
     const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
-    let isReferralEntry = false;
+    let hasReferrer = false;
 
-    // Если есть start_param вида r_123, пробуем связать
+    // 1. Пробуем связать по ссылке
     if (startParam && startParam.startsWith('r_')) {
         try {
+            // Тихая синхронизация
             const syncRes = await fetch('/api/v1/user/sync_referral', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1232,18 +1232,60 @@ async function checkReferralAndWelcome(userData) {
             });
             const syncData = await syncRes.json();
             if (syncData.status === 'success' || syncData.status === 'already_has_ref') {
-                isReferralEntry = true;
+                hasReferrer = true;
             }
         } catch (e) { console.error("Ref sync error", e); }
-    } else if (userData.referrer_id) {
-        // Если реферала нет в параметрах, но он уже есть в базе
-        isReferralEntry = true;
+    } 
+    
+    // 2. Или если реферер уже есть в базе
+    if (userData.referrer_id) {
+        hasReferrer = true;
     }
 
-    // Если у юзера есть реферер, но бонус НЕ активирован -> Открываем
-    if (isReferralEntry && !userData.referral_activated_at) {
-        openWelcomePopup(userData);
+    // ГЛАВНОЕ УСЛОВИЕ: Есть реферер И бонус НЕ активирован
+    if (hasReferrer && !userData.referral_activated_at) {
+        
+        // Всегда показываем маленькую кнопку "Бонус" в хедере (если она есть в HTML)
+        const bonusBtn = document.getElementById('open-bonus-btn');
+        if (bonusBtn) {
+            bonusBtn.classList.remove('hidden');
+            bonusBtn.onclick = () => openWelcomePopup(userData);
+        }
+
+        // ПРОВЕРКА: Нажимал ли он "Позже"?
+        const isDeferred = localStorage.getItem('bonusPopupDeferred');
+
+        if (!isDeferred) {
+            // Если не нажимал — открываем большое окно сразу
+            openWelcomePopup(userData);
+        } else {
+            // Если нажимал "Позже" — показываем аккуратное уведомление сверху
+            showTopBonusNotification(userData);
+        }
     }
+}
+
+// Функция для красивого уведомления сверху
+function showTopBonusNotification(userData) {
+    const notif = document.getElementById('new-promo-notification');
+    if (!notif) return;
+
+    // Меняем текст и стиль уведомления
+    const span = notif.querySelector('span');
+    if (span) span.innerHTML = '🎁 <b>Ваш бонус ждет!</b> Нажмите, чтобы забрать.';
+    
+    notif.style.backgroundColor = '#FFD700'; // Золотой цвет
+    notif.style.color = '#000';
+    notif.classList.remove('hidden');
+
+    // При клике на само уведомление — открываем попап
+    notif.onclick = (e) => {
+        // Если клик не по крестику
+        if (!e.target.classList.contains('promo-notification-close')) {
+            openWelcomePopup(userData);
+            notif.classList.add('hidden');
+        }
+    };
 }
 
 // Функция открытия и управления попапом
@@ -1408,14 +1450,17 @@ function setupEventListeners() {
     });
     // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
     // Обработчик кнопки "Позже" в приветственном попапе
-        const laterBtn = document.getElementById('later-btn');
-        if (laterBtn) {
-            laterBtn.addEventListener('click', () => {
-                document.getElementById('welcome-popup').classList.remove('visible');
-                // Запоминаем, что юзер закрыл окно в этой сессии, чтобы оно само не всплывало
-                sessionStorage.setItem('bonusPopupClosed', 'true');
-            });
-        }
+    const laterBtn = document.getElementById('later-btn');
+    if (laterBtn) {
+        laterBtn.addEventListener('click', () => {
+            document.getElementById('welcome-popup').classList.remove('visible');
+            // Запоминаем НАДОЛГО, что юзер попросил напомнить позже
+            localStorage.setItem('bonusPopupDeferred', 'true');
+            
+            // Можно сразу показать уведомление сверху, чтобы он не потерял бонус
+            // showTopBonusNotification(userData); // (Раскомментируй, если нужно сразу показать плашку)
+        });
+    }
    // --- ЛОГИКА ДЛЯ МАГАЗИНА (ВНУТРЕННИЙ ВИД) ---
         const shopBtn = document.getElementById('shop-open-btn');
         if (shopBtn) {
