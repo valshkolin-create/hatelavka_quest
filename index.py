@@ -8425,76 +8425,82 @@ async def sync_user_referral(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Ловит start_param и записывает реферала.
-    Пишет в логи каждое действие, чтобы найти ошибку.
+    SUPER DEBUG версия.
+    Логирует абсолютно всё, что приходит в initData.
     """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info: 
-        logging.warning("[REF] InitData невалидна")
-        return {"status": "ignored"}
-    
-    telegram_id = user_info["id"]
-    
+    # Логируем сам факт вызова
+    logging.info("[REF DEBUG] 🟢 Эндпоинт вызван. Начинаем проверку...")
+
     try:
-        # 1. Парсим параметры
+        # 1. Валидация
+        user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+        if not user_info: 
+            logging.error("[REF DEBUG] ❌ InitData НЕ прошла валидацию!")
+            return {"status": "ignored"}
+        
+        telegram_id = user_info["id"]
+        logging.info(f"[REF DEBUG] 👤 Пользователь: {telegram_id}")
+
+        # 2. Парсинг
         parsed_init = dict(parse_qsl(request_data.initData))
+        
+        # 🔥 ВЫВОДИМ ВСЕ КЛЮЧИ, ЧТОБЫ ПОНЯТЬ, ЧТО ПРИШЛО 🔥
+        # (Скрываем hash для безопасности, остальное показываем)
+        safe_keys = {k: v for k, v in parsed_init.items() if k != 'hash' and k != 'user'}
+        logging.info(f"[REF DEBUG] 📦 Содержимое initData (параметры): {safe_keys}")
+
         start_param = parsed_init.get("start_param")
         
-        # 🔥 ЛОГ 1: Что пришло?
         if start_param:
-            logging.info(f"🔍 [REF CHECK] Получен start_param: '{start_param}' для юзера {telegram_id}")
-        else:
-            # Если start_param пустой, значит переход был НЕ по ссылке
-            # logging.info(f"[REF INFO] start_param отсутствует (простой вход).")
-            return {"status": "no_param"}
-
-        # 2. Проверяем формат r_XXXXX
-        if start_param.startswith("r_"):
-            target_ref_id_str = start_param[2:]
+            logging.info(f"[REF DEBUG] 🎯 НАЙДЕН start_param: '{start_param}'")
             
-            if target_ref_id_str.isdigit():
-                target_ref_id = int(target_ref_id_str)
+            if start_param.startswith("r_"):
+                target_id_str = start_param[2:]
+                logging.info(f"[REF DEBUG] 👉 Код реферала: {target_id_str}. Ищем в базе...")
                 
-                # 3. Ищем владельца в базе
-                logging.info(f"[REF SEARCH] Ищем владельца кода: {target_ref_id}...")
-                
-                res = await supabase.table("users") \
-                    .select("telegram_id") \
-                    .or_(f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}") \
-                    .limit(1) \
-                    .execute()
-                
-                if res.data:
-                    found_referrer = res.data[0]['telegram_id']
+                if target_id_str.isdigit():
+                    target_ref_id = int(target_id_str)
                     
-                    if found_referrer != telegram_id:
-                        # 4. Пробуем записать
-                        logging.info(f"[REF FOUND] Владелец: {found_referrer}. Пытаемся записать...")
+                    # Ищем владельца
+                    res = await supabase.table("users") \
+                        .select("telegram_id") \
+                        .or_(f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}") \
+                        .limit(1) \
+                        .execute()
+                    
+                    if res.data:
+                        found_referrer = res.data[0]['telegram_id']
+                        logging.info(f"[REF DEBUG] ✅ Владелец кода найден: {found_referrer}")
                         
-                        # Проверяем, есть ли уже реферал (чтобы не перезаписывать, если не надо)
-                        check_user = await supabase.table("users").select("referrer_id").eq("telegram_id", telegram_id).execute()
-                        if check_user.data and check_user.data[0].get("referrer_id"):
-                             logging.info(f"⚠️ [REF SKIP] У пользователя {telegram_id} УЖЕ есть реферал.")
-                             return {"status": "already_has_ref"}
+                        if found_referrer != telegram_id:
+                            # Проверяем, не занят ли реферал
+                            check_user = await supabase.table("users").select("referrer_id").eq("telegram_id", telegram_id).execute()
+                            
+                            if check_user.data and check_user.data[0].get("referrer_id"):
+                                 logging.info(f"[REF DEBUG] ⚠️ У юзера {telegram_id} УЖЕ есть реферал (ID: {check_user.data[0]['referrer_id']}). Пропускаем.")
+                                 return {"status": "already_has_ref"}
 
-                        await supabase.patch(
-                            "/users",
-                            params={"telegram_id": f"eq.{telegram_id}"},
-                            json={"referrer_id": found_referrer}
-                        )
-                        logging.info(f"✅ [REF SUCCESS] УСПЕХ! Реферал {found_referrer} записан пользователю {telegram_id}")
-                        return {"status": "success", "referrer": found_referrer}
+                            # Записываем
+                            await supabase.patch(
+                                "/users",
+                                params={"telegram_id": f"eq.{telegram_id}"},
+                                json={"referrer_id": found_referrer}
+                            )
+                            logging.info(f"[REF DEBUG] 🎉 УСПЕХ! Записали {found_referrer} как реферала для {telegram_id}")
+                            return {"status": "success", "referrer": found_referrer}
+                        else:
+                            logging.warning(f"[REF DEBUG] ⚠️ Само-реферал.")
                     else:
-                        logging.warning(f"⚠️ [REF FAIL] Само-реферал (ID совпадают).")
+                        logging.error(f"[REF DEBUG] ❌ Владелец кода {target_ref_id} не найден в базе.")
                 else:
-                    logging.warning(f"⚠️ [REF FAIL] Владелец кода {target_ref_id} НЕ НАЙДЕН в базе.")
+                     logging.error(f"[REF DEBUG] ❌ Код '{target_id_str}' не число.")
             else:
-                logging.warning(f"⚠️ [REF FAIL] Код '{target_ref_id_str}' не является числом.")
+                logging.info(f"[REF DEBUG] ℹ️ start_param '{start_param}' не начинается на 'r_'.")
         else:
-             logging.info(f"[REF INFO] Параметр '{start_param}' не начинается на 'r_'.")
+            logging.warning(f"[REF DEBUG] 📭 start_param ОТСУТСТВУЕТ в initData. Это обычный вход.")
                         
     except Exception as e:
-        logging.error(f"❌ [REF ERROR] Ошибка внутри функции: {e}", exc_info=True)
+        logging.error(f"[REF DEBUG] 💀 КРИТИЧЕСКАЯ ОШИБКА: {e}", exc_info=True)
         
     return {"status": "no_change"}
         
