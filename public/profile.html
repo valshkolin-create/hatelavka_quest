@@ -695,7 +695,7 @@ try {
         // Рефералка
         const refCard = document.createElement('div'); refCard.className = 'settings-card ref-card-gradient';
         const activeRefs = userData.active_referrals_count || 0; 
-        refCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Рефералка</p><span>Друзей: <b>${activeRefs}</b> (Бонус: +${(activeRefs * 0.1).toFixed(1)}x)</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
+        refCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p><span>Друзей: <b>${activeRefs}</b> (Бонус: +${(activeRefs * 0.1).toFixed(1)}x)</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
         refCard.onclick = () => openRefModal(userData);
         dom.settingsList.appendChild(refCard);
     }
