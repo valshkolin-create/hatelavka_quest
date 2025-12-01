@@ -5351,8 +5351,9 @@ async def activate_referral_bonus(
         await temp_bot.session.close()
 
     # 4. Выдача награды
-    await supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": 10})
+    await supabase.post("/rpc/increment_coins", json={"p_user_id": user_id, "p_amount": 10})
     
+    # Ставим дату активации
     await supabase.patch(
         "/users",
         params={"telegram_id": f"eq.{user_id}"},
