@@ -8425,10 +8425,9 @@ async def sync_user_referral(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    SUPER DEBUG версия.
-    Логирует абсолютно всё, что приходит в initData.
+    Исправленная версия для httpx.
+    Работает с get/patch запросами напрямую, без .table()
     """
-    # Логируем сам факт вызова
     logging.info("[REF DEBUG] 🟢 Эндпоинт вызван. Начинаем проверку...")
 
     try:
@@ -8443,12 +8442,6 @@ async def sync_user_referral(
 
         # 2. Парсинг
         parsed_init = dict(parse_qsl(request_data.initData))
-        
-        # 🔥 ВЫВОДИМ ВСЕ КЛЮЧИ, ЧТОБЫ ПОНЯТЬ, ЧТО ПРИШЛО 🔥
-        # (Скрываем hash для безопасности, остальное показываем)
-        safe_keys = {k: v for k, v in parsed_init.items() if k != 'hash' and k != 'user'}
-        logging.info(f"[REF DEBUG] 📦 Содержимое initData (параметры): {safe_keys}")
-
         start_param = parsed_init.get("start_param")
         
         if start_param:
@@ -8461,26 +8454,41 @@ async def sync_user_referral(
                 if target_id_str.isdigit():
                     target_ref_id = int(target_id_str)
                     
-                    # Ищем владельца
-                    res = await supabase.table("users") \
-                        .select("telegram_id") \
-                        .or_(f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}") \
-                        .limit(1) \
-                        .execute()
+                    # --- ИСПРАВЛЕНИЕ: Используем .get() вместо .table() ---
+                    # Ищем владельца кода
+                    res = await supabase.get(
+                        "/users",
+                        params={
+                            "select": "telegram_id",
+                            # Синтаксис PostgREST для "ИЛИ"
+                            "or": f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}",
+                            "limit": 1
+                        }
+                    )
                     
-                    if res.data:
-                        found_referrer = res.data[0]['telegram_id']
+                    # Проверяем ответ (res.json() вернет список)
+                    data = res.json()
+                    
+                    if data:
+                        found_referrer = data[0]['telegram_id']
                         logging.info(f"[REF DEBUG] ✅ Владелец кода найден: {found_referrer}")
                         
                         if found_referrer != telegram_id:
-                            # Проверяем, не занят ли реферал
-                            check_user = await supabase.table("users").select("referrer_id").eq("telegram_id", telegram_id).execute()
+                            # Проверяем, не занят ли реферал (тоже через .get)
+                            check_user_resp = await supabase.get(
+                                "/users",
+                                params={
+                                    "telegram_id": f"eq.{telegram_id}",
+                                    "select": "referrer_id"
+                                }
+                            )
+                            check_data = check_user_resp.json()
                             
-                            if check_user.data and check_user.data[0].get("referrer_id"):
-                                 logging.info(f"[REF DEBUG] ⚠️ У юзера {telegram_id} УЖЕ есть реферал (ID: {check_user.data[0]['referrer_id']}). Пропускаем.")
+                            if check_data and check_data[0].get("referrer_id"):
+                                 logging.info(f"[REF DEBUG] ⚠️ У юзера {telegram_id} УЖЕ есть реферал (ID: {check_data[0]['referrer_id']}). Пропускаем.")
                                  return {"status": "already_has_ref"}
 
-                            # Записываем
+                            # Записываем реферала (через .patch)
                             await supabase.patch(
                                 "/users",
                                 params={"telegram_id": f"eq.{telegram_id}"},
@@ -8497,7 +8505,8 @@ async def sync_user_referral(
             else:
                 logging.info(f"[REF DEBUG] ℹ️ start_param '{start_param}' не начинается на 'r_'.")
         else:
-            logging.warning(f"[REF DEBUG] 📭 start_param ОТСУТСТВУЕТ в initData. Это обычный вход.")
+            # Обычный вход без ссылки, это нормально, не спамим ошибками
+            pass 
                         
     except Exception as e:
         logging.error(f"[REF DEBUG] 💀 КРИТИЧЕСКАЯ ОШИБКА: {e}", exc_info=True)
