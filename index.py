@@ -3722,19 +3722,23 @@ async def bott_webhook(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Обрабатывает уведомление о пополнении.
-    Мгновенно обновляет баланс в базе через Admin API Bot-T.
+    🔥 АВТО-ОБНОВЛЕНИЕ БАЛАНСА 🔥
+    Как только проходит оплата, этот код сам идет в Bot-T, 
+    узнает новый баланс и сохраняет его в базу.
     """
     try:
+        # 1. Читаем данные от Bot-T
         form_data = await request.form()
         data = dict(form_data)
         
-        logging.info(f"💰 [WEBHOOK] Оплата: {data}")
+        logging.info(f"💰 [WEBHOOK] Пришел сигнал об оплате: {data}")
 
+        # Проверяем, что оплата успешна
         status = str(data.get('status_id', ''))
         if status not in ['1', 'success', 'paid']:
             return {"status": "ignored"}
 
+        # Получаем ID пользователя
         custom_fields = data.get('custom_fields')
         if not custom_fields:
             return {"status": "error", "message": "No user ID"}
@@ -3742,49 +3746,60 @@ async def bott_webhook(
         user_id = int(custom_fields)
         amount_rub = float(data.get('amount', 0))
 
-        # --- ЗАПРОС АКТУАЛЬНОГО БАЛАНСА (Admin API) ---
-        # Этот метод работает БЕЗ initData, поэтому он надежен
+        # 2. ⚡️ ГЛАВНЫЙ ФИКС: СРАЗУ ЗАПРАШИВАЕМ БАЛАНС У BOT-T ⚡️
+        # Мы не верим сумме из вебхука, мы спрашиваем "Сколько всего денег сейчас?"
+        
         url_view = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
         
-        # Правило документации: token в GET, данные в POST
-        params_auth = { "token": BOTT_PRIVATE_KEY }
+        # Используем ПРИВАТНЫЙ ключ (как в документации: Token в GET)
+        params_auth = { "token": BOTT_PRIVATE_KEY } 
         payload_body = { "bot_id": int(BOTT_BOT_ID), "telegram_id": user_id }
         
         new_balance = 0
-        balance_found = False
+        balance_updated = False
 
         async with httpx.AsyncClient() as client:
+            # Делаем запрос от имени Админа
             resp = await client.post(url_view, params=params_auth, json=payload_body)
             
             if resp.status_code == 200:
-                user_data = resp.json().get("data", {})
-                if "money" in user_data:
-                    new_balance = int(float(user_data["money"]))
-                    balance_found = True
-                    logging.info(f"✅ [WEBHOOK] Баланс получен из API: {new_balance}")
+                api_response = resp.json()
+                if api_response.get("result") is True:
+                    user_data = api_response.get("data", {})
+                    
+                    # Bot-T вернул точный баланс!
+                    if "money" in user_data:
+                        new_balance = int(float(user_data["money"]))
+                        balance_updated = True
+                        logging.info(f"✅ [WEBHOOK] Баланс синхронизирован: {new_balance}")
 
-        # Если API не ответило, прибавляем вручную (Fallback)
-        if not balance_found:
-            amount_coins = int(amount_rub * 100) # 1 руб = 100 копеек
-            old_b_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "bot_t_coins"})
-            old_bal = old_b_resp.json()[0]['bot_t_coins'] if old_b_resp.json() else 0
+        # 3. Если Bot-T вдруг не ответил, прибавляем вручную (План Б)
+        if not balance_updated:
+            logging.warning("⚠️ [WEBHOOK] API баланса недоступно. Считаем вручную.")
+            # Считаем: 1 рубль = 100 копеек
+            amount_coins = int(amount_rub * 100)
+            
+            # Берем старый баланс из базы
+            old_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "bot_t_coins"})
+            old_bal = old_resp.json()[0]['bot_t_coins'] if old_resp.json() else 0
+            
             new_balance = old_bal + amount_coins
-            logging.warning(f"⚠️ [WEBHOOK] API недоступно. Считаем вручную: {old_bal} + {amount_coins} = {new_balance}")
 
-        # Обновляем базу
+        # 4. 💾 СОХРАНЯЕМ В БАЗУ ПРЯМО СЕЙЧАС
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{user_id}"},
             json={"bot_t_coins": new_balance}
         )
 
-        # Уведомляем
-        await safe_send_message(user_id, f"✅ Баланс пополнен на {amount_rub}₽!\nТекущий баланс: {new_balance / 100} 🟡")
+        # 5. Радуем пользователя сообщением
+        real_rub = new_balance / 100
+        await safe_send_message(user_id, f"✅ <b>Баланс пополнен!</b>\nПоступило: {amount_rub}₽\nВсего: {real_rub} 🟡")
 
         return {"result": True}
 
     except Exception as e:
-        logging.error(f"❌ [WEBHOOK] Ошибка: {e}", exc_info=True)
+        logging.error(f"❌ [WEBHOOK ERROR] {e}", exc_info=True)
         return {"result": False}
 
 @app.post("/api/v1/user/shop_link")
