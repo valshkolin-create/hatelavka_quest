@@ -8425,8 +8425,9 @@ async def sync_user_referral(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Исправленная версия для httpx.
-    Работает с get/patch запросами напрямую, без .table()
+    Исправленная версия (v2).
+    Фикс синтаксиса OR для PostgREST (добавлены скобки).
+    Добавлена проверка типа ответа (защита от KeyError).
     """
     logging.info("[REF DEBUG] 🟢 Эндпоинт вызван. Начинаем проверку...")
 
@@ -8449,32 +8450,34 @@ async def sync_user_referral(
             
             if start_param.startswith("r_"):
                 target_id_str = start_param[2:]
-                logging.info(f"[REF DEBUG] 👉 Код реферала: {target_id_str}. Ищем в базе...")
                 
                 if target_id_str.isdigit():
                     target_ref_id = int(target_id_str)
+                    logging.info(f"[REF DEBUG] 👉 Код реферала: {target_ref_id}. Ищем в базе...")
                     
-                    # --- ИСПРАВЛЕНИЕ: Используем .get() вместо .table() ---
-                    # Ищем владельца кода
+                    # --- ИСПРАВЛЕНИЕ: Добавлены скобки () в параметр 'or' ---
                     res = await supabase.get(
                         "/users",
                         params={
                             "select": "telegram_id",
-                            # Синтаксис PostgREST для "ИЛИ"
-                            "or": f"bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id}",
+                            "or": f"(bott_ref_id.eq.{target_ref_id},bott_internal_id.eq.{target_ref_id})", # <--- СКОБКИ ВАЖНЫ!
                             "limit": 1
                         }
                     )
                     
-                    # Проверяем ответ (res.json() вернет список)
                     data = res.json()
                     
+                    # --- ЗАЩИТА ОТ ОШИБКИ (KeyError: 0) ---
+                    if not isinstance(data, list):
+                        logging.error(f"[REF DEBUG] ❌ Supabase вернул ошибку вместо списка: {data}")
+                        return {"status": "db_error"}
+
                     if data:
                         found_referrer = data[0]['telegram_id']
                         logging.info(f"[REF DEBUG] ✅ Владелец кода найден: {found_referrer}")
                         
                         if found_referrer != telegram_id:
-                            # Проверяем, не занят ли реферал (тоже через .get)
+                            # Проверка на существование (через .get)
                             check_user_resp = await supabase.get(
                                 "/users",
                                 params={
@@ -8484,11 +8487,12 @@ async def sync_user_referral(
                             )
                             check_data = check_user_resp.json()
                             
-                            if check_data and check_data[0].get("referrer_id"):
+                            # Тоже проверяем, что пришел список
+                            if isinstance(check_data, list) and check_data and check_data[0].get("referrer_id"):
                                  logging.info(f"[REF DEBUG] ⚠️ У юзера {telegram_id} УЖЕ есть реферал (ID: {check_data[0]['referrer_id']}). Пропускаем.")
                                  return {"status": "already_has_ref"}
 
-                            # Записываем реферала (через .patch)
+                            # Записываем реферала
                             await supabase.patch(
                                 "/users",
                                 params={"telegram_id": f"eq.{telegram_id}"},
@@ -8505,7 +8509,6 @@ async def sync_user_referral(
             else:
                 logging.info(f"[REF DEBUG] ℹ️ start_param '{start_param}' не начинается на 'r_'.")
         else:
-            # Обычный вход без ссылки, это нормально, не спамим ошибками
             pass 
                         
     except Exception as e:
