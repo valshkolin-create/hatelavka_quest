@@ -20,8 +20,6 @@
       --text-secondary: #AAAAAA;
       --accent-primary: #FFD700; /* Золото */
       --accent-secondary: #FF9500; /* Оранжевый */
-      --danger-color: #ff4d4d;
-      --success-color: #34c759;
       --card-bg-glass: rgba(28, 28, 28, 0.75);
     }
 
@@ -111,20 +109,6 @@
     .coin-icon { color: var(--accent-primary); text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
     .ticket-icon { color: #00f2ea; text-shadow: 0 0 10px rgba(0, 242, 234, 0.4); }
 
-    /* SKELETON LOADING */
-    .skeleton-loader {
-        width: 40px;
-        height: 16px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-        animation: pulse 1.5s infinite ease-in-out;
-    }
-    @keyframes pulse {
-        0% { opacity: 0.3; }
-        50% { opacity: 0.7; }
-        100% { opacity: 0.3; }
-    }
-
     /* ГРИНД */
     .section-title {
         font-size: 13px; font-weight: 700; color: var(--text-primary); margin: 0 0 12px;
@@ -170,6 +154,19 @@
     }
     .grind-info span { color: var(--accent-primary); font-weight: 700; }
 
+    /* Буст Инфо */
+    .boost-details {
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px dashed rgba(255,255,255,0.1);
+        font-size: 10px;
+        color: #34c759;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .boost-row { display: flex; justify-content: space-between; padding: 0 10px; }
+
     .main-action-btn {
         width: 100%; padding: 12px; background-color: var(--accent-primary);
         color: #000; font-size: 13px; font-weight: 700; border: none; border-radius: 6px;
@@ -182,29 +179,8 @@
         background-color: var(--surface-secondary); color: var(--text-secondary);
         cursor: not-allowed; box-shadow: none;
     }
-    
-    /* --- 🔥 НОВЫЙ БЛОК: ДЕТАЛИ БОНУСОВ 🔥 --- */
-    .bonus-breakdown {
-        margin-top: 12px;
-        padding-top: 10px;
-        border-top: 1px solid rgba(255,255,255,0.05);
-        font-size: 11px;
-    }
-    .bonus-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 4px;
-        color: var(--text-secondary);
-    }
-    .bonus-row.total {
-        color: var(--text-primary);
-        font-weight: 700;
-        margin-top: 6px;
-        font-size: 12px;
-    }
-    .bonus-val.plus { color: var(--success-color); }
 
-    /* КНОПКА ОТКРЫТИЯ МАГАЗИНА */
+    /* МАГАЗИН */
     .open-shop-card {
         display: flex; justify-content: space-between; align-items: center; cursor: pointer;
         transition: transform 0.2s; border-color: var(--accent-secondary);
@@ -216,7 +192,7 @@
     .shop-text p { margin: 2px 0 0; font-size: 10px; color: var(--text-secondary); }
     .shop-arrow { color: var(--text-secondary); font-size: 12px; }
 
-    /* МОДАЛКА МАГАЗИНА */
+    /* МОДАЛКА */
     .modal-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0,0,0,0.8); z-index: 200; display: flex;
@@ -236,11 +212,9 @@
     .modal-header {
         padding: 15px; border-bottom: 1px solid var(--border-color);
         display: flex; justify-content: space-between; align-items: center;
-        background: var(--surface-primary); 
-        border-radius: 12px 12px 0 0;
+        background: var(--surface-primary); border-radius: 12px 12px 0 0;
     }
     
-    /* ВКЛАДКИ (TABS) */
     .shop-tabs { display: flex; gap: 10px; }
     .tab-btn {
         background: transparent; border: none; color: var(--text-secondary);
@@ -248,23 +222,15 @@
         border-radius: 6px; transition: all 0.2s; text-transform: uppercase;
     }
     .tab-btn.active { background: rgba(255, 215, 0, 0.1); color: var(--accent-primary); }
-    .tab-btn:hover:not(.active) { color: var(--text-primary); }
 
-    .modal-close-btn {
-        background: none; border: none; color: var(--text-secondary);
-        font-size: 24px; cursor: pointer; padding: 0; line-height: 1;
-    }
-
+    .modal-close-btn { background: none; border: none; color: var(--text-secondary); font-size: 24px; cursor: pointer; padding: 0; line-height: 1; }
     .modal-body { padding: 15px; overflow-y: auto; }
     .shop-grid { display: flex; flex-direction: column; gap: 10px; min-height: 150px; }
 
     .exchange-item {
-        background-color: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--border-color);
-        border-radius: 6px; padding: 10px;
-        display: flex; justify-content: space-between; align-items: center;
+        background-color: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color);
+        border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;
     }
-    
     .exchange-details { display: flex; flex-direction: column; gap: 2px; }
     .exchange-title { font-size: 12px; color: var(--text-primary); font-weight: 600; }
     .exchange-cost { font-size: 10px; color: var(--accent-primary); }
@@ -277,19 +243,6 @@
     .mini-btn:hover { background: var(--accent-primary); color: #000; }
     .mini-btn:disabled { border-color: var(--border-color); color: var(--text-secondary); pointer-events: none; opacity: 0.5; }
 
-    /* ПАГИНАЦИЯ */
-    .pagination-controls {
-        display: flex; justify-content: space-between; align-items: center;
-        margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-color);
-    }
-    .page-btn {
-        background: var(--surface-secondary); border: none; color: var(--text-primary);
-        width: 30px; height: 30px; border-radius: 50%; font-size: 12px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .page-btn:disabled { opacity: 0.3; cursor: default; }
-    .page-info { font-size: 11px; color: var(--text-secondary); }
-
     /* БЕСПЛАТНЫЙ БИЛЕТ */
     .free-ticket-section {
         border: 1px dashed var(--text-secondary); padding: 12px; border-radius: 8px;
@@ -299,47 +252,44 @@
     .free-ticket-text { font-size: 11px; color: var(--text-secondary); }
     .free-ticket-title { font-size: 12px; font-weight: 700; color: #fff; display: block; margin-bottom: 2px; }
 
-   /* --- ЕДИНЫЙ ФИКСИРОВАННЫЙ ФУТЕР --- */
+    /* FOOTER */
     .app-footer {
         display: flex; justify-content: space-around; align-items: center;
-        background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.1);
         position: fixed; bottom: 0; left: 0; width: 100%; z-index: 9999;
         padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
-        box-sizing: border-box; height: auto;
+        box-sizing: border-box;
     }
-
     .footer-item {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-        color: #8E8E93; text-decoration: none; flex: 1; cursor: pointer; background: transparent; border: none; padding: 0; margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        font-size: 10px; line-height: 1; font-weight: 500; transition: all 0.2s ease;
+        color: #8E8E93; text-decoration: none; flex: 1; cursor: pointer;
+        background: transparent; border: none; padding: 0; margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 10px; line-height: 1; font-weight: 500;
     }
-
     .footer-item .icon-wrapper {
-        display: flex; justify-content: center; align-items: center; width: 24px; height: 24px; font-size: 22px;
-        position: relative; transition: transform 0.2s ease, color 0.2s ease;
+        display: flex; justify-content: center; align-items: center; width: 24px; height: 24px;
+        font-size: 22px; position: relative; transition: transform 0.2s ease, color 0.2s ease;
     }
-
     .footer-item.active { color: #FFFFFF; }
-    .footer-item.active span { font-weight: 600; }
     .footer-item.active .icon-wrapper {
         color: #34c759; transform: translateY(-2px); text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
     }
     .footer-item.active .icon-wrapper::before {
-        content: ''; position: absolute; top: -8px; width: 20px; height: 2px; background-color: #34c759;
-        border-radius: 2px; box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
+        content: ''; position: absolute; top: -8px; width: 20px; height: 2px;
+        background-color: #34c759; border-radius: 2px; box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
     }
 
-    /* Анимации */
     .shine {
         position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
         animation: shine 3s infinite;
     }
     @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
+    
     .float-anim {
-        animation: floatUp 1s ease-out forwards; position: absolute; font-weight: 800; font-size: 16px; pointer-events: none; z-index: 100;
+        animation: floatUp 1s ease-out forwards;
+        position: absolute; font-weight: 800; font-size: 16px; pointer-events: none; z-index: 100;
     }
     @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-40px); } }
 
@@ -348,19 +298,27 @@
 <body>
 
   <div class="new-header-container">
-    <a href="/menu" class="header-back-button"><i class="fa-solid fa-chevron-left"></i> Назад</a>
-    <div class="page-header"><h1 class="page-title">Гринд</h1></div>
+    <a href="/menu" class="header-back-button">
+        <i class="fa-solid fa-chevron-left"></i> Назад
+    </a>
+    <div class="page-header">
+        <h1 class="page-title">Гринд</h1>
+    </div>
     <div style="width: 40px;"></div>
   </div>
 
   <div class="balance-grid">
     <div class="balance-item">
         <span class="balance-label">Гринд-монеты</span>
-        <div class="balance-value"><span id="user-coins"><div class="skeleton-loader"></div></span> <i class="fa-solid fa-coins coin-icon"></i></div>
+        <div class="balance-value">
+            <span id="user-coins">...</span> <i class="fa-solid fa-coins coin-icon"></i>
+        </div>
     </div>
     <div class="balance-item">
         <span class="balance-label">Билеты</span>
-        <div class="balance-value"><span id="user-tickets"><div class="skeleton-loader"></div></span> <i class="fa-solid fa-ticket ticket-icon"></i></div>
+        <div class="balance-value">
+            <span id="user-tickets">...</span> <i class="fa-solid fa-ticket ticket-icon"></i>
+        </div>
     </div>
   </div>
 
@@ -375,17 +333,16 @@
 
     <div class="grind-info">
         День серии: <span id="current-streak-day">1</span> / 10 <br>
-        Награда сегодня: <span id="today-reward">+0.1</span> гринд-монет
+        Награда сегодня: <span id="today-reward">+0.1</span>
+        
+        <div id="boost-container" class="boost-details" style="display: none;">
+            </div>
     </div>
 
     <button id="grind-btn" class="main-action-btn" disabled>
         <span id="grind-btn-text">Загрузка...</span>
         <div class="shine"></div>
     </button>
-    
-    <div id="bonus-breakdown" class="bonus-breakdown" style="display: none;">
-        </div>
-
   </div>
 
   <div class="glass-card open-shop-card" onclick="openShopModal()">
@@ -402,7 +359,7 @@
   <div class="free-ticket-section">
     <div>
         <span class="free-ticket-title">Ежедневный билет</span>
-        <span class="free-ticket-text" id="free-ticket-desc">Бесплатно раз в 24ч</span>
+        <span class="free-ticket-text" id="ticket-subtitle">Бесплатно раз в 24ч</span>
     </div>
     <div id="free-ticket-container"></div>
   </div>
@@ -418,22 +375,32 @@
         </div>
         <div class="modal-body">
             <div class="shop-grid" id="shop-container"></div>
-            <div class="pagination-controls" id="pagination-controls">
-                <button class="page-btn" id="prev-page-btn" onclick="changePage(-1)"><i class="fa-solid fa-chevron-left"></i></button>
-                <span class="page-info" id="page-indicator">1 / 1</span>
-                <button class="page-btn" id="next-page-btn" onclick="changePage(1)"><i class="fa-solid fa-chevron-right"></i></button>
-            </div>
         </div>
     </div>
   </div>
 
   <footer class="app-footer">
-    <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
-    <a href="/menu#quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
-    <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-    <a href="/events" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
-    <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
-  </footer>
+    <a href="/leaderboard" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+        <span>Лидерборд</span>
+    </a>
+    <a href="/menu#quests" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
+        <span>Задания</span>
+    </a>
+        <a href="/menu" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
+        <span>Главная</span>
+    </a>
+    <a href="/events" class="footer-item active">
+        <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
+        <span>Гринд</span>
+    </a>
+    <a href="/auction" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
+        <span>Аукцион</span>
+    </a>
+</footer>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -442,17 +409,17 @@ document.addEventListener('DOMContentLoaded', function() {
     tg.expand();
 
     let userState = {
-        coins: 0.0, tickets: 0, streakDays: 1, 
-        lastGrindTime: null, lastFreeTicket: null,
-        referrals: 0, referralActivatedAt: null
+        coins: 0.0,
+        tickets: 0,
+        streakDays: 1,
+        lastGrindTime: null, 
+        lastFreeTicket: null,
+        active_referrals_count: 0,
+        referral_activated_at: null
     };
 
-    // Данные для магазина
     let shopItems = [];
-    let currentTab = 'tickets'; 
-    let currentPage = 1;
-    const itemsPerPage = 5;
-
+    let currentTab = 'tickets';
     const MAX_STREAK = 10;
     const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
 
@@ -463,15 +430,13 @@ document.addEventListener('DOMContentLoaded', function() {
         streakSteps: document.getElementById('streak-steps'),
         streakDayDisplay: document.getElementById('current-streak-day'),
         todayRewardDisplay: document.getElementById('today-reward'),
+        boostContainer: document.getElementById('boost-container'),
         grindBtn: document.getElementById('grind-btn'),
         grindBtnText: document.getElementById('grind-btn-text'),
         freeTicketContainer: document.getElementById('free-ticket-container'),
+        ticketSubtitle: document.getElementById('ticket-subtitle'),
         shopModal: document.getElementById('shop-modal'),
         shopContainer: document.getElementById('shop-container'),
-        pageIndicator: document.getElementById('page-indicator'),
-        prevPageBtn: document.getElementById('prev-page-btn'),
-        nextPageBtn: document.getElementById('next-page-btn'),
-        paginationControls: document.getElementById('pagination-controls'),
         tabTickets: document.getElementById('tab-tickets'),
         tabPromos: document.getElementById('tab-promos')
     };
@@ -487,12 +452,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.ok) {
                 const data = await response.json();
                 userState.tickets = data.tickets || 0;
-                userState.coins = parseFloat(data.bot_t_coins || 0) / 100; // Coins from bot_t
+                userState.coins = parseFloat(data.coins || 0);
                 userState.streakDays = data.streak_days || 1;
                 userState.lastGrindTime = data.last_grind_at;
                 userState.lastFreeTicket = data.last_free_ticket_claimed_at;
-                userState.referrals = data.active_referrals_count || 0;
-                userState.referralActivatedAt = data.referral_activated_at;
+                
+                // Данные для бустов
+                userState.active_referrals_count = data.active_referrals_count || 0;
+                userState.referral_activated_at = data.referral_activated_at;
                 
                 updateUI();
                 renderStreakVisuals();
@@ -501,9 +468,44 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {
             console.error("Ошибка инициализации:", e);
             dom.coinsDisplay.textContent = "0.0";
-            dom.ticketsDisplay.textContent = "0";
             tg.showAlert("Ошибка загрузки данных.");
         }
+    }
+
+    function calculateBoosts() {
+        let baseReward = (userState.streakDays * 0.1);
+        if (baseReward > 1.0) baseReward = 1.0;
+        
+        let multiplier = 1.0;
+        let boostsHTML = "";
+        
+        // 1. Буст от друзей (+0.1 за каждого)
+        if (userState.active_referrals_count > 0) {
+            const refBoost = userState.active_referrals_count * 0.1;
+            multiplier += refBoost;
+            boostsHTML += `<div class="boost-row"><span>🚀 Друзья (${userState.active_referrals_count}):</span><span>+${refBoost.toFixed(1)}x</span></div>`;
+        }
+        
+        // 2. VIP статус новичка (7 дней)
+        if (userState.referral_activated_at) {
+            const activatedTime = new Date(userState.referral_activated_at).getTime();
+            const now = new Date().getTime();
+            const sevenDays = 7 * 24 * 60 * 60 * 1000;
+            
+            if ((now - activatedTime) < sevenDays) {
+                multiplier += 0.2;
+                boostsHTML += `<div class="boost-row"><span>⚡ VIP Новичок:</span><span>+0.2x</span></div>`;
+            }
+        }
+        
+        return { multiplier, boostsHTML, baseReward };
+    }
+
+    function isVipActive() {
+        if (!userState.referral_activated_at) return false;
+        const activatedTime = new Date(userState.referral_activated_at).getTime();
+        const now = new Date().getTime();
+        return (now - activatedTime) < (7 * 24 * 60 * 60 * 1000);
     }
 
     function updateUI() {
@@ -511,84 +513,38 @@ document.addEventListener('DOMContentLoaded', function() {
         dom.ticketsDisplay.textContent = userState.tickets;
         dom.streakDayDisplay.textContent = userState.streakDays;
         
-        // --- РАСЧЕТ БОНУСОВ ГРИНДА ---
-        const baseReward = parseFloat((userState.streakDays * 0.1).toFixed(1));
-        const refBoost = parseFloat((userState.referrals * 0.1).toFixed(1));
+        // Расчет награды с учетом бустов
+        const { multiplier, boostsHTML, baseReward } = calculateBoosts();
+        const totalReward = (baseReward * multiplier).toFixed(2);
         
-        // Расчет VIP (если рефералка активирована менее 7 дней назад)
-        let vipBoost = 0;
-        if (userState.referralActivatedAt) {
-            const actDate = new Date(userState.referralActivatedAt);
-            const now = new Date();
-            const diffDays = (now - actDate) / (1000 * 60 * 60 * 24);
-            if (diffDays <= 7) vipBoost = 0.5; // Пример бонуса новичка
-        }
-
-        const totalReward = (baseReward + refBoost + vipBoost).toFixed(1);
-        dom.todayRewardDisplay.textContent = `+${totalReward}`;
-
-        // Рисуем блок детализации
-        const breakdownEl = document.getElementById('bonus-breakdown');
-        breakdownEl.style.display = 'block';
-        breakdownEl.innerHTML = `
-            <div class="bonus-row"><span>Базовая награда:</span> <span>${baseReward}</span></div>
-        `;
+        dom.todayRewardDisplay.textContent = `+${totalReward} (${multiplier.toFixed(1)}x)`;
         
-        if (refBoost > 0) {
-            breakdownEl.innerHTML += `<div class="bonus-row"><span>Бонус друзей (${userState.referrals}):</span> <span class="bonus-val plus">+${refBoost}</span></div>`;
-        }
-        if (vipBoost > 0) {
-            breakdownEl.innerHTML += `<div class="bonus-row"><span>VIP статус (Новичок):</span> <span class="bonus-val plus">+${vipBoost}</span></div>`;
-        }
-        
-        breakdownEl.innerHTML += `<div class="bonus-row total"><span>ИТОГО СЕГОДНЯ:</span> <span style="color:var(--accent-primary)">+${totalReward} монет</span></div>`;
-
-        // --- БИЛЕТЫ: Показываем бонусы ---
-        // Если есть рефералы или VIP, меняем текст описания билета
-        const ticketDesc = document.getElementById('free-ticket-desc');
-        if (userState.referrals > 0 || vipBoost > 0) {
-            let bonuses = [];
-            if (userState.referrals > 0) bonuses.push("+1 за друзей"); // Пример
-            if (vipBoost > 0) bonuses.push("+1 за VIP");
-            ticketDesc.innerHTML = `Бесплатно: 1 билет <span style="color:var(--success-color)">(${bonuses.join(', ')})</span>`;
+        if (boostsHTML) {
+            dom.boostContainer.innerHTML = boostsHTML;
+            dom.boostContainer.style.display = 'flex';
+        } else {
+            dom.boostContainer.style.display = 'none';
         }
 
-        // Таймеры кнопок
-        checkTimers();
-    }
-    
-    function checkTimers() {
         const now = new Date().getTime();
-        
-        // 1. Гринд
-        const lastGrind = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
-        const grindDiff = now - lastGrind;
-        const grindBtn = document.getElementById('grind-btn');
-        const grindText = document.getElementById('grind-btn-text');
+        const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
+        const diff = now - last;
 
-        if (grindDiff < GRIND_COOLDOWN) {
-            grindBtn.disabled = true;
-            const remaining = GRIND_COOLDOWN - grindDiff;
+        if (diff < GRIND_COOLDOWN) {
+            dom.grindBtn.disabled = true;
+            const remaining = GRIND_COOLDOWN - diff;
             const h = Math.floor(remaining / 3600000);
             const m = Math.floor((remaining % 3600000) / 60000);
-            grindText.textContent = `ДОСТУПНО ЧЕРЕЗ ${h}ч ${m}м`;
+            dom.grindBtnText.textContent = `ЧЕРЕЗ ${h}ч ${m}м`;
         } else {
-            grindBtn.disabled = false;
-            grindText.textContent = "ЗАБРАТЬ БОНУС";
+            dom.grindBtn.disabled = false;
+            dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
-
-        // 2. Билет
-        const lastTicket = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
-        const ticketDiff = now - lastTicket;
-        const ticketContainer = document.getElementById('free-ticket-container');
-
-        if (ticketDiff < GRIND_COOLDOWN) {
-            const rem = GRIND_COOLDOWN - ticketDiff;
-            const h = Math.floor(rem / 3600000);
-            const m = Math.floor((rem % 3600000) / 60000);
-            ticketContainer.innerHTML = `<span style="font-size:11px; color:#555;">${h}ч ${m}м</span>`;
-        } else {
-            ticketContainer.innerHTML = `<button class="mini-btn" onclick="claimFreeTicket()">ПОЛУЧИТЬ</button>`;
+        
+        // Обновление подписи к билету (VIP)
+        if (isVipActive()) {
+            dom.ticketSubtitle.textContent = "VIP: +2 билета / 24ч";
+            dom.ticketSubtitle.style.color = "#FFD700";
         }
     }
 
@@ -601,11 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
         for (let i = 1; i <= 5; i++) {
             const step = document.createElement('div');
             step.className = 'streak-step';
-            let dayValue = 1;
-            if (i === 2) dayValue = 3;
-            if (i === 3) dayValue = 5;
-            if (i === 4) dayValue = 7;
-            if (i === 5) dayValue = 10;
+            let dayValue = [1, 3, 5, 7, 10][i-1];
             step.textContent = dayValue;
             if (userState.streakDays >= dayValue) {
                 step.classList.add('completed');
@@ -615,175 +567,207 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- ЛОГИКА МАГАЗИНА ---
-
-    // 1. Загрузка всех товаров
+    // --- МАГАЗИН ---
     async function fetchShopItems() {
-        shopItems = []; 
-        const ticketItems = [
+        shopItems = [
             { type: 'ticket', cost: 3, reward: 1, title: '1 Билет' },
             { type: 'ticket', cost: 15, reward: 1, title: '5 Билетов' },        
             { type: 'ticket', cost: 30, reward: 10, title: '10 Билетов' }
         ];
-        const promoItems = [];
         try {
             const response = await fetch('/api/v1/user/grind/shop');
             const promos = await response.json();
             if (promos && promos.length > 0) {
                 promos.forEach(p => {
-                    promoItems.push({
-                        type: 'promo',
-                        cost: p.reward_value,
-                        reward: p.reward_value,
-                        title: `Промокод на ${p.reward_value} ★`,
-                        quantity: p.quantity
+                    shopItems.push({
+                        type: 'promo', cost: p.reward_value, reward: p.reward_value,
+                        title: `Код на ${p.reward_value} ★`, quantity: p.quantity
                     });
                 });
-                promoItems.sort((a, b) => a.cost - b.cost);
+                shopItems.sort((a, b) => a.cost - b.cost);
             }
-        } catch (e) { console.warn("Shop fetch error", e); }
-        shopItems = [...ticketItems, ...promoItems];
+        } catch (e) {}
     }
 
     window.switchTab = (tab) => {
-        currentTab = tab; currentPage = 1;
-        if (tab === 'tickets') { dom.tabTickets.classList.add('active'); dom.tabPromos.classList.remove('active'); } 
-        else { dom.tabTickets.classList.remove('active'); dom.tabPromos.classList.add('active'); }
-        renderShopPage(currentPage);
+        currentTab = tab;
+        dom.tabTickets.classList.toggle('active', tab === 'tickets');
+        dom.tabPromos.classList.toggle('active', tab === 'promos');
+        renderShopList();
     };
 
     window.openShopModal = async () => {
         dom.shopModal.classList.add('visible');
-        dom.shopContainer.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">Обновление...</div>';
+        dom.shopContainer.innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
         await fetchShopItems(); 
-        renderShopPage(currentPage); 
+        renderShopList();
     };
-    window.closeShopModal = () => { dom.shopModal.classList.remove('visible'); };
 
-    function renderShopPage(page) {
+    window.closeShopModal = () => dom.shopModal.classList.remove('visible');
+
+    function renderShopList() {
         dom.shopContainer.innerHTML = '';
-        const filteredItems = shopItems.filter(item => {
-            if (currentTab === 'tickets') return item.type === 'ticket';
-            if (currentTab === 'promos') return item.type === 'promo';
-            return false;
-        });
-        const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-        if (filteredItems.length === 0) {
-            dom.shopContainer.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">В этом разделе пока пусто</div>';
-            dom.paginationControls.style.display = 'none';
+        const items = shopItems.filter(i => i.type === (currentTab === 'tickets' ? 'ticket' : 'promo'));
+        
+        if (items.length === 0) {
+            dom.shopContainer.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">Пусто</div>';
             return;
         }
-        dom.paginationControls.style.display = 'flex';
-        const start = (page - 1) * itemsPerPage;
-        const end = start + itemsPerPage;
-        const itemsToShow = filteredItems.slice(start, end);
 
-        itemsToShow.forEach(item => {
-            const div = document.createElement('div'); div.className = 'exchange-item';
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'exchange-item';
             const isAffordable = userState.coins >= item.cost;
             const btnClick = item.type === 'ticket' ? `exchangeCoins(${item.cost}, ${item.reward})` : `buyItem(${item.reward})`;
-            let extraInfo = item.quantity ? `<span style="opacity:0.5; font-size:9px; margin-left:4px;">(Ост: ${item.quantity})</span>` : '';
-            div.innerHTML = `<div class="exchange-details"><div class="exchange-title" style="color:#fff">${item.title}</div><div class="exchange-cost" style="color:var(--accent-primary)">Цена: ${item.cost} гринд-Монет ${extraInfo}</div></div><button class="mini-btn" onclick="${btnClick}" ${isAffordable ? '' : 'disabled'} style="${isAffordable ? 'background:var(--accent-primary); color:#000;' : ''}">${isAffordable ? 'Купить' : 'Мало гринд-монет'}</button>`;
+            let extra = item.quantity ? `<span style="opacity:0.5; font-size:9px;">(Ост: ${item.quantity})</span>` : '';
+
+            div.innerHTML = `
+                <div class="exchange-details">
+                    <div class="exchange-title">${item.title}</div>
+                    <div class="exchange-cost">Цена: ${item.cost} монет ${extra}</div>
+                </div>
+                <button class="mini-btn" onclick="${btnClick}" ${isAffordable?'':'disabled'} style="${isAffordable?'background:var(--accent-primary);color:#000':''}">
+                    ${isAffordable ? 'Купить' : 'Мало монет'}
+                </button>`;
             dom.shopContainer.appendChild(div);
         });
-
-        dom.pageIndicator.textContent = `${page} / ${totalPages}`;
-        dom.prevPageBtn.disabled = page === 1;
-        dom.nextPageBtn.disabled = page === totalPages;
     }
-
-    window.changePage = (delta) => {
-        const filteredItems = shopItems.filter(item => {
-            if (currentTab === 'tickets') return item.type === 'ticket';
-            if (currentTab === 'promos') return item.type === 'promo';
-        });
-        const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-        const newPage = currentPage + delta;
-        if (newPage >= 1 && newPage <= totalPages) { currentPage = newPage; renderShopPage(currentPage); }
-    };
 
     // --- ДЕЙСТВИЯ ---
     dom.grindBtn.addEventListener('click', async () => {
         if (dom.grindBtn.disabled) return;
         tg.HapticFeedback.impactOccurred('medium');
         dom.grindBtn.disabled = true;
+
         try {
             const response = await fetch('/api/v1/user/grind/claim', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: tg.initData })
             });
-            if (!response.ok) { const err = await response.json(); throw new Error(err.detail || "Ошибка"); }
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || "Ошибка");
+            }
+
             const res = await response.json();
-            showFloatText(dom.grindBtn, `+${res.reward_claimed}`, 'var(--accent-primary)');
-            userState.coins = parseFloat(res.new_coins); userState.streakDays = res.streak_days; userState.lastGrindTime = res.last_grind_at;
-            updateUI(); renderStreakVisuals();
-        } catch (e) { tg.showAlert(e.message); dom.grindBtn.disabled = false; }
+            
+            // Анимация текста
+            const claimed = parseFloat(res.reward_claimed).toFixed(2);
+            showFloatText(dom.grindBtn, `+${claimed}`, 'var(--accent-primary)');
+            
+            userState.coins = parseFloat(res.new_coins);
+            userState.streakDays = res.streak_days;
+            userState.lastGrindTime = res.last_grind_at;
+
+            updateUI();
+            renderStreakVisuals();
+
+        } catch (e) {
+            tg.showAlert(e.message);
+            dom.grindBtn.disabled = false;
+        }
     });
 
     window.exchangeCoins = async (cost, rewardTickets) => {
-        tg.showConfirm(`Обменять ${cost} гринд-монет на ${rewardTickets} билет(ов)?`, async (ok) => {
+        tg.showConfirm(`Купить ${rewardTickets} билет(ов) за ${cost} монет?`, async (ok) => {
             if (ok) {
                 try {
                     const response = await fetch('/api/v1/user/grind/exchange', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ initData: tg.initData, cost: cost, tickets_reward: rewardTickets })
                     });
-                    if (!response.ok) throw new Error("Ошибка обмена");
+                    if (!response.ok) throw new Error();
                     const res = await response.json();
-                    userState.coins = parseFloat(res.new_coins); userState.tickets = res.new_tickets;
-                    updateUI(); renderShopPage(currentPage); tg.HapticFeedback.notificationOccurred('success'); tg.showAlert('Успешный обмен!');
-                } catch (e) { tg.showAlert('Не удалось выполнить обмен.'); }
+                    userState.coins = parseFloat(res.new_coins);
+                    userState.tickets = res.new_tickets;
+                    updateUI();
+                    renderShopList();
+                    tg.HapticFeedback.notificationOccurred('success');
+                } catch (e) { tg.showAlert('Ошибка обмена'); }
             }
         });
     };
 
-    window.buyItem = async (rewardValue) => {
-        tg.showConfirm(`Купить промокод на ${rewardValue} звёзд?`, async (ok) => {
-            if (ok) {
-                if(typeof tg.MainButton.showProgress === 'function') tg.MainButton.showProgress();
+    window.buyItem = async (val) => {
+        tg.showConfirm(`Купить код на ${val} звезд?`, async (ok) => {
+            if(ok) {
                 try {
                     const response = await fetch('/api/v1/user/grind/buy_item', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: tg.initData, reward_value: rewardValue })
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData, reward_value: val })
                     });
-                    if (!response.ok) { const err = await response.json(); throw new Error(err.detail || 'Ошибка покупки'); }
+                    if (!response.ok) throw new Error('Ошибка');
                     const res = await response.json();
                     userState.coins = parseFloat(res.new_coins);
-                    updateUI(); await fetchShopItems(); renderShopPage(currentPage);
-                    tg.HapticFeedback.notificationOccurred('success');
-                    tg.showPopup({ title: '🎉 Успешно!', message: `Ваш код:\n\n${res.promo_code}\n\nСкопируйте его.`, buttons: [{type: 'ok'}] });
-                } catch (e) { tg.showAlert(e.message); tg.HapticFeedback.notificationOccurred('error'); } finally { if(typeof tg.MainButton.hideProgress === 'function') tg.MainButton.hideProgress(); }
+                    updateUI();
+                    await fetchShopItems(); renderShopList();
+                    tg.showPopup({title:'Успешно!', message: `Ваш код:\n${res.promo_code}`, buttons:[{type:'ok'}]});
+                } catch(e) { tg.showAlert('Не удалось купить'); }
             }
         });
     };
+
+    function renderFreeTicketBtn() {
+        const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
+        const now = new Date().getTime();
+        const diff = now - lastClaim;
+
+        if (diff > GRIND_COOLDOWN) {
+            // Если VIP, показываем что дадут 2 билета
+            const btnText = isVipActive() ? "+2 БИЛЕТА (VIP)" : "ПОЛУЧИТЬ";
+            const btnColor = isVipActive() ? "#FFD700" : "#fff";
+            
+            dom.freeTicketContainer.innerHTML = `<button class="mini-btn" style="border-color:${btnColor}; color:${btnColor}; width:100%;" onclick="claimFreeTicket()">${btnText}</button>`;
+        } else {
+            const remaining = GRIND_COOLDOWN - diff;
+            const h = Math.floor(remaining / 3600000);
+            const m = Math.floor((remaining % 3600000) / 60000);
+            dom.freeTicketContainer.innerHTML = `<span style="font-size:11px; color:#555;">${h}ч ${m}м</span>`;
+        }
+    }
 
     window.claimFreeTicket = async () => {
         try {
             const response = await fetch('/api/v1/user/claim-free-ticket', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: tg.initData })
             });
             if (response.ok) {
                 const res = await response.json();
                 userState.tickets = res.new_ticket_balance;
                 userState.lastFreeTicket = new Date().toISOString();
-                tg.showAlert('Билет получен!');
+                tg.HapticFeedback.notificationOccurred('success');
+                
+                // Если баланс увеличился на 2 (VIP), сообщим об этом
+                tg.showAlert(res.message); 
+                
                 updateUI();
                 renderFreeTicketBtn();
             } else { throw new Error(); }
-        } catch (e) { tg.showAlert('Ошибка получения билета'); }
+        } catch (e) { tg.showAlert('Ошибка'); }
     };
+
+    function startTimers() {
+        setInterval(() => { updateUI(); renderFreeTicketBtn(); }, 60000);
+        renderFreeTicketBtn();
+    }
 
     function showFloatText(element, text, color) {
         const rect = element.getBoundingClientRect();
         const floatEl = document.createElement('div');
-        floatEl.textContent = text; floatEl.className = 'float-anim';
-        floatEl.style.color = color; floatEl.style.left = (rect.left + rect.width / 2 - 20) + 'px'; floatEl.style.top = (rect.top) + 'px';
+        floatEl.textContent = text;
+        floatEl.className = 'float-anim';
+        floatEl.style.color = color;
+        floatEl.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+        floatEl.style.top = (rect.top) + 'px';
         document.body.appendChild(floatEl);
         setTimeout(() => floatEl.remove(), 1000);
     }
-
-    dom.shopModal.addEventListener('click', (e) => { });
 
     init();
 });
