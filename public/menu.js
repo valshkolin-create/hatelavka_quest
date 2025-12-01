@@ -1216,6 +1216,155 @@ async function buyItem(itemId, price, name) {
     });
 }
 
+// Функция проверки: нужно ли показывать попап
+async function checkReferralAndWelcome(userData) {
+    // 1. Проверяем, пришел ли юзер по реф. ссылке ПРЯМО СЕЙЧАС (start_param)
+    const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
+    let isReferralEntry = false;
+
+    // Если есть start_param вида r_123, пробуем связать
+    if (startParam && startParam.startsWith('r_')) {
+        try {
+            const syncRes = await fetch('/api/v1/user/sync_referral', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+            });
+            const syncData = await syncRes.json();
+            if (syncData.status === 'success' || syncData.status === 'already_has_ref') {
+                isReferralEntry = true;
+            }
+        } catch (e) { console.error("Ref sync error", e); }
+    } else if (userData.referrer_id) {
+        // Если реферала нет в параметрах, но он уже есть в базе
+        isReferralEntry = true;
+    }
+
+    // Если у юзера есть реферер, но бонус НЕ активирован -> Открываем
+    if (isReferralEntry && !userData.referral_activated_at) {
+        openWelcomePopup(userData);
+    }
+}
+
+// Функция открытия и управления попапом
+function openWelcomePopup(userData) {
+    const popup = document.getElementById('welcome-popup');
+    const iconTwitch = document.getElementById('icon-twitch');
+    const iconTg = document.getElementById('icon-tg');
+    const stepTwitch = document.getElementById('step-twitch');
+    const stepTg = document.getElementById('step-tg');
+    const actionBtn = document.getElementById('action-btn');
+    const subLinkBtn = document.getElementById('sub-link-btn');
+
+    if (!popup) return; // Защита, если HTML не добавлен
+
+    popup.classList.add('visible');
+
+    // --- 1. Мгновенная визуальная проверка (Локально) ---
+    let twitchReady = false;
+    
+    // Проверка Twitch по данным профиля
+    if (userData.twitch_id) {
+        twitchReady = true;
+        markStepDone(stepTwitch, iconTwitch);
+    } else {
+        markStepPending(stepTwitch, iconTwitch);
+    }
+
+    // Telegram пока не знаем (надо проверять через бэкенд)
+    markStepPending(stepTg, iconTg);
+
+    // --- 2. Авто-проверка на сервере (Попытка активации) ---
+    const attemptActivation = async () => {
+        actionBtn.disabled = true;
+        actionBtn.textContent = "Проверка...";
+
+        try {
+            // Если Twitch нет, просим привязать
+            if (!twitchReady) {
+                actionBtn.textContent = "Привязать Twitch";
+                actionBtn.onclick = () => { window.location.href = '/profile'; };
+                actionBtn.disabled = false;
+                return; 
+            }
+
+            // Отправляем запрос на активацию
+            const response = await fetch('/api/v1/user/referral/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+            });
+
+            const res = await response.json();
+
+            if (response.ok) {
+                // УСПЕХ!
+                markStepDone(stepTg, iconTg); // Значит подписка есть
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                
+                actionBtn.textContent = "Успешно!";
+                actionBtn.style.background = "#34c759";
+                
+                setTimeout(() => {
+                    popup.classList.remove('visible');
+                    Telegram.WebApp.showPopup({
+                        title: 'Поздравляем!',
+                        message: '🎁 Награда получена!\n+10 Монет\nVIP статус активирован',
+                        buttons: [{type: 'ok'}]
+                    });
+                    // Обновляем баланс на экране, если он изменился
+                    main(); 
+                }, 1000);
+
+            } else {
+                // ОШИБКА (Чего-то не хватает)
+                actionBtn.disabled = false;
+                actionBtn.textContent = "Проверить снова";
+                
+                const msg = res.detail || "";
+                
+                if (msg.includes("канал") || msg.includes("подпишитесь")) {
+                    // Нет подписки
+                    markStepDone(stepTwitch, iconTwitch); 
+                    markStepError(stepTg, iconTg);
+                    subLinkBtn.style.display = "block"; // Показываем кнопку подписки
+                    Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                } else if (msg.includes("Twitch")) {
+                    markStepError(stepTwitch, iconTwitch);
+                } else {
+                    Telegram.WebApp.showAlert(msg);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            actionBtn.disabled = false;
+            actionBtn.textContent = "Ошибка сети";
+        }
+    };
+
+    // Вешаем обработчик на кнопку (для ручной проверки)
+    actionBtn.onclick = attemptActivation;
+
+    // --- 3. ЗАПУСКАЕМ АВТО-ПРОВЕРКУ СРАЗУ ---
+    if (twitchReady) {
+        attemptActivation();
+    }
+}
+
+// Вспомогательные функции стилей
+function markStepDone(el, icon) {
+    if(el) { el.style.borderColor = "#34c759"; el.style.color = "#fff"; }
+    if(icon) { icon.className = "fa-solid fa-circle-check"; icon.style.color = "#34c759"; }
+}
+function markStepError(el, icon) {
+    if(el) el.style.borderColor = "#ff3b30";
+    if(icon) { icon.className = "fa-solid fa-circle-xmark"; icon.style.color = "#ff3b30"; }
+}
+function markStepPending(el, icon) {
+    if(el) el.style.borderColor = "transparent";
+    if(icon) { icon.className = "fa-regular fa-circle"; icon.style.color = "#aaa"; }
+}    
+
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
     
