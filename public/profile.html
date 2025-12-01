@@ -535,6 +535,25 @@
             <button class="popup-btn secondary" id="close-ref-modal-btn" style="margin-top: 10px;">Закрыть</button>
         </div>
     </div>
+
+<div id="welcome-popup" class="custom-popup-overlay">
+        <div class="custom-popup">
+            <div style="font-size: 40px; margin-bottom: 10px;">👋</div>
+            <h3>Привет, Новичок!</h3>
+            <p>Ты пришел от друга? У нас для тебя подарок!</p>
+            <div style="background: rgba(145, 70, 255, 0.15); border: 1px solid #9146ff; padding: 15px; border-radius: 12px; margin: 20px 0;">
+                <div style="color: #fff; font-weight: 600; margin-bottom: 5px;">Твой Стартовый Пак:</div>
+                <div style="font-size: 24px; font-weight: 800; color: #FFD700;">+10 МОНЕТ</div>
+                <div style="font-size: 12px; color: #ccc;">+ Неделя VIP статуса 🚀</div>
+            </div>
+            <p style="font-size: 12px; color: var(--text-color-muted);">Чтобы забрать, привяжи Twitch.</p>
+            <button id="claim-welcome-btn" class="popup-btn primary" style="background: #9146ff;">
+                <i class="fa-brands fa-twitch"></i> Проверить и Забрать
+            </button>
+            <button class="popup-btn secondary" id="close-welcome-btn" style="margin-top: 10px;">Позже</button>
+        </div>
+    </div>
+    
 <script>
 try {
     const tg = window.Telegram.WebApp;
