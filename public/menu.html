@@ -15,11 +15,14 @@
 
   <main id="main-content" class="main-content">
 
-    <div class="start-tutorial-btn-wrapper" style="gap: 10px; display: flex; justify-content: flex-end;">
-    <button id="open-bonus-btn" class="hidden" style="background: rgba(255, 215, 0, 0.15); color: #FFD700; border: 1px solid #FFD700; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer;">
-        <i class="fa-solid fa-gift"></i> Бонус
-    </button>
-        <button id="start-tutorial-btn"><i class="fa-solid fa-circle-question"></i> Как пользоваться?</button>
+    <div class="start-tutorial-btn-wrapper" style="gap: 10px; display: flex; justify-content: center; width: 100%;">
+        <button id="open-bonus-btn" class="hidden" style="background: rgba(255, 215, 0, 0.15); color: #FFD700; border: 1px solid #FFD700; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-gift"></i> Бонус
+        </button>
+        
+        <button id="start-tutorial-btn" style="padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 500;">
+            <i class="fa-solid fa-circle-question"></i> Как пользоваться?
+        </button>
     </div>
 
     <div id="new-promo-notification" class="promo-notification hidden">
@@ -229,22 +232,27 @@
           <p style="color:#ccc; font-size:13px; line-height:1.4;">Выполни условия и забери стартовый пак:</p>
           
           <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid #FFD700; padding: 15px; border-radius: 12px; margin: 15px 0;">
-              <div style="font-size: 24px; font-weight: 800; color: #FFD700;">+10 ГРИНД.МОНЕТ</div>
+              <div style="font-size: 24px; font-weight: 800; color: #FFD700;">+10 МОНЕТ</div>
               <div style="font-size: 12px; color: #ccc; margin-top:5px;">🚀 +0.20 к Гринду (7 дней)</div>
               <div style="font-size: 12px; color: #ccc;">🎟️ +1 Билет ежедневно (7 дней)</div>
           </div>
 
-          <div style="text-align:left; margin-bottom:20px; font-size:14px; color:#aaa; display: flex; flex-direction: column; gap: 10px;">
+          <div style="text-align:left; margin-bottom:20px; font-size:14px; color:#aaa; display: flex; flex-direction: column; gap: 15px;">
               
-              <div id="step-twitch" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.05);">
-                  <i class="fa-brands fa-twitch" style="font-size: 18px;"></i>
-                  <span style="flex-grow: 1;">Привязка Twitch</span>
-                  <i class="status-icon fa-regular fa-circle" id="icon-twitch"></i>
+              <div>
+                  <div id="step-twitch" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: rgba(145, 70, 255, 0.15); cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+                      <i class="fa-brands fa-twitch" style="font-size: 20px; color: #9146ff;"></i>
+                      <span style="flex-grow: 1; font-weight: 500; color: #fff;">Привязать Twitch</span>
+                      <i class="status-icon fa-regular fa-circle" id="icon-twitch"></i>
+                  </div>
+                  <div style="font-size: 9px; color: #666; margin-top: 5px; line-height: 1.2; padding-left: 5px;">
+                      *данная авторизация безопасна по всем правилам TwitchAuth, это помогает нам синхронизировать приложение и ваш аккаунт
+                  </div>
               </div>
 
-              <div id="step-tg" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.05);">
-                  <i class="fa-brands fa-telegram" style="font-size: 18px;"></i>
-                  <span style="flex-grow: 1;">Подписка на канал</span>
+              <div id="step-tg" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: rgba(0, 136, 204, 0.15); cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+                  <i class="fa-brands fa-telegram" style="font-size: 20px; color: #0088cc;"></i>
+                  <span style="flex-grow: 1; font-weight: 500; color: #fff;">Подписаться на канал</span>
                   <i class="status-icon fa-regular fa-circle" id="icon-tg"></i>
               </div>
 
@@ -252,11 +260,8 @@
 
           <div class="popup-actions" style="display:flex; flex-direction:column; gap:10px;">
               <button id="action-btn" class="popup-btn primary" style="background: #34c759;">
-                  Проверить
+                  Проверить условия
               </button>
-              <a href="https://t.me/hatelovettv" target="_blank" id="sub-link-btn" class="popup-btn secondary" style="text-decoration:none; line-height:40px; display:none;">
-                  Подписаться
-              </a>
               <button id="later-btn" class="popup-btn secondary">Позже</button>
           </div>
       </div>
