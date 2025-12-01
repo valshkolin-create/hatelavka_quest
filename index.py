@@ -5297,8 +5297,8 @@ async def sync_referral_with_bott(
             
     return {"status": "no_ref"}
 
-# --- Эндпоинт 2: Активация бонуса (Миша нажимает кнопку) ---
-REQUIRED_CHANNEL_ID = "@hatelove_ttv"
+# Используем точный ID канала (числом, без кавычек)
+REQUIRED_CHANNEL_ID = -1002144676097 
 
 @app.post("/api/v1/user/referral/activate")
 async def activate_referral_bonus(
@@ -5309,7 +5309,7 @@ async def activate_referral_bonus(
     if not user_info: raise HTTPException(status_code=401)
     user_id = user_info["id"]
 
-    # 1. Получаем данные
+    # 1. Получаем данные пользователя
     u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id, twitch_id, referral_activated_at"})
     user = u_resp.json()[0]
 
@@ -5317,33 +5317,42 @@ async def activate_referral_bonus(
     if user.get("referral_activated_at"):
         return {"message": "Бонус уже активирован ранее!", "already_done": True}
 
-    # Если нет реферала (пришел не по ссылке), но пытается нажать кнопку
+    # Если нет реферала
     if not user.get("referrer_id"):
-        raise HTTPException(status_code=400, detail="У вас нет пригласителя.")
+        raise HTTPException(status_code=400, detail="Вас никто не приглашал.")
 
     # 2. Проверка TWITCH
     if not user.get("twitch_id"):
         raise HTTPException(status_code=400, detail="Сначала привяжите Twitch аккаунт!")
 
     # 3. Проверка ПОДПИСКИ НА КАНАЛ
+    temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     try:
-        temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-        # ВАЖНО: Замени @YOUR_CHANNEL на свой канал (и добавь бота туда админом)
-        chat_member = await temp_bot.get_chat_member(chat_id="@YOUR_CHANNEL", user_id=user_id)
+        # Проверяем статус пользователя в канале по ID
+        chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
+        
+        # Статусы 'left' или 'kicked' означают отсутствие подписки
+        if chat_member.status in ['left', 'kicked']:
+             # Для удобства пользователя показываем ссылку, если он не подписан
+             raise HTTPException(status_code=400, detail=f"Подпишитесь на канал HATElove_ttv (ID: {REQUIRED_CHANNEL_ID}), чтобы забрать бонус!")
+             
+    except TelegramForbiddenError:
+        logging.error(f"Бот не является админом в канале {REQUIRED_CHANNEL_ID}")
+        raise HTTPException(status_code=500, detail="Ошибка: Бот не является администратором канала проверки.")
+    except Exception as e:
+        logging.error(f"Ошибка проверки подписки: {e}")
+        # Если чат не найден по ID
+        if "chat not found" in str(e).lower():
+             raise HTTPException(status_code=500, detail="Ошибка настройки: Канал не найден (проверьте ID).")
+        
+        raise HTTPException(status_code=400, detail="Не удалось проверить подписку. Попробуйте позже.")
+    finally:
+        # Обязательно закрываем сессию, чтобы избежать ошибки 'Unclosed client session'
         await temp_bot.session.close()
 
-        if chat_member.status in ['left', 'kicked', 'restricted']:
-             raise HTTPException(status_code=400, detail="Сначала подпишитесь на наш канал!")
-    except Exception as e:
-        logging.error(f"Sub check error: {e}")
-        # Если не смогли проверить (ошибка сети/бота), лучше не блокировать, или выдать ошибку
-        raise HTTPException(status_code=400, detail="Не удалось проверить подписку. Убедитесь, что вы подписаны.")
-
     # 4. Выдача награды
-    # +10 монет
     await supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": 10})
     
-    # Ставим дату активации
     await supabase.patch(
         "/users",
         params={"telegram_id": f"eq.{user_id}"},
