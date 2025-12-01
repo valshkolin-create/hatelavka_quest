@@ -68,6 +68,11 @@ twitch_settings_cache = {
     "roulette_titles": set()
 }
 TWITCH_CACHE_TTL = 300  # Обновлять кэш раз в 5 минут
+# --- КЭШ МАГАЗИНА (УСКОРЕНИЕ x1000) ---
+shop_goods_cache = {
+    # id_категории: { "data": [список_товаров], "expires_at": timestamp }
+}
+SHOP_CACHE_TTL = 600  # Хранить товары 10 минут (600 секунд)
 
 # --- Глобальный клиент для фоновых задач (ВСТАВИТЬ В НАЧАЛО ФАЙЛА) ---
 _background_supabase_client: Optional[httpx.AsyncClient] = None
@@ -8260,47 +8265,60 @@ class ShopCategoryRequest(BaseModel):
     initData: str
     category_id: int = 0  # По умолчанию 0 (главная)
 
+@app.post("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
     request_data: ShopCategoryRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    category_id = request_data.category_id
+    current_time = time.time()
+
+    # 1. 🔥 ПРОВЕРКА КЭША (Мгновенный ответ)
+    if category_id in shop_goods_cache:
+        cached_entry = shop_goods_cache[category_id]
+        if current_time < cached_entry["expires_at"]:
+            # logging.info(f"🚀 [SHOP] Отдаем категорию {category_id} из кэша")
+            return cached_entry["data"]
+
+    # 2. Если кэша нет, делаем запрос к Bot-t
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
     payload = {
         "bot_id": str(BOTT_BOT_ID),
         "public_key": BOTT_PUBLIC_KEY,
-        "category_id": request_data.category_id 
+        "category_id": category_id 
     }
-
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
 
     try:
-        # 🔥 ИСПРАВЛЕНИЕ: Используем global_shop_client (быстрое соединение)
-        if global_shop_client is None:
-             # Резервный вариант, если глобальный клиент не создался
-             async with httpx.AsyncClient(timeout=30.0) as client:
-                 resp = await client.post(url, json=payload, headers=headers)
+        # Используем глобальный клиент для скорости (Keep-Alive)
+        client_to_use = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=30.0)
+        
+        # Если клиент был создан локально (в блоке else), надо закрыть его потом, 
+        # но для простоты здесь предполагаем, что global_shop_client работает (он инициализирован в lifespan)
+        if global_shop_client:
+            resp = await global_shop_client.post(url, json=payload, headers=headers)
         else:
-             # Основной быстрый вариант
-             resp = await global_shop_client.post(url, json=payload, headers=headers)
+            async with httpx.AsyncClient(timeout=30.0) as temp_client:
+                resp = await temp_client.post(url, json=payload, headers=headers)
             
         if resp.status_code != 200:
-            logging.error(f"[SHOP] Ошибка API: {resp.status_code}")
+            logging.error(f"[SHOP] Ошибка API Bot-t: {resp.status_code}")
             return []
 
         data = resp.json().get("data", [])
         mapped_items = []
 
+        # Парсинг (оставляем вашу логику)
         for item in data:
             is_folder = (item.get("type") == 0)
-
+            
             image_url = "https://placehold.co/150?text=No+Image"
             if item.get("design") and item["design"].get("image"):
                 image_url = item["design"]["image"]
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
 
-            # ЦЕНЫ: Bot-t отдает в копейках. Делим на 100
             price = 0
             if item.get("price"):
                 amount = item["price"].get("amount", 0)
@@ -8310,7 +8328,6 @@ async def get_bott_goods_proxy(
             if item.get("design"):
                 name = item["design"].get("title", "Без названия")
 
-            # Получаем остаток
             count = None 
             if item.get("setting"):
                 raw_count = item["setting"].get("count")
@@ -8326,24 +8343,46 @@ async def get_bott_goods_proxy(
                 "count": count 
             })
 
+        # 3. 🔥 СОХРАНЯЕМ В КЭШ
+        shop_goods_cache[category_id] = {
+            "data": mapped_items,
+            "expires_at": current_time + SHOP_CACHE_TTL
+        }
+        
         return mapped_items
 
     except Exception as e:
         logging.error(f"[SHOP] Ошибка: {e}", exc_info=True)
         return []
 
-
-# --- [2] ДОБАВЛЯЕМ НОВЫЙ ЭНДПОИНТ СИНХРОНИЗАЦИИ БАЛАНСА ---
-# Вставь это где-то рядом с другими эндпоинтами магазина
+async def save_balance_background(telegram_id: int, update_data: dict):
+    """Фоновая задача для сохранения данных магазина в Supabase"""
+    try:
+        # Используем глобальный клиент или создаем временный
+        async with httpx.AsyncClient(
+            base_url=f"{SUPABASE_URL}/rest/v1",
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+            timeout=10.0
+        ) as client:
+            await client.patch(
+                "/users",
+                params={"telegram_id": f"eq.{telegram_id}"},
+                json=update_data
+            )
+    except Exception as e:
+        logging.error(f"[BG_SYNC] Ошибка фонового сохранения баланса: {e}")
 
 # --- ЭНДПОИНТ 1: БАЛАНС (С ГЛУБОКИМ ЛОГИРОВАНИЕМ) ---
 @app.post("/api/v1/user/sync_balance")
 async def sync_user_balance(
     request_data: InitDataRequest,
+    background_tasks: BackgroundTasks, # <--- ВАЖНО: Добавили это
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Синхронизация баланса (через глобальный клиент для скорости).
+    Оптимизированная синхронизация:
+    1. Ждет только Bot-t.
+    2. Сохраняет в БД в фоне (не задерживая юзера).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -8351,47 +8390,55 @@ async def sync_user_balance(
     
     telegram_id = user_info["id"]
     
-    # Берем кэш из базы на случай ошибки
-    db_balance = 0
-    try:
-        db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins"})
-        if db_resp.status_code == 200 and db_resp.json():
-            db_balance = db_resp.json()[0].get("bot_t_coins", 0)
-    except:
-        pass
+    url = "https://api.bot-t.com/v1/module/bot/check-hash"
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "userData": request_data.initData 
+    }
 
-    url_hash = "https://api.bot-t.com/v1/module/bot/check-hash"
-    headers = {"Content-Type": "application/json", "User-Agent": "QuestBot/1.0"}
-    payload = {"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}
-    
     try:
-        # 🔥 ИСПРАВЛЕНИЕ: Используем global_shop_client
-        if global_shop_client is None:
-             async with httpx.AsyncClient(timeout=10.0) as client:
-                 resp = await client.post(url_hash, json=payload, headers=headers)
-        else:
-             resp = await global_shop_client.post(url_hash, json=payload, headers=headers)
-            
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get("result") is True:
-                response_data = data.get("data", {})
-                if "money" in response_data:
-                    new_balance = int(float(response_data.get("money", 0)))
-                    
-                    update_payload = {"bot_t_coins": new_balance}
-                    if response_data.get("id"): update_payload["bott_internal_id"] = response_data.get("id")
-                    if response_data.get("secret_user_key"): update_payload["bott_secret_key"] = response_data.get("secret_user_key")
-                    if response_data.get("user") and response_data["user"].get("id"): update_payload["bott_ref_id"] = response_data["user"].get("id")
-
-                    await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_payload)
-                    return {"success": True, "balance": new_balance}
+        # 1. Запрос к Bot-t (Используем глобальный клиент для скорости)
+        client_to_use = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=10.0)
         
-        return {"success": True, "balance": db_balance}
+        if global_shop_client:
+             resp = await global_shop_client.post(url, json=payload)
+        else:
+             async with httpx.AsyncClient(timeout=10.0) as temp_client:
+                 resp = await temp_client.post(url, json=payload)
+        
+        if resp.status_code != 200:
+            return {"bot_t_coins": 0}
+
+        data = resp.json()
+        response_data = data.get("data", {})
+        
+        if not response_data:
+             return {"bot_t_coins": 0}
+
+        # 2. Парсим данные
+        internal_id = response_data.get("id")
+        ref_id = None
+        if response_data.get("user"):
+            ref_id = response_data["user"].get("id") 
+        
+        money_raw = response_data.get("money", 0)
+        current_balance = int(float(money_raw))
+        secret_key = response_data.get("secret_user_key")
+
+        # 3. 🔥 ОПТИМИЗАЦИЯ: Отправляем сохранение в БД в ФОН
+        update_data = {"bot_t_coins": current_balance}
+        if internal_id: update_data["bott_internal_id"] = internal_id
+        if ref_id: update_data["bott_ref_id"] = ref_id
+        if secret_key: update_data["bott_secret_key"] = secret_key
+
+        background_tasks.add_task(save_balance_background, telegram_id, update_data)
+        
+        # 4. Сразу отдаем ответ юзеру, не дожидаясь базы
+        return {"bot_t_coins": current_balance, "bott_ref_id": ref_id}
 
     except Exception as e:
-        logging.error(f"[SYNC ERROR] {e}")
-        return {"success": True, "balance": db_balance}
+        logging.error(f"[SYNC] Ошибка: {e}", exc_info=True)
+        return {"bot_t_coins": 0}
 
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
 @app.post("/api/v1/user/sync_referral")
