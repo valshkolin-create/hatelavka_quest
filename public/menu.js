@@ -1562,6 +1562,27 @@ async function openQuestsTab(isSilent = false) {
         console.error('Highlighting error:', err);
     }
 }
+
+    // Функция для тихой проверки реферала при входе
+    function syncReferralOnLoad() {
+        if (!window.Telegram || !window.Telegram.WebApp) return;
+        
+        const initData = window.Telegram.WebApp.initData;
+        if (!initData) return;
+
+        // Отправляем запрос на сервер, не дожидаясь ответа (fire and forget)
+        fetch('/api/v1/user/sync_referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: initData })
+        }).catch(err => {
+            console.warn("Referral sync failed:", err);
+        });
+    }
+
+    // Запускаем сразу
+    syncReferralOnLoad();
+    
     // Функция обновления статусов на ярлыках (Магазин, Челленджи, Испытания)
     function updateShortcutStatuses(userData, allQuests) {
         // 1. Обновляем Челлендж (shortcut-challenge)
