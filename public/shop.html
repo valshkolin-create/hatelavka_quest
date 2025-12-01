@@ -732,14 +732,17 @@
         // --- ОПТИМИЗИРОВАННЫЙ РЕНДЕР (DocumentFragment) ---
         function renderItems(items) {
             const container = document.getElementById('shop-grid');
+            
+            // 1. Очищаем контейнер
             container.innerHTML = '';
 
+            // 2. Если пусто - показываем сообщение и выходим
             if (!items || items.length === 0) {
                 container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
                 return;
             }
 
-            // Создаем фрагмент в памяти (не трогая DOM)
+            // 3. Создаем фрагмент (это "виртуальный" контейнер, работа с ним не тормозит страницу)
             const fragment = document.createDocumentFragment();
 
             items.forEach(item => {
@@ -751,13 +754,19 @@
                 let priceText = '';
                 let clickAction = '';
 
+                // --- ЛОГИКА ДЛЯ ПАПКИ ---
                 if (item.is_folder) {
-                    stockText = '';
+                    stockText = ''; // У папок нет остатка
+                    // Кнопка "Открыть"
                     buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
+                    // Клик по картинке тоже открывает папку
                     clickAction = `openFolder(${item.id})`;
-                } else {
+                } 
+                // --- ЛОГИКА ДЛЯ ТОВАРА ---
+                else {
                     priceText = `<div class="item-price">${item.price} 🟡️</div>`;
                     
+                    // Логика остатков
                     let isOutOfStock = false;
                     if (item.count === null) {
                         stockText = `<div class="item-stock">∞ шт.</div>`;
@@ -768,20 +777,33 @@
                         stockText = `<div class="item-stock">${item.count} шт.</div>`;
                     }
 
+                    // Кнопка Купить / Раскуплено
                     if (isOutOfStock) {
                         buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
                     } else {
+                        // Экранируем кавычки в названии, чтобы JS не сломался при клике
                         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Купить</button>`;
                     }
+                    // Клик по картинке открывает зум
                     clickAction = `openImageModal('${item.image_url}')`;
                 }
 
+                // Форматируем название (убираем теги в скобках [RU] и т.д.)
                 const displayNameHtml = formatItemName(item.name);
+                
+                // Заглушка, если картинки нет
+                const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
 
+                // Собираем HTML карточки
                 el.innerHTML = `
                     <div class="item-image-wrapper" onclick="${clickAction}">
-                        <img src="${item.image_url}" class="item-image" decoding="async" loading="lazy" onload="this.classList.add('loaded')" alt="${escapeHtml(item.name)}">
+                        <img src="${imgUrl}" 
+                             class="item-image" 
+                             decoding="async" 
+                             loading="lazy" 
+                             onload="this.classList.add('loaded')" 
+                             alt="${escapeHtml(item.name)}">
                     </div>
                     <div class="item-info">
                         <div class="item-title">${displayNameHtml}</div>
@@ -792,13 +814,15 @@
                         ${buttonHtml}
                     </div>
                 `;
+                
+                // Добавляем карточку во фрагмент
                 fragment.appendChild(el);
             });
 
-            // Вставляем всё в DOM за один раз
+            // 4. Вставляем весь фрагмент в DOM за одну операцию (очень быстро)
             container.appendChild(fragment);
         }
-
+        
         function openImageModal(imageUrl) {
             const modal = document.getElementById('image-modal');
             const img = document.getElementById('full-image');
