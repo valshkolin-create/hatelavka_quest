@@ -219,6 +219,46 @@
     </div>
   </div>
 
+  <div id="welcome-popup" class="custom-popup-overlay">
+      <div class="custom-popup">
+          <div style="font-size: 40px; margin-bottom: 10px;">👋</div>
+          <h3>Ты приглашен!</h3>
+          <p style="color:#ccc; font-size:13px; line-height:1.4;">Выполни условия и забери стартовый пак:</p>
+          
+          <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid #FFD700; padding: 15px; border-radius: 12px; margin: 15px 0;">
+              <div style="font-size: 24px; font-weight: 800; color: #FFD700;">+10 МОНЕТ</div>
+              <div style="font-size: 12px; color: #ccc; margin-top:5px;">🚀 +0.20 к Гринду (7 дней)</div>
+              <div style="font-size: 12px; color: #ccc;">🎟️ +1 Билет ежедневно (7 дней)</div>
+          </div>
+
+          <div style="text-align:left; margin-bottom:20px; font-size:14px; color:#aaa; display: flex; flex-direction: column; gap: 10px;">
+              
+              <div id="step-twitch" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.05);">
+                  <i class="fa-brands fa-twitch" style="font-size: 18px;"></i>
+                  <span style="flex-grow: 1;">Привязка Twitch</span>
+                  <i class="status-icon fa-regular fa-circle" id="icon-twitch"></i>
+              </div>
+
+              <div id="step-tg" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.05);">
+                  <i class="fa-brands fa-telegram" style="font-size: 18px;"></i>
+                  <span style="flex-grow: 1;">Подписка на канал</span>
+                  <i class="status-icon fa-regular fa-circle" id="icon-tg"></i>
+              </div>
+
+          </div>
+
+          <div class="popup-actions" style="display:flex; flex-direction:column; gap:10px;">
+              <button id="action-btn" class="popup-btn primary" style="background: #34c759;">
+                  Проверить
+              </button>
+              <a href="https://t.me/hatelovettv" target="_blank" id="sub-link-btn" class="popup-btn secondary" style="text-decoration:none; line-height:40px; display:none;">
+                  Подписаться
+              </a>
+              <button class="popup-btn secondary" onclick="document.getElementById('welcome-popup').classList.remove('visible')">Позже</button>
+          </div>
+      </div>
+  </div>
+
   <div id="tutorial-overlay" class="tutorial-overlay hidden">
     <div id="tutorial-modal" class="tutorial-modal">
         <div class="tutorial-modal-header">
