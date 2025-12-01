@@ -1304,6 +1304,10 @@ function openWelcomePopup(userData) {
                 
                 actionBtn.textContent = "Успешно!";
                 actionBtn.style.background = "#34c759";
+
+                // 👇 ДОБАВИТЬ ЭТУ СТРОКУ 👇
+                document.getElementById('open-bonus-btn')?.classList.add('hidden'); 
+                // 👆 Скрываем кнопку в меню, так как бонус получен
                 
                 setTimeout(() => {
                     popup.classList.remove('visible');
@@ -1403,6 +1407,15 @@ function setupEventListeners() {
         }, 100);
     });
     // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
+    // Обработчик кнопки "Позже" в приветственном попапе
+        const laterBtn = document.getElementById('later-btn');
+        if (laterBtn) {
+            laterBtn.addEventListener('click', () => {
+                document.getElementById('welcome-popup').classList.remove('visible');
+                // Запоминаем, что юзер закрыл окно в этой сессии, чтобы оно само не всплывало
+                sessionStorage.setItem('bonusPopupClosed', 'true');
+            });
+        }
    // --- ЛОГИКА ДЛЯ МАГАЗИНА (ВНУТРЕННИЙ ВИД) ---
         const shopBtn = document.getElementById('shop-open-btn');
         if (shopBtn) {
