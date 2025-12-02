@@ -790,18 +790,28 @@ try {
                 input.addEventListener('change', (e) => {
                     const key = e.target.dataset.key;
                     const value = e.target.checked;
+                    
+                    // 1. ВАЖНО: Обновляем локальный объект настроек мгновенно
+                    settings[key] = value;
+
                     statusEl.textContent = 'Ожидание...'; statusEl.style.opacity = '1';
                     pendingUpdates[key] = value;
+                    
                     if (batchTimeout) clearTimeout(batchTimeout);
+                    
                     batchTimeout = setTimeout(async () => {
                         try {
-                            await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates });
+                            // 2. Добавлен аргумент 'true' в конце для тихого режима (без спиннера)
+                            await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates }, 'POST', true);
+                            
                             pendingUpdates = {}; 
                             statusEl.textContent = 'Сохранено';
                             setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
                         } catch (err) {
                             statusEl.textContent = 'Ошибка!';
+                            // Если ошибка, возвращаем тумблер и локальную настройку назад
                             e.target.checked = !value; 
+                            settings[key] = !value;
                         }
                     }, 1000); 
                 });
