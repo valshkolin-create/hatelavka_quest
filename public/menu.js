@@ -1221,7 +1221,7 @@ async function checkReferralAndWelcome(userData) {
     const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
     let hasReferrer = false;
 
-    // 1. Пробуем связать по ссылке
+    // 1. Пробуем связать по ссылке (если это первый вход по ссылке)
     if (startParam && startParam.startsWith('r_')) {
         try {
             // Тихая синхронизация
@@ -1237,26 +1237,29 @@ async function checkReferralAndWelcome(userData) {
         } catch (e) { console.error("Ref sync error", e); }
     } 
     
-    // 2. Или если реферер уже есть в базе
+    // 2. Или если реферер уже есть в базе (благодаря правке в index.py)
     if (userData.referrer_id) {
         hasReferrer = true;
     }
 
-    // ГЛАВНОЕ УСЛОВИЕ: Есть реферер И бонус НЕ активирован
-    if (hasReferrer && !userData.referral_activated_at) {
-        
-        // Всегда показываем маленькую кнопку "Бонус" в хедере (если она есть в HTML)
+    // --- ЛОГИКА ОТОБРАЖЕНИЯ КНОПКИ (ИЗМЕНЕНО) ---
+    // Показываем кнопку ВСЕГДА, если бонус еще не активирован.
+    // Это гарантирует, что она не пропадет после обновления страницы.
+    if (!userData.referral_activated_at) {
         const bonusBtn = document.getElementById('open-bonus-btn');
         if (bonusBtn) {
             bonusBtn.classList.remove('hidden');
             bonusBtn.onclick = () => openWelcomePopup(userData);
         }
+    }
 
-        // ПРОВЕРКА: Нажимал ли он "Позже"?
+    // --- ЛОГИКА АВТО-ПОПАПА ---
+    // Попап или плашку показываем, только если мы точно знаем, что есть реферер
+    if (hasReferrer && !userData.referral_activated_at) {
         const isDeferred = localStorage.getItem('bonusPopupDeferred');
 
         if (!isDeferred) {
-            // Если не нажимал — открываем большое окно сразу
+            // Если не нажимал "Позже" — открываем большое окно сразу
             openWelcomePopup(userData);
         } else {
             // Если нажимал "Позже" — показываем аккуратное уведомление сверху
