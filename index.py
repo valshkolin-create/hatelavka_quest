@@ -3217,10 +3217,11 @@ async def get_current_user_data(request_data: InitDataRequest):
         final_response['is_admin'] = telegram_id in ADMIN_IDS
 
         # --- 🔥 ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ ДЛЯ БОНУСОВ 🔥 ---
+        # --- 🔥 ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ ДЛЯ БОНУСОВ 🔥 ---
         try:
-            # Запрашиваем кол-во рефералов И дату активации бонуса
+            # ИЗМЕНЕНИЕ: Добавили referrer_id в запрос select 👇
             user_extra = supabase.table("users") \
-                .select("referral_activated_at, bott_internal_id, bott_ref_id") \
+                .select("referral_activated_at, bott_internal_id, bott_ref_id, referrer_id") \
                 .eq("telegram_id", telegram_id) \
                 .execute()
             
@@ -3228,9 +3229,10 @@ async def get_current_user_data(request_data: InitDataRequest):
                 final_response['referral_activated_at'] = user_extra.data[0].get('referral_activated_at')
                 final_response['bott_internal_id'] = user_extra.data[0].get('bott_internal_id')
                 final_response['bott_ref_id'] = user_extra.data[0].get('bott_ref_id')
+                # ИЗМЕНЕНИЕ: Передаем referrer_id на фронтенд 👇
+                final_response['referrer_id'] = user_extra.data[0].get('referrer_id')
 
-            # Считаем количество приглашенных (ИСПРАВЛЕНО)
-            # Считаем количество АКТИВНЫХ приглашенных (кто нажал кнопку)
+            # Считаем количество АКТИВНЫХ приглашенных
             count_resp = supabase.table("users") \
                 .select("telegram_id", count="exact") \
                 .eq("referrer_id", telegram_id) \
