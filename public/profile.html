@@ -752,27 +752,25 @@ try {
         dom.notificationArea.appendChild(notificationCard);
     }
 
-    function renderSettingsList(userData) { // <--- Переименовали в List
+    function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
         const isBotActive = userData.is_bot_active === true;
         const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
 
-        // 1. Уведомления (Вернули карточку, она тоже пропала)
-        const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
+        // 1. УВЕДОМЛЕНИЯ (Вернул!)
+        const notifyCard = document.createElement('div'); 
+        notifyCard.className = 'settings-card';
         notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
         notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
         dom.settingsList.appendChild(notifyCard);
-        
+
         // 2. STEAM CARD
         const steamCard = document.createElement('div');
         steamCard.className = 'settings-card';
         const hasTradeLink = !!userData.trade_link;
         steamCard.innerHTML = `
             <div class="settings-card-info">
-                <p>
-                    <i class="fa-brands fa-steam" style="color: #66c0f4;"></i>
-                    Steam Trade
-                </p>
+                <p><i class="fa-brands fa-steam" style="color: #66c0f4;"></i> Steam Trade</p>
                 <span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span>
                 <span class="twitch-trust-link" id="steam-trust-btn" style="margin-top: 4px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>
             </div>
@@ -788,10 +786,7 @@ try {
         if (userData.twitch_login) {
             twitchCard.innerHTML = `
                 <div class="settings-card-info">
-                    <p>
-                        <i class="fa-brands fa-twitch" style="color: #9146ff;"></i>
-                        Twitch
-                    </p>
+                    <p><i class="fa-brands fa-twitch" style="color: #9146ff;"></i> Twitch</p>
                     <span>Привязан как: <b>${userData.twitch_login}</b></span>
                 </div>
                 <button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>
@@ -800,10 +795,7 @@ try {
             const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
             twitchCard.innerHTML = `
                 <div class="settings-card-info">
-                     <p>
-                        <i class="fa-brands fa-twitch" style="color: #9146ff;"></i>
-                        Twitch
-                    </p>
+                     <p><i class="fa-brands fa-twitch" style="color: #9146ff;"></i> Twitch</p>
                     <span>Привяжите аккаунт для наград</span>
                     <span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>
                 </div>
@@ -812,7 +804,7 @@ try {
         }
         dom.settingsList.appendChild(twitchCard);
 
-        // 4. РЕФЕРАЛКА (ВОССТАНОВЛЕНО)
+        // 4. РЕФЕРАЛКА (Вернул!)
         const refCard = document.createElement('div'); 
         refCard.className = 'settings-card ref-card-gradient';
         const activeRefs = userData.active_referrals_count || 0; 
@@ -998,93 +990,59 @@ try {
 
     // Global Listeners
     document.body.addEventListener('click', async (event) => {
+    document.body.addEventListener('click', async (event) => {
         const target = event.target;
         
-        // 1. Скрыть уведомление
-        if (target.closest('#dismiss-notification-btn')) {
-            showDismissPopup();
-            return;
-        }
+        // Скрыть уведомление (баннер)
+        if (target.closest('#dismiss-notification-btn')) { showDismissPopup(); return; }
 
-        // 2. Копировать промокод
+        // Копировать код
         const copyBtn = target.closest('.reward-card-copy-btn');
         if (copyBtn) {
-            const input = copyBtn.parentElement.querySelector('.reward-card-code-input');
-            navigator.clipboard.writeText(input.value).then(() => {
-                const icon = copyBtn.querySelector('i');
-                icon.classList.replace('fa-copy', 'fa-check');
-                copyBtn.style.backgroundColor = 'var(--primary-color)';
-                setTimeout(() => {
-                    icon.classList.replace('fa-check', 'fa-copy');
-                    copyBtn.style.backgroundColor = 'var(--action-color)';
-                }, 2000);
-            });
+            navigator.clipboard.writeText(copyBtn.parentElement.querySelector('input').value);
+            tg.HapticFeedback.notificationOccurred('success');
             return;
         }
 
-        // 3. Кнопка "Где использовать?" (GIF)
+        // Инструкция "Где использовать" (GIF)
         const howToUseBtn = target.closest('.reward-how-to-use-btn');
         if (howToUseBtn) {
-            event.preventDefault(); // Важно, чтобы не скроллило
-            const gifUrl = howToUseBtn.dataset.gif;
-            const imgElement = document.getElementById('how-to-use-gif');
-            if (imgElement) imgElement.src = gifUrl; // Устанавливаем GIF
+            event.preventDefault();
+            document.getElementById('how-to-use-gif').src = howToUseBtn.dataset.gif;
             document.getElementById('how-to-use-popup').classList.add('visible');
             return;
         }
         
-        // 4. Удалить промокод
-        const deleteBtn = target.closest('.reward-card-delete-btn');
-        if (deleteBtn) {
-            const card = deleteBtn.closest('.reward-card');
-            tg.showConfirm("Удалить этот промокод?", async (ok) => {
-                if (ok) {
-                    await makeApiRequest('/api/v1/user/promocodes/delete', { code: card.dataset.code });
-                    card.style.transition = 'opacity 0.3s, transform 0.3s';
-                    card.style.opacity = '0';
-                    card.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        card.remove();
-                        if (dom.rewardsList.children.length === 0) {
-                            renderRewards([]);
-                        }
-                    }, 300);
-                }
-            });
+        // Удалить награду
+        const delBtn = target.closest('.reward-card-delete-btn');
+        if (delBtn) {
+            const card = delBtn.closest('.reward-card');
+            const action = card.dataset.type === 'promocode' ? 
+                () => makeApiRequest('/api/v1/user/promocodes/delete', {code:card.dataset.code}) : 
+                () => makeApiRequest('/api/v1/user/grants/delete', {id:parseInt(card.dataset.id)});
+            showCustomConfirmHTML("Удалить награду?", async (c)=>{ await action(); card.remove(); c(); }); 
             return;
         }
         
-        // 5. Отвязать Twitch
-        const unlinkBtn = target.closest('#unlink-twitch-btn');
-        if (unlinkBtn) {
-            tg.showConfirm("Отвязать аккаунт Twitch?", async (ok) => {
-                if (ok) {
-                    await makeApiRequest('/api/v1/user/twitch/unlink');
-                    main();
-                    tg.showAlert('Аккаунт Twitch отвязан.');
-                }
-            });
-            return;
+        // Отвязать Twitch
+        if (target.closest('#unlink-twitch-btn')) { 
+            showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); 
+            return; 
         }
 
-        // 6. Изменить Trade Link
-        const editTradeLinkBtn = target.closest('#edit-trade-link-btn');
-        if (editTradeLinkBtn) {
-            const currentLink = document.getElementById('trade-link-display').textContent;
-            showTradeLinkPopup(currentLink);
-            return;
+        // Изменить Trade Link
+        if (target.closest('#edit-trade-link-btn')) { 
+            dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; 
+            dom.customPopupOverlay.classList.add('visible'); 
+            return; 
         }
 
-        // 7. Кнопка "Безопасно ли это?" (TWITCH)
-        const twitchTrustBtn = target.closest('#twitch-trust-btn');
-        if (twitchTrustBtn) {
+        // --- НОВЫЕ КНОПКИ ДОВЕРИЯ ---
+        if (target.closest('#twitch-trust-btn')) {
             document.getElementById('twitch-trust-popup').classList.add('visible');
             return;
         }
-
-        // 8. Кнопка "Безопасно ли это?" (STEAM) - НОВОЕ
-        const steamTrustBtn = target.closest('#steam-trust-btn');
-        if (steamTrustBtn) {
+        if (target.closest('#steam-trust-btn')) {
             document.getElementById('steam-trust-popup').classList.add('visible');
             return;
         }
