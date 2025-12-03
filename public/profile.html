@@ -389,20 +389,54 @@
             visibility: visible;
             transition: opacity 0.3s ease, visibility 0s 0s;
         }
+        /* --- Обновленные стили попапа (Фикс для ПК) --- */
         .custom-popup {
             background-color: #1c1c1e;
             border-radius: 14px;
             padding: 20px;
             width: 90%; 
-            max-width: 340px; 
-            max-height: 85vh; 
-            overflow-y: auto;
+            max-width: 380px;
+            
+            /* Настройки фиксации высоты и кнопок */
+            max-height: 85vh;       /* Ограничение высоты, чтобы влезало в экран ПК */
+            display: flex;          /* Включаем режим колонок */
+            flex-direction: column; /* Элементы идут сверху вниз */
+            
             box-shadow: 0 10px 30px rgba(0,0,0,0.4);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transform: scale(0.95);
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             text-align: center;
-            scrollbar-width: none; 
+            overflow: hidden;       /* Скрываем общий скролл контейнера */
+        }
+
+        /* Зона прокрутки текста */
+        .popup-scroll-area {
+            overflow-y: auto;       /* Скроллится только этот блок */
+            flex-grow: 1;           /* Растягивается на свободное место */
+            margin-bottom: 15px;    /* Отступ от текста до кнопок */
+            padding-right: 5px;     /* Отступ для скроллбара */
+            text-align: left;       /* Текст выравниваем по левому краю */
+            
+            /* Тонкий скроллбар */
+            scrollbar-width: thin; 
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        
+        /* Стили скроллбара для Chrome/Safari */
+        .popup-scroll-area::-webkit-scrollbar { width: 4px; }
+        .popup-scroll-area::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 4px; }
+
+        /* Заголовок и кнопки не сжимаются */
+        .custom-popup h3, 
+        .custom-popup .popup-header-icon { flex-shrink: 0; }
+        
+        .custom-popup .popup-actions { 
+            flex-shrink: 0; 
+            margin-top: 0; 
+            display: grid; 
+            grid-template-columns: 1fr; 
+            gap: 10px; 
         }
         .reward-how-to-use-btn {
             display: inline-flex;
@@ -544,29 +578,31 @@
     </div>
     <div id="twitch-trust-popup" class="custom-popup-overlay">
         <div class="custom-popup">
-            <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
+            <div class="popup-header-icon" style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
             <h3>Безопасно ли это?</h3>
             
-            <div style="text-align: left; font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 20px;">
-    <p style="margin-bottom: 10px;">
-        Мы используем <b>официальную авторизацию Twitch (OAuth)</b>. Это тот же метод, который используют крупные сайты (Streamlabs, Twitch Drops).
-    </p>
-    <ul style="padding-left: 20px; margin: 0;">
-        <li>🔒 <b>Приложение НЕ видит ваш пароль.</b></li>
-        <li>✅ Приложение получает только ваш <b>Никнейм</b> и <b>ID</b>.</li>
-        <li>📺 Это нужно для автоматического начисления наград.</li>
-    </ul>
-    
-    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;">
-        <p style="margin: 0;">
-            💡 <b>Совет:</b> Не хотите вводить пароль здесь?
-            <br><br>
-            Сначала откройте сайт <b>twitch.tv</b> и авторизуйтесь <u>во встроенном браузере Telegram</u> (не выходя из приложения, <b> это обязательно! </b>).
-            <br><br>
-            После этого нажмите нашу кнопку — вход произойдет <b>автоматически и мгновенно</b>, так как Telegram уже будет знать вашу сессию.
-        </p>
-    </div>
-</div>
+            <div class="popup-scroll-area">
+                <div style="font-size: 13px; color: #ccc; line-height: 1.5;">
+                    <p style="margin-bottom: 10px;">
+                        Мы используем <b>официальную авторизацию Twitch (OAuth)</b>. Это тот же метод, который используют крупные сайты (Streamlabs, Twitch Drops).
+                    </p>
+                    <ul style="padding-left: 20px; margin: 0;">
+                        <li>🔒 <b>Приложение НЕ видит ваш пароль, нам не нужен ваш твич</b></li>
+                        <li>✅ Приложение получает только ваш <b>Никнейм</b> и <b>ID</b>.</li>
+                        <li>📺 Это нужно для автоматического начисления наград.</li>
+                    </ul>
+                    
+                    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;">
+                        <p style="margin: 0;">
+                            💡 <b>Совет:</b> Не хотите вводить пароль здесь?
+                            <br><br>
+                            Сначала откройте сайт <b>twitch.tv</b> и авторизуйтесь <u>во встроенном браузере Telegram</u> (не выходя из приложения, <b>это обязательно!</b>).
+                            <br><br>
+                            После этого нажмите нашу кнопку — вход произойдет <b>автоматически и мгновенно</b>, так как Telegram уже будет знать вашу сессию.
+                        </p>
+                    </div>
+                </div>
+            </div>
 
             <div class="popup-actions">
                 <button id="twitch-trust-close" class="popup-btn primary">Всё понятно</button>
