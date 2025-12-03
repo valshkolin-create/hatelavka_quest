@@ -488,6 +488,9 @@
             <h1 id="profileName" class="page-header-title">Профиль</h1>
             <div style="width: 50px;"></div> 
         </div>
+
+        <div id="notification-area"></div>
+        <div id="settings-list" class="card-container"></div>
         
         <div id="settings-list" class="card-container"></div>
         
@@ -630,6 +633,7 @@ try {
         rewardsList: document.getElementById('rewards-list'),
         settingsList: document.getElementById('settings-list'),
         deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
+        notificationArea: document.getElementById('notification-area'),
         
         notifyOverlay: document.getElementById('notify-popup-overlay'),
         notifyContent: document.getElementById('notify-content-area'),
