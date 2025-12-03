@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 leaderOrWinnerHtml = `
                     <div class="stat-item winner-block" style="margin-bottom: 12px;">
                         <div class="stat-item-label">Победитель</div>
-                        <div class="stat-item-value winner-name">
+                        <div class="stat-item-value winner-name" id="leader-value-${auction.id}">
                             <i class="fa-solid fa-trophy"></i>
                             ${iconHtml}
                             ${escapeHTML(displayName)}
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 leaderOrWinnerHtml = `
                     <div class="stat-item" style="margin-bottom: 12px;">
                         <div class="stat-item-label">${isEnded ? 'Победитель' : 'Лидер'}</div>
-                        <div class="stat-item-value">
+                        <div class="stat-item-value" id="leader-value-${auction.id}">
                             ${iconHtml}
                             ${escapeHTML(displayName)}
                         </div>
@@ -919,41 +919,63 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = document.getElementById(`auction-card-${auction.id}`);
         if (!card) return; 
 
-        // Обновляем ставку
-        // Ищем первый .stat-item-value внутри .auction-stats (это цена)
+        // 1. Обновляем Цену
         const priceEl = card.querySelector('.auction-stats .stat-item:first-child .stat-item-value');
         if (priceEl) {
-            // Если текст отличается, обновляем (легкая анимация цветом опциональна)
-            if (priceEl.textContent !== `${auction.current_highest_bid || 0} 🎟️`) {
-                priceEl.textContent = `${auction.current_highest_bid || 0} 🎟️`;
-                priceEl.style.color = '#34c759'; // Зеленый всплеск
-                setTimeout(() => priceEl.style.color = '', 500);
+            const newPriceText = `${auction.current_highest_bid || 0} 🎟️`;
+            if (priceEl.textContent !== newPriceText) {
+                priceEl.textContent = newPriceText;
+                // Зеленая вспышка при изменении цены
+                priceEl.style.color = '#34c759'; 
+                priceEl.style.transform = 'scale(1.1)';
+                priceEl.style.transition = 'all 0.3s';
+                setTimeout(() => {
+                    priceEl.style.color = '';
+                    priceEl.style.transform = 'scale(1)';
+                }, 500);
             }
         }
 
-        // Обновляем имя лидера/победителя
-        // Ищем блок с классом winner-name или просто stat-item-value во втором блоке
-        // (зависит от вашей верстки, берем общий подход)
-        let leaderName = 'Нет ставок';
-        if (auction.bidder) {
-            leaderName = auction.bidder.twitch_login || auction.bidder.full_name || 'Аноним';
-        } else if (auction.current_highest_bidder_name) {
-            leaderName = auction.current_highest_bidder_name;
-        }
+        // 2. Обновляем Лидера (Имя + Иконка)
+        const leaderEl = document.getElementById(`leader-value-${auction.id}`);
+        if (leaderEl) {
+            let displayName = 'Нет ставок';
+            let iconHtml = ''; // Пусто, если ставок нет
+            let isTwitch = false;
 
-        // Ищем элемент, где написано имя. Обычно это последний stat-item в card-info-area
-        // Но лучше найти по структуре. В вашем коде это блок с лидером.
-        // Попробуем найти через текст (грубо, но эффективно если нет ID)
-        // Или добавим ID в renderPage, но сейчас работаем с тем что есть.
-        const allStatValues = card.querySelectorAll('.stat-item-value');
-        if (allStatValues.length >= 3) {
-            // 0 - цена, 1 - таймер, 2 - имя лидера
-            const leaderEl = allStatValues[2]; 
-            // Проверяем, не изменилось ли имя
-            if (!leaderEl.textContent.includes(leaderName)) {
-                 // Тут сложнее обновить иконку без перерисовки, поэтому
-                 // просто обновляем текст, если иконка та же, или оставляем как есть.
-                 // Для полной красоты лучше перерисовать HTML этого блока, но пока оставим так.
+            // Логика определения имени (копия из renderPage)
+            if (auction.bidder) {
+                if (auction.bidder.twitch_login) {
+                    displayName = auction.bidder.twitch_login;
+                    iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
+                    isTwitch = true;
+                } else {
+                    displayName = auction.bidder.full_name || 'Аноним';
+                    iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
+                }
+            } else if (auction.current_highest_bidder_name) {
+                displayName = auction.current_highest_bidder_name;
+                iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
+            }
+
+            // Формируем новый HTML
+            let newHtmlContent = '';
+            
+            // Если аукцион завершен, добавляем кубок (для красоты, как в renderPage)
+            if (auction.ended_at) {
+                 newHtmlContent = `<i class="fa-solid fa-trophy"></i> ${iconHtml} ${escapeHTML(displayName)}`;
+            } else {
+                 newHtmlContent = `${iconHtml} ${escapeHTML(displayName)}`;
+            }
+
+            // Сравниваем старый HTML с новым (чтобы не моргать лишний раз)
+            // trim() убирает лишние пробелы для точности сравнения
+            if (leaderEl.innerHTML.replace(/\s+/g, ' ').trim() !== newHtmlContent.replace(/\s+/g, ' ').trim()) {
+                leaderEl.innerHTML = newHtmlContent;
+                
+                // Анимация обновления лидера (белая вспышка текста)
+                leaderEl.style.opacity = '0.5';
+                setTimeout(() => { leaderEl.style.opacity = '1'; }, 300);
             }
         }
     }
