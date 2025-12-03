@@ -696,17 +696,14 @@ try {
         }
         showLoader();
         try {
-            // 1. Создаем/получаем пользователя (Это вернет и active_referrals_count)
+            // 1. Создаем/получаем пользователя
             const userData = await makeApiRequest("/api/v1/user/me");
 
             // 2. Параллельно: деньги + реферал (тихо)
             const syncBalancePromise = makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(e => console.warn("BalSync err:", e));
             const syncReferralPromise = makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn("RefSync err:", e));
 
-            // Не блокируем интерфейс ожиданием синхронизации, но запускаем её
-            Promise.all([syncBalancePromise, syncReferralPromise]).then(() => {
-                 // Опционально: можно обновить UI после завершения, если нужно
-            });
+            Promise.all([syncBalancePromise, syncReferralPromise]).then(() => {});
 
             // 3. Загружаем награды и настройки
             const [rewards, settings] = await Promise.all([ 
@@ -718,7 +715,8 @@ try {
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
             window.currentUserSettings = fullUserData;
             
-            renderSettingsList(fullUserData); 
+            renderNotification(); // <--- ВЕРНУЛИ УВЕДОМЛЕНИЯ
+            renderSettingsList(fullUserData); // <--- ИСПРАВИЛИ НАЗВАНИЕ ФУНКЦИИ
             renderRewards(rewards);
 
         } catch (e) {
@@ -727,10 +725,46 @@ try {
         } finally { hideLoader(); }
     }
 
-    function renderSettingsList(userData) {
+    / Функция отрисовки уведомления (баннер сверху)
+    function renderNotification() {
+        const NOTIFICATION_KEY = 'hide_notification_quest_bot';
+        if (localStorage.getItem(NOTIFICATION_KEY) === 'true') {
+            dom.notificationArea.innerHTML = '';
+            return;
+        }
+
+        const notificationCard = document.createElement('div');
+        notificationCard.id = 'notification-quest-bot';
+        notificationCard.className = 'notification-alert';
+        notificationCard.innerHTML = `
+            <button class="notification-alert-dismiss" id="dismiss-notification-btn" title="Скрыть">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="notification-alert-content">
+                <div class="notification-alert-info">
+                    <p><i class="fa-solid fa-bell"></i> Уведомления от бота</p>
+                    <span>Нажмите "Перейти" и запустите бота, чтобы он мог отправлять вам награды и напоминания о челленджах.</span>
+                </div>
+            </div>
+            <a href="https://t.me/quest_hatelavka_bot" target="_blank" rel="noopener noreferrer" class="settings-card-btn" style="width: fit-content;">
+                Перейти в бота
+            </a>
+        `;
+        dom.notificationArea.appendChild(notificationCard);
+    }
+
+    function renderSettingsList(userData) { // <--- Переименовали в List
         dom.settingsList.innerHTML = '';
+        const isBotActive = userData.is_bot_active === true;
+        const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
+
+        // 1. Уведомления (Вернули карточку, она тоже пропала)
+        const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
+        notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
+        notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
+        dom.settingsList.appendChild(notifyCard);
         
-        // --- STEAM CARD ---
+        // 2. STEAM CARD
         const steamCard = document.createElement('div');
         steamCard.className = 'settings-card';
         const hasTradeLink = !!userData.trade_link;
@@ -749,7 +783,7 @@ try {
         `;
         dom.settingsList.appendChild(steamCard);
 
-        // --- TWITCH CARD ---
+        // 3. TWITCH CARD
         const twitchCard = document.createElement('div');
         twitchCard.className = 'settings-card';
         if (userData.twitch_login) {
@@ -778,6 +812,22 @@ try {
             `;
         }
         dom.settingsList.appendChild(twitchCard);
+
+        // 4. РЕФЕРАЛКА (ВОССТАНОВЛЕНО)
+        const refCard = document.createElement('div'); 
+        refCard.className = 'settings-card ref-card-gradient';
+        const activeRefs = userData.active_referrals_count || 0; 
+        const currentBoost = (activeRefs * 0.1).toFixed(1);
+
+        refCard.innerHTML = `
+            <div class="settings-card-info">
+                <p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p>
+                <span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span>
+            </div>
+            <i class="fa-solid fa-chevron-right card-arrow"></i>`;
+            
+        refCard.onclick = () => openRefModal(userData);
+        dom.settingsList.appendChild(refCard);
     }
     // --- REFERRAL LOGIC ---
     function openRefModal(userData) {
