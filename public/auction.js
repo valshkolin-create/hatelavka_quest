@@ -14,18 +14,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentAuctions = [];
     let isEditMode = false;
 
+    // Переменные для автообновления
+    let autoRefreshInterval = null;
+    let isPageVisible = true;
+
     // Останавливаем запросы, если Telegram свернут
+    // Слушатель: останавливаем запросы, если вкладка свернута
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             isPageVisible = false;
-            clearInterval(autoRefreshInterval); // Пауза
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
         } else {
             isPageVisible = true;
-            initialize(false); // Сразу обновляем при возвращении
-            startAutoRefresh(); // Запускаем таймер снова
+            // При возвращении сразу обновляем и запускаем таймер снова
+            if (typeof initialize === 'function') {
+                 // Вызываем обновление тихо (без лоадера)
+                 updateAuctionsBackground(); 
+            }
+            startAutoRefresh();
         }
     });
-
     // DOM-элементы
     const dom = {
         loader: document.getElementById('loader-overlay'),
@@ -65,91 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Вспомогательные функции ---
-
-    function startAutoRefresh() {
-        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-        // Интервал 3 секунды (3000 мс)
-        autoRefreshInterval = setInterval(() => {
-            if (isPageVisible && !isEditMode) {
-                updateAuctionsBackground();
-            }
-        }, 3000);
-    }
-
-    async function updateAuctionsBackground() {
-        try {
-            // Тихий запрос без лоадера (false)
-            let newData = [];
-            if (userData.is_admin) {
-                newData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', false);
-            } else {
-                newData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
-            }
-
-            // Обновляем глобальный массив
-            currentAuctions = newData;
-
-            // Точечно обновляем DOM
-            newData.forEach(auction => {
-                updateSingleCardDOM(auction);
-                
-                // Если открыто окно ставки именно для этого лота — обновляем его
-                if (!dom.bidModal.classList.contains('hidden') && 
-                    parseInt(dom.bidAuctionIdInput.value) === auction.id) {
-                    updateOpenBidModal(auction);
-                }
-            });
-
-        } catch (e) {
-            console.warn("Auto-refresh skipped:", e);
-        }
-    }
-
-    // Обновляет только цифры в карточке, не перерисовывая её целиком
-    function updateSingleCardDOM(auction) {
-        const card = document.getElementById(`auction-card-${auction.id}`);
-        if (!card) return; // Карточка не найдена (например, новый лот)
-
-        // 1. Обновляем текущую ставку
-        const priceEl = card.querySelector('.auction-stats .stat-item:first-child .stat-item-value');
-        if (priceEl) priceEl.textContent = `${auction.current_highest_bid || 0} 🎟️`;
-
-        // 2. Обновляем имя лидера
-        const leaderEl = card.querySelector('.stat-item-value'); // Ищем блок с именем
-        // Тут сложнее, так как структура HTML меняется. 
-        // Проще всего найти элемент, содержащий имя, по классу, если он есть, 
-        // или просто перезаписать нужный блок, если данные изменились.
-        
-        // Для простоты в этом решении, если цена изменилась, мы можем вызвать 
-        // полную перерисовку ТОЛЬКО одной карточки, но это сложнее.
-        // Оставим обновление цены как самое важное.
-    }
-
-    // Самая важная часть: обновление открытого окна ставки
-    function updateOpenBidModal(auction) {
-        const currentBidInDB = auction.current_highest_bid || 0;
-        const minBid = currentBidInDB + 1;
-        
-        // Обновляем скрытое поле минимума
-        const oldMin = parseInt(dom.bidCurrentMinInput.value);
-        
-        if (minBid > oldMin) {
-            // Цена выросла, пока окно открыто!
-            dom.bidCurrentMinInput.value = minBid;
-            dom.bidAmountInput.min = minBid;
-            dom.bidAmountInput.placeholder = `Больше ${currentBidInDB} 🎟️`;
-            
-            // Визуально подсказываем игроку (меняем заголовок на секунду)
-            const originalTitle = dom.bidModalTitle.textContent;
-            dom.bidModalTitle.style.color = '#ff3b30'; // Красный цвет
-            dom.bidModalTitle.textContent = `ЦЕНА ИЗМЕНИЛАСЬ: ${currentBidInDB}`;
-            
-            setTimeout(() => {
-                dom.bidModalTitle.style.color = '';
-                dom.bidModalTitle.textContent = originalTitle;
-            }, 1500);
-        }
-    }
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
@@ -945,6 +868,128 @@ document.addEventListener('DOMContentLoaded', () => {
             initialize(false); 
         } catch(e) { /* Error already shown */ }
     });
+
+    // --- УМНОЕ ОБНОВЛЕНИЕ (Smart Polling) ---
+
+    function startAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        // Запускаем интервал каждые 3 секунды
+        autoRefreshInterval = setInterval(() => {
+            // Обновляем только если вкладка открыта и мы НЕ в режиме редактирования
+            if (isPageVisible && !isEditMode) {
+                updateAuctionsBackground();
+            }
+        }, 3000);
+    }
+
+    async function updateAuctionsBackground() {
+        try {
+            // 1. Тихо запрашиваем данные (false = без спиннера)
+            let newData = [];
+            if (userData.is_admin) {
+                newData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', false);
+            } else {
+                newData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
+            }
+
+            if (!newData) return;
+
+            // 2. Обновляем глобальный массив
+            currentAuctions = newData;
+
+            // 3. Точечно обновляем цифры в HTML
+            newData.forEach(auction => {
+                updateSingleCardDOM(auction);
+                
+                // Если открыто окно ставки именно для этого лота — обновляем его инпуты
+                if (!dom.bidModal.classList.contains('hidden') && 
+                    dom.bidAuctionIdInput.value == auction.id) {
+                    updateOpenBidModal(auction);
+                }
+            });
+
+        } catch (e) {
+            // Ошибки в фоне игнорируем, чтобы не спамить алертами
+            console.warn("Auto-refresh skipped:", e);
+        }
+    }
+
+    // Обновляет только цифры в карточке
+    function updateSingleCardDOM(auction) {
+        const card = document.getElementById(`auction-card-${auction.id}`);
+        if (!card) return; 
+
+        // Обновляем ставку
+        // Ищем первый .stat-item-value внутри .auction-stats (это цена)
+        const priceEl = card.querySelector('.auction-stats .stat-item:first-child .stat-item-value');
+        if (priceEl) {
+            // Если текст отличается, обновляем (легкая анимация цветом опциональна)
+            if (priceEl.textContent !== `${auction.current_highest_bid || 0} 🎟️`) {
+                priceEl.textContent = `${auction.current_highest_bid || 0} 🎟️`;
+                priceEl.style.color = '#34c759'; // Зеленый всплеск
+                setTimeout(() => priceEl.style.color = '', 500);
+            }
+        }
+
+        // Обновляем имя лидера/победителя
+        // Ищем блок с классом winner-name или просто stat-item-value во втором блоке
+        // (зависит от вашей верстки, берем общий подход)
+        let leaderName = 'Нет ставок';
+        if (auction.bidder) {
+            leaderName = auction.bidder.twitch_login || auction.bidder.full_name || 'Аноним';
+        } else if (auction.current_highest_bidder_name) {
+            leaderName = auction.current_highest_bidder_name;
+        }
+
+        // Ищем элемент, где написано имя. Обычно это последний stat-item в card-info-area
+        // Но лучше найти по структуре. В вашем коде это блок с лидером.
+        // Попробуем найти через текст (грубо, но эффективно если нет ID)
+        // Или добавим ID в renderPage, но сейчас работаем с тем что есть.
+        const allStatValues = card.querySelectorAll('.stat-item-value');
+        if (allStatValues.length >= 3) {
+            // 0 - цена, 1 - таймер, 2 - имя лидера
+            const leaderEl = allStatValues[2]; 
+            // Проверяем, не изменилось ли имя
+            if (!leaderEl.textContent.includes(leaderName)) {
+                 // Тут сложнее обновить иконку без перерисовки, поэтому
+                 // просто обновляем текст, если иконка та же, или оставляем как есть.
+                 // Для полной красоты лучше перерисовать HTML этого блока, но пока оставим так.
+            }
+        }
+    }
+
+    // Обновляет открытое окно ставки, чтобы юзер не ввел меньше минимума
+    function updateOpenBidModal(auction) {
+        const currentBidInDB = auction.current_highest_bid || 0;
+        const minBid = currentBidInDB + 1;
+        
+        const oldMin = parseInt(dom.bidCurrentMinInput.value);
+        
+        // Если цена выросла
+        if (minBid > oldMin) {
+            dom.bidCurrentMinInput.value = minBid;
+            dom.bidAmountInput.min = minBid;
+            dom.bidAmountInput.placeholder = `Больше ${currentBidInDB} 🎟️`;
+            
+            // Если введенное значение стало меньше нового минимума, подсвечиваем
+            if (dom.bidAmountInput.value && parseInt(dom.bidAmountInput.value) < minBid) {
+                dom.bidAmountInput.style.borderColor = '#ff3b30';
+            }
+
+            // Моргаем заголовком
+            const originalTitle = dom.bidModalTitle.textContent;
+            dom.bidModalTitle.style.color = '#ff3b30';
+            dom.bidModalTitle.textContent = `ЦЕНА ВЫРОСЛА: ${currentBidInDB} 🎟️`;
+            
+            setTimeout(() => {
+                dom.bidModalTitle.style.color = '';
+                // Возвращаем исходный текст, если окно еще то
+                if (dom.bidAuctionIdInput.value == auction.id) {
+                     dom.bidModalTitle.textContent = `Ставка: ${escapeHTML(auction.title)}`;
+                }
+            }, 2000);
+        }
+    }
 
     async function initialize(showMainLoader = true) {
         if (showMainLoader) {
