@@ -990,7 +990,6 @@ try {
 
     // Global Listeners
     document.body.addEventListener('click', async (event) => {
-    document.body.addEventListener('click', async (event) => {
         const target = event.target;
         
         // Скрыть уведомление (баннер)
@@ -1084,7 +1083,6 @@ try {
             steamTrustClose.addEventListener('click', () => {
                 document.getElementById('steam-trust-popup').classList.remove('visible');
             });
-        }
     });
 
 } catch (e) { document.body.innerHTML = `<h1 style="text-align:center">Error: ${e.message}</h1>`; }
