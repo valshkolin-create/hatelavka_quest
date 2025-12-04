@@ -461,3 +461,83 @@ body[data-theme="new_year"] #contribution-form button:disabled { background: #55
 @media (max-width: 768px) {
     body::after { background-attachment: scroll; }
 }
+/* =========================================
+   НОВОГОДНЯЯ ГИРЛЯНДА (Вставить в конец файла)
+   ========================================= */
+
+/* 1. Настраиваем цвета лампочек специально для новогодней темы */
+body[data-theme="new_year"] {
+    /* Используем твои цвета + добавляем классику */
+    --bulb-red: #ff4d4d;       /* Красный яркий */
+    --bulb-gold: #ffca28;      /* Твой золотой */
+    --bulb-green: #42f554;     /* Зеленый яркий */
+    --bulb-blue: #00e5ff;      /* Твой голубой акцент */
+}
+
+/* 2. Базовый контейнер гирлянды */
+.new-year-garland {
+    display: none; /* По умолчанию скрыта */
+    position: fixed;
+    top: -5px; /* Чуть выше края экрана, чтобы провод висел естественно */
+    left: 0;
+    width: 100%;
+    height: 60px;
+    z-index: 999; /* Поверх всего */
+    pointer-events: none; /* Чтобы сквозь нее можно было кликать */
+    overflow: hidden;
+}
+
+/* 3. Показываем ТОЛЬКО в новогодней теме */
+body[data-theme="new_year"] .new-year-garland {
+    display: block;
+}
+
+/* 4. Рисуем провод (волнистая линия) */
+.new-year-garland::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%; /* Шире экрана для бесшовности */
+    height: 100%;
+    /* SVG-рисунок провода, закодированный в CSS */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40'%3E%3Cpath d='M0 10 C 30 35, 90 -15, 120 10' stroke='%23444' fill='none' stroke-width='1.5' opacity='0.6'/%3E%3C/svg%3E");
+    background-repeat: repeat-x;
+    background-size: 120px 40px; /* Размер одного звена провода */
+}
+
+/* 5. Рисуем лампочки и заставляем их мигать */
+.new-year-garland::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    /* Магия градиентов: создаем повторяющиеся круги (лампочки) 
+       в разных местах, привязанные к изгибам провода 
+    */
+    background-image: 
+        radial-gradient(circle at 15px 18px, var(--bulb-red) 5px, transparent 6px),
+        radial-gradient(circle at 45px 8px,  var(--bulb-gold) 5px, transparent 6px),
+        radial-gradient(circle at 75px 18px, var(--bulb-green) 5px, transparent 6px),
+        radial-gradient(circle at 105px 8px, var(--bulb-blue) 5px, transparent 6px);
+    
+    background-repeat: repeat-x;
+    background-size: 120px 40px; /* Должно совпадать с размером провода */
+    
+    /* Применяем анимацию мигания */
+    animation: twinkle-garland 1.2s infinite ease-in-out alternate;
+}
+
+/* 6. Анимация мигания (меняем яркость и свечение) */
+@keyframes twinkle-garland {
+    0% {
+        filter: brightness(0.7);
+        opacity: 0.8;
+    }
+    100% {
+        filter: brightness(1.4) drop-shadow(0 0 10px rgba(255, 255, 255, 0.6));
+        opacity: 1;
+    }
+}
