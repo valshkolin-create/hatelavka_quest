@@ -645,7 +645,7 @@ const showLoader = () => {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
 
-                    // Заполняем основные настройки
+                    // ... (Заполнение основных настроек и целей оставляем как есть) ...
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
                     form.elements['title'].value = currentCauldronData.title || '';
                     form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
@@ -665,32 +665,32 @@ const showLoader = () => {
                     [1, 2, 3, 4].forEach(level => {
                         const levelData = levels[`level_${level}`] || {};
                         const topPlaces = levelData.top_places || [];
-                        const defaultReward = levelData.default_reward || {};
+                        // Поддержка старого формата (если tiers нет, берем default_reward как 41+)
+                        const tiers = levelData.tiers || {
+                            "41+": levelData.default_reward || {}
+                        };
 
+                        // Топ-20
                         const container = document.getElementById(`top-rewards-container-${level}`);
-                        if (container) { // Добавлена проверка на существование container
-                           container.innerHTML = ''; // Очищаем перед заполнением
+                        if (container) { 
+                           container.innerHTML = ''; 
                            topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
                                container.appendChild(createTopRewardRow(reward));
                            });
-                        } else {
-                            console.warn(`[switchView] Контейнер top-rewards-container-${level} не найден!`);
                         }
 
-
-                        // Добавляем проверки для элементов формы
-                        const nameInput = form.elements[`default_reward_name_${level}`];
-                        const imageInput = form.elements[`default_reward_image_url_${level}`];
-
-                        if (nameInput) {
-                            nameInput.value = defaultReward.name || '';
-                        } else {
-                             console.warn(`[switchView] Элемент default_reward_name_${level} не найден в форме!`);
+                        // --- НОВОЕ: Заполнение Тиров ---
+                        if (form.elements[`tier_21_30_name_${level}`]) {
+                            form.elements[`tier_21_30_name_${level}`].value = tiers["21-30"]?.name || '';
+                            form.elements[`tier_21_30_image_url_${level}`].value = tiers["21-30"]?.image_url || '';
                         }
-                        if (imageInput) {
-                            imageInput.value = defaultReward.image_url || '';
-                        } else {
-                             console.warn(`[switchView] Элемент default_reward_image_url_${level} не найден в форме!`);
+                        if (form.elements[`tier_31_40_name_${level}`]) {
+                            form.elements[`tier_31_40_name_${level}`].value = tiers["31-40"]?.name || '';
+                            form.elements[`tier_31_40_image_url_${level}`].value = tiers["31-40"]?.image_url || '';
+                        }
+                        if (form.elements[`tier_41_plus_name_${level}`]) {
+                            form.elements[`tier_41_plus_name_${level}`].value = tiers["41+"]?.name || '';
+                            form.elements[`tier_41_plus_image_url_${level}`].value = tiers["41+"]?.image_url || '';
                         }
                     });
                     break;
