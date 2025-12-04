@@ -293,13 +293,13 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 /* Элементы внутри карточки */
 .tier-info { display: flex; align-items: center; gap: 15px; width: 100%; z-index: 2; }
 .tier-image { width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
-.tier-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
+.tier-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
 .tier-range-badge {
     position: absolute;
     top: 20%;
     right: 15px;
     transform: translateY(-50%);
-    font-size: 12px;
+    font-size: 9px;
     font-weight: 800;
     opacity: 0.6;
 }
