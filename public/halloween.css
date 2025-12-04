@@ -47,14 +47,20 @@ body[data-theme="classic"] {
 /* --- ИСПРАВЛЕНИЕ РАСТЯГИВАНИЯ ФОНА --- */
 body {
     margin: 0;
-    min-height: 100vh;
-    padding: 0 15px 120px;
-    background-color: #0d0b1f;
-    color: var(--text-color);
-    font-family: var(--font-main);
+    padding: 0;
+    font-family: 'Inter', sans-serif; /* Или твой шрифт */
     overflow-x: hidden;
-    position: relative;
-    z-index: 1;
+    background-color: #000; /* Цвет подложки, пока грузится картинка */
+    
+    /* Настройки фона */
+    background-repeat: no-repeat;
+    background-position: center top;
+    background-attachment: fixed; /* Фон стоит на месте при скролле */
+    background-size: cover; /* Картинка заполняет весь экран */
+    
+    /* Убираем мыло */
+    -webkit-font-smoothing: antialiased;
+    image-rendering: -webkit-optimize-contrast; 
 }
 
 body::before {
@@ -518,63 +524,119 @@ body[data-theme="new_year"] #contribution-form button:disabled {
     transform: none;
 }
 /* ===== КОНЕЦ СТИЛЕЙ АДМИНА ===== */
-/* --- Стили для списка Тиров (Витрина наград) --- */
-.tier-rewards-list {
+/* --- БАЗОВЫЕ СТИЛИ ДЛЯ КАРТОЧЕК (ОБЩИЕ) --- */
+.tier-rewards-grid {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    padding: 0 15px 20px; /* Отступы: Сверху 0, Слева/Справа 15, Снизу 20 */
 }
 
 .tier-card {
     display: flex;
     align-items: center;
-    background-color: rgba(0, 0, 0, 0.2);
+    gap: 15px;
+    padding: 12px;
     border-radius: 12px;
-    padding: 10px;
-    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease;
 }
 
 .tier-range-badge {
-    background-color: var(--action-color);
-    color: white;
-    font-size: 12px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-bottom-left-radius: 8px;
     font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 6px;
-    min-width: 80px;
-    text-align: center;
-    margin-right: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    text-transform: uppercase;
 }
 
 .tier-info {
     display: flex;
     align-items: center;
     gap: 12px;
-    flex-grow: 1;
-    overflow: hidden; /* Чтобы длинный текст не ломал верстку */
+    width: 100%;
+    z-index: 1; /* Чтобы текст был над фоном */
 }
 
 .tier-image {
-    width: 40px;
-    height: 40px;
+    width: 45px;
+    height: 45px;
     object-fit: contain;
-    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
 }
 
 .tier-name {
-    font-weight: 500;
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--text-color);
+    font-size: 14px;
+    font-weight: 600;
 }
 
-/* Раскраска бейджиков для разных тиров */
-.tier-card.tier-gold .tier-range-badge { background: linear-gradient(135deg, #FFD700, #FDB931); color: #000; } /* 21-30 */
-.tier-card.tier-silver .tier-range-badge { background: linear-gradient(135deg, #E0E0E0, #BDBDBD); color: #000; } /* 31-40 */
-.tier-card.tier-bronze .tier-range-badge { background: linear-gradient(135deg, #CD7F32, #A0522D); } /* 41+ */
+/* =========================================
+   🎃 ТЕМА: HALLOWEEN (Мрачная, с обводкой)
+   ========================================= */
+[data-theme="halloween"] .tier-card {
+    background: rgba(20, 20, 20, 0.85); /* Темный фон */
+    border: 1px solid #ff7b00; /* Яркая оранжевая обводка */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="halloween"] .tier-card.tier-gold { border-left: 4px solid #FFD700; }
+[data-theme="halloween"] .tier-card.tier-silver { border-left: 4px solid #C0C0C0; }
+[data-theme="halloween"] .tier-card.tier-bronze { border-left: 4px solid #CD7F32; }
+
+[data-theme="halloween"] .tier-range-badge {
+    background: #ff7b00;
+    color: #000;
+}
+[data-theme="halloween"] .tier-name { color: #ffe6c9; }
+
+
+/* =========================================
+   🎄 ТЕМА: NEW YEAR (Стеклянная, БЕЗ ОБВОДКИ)
+   ========================================= */
+[data-theme="new_year"] .tier-card {
+    background: rgba(255, 255, 255, 0.15); /* Эффект льда/стекла */
+    border: none !important; /* УБИРАЕМ ОБВОДКУ ПОЛНОСТЬЮ */
+    backdrop-filter: blur(5px); /* Легкое размытие фона ПОД карточкой */
+    box-shadow: 0 4px 15px rgba(137, 207, 240, 0.2); /* Голубое свечение */
+}
+
+/* Вместо цветной рамки слева делаем легкий градиент фона */
+[data-theme="new_year"] .tier-card.tier-gold { background: linear-gradient(90deg, rgba(255, 215, 0, 0.2), rgba(255,255,255,0.1)); }
+[data-theme="new_year"] .tier-card.tier-silver { background: linear-gradient(90deg, rgba(192, 192, 192, 0.2), rgba(255,255,255,0.1)); }
+[data-theme="new_year"] .tier-card.tier-bronze { background: linear-gradient(90deg, rgba(205, 127, 50, 0.2), rgba(255,255,255,0.1)); }
+
+[data-theme="new_year"] .tier-range-badge {
+    background: rgba(255, 255, 255, 0.8);
+    color: #004d80; /* Темно-синий текст */
+}
+[data-theme="new_year"] .tier-name { 
+    color: #fff; 
+    text-shadow: 0 0 5px rgba(0, 191, 255, 0.6); 
+}
+
+
+/* =========================================
+   🔮 ТЕМА: CLASSIC (Магическая, фиолетовая)
+   ========================================= */
+[data-theme="classic"] .tier-card {
+    background: linear-gradient(135deg, rgba(45, 0, 70, 0.8), rgba(20, 0, 40, 0.9));
+    border: 1px solid rgba(180, 0, 255, 0.4);
+    box-shadow: 0 0 10px rgba(138, 43, 226, 0.2);
+}
+
+[data-theme="classic"] .tier-card.tier-gold { border-left: 3px solid #FFD700; }
+[data-theme="classic"] .tier-card.tier-silver { border-left: 3px solid #E0E0E0; }
+[data-theme="classic"] .tier-card.tier-bronze { border-left: 3px solid #D2691E; }
+
+[data-theme="classic"] .tier-range-badge {
+    background: #8a2be2; /* Фиолетовый */
+    color: #fff;
+}
+[data-theme="classic"] .tier-name { color: #e0d0ff; }
 
 @media (max-width: 768px) {
     body::after { background-attachment: scroll; }
