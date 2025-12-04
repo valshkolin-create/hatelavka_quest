@@ -184,99 +184,131 @@ function renderPage(eventData, leaderboardData = {}) {
     if (eventData) { currentEventData = eventData; }
 
     const isAdmin = currentUserData.is_admin;
-    const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
+        const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
+        if (!canViewEvent) { document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>'; return; }
+        dom.adminNotice.classList.toggle('hidden', !(isAdmin && !currentEventData.is_visible_to_users));
+        if (isAdmin && dom.adminControls) { dom.adminControls.classList.remove('hidden'); }
+        if (currentEventData.start_date && currentEventData.end_date) {
+            dom.eventDatesDisplay.innerHTML = `<i class="fa-solid fa-calendar-days"></i><span>${formatDateToDisplay(currentEventData.start_date)} - ${formatDateToDisplay(currentEventData.end_date)}</span>`;
+        } else { dom.eventDatesDisplay.innerHTML = `<span>Сроки ивента не назначены</span>`; }
 
-    if (!canViewEvent) {
-        document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>';
-        return;
+        const { goals = {}, levels = {}, current_progress = 0 } = currentEventData || {};
+        const top20 = leaderboardData.top20 || [];
+        const currentLevel = getCurrentLevel(currentEventData);
+
+        // ... (Картинка котла и прогресс бар оставляем без изменений) ...
+        const cauldronImageUrl = currentEventData[`cauldron_image_url_${currentLevel}`] || currentEventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
+        dom.cauldronImage.src = cauldronImageUrl;
+        let currentGoal = 1, prevGoal = 0;
+        if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
+        else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
+        else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
+        else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
+        dom.eventTitle.textContent = currentEventData.title || "Ивент-Котел";
+        const progressInLevel = current_progress - prevGoal;
+        const goalForLevel = currentGoal - prevGoal;
+        const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
+        dom.progressBarFill.style.width = `${progressPercentage}%`;
+        dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
+
+        // === НОВАЯ ЛОГИКА НАГРАД ===
+        const levelConfig = levels[`level_${currentLevel}`] || {};
+        const topPlaceRewards = levelConfig.top_places || [];
+        
+        // Получаем структуру тиров или создаем дефолтную для совместимости
+        const tiers = levelConfig.tiers || {
+            "41+": levelConfig.default_reward || {} 
+        };
+
+        // 1. Отрисовка списка лидеров (Топ-20)
+        dom.leaderboardRewardsList.innerHTML = top20.length === 0
+            ? '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>'
+            : top20.map((p, index) => {
+                const rank = index + 1;
+                const contributionAmount = p.total_contribution || 0;
+                
+                // Определяем награду
+                let assignedReward = null;
+                
+                if (rank <= 20) {
+                    assignedReward = topPlaceRewards.find(r => r.place === rank);
+                } 
+                // В этом списке (top20) нам по идее не нужны 21+, но если вдруг список расширится:
+                else if (rank <= 30) assignedReward = tiers["21-30"];
+                else if (rank <= 40) assignedReward = tiers["31-40"];
+                else assignedReward = tiers["41+"];
+
+                const prizeName = escapeHTML(assignedReward?.name || '');
+                const prizeImageHtml = assignedReward?.image_url
+                    ? `<div class="image-zoom-container" data-item-name="${prizeName}">
+                           <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image">
+                           <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                       </div>`
+                    : `<span>-</span>`;
+                const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
+                let playerName = p.full_name || 'Без имени';
+                if (playerName.length > 16) playerName = playerName.substring(0, 16) + '...';
+                return `
+                <div class="${rowClass}">
+                    <span class="rank">#${rank}</span>
+                    <span class="player">${escapeHTML(playerName)}</span>
+                    <div class="prize-image-container">${prizeImageHtml}</div>
+                    <span class="contribution align-right">${contributionAmount} 🎟️</span>
+                </div>`;
+            }).join('');
+
+        // 2. Определение текущего места пользователя и его награды (блок внизу)
+        let userRank = 'N/A';
+        let userContribution = 0;
+        let myReward = tiers["41+"] || {}; // По умолчанию награда "41+" (базовая)
+
+        const currentUserIndex = allParticipants.findIndex(p =>
+             (currentUserData.id && p.user_id === currentUserData.id) ||
+             (!currentUserData.id && p.full_name === currentUserData.full_name)
+        );
+
+        if (currentUserIndex !== -1) {
+            const rank = currentUserIndex + 1;
+            userRank = `#${rank}`;
+            userContribution = allParticipants[currentUserIndex].total_contribution || 0;
+
+            // Определяем награду пользователя в зависимости от его места
+            if (rank <= 20) {
+                myReward = topPlaceRewards.find(r => r.place === rank) || {};
+            } else if (rank <= 30) {
+                myReward = tiers["21-30"] || {};
+            } else if (rank <= 40) {
+                myReward = tiers["31-40"] || {};
+            } else {
+                myReward = tiers["41+"] || {};
+            }
+        }
+
+        // Обновляем нижний блок "Ваша награда"
+        dom.userContributionTotal.textContent = userContribution;
+        dom.userLeaderboardRank.textContent = userRank;
+
+        const myRewardName = myReward.name || 'Награда не настроена';
+        dom.rewardName.textContent = myRewardName;
+        const activeTheme = document.body.dataset.theme || 'halloween';
+        
+        // Если у пользователя есть конкретная картинка награды - показываем её.
+        // Если нет - дефолтную картинку темы.
+        dom.rewardImage.src = myReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
+        dom.defaultRewardZoomContainer.dataset.itemName = myRewardName;
+
+        // Если пользователь входит в топ-20, меняем заголовок нижнего блока для ясности
+        const bottomTitle = document.querySelector('.default-reward-section .subsection-title');
+        if (bottomTitle) {
+            if (currentUserIndex !== -1 && (currentUserIndex + 1) <= 20) {
+                bottomTitle.innerHTML = '<i class="fa-solid fa-gift"></i> Ваша текущая награда (Топ-20)';
+            } else {
+                bottomTitle.innerHTML = '<i class="fa-solid fa-box-open"></i> Ваша текущая награда';
+            }
+        }
+
+        console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
-
-    dom.adminNotice.classList.toggle('hidden', !(isAdmin && !currentEventData.is_visible_to_users));
-    if (isAdmin && dom.adminControls) { dom.adminControls.classList.remove('hidden'); }
-
-    if (currentEventData.start_date && currentEventData.end_date) {
-        dom.eventDatesDisplay.innerHTML = `<i class="fa-solid fa-calendar-days"></i><span>${formatDateToDisplay(currentEventData.start_date)} - ${formatDateToDisplay(currentEventData.end_date)}</span>`;
-    } else {
-        dom.eventDatesDisplay.innerHTML = `<span>Сроки ивента не назначены</span>`;
-    }
-
-    const { goals = {}, levels = {}, current_progress = 0 } = currentEventData || {};
-    const top20 = leaderboardData.top20 || []; // Используем top20 только для отображения топ-листа
-    const currentLevel = getCurrentLevel(currentEventData);
-
-    const cauldronImageUrl = currentEventData[`cauldron_image_url_${currentLevel}`] || currentEventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
-    dom.cauldronImage.src = cauldronImageUrl;
-
-    let currentGoal = 1, prevGoal = 0;
-    if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
-    else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
-    else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
-    else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
-
-    const levelConfig = levels[`level_${currentLevel}`] || {};
-    const topPlaceRewards = levelConfig.top_places || [];
-    const defaultReward = levelConfig.default_reward || {};
-
-    dom.eventTitle.textContent = currentEventData.title || "Ивент-Котел";
-    const progressInLevel = current_progress - prevGoal;
-    const goalForLevel = currentGoal - prevGoal;
-    const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
-    dom.progressBarFill.style.width = `${progressPercentage}%`;
-    dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
-
-    const defaultRewardName = defaultReward.name || 'Награда не настроена';
-    dom.rewardName.textContent = defaultRewardName;
-    const activeTheme = document.body.dataset.theme || 'halloween';
-    dom.rewardImage.src = defaultReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
-    dom.defaultRewardZoomContainer.dataset.itemName = defaultRewardName;
-
-    dom.leaderboardRewardsList.innerHTML = top20.length === 0
-        ? '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>'
-        : top20.map((p, index) => {
-            const rank = index + 1;
-            const contributionAmount = p.total_contribution || 0;
-            const assignedReward = topPlaceRewards.find(r => r.place === rank);
-            const prizeName = escapeHTML(assignedReward?.name || '');
-            const prizeImageHtml = assignedReward?.image_url
-                ? `<div class="image-zoom-container" data-item-name="${prizeName}">
-                       <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image">
-                       <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
-                   </div>`
-                : `<span>-</span>`;
-            const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
-            let playerName = p.full_name || 'Без имени';
-            if (playerName.length > 16) playerName = playerName.substring(0, 16) + '...';
-            return `
-            <div class="${rowClass}">
-                <span class="rank">#${rank}</span>
-                <span class="player">${escapeHTML(playerName)}</span>
-                <div class="prize-image-container">${prizeImageHtml}</div>
-                <span class="contribution align-right">${contributionAmount} 🎟️</span>
-            </div>`;
-        }).join('');
-
-    // --- НАЧАЛО ИЗМЕНЕНИЯ: Поиск и отображение данных текущего пользователя ---
-    let userRank = 'N/A';
-    let userContribution = 0;
-    // Ищем пользователя в отсортированном полном списке
-    // Важно: сравниваем по ID, если он есть, иначе по имени (менее надежно)
-    const currentUserIndex = allParticipants.findIndex(p =>
-         (currentUserData.id && p.user_id === currentUserData.id) ||
-         (!currentUserData.id && p.full_name === currentUserData.full_name) // Fallback по имени
-    );
-
-    if (currentUserIndex !== -1) {
-        userRank = `#${currentUserIndex + 1}`;
-        userContribution = allParticipants[currentUserIndex].total_contribution || 0;
-    }
-
-    // Обновляем текст в новых элементах
-    dom.userContributionTotal.textContent = userContribution;
-    dom.userLeaderboardRank.textContent = userRank;
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
-    console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
-}
 
     async function fetchDataAndRender(leaderboardOnly = false) {
         console.log(`1. [MAIN] Вызвана функция fetchDataAndRender. leaderboardOnly: ${leaderboardOnly}`);
