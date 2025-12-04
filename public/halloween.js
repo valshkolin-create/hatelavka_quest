@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return 1;
     }
 
-ffunction renderPage(eventData, leaderboardData = {}) {
+function renderPage(eventData, leaderboardData = {}) {
         console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
 
         // ... (Код сортировки и проверок в начале функции renderPage оставляем без изменений) ...
