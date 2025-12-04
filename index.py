@@ -4628,7 +4628,7 @@ async def background_challenge_bonuses(user_id: int):
 async def claim_challenge(
     challenge_id: int,
     request_data: InitDataRequest,
-    background_tasks: BackgroundTasks, # <--- Добавили
+    background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -4643,7 +4643,7 @@ async def claim_challenge(
     promocode_text = None
     message = ""
 
-    # Если награды выключены
+    # Если награды выключены админом
     if not admin_settings.challenge_promocodes_enabled:
         await supabase.post(
             "/rpc/complete_challenge_and_set_cooldown",
@@ -4651,9 +4651,8 @@ async def claim_challenge(
         )
         return {"success": True, "message": "Челлендж выполнен! Награды временно отключены.", "promocode": None}
 
-    # 2. Пробуем забрать награду
+    # 2. Пробуем забрать награду (Основной путь)
     try:
-        # Попытка 1: Штатный режим
         rpc_response = await supabase.post(
             "/rpc/claim_challenge_and_get_reward", 
             json={"p_user_id": current_user_id, "p_challenge_id": challenge_id}
@@ -4663,13 +4662,32 @@ async def claim_challenge(
         message = "Награда получена!"
 
     except httpx.HTTPStatusError as e:
-        # Попытка 2: Обработка сбоев / повторов (Fallback)
+        # --- 🔥 ИСПРАВЛЕНИЕ ЛОГИКИ ОШИБОК 🔥 ---
+        
+        # Получаем текст ошибки от базы
         error_details = e.response.json().get("message", e.response.text) if e.response.headers.get("content-type") == "application/json" else e.response.text
         
-        # Если челлендж "уже выполнен", но награда не забрана
-        is_already_done = e.response.status_code == 400 and any(x in error_details for x in ['уже выполнен', 'completed', 'expired'])
-        
-        if is_already_done:
+        # 3. Если произошла ошибка, ПРОВЕРЯЕМ РЕАЛЬНЫЙ СТАТУС в базе
+        # Это надежнее, чем гадать по тексту ошибки
+        status_check = await supabase.get(
+            "/user_challenges",
+            params={
+                "user_id": f"eq.{current_user_id}", 
+                "challenge_id": f"eq.{challenge_id}",
+                "select": "status"
+            }
+        )
+        real_status = None
+        if status_check.json():
+            real_status = status_check.json()[0].get("status")
+
+        # 4. Принимаем решение на основе статуса
+        if real_status == 'expired':
+            # Если истек — честно говорим об этом и НЕ пытаемся выдать награду
+            raise HTTPException(status_code=400, detail="Время выполнения челленджа истекло. Попробуйте взять новый.")
+            
+        elif real_status in ['claimed', 'completed']:
+            # Если выполнен, но код не пришел — пробуем восстановить (Fallback)
             try:
                 award_resp = await supabase.post(
                     "/rpc/award_reward_and_get_promocode",
@@ -4677,7 +4695,6 @@ async def claim_challenge(
                 )
                 award_resp.raise_for_status()
                 
-                # Парсим ответ (может быть JSON {"code": "..."} или просто строка)
                 try:
                     award_json = award_resp.json()
                     promocode_text = award_json.get("code") if isinstance(award_json, dict) else str(award_json).strip('"')
@@ -4685,14 +4702,16 @@ async def claim_challenge(
                     promocode_text = award_resp.text.strip('"')
                     
                 message = "Награда получена (восстановлена)!"
-            except Exception:
-                # Если и тут ошибка — значит реально нельзя
-                raise HTTPException(status_code=409, detail=error_details)
+            except Exception as fallback_error:
+                # Если даже восстановление не сработало (например, кончились промокоды)
+                logging.error(f"Fallback claim failed: {fallback_error}")
+                raise HTTPException(status_code=409, detail="Награда уже получена, либо закончились промокоды. Проверьте ваш профиль или обратитесь к админу.")
+        
         else:
+            # Какой-то другой статус (например, pending) или ошибка валидации
             raise HTTPException(status_code=400, detail=error_details)
 
-    # 3. 🔥 ВСЕ БОНУСЫ УХОДЯТ В ФОН 🔥
-    # Мы не ждем их выполнения. Ответ улетает пользователю мгновенно.
+    # 5. 🔥 БОНУСЫ В ФОНЕ 🔥
     background_tasks.add_task(background_challenge_bonuses, current_user_id)
 
     return {
@@ -4700,7 +4719,6 @@ async def claim_challenge(
         "message": message,
         "promocode": promocode_text
     }
-
 # --- НОВЫЙ ЭНДПОИНТ: Получение активных сущностей пользователя ---
 @app.get("/api/v1/admin/users/{user_id}/active_entities")
 async def admin_get_user_active_entities(
