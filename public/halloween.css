@@ -462,94 +462,26 @@ body[data-theme="new_year"] #contribution-form button:disabled { background: #55
     body::after { background-attachment: scroll; }
 }
 /* =========================================
-/* =========================================
-   НОВОГОДНЯЯ ГИРЛЯНДА (ВЕРСИЯ 3.0: СИЛЬНОЕ ДВИЖЕНИЕ + ЦВЕТНОЙ НЕОН)
+   НОВОГОДНЯЯ ВИДЕО-ГИРЛЯНДА
    ========================================= */
 
-body[data-theme="new_year"] {
-    --bulb-red: #ff3333;
-    --bulb-gold: #ffd700;
-    --bulb-green: #39ff14;
-    --bulb-blue: #00ffff;
+.garland-video {
+    display: none;    /* Скрыта для обычных тем */
+    
+    position: fixed;  /* Прибита к экрану */
+    top: 0;
+    left: 0;
+    width: 100%;      /* На всю ширину */
+    height: auto;     /* Высота подстроится сама */
+    
+    z-index: 999;     /* Поверх всего интерфейса */
+    pointer-events: none; /* ПРОПУСКАЕТ КЛИКИ (кнопки под ней будут работать) */
+    
+    /* Если видео кажется темным, можно добавить яркости: */
+    /* filter: brightness(1.2) saturate(1.2); */
 }
 
-.new-year-garland {
-    display: none; 
-    position: fixed;
-    top: -15px;      /* Спрятали крепление провода */
-    left: -15%;      /* Сильный запас слева */
-    width: 130%;     /* Сильный запас ширины для амплитуды */
-    height: 80px;    /* Чуть выше зона для движения */
-    z-index: 999; 
-    pointer-events: none; 
-    
-    /* ВАЖНО: Точка вращения по центру сверху */
-    transform-origin: 50% 0%;
-    
-    /* Анимация раскачивания: быстрее и заметнее */
-    animation: garland-sway 3s ease-in-out infinite alternate;
-}
-
-body[data-theme="new_year"] .new-year-garland {
+/* Показываем ТОЛЬКО если выбрана тема New Year */
+body[data-theme="new_year"] .garland-video {
     display: block;
-}
-
-/* Провод */
-.new-year-garland::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    /* Рисунок провода */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40'%3E%3Cpath d='M0 10 C 30 45, 90 -15, 120 10' stroke='%23222' fill='none' stroke-width='2' opacity='0.9'/%3E%3C/svg%3E");
-    background-repeat: repeat-x;
-    background-size: 120px 40px; 
-}
-
-/* Лампочки */
-.new-year-garland::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    
-    /* Лампочки сделаны градиентами:
-       Жесткий центр (4px) -> Мягкий край (8px) того же цвета.
-       Это создает эффект "ореола" без белой тени.
-    */
-    background-image: 
-        radial-gradient(circle at 15px 24px, var(--bulb-red) 2px, transparent 9px),
-        radial-gradient(circle at 45px 14px,  var(--bulb-gold) 2px, transparent 9px),
-        radial-gradient(circle at 75px 24px, var(--bulb-green) 2px, transparent 9px),
-        radial-gradient(circle at 105px 14px, var(--bulb-blue) 2px, transparent 9px);
-    
-    background-repeat: repeat-x;
-    background-size: 120px 40px; 
-    
-    /* Анимация пульсации */
-    animation: neon-pulse 0.8s infinite alternate;
-}
-
-/* --- АНИМАЦИИ --- */
-
-/* 1. Реалистичное покачивание (маятник) */
-@keyframes garland-sway {
-    0% {
-        transform: rotate(-3deg) translateX(-10px); /* Влево и наклон */
-    }
-    100% {
-        transform: rotate(3deg) translateX(10px);   /* Вправо и наклон */
-    }
-}
-
-/* 2. Цветное свечение (без белого) */
-@keyframes neon-pulse {
-    0% {
-        /* Тусклый свет */
-        filter: brightness(0.8) opacity(0.7);
-    }
-    100% {
-        /* ОЧЕНЬ ЯРКИЙ СВЕТ РОДНОГО ЦВЕТА 
-           Saturate делает цвет "ядовитым", Brightness делает его светящимся
-        */
-        filter: brightness(2.5) saturate(2.0) opacity(1);
-    }
 }
