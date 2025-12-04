@@ -356,22 +356,41 @@ function collectCauldronData() {
 
         [1, 2, 3, 4].forEach(level => {
             const levelKey = `level_${level}`;
-            content.levels[levelKey] = {
-                top_places: [],
-                default_reward: {
-                    name: form.elements[`default_reward_name_${level}`].value,
-                    image_url: form.elements[`default_reward_image_url_${level}`].value
+            
+            // Сбор Топ-20 (без изменений)
+            const topPlaces = [];
+            const container = document.getElementById(`top-rewards-container-${level}`);
+            if (container) {
+                container.querySelectorAll('.top-reward-row').forEach(row => {
+                    const place = parseInt(row.querySelector('.reward-place').value, 10);
+                    const name = row.querySelector('.reward-name').value.trim();
+                    const image_url = row.querySelector('.reward-image').value.trim();
+                    if (place >= 1 && place <= 20 && name) {
+                        topPlaces.push({ place, name, image_url });
+                    }
+                });
+            }
+
+            // --- НОВОЕ: Сбор Тиров (21-30, 31-40, 41+) ---
+            const tiers = {
+                "21-30": {
+                    name: form.elements[`tier_21_30_name_${level}`]?.value || '',
+                    image_url: form.elements[`tier_21_30_image_url_${level}`]?.value || ''
+                },
+                "31-40": {
+                    name: form.elements[`tier_31_40_name_${level}`]?.value || '',
+                    image_url: form.elements[`tier_31_40_image_url_${level}`]?.value || ''
+                },
+                "41+": {
+                    name: form.elements[`tier_41_plus_name_${level}`]?.value || '',
+                    image_url: form.elements[`tier_41_plus_image_url_${level}`]?.value || ''
                 }
             };
-            const container = document.getElementById(`top-rewards-container-${level}`);
-            container.querySelectorAll('.top-reward-row').forEach(row => {
-                const place = parseInt(row.querySelector('.reward-place').value, 10);
-                const name = row.querySelector('.reward-name').value.trim();
-                const image_url = row.querySelector('.reward-image').value.trim();
-                if (place >= 1 && place <= 20 && name) {
-                    content.levels[levelKey].top_places.push({ place, name, image_url });
-                }
-            });
+
+            content.levels[levelKey] = {
+                top_places: topPlaces,
+                tiers: tiers // Сохраняем новую структуру
+            };
         });
 
         return content;
