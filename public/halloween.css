@@ -468,18 +468,15 @@ body[data-theme="new_year"] #contribution-form button:disabled { background: #55
 .garland-video {
     display: none;
     
-    position: absolute; /* Оставляем, чтобы была вверху страницы */
-    
-    /* 1. ПОДНИМАЕМ ВВЕРХ */
-    /* Отрицательный отступ затянет её выше за край экрана */
-    top: -25px; 
+    position: absolute;
+    /* Поднимаем еще выше, чтобы провод ушел за экран, а висели только лампы */
+    top: -40px; 
     
     left: 0;
     width: 100%;
     
-    /* 2. УВЕЛИЧИВАЕМ РАЗМЕР */
-    /* Было 100px, ставим 140px, чтобы лампы были крупнее */
-    height: 140px; 
+    /* Увеличиваем размер, как просила */
+    height: 160px; 
     
     object-fit: cover;
     object-position: top center;
@@ -487,17 +484,29 @@ body[data-theme="new_year"] #contribution-form button:disabled { background: #55
     z-index: 999;
     pointer-events: none;
     
-    /* 3. ЧИНИМ БЛИКИ НА ТЕЛЕФОНЕ */
-    mix-blend-mode: screen; /* Убирает черный фон */
+    /* === ИСПРАВЛЕНИЕ БЛИКОВ === */
     
-    /* МАГИЯ ЗДЕСЬ: 
-       Contrast(1.5) — "съедает" слабые серые круги вокруг ламп, оставляя только яркий свет.
-       Brightness(1.2) — восстанавливает яркость после повышения контраста.
+    /* 1. Убираем фильтр, который делал "круги" (filter: contrast...) — УДАЛЕНО */
+    
+    /* 2. Используем plus-lighter. 
+       Это лучший режим для неона на темном фоне. 
+       Он "съедает" полупрозрачную грязь и оставляет только чистый свет. 
     */
-    filter: contrast(1.5) brightness(1.2);
+    mix-blend-mode: plus-lighter; 
+    
+    /* 3. Немного прозрачности (0.9), чтобы смягчить границы, если видео плохого качества */
+    opacity: 0.95; 
 }
 
-/* Показываем только в новогодней теме */
+/* Если браузер на телефоне старый и не знает plus-lighter, 
+   сработает запасной вариант (screen) */
+@supports not (mix-blend-mode: plus-lighter) {
+    .garland-video {
+        mix-blend-mode: screen;
+    }
+}
+
+/* Показываем только в теме New Year */
 body[data-theme="new_year"] .garland-video {
     display: block;
 }
