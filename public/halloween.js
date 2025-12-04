@@ -146,13 +146,18 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[THEME] Режим админа: тема обновлена локально.');
             currentEventData.current_theme = themeName;
         }
-        const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
-        const { levels = {} } = currentEventData || {}; // Добавил || {}
-        const currentLevel = getCurrentLevel(currentEventData);
-        const levelConfig = levels[`level_${currentLevel}`] || {};
-        const defaultReward = levelConfig.default_reward || {};
-        dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
-        console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
+        
+        // Логика обновления старой картинки (теперь внутри проверки)
+        if (dom.rewardImage) {
+            const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
+            const { levels = {} } = currentEventData || {}; 
+            const currentLevel = getCurrentLevel(currentEventData);
+            const levelConfig = levels[`level_${currentLevel}`] || {};
+            const defaultReward = levelConfig.default_reward || {};
+            
+            dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
+            console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
+        }
     }
 
     function getCurrentLevel(eventData) {
