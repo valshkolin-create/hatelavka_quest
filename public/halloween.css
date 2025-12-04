@@ -1,4 +1,6 @@
-/* --- ОСНОВНЫЕ ПЕРЕМЕННЫЕ И ТЕМЫ --- */
+/* =========================================
+   1. ОСНОВНЫЕ ПЕРЕМЕННЫЕ И ТЕМЫ
+   ========================================= */
 :root {
   --text-color: #f0f0f5;
   --text-color-muted: #a09cb8;
@@ -12,7 +14,7 @@
   --accent-secondary: #d433ff;
 }
 
-/* --- ТЕМЫ --- */
+/* --- ТЕМА: HALLOWEEN --- */
 body[data-theme="halloween"] {
   --bg-image: url('https://i.postimg.cc/9fbNYP3M/738e137ac94b6294a9f6ad979a59dc34.jpg');
   --primary-color: #ff9500;
@@ -20,23 +22,23 @@ body[data-theme="halloween"] {
   --glow-color: rgba(255, 149, 0, 0.4);
 }
 
-/* --- НОВОГОДНЯЯ ТЕМА (ОБНОВЛЕНА) --- */
+/* --- ТЕМА: НОВЫЙ ГОД --- */
 body[data-theme="new_year"] {
-  --bg-image: url('https://i.postimg.cc/fT4nLKDK/f93acc97afccb488268433623ce95ef3.jpg'); /* Твой фон */
+  --bg-image: url('https://i.postimg.cc/fT4nLKDK/f93acc97afccb488268433623ce95ef3.jpg');
   
   /* Морозно-золотая палитра */
   --primary-color: #b3e5fc;       /* Ледяной голубой */
   --action-color: #ffca28;        /* Золото */
-  --glow-color: rgba(179, 229, 252, 0.6); /* Ледяное свечение */
+  --glow-color: rgba(179, 229, 252, 0.6);
   --text-color: #ffffff;
   --text-color-muted: #d1d9e6;
   
-  /* Цвета поверхностей для эффекта льда */
   --surface-primary: rgba(20, 40, 65, 0.65); 
   --surface-secondary: rgba(255, 255, 255, 0.1);
   --border-color: rgba(179, 229, 252, 0.3);
 }
 
+/* --- ТЕМА: КЛАССИКА --- */
 body[data-theme="classic"] {
   --bg-image: url('https://i.postimg.cc/PqQ0Fsw6/b4118ce3d4125c4588267c1c75de9a1a.jpg');
   --primary-color: #00f2ea;
@@ -44,57 +46,59 @@ body[data-theme="classic"] {
   --glow-color: rgba(0, 242, 234, 0.4);
 }
 
-/* --- ИСПРАВЛЕНИЕ РАСТЯГИВАНИЯ ФОНА --- */
+/* =========================================
+   2. ГЛОБАЛЬНЫЕ НАСТРОЙКИ (ФОН И СКРОЛЛ)
+   ========================================= */
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', sans-serif; /* Или твой шрифт */
+    font-family: 'Inter', sans-serif;
     overflow-x: hidden;
-    background-color: #000; /* Цвет подложки, пока грузится картинка */
+    background-color: #0d1117; 
     
-    /* Настройки фона */
+    /* Настройки фона для четкости */
     background-repeat: no-repeat;
-    background-position: center top;
-    background-attachment: fixed; /* Фон стоит на месте при скролле */
-    background-size: cover; /* Картинка заполняет весь экран */
+    background-position: center center;
+    background-attachment: fixed;
+    background-size: cover;
     
     /* Убираем мыло */
     -webkit-font-smoothing: antialiased;
     image-rendering: -webkit-optimize-contrast; 
+    
+    /* Чтобы футер не перекрывал контент, добавляем отступ снизу для всего body */
+    padding-bottom: 80px; 
 }
 
 body::before {
     content: '';
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.6); /* Затемнение фона */
     z-index: -1;
 }
 
 body::after {
     content: '';
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0; width: 100%; height: 100%;
     background-image: var(--bg-image);
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
-    filter: blur(2px);
+    /* Убрал filter: blur, так как он делает картинку мыльной */
     z-index: -2;
     transition: background-image 0.5s ease;
 }
 
-/* --- Стили частиц --- */
+/* =========================================
+   3. ЧАСТИЦЫ И АНИМАЦИИ
+   ========================================= */
 .particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; overflow: hidden; pointer-events: none; }
 .particle { position: absolute; background: var(--primary-color); border-radius: 50%; animation: fall 15s infinite linear; opacity: 0; box-shadow: 0 0 10px var(--glow-color), 0 0 15px var(--glow-color); }
 @keyframes fall { 0% { transform: translateY(-10vh) translateX(0) scale(1); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(100vh) translateX(var(--drift, 0px)) scale(0.5); opacity: 0; } }
-/* Настройки частиц остались прежними для совместимости */
+
+/* Настройки частиц */
 .particle:nth-child(1) { width: 4px; height: 4px; left: 10%; animation-duration: 12s; animation-delay: 1s; --drift: 50px; }
 .particle:nth-child(2) { width: 2px; height: 2px; left: 20%; animation-duration: 18s; animation-delay: 3s; --drift: -30px; }
 .particle:nth-child(3) { width: 5px; height: 5px; left: 30%; animation-duration: 10s; animation-delay: 5s; --drift: 40px; }
@@ -111,56 +115,80 @@ body::after {
 .particle:nth-child(14) { width: 3px; height: 3px; left: 55%; animation-duration: 23s; animation-delay: 12s; --drift: -60px; }
 .particle:nth-child(15) { width: 5px; height: 5px; left: 65%; animation-duration: 12s; animation-delay: 14s; --drift: 20px; }
 
+/* Ведьма и Фласка */
+.flying-witch { display: none; position: fixed; bottom: 65px; left: 0; width: 50px; height: auto; z-index: 101; pointer-events: none; transform: translateX(-55px); clip-path: circle(48%); }
+body[data-theme="halloween"] .flying-witch { display: block; animation: fly-across 620s linear 3s infinite; }
+@keyframes fly-across { 0% { transform: translateX(-55px) scaleX(1); } 1.6% { transform: translateX(100vw) scaleX(1); } 1.7% { transform: translateX(100vw) scaleX(-1); } 50% { transform: translateX(100vw) scaleX(-1); } 51.6% { transform: translateX(-55px) scaleX(-1); } 51.7% { transform: translateX(-55px) scaleX(1); } 100% { transform: translateX(-55px) scaleX(1); } }
 
-/* --- Загрузчик --- */
+.flask-animation { position: fixed; width: 60px; height: auto; z-index: 200; pointer-events: none; opacity: 0; transform: scale(0); transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out; }
+.flask-animation.animate { --start-x: 0px; --start-y: 0px; --end-x: 0px; --end-y: 0px; animation: fly-into-cauldron 1.2s cubic-bezier(0.5, -0.5, 1, 1); }
+@keyframes fly-into-cauldron { 0% { opacity: 1; transform: translate(var(--start-x), var(--start-y)) scale(1) rotate(0deg); } 30% { transform: translate(var(--start-x), var(--start-y)) scale(1.2) rotate(10deg); } 100% { opacity: 0; transform: translate(var(--end-x), var(--end-y)) scale(0.2) rotate(720deg); } }
+@keyframes cauldron-pulse { 0% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--primary-color)); } 100% { transform: scale(1); filter: brightness(1); } }
+
+/* =========================================
+   4. СТРУКТУРА СТРАНИЦЫ
+   ========================================= */
 .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: flex; align-items: center; justify-content: center; }
 .spinner { width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* --- Общая структура --- */
 .page-header, .page-layout, .contribution-section, .leaderboard-section, .default-reward-section, .theme-switcher, .admin-notice, .event-timer {
     position: relative;
     z-index: 2;
 }
-.page-header { display: flex; justify-content: center; align-items: center; margin-bottom: 5px; padding-top: 15px; }
-.page-header-title { margin: 0; font-size: 17px; font-weight: 700; text-align: center; }
 
-/* --- Кнопка "КАК ИГРАТЬ?" --- */
+/* ЗАГОЛОВОК СТРАНИЦЫ (Исправлен цвет) */
+.page-header { display: flex; justify-content: center; align-items: center; margin-bottom: 5px; padding-top: 15px; }
+.page-header-title { 
+    margin: 0; 
+    font-size: 17px; 
+    font-weight: 700; 
+    text-align: center;
+    color: var(--text-color) !important; /* Принудительно цвет темы */
+    text-shadow: 0 2px 5px rgba(0,0,0,0.5); /* Тень для читаемости */
+}
+
+/* КНОПКА "КАК ИГРАТЬ" */
 .rules-button-container { text-align: center; margin-bottom: 20px; position: relative; z-index: 201; }
 .rules-button { background: linear-gradient(45deg, var(--action-color), var(--primary-color)); color: white; border: none; padding: 10px 25px; border-radius: 20px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); transition: all 0.3s ease; }
 .rules-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--glow-color); }
 .rules-button.highlight { animation: pulse-glow 1.5s infinite; }
 @keyframes pulse-glow { 0% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); } 50% { box-shadow: 0 0 20px var(--glow-color), 0 0 30px var(--glow-color); } 100% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); } }
 
-/* --- ДАТЫ --- */
+/* ДАТА / ТАЙМЕР (Исправлен стиль: без фона) */
 .event-timer {
-    text-align: center;
-    font-size: 0.8em;
-    font-weight: 400;
-    color: var(--text-color);
-    margin-bottom: 15px;
-    letter-spacing: 0.5px;
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 8px;
-    padding: 10px;
+    margin-bottom: 15px;
+    padding: 5px;
+    
+    /* Сброс стилей фона */
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); /* Тень для текста */
 }
-.event-timer .loader-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    border-top-color: var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-.event-timer i { color: var(--text-color-muted); }
+.event-timer i { color: var(--primary-color); }
 .event-timer span { color: var(--text-color); }
 
-.page-layout { display: flex; flex-direction: column; gap: 15px; }
+/* ОСНОВНОЙ ЛЕЙАУТ (С отступом снизу) */
+.page-layout { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px; 
+    padding-bottom: 40px; /* Чтобы контент не упирался в футер */
+}
 .subsection-title { text-align: center; font-weight: 600; font-size: 14px; margin: 0 0 10px 0; color: var(--text-color-muted); }
 
-/* --- Секция с котлом --- */
+/* СЕКЦИЯ КОТЛА */
 .top-section { text-align: center; }
 .cauldron-image-wrapper img {
     max-height: 35vh;
@@ -171,19 +199,24 @@ body::after {
     margin-bottom: 10px;
     transition: transform 0.5s ease;
 }
-.cauldron-image-wrapper img.pulse {
-    animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out;
-}
+.cauldron-image-wrapper img.pulse { animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out; }
 @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-12px); } 100% { transform: translateY(0px); } }
 
 .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.3); border-radius: 8px; height: 10px; border: 1px solid var(--border-color); overflow: hidden; }
 .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--action-color), var(--primary-color)); border-radius: 8px; transition: width 0.5s ease-out, background 0.5s ease; box-shadow: 0 0 10px var(--glow-color); }
 .progress-text { margin-top: 8px; font-size: 13px; font-weight: 500; color: var(--text-color-muted); }
 
-/* --- Общие стили для секций --- */
-.contribution-section, .leaderboard-section, .default-reward-section { background-color: var(--surface-primary); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+/* ОБЩИЕ БЛОКИ */
+.contribution-section, .leaderboard-section, .default-reward-section { 
+    background-color: var(--surface-primary); 
+    border: 1px solid var(--border-color); 
+    border-radius: 16px; 
+    padding: 20px; 
+    backdrop-filter: blur(10px); 
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3); 
+}
 
-/* --- Секция вклада --- */
+/* ВКЛАД */
 .contribution-section p { margin: 0 0 15px 0; font-size: 14px; text-align: center; color: var(--text-color-muted); }
 .contribution-section p strong { color: var(--text-color); font-weight: 600; }
 #contribution-form { display: flex; gap: 10px; flex-wrap: wrap; position: relative; }
@@ -193,450 +226,221 @@ body::after {
 #contribution-form button:disabled { background: #555; cursor: not-allowed; transform: none; box-shadow: none; }
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
 
-/* --- Премиальный лидерборд --- */
+/* ЛИДЕРБОРД */
 .leaderboard-header { display: grid; grid-template-columns: 40px 1fr 70px 80px; gap: 10px; padding: 0 5px 10px; border-bottom: 1px solid var(--border-color); font-size: 11px; font-weight: 500; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .align-right { text-align: right; }
 .centered-header { text-align: center; }
-.prize-header { padding-left: 10px; }
 .leaderboard-row { display: grid; grid-template-columns: 40px 1fr 70px 80px; gap: 10px; padding: 12px 5px; align-items: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
 .leaderboard-row:last-child { border-bottom: none; }
 .leaderboard-row.is-top-3 { font-weight: 700; }
 .leaderboard-row:hover { background-color: rgba(255, 255, 255, 0.05); }
 .leaderboard-row .rank { font-weight: 700; color: var(--text-color-muted); font-size: 14px; text-align: center; }
 .leaderboard-row.is-top-3 .rank { color: var(--primary-color); }
-.leaderboard-row .player { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
+
+/* ИСПРАВЛЕНИЕ ЦВЕТА НИКА */
+.leaderboard-row .player { 
+    font-weight: 500; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    font-size: 0.9em;
+    color: var(--text-color) !important; /* Белый/светлый принудительно */
+}
+
 .leaderboard-row .prize-image-container { display: flex; justify-content: center; align-items: center; padding-left: 10px; }
 .leaderboard-row .prize-image { width: 50px; height: 50px; object-fit: contain; }
 .leaderboard-row .contribution { font-weight: 600; color: var(--text-color); text-align: right; font-size: 0.85em; padding-right: 0; }
 .image-zoom-container { position: relative; cursor: pointer; display: inline-block; flex-shrink: 0; }
 .image-zoom-container .zoom-icon { position: absolute; bottom: 2px; right: 2px; width: 20px; height: 20px; background-color: rgba(0, 0, 0, 0.6); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.2s ease; opacity: 0; }
 .image-zoom-container:hover .zoom-icon { opacity: 1; transform: scale(1.1); }
-.leaderboard-row .image-zoom-container .prize-image { display: block; }
 
-/* --- Другие секции --- */
-.reward-card { display: flex; align-items: center; gap: 15px; }
-.reward-card img { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; }
-.reward-card p { margin: 0; font-weight: 600; font-size: 16px; }
-.admin-notice { background-color: rgba(191, 90, 242, 0.2); color: var(--action-color); padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; margin-bottom: 15px; border: 1px solid var(--action-color); display: flex; align-items: center; justify-content: center; gap: 8px; }
-
-/* --- ПЕРЕКЛЮЧАТЕЛЬ ТЕМ (Адаптирован для админ-панели) --- */
-.theme-switcher { 
-    display: flex; 
-    gap: 8px; 
-    background-color: transparent; 
-    padding: 0; 
-    border-radius: 20px; 
-    border: none;
-    margin: 0;
+/* =========================================
+   5. НАГРАДЫ ДЛЯ ОСТАЛЬНЫХ (НОВЫЙ СТИЛЬ)
+   ========================================= */
+/* Контейнер */
+.tier-rewards-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* Отступ слева и справа, как просили */
+    padding: 0 15px 30px; 
 }
-.theme-btn { background-color: transparent; border: 2px solid transparent; color: var(--text-color-muted); font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
-.theme-btn:hover { color: var(--text-color); background-color: rgba(255, 255, 255, 0.1); }
-.theme-btn.active { border-color: var(--primary-color); color: var(--primary-color); }
 
-/* --- Утилиты и футер --- */
+/* Общий стиль карточки */
+.tier-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 15px;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    min-height: 60px;
+    transition: transform 0.2s;
+}
+.tier-card:active { transform: scale(0.98); }
+
+/* Элементы внутри карточки */
+.tier-info { display: flex; align-items: center; gap: 15px; width: 100%; z-index: 2; }
+.tier-image { width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+.tier-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
+.tier-range-badge {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    font-size: 12px;
+    font-weight: 800;
+    opacity: 0.6;
+}
+
+/* --- ТЕМА: HALLOWEEN (Мрачные карточки) --- */
+[data-theme="halloween"] .tier-card {
+    background: linear-gradient(90deg, rgba(40, 20, 0, 0.9), rgba(20, 10, 0, 0.8));
+    border: 1px solid #ff6600;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+[data-theme="halloween"] .tier-name { color: #ffe5b4; }
+[data-theme="halloween"] .tier-range-badge { color: #ff6600; }
+[data-theme="halloween"] .tier-card.tier-gold { border-left: 5px solid #FFD700; }
+[data-theme="halloween"] .tier-card.tier-silver { border-left: 5px solid #C0C0C0; }
+[data-theme="halloween"] .tier-card.tier-bronze { border-left: 5px solid #CD7F32; }
+
+/* --- ТЕМА: CLASSIC (Магические карточки) --- */
+[data-theme="classic"] .tier-card {
+    background: rgba(40, 0, 60, 0.6);
+    border: 1px solid rgba(180, 100, 255, 0.3);
+    backdrop-filter: blur(10px);
+}
+[data-theme="classic"] .tier-name { color: #e0ccff; }
+[data-theme="classic"] .tier-range-badge { color: #b366ff; }
+[data-theme="classic"] .tier-card.tier-gold { box-shadow: inset 10px 0 20px -10px rgba(255, 215, 0, 0.3); }
+[data-theme="classic"] .tier-card.tier-silver { box-shadow: inset 10px 0 20px -10px rgba(192, 192, 192, 0.3); }
+[data-theme="classic"] .tier-card.tier-bronze { box-shadow: inset 10px 0 20px -10px rgba(205, 127, 50, 0.3); }
+
+/* --- ТЕМА: NEW YEAR (Ледяные карточки БЕЗ РАМОК) --- */
+[data-theme="new_year"] .tier-card {
+    border: none !important; /* Убираем рамку */
+    background: rgba(255, 255, 255, 0.12); /* Стекло */
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important; /* Тонкая линия снизу */
+}
+[data-theme="new_year"] .tier-name { 
+    color: #fff; 
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+}
+[data-theme="new_year"] .tier-range-badge { 
+    color: #fff; 
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+/* Градиент вместо цветной рамки слева */
+[data-theme="new_year"] .tier-card.tier-gold { background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255,255,255,0.05)); }
+[data-theme="new_year"] .tier-card.tier-silver { background: linear-gradient(90deg, rgba(192, 192, 192, 0.15), rgba(255,255,255,0.05)); }
+[data-theme="new_year"] .tier-card.tier-bronze { background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), rgba(255,255,255,0.05)); }
+
+
+/* =========================================
+   6. ФУТЕР, МОДАЛКИ И ПРОЧЕЕ
+   ========================================= */
 .hidden { display: none !important; }
-/* --- ЕДИНЫЙ ФИКСИРОВАННЫЙ ФУТЕР (КАК В МЕНЮ) --- */
+
+/* ФУТЕР */
 .app-footer {
     display: flex;
     justify-content: space-around;
     align-items: center;
-    
-    /* Жесткие цвета из menu.css */
     background-color: rgba(28, 28, 30, 0.85); 
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    z-index: 9999; /* Поверх всего */
-    
-    /* Высота и отступы 1в1 как в меню */
+    z-index: 9999;
     padding-top: 8px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
     box-sizing: border-box;
     height: auto;
 }
-
 .footer-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    
-    color: #8E8E93; /* Единый серый цвет */
-    text-decoration: none;
-    flex: 1;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-    
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    font-size: 10px;
-    line-height: 1; 
-    font-weight: 500;
-    transition: all 0.2s ease;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    color: #8E8E93; text-decoration: none; flex: 1; cursor: pointer; background: transparent; border: none; padding: 0; margin: 0;
+    font-family: var(--font-main); font-size: 10px; line-height: 1; font-weight: 500; transition: all 0.2s ease;
 }
+.footer-item .icon-wrapper { display: flex; justify-content: center; align-items: center; width: 24px; height: 24px; font-size: 22px; position: relative; transition: transform 0.2s ease, color 0.2s ease; }
+.footer-item.active { color: #FFFFFF; }
+.footer-item.active span { font-weight: 600; }
+.footer-item.active .icon-wrapper { color: #34c759; transform: translateY(-2px); text-shadow: 0 0 12px rgba(52, 199, 89, 0.6); }
+.footer-item.active .icon-wrapper::before { content: ''; position: absolute; top: -8px; width: 20px; height: 2px; background-color: #34c759; border-radius: 2px; box-shadow: 0 0 5px rgba(52, 199, 89, 0.8); }
 
-.footer-item .icon-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    
-    width: 24px;
-    height: 24px;
-    font-size: 22px;
-    
-    position: relative;
-    transition: transform 0.2s ease, color 0.2s ease;
-}
-
-/* --- Активное состояние --- */
-.footer-item.active {
-    color: #FFFFFF; /* Белый текст */
-}
-
-.footer-item.active span {
-    font-weight: 600;
-}
-
-.footer-item.active .icon-wrapper {
-    color: #34c759; /* Зеленый акцент из меню */
-    transform: translateY(-2px);
-    text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
-}
-
-/* Зеленая полоска над активной иконкой */
-.footer-item.active .icon-wrapper::before {
-    content: '';
-    position: absolute;
-    top: -8px;
-    width: 20px;
-    height: 2px;
-    background-color: #34c759;
-    border-radius: 2px;
-    box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
-}
-
-/* --- Стили модального окна и оверлея --- */
+/* МОДАЛКИ */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.8); z-index: 250; display: flex; align-items: center; justify-content: center; padding: 15px; backdrop-filter: blur(var(--backdrop-blur)); }
-.modal-content {
-    background-color: var(--surface-secondary);
-    border: 1px solid var(--action-color);
-    padding: 0;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 375px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
-    display: flex;
-    flex-direction: column;
-    max-height: 90vh;
-    transform: translateX(-13px);
-}
+.modal-content { background-color: var(--surface-secondary); border: 1px solid var(--action-color); padding: 0; border-radius: 16px; width: 100%; max-width: 375px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); display: flex; flex-direction: column; max-height: 90vh; transform: translateX(-13px); }
 .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
 .modal-header h3 { margin: 0; color: var(--primary-color); }
 .modal-close-btn { background: none; border: none; color: var(--text-color-muted); font-size: 24px; cursor: pointer; }
 .modal-body { overflow-y: auto; padding: 20px; line-height: 1.6;}
-.modal-body p { margin-top: 0; margin-bottom: 1em; }
-.modal-body p:last-child { margin-bottom: 0; }
-
-/* --- СТИЛИ ДЛЯ МОДАЛЬНЫХ ФОРМ --- */
 .modal-form { display: flex; flex-direction: column; gap: 15px; }
-.modal-form input, .modal-form textarea {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background-color: var(--surface-secondary);
-    color: var(--text-color);
-    font-size: 16px;
-    font-family: var(--font-main);
-    color-scheme: dark;
-}
-.modal-form button {
-    background: var(--primary-color);
-    border: none;
-    padding: 12px;
-    border-radius: 10px;
-    color: #000;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: filter 0.2s ease;
-}
+.modal-form input, .modal-form textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: var(--text-color); font-size: 16px; font-family: var(--font-main); color-scheme: dark; }
+.modal-form button { background: var(--primary-color); border: none; padding: 12px; border-radius: 10px; color: #000; font-size: 16px; font-weight: 600; cursor: pointer; transition: filter 0.2s ease; }
 .modal-form button:hover { filter: brightness(1.1); }
 .modal-form label { font-size: 14px; color: var(--text-color-muted); margin-bottom: -10px; }
 
-/* --- Оверлей для обучения --- */
+/* УТИЛИТЫ */
 .tutorial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 200; transition: opacity 0.3s ease; }
-
-/* --- Просмотрщик изображений --- */
 .image-viewer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 350; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 20px 20px 80px 20px; }
 .viewer-close-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; color: white; font-size: 40px; cursor: pointer; line-height: 1; padding: 5px; text-shadow: 0 0 5px black; }
 .viewer-content-wrapper { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 100%; max-height: 100%; }
 .viewer-image { max-width: 100%; max-height: 100%; object-fit: contain; }
 .viewer-caption { position: absolute; bottom: -50px; left: 50%; transform: translateX(-50%); background-color: rgba(18, 16, 33, 0.8); color: #f0f0f5; padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; white-space: nowrap; border: 1px solid rgba(60, 56, 82, 0.5); backdrop-filter: blur(5px); transition: opacity 0.3s ease; opacity: 0; }
 .image-viewer-overlay:not(.hidden) .viewer-caption { opacity: 1; }
-
-/* --- Анимация ведьмы --- */
-.flying-witch { display: none; position: fixed; bottom: 65px; left: 0; width: 50px; height: auto; z-index: 101; pointer-events: none; transform: translateX(-55px); clip-path: circle(48%); }
-body[data-theme="halloween"] .flying-witch { display: block; animation: fly-across 620s linear 3s infinite; }
-@keyframes fly-across { 0% { transform: translateX(-55px) scaleX(1); } 1.6% { transform: translateX(100vw) scaleX(1); } 1.7% { transform: translateX(100vw) scaleX(-1); } 50% { transform: translateX(100vw) scaleX(-1); } 51.6% { transform: translateX(-55px) scaleX(-1); } 51.7% { transform: translateX(-55px) scaleX(1); } 100% { transform: translateX(-55px) scaleX(1); } }
-
-/* --- Анимация фласки --- */
-.flask-animation { position: fixed; width: 60px; height: auto; z-index: 200; pointer-events: none; opacity: 0; transform: scale(0); transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out; }
-.flask-animation.animate { --start-x: 0px; --start-y: 0px; --end-x: 0px; --end-y: 0px; animation: fly-into-cauldron 1.2s cubic-bezier(0.5, -0.5, 1, 1); }
-@keyframes fly-into-cauldron { 0% { opacity: 1; transform: translate(var(--start-x), var(--start-y)) scale(1) rotate(0deg); } 30% { transform: translate(var(--start-x), var(--start-y)) scale(1.2) rotate(10deg); } 100% { opacity: 0; transform: translate(var(--end-x), var(--end-y)) scale(0.2) rotate(720deg); } }
-@keyframes cauldron-pulse { 0% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--primary-color)); } 100% { transform: scale(1); filter: brightness(1); } }
-
-/* --- Адаптация заголовка --- */
 @media (max-width: 768px) { .page-header-title { font-size: 17px; } }
 
-/* ===== СТИЛИ АДМИНА (ОБНОВЛЕНЫ для переключателя) ===== */
-.admin-controls {
-    position: fixed;
-    bottom: calc(60px + env(safe-area-inset-bottom) + 15px);
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background-color: var(--surface-primary);
-    padding: 5px;
-    border-radius: 25px;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-}
-
-.admin-toggle-btn {
-    background: linear-gradient(90deg, #555, #333);
-    color: white;
-    border: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
+/* АДМИН-ПАНЕЛЬ */
+.admin-notice { background-color: rgba(191, 90, 242, 0.2); color: var(--action-color); padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; margin-bottom: 15px; border: 1px solid var(--action-color); display: flex; align-items: center; justify-content: center; gap: 8px; }
+.admin-controls { position: fixed; bottom: calc(60px + env(safe-area-inset-bottom) + 15px); left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 10px; background-color: var(--surface-primary); padding: 5px; border-radius: 25px; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+.admin-toggle-btn { background: linear-gradient(90deg, #555, #333); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .admin-toggle-btn:hover { transform: scale(1.1); }
 .admin-toggle-btn i { transition: transform 0.3s ease; }
-
-.admin-action-buttons {
-    display: none; /* Скрыты по умолчанию */
-    align-items: center;
-    gap: 5px;
-}
-
-.admin-controls.expanded .admin-action-buttons {
-    display: flex; /* Показываем кнопки flex'ом */
-}
-.admin-controls.expanded .admin-toggle-btn i {
-    transform: rotate(180deg);
-}
-
-.admin-action-buttons button:not(.theme-btn) {
-    background: linear-gradient(90deg, var(--accent-secondary), #ff70ab);
-    color: white;
-    padding: 8px 18px;
-    border-radius: 18px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-    border: none;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-}
+.admin-action-buttons { display: none; align-items: center; gap: 5px; }
+.admin-controls.expanded .admin-action-buttons { display: flex; }
+.admin-controls.expanded .admin-toggle-btn i { transform: rotate(180deg); }
+.admin-action-buttons button:not(.theme-btn) { background: linear-gradient(90deg, var(--accent-secondary), #ff70ab); color: white; padding: 8px 18px; border-radius: 18px; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.2s ease; }
 .admin-action-buttons button:hover { transform: scale(1.05); }
-
-/* Логика показа/скрытия Edit/Save */
+.theme-switcher { display: flex; gap: 8px; background-color: transparent; padding: 0; border-radius: 20px; border: none; margin: 0; }
+.theme-btn { background-color: transparent; border: 2px solid transparent; color: var(--text-color-muted); font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
+.theme-btn:hover { color: var(--text-color); background-color: rgba(255, 255, 255, 0.1); }
+.theme-btn.active { border-color: var(--primary-color); color: var(--primary-color); }
 #save-btn { display: none; }
 .admin-controls.edit-mode-active #edit-btn { display: none; }
 .admin-controls.edit-mode-active #save-btn { display: block; }
-
-/* Стиль для кликабельных элементов в режиме редактирования */
-body.edit-mode [data-editable] {
-    cursor: pointer;
-    border: 1px dashed var(--accent-secondary);
-    border-radius: 8px;
-    padding-left: 8px;
-    padding-right: 8px;
-    transition: background-color 0.2s ease;
-}
+body.edit-mode [data-editable] { cursor: pointer; border: 1px dashed var(--accent-secondary); border-radius: 8px; padding-left: 8px; padding-right: 8px; transition: background-color 0.2s ease; }
 body.edit-mode [data-editable]:hover { background-color: rgba(212, 51, 255, 0.1); }
 
-/* --- АДАПТАЦИЯ МОРОЗНОГО ДИЗАЙНА --- */
-/* Этот блок добавляет эффект стекла и золотые кнопки ТОЛЬКО для новогодней темы */
+/* АДАПТАЦИЯ НОВОГОДНЕЙ ТЕМЫ (Кнопки и фоны) */
 body[data-theme="new_year"] .contribution-section, 
 body[data-theme="new_year"] .leaderboard-section, 
-body[data-theme="new_year"] .default-reward-section,
-body[data-theme="new_year"] .event-timer {
+body[data-theme="new_year"] .default-reward-section {
     background: linear-gradient(135deg, rgba(30, 60, 90, 0.7), rgba(20, 40, 60, 0.8));
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 8px 32px rgba(0, 10, 30, 0.5), inset 0 0 20px rgba(179, 229, 252, 0.05);
     backdrop-filter: blur(15px);
 }
-
-/* --- КНОПКИ ДЛЯ НОВОГО ГОДА (Желтые с черным текстом и белым свечением) --- */
 body[data-theme="new_year"] #contribution-form button,
 body[data-theme="new_year"] .rules-button {
-    /* Желтый градиент (фигура) */
     background: linear-gradient(180deg, #ffd54f 0%, #ffca28 100%);
-    
-    /* Текст внутри черный */
-    color: #000000; 
-    font-weight: 700;
-    text-shadow: none;
-    
-    /* Белая подсветка (рамка + свечение) */
+    color: #000000; font-weight: 700; text-shadow: none;
     border: 2px solid #ffffff; 
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 4px 10px rgba(0, 0, 0, 0.2);
-    
-    /* Небольшие правки для красоты */
-    transform: translateY(0);
-    transition: all 0.2s ease;
+    transform: translateY(0); transition: all 0.2s ease;
 }
-
-/* Эффект нажатия/наведения для этих кнопок */
 body[data-theme="new_year"] #contribution-form button:hover,
-body[data-theme="new_year"] .rules-button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 25px rgba(255, 255, 255, 0.8);
-    filter: brightness(1.1);
-}
-
-/* Отключенная кнопка (если нет билетов) */
-body[data-theme="new_year"] #contribution-form button:disabled {
-    background: #555;
-    color: #aaa;
-    border: 1px solid #777;
-    box-shadow: none;
-    transform: none;
-}
-/* ===== КОНЕЦ СТИЛЕЙ АДМИНА ===== */
-/* --- БАЗОВЫЕ СТИЛИ ДЛЯ КАРТОЧЕК (ОБЩИЕ) --- */
-.tier-rewards-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 0 15px 20px; /* Отступы: Сверху 0, Слева/Справа 15, Снизу 20 */
-}
-
-.tier-card {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 12px;
-    border-radius: 12px;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.2s ease;
-}
-
-.tier-range-badge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    font-size: 10px;
-    padding: 3px 8px;
-    border-bottom-left-radius: 8px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.tier-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    z-index: 1; /* Чтобы текст был над фоном */
-}
-
-.tier-image {
-    width: 45px;
-    height: 45px;
-    object-fit: contain;
-    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
-}
-
-.tier-name {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-/* =========================================
-   🎃 ТЕМА: HALLOWEEN (Мрачная, с обводкой)
-   ========================================= */
-[data-theme="halloween"] .tier-card {
-    background: rgba(20, 20, 20, 0.85); /* Темный фон */
-    border: 1px solid #ff7b00; /* Яркая оранжевая обводка */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-}
-
-[data-theme="halloween"] .tier-card.tier-gold { border-left: 4px solid #FFD700; }
-[data-theme="halloween"] .tier-card.tier-silver { border-left: 4px solid #C0C0C0; }
-[data-theme="halloween"] .tier-card.tier-bronze { border-left: 4px solid #CD7F32; }
-
-[data-theme="halloween"] .tier-range-badge {
-    background: #ff7b00;
-    color: #000;
-}
-[data-theme="halloween"] .tier-name { color: #ffe6c9; }
-
-
-/* =========================================
-   🎄 ТЕМА: NEW YEAR (Стеклянная, БЕЗ ОБВОДКИ)
-   ========================================= */
-[data-theme="new_year"] .tier-card {
-    background: rgba(255, 255, 255, 0.15); /* Эффект льда/стекла */
-    border: none !important; /* УБИРАЕМ ОБВОДКУ ПОЛНОСТЬЮ */
-    backdrop-filter: blur(5px); /* Легкое размытие фона ПОД карточкой */
-    box-shadow: 0 4px 15px rgba(137, 207, 240, 0.2); /* Голубое свечение */
-}
-
-/* Вместо цветной рамки слева делаем легкий градиент фона */
-[data-theme="new_year"] .tier-card.tier-gold { background: linear-gradient(90deg, rgba(255, 215, 0, 0.2), rgba(255,255,255,0.1)); }
-[data-theme="new_year"] .tier-card.tier-silver { background: linear-gradient(90deg, rgba(192, 192, 192, 0.2), rgba(255,255,255,0.1)); }
-[data-theme="new_year"] .tier-card.tier-bronze { background: linear-gradient(90deg, rgba(205, 127, 50, 0.2), rgba(255,255,255,0.1)); }
-
-[data-theme="new_year"] .tier-range-badge {
-    background: rgba(255, 255, 255, 0.8);
-    color: #004d80; /* Темно-синий текст */
-}
-[data-theme="new_year"] .tier-name { 
-    color: #fff; 
-    text-shadow: 0 0 5px rgba(0, 191, 255, 0.6); 
-}
-
-
-/* =========================================
-   🔮 ТЕМА: CLASSIC (Магическая, фиолетовая)
-   ========================================= */
-[data-theme="classic"] .tier-card {
-    background: linear-gradient(135deg, rgba(45, 0, 70, 0.8), rgba(20, 0, 40, 0.9));
-    border: 1px solid rgba(180, 0, 255, 0.4);
-    box-shadow: 0 0 10px rgba(138, 43, 226, 0.2);
-}
-
-[data-theme="classic"] .tier-card.tier-gold { border-left: 3px solid #FFD700; }
-[data-theme="classic"] .tier-card.tier-silver { border-left: 3px solid #E0E0E0; }
-[data-theme="classic"] .tier-card.tier-bronze { border-left: 3px solid #D2691E; }
-
-[data-theme="classic"] .tier-range-badge {
-    background: #8a2be2; /* Фиолетовый */
-    color: #fff;
-}
-[data-theme="classic"] .tier-name { color: #e0d0ff; }
+body[data-theme="new_year"] .rules-button:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(255, 255, 255, 0.8); filter: brightness(1.1); }
+body[data-theme="new_year"] #contribution-form button:disabled { background: #555; color: #aaa; border: 1px solid #777; box-shadow: none; transform: none; }
 
 @media (max-width: 768px) {
     body::after { background-attachment: scroll; }
