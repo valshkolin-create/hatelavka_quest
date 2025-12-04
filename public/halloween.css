@@ -468,22 +468,26 @@ body[data-theme="new_year"] #contribution-form button:disabled { background: #55
 .garland-video {
     display: none;
     
-    position: fixed;
+    /* 1. ABSOLUTE вместо FIXED */
+    /* Теперь она висит в самом начале сайта и не преследует тебя при скролле */
+    position: absolute; 
     top: 0;
     left: 0;
     width: 100%;
     
-    /* --- НАСТРОЙКИ РАЗМЕРА --- */
-    height: 100px;       /* <-- Высота полоски. Меняй это число, если нужно тоньше/толще (например, 80px или 120px) */
-    object-fit: cover;   /* Обрезает лишнее снизу, чтобы не сплющивать видео */
-    object-position: top center; /* Прижимает видео к верху, чтобы "провод" не обрезался */
-    /* ------------------------ */
-
+    /* Высота гирлянды. Если перекрывает заголовок — уменьши (например, 80px) */
+    height: 100px; 
+    
+    /* Чтобы видео не сплющивалось */
+    object-fit: cover;
+    object-position: top center;
+    
     z-index: 999;
     pointer-events: none;
     
-    /* Если фон видео черный, раскомментируй строку ниже: */
-    /* mix-blend-mode: screen; */
+    /* 2. МАГИЯ ПРОТИВ ЧЕРНОГО ФОНА */
+    /* Убирает черный цвет, оставляя только светящуюся гирлянду */
+    mix-blend-mode: screen; 
 }
 
 /* Показываем ТОЛЬКО если выбрана тема New Year */
