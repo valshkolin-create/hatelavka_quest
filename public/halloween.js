@@ -48,6 +48,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
+    // --- БЫСТРАЯ ЗАГРУЗКА ТЕМЫ ИЗ ПАМЯТИ ---
+    const savedTheme = localStorage.getItem('saved_theme');
+    if (savedTheme) {
+        console.log(`[INIT] Найдена сохраненная тема: ${savedTheme}. Применяем немедленно.`);
+        document.body.dataset.theme = savedTheme;
+        // Визуально подсвечиваем кнопку, если панель уже есть
+        if (dom.themeSwitcher) {
+            dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.themeSet === savedTheme);
+            });
+        }
+    }
+
     const THEME_ASSETS = {
         halloween: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png' },
         new_year: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png' },
@@ -138,16 +151,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setTheme(themeName) {
         console.log(`[THEME] Устанавливаем тему: ${themeName}`);
+        
+        // 1. Сохраняем тему в память устройства (Local Storage)
+        localStorage.setItem('saved_theme', themeName);
+
+        // 2. Применяем тему к Body
         document.body.dataset.theme = themeName;
-        dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.themeSet === themeName);
-        });
+        
+        // 3. Обновляем кнопки в админке
+        if (dom.themeSwitcher) {
+            dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.themeSet === themeName);
+            });
+        }
+
+        // 4. Если это админ — обновляем данные для отправки на сервер
         if (currentUserData.is_admin) {
             console.log('[THEME] Режим админа: тема обновлена локально.');
             currentEventData.current_theme = themeName;
         }
         
-        // Логика обновления старой картинки (теперь внутри проверки)
+        // 5. Логика обновления картинки награды
         if (dom.rewardImage) {
             const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
             const { levels = {} } = currentEventData || {}; 
@@ -156,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const defaultReward = levelConfig.default_reward || {};
             
             dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
-            console.log(`[THEME] Изображение награды по умолчанию обновлено.`);
         }
     }
 
