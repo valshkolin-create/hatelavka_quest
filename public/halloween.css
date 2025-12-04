@@ -518,6 +518,63 @@ body[data-theme="new_year"] #contribution-form button:disabled {
     transform: none;
 }
 /* ===== КОНЕЦ СТИЛЕЙ АДМИНА ===== */
+/* --- Стили для списка Тиров (Витрина наград) --- */
+.tier-rewards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tier-card {
+    display: flex;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.tier-range-badge {
+    background-color: var(--action-color);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    min-width: 80px;
+    text-align: center;
+    margin-right: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.tier-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-grow: 1;
+    overflow: hidden; /* Чтобы длинный текст не ломал верстку */
+}
+
+.tier-image {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.tier-name {
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-color);
+}
+
+/* Раскраска бейджиков для разных тиров */
+.tier-card.tier-gold .tier-range-badge { background: linear-gradient(135deg, #FFD700, #FDB931); color: #000; } /* 21-30 */
+.tier-card.tier-silver .tier-range-badge { background: linear-gradient(135deg, #E0E0E0, #BDBDBD); color: #000; } /* 31-40 */
+.tier-card.tier-bronze .tier-range-badge { background: linear-gradient(135deg, #CD7F32, #A0522D); } /* 41+ */
 
 @media (max-width: 768px) {
     body::after { background-attachment: scroll; }
