@@ -209,16 +209,21 @@ function renderPage(eventData, leaderboardData = {}) {
 
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const topPlaceRewards = levelConfig.top_places || [];
+        
+        // Получаем тиры или создаем объект с fallback-ом на дефолтную награду для 41+
         const tiers = levelConfig.tiers || { "41+": levelConfig.default_reward || {} };
 
-        // 1. Отрисовка Топ-20 (Без изменений)
+        // 1. Отрисовка Топ-20
         dom.leaderboardRewardsList.innerHTML = top20.length === 0
             ? '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>'
             : top20.map((p, index) => {
                 const rank = index + 1;
                 const contributionAmount = p.total_contribution || 0;
                 let assignedReward = null;
+                
+                // Ищем награду в массиве top_places
                 if (rank <= 20) assignedReward = topPlaceRewards.find(r => r.place === rank);
+                // Если не нашли в топ-20, проверяем тиры (на всякий случай, хотя топ-20 это отдельный список)
                 else if (rank <= 30) assignedReward = tiers["21-30"];
                 else if (rank <= 40) assignedReward = tiers["31-40"];
                 else assignedReward = tiers["41+"];
@@ -242,7 +247,7 @@ function renderPage(eventData, leaderboardData = {}) {
                 </div>`;
             }).join('');
 
-        // 2. Определение данных текущего пользователя (только для статистики вклада)
+        // 2. Статистика текущего пользователя
         let userRank = 'N/A';
         let userContribution = 0;
         const currentUserIndex = allParticipants.findIndex(p =>
@@ -257,12 +262,14 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.userLeaderboardRank.textContent = userRank;
 
         // === НОВАЯ ЛОГИКА: Рендеринг списка тиров (Витрина наград) ===
+        // Ищем новый контейнер, который вы добавили в HTML
         const tierListContainer = document.getElementById('tier-rewards-list');
+        
         if (tierListContainer) {
             const activeTheme = document.body.dataset.theme || 'halloween';
-            const defaultImg = THEME_ASSETS[activeTheme]?.default_reward_image;
+            const themeFallbackImg = THEME_ASSETS[activeTheme]?.default_reward_image;
 
-            // Определяем массив для отображения
+            // Определяем данные для отображения 3 блоков
             const tierDisplayData = [
                 { id: '21-30', label: 'Места 21-30', style: 'tier-gold' },
                 { id: '31-40', label: 'Места 31-40', style: 'tier-silver' },
@@ -270,11 +277,15 @@ function renderPage(eventData, leaderboardData = {}) {
             ];
 
             tierListContainer.innerHTML = tierDisplayData.map(tier => {
+                // Пытаемся взять данные конкретного тира
                 const data = tiers[tier.id] || {};
-                const name = data.name || 'Награда не настроена';
-                const img = data.image_url || defaultImg;
+                
+                // Если имя пустое — пишем заглушку или берем дефолт
+                const name = data.name || (levelConfig.default_reward?.name) || 'Награда не настроена';
+                
+                // Если картинка пустая — берем дефолт уровня -> берем картинку темы
+                const img = data.image_url || levelConfig.default_reward?.image_url || themeFallbackImg;
 
-                // Если картинки нет вообще, ставим заглушку
                 const imgHtml = img 
                     ? `<div class="image-zoom-container" data-item-name="${escapeHTML(name)}">
                            <img src="${escapeHTML(img)}" class="tier-image">
@@ -292,11 +303,12 @@ function renderPage(eventData, leaderboardData = {}) {
                 </div>
                 `;
             }).join('');
+        } else {
+            console.warn('[RENDER] Элемент tier-rewards-list не найден в HTML!');
         }
 
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
-
     async function fetchDataAndRender(leaderboardOnly = false) {
         console.log(`1. [MAIN] Вызвана функция fetchDataAndRender. leaderboardOnly: ${leaderboardOnly}`);
         try {
