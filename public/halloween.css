@@ -231,7 +231,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .contribution-section p strong { color: var(--text-color); font-weight: 600; }
 #contribution-form { display: flex; gap: 10px; flex-wrap: wrap; position: relative; }
 #tickets-input { flex: 1 1 180px; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: white; font-size: 16px; }
-#contribution-form button { flex: 1 1 120px; background: linear-gradient(45deg, var(--action-color), var(--primary-color)); border: none; padding: 12px 18px; border-radius: 10px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+#contribution-form button { flex: 1 1 120px; background: linear-gradient(45deg, var(--action-color), var(--primary-color)); border: none; padding: 12px 18px; border-radius: 10px; color: black; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
 #contribution-form button:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--glow-color); }
 #contribution-form button:disabled { background: #555; cursor: not-allowed; transform: none; box-shadow: none; }
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
@@ -296,7 +296,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .tier-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
 .tier-range-badge {
     position: absolute;
-    top: 20%;
+    top: 10%;
     right: 15px;
     transform: translateY(-50%);
     font-size: 9px;
@@ -393,7 +393,13 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
 .modal-header h3 { margin: 0; color: var(--primary-color); }
 .modal-close-btn { background: none; border: none; color: var(--text-color-muted); font-size: 24px; cursor: pointer; }
-.modal-body { overflow-y: auto; padding: 20px; line-height: 1.6;}
+.modal-body { 
+    overflow-y: auto; 
+    padding: 20px; 
+    line-height: 1.6;
+    /* ДОБАВЬ ЦВЕТ СЮДА: */
+    color: #ffffff;  /* <-- Белый цвет текста. Можешь поставить любой другой */
+}
 .modal-form { display: flex; flex-direction: column; gap: 15px; }
 .modal-form input, .modal-form textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: var(--text-color); font-size: 16px; font-family: var(--font-main); color-scheme: dark; }
 .modal-form button { background: var(--primary-color); border: none; padding: 12px; border-radius: 10px; color: #000; font-size: 16px; font-weight: 600; cursor: pointer; transition: filter 0.2s ease; }
@@ -443,7 +449,7 @@ body[data-theme="new_year"] .default-reward-section {
 body[data-theme="new_year"] #contribution-form button,
 body[data-theme="new_year"] .rules-button {
     background: linear-gradient(180deg, #ffd54f 0%, #ffca28 100%);
-    color: #ffffff; font-weight: 700; text-shadow: none;
+    color: #000000; font-weight: 700; text-shadow: none;
     border: 2px solid #ffffff; 
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 4px 10px rgba(0, 0, 0, 0.2);
     transform: translateY(0); transition: all 0.2s ease;
