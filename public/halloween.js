@@ -163,27 +163,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return 1;
     }
 
-function renderPage(eventData, leaderboardData = {}) {
-    console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
+ffunction renderPage(eventData, leaderboardData = {}) {
+        console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
 
-    // --- НАЧАЛО ИЗМЕНЕНИЯ: Сортировка полного списка ---
-    // Сортируем ВЕСЬ список участников (all) для определения ранга
-    const allParticipants = leaderboardData.all || [];
-    if (allParticipants.length > 0) {
-        allParticipants.sort((a, b) => {
-            const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
-            if (contributionDiff !== 0) return contributionDiff;
-            // Дополнительная сортировка по имени для одинаковых вкладов (опционально)
-            const nameA = a.full_name || '';
-            const nameB = b.full_name || '';
-            return nameA.localeCompare(nameB);
-        });
-    }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+        // ... (Код сортировки и проверок в начале функции renderPage оставляем без изменений) ...
+        const allParticipants = leaderboardData.all || [];
+        if (allParticipants.length > 0) {
+            allParticipants.sort((a, b) => {
+                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
+                if (contributionDiff !== 0) return contributionDiff;
+                const nameA = a.full_name || '';
+                const nameB = b.full_name || '';
+                return nameA.localeCompare(nameB);
+            });
+        }
 
-    if (eventData) { currentEventData = eventData; }
-
-    const isAdmin = currentUserData.is_admin;
+        if (eventData) { currentEventData = eventData; }
+        
+        const isAdmin = currentUserData.is_admin;
         const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
         if (!canViewEvent) { document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>'; return; }
         dom.adminNotice.classList.toggle('hidden', !(isAdmin && !currentEventData.is_visible_to_users));
@@ -196,7 +193,6 @@ function renderPage(eventData, leaderboardData = {}) {
         const top20 = leaderboardData.top20 || [];
         const currentLevel = getCurrentLevel(currentEventData);
 
-        // ... (Картинка котла и прогресс бар оставляем без изменений) ...
         const cauldronImageUrl = currentEventData[`cauldron_image_url_${currentLevel}`] || currentEventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
         dom.cauldronImage.src = cauldronImageUrl;
         let currentGoal = 1, prevGoal = 0;
@@ -211,29 +207,18 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
 
-        // === НОВАЯ ЛОГИКА НАГРАД ===
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const topPlaceRewards = levelConfig.top_places || [];
-        
-        // Получаем структуру тиров или создаем дефолтную для совместимости
-        const tiers = levelConfig.tiers || {
-            "41+": levelConfig.default_reward || {} 
-        };
+        const tiers = levelConfig.tiers || { "41+": levelConfig.default_reward || {} };
 
-        // 1. Отрисовка списка лидеров (Топ-20)
+        // 1. Отрисовка Топ-20 (Без изменений)
         dom.leaderboardRewardsList.innerHTML = top20.length === 0
             ? '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>'
             : top20.map((p, index) => {
                 const rank = index + 1;
                 const contributionAmount = p.total_contribution || 0;
-                
-                // Определяем награду
                 let assignedReward = null;
-                
-                if (rank <= 20) {
-                    assignedReward = topPlaceRewards.find(r => r.place === rank);
-                } 
-                // В этом списке (top20) нам по идее не нужны 21+, но если вдруг список расширится:
+                if (rank <= 20) assignedReward = topPlaceRewards.find(r => r.place === rank);
                 else if (rank <= 30) assignedReward = tiers["21-30"];
                 else if (rank <= 40) assignedReward = tiers["31-40"];
                 else assignedReward = tiers["41+"];
@@ -257,54 +242,56 @@ function renderPage(eventData, leaderboardData = {}) {
                 </div>`;
             }).join('');
 
-        // 2. Определение текущего места пользователя и его награды (блок внизу)
+        // 2. Определение данных текущего пользователя (только для статистики вклада)
         let userRank = 'N/A';
         let userContribution = 0;
-        let myReward = tiers["41+"] || {}; // По умолчанию награда "41+" (базовая)
-
         const currentUserIndex = allParticipants.findIndex(p =>
              (currentUserData.id && p.user_id === currentUserData.id) ||
              (!currentUserData.id && p.full_name === currentUserData.full_name)
         );
-
         if (currentUserIndex !== -1) {
-            const rank = currentUserIndex + 1;
-            userRank = `#${rank}`;
+            userRank = `#${currentUserIndex + 1}`;
             userContribution = allParticipants[currentUserIndex].total_contribution || 0;
-
-            // Определяем награду пользователя в зависимости от его места
-            if (rank <= 20) {
-                myReward = topPlaceRewards.find(r => r.place === rank) || {};
-            } else if (rank <= 30) {
-                myReward = tiers["21-30"] || {};
-            } else if (rank <= 40) {
-                myReward = tiers["31-40"] || {};
-            } else {
-                myReward = tiers["41+"] || {};
-            }
         }
-
-        // Обновляем нижний блок "Ваша награда"
         dom.userContributionTotal.textContent = userContribution;
         dom.userLeaderboardRank.textContent = userRank;
 
-        const myRewardName = myReward.name || 'Награда не настроена';
-        dom.rewardName.textContent = myRewardName;
-        const activeTheme = document.body.dataset.theme || 'halloween';
-        
-        // Если у пользователя есть конкретная картинка награды - показываем её.
-        // Если нет - дефолтную картинку темы.
-        dom.rewardImage.src = myReward.image_url || (THEME_ASSETS[activeTheme]?.default_reward_image);
-        dom.defaultRewardZoomContainer.dataset.itemName = myRewardName;
+        // === НОВАЯ ЛОГИКА: Рендеринг списка тиров (Витрина наград) ===
+        const tierListContainer = document.getElementById('tier-rewards-list');
+        if (tierListContainer) {
+            const activeTheme = document.body.dataset.theme || 'halloween';
+            const defaultImg = THEME_ASSETS[activeTheme]?.default_reward_image;
 
-        // Если пользователь входит в топ-20, меняем заголовок нижнего блока для ясности
-        const bottomTitle = document.querySelector('.default-reward-section .subsection-title');
-        if (bottomTitle) {
-            if (currentUserIndex !== -1 && (currentUserIndex + 1) <= 20) {
-                bottomTitle.innerHTML = '<i class="fa-solid fa-gift"></i> Ваша текущая награда (Топ-20)';
-            } else {
-                bottomTitle.innerHTML = '<i class="fa-solid fa-box-open"></i> Ваша текущая награда';
-            }
+            // Определяем массив для отображения
+            const tierDisplayData = [
+                { id: '21-30', label: 'Места 21-30', style: 'tier-gold' },
+                { id: '31-40', label: 'Места 31-40', style: 'tier-silver' },
+                { id: '41+',   label: 'Места 41+',   style: 'tier-bronze' }
+            ];
+
+            tierListContainer.innerHTML = tierDisplayData.map(tier => {
+                const data = tiers[tier.id] || {};
+                const name = data.name || 'Награда не настроена';
+                const img = data.image_url || defaultImg;
+
+                // Если картинки нет вообще, ставим заглушку
+                const imgHtml = img 
+                    ? `<div class="image-zoom-container" data-item-name="${escapeHTML(name)}">
+                           <img src="${escapeHTML(img)}" class="tier-image">
+                           <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                       </div>`
+                    : '';
+
+                return `
+                <div class="tier-card ${tier.style}">
+                    <div class="tier-range-badge">${tier.label}</div>
+                    <div class="tier-info">
+                        ${imgHtml}
+                        <span class="tier-name">${escapeHTML(name)}</span>
+                    </div>
+                </div>
+                `;
+            }).join('');
         }
 
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
