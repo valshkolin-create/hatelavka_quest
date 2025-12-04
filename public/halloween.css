@@ -1,6 +1,10 @@
 /* =========================================
    1. ОСНОВНЫЕ ПЕРЕМЕННЫЕ И ТЕМЫ
    ========================================= */
+/* Добавить в САМОЕ НАЧАЛО файла */
+* {
+    box-sizing: border-box;
+}
 :root {
   --text-color: #f0f0f5;
   --text-color-muted: #a09cb8;
@@ -49,6 +53,12 @@ body[data-theme="classic"] {
 /* =========================================
    2. ГЛОБАЛЬНЫЕ НАСТРОЙКИ (ФОН И СКРОЛЛ)
    ========================================= */
+html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden !important; /* Принудительно запрещаем скролл вбок */
+    position: relative; /* Помогает держать элементы в рамках */
+}
 body {
     margin: 0;
     padding: 0;
@@ -286,7 +296,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .tier-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
 .tier-range-badge {
     position: absolute;
-    top: 50%;
+    top: 20%;
     right: 15px;
     transform: translateY(-50%);
     font-size: 12px;
@@ -433,7 +443,7 @@ body[data-theme="new_year"] .default-reward-section {
 body[data-theme="new_year"] #contribution-form button,
 body[data-theme="new_year"] .rules-button {
     background: linear-gradient(180deg, #ffd54f 0%, #ffca28 100%);
-    color: #000000; font-weight: 700; text-shadow: none;
+    color: #ffffff; font-weight: 700; text-shadow: none;
     border: 2px solid #ffffff; 
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 4px 10px rgba(0, 0, 0, 0.2);
     transform: translateY(0); transition: all 0.2s ease;
