@@ -593,12 +593,15 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
 
-        // 3. (ОБНОВЛЕНО) Если нет челленджа И Стрим Оффлайн -> Кнопка "Расписание"
+       // 3. (ОБНОВЛЕНО) Если нет челленджа И Стрим Оффлайн -> Кнопка "Расписание"
         if ((!challengeData || !challengeData.description) && !isOnline) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
-                    ${streamBadgeHtml} 
-                    <div class="quest-icon" style="color: #888;"><i class="fa-solid fa-video-slash"></i></div>
+                    
+                    <div class="quest-icon" style="color: #ff3b30; box-shadow: none; text-shadow: none; background: rgba(255, 59, 48, 0.1);">
+                        <i class="fa-solid fa-video-slash"></i>
+                    </div>
+
                     <h2 class="quest-title">Стрим сейчас оффлайн</h2>
                     <p class="quest-subtitle">Челленджи доступны только во время эфира. Посмотрите расписание.</p>
                     
@@ -613,7 +616,7 @@ function renderChallenge(challengeData, isGuest) {
             });
             return;
         }
-
+    
         // 4. Стрим Онлайн (или есть данные) -> Кнопка "Получить"
         if (!challengeData || !challengeData.description) {
             dom.challengeContainer.innerHTML = `
