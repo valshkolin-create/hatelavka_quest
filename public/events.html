@@ -750,7 +750,19 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (response.ok) {
                 const res = await response.json();
-                userState.tickets = res.new_ticket_balance;
+                
+                // --- ИСПРАВЛЕНИЕ: Обработка [object Object] ---
+                let balanceVal = res.new_ticket_balance;
+                
+                // Если пришел объект (например {tickets: 5}), достаем из него число
+                if (typeof balanceVal === 'object' && balanceVal !== null) {
+                    userState.tickets = Number(balanceVal.tickets || 0);
+                } else {
+                    // Если пришло число, используем как есть
+                    userState.tickets = Number(balanceVal);
+                }
+                // -----------------------------------------------
+
                 userState.lastFreeTicket = new Date().toISOString();
                 tg.HapticFeedback.notificationOccurred('success');
                 
@@ -760,7 +772,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateUI();
                 renderFreeTicketBtn();
             } else { throw new Error(); }
-        } catch (e) { tg.showAlert('Ошибка'); }
+        } catch (e) { 
+            console.error(e);
+            tg.showAlert('Ошибка получения билета'); 
+        }
     };
 
     function startTimers() {
