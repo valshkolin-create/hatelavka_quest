@@ -1109,8 +1109,7 @@ async def bootstrap_app(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    🚀 OPTIMIZED (HTTPX VERSION): Загружает ВСЕ данные для старта.
-    Автоматически регистрирует пользователя, если его нет.
+    🚀 OPTIMIZED: Загружает данные. Если пользователя нет — СОЗДАЕТ ЕГО.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -1119,68 +1118,56 @@ async def bootstrap_app(
     telegram_id = user_info["id"]
     
     try:
-        # 1. Запускаем все запросы ПАРАЛЛЕЛЬНО
+        # 1. Запускаем запросы параллельно
         results = await asyncio.gather(
-            # A. Настройки админа
-            get_admin_settings_async_global(),
-            # B. Данные пользователя
-            supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
-            # C. Список квестов
-            supabase.post("/rpc/get_available_quests_for_user", json={"p_telegram_id": telegram_id}),
-            # D. Недельные цели
-            supabase.post("/rpc/get_user_weekly_goals_status", json={"p_user_id": telegram_id}),
-            # E. Статус Котла
-            supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": "1"}),
-            # F. Реферальные данные
-            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "referrer_id, referral_activated_at, bott_internal_id, bott_ref_id"}),
-            # G. Подсчет рефералов
-            supabase.get(
-                "/users", 
-                params={"referrer_id": f"eq.{telegram_id}", "referral_activated_at": "not.is.null", "select": "telegram_id", "limit": "1"},
-                headers={"Prefer": "count=exact"} 
-            ),
-            # H. Статус стрима
-            supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
-            
+            get_admin_settings_async_global(), # A. Настройки
+            supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}), # B. Юзер
+            supabase.post("/rpc/get_available_quests_for_user", json={"p_telegram_id": telegram_id}), # C. Квесты
+            supabase.post("/rpc/get_user_weekly_goals_status", json={"p_user_id": telegram_id}), # D. Цели
+            supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": "1"}), # E. Котел
+            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "referrer_id, referral_activated_at, bott_internal_id, bott_ref_id"}), # F. Реф данные
+            supabase.get("/users", params={"referrer_id": f"eq.{telegram_id}", "referral_activated_at": "not.is.null", "select": "telegram_id", "limit": "1"}, headers={"Prefer": "count=exact"}), # G. Счетчик рефов
+            supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}), # H. Статус стрима
             return_exceptions=True
         )
         
         (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res, stream_res) = results
 
-        # --- 1. Обработка Настроек ---
+        # --- 1. Настройки ---
         if isinstance(settings_res, Exception):
-            logging.error(f"[Bootstrap] Settings error: {settings_res}")
             menu_content = {} 
         else:
             menu_content = settings_res.dict() if hasattr(settings_res, 'dict') else settings_res
 
-        # --- 2. Обработка Пользователя (User) ---
+        # --- 2. Пользователь (С АВТО-РЕГИСТРАЦИЕЙ) ---
         user_data = {}
-        
-        # Проверяем ответ RPC
         rpc_data = None
+        
+        # Проверяем, вернула ли база данные
         if not isinstance(user_res, Exception) and user_res.status_code == 200:
             rpc_data = user_res.json()
 
-        # --- 🔥 [ИСПРАВЛЕНО] ЛОГИКА СОЗДАНИЯ ПОЛЬЗОВАТЕЛЯ ---
+        # 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ ЗДЕСЬ 🔥
+        # Если данных нет (rpc_data пустой), значит юзера нет в базе. Создаем его!
         if not rpc_data or not rpc_data.get('profile'):
-            logging.info(f"🆕 Новый пользователь {telegram_id}. Создаем запись...")
+            logging.info(f"🆕 Новый пользователь {telegram_id}. Регистрируем в базе...")
             
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
             username_tg = user_info.get("username")
             
-            # 1. Вставляем пользователя в БД
+            # Вставка в SQL таблицу 'users'
             await supabase.post(
                 "/users",
                 json={
                     "telegram_id": telegram_id,
                     "username": username_tg,
                     "full_name": full_name_tg
+                    # Остальные поля (tickets, coins) заполнятся значениями default из вашей SQL таблицы
                 },
-                headers={"Prefer": "resolution=merge-duplicates"} # На случай гонки запросов
+                headers={"Prefer": "resolution=merge-duplicates"}
             )
             
-            # 2. Формируем дефолтный объект данных (чтобы не делать лишний запрос)
+            # Формируем заглушку, чтобы фронтенд сразу отобразил имя, а не "Гость"
             user_data = {
                 "telegram_id": telegram_id,
                 "full_name": full_name_tg,
@@ -1188,18 +1175,16 @@ async def bootstrap_app(
                 "tickets": 0,
                 "coins": 0,
                 "is_bot_active": False,
-                # Добавляем пустые структуры
                 "challenge": None,
                 "event_participations": {},
             }
         else:
-            # Пользователь есть, берем данные из RPC
+            # Юзер уже был, берем данные из базы
             user_data = rpc_data.get('profile', {}) or {}
             user_data['challenge'] = rpc_data.get('challenge')
             user_data['event_participations'] = rpc_data.get('event_participations', {})
-        # -------------------------------------------------------
 
-        # Добиваем остальными полями
+        # --- Дополнительные данные ---
         user_data['is_admin'] = telegram_id in ADMIN_IDS
         user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
         user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
@@ -1208,51 +1193,37 @@ async def bootstrap_app(
         user_data['is_stream_online'] = False
         if not isinstance(stream_res, Exception) and stream_res.status_code == 200:
             s_data = stream_res.json()
-            if s_data:
-                user_data['is_stream_online'] = s_data[0].get('value', False)
+            if s_data: user_data['is_stream_online'] = s_data[0].get('value', False)
 
-        # Данные из user_extra_res (F)
+        # Реферальные данные
         if not isinstance(user_extra_res, Exception) and user_extra_res.status_code == 200:
-            extra_data_list = user_extra_res.json()
-            if extra_data_list:
-                extra_row = extra_data_list[0]
-                user_data['referrer_id'] = extra_row.get('referrer_id')
-                user_data['referral_activated_at'] = extra_row.get('referral_activated_at')
-                user_data['bott_internal_id'] = extra_row.get('bott_internal_id')
-                user_data['bott_ref_id'] = extra_row.get('bott_ref_id')
+            extra_list = user_extra_res.json()
+            if extra_list:
+                user_data.update(extra_list[0])
 
-        # Данные по рефералам (G)
+        # Счетчик рефералов
         user_data['active_referrals_count'] = 0
         if not isinstance(referral_count_res, Exception) and referral_count_res.status_code in [200, 206]:
-            content_range = referral_count_res.headers.get("Content-Range")
-            if content_range:
-                try:
-                    count_val = content_range.split('/')[-1]
-                    user_data['active_referrals_count'] = int(count_val) if count_val != '*' else 0
+            cr = referral_count_res.headers.get("Content-Range")
+            if cr:
+                try: user_data['active_referrals_count'] = int(cr.split('/')[-1])
                 except: pass
 
-        # --- 3. Обработка Квестов (Quests) ---
+        # --- 3. Квесты ---
         quests_list = []
-        if isinstance(quests_res, Exception) or quests_res.status_code != 200:
-            logging.error(f"[Bootstrap] Quests error: {quests_res}")
-        else:
-            raw_quests = quests_res.json()
-            try: quests_list = fill_missing_quest_data(raw_quests)
-            except: quests_list = raw_quests
+        if not isinstance(quests_res, Exception) and quests_res.status_code == 200:
+            try: quests_list = fill_missing_quest_data(quests_res.json())
+            except: quests_list = quests_res.json()
 
-        # --- 4. Обработка Целей (Goals) ---
+        # --- 4. Цели ---
         goals_data = {"system_enabled": menu_content.get('weekly_goals_enabled', False), "goals": []}
-        if isinstance(goals_res, Exception) or goals_res.status_code != 200:
-            logging.error(f"[Bootstrap] Goals error: {goals_res}")
-        else:
+        if not isinstance(goals_res, Exception) and goals_res.status_code == 200:
             goals_data.update(goals_res.json())
             goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
 
-        # --- 5. Обработка Котла (Cauldron) ---
+        # --- 5. Котел ---
         cauldron_data = {"is_visible_to_users": False}
-        if isinstance(cauldron_res, Exception) or cauldron_res.status_code != 200:
-            logging.error(f"[Bootstrap] Cauldron error: {cauldron_res}")
-        else:
+        if not isinstance(cauldron_res, Exception) and cauldron_res.status_code == 200:
             c_list = cauldron_res.json()
             if c_list and c_list[0].get('content'):
                 cauldron_data = c_list[0]['content']
