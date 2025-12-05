@@ -560,7 +560,6 @@ function renderChallenge(challengeData, isGuest) {
         dom.challengeContainer.innerHTML = '';
         
         // --- ПОЛУЧАЕМ СТАТУС СТРИМА ИЗ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ---
-        // (userData - глобальная переменная в menu.js)
         const isOnline = userData.is_stream_online === true;
         
         // Формируем HTML бейджика
@@ -568,6 +567,7 @@ function renderChallenge(challengeData, isGuest) {
             ? `<div class="stream-status-badge online"><i class="fa-solid fa-circle" style="font-size:6px; vertical-align:middle; margin-right:3px;"></i> СТРИМ ОНЛАЙН</div>`
             : `<div class="stream-status-badge offline">СТРИМ ОФФЛАЙН</div>`;
 
+        // 1. Если гость -> просим привязать
         if (isGuest) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card quest-locked">
@@ -579,6 +579,7 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
         
+        // 2. Если кулдаун -> показываем таймер
         if (challengeData && challengeData.cooldown_until) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
@@ -593,6 +594,31 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
 
+        // 3. (НОВОЕ) Если нет активного челленджа И Стрим Оффлайн -> Показываем расписание
+        // Мы проверяем !challengeData.description, значит у юзера нет взятого задания
+        if ((!challengeData || !challengeData.description) && !isOnline) {
+            dom.challengeContainer.innerHTML = `
+                <div class="schedule-container">
+                    ${streamBadgeHtml}
+                    <div style="height: 30px;"></div> <div class="quest-icon" style="color: #666;"><i class="fa-solid fa-video-slash"></i></div>
+                    <div class="schedule-title">Стрим сейчас оффлайн</div>
+                    <div class="schedule-subtitle">Кнопка получения челленджа неактивна.<br>Залетай на следующий стрим:</div>
+                    
+                    <table class="schedule-table">
+                        <tr><td>Понедельник</td><td>18:00 МСК</td></tr>
+                        <tr><td>Среда</td><td>18:00 МСК</td></tr>
+                        <tr><td>Пятница</td><td>18:00 МСК</td></tr>
+                        <tr><td>Воскресенье</td><td>18:00 МСК</td></tr>
+                    </table>
+
+                    <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" class="twitch-link-btn">
+                        <i class="fa-brands fa-twitch"></i> Перейти на канал
+                    </a>
+                </div>`;
+            return;
+        }
+
+        // 4. Если нет активного челленджа И Стрим Онлайн -> Показываем кнопку "Получить"
         if (!challengeData || !challengeData.description) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
@@ -606,6 +632,7 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
 
+        // 5. Если челлендж уже взят -> Показываем прогресс (как и было раньше)
         const challenge = challengeData; 
         const currentProgress = challenge.progress_value || 0;
         const target = challenge.target_value || 1;
@@ -1500,7 +1527,26 @@ function setupEventListeners() {
     e.preventDefault(); 
     // false означает "показать спиннер", так как пользователь нажал кнопку сам
     await openQuestsTab(false);
-        }); 
+        });
+    // --- ФИКС АККОРДЕОНА (Вставь это в setupEventListeners) ---
+    // Используем делегирование, так как элементы создаются динамически
+    document.addEventListener('click', (e) => {
+        // Проверяем, был ли клик по заголовку аккордеона
+        if (e.target && e.target.classList.contains('quest-category-header')) {
+            e.preventDefault(); // Отменяем стандартное поведение, чтобы не было конфликтов
+            
+            const details = e.target.parentElement;
+            if (details) {
+                // Если открыт - закрываем, если закрыт - открываем
+                if (details.hasAttribute('open')) {
+                    details.removeAttribute('open');
+                } else {
+                    details.setAttribute('open', '');
+                }
+            }
+        }
+    });
+    // --- КОНЕЦ ФИКСА ---
         dom.promptCancel.addEventListener('click', hideCustomPrompt);
         dom.promptConfirm.addEventListener('click', async () => {
             const text = dom.promptInput.value.trim();
