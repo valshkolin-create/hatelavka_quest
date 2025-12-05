@@ -1436,16 +1436,16 @@ function markStepPending(el, icon) {
 
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
+    // Логика кнопки "В главное меню" в новом окне успеха
     const successCloseBtn = document.getElementById('success-close-btn');
     if (successCloseBtn) {
         successCloseBtn.addEventListener('click', () => {
-            const successModal = document.getElementById('subscription-success-modal');
-            if (successModal) {
-                successModal.classList.remove('visible');
-                setTimeout(() => successModal.classList.add('hidden'), 300);
-            }
-            // Можно еще раз обновить данные
-            main();
+            // Показываем лоадер для визуального отклика
+            document.getElementById('loader-overlay').classList.remove('hidden');
+            
+            // Принудительно перезагружаем страницу
+            // Это скроет все окна и обновит статус бонуса (кнопка пропадет, так как бонус уже получен)
+            window.location.reload();
         });
     }
     
