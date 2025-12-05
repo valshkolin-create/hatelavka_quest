@@ -1220,7 +1220,7 @@ async function checkReferralAndWelcome(userData) {
     const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
     const bonusBtn = document.getElementById('open-bonus-btn');
 
-    // 1. Попытка синхронизации, если зашли по ссылке (чтобы кнопка появилась сразу)
+    // 1. Попытка синхронизации при входе по ссылке
     if (startParam && startParam.startsWith('r_')) {
         try {
             const syncRes = await fetch('/api/v1/user/sync_referral', {
@@ -1229,8 +1229,6 @@ async function checkReferralAndWelcome(userData) {
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
             const syncData = await syncRes.json();
-            
-            // Если сервер подтвердил привязку, обновляем локальные данные, чтобы условие ниже сработало
             if (syncData.referrer) {
                 userData.referrer_id = syncData.referrer;
             }
@@ -1239,31 +1237,38 @@ async function checkReferralAndWelcome(userData) {
 
     // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
 
-    // Условие 1: Если бонус УЖЕ АКТИВИРОВАН (есть дата) -> Прячем кнопку навсегда
+    // Если бонус УЖЕ получен -> Прячем всё
     if (userData.referral_activated_at) {
         if (bonusBtn) bonusBtn.classList.add('hidden');
-        return; // Выходим, попапы тоже не нужны
+        localStorage.removeItem('openRefPopupOnLoad'); 
+        return; 
     }
 
-    // Условие 2: Если есть REFFERER_ID (то есть пользователь был приглашен) -> Показываем
+    // Если есть реферер -> Показываем
     if (userData.referrer_id) {
-        // Показываем кнопку
         if (bonusBtn) {
             bonusBtn.classList.remove('hidden');
             bonusBtn.onclick = () => openWelcomePopup(userData);
         }
 
-        // Логика авто-попапа (срабатывает только для рефералов)
+        // Проверяем флаги
+        const shouldRestorePopup = localStorage.getItem('openRefPopupOnLoad');
         const isDeferred = localStorage.getItem('bonusPopupDeferred');
-        if (!isDeferred) {
-            // Если не нажимал "Позже" — открываем большое окно
+
+        if (shouldRestorePopup) {
+            // Вернулся после Twitch -> Открываем СРАЗУ
             openWelcomePopup(userData);
-        } else {
-            // Если нажимал "Позже" — показываем плашку уведомления
+            localStorage.removeItem('openRefPopupOnLoad');
+        } 
+        else if (!isDeferred) {
+            // Первый раз (не нажимал "Позже") -> Открываем
+            openWelcomePopup(userData);
+        } 
+        else {
+            // Нажимал "Позже" -> Только уведомление сверху
             showTopBonusNotification(userData);
         }
     } 
-    // Условие 3: Если нет реферера и нет активации -> Прячем кнопку
     else {
         if (bonusBtn) bonusBtn.classList.add('hidden');
     }
@@ -1292,116 +1297,66 @@ function showTopBonusNotification(userData) {
     };
 }
 
-// Функция открытия и управления попапом
-// Функция открытия и управления попапом (ИСПРАВЛЕННАЯ ВЕРСИЯ)
-function openWelcomePopup(userData) {
-    const popup = document.getElementById('welcome-popup');
-    const successModal = document.getElementById('subscription-success-modal'); // Новое окно
-    if (!popup) return;
+// Функция проверки: нужно ли показывать попап и кнопку
+async function checkReferralAndWelcome(userData) {
+    const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
+    const bonusBtn = document.getElementById('open-bonus-btn');
 
-    const stepTwitch = document.getElementById('step-twitch');
-    const stepTg = document.getElementById('step-tg');
-    const iconTwitch = document.getElementById('icon-twitch');
-    const iconTg = document.getElementById('icon-tg');
-    const actionBtn = document.getElementById('action-btn');
-
-    // 1. Настраиваем клики по плашкам
-    stepTwitch.onclick = () => {
-        if (!userData.twitch_id) {
-            // Формируем полный URL для авторизации
-            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
-            
-            // Открываем во внешнем браузере, чтобы избежать ошибки "refused to connect"
-            Telegram.WebApp.openLink(authUrl);
-        } else {
-            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        }
-    };
-
-    stepTg.onclick = () => {
-        Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv');
-    };
-
-    popup.classList.add('visible');
-
-    // 2. Визуальная проверка
-    let twitchReady = false;
-    if (userData.twitch_id) {
-        twitchReady = true;
-        markStepDone(stepTwitch, iconTwitch);
-    } else {
-        markStepPending(stepTwitch, iconTwitch);
-    }
-    markStepPending(stepTg, iconTg);
-
-    // 3. Логика кнопки "Проверить"
-    const attemptActivation = async () => {
-        actionBtn.disabled = true;
-        actionBtn.textContent = "Проверка...";
-
+    // 1. Попытка синхронизации, если зашли по ссылке
+    if (startParam && startParam.startsWith('r_')) {
         try {
-            // Запрос на сервер
-            const response = await fetch('/api/v1/user/referral/activate', {
+            const syncRes = await fetch('/api/v1/user/sync_referral', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
-
-            const res = await response.json();
-
-            if (response.ok) {
-                // --- УСПЕХ ---
-                markStepDone(stepTwitch, iconTwitch);
-                markStepDone(stepTg, iconTg);
-                
-                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                actionBtn.textContent = "Успешно!";
-                actionBtn.style.background = "#34c759";
-                
-                // Прячем кнопку "Бонус" на заднем фоне
-                document.getElementById('open-bonus-btn')?.classList.add('hidden');
-
-                // Плавный переход к окну успеха
-                setTimeout(() => {
-                    // 1. Закрываем старое окно
-                    popup.classList.remove('visible');
-                    
-                    // 2. Открываем НОВОЕ кастомное окно (вместо showPopup)
-                    if (successModal) {
-                        successModal.classList.remove('hidden');
-                        successModal.classList.add('visible');
-                    }
-
-                    // 3. Обновляем баланс на фоне
-                    main(); 
-                }, 800);
-
-            } else {
-                // --- ОШИБКА ---
-                actionBtn.disabled = false;
-                actionBtn.textContent = "Проверить снова";
-                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                
-                const msg = res.detail || "";
-                
-                if (msg.includes("канал") || msg.includes("подпишитесь")) {
-                    markStepDone(stepTwitch, iconTwitch);
-                    markStepError(stepTg, iconTg);
-                } else if (msg.includes("Twitch") || msg.includes("привяжите")) {
-                    markStepError(stepTwitch, iconTwitch);
-                    markStepPending(stepTg, iconTg);
-                } else {
-                    Telegram.WebApp.showAlert(msg);
-                }
+            const syncData = await syncRes.json();
+            if (syncData.referrer) {
+                userData.referrer_id = syncData.referrer;
             }
-        } catch (e) {
-            console.error(e);
-            actionBtn.disabled = false;
-            actionBtn.textContent = "Ошибка сети";
-        }
-    };
+        } catch (e) { console.error("Ref sync error", e); }
+    }
 
-    actionBtn.onclick = attemptActivation;
+    // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
+
+    // Условие 1: Если бонус УЖЕ АКТИВИРОВАН -> Прячем всё
+    if (userData.referral_activated_at) {
+        if (bonusBtn) bonusBtn.classList.add('hidden');
+        localStorage.removeItem('openRefPopupOnLoad'); // На всякий случай чистим мусор
+        return; 
+    }
+
+    // Условие 2: Если есть REFFERER_ID -> Показываем
+    if (userData.referrer_id) {
+        // Показываем кнопку
+        if (bonusBtn) {
+            bonusBtn.classList.remove('hidden');
+            bonusBtn.onclick = () => openWelcomePopup(userData);
+        }
+
+        // Проверяем флаг возврата (человек только что привязывал Twitch)
+        const shouldRestorePopup = localStorage.getItem('openRefPopupOnLoad');
+        const isDeferred = localStorage.getItem('bonusPopupDeferred');
+
+        if (shouldRestorePopup) {
+            // СЦЕНАРИЙ: Вернулся после авторизации Twitch -> Открываем СРАЗУ
+            openWelcomePopup(userData);
+            // Удаляем флаг, чтобы при следующем простом обновлении страницы окно не выскакивало само
+            localStorage.removeItem('openRefPopupOnLoad');
+        } 
+        else if (!isDeferred) {
+            // СЦЕНАРИЙ: Первый заход (не нажимал "Позже") -> Открываем
+            openWelcomePopup(userData);
+        } 
+        else {
+            // СЦЕНАРИЙ: Нажимал "Позже" -> Показываем только уведомление сверху
+            showTopBonusNotification(userData);
+        }
+    } 
+    // Условие 3: Нет реферера -> Прячем
+    else {
+        if (bonusBtn) bonusBtn.classList.add('hidden');
+    }
 }
     
 // Вспомогательные функции стилей (Обновил цвета рамок)
@@ -1437,7 +1392,136 @@ function markStepError(el, icon) {
 function markStepPending(el, icon) {
     if(el) el.style.borderColor = "transparent";
     if(icon) { icon.className = "fa-regular fa-circle"; icon.style.color = "#aaa"; }
-}    
+}
+// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ СТИЛЕЙ (Нужны для попапа) ---
+function markStepDone(el, icon) {
+    if(el) { el.style.borderColor = "#34c759"; el.style.background = "rgba(52, 199, 89, 0.1)"; }
+    if(icon) { icon.className = "fa-solid fa-circle-check"; icon.style.color = "#34c759"; }
+}
+
+function markStepError(el, icon) {
+    if(el) el.style.borderColor = "#ff3b30";
+    if(icon) { icon.className = "fa-solid fa-circle-xmark"; icon.style.color = "#ff3b30"; }
+}
+
+function markStepPending(el, icon) {
+    if(el) { 
+        el.style.borderColor = "transparent"; 
+        if(el.id === 'step-twitch') el.style.background = "rgba(145, 70, 255, 0.15)";
+        if(el.id === 'step-tg') el.style.background = "rgba(0, 136, 204, 0.15)";
+    }
+    if(icon) { icon.className = "fa-regular fa-circle"; icon.style.color = "#aaa"; }
+}
+
+// --- ОСНОВНАЯ ФУНКЦИЯ ПОПАПА (С ЛОГИКОЙ ВОЗВРАТА) ---
+function openWelcomePopup(userData) {
+    const popup = document.getElementById('welcome-popup');
+    const successModal = document.getElementById('subscription-success-modal');
+    if (!popup) return;
+
+    const stepTwitch = document.getElementById('step-twitch');
+    const stepTg = document.getElementById('step-tg');
+    const iconTwitch = document.getElementById('icon-twitch');
+    const iconTg = document.getElementById('icon-tg');
+    const actionBtn = document.getElementById('action-btn');
+
+    // 1. Настраиваем клики по плашкам
+    stepTwitch.onclick = () => {
+        if (!userData.twitch_id) {
+            // [ВАЖНО] Сохраняем флаг, что мы ушли на авторизацию
+            localStorage.setItem('openRefPopupOnLoad', 'true');
+
+            // Формируем ссылку и открываем
+            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
+            Telegram.WebApp.openLink(authUrl);
+        } else {
+            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
+    };
+
+    stepTg.onclick = () => {
+        Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv');
+    };
+
+    popup.classList.add('visible');
+
+    // 2. Визуальная проверка текущего статуса
+    if (userData.twitch_id) {
+        markStepDone(stepTwitch, iconTwitch);
+    } else {
+        markStepPending(stepTwitch, iconTwitch);
+    }
+    markStepPending(stepTg, iconTg);
+
+    // 3. Логика кнопки "Проверить"
+    const attemptActivation = async () => {
+        actionBtn.disabled = true;
+        actionBtn.textContent = "Проверка...";
+
+        try {
+            const response = await fetch('/api/v1/user/referral/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+            });
+
+            const res = await response.json();
+
+            if (response.ok) {
+                // --- УСПЕХ ---
+                markStepDone(stepTwitch, iconTwitch);
+                markStepDone(stepTg, iconTg);
+                
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                actionBtn.textContent = "Успешно!";
+                actionBtn.style.background = "#34c759";
+                
+                // Прячем кнопку "Бонус"
+                document.getElementById('open-bonus-btn')?.classList.add('hidden');
+
+                // Очищаем флаг возврата
+                localStorage.removeItem('openRefPopupOnLoad');
+
+                setTimeout(() => {
+                    popup.classList.remove('visible');
+                    if (successModal) {
+                        successModal.classList.remove('hidden');
+                        successModal.classList.add('visible'); // Показываем окно успеха
+                    }
+                    // Обновляем данные на странице (баланс и т.д.)
+                    // Вызываем main() или refreshDataSilently(), но аккуратно, чтобы не зациклить
+                    refreshDataSilently(); 
+                }, 800);
+
+            } else {
+                // --- ОШИБКА ---
+                actionBtn.disabled = false;
+                actionBtn.textContent = "Проверить снова";
+                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                
+                const msg = res.detail || "";
+                
+                if (msg.includes("канал") || msg.includes("подпишитесь")) {
+                    markStepDone(stepTwitch, iconTwitch);
+                    markStepError(stepTg, iconTg);
+                } else if (msg.includes("Twitch") || msg.includes("привяжите")) {
+                    markStepError(stepTwitch, iconTwitch);
+                    markStepPending(stepTg, iconTg);
+                } else {
+                    Telegram.WebApp.showAlert(msg);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            actionBtn.disabled = false;
+            actionBtn.textContent = "Ошибка сети";
+        }
+    };
+
+    actionBtn.onclick = attemptActivation;
+}
+    
+
 
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
