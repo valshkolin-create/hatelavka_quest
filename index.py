@@ -1146,12 +1146,15 @@ async def bootstrap_app(
                 params={"referrer_id": f"eq.{telegram_id}", "referral_activated_at": "not.is.null", "select": "telegram_id", "limit": "1"},
                 headers={"Prefer": "count=exact"} 
             ),
+
+            # H. 🔥 [ИСПРАВЛЕНО] Статус стрима (Table Select -> GET)
+            supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
             
             return_exceptions=True
         )
         
-        # Распаковка результатов
-        (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res) = results
+        # Распаковка результатов (добавили stream_res в конец)
+        (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res, stream_res) = results
 
         # --- 1. Обработка Настроек ---
         if isinstance(settings_res, Exception):
@@ -1178,7 +1181,14 @@ async def bootstrap_app(
                 user_data['is_admin'] = telegram_id in ADMIN_IDS
                 user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
                 user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
-                user_data['is_stream_online'] = False 
+                
+                # --- 🔥 [ИСПРАВЛЕНО] Получаем реальный статус стрима ---
+                user_data['is_stream_online'] = False # По умолчанию
+                if not isinstance(stream_res, Exception) and stream_res.status_code == 200:
+                    s_data = stream_res.json()
+                    if s_data:
+                        user_data['is_stream_online'] = s_data[0].get('value', False)
+                # ------------------------------------------------------
 
                 # Добавляем данные из запроса F (Extra info)
                 if not isinstance(user_extra_res, Exception) and user_extra_res.status_code == 200:
