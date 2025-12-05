@@ -559,15 +559,14 @@ try {
 function renderChallenge(challengeData, isGuest) {
         dom.challengeContainer.innerHTML = '';
         
-        // --- ПОЛУЧАЕМ СТАТУС СТРИМА ИЗ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ---
+        // --- ПОЛУЧАЕМ СТАТУС СТРИМА ---
         const isOnline = userData.is_stream_online === true;
         
-        // Формируем HTML бейджика
         const streamBadgeHtml = isOnline 
             ? `<div class="stream-status-badge online"><i class="fa-solid fa-circle" style="font-size:6px; vertical-align:middle; margin-right:3px;"></i> СТРИМ ОНЛАЙН</div>`
             : `<div class="stream-status-badge offline">СТРИМ ОФФЛАЙН</div>`;
 
-        // 1. Если гость -> просим привязать
+        // 1. Гость
         if (isGuest) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card quest-locked">
@@ -579,7 +578,7 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
         
-        // 2. Если кулдаун -> показываем таймер
+        // 2. Кулдаун
         if (challengeData && challengeData.cooldown_until) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
@@ -594,31 +593,28 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
 
-        // 3. (НОВОЕ) Если нет активного челленджа И Стрим Оффлайн -> Показываем расписание
-        // Мы проверяем !challengeData.description, значит у юзера нет взятого задания
+        // 3. (ОБНОВЛЕНО) Если нет челленджа И Стрим Оффлайн -> Кнопка "Расписание"
         if ((!challengeData || !challengeData.description) && !isOnline) {
             dom.challengeContainer.innerHTML = `
-                <div class="schedule-container">
-                    ${streamBadgeHtml}
-                    <div style="height: 30px;"></div> <div class="quest-icon" style="color: #666;"><i class="fa-solid fa-video-slash"></i></div>
-                    <div class="schedule-title">Стрим сейчас оффлайн</div>
-                    <div class="schedule-subtitle">Кнопка получения челленджа неактивна.<br>Залетай на следующий стрим:</div>
+                <div class="quest-card challenge-card">
+                    ${streamBadgeHtml} 
+                    <div class="quest-icon" style="color: #888;"><i class="fa-solid fa-video-slash"></i></div>
+                    <h2 class="quest-title">Стрим сейчас оффлайн</h2>
+                    <p class="quest-subtitle">Челленджи доступны только во время эфира. Посмотрите расписание.</p>
                     
-                    <table class="schedule-table">
-                        <tr><td>Понедельник</td><td>18:00 МСК</td></tr>
-                        <tr><td>Среда</td><td>18:00 МСК</td></tr>
-                        <tr><td>Пятница</td><td>18:00 МСК</td></tr>
-                        <tr><td>Воскресенье</td><td>18:00 МСК</td></tr>
-                    </table>
-
-                    <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" class="twitch-link-btn">
-                        <i class="fa-brands fa-twitch"></i> Перейти на канал
-                    </a>
+                    <button id="open-schedule-btn" class="claim-reward-button" style="background: #3a3a3c; color: #fff; box-shadow: none; border: 1px solid rgba(255,255,255,0.1);">
+                        <i class="fa-regular fa-calendar-days"></i> <span>Расписание стримов</span>
+                    </button>
                 </div>`;
+            
+            // Вешаем событие открытия модалки сразу здесь
+            document.getElementById('open-schedule-btn').addEventListener('click', () => {
+                document.getElementById('schedule-modal-overlay').classList.remove('hidden');
+            });
             return;
         }
 
-        // 4. Если нет активного челленджа И Стрим Онлайн -> Показываем кнопку "Получить"
+        // 4. Стрим Онлайн (или есть данные) -> Кнопка "Получить"
         if (!challengeData || !challengeData.description) {
             dom.challengeContainer.innerHTML = `
                 <div class="quest-card challenge-card">
@@ -632,7 +628,7 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
 
-        // 5. Если челлендж уже взят -> Показываем прогресс (как и было раньше)
+        // 5. Челлендж уже взят (Активен)
         const challenge = challengeData; 
         const currentProgress = challenge.progress_value || 0;
         const target = challenge.target_value || 1;
@@ -663,9 +659,7 @@ function renderChallenge(challengeData, isGuest) {
                 ${streamBadgeHtml} <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
                 <h2 class="quest-title">${challenge.description || ''}</h2>
                 ${statusText}
-                
                 <div id="challenge-timer" class="challenge-timer">...</div>
-
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${percent}%;"></div>
                     <div class="progress-content">
