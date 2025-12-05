@@ -2020,26 +2020,27 @@ async function renderFullInterface(bootstrapData) {
         setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || menuContent.auction_slide_data?.image_url, '/auction');
         setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
 
-        // Логика кнопок Twitch/Telegram
-        let activeQuestType = 'twitch';
-        const day = new Date().getDay();
-        if (menuContent.quest_schedule_override_enabled) {
-            activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
-        } else if (day === 0 || day === 1) {
-            activeQuestType = 'telegram';
-        }
+// Кнопка Twitch/Telegram испытаний
+            let activeQuestType = 'twitch';
+            const day = new Date().getDay();
+            if (menuContent.quest_schedule_override_enabled) {
+                activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
+            } else if (day === 0 || day === 1) {
+                activeQuestType = 'telegram';
+            }
 
-        const questButton = dom.questChooseBtn;
-        if (activeQuestType === 'telegram') {
-            // ИСПРАВЛЕНО: Возвращаем правильный класс "quest-choose-btn-roulette"
-            questButton.className = 'quest-choose-btn-roulette telegram-theme'; 
-            questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
-        } else {
-            // ИСПРАВЛЕНО: Возвращаем правильный класс "quest-choose-btn-roulette"
-            questButton.className = 'quest-choose-btn-roulette twitch-theme';
-            questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+            const questButton = dom.questChooseBtn;
+            if (activeQuestType === 'telegram') {
+                questButton.classList.remove('twitch-theme');
+                questButton.classList.add('telegram-theme');
+                questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
+            } else {
+                questButton.classList.remove('telegram-theme');
+                questButton.classList.add('twitch-theme');
+                questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+            }
         }
-
+    
     // Котел
     const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
     if (eventSlide) {
