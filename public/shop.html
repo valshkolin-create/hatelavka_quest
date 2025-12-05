@@ -673,40 +673,54 @@
                 });
             }
         }
-        // --- ЛОГИКА ОБНОВЛЕНИЯ БАЛАНСА ---
+        // --- ОБНОВЛЕНИЕ БАЛАНСА ---
         let isBalanceLoading = false;
 
         function checkBalance() {
             if (isBalanceLoading) return;
             isBalanceLoading = true;
             
+            // Запускаем анимацию кручения
             const icon = document.getElementById('refresh-icon');
             if (icon) icon.classList.add('spinning');
 
-            fetch('/api/v1/user/sync_balance', {
+            // Вызываем наш "Умный эндпоинт"
+            fetch('/api/v1/shop/smart_balance', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             })
             .then(r => r.json())
-            .then(balanceData => {
-                let rawBalance = balanceData.balance !== undefined ? balanceData.balance : (balanceData.bot_t_coins || 0);
-                let balance = rawBalance / 100;
-                document.getElementById('user-balance').textContent = balance.toFixed(0);
+            .then(data => {
+                // Сервер вернул {"balance": 12345} (в копейках)
+                let coins = data.balance || 0; 
+                let displayBalance = (coins / 100).toFixed(0); // Переводим в рубли/целые
+                
+                const balanceEl = document.getElementById('user-balance');
+                if (balanceEl) {
+                    // Эффект обновления цифры
+                    balanceEl.style.opacity = '0.5';
+                    setTimeout(() => {
+                        balanceEl.textContent = displayBalance;
+                        balanceEl.style.opacity = '1';
+                    }, 150);
+                }
             })
             .catch(err => {
-                console.warn("Balance sync error:", err);
+                console.warn("Ошибка обновления баланса:", err);
             })
             .finally(() => {
-                isBalanceLoading = false;
+                // Останавливаем анимацию через 500мс (для красоты)
                 setTimeout(() => {
+                    isBalanceLoading = false;
                     if (icon) icon.classList.remove('spinning');
                 }, 500);
             });
         }
         
+        // Эта функция вызывается при клике на плашку баланса
         window.refreshBalance = function() {
-            // Вибрация при нажатии (если поддерживается)
+            // Вибрация (тактильный отклик)
             if(Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.impactOccurred('light');
             }
@@ -715,13 +729,16 @@
 
         async function initShop() {
             updateNavState();
-            initPartnersScroll(); // Запускаем CSS анимацию
-            
-            // Загружаем товары СРАЗУ, не дожидаясь юзера (для скорости)
-            loadCategory(0);
+            initPartnersScroll();
+            loadCategory(0); // Сразу грузим товары
 
+            // --- ВОТ ТУТ ГЛАВНОЕ ИЗМЕНЕНИЕ ---
+            // Мы больше не ждем /user/me. Мы сразу вызываем Smart Balance.
+            // Это запустит фоновое обновление в базе, даже если это первый вход.
+            checkBalance(); 
+
+            // Дополнительно можно получить trade_link, если нужно для покупок
             try {
-                // 1. СНАЧАЛА создаем/получаем пользователя
                 const userData = await fetch('/api/v1/user/me', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -731,20 +748,8 @@
                 if (userData && userData.trade_link) {
                     hasTradeLink = true;
                 }
-
-                // 2. ЗАТЕМ синхронизируем баланс (фоном, не блокируя UI)
-                fetch('/api/v1/user/sync_balance', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
-                }).then(r => r.json()).then(balanceData => {
-                    let rawBalance = balanceData.balance !== undefined ? balanceData.balance : (balanceData.bot_t_coins || 0);
-                    let balance = rawBalance / 100;
-                    document.getElementById('user-balance').textContent = balance.toFixed(0);
-                }).catch(err => console.warn("Balance sync error:", err));
-
             } catch (e) {
-                console.error("User init error:", e);
+                console.log("Ошибка загрузки профиля (не критично для витрины):", e);
             }
         }
 
