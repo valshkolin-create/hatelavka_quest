@@ -5420,62 +5420,89 @@ async def activate_referral_bonus(
     request_data: ReferralActivateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    import traceback # Для вывода деталей ошибок в лог
+
+    logging.info("--- [REFERRAL_ACTIVATE] Попытка активации бонуса ---")
+    
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401)
+    if not user_info: 
+        logging.error("[REFERRAL_ACTIVATE] ❌ Неверный initData")
+        raise HTTPException(status_code=401)
+    
     user_id = user_info["id"]
+    logging.info(f"[REFERRAL_ACTIVATE] Пользователь: {user_id}")
 
     # 1. Получаем данные пользователя
-    u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id, twitch_id, referral_activated_at"})
-    user = u_resp.json()[0]
+    try:
+        u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id, twitch_id, referral_activated_at"})
+        if not u_resp.json():
+            logging.error("[REFERRAL_ACTIVATE] ❌ Пользователь не найден в БД")
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+        user = u_resp.json()[0]
+    except Exception as e:
+        logging.error(f"[REFERRAL_ACTIVATE] Ошибка БД: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
     # Если уже активировал
     if user.get("referral_activated_at"):
+        logging.info("[REFERRAL_ACTIVATE] ⚠️ Уже активировано ранее")
         return {"message": "Бонус уже активирован ранее!", "already_done": True}
 
-    # Если нет реферала
-    if not user.get("referrer_id"):
-        raise HTTPException(status_code=400, detail="Вас никто не приглашал.")
+    # Если нет реферала (или можно убрать эту проверку, если бонус для всех)
+    # if not user.get("referrer_id"):
+    #     logging.warning("[REFERRAL_ACTIVATE] ⛔ Нет реферала")
+    #     raise HTTPException(status_code=400, detail="Вас никто не приглашал.")
 
     # 2. Проверка TWITCH
     if not user.get("twitch_id"):
+        logging.warning("[REFERRAL_ACTIVATE] ⛔ Twitch не привязан")
         raise HTTPException(status_code=400, detail="Сначала привяжите Twitch аккаунт!")
 
     # 3. Проверка ПОДПИСКИ НА КАНАЛ
+    logging.info(f"[REFERRAL_ACTIVATE] Проверка подписки в канале {REQUIRED_CHANNEL_ID}...")
+    
     temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     try:
-        # Проверяем статус пользователя в канале по ID
         chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
+        logging.info(f"[REFERRAL_ACTIVATE] Статус в канале: {chat_member.status}")
         
-        # Статусы 'left' или 'kicked' означают отсутствие подписки
         if chat_member.status in ['left', 'kicked']:
-             # Для удобства пользователя показываем ссылку, если он не подписан
-             raise HTTPException(status_code=400, detail=f"Подпишитесь на канал HATElove_ttv (ID: {REQUIRED_CHANNEL_ID}), чтобы забрать бонус!")
+             raise HTTPException(status_code=400, detail=f"Подпишитесь на канал HATElove_ttv, чтобы забрать бонус!")
              
     except TelegramForbiddenError:
-        logging.error(f"Бот не является админом в канале {REQUIRED_CHANNEL_ID}")
-        raise HTTPException(status_code=500, detail="Ошибка: Бот не является администратором канала проверки.")
+        logging.error(f"[REFERRAL_ACTIVATE] ❌ Бот не админ в канале {REQUIRED_CHANNEL_ID}")
+        raise HTTPException(status_code=500, detail="Ошибка: Бот не является администратором канала.")
+    except HTTPException as he:
+        raise he # Пробрасываем наши ошибки
     except Exception as e:
-        logging.error(f"Ошибка проверки подписки: {e}")
-        # Если чат не найден по ID
+        logging.error(f"[REFERRAL_ACTIVATE] ❌ Ошибка проверки подписки: {e}")
         if "chat not found" in str(e).lower():
-             raise HTTPException(status_code=500, detail="Ошибка настройки: Канал не найден (проверьте ID).")
-        
+             raise HTTPException(status_code=500, detail="Ошибка настройки: Канал не найден.")
         raise HTTPException(status_code=400, detail="Не удалось проверить подписку. Попробуйте позже.")
     finally:
-        # Обязательно закрываем сессию, чтобы избежать ошибки 'Unclosed client session'
         await temp_bot.session.close()
 
     # 4. Выдача награды
-    await supabase.post("/rpc/increment_coins", json={"p_user_id": user_id, "p_amount": 10})
-    
-    # Ставим дату активации
-    await supabase.patch(
-        "/users",
-        params={"telegram_id": f"eq.{user_id}"},
-        json={"referral_activated_at": datetime.now(timezone.utc).isoformat()}
-    )
+    try:
+        logging.info("[REFERRAL_ACTIVATE] ✅ Условия выполнены. Начисляем награду...")
+        await supabase.post("/rpc/increment_coins", json={"p_user_id": user_id, "p_amount": 10})
+        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 1}) # Добавил билетик бонусом
+        
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id}"},
+            json={
+                "referral_activated_at": datetime.now(timezone.utc).isoformat(),
+                "is_bot_active": True
+            }
+        )
+        logging.info("[REFERRAL_ACTIVATE] 🎉 Награда выдана успешно!")
+    except Exception as e:
+        logging.error(f"[REFERRAL_ACTIVATE] ❌ Ошибка при выдаче награды: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при начислении награды")
 
-    return {"message": "Успех! +10 монет и VIP-статус получены.", "success": True}
+    return {"message": "Успех! +10 гринд монет и VIP-статус получены.", "success": True}
     
 # --- Пользовательские эндпоинты ---
 @app.post("/api/v1/user/challenge/available")
@@ -9154,91 +9181,6 @@ async def send_test_notification_api(
     return {"status": "sent"}
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
-@app.post("/api/v1/user/check_subscription")
-async def check_subscription_endpoint(
-    request_data: InitDataRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    import traceback # Для вывода полных ошибок
-
-    logging.info("--- [CHECK_SUB] Начало проверки подписки ---")
-    
-    # 1. Валидация InitData
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
-        logging.error("[CHECK_SUB] ❌ Ошибка валидации initData")
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    user_id = user_info["id"]
-    username = user_info.get("username", "Unknown")
-    logging.info(f"[CHECK_SUB] 👤 Пользователь: {username} (ID: {user_id})")
-
-    try:
-        # 2. Проверяем подписку на Telegram канал
-        # Используем временного бота, чтобы сделать запрос к API Telegram
-        temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-        
-        is_subscribed = False
-        chat_member = None
-        
-        try:
-            logging.info(f"[CHECK_SUB] Проверка статуса в канале ID: {REQUIRED_CHANNEL_ID}...")
-            chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
-            status = chat_member.status
-            logging.info(f"[CHECK_SUB] Статус пользователя: {status}")
-            
-            if status in ['creator', 'administrator', 'member', 'restricted']:
-                is_subscribed = True
-            else:
-                logging.warning(f"[CHECK_SUB] ⛔ Пользователь не подписан (статус: {status})")
-
-        except Exception as tg_error:
-            logging.error(f"[CHECK_SUB] ❌ Ошибка Telegram API: {tg_error}")
-            # Если ошибка "chat not found" или бот не админ - это проблема настройки
-            return JSONResponse(status_code=400, content={"success": False, "error": "Bot cannot verify channel status (Admin rights?)"})
-        finally:
-            await temp_bot.session.close()
-
-        if not is_subscribed:
-            return JSONResponse(content={"success": False, "error": "not_subscribed"})
-
-        # 3. Проверка привязки Twitch (Опционально, если нужно)
-        # Если нужно проверять и Twitch, раскомментируй запрос к БД ниже
-        """
-        user_db = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_id"})
-        if not user_db.json() or not user_db.json()[0].get("twitch_id"):
-             logging.warning("[CHECK_SUB] ⛔ Twitch не привязан")
-             return JSONResponse(content={"success": False, "error": "twitch_not_linked"})
-        """
-
-        # 4. Начисление награды (если все проверки пройдены)
-        logging.info("[CHECK_SUB] ✅ Условия выполнены. Начисляем награду...")
-        
-        # Проверяем, не получал ли он уже награду (опционально, через флаг в БД)
-        # Для примера просто начисляем монеты и билеты
-        
-        # Начисляем 10 грин-монет
-        await supabase.post("/rpc/increment_coins", json={"p_user_id": user_id, "p_amount": 10})
-        
-        # Начисляем 1 билет
-        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 1})
-        
-        # Обновляем статус, что бот активен и стартовый бонус получен
-        # (Предполагаем, что есть поле welcome_bonus_claimed, если нет - можно убрать)
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{user_id}"},
-            json={"is_bot_active": True} 
-        )
-
-        logging.info("[CHECK_SUB] 🎉 Награда успешно начислена.")
-        return {"success": True}
-
-    except Exception as e:
-        logging.error(f"[CHECK_SUB] 🔥 КРИТИЧЕСКАЯ ОШИБКА:\n{traceback.format_exc()}")
-        return JSONResponse(status_code=500, content={"success": False, "error": "Internal Server Error"})
-
-
 
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
