@@ -742,6 +742,51 @@ try {
         }
     }
 
+    // --- ФУНКЦИЯ ОТРИСОВКИ НАСТРОЕК (БЕЗ МАГАЗИНА) ---
+    function renderSettingsList(userData) {
+        dom.settingsList.innerHTML = '';
+        const isBotActive = userData.is_bot_active === true;
+        const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
+
+        // 1. Уведомления
+        const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
+        notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
+        notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
+        dom.settingsList.appendChild(notifyCard);
+
+        // 2. Steam Trade
+        const steamCard = document.createElement('div'); steamCard.className = 'settings-card';
+        const hasTradeLink = !!userData.trade_link;
+        steamCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-steam" style="color:#66c0f4;"></i> Steam Trade</p><span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span><span class="twitch-trust-link" id="steam-trust-btn" style="margin-top: 4px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><button id="edit-trade-link-btn" class="settings-card-btn">${hasTradeLink ? 'Изменить' : 'Привязать'}</button>`;
+        dom.settingsList.appendChild(steamCard);
+
+        // 3. Twitch
+        const twitchCard = document.createElement('div'); twitchCard.className = 'settings-card';
+        if (userData.twitch_login) {
+            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
+        } else {
+            const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
+            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><a href="${authUrl}" class="settings-card-btn twitch">Привязать</a>`;
+        }
+        dom.settingsList.appendChild(twitchCard);
+
+        // 4. Реферальная система
+        const refCard = document.createElement('div'); 
+        refCard.className = 'settings-card ref-card-gradient';
+        const activeRefs = userData.active_referrals_count || 0; 
+        const currentBoost = (activeRefs * 0.1).toFixed(1);
+
+        refCard.innerHTML = `
+            <div class="settings-card-info">
+                <p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p>
+                <span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span>
+            </div>
+            <i class="fa-solid fa-chevron-right card-arrow"></i>`;
+            
+        refCard.onclick = () => openRefModal(userData);
+        dom.settingsList.appendChild(refCard);
+    }
+
     // --- MAIN ---
     async function main() {
         if (!tg.initData) { 
