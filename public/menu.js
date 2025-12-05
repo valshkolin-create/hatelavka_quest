@@ -1291,8 +1291,10 @@ function showTopBonusNotification(userData) {
 }
 
 // Функция открытия и управления попапом
+// Функция открытия и управления попапом (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 function openWelcomePopup(userData) {
     const popup = document.getElementById('welcome-popup');
+    const successModal = document.getElementById('subscription-success-modal'); // Новое окно
     if (!popup) return;
 
     const stepTwitch = document.getElementById('step-twitch');
@@ -1302,10 +1304,7 @@ function openWelcomePopup(userData) {
     const actionBtn = document.getElementById('action-btn');
 
     // 1. Настраиваем клики по плашкам
-    
-    // Клик по Twitch -> Авторизация
     stepTwitch.onclick = () => {
-        // Если уже привязан, просто радуем глаз, иначе ведем на авторизацию
         if (!userData.twitch_id) {
             const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
             window.location.href = authUrl;
@@ -1314,14 +1313,13 @@ function openWelcomePopup(userData) {
         }
     };
 
-    // Клик по Telegram -> Канал
     stepTg.onclick = () => {
         Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv');
     };
 
     popup.classList.add('visible');
 
-    // 2. Визуальная проверка при открытии (Только Twitch, т.к. он в userData)
+    // 2. Визуальная проверка
     let twitchReady = false;
     if (userData.twitch_id) {
         twitchReady = true;
@@ -1329,8 +1327,6 @@ function openWelcomePopup(userData) {
     } else {
         markStepPending(stepTwitch, iconTwitch);
     }
-    
-    // Telegram пока нейтральный
     markStepPending(stepTg, iconTg);
 
     // 3. Логика кнопки "Проверить"
@@ -1339,7 +1335,7 @@ function openWelcomePopup(userData) {
         actionBtn.textContent = "Проверка...";
 
         try {
-            // Делаем запрос
+            // Запрос на сервер
             const response = await fetch('/api/v1/user/referral/activate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1349,47 +1345,46 @@ function openWelcomePopup(userData) {
             const res = await response.json();
 
             if (response.ok) {
-                // --- УСПЕХ (Оба условия выполнены) ---
-                markStepDone(stepTwitch, iconTwitch); // На всякий случай
+                // --- УСПЕХ ---
+                markStepDone(stepTwitch, iconTwitch);
                 markStepDone(stepTg, iconTg);
                 
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 actionBtn.textContent = "Успешно!";
                 actionBtn.style.background = "#34c759";
                 
-                // Прячем кнопку "Бонус" в меню
+                // Прячем кнопку "Бонус" на заднем фоне
                 document.getElementById('open-bonus-btn')?.classList.add('hidden');
 
+                // Плавный переход к окну успеха
                 setTimeout(() => {
+                    // 1. Закрываем старое окно
                     popup.classList.remove('visible');
-                    Telegram.WebApp.showPopup({
-                        title: 'Поздравляем!',
-                        message: '🎁 Награда получена!\n+10 Монет\nVIP статус активирован',
-                        buttons: [{type: 'ok'}]
-                    });
-                    main(); // Обновляем баланс
-                }, 1000);
+                    
+                    // 2. Открываем НОВОЕ кастомное окно (вместо showPopup)
+                    if (successModal) {
+                        successModal.classList.remove('hidden');
+                        successModal.classList.add('visible');
+                    }
+
+                    // 3. Обновляем баланс на фоне
+                    main(); 
+                }, 800);
 
             } else {
-                // --- ОШИБКА (Какое-то условие не выполнено) ---
+                // --- ОШИБКА ---
                 actionBtn.disabled = false;
                 actionBtn.textContent = "Проверить снова";
                 Telegram.WebApp.HapticFeedback.notificationOccurred('error');
                 
                 const msg = res.detail || "";
                 
-                // Анализируем текст ошибки от Python
                 if (msg.includes("канал") || msg.includes("подпишитесь")) {
-                    // Значит Twitch прошел проверку (иначе код упал бы раньше), а ТГ нет
                     markStepDone(stepTwitch, iconTwitch);
-                    markStepError(stepTg, iconTg); // Красим ТГ в красный
-                    
+                    markStepError(stepTg, iconTg);
                 } else if (msg.includes("Twitch") || msg.includes("привяжите")) {
-                    // Ошибка на этапе Twitch
                     markStepError(stepTwitch, iconTwitch);
-                    // ТГ сбрасываем в нейтральный, так как до него не дошли
                     markStepPending(stepTg, iconTg);
-                    
                 } else {
                     Telegram.WebApp.showAlert(msg);
                 }
@@ -1403,7 +1398,7 @@ function openWelcomePopup(userData) {
 
     actionBtn.onclick = attemptActivation;
 }
-
+    
 // Вспомогательные функции стилей (Обновил цвета рамок)
 function markStepDone(el, icon) {
     if(el) { el.style.borderColor = "#34c759"; el.style.background = "rgba(52, 199, 89, 0.1)"; }
@@ -1441,6 +1436,18 @@ function markStepPending(el, icon) {
 
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
+    const successCloseBtn = document.getElementById('success-close-btn');
+    if (successCloseBtn) {
+        successCloseBtn.addEventListener('click', () => {
+            const successModal = document.getElementById('subscription-success-modal');
+            if (successModal) {
+                successModal.classList.remove('visible');
+                setTimeout(() => successModal.classList.add('hidden'), 300);
+            }
+            // Можно еще раз обновить данные
+            main();
+        });
+    }
     
     // 1. Магазин -> shop.html
     document.getElementById('shortcut-shop')?.addEventListener('click', () => {
