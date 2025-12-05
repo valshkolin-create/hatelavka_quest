@@ -1084,3 +1084,78 @@
     80% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }
+/* --- СТИЛИ ДЛЯ ОФФЛАЙН РЕЖИМА (Расписание) --- */
+.schedule-container {
+    background-color: rgba(44, 44, 46, 0.95);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid var(--disabled-color);
+}
+
+.schedule-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 5px;
+}
+
+.schedule-subtitle {
+    font-size: 11px;
+    color: var(--text-color-muted);
+    margin-bottom: 12px;
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+    font-size: 12px;
+}
+
+.schedule-table td {
+    padding: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: #ddd;
+}
+
+.schedule-table tr:last-child td {
+    border-bottom: none;
+}
+
+.schedule-table td:first-child {
+    text-align: left;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.schedule-table td:last-child {
+    text-align: right;
+}
+
+.twitch-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #9146ff; /* Twitch Purple */
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background 0.2s;
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.twitch-link-btn:hover {
+    background-color: #772ce8;
+}
+
+/* Фикс для аккордеона, чтобы курсор был правильным */
+.quest-category-header {
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
