@@ -73,72 +73,61 @@ try {
     const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
 
     function setupSlider() {
-        // --- 1. ЛОГ: Начало ---
-        console.log("--- 1. [setupSlider] Запуск ---");
-        // ---
+        console.log("--- [setupSlider] Запуск ---");
+
+        // 1. Сбрасываем предыдущий интервал, если он был
+        if (slideInterval) clearInterval(slideInterval);
 
         const container = document.getElementById('main-slider-container');
-        if (!container) {
-            // --- 2. ЛОГ: Контейнер не найден ---
-            console.warn("[setupSlider] ВНИМАНИЕ: Контейнер #main-slider-container не найден. Слайдер не будет запущен.");
-            // ---
-            return; // Если слайдера нет, ничего не делаем
-        }
+        if (!container) return;
 
-        // --- ИЗМЕНЕНИЕ №1: Находим только ВИДИМЫЕ слайды ---
+        // Находим слайды
         const allSlides = container.querySelectorAll('.slide');
-        // --- 3. ЛОГ: Сколько всего слайдов ---
-        console.log(`[setupSlider] Найдено allSlides (до фильтрации): ${allSlides.length}`);
-        // ---
-
         const visibleSlides = Array.from(allSlides).filter(
             slide => window.getComputedStyle(slide).display !== 'none'
         );
-        // --- 4. ЛОГ: Сколько видимых слайдов ---
-        console.log(`[setupSlider] Найдено visibleSlides (после фильтрации): ${visibleSlides.length}`);
-        // ---
 
         const wrapper = container.querySelector('.slider-wrapper');
         const dotsContainer = container.querySelector('.slider-dots');
-        const prevBtn = document.getElementById('slide-prev-btn');
-        const nextBtn = document.getElementById('slide-next-btn');
-
-        // --- ИЗМЕНЕНИЕ №2: Добавляем логику для 0 или 1 слайда ---
         
-        // Если видимых слайдов нет, прячем весь контейнер
+        // --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Очистка кнопок от старых событий ---
+        // Мы клонируем кнопки, чтобы удалить накопившиеся Event Listeners
+        let prevBtnOld = document.getElementById('slide-prev-btn');
+        let nextBtnOld = document.getElementById('slide-next-btn');
+        
+        // Клонируем без событий
+        let prevBtn = prevBtnOld.cloneNode(true);
+        let nextBtn = nextBtnOld.cloneNode(true);
+        
+        // Заменяем старые кнопки новыми (чистыми) в DOM
+        prevBtnOld.parentNode.replaceChild(prevBtn, prevBtnOld);
+        nextBtnOld.parentNode.replaceChild(nextBtn, nextBtnOld);
+        // ------------------------------------------------------------
+
+        // Если слайдов 0
         if (visibleSlides.length === 0) {
-            // --- 5. ЛОГ: Логика 0 ---
-            console.log("[setupSlider] ЛОГИКА: 0 видимых. Прячем контейнер.");
-            // ---
             container.style.display = 'none';
             return;
         }
 
-        // Если виден только один слайд, показываем его как картинку, но без управления
+        // Если слайд 1
         if (visibleSlides.length <= 1) {
-            // --- 6. ЛОГ: Логика 1 ---
-            console.log("[setupSlider] ЛОГИКА: 1 видимый. Показываем как картинку (без управления).");
-            // ---
-            container.style.display = ''; // Убедимся, что контейнер виден
-            if (prevBtn) prevBtn.style.display = 'none';
-            if (nextBtn) nextBtn.style.display = 'none';
+            container.style.display = '';
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
             if (dotsContainer) dotsContainer.style.display = 'none';
-            // Перематываем на первый видимый слайд на случай, если он не первый в DOM
             const firstVisibleIndex = Array.from(allSlides).indexOf(visibleSlides[0]);
             if (wrapper) wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
             return;
         }
         
-        // Если мы дошли сюда, значит слайдов > 1 и нужно запустить карусель
-        // --- 7. ЛОГ: Логика > 1 ---
-        console.log(`[setupSlider] ЛОГИКА: ${visibleSlides.length} видимых. Запускаем карусель.`);
-        // ---
+        // Если слайдов > 1
         container.style.display = '';
-        if (prevBtn) prevBtn.style.display = 'flex';
-        if (nextBtn) nextBtn.style.display = 'flex';
+        prevBtn.style.display = 'flex';
+        nextBtn.style.display = 'flex';
         if (dotsContainer) dotsContainer.style.display = 'flex';
         
-        // --- ИЗМЕНЕНИЕ №3: Работаем дальше только с видимыми слайдами ---
+        // Генерация точек (здесь очистка происходит через innerHTML = '', это ок)
         dotsContainer.innerHTML = '';
         visibleSlides.forEach((_, i) => {
             const dot = document.createElement('button');
@@ -152,28 +141,11 @@ try {
         const dots = dotsContainer.querySelectorAll('.dot');
 
         function showSlide(index) {
-            // --- 8. ЛОГ: Внутри showSlide ---
-            console.log(`[showSlide] Вызван для index: ${index} (из ${visibleSlides.length} видимых)`);
-            // ---
-
             if (index >= visibleSlides.length) index = 0;
             if (index < 0) index = visibleSlides.length - 1;
 
-            // --- 9. ЛОГ: Внутри showSlide ---
-            // Нам не нужен realIndex, мы используем 'index' (порядковый номер видимого слайда)
-            console.log(`[showSlide] Целевой index в visibleSlides: ${index}`);
-            // ---
-
-            if (!wrapper || !dots[index]) {
-                // --- 10. ЛОГ: Внутри showSlide (ошибка) ---
-                console.warn(`[showSlide] Ошибка: wrapper (${!!wrapper}) или dots[${index}] (${!!dots[index]}) не найден.`);
-                // ---
-                return;
-            }
+            if (!wrapper || !dots[index]) return;
             
-            // --- 11. ЛОГ: Внутри showSlide (действие) ---
-            console.log(`[showSlide] Применяем transform: translateX(-${index * 100}%)`);
-            // ---
             wrapper.style.transform = `translateX(-${index * 100}%)`;
             dots.forEach(dot => dot.classList.remove('active'));
             dots[index].classList.add('active');
@@ -193,6 +165,7 @@ try {
             slideInterval = setInterval(nextSlide, slideDuration);
         }
 
+        // Теперь вешаем события на ЧИСТЫЕ кнопки
         prevBtn.addEventListener('click', () => {
             prevSlide();
             resetSlideInterval();
@@ -203,20 +176,23 @@ try {
             resetSlideInterval();
         });
         
-        // Код для свайпа остается без изменений, он будет работать корректно
+        // Логика свайпа
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
         let isSwiping = false;
 
-        container.addEventListener('touchstart', (e) => {
+        // Удаляем старые листенеры с контейнера (через клонирование контейнера нельзя, т.к. внутри слайды)
+        // Поэтому используем простой флаг isSwiping, он не накапливается критично
+        
+        container.ontouchstart = (e) => { // Используем on... свойства для перезаписи
             touchStartX = e.touches[0].clientX;
             touchEndX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = false;
-        }, { passive: true });
+        };
 
-        container.addEventListener('touchmove', (e) => {
+        container.ontouchmove = (e) => {
             if (!touchStartX || !touchStartY) return;
             const touchCurrentX = e.touches[0].clientX;
             const touchCurrentY = e.touches[0].clientY;
@@ -225,9 +201,9 @@ try {
             if (deltaX > deltaY) e.preventDefault();
             touchEndX = touchCurrentX;
             if (deltaX > 10) isSwiping = true;
-        }, { passive: false });
+        };
 
-        container.addEventListener('touchend', () => {
+        container.ontouchend = () => {
             const swipeThreshold = 50; 
             if (touchStartX - touchEndX > swipeThreshold) {
                 nextSlide();
@@ -238,12 +214,12 @@ try {
             }
             touchStartX = 0;
             touchStartY = 0;
-        });
+        };
         
         allSlides.forEach(slide => {
-            slide.addEventListener('click', (e) => {
+            slide.onclick = (e) => { // Перезаписываем onclick
                 if (isSwiping) e.preventDefault();
-            });
+            };
         });
 
         showSlide(0);
