@@ -1306,8 +1306,11 @@ function openWelcomePopup(userData) {
     // 1. Настраиваем клики по плашкам
     stepTwitch.onclick = () => {
         if (!userData.twitch_id) {
-            const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
-            window.location.href = authUrl;
+            // Формируем полный URL для авторизации
+            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
+            
+            // Открываем во внешнем браузере, чтобы избежать ошибки "refused to connect"
+            Telegram.WebApp.openLink(authUrl);
         } else {
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         }
