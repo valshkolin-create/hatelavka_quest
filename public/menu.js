@@ -2031,13 +2031,14 @@ async function renderFullInterface(bootstrapData) {
 
         const questButton = dom.questChooseBtn;
         if (activeQuestType === 'telegram') {
-            questButton.className = 'perform-quest-button telegram-theme';
+            // ИСПРАВЛЕНО: Возвращаем правильный класс "quest-choose-btn-roulette"
+            questButton.className = 'quest-choose-btn-roulette telegram-theme'; 
             questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
         } else {
-            questButton.className = 'perform-quest-button twitch-theme';
+            // ИСПРАВЛЕНО: Возвращаем правильный класс "quest-choose-btn-roulette"
+            questButton.className = 'quest-choose-btn-roulette twitch-theme';
             questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
         }
-    }
 
     // Котел
     const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
