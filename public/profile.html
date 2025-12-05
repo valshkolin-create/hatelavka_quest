@@ -751,33 +751,26 @@ try {
         }
         showLoader();
         try {
-            // 1. ЗАПРОС BOOTSTRAP (Тут есть User + Рефералы + Настройки)
-            // Мы используем его вместо /user/me и /settings/get
+            // 1. Используем BOOTSTRAP для получения User + Рефералы + Настройки
+            // Это решает проблему "0 рефералов" и "ошибки renderSettingsList"
             const bootstrapData = await makeApiRequest("/api/v1/bootstrap");
 
             if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
 
-            // 2. Параллельно догружаем то, чего нет в bootstrap (награды и синхронизация)
-            const rewardsPromise = makeApiRequest("/api/v1/user/rewards");
-            // Тихие синхронизации (не блокируют интерфейс)
+            // 2. Догружаем награды (они не нужны в бутстрапе)
+            const rewards = await makeApiRequest("/api/v1/user/rewards");
+            
+            // Тихая синхронизация
             makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(e => console.warn(e));
             makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn(e));
 
-            const rewards = await rewardsPromise;
-
-            // 3. Объединяем данные для рендеринга
-            // bootstrapData.user - это профиль + рефералы
-            // bootstrapData.menu - это настройки админа
+            // 3. Формируем данные
             const userData = bootstrapData.user || {};
             const settings = bootstrapData.menu || {};
             
-            // Нам нужно запросить статус уведомлений отдельно или взять из user, если они там есть.
-            // В bootstrap обычно нет полей уведомлений (notify_...), поэтому сделаем быстрый дозапрос настроек, 
-            // ЛИБО (лучше) просто используем /user/settings/get, если bootstrap не возвращает флаги уведомлений.
-            // Чтобы не усложнять, давайте дернем настройки уведомлений быстро:
+            // Запрашиваем настройки уведомлений (быстрый запрос)
             const userSettings = await makeApiRequest("/api/v1/user/settings/get");
 
-            // Собираем всё в один объект
             const fullUserData = { 
                 ...userData, 
                 ...settings, 
@@ -787,6 +780,7 @@ try {
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
             window.currentUserSettings = fullUserData;
             
+            // 4. Рендерим (теперь userData содержит active_referrals_count из bootstrap)
             renderSettingsList(fullUserData); 
             renderRewards(rewards);
 
@@ -795,7 +789,6 @@ try {
             console.error(e);
         } finally { hideLoader(); }
     }
-
     // --- REFERRAL LOGIC ---
     function openRefModal(userData) {
         let refPayload = userData.telegram_id;
