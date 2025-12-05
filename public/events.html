@@ -741,32 +741,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    window.claimFreeTicket = async () => {
+   window.claimFreeTicket = async () => {
         try {
             const response = await fetch('/api/v1/user/claim-free-ticket', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: tg.initData })
             });
+            
             if (response.ok) {
                 const res = await response.json();
                 
-                // --- ИСПРАВЛЕНИЕ: Обработка [object Object] ---
-                let balanceVal = res.new_ticket_balance;
-                
-                // Если пришел объект (например {tickets: 5}), достаем из него число
-                if (typeof balanceVal === 'object' && balanceVal !== null) {
-                    userState.tickets = Number(balanceVal.tickets || 0);
-                } else {
-                    // Если пришло число, используем как есть
-                    userState.tickets = Number(balanceVal);
+                // --- ИСПРАВЛЕНИЕ: Достаем число из "матрешки" ---
+                let incoming = res.new_ticket_balance;
+                let finalTickets = 0;
+
+                // 1. Если это объект (ваша ситуация: {new_ticket_balance: 50})
+                if (typeof incoming === 'object' && incoming !== null) {
+                    // Берем внутреннее значение
+                    finalTickets = Number(incoming.new_ticket_balance);
+                } 
+                // 2. Если вдруг структура изменится и придет сразу число
+                else {
+                    finalTickets = Number(incoming);
                 }
+                
+                // Присваиваем чистое число
+                userState.tickets = finalTickets;
                 // -----------------------------------------------
 
                 userState.lastFreeTicket = new Date().toISOString();
                 tg.HapticFeedback.notificationOccurred('success');
-                
-                // Если баланс увеличился на 2 (VIP), сообщим об этом
                 tg.showAlert(res.message); 
                 
                 updateUI();
