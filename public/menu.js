@@ -2097,11 +2097,52 @@ async function renderFullInterface(bootstrapData) {
         console.log("--- 1. main() ЗАПУЩЕНА (Optimized Mode) ---");
         setTimeout(() => window.scrollTo(0, 0), 0);
 
+        // ------------------------------------------------------------------
+        // БЛОК 1: Если мы в браузере (например, после редиректа)
+        // ------------------------------------------------------------------
         if (!Telegram.WebApp.initData) {
-            document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
-            dom.loaderOverlay.classList.add('hidden');
-            return;
+            document.body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background-color: #000; color: #fff;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 60px; color: #34c759; margin-bottom: 20px;"></i>
+                    <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Успешно!</h1>
+                    <p style="color: #b0b0b0; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
+                        Действие выполнено.<br>Возвращаем вас в приложение...
+                    </p>
+                    <button id="return-btn" style="background-color: #007aff; color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 240px; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">
+                        Вернуться в приложение
+                    </button>
+                </div>
+            `;
+            
+            // Функция возврата (Deep Link)
+            const goBackToApp = () => {
+                const appLink = "https://t.me/HATElavka_bot/app";
+                
+                // 1. Сначала пробуем просто перейти по ссылке (самый надежный способ для внешних браузеров)
+                window.location.replace(appLink);
+
+                // 2. Если это встроенный браузер Telegram, ссылка выше может не сработать,
+                // поэтому пробуем закрыть окно (это вернет юзера в чат/бота)
+                setTimeout(() => {
+                    try { window.close(); } catch(e) {}
+                    try { window.Telegram.WebApp.close(); } catch(e) {}
+                }, 1000); // Ждем секунду
+            };
+
+            // Логика кнопки
+            document.getElementById('return-btn').addEventListener('click', goBackToApp);
+
+            // Автоматическая попытка возврата через 500мс
+            setTimeout(goBackToApp, 500);
+
+            // Скрываем лоадер, если он был
+            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+            return; 
         }
+
+        // ------------------------------------------------------------------
+        // БЛОК 2: Основная логика приложения (внутри Telegram)
+        // ------------------------------------------------------------------
 
         // ШАГ 1: Пытаемся показать КЭШИРОВАННЫЕ данные (Мгновенная загрузка)
         let hasCache = false;
@@ -2109,8 +2150,6 @@ async function renderFullInterface(bootstrapData) {
             const cachedJson = localStorage.getItem('app_bootstrap_cache');
             if (cachedJson) {
                 const cachedData = JSON.parse(cachedJson);
-                // Проверяем, не слишком ли стар кэш (например, 24 часа)
-                // Но для начала просто показываем то, что есть
                 console.log("Отображаем интерфейс из КЭША...");
                 await renderFullInterface(cachedData);
                 
@@ -2130,22 +2169,17 @@ async function renderFullInterface(bootstrapData) {
 
         try {
             // ШАГ 2: Загружаем СВЕЖИЕ данные с сервера (Фоном или явно)
-            // isSilent = hasCache (если кэш был, спиннер не показываем, пользователь уже пользуется меню)
             const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', hasCache);
 
             if (!bootstrapData) throw new Error("Не удалось загрузить данные (Bootstrap failed)");
 
             // ШАГ 3: Собираем все картинки и ПРЕДЗАГРУЖАЕМ их
-            // Это нужно, чтобы при обновлении интерфейса картинки не "мигали"
             const imageUrls = extractImageUrls(bootstrapData);
             
             if (imageUrls.length > 0) {
-                // Если у нас был кэш, мы не блокируем UI прелоадингом, делаем это фоном.
-                // Если кэша не было (первый вход), ждем картинки, чтобы показать красиво.
                 if (!hasCache) {
                     await preloadImages(imageUrls);
                 } else {
-                    // Просто запускаем и не ждем await, чтобы быстрее обновить данные
                     preloadImages(imageUrls); 
                 }
             }
