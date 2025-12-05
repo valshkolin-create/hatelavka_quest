@@ -1295,70 +1295,7 @@ function showTopBonusNotification(userData) {
             notif.classList.add('hidden');
         }
     };
-}
-
-// Функция проверки: нужно ли показывать попап и кнопку
-async function checkReferralAndWelcome(userData) {
-    const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
-    const bonusBtn = document.getElementById('open-bonus-btn');
-
-    // 1. Попытка синхронизации, если зашли по ссылке
-    if (startParam && startParam.startsWith('r_')) {
-        try {
-            const syncRes = await fetch('/api/v1/user/sync_referral', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: Telegram.WebApp.initData })
-            });
-            const syncData = await syncRes.json();
-            if (syncData.referrer) {
-                userData.referrer_id = syncData.referrer;
-            }
-        } catch (e) { console.error("Ref sync error", e); }
-    }
-
-    // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
-
-    // Условие 1: Если бонус УЖЕ АКТИВИРОВАН -> Прячем всё
-    if (userData.referral_activated_at) {
-        if (bonusBtn) bonusBtn.classList.add('hidden');
-        localStorage.removeItem('openRefPopupOnLoad'); // На всякий случай чистим мусор
-        return; 
-    }
-
-    // Условие 2: Если есть REFFERER_ID -> Показываем
-    if (userData.referrer_id) {
-        // Показываем кнопку
-        if (bonusBtn) {
-            bonusBtn.classList.remove('hidden');
-            bonusBtn.onclick = () => openWelcomePopup(userData);
-        }
-
-        // Проверяем флаг возврата (человек только что привязывал Twitch)
-        const shouldRestorePopup = localStorage.getItem('openRefPopupOnLoad');
-        const isDeferred = localStorage.getItem('bonusPopupDeferred');
-
-        if (shouldRestorePopup) {
-            // СЦЕНАРИЙ: Вернулся после авторизации Twitch -> Открываем СРАЗУ
-            openWelcomePopup(userData);
-            // Удаляем флаг, чтобы при следующем простом обновлении страницы окно не выскакивало само
-            localStorage.removeItem('openRefPopupOnLoad');
-        } 
-        else if (!isDeferred) {
-            // СЦЕНАРИЙ: Первый заход (не нажимал "Позже") -> Открываем
-            openWelcomePopup(userData);
-        } 
-        else {
-            // СЦЕНАРИЙ: Нажимал "Позже" -> Показываем только уведомление сверху
-            showTopBonusNotification(userData);
-        }
-    } 
-    // Условие 3: Нет реферера -> Прячем
-    else {
-        if (bonusBtn) bonusBtn.classList.add('hidden');
-    }
-}
-    
+}    
 // Вспомогательные функции стилей (Обновил цвета рамок)
 function markStepDone(el, icon) {
     if(el) { el.style.borderColor = "#34c759"; el.style.background = "rgba(52, 199, 89, 0.1)"; }
