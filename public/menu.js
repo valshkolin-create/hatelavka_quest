@@ -1218,52 +1218,54 @@ async function buyItem(itemId, price, name) {
 // Функция проверки: нужно ли показывать попап и кнопку
 async function checkReferralAndWelcome(userData) {
     const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
-    let hasReferrer = false;
+    const bonusBtn = document.getElementById('open-bonus-btn');
 
-    // 1. Пробуем связать по ссылке (если это первый вход по ссылке)
+    // 1. Попытка синхронизации, если зашли по ссылке (чтобы кнопка появилась сразу)
     if (startParam && startParam.startsWith('r_')) {
         try {
-            // Тихая синхронизация
             const syncRes = await fetch('/api/v1/user/sync_referral', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
             const syncData = await syncRes.json();
-            if (syncData.status === 'success' || syncData.status === 'already_has_ref') {
-                hasReferrer = true;
+            
+            // Если сервер подтвердил привязку, обновляем локальные данные, чтобы условие ниже сработало
+            if (syncData.referrer) {
+                userData.referrer_id = syncData.referrer;
             }
         } catch (e) { console.error("Ref sync error", e); }
-    } 
-    
-    // 2. Или если реферер уже есть в базе (благодаря правке в index.py)
-    if (userData.referrer_id) {
-        hasReferrer = true;
     }
 
-    // --- ЛОГИКА ОТОБРАЖЕНИЯ КНОПКИ (ИЗМЕНЕНО) ---
-    // Показываем кнопку ВСЕГДА, если бонус еще не активирован.
-    // Это гарантирует, что она не пропадет после обновления страницы.
-    if (!userData.referral_activated_at) {
-        const bonusBtn = document.getElementById('open-bonus-btn');
+    // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
+
+    // Условие 1: Если бонус УЖЕ АКТИВИРОВАН (есть дата) -> Прячем кнопку навсегда
+    if (userData.referral_activated_at) {
+        if (bonusBtn) bonusBtn.classList.add('hidden');
+        return; // Выходим, попапы тоже не нужны
+    }
+
+    // Условие 2: Если есть REFFERER_ID (то есть пользователь был приглашен) -> Показываем
+    if (userData.referrer_id) {
+        // Показываем кнопку
         if (bonusBtn) {
             bonusBtn.classList.remove('hidden');
             bonusBtn.onclick = () => openWelcomePopup(userData);
         }
-    }
 
-    // --- ЛОГИКА АВТО-ПОПАПА ---
-    // Попап или плашку показываем, только если мы точно знаем, что есть реферер
-    if (hasReferrer && !userData.referral_activated_at) {
+        // Логика авто-попапа (срабатывает только для рефералов)
         const isDeferred = localStorage.getItem('bonusPopupDeferred');
-
         if (!isDeferred) {
-            // Если не нажимал "Позже" — открываем большое окно сразу
+            // Если не нажимал "Позже" — открываем большое окно
             openWelcomePopup(userData);
         } else {
-            // Если нажимал "Позже" — показываем аккуратное уведомление сверху
+            // Если нажимал "Позже" — показываем плашку уведомления
             showTopBonusNotification(userData);
         }
+    } 
+    // Условие 3: Если нет реферера и нет активации -> Прячем кнопку
+    else {
+        if (bonusBtn) bonusBtn.classList.add('hidden');
     }
 }
 
