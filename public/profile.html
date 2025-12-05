@@ -799,108 +799,111 @@ try {
 
     // --- MAIN ---
     async function main() {
-        // --- ИСПРАВЛЕНИЕ: Экран успешной авторизации вместо ошибки ---
-        if (!tg.initData) {
-            document.body.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center;">
-                    <i class="fa-solid fa-circle-check" style="font-size: 60px; color: var(--primary-color); margin-bottom: 20px;"></i>
-                    <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Авторизация успешна!</h1>
-                    <p style="color: var(--text-color-muted); font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
-                        Вы успешно привязали аккаунт.<br>Теперь можно вернуться в бота.
-                    </p>
-                    <button id="return-btn" style="background-color: var(--action-color); color: white; border: none; padding: 12px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 200px;">
-                        Вернуться в бота
-                    </button>
-                </div>
-            `;
-            
-            // Логика кнопки возврата
-            document.getElementById('return-btn').addEventListener('click', () => {
-                try {
-                    window.Telegram.WebApp.close();
-                } catch (e) {
-                    console.log('Не удалось закрыть окно программно');
-                }
-                window.location.href = "https://t.me/HATElavka_bot"; 
-            });
-
-            hideLoader();
-            return; 
-        }
-
-        // --- ЛОГИКА ВОЗВРАТА В БОТА ---
-        // 1. Включаем нативную кнопку "Назад" в шапке Telegram
-        tg.BackButton.show();
-        tg.BackButton.onClick(() => {
-            tg.close();
+    // 1. ПРОВЕРКА НА REDIRECT (ПОСЛЕ АВТОРИЗАЦИИ)
+    // Если нет initData, значит мы вернулись после OAuth в браузере
+    if (!tg.initData) {
+        document.body.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center;">
+                <i class="fa-solid fa-circle-check" style="font-size: 60px; color: var(--primary-color); margin-bottom: 20px;"></i>
+                <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Авторизация успешна!</h1>
+                <p style="color: var(--text-color-muted); font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
+                    Аккаунт успешно привязан.<br>Нажмите кнопку ниже, чтобы вернуться.
+                </p>
+                <button id="return-btn" style="background-color: var(--action-color); color: white; border: none; padding: 12px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 200px;">
+                    Вернуться в профиль
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('return-btn').addEventListener('click', () => {
+            // Пытаемся закрыть окно, чтобы юзер открыл его заново (и данные обновились)
+            try { window.Telegram.WebApp.close(); } catch (e) {}
+            // На всякий случай редирект, если открыто в браузере
+            window.location.href = "https://t.me/HATElavka_bot"; 
         });
+        hideLoader();
+        return; 
+    }
 
-        // 2. Если есть своя кнопка в HTML (например, id="home-btn"), оживляем её
-        const homeBtn = document.getElementById('home-btn'); 
-        if (homeBtn) {
-            homeBtn.addEventListener('click', () => {
-                tg.close();
-            });
-        }
+    // --- ЛОГИКА ОБЫЧНОГО ЗАПУСКА ---
 
-        showLoader();
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => tg.close());
+
+    const homeBtn = document.getElementById('home-btn');
+    if (homeBtn) homeBtn.addEventListener('click', () => tg.close());
+
+    // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ (REUSABLE) ---
+    // isSilent = true, чтобы не показывать спиннер при авто-обновлении
+    async function loadData(isSilent = false) {
+        if (!isSilent) showLoader();
+        
         try {
-            // 1. Используем BOOTSTRAP для получения User + Рефералы + Настройки
-            const bootstrapData = await makeApiRequest("/api/v1/bootstrap");
-
+            // 1. Загружаем основные данные
+            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
             if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
 
-            // 2. Догружаем награды
-            const rewards = await makeApiRequest("/api/v1/user/rewards");
-            
-            // --- УСКОРЕННОЕ ОБНОВЛЕНИЕ БАЛАНСА ---
-            // Запускаем синхронизацию фоном. Как только придет ответ, обновляем UI точечно.
-            makeApiRequest("/api/v1/user/sync_balance", {}, 'POST')
-                .then(data => {
-                    if (data && data.balance !== undefined) {
-                        console.log("Баланс обновлен:", data.balance);
-                        // Обновляем глобальные настройки
-                        if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
-                        // Ищем элемент баланса и обновляем текст (если есть класс .user-balance)
-                        const balanceEls = document.querySelectorAll('.user-balance');
-                        balanceEls.forEach(el => el.textContent = data.balance.toFixed(2)); 
-                    }
-                })
-                .catch(e => console.warn("Ошибка синхронизации баланса:", e));
+            // 2. Загружаем награды
+            const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
 
-            makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn(e));
+            // 3. Синхронизируем баланс и рефералов (фоном)
+            if (!isSilent) {
+                makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true)
+                    .then(data => {
+                        if (data && data.balance !== undefined) {
+                            if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
+                            document.querySelectorAll('.user-balance').forEach(el => el.textContent = data.balance.toFixed(2));
+                        }
+                    }).catch(console.warn);
+                makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
+            }
 
-            // 3. Формируем данные
+            // 4. Настройки уведомлений
+            const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
+
+            // 5. Собираем всё вместе
             const userData = bootstrapData.user || {};
             const settings = bootstrapData.menu || {};
             
-            // Запрашиваем настройки уведомлений
-            const userSettings = await makeApiRequest("/api/v1/user/settings/get");
-
             const fullUserData = { 
                 ...userData, 
                 ...settings, 
                 ...userSettings 
             };
 
+            // Обновляем заголовок
             if (dom.profileName) {
                 dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
             }
             window.currentUserSettings = fullUserData;
-            
-            // 4. Рендерим
+
+            // 6. Рендерим интерфейс
             renderSettingsList(fullUserData); 
             renderRewards(rewards);
 
         } catch (e) {
-            if (dom.rewardsList) {
+            console.error(e);
+            if (!isSilent && dom.rewardsList) {
                 dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
             }
-            console.error(e);
-        } finally { 
-            hideLoader(); 
+        } finally {
+            if (!isSilent) hideLoader();
         }
     }
+
+    // --- АВТО-ОБНОВЛЕНИЕ ПРИ ВОЗВРАТЕ ---
+    // Это ключевой момент: когда вкладка становится активной (юзер вернулся из браузера)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log('App active: refreshing data...');
+            // Загружаем данные "тихо" (без блокирующего спиннера), чтобы обновить интерфейс
+            loadData(true);
+        }
+    });
+
+    // Первичная загрузка
+    await loadData(false);
+}
     // --- REFERRAL LOGIC ---
     function openRefModal(userData) {
         let refPayload = userData.telegram_id;
