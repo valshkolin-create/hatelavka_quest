@@ -1316,7 +1316,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
 
              // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ (v2 - БОЛЕЕ НАДЕЖНЫЙ) ---
-            const defaultOrder = ['skin_race', 'cauldron', 'auction'];
+            const defaultOrder = ['skin_race', 'cauldron', 'auction', 'checkpoint'];
             const loadedOrder = settings.slider_order || defaultOrder;
             
             // Гарантируем, что все элементы из defaultOrder присутствуют
