@@ -9153,6 +9153,91 @@ async def send_test_notification_api(
     
     return {"status": "sent"}
 
+# --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
+@app.post("/api/v1/user/check_subscription")
+async def check_subscription_endpoint(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    import traceback # Для вывода полных ошибок
+
+    logging.info("--- [CHECK_SUB] Начало проверки подписки ---")
+    
+    # 1. Валидация InitData
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        logging.error("[CHECK_SUB] ❌ Ошибка валидации initData")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    user_id = user_info["id"]
+    username = user_info.get("username", "Unknown")
+    logging.info(f"[CHECK_SUB] 👤 Пользователь: {username} (ID: {user_id})")
+
+    try:
+        # 2. Проверяем подписку на Telegram канал
+        # Используем временного бота, чтобы сделать запрос к API Telegram
+        temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        
+        is_subscribed = False
+        chat_member = None
+        
+        try:
+            logging.info(f"[CHECK_SUB] Проверка статуса в канале ID: {REQUIRED_CHANNEL_ID}...")
+            chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
+            status = chat_member.status
+            logging.info(f"[CHECK_SUB] Статус пользователя: {status}")
+            
+            if status in ['creator', 'administrator', 'member', 'restricted']:
+                is_subscribed = True
+            else:
+                logging.warning(f"[CHECK_SUB] ⛔ Пользователь не подписан (статус: {status})")
+
+        except Exception as tg_error:
+            logging.error(f"[CHECK_SUB] ❌ Ошибка Telegram API: {tg_error}")
+            # Если ошибка "chat not found" или бот не админ - это проблема настройки
+            return JSONResponse(status_code=400, content={"success": False, "error": "Bot cannot verify channel status (Admin rights?)"})
+        finally:
+            await temp_bot.session.close()
+
+        if not is_subscribed:
+            return JSONResponse(content={"success": False, "error": "not_subscribed"})
+
+        # 3. Проверка привязки Twitch (Опционально, если нужно)
+        # Если нужно проверять и Twitch, раскомментируй запрос к БД ниже
+        """
+        user_db = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_id"})
+        if not user_db.json() or not user_db.json()[0].get("twitch_id"):
+             logging.warning("[CHECK_SUB] ⛔ Twitch не привязан")
+             return JSONResponse(content={"success": False, "error": "twitch_not_linked"})
+        """
+
+        # 4. Начисление награды (если все проверки пройдены)
+        logging.info("[CHECK_SUB] ✅ Условия выполнены. Начисляем награду...")
+        
+        # Проверяем, не получал ли он уже награду (опционально, через флаг в БД)
+        # Для примера просто начисляем монеты и билеты
+        
+        # Начисляем 10 грин-монет
+        await supabase.post("/rpc/increment_coins", json={"p_user_id": user_id, "p_amount": 10})
+        
+        # Начисляем 1 билет
+        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 1})
+        
+        # Обновляем статус, что бот активен и стартовый бонус получен
+        # (Предполагаем, что есть поле welcome_bonus_claimed, если нет - можно убрать)
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id}"},
+            json={"is_bot_active": True} 
+        )
+
+        logging.info("[CHECK_SUB] 🎉 Награда успешно начислена.")
+        return {"success": True}
+
+    except Exception as e:
+        logging.error(f"[CHECK_SUB] 🔥 КРИТИЧЕСКАЯ ОШИБКА:\n{traceback.format_exc()}")
+        return JSONResponse(status_code=500, content={"success": False, "error": "Internal Server Error"})
+
 
 
 # --- HTML routes ---
