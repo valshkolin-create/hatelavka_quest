@@ -1576,6 +1576,24 @@ function setupEventListeners() {
             dom.newPromoNotification.classList.add('hidden');
             sessionStorage.removeItem('newPromoReceived');
         });
+    // 👇👇👇 ВСТАВЛЯЕМ СЮДА 👇👇👇
+        // Логика для модалки расписания
+        const scheduleModal = document.getElementById('schedule-modal-overlay');
+        const scheduleCloseBtn = document.getElementById('schedule-modal-close-btn');
+        
+        if (scheduleCloseBtn && scheduleModal) {
+            scheduleCloseBtn.addEventListener('click', () => {
+                scheduleModal.classList.add('hidden');
+            });
+            
+            // Закрытие по клику вне картинки (опционально)
+            scheduleModal.addEventListener('click', (e) => {
+                if (e.target === scheduleModal) {
+                    scheduleModal.classList.add('hidden');
+                }
+            });
+        }
+        // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
         dom.startTutorialBtn.addEventListener('click', startTutorial);
         dom.tutorialNextBtn.onclick = tutorialNextHandler;
         dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
