@@ -1056,6 +1056,15 @@
     font-weight: 600;
     cursor: pointer;
     transition: transform 0.1s, opacity 0.2s;
+
+    /* --- ДОБАВЛЕНО ДЛЯ ВЫРАВНИВАНИЯ --- */
+    display: flex;              /* Делает элемент гибким контейнером */
+    justify-content: center;    /* Центрирует текст по горизонтали */
+    align-items: center;        /* Центрирует текст по вертикали */
+    box-sizing: border-box;     /* Гарантирует, что padding включен в общую ширину */
+    text-decoration: none;      /* Убирает подчеркивание у ссылки */
+    margin: 0;                  /* Убирает дефолтные отступы */
+    line-height: 1.2;           /* Единая высота строки */
 }
 
 .popup-btn:active {
