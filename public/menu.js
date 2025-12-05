@@ -1885,8 +1885,7 @@ async function openQuestsTab(isSilent = false) {
                 return;
             }
 
-            // 2. ЕДИНСТВЕННЫЙ ЗАПРОС ЗА ВСЕМИ ДАННЫМИ
-            // Используем 'true' (silent), чтобы не сбивать спиннер
+            // --- 🔥 ИЗМЕНЕНИЕ: ВМЕСТО КУЧИ ЗАПРОСОВ ДЕЛАЕМ ОДИН ---
             const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
 
             if (!bootstrapData) throw new Error("Не удалось загрузить данные (Bootstrap failed)");
@@ -1894,16 +1893,20 @@ async function openQuestsTab(isSilent = false) {
             // Распаковываем данные из одного ответа
             const menuContent = bootstrapData.menu;
             const weeklyGoalsData = bootstrapData.weekly_goals;
-            const dashboardData = bootstrapData.user;
+            const dashboardData = bootstrapData.user; // Тут лежит профиль + рефералы
             const questsDataResp = bootstrapData.quests;
             const cauldronData = bootstrapData.cauldron;
 
             // --- Обработка данных пользователя ---
             userData = dashboardData || {};
-            document.getElementById('ticketStats').textContent = userData.tickets || 0;
-
-            // Проверка рефералов и приветствия
+            
+            // Проверка рефералов (теперь данные уже есть внутри userData, но функция проверит ссылки)
             checkReferralAndWelcome(userData); 
+
+            // Баланс
+            if (document.getElementById('ticketStats')) {
+                document.getElementById('ticketStats').textContent = userData.tickets || 0;
+            }
 
             const isGuest = !userData || !userData.full_name;
             if (isGuest) {
@@ -1913,14 +1916,17 @@ async function openQuestsTab(isSilent = false) {
                 if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
             }
 
-            // --- Обработка меню и баннеров ---
+            // --- Рендеринг всего интерфейса ---
+            
+            // 1. Недельные цели
             renderWeeklyGoals(weeklyGoalsData);
             if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
                 dom.weeklyGoalsAccordion.open = true;
             }
 
+            // 2. Меню и слайдеры
             if (menuContent) {
-                // Баннер недельных целей
+                // Баннер целей
                 if (menuContent.weekly_goals_banner_url) {
                     const wImg = document.getElementById('weekly-goals-banner-img');
                     if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
@@ -1935,7 +1941,7 @@ async function openQuestsTab(isSilent = false) {
                     });
                 }
 
-                // Баннеры (Гонка, Аукцион, Чекпоинт)
+                // Настройка слайдов (видимость и картинки)
                 const setupSlide = (id, enabled, url, link) => {
                     const slide = document.querySelector(`.slide[data-event="${id}"]`);
                     if (slide) {
@@ -1955,7 +1961,7 @@ async function openQuestsTab(isSilent = false) {
                 setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || menuContent.auction_slide_data?.image_url, '/auction');
                 setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
 
-                // Кнопка Twitch/Telegram испытаний
+                // Кнопка переключения испытаний
                 let activeQuestType = 'twitch';
                 const day = new Date().getDay();
                 if (menuContent.quest_schedule_override_enabled) {
@@ -1976,7 +1982,7 @@ async function openQuestsTab(isSilent = false) {
                 }
             }
 
-            // --- Котел (данные уже пришли в bootstrap, запрос не нужен) ---
+            // 3. Котел (данные уже пришли в bootstrap, запрос не нужен!)
             const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
             if (eventSlide) {
                 const show = (cauldronData && cauldronData.is_visible_to_users) || (userData && userData.is_admin);
@@ -1987,8 +1993,9 @@ async function openQuestsTab(isSilent = false) {
                     if (img && cauldronData.banner_image_url) img.src = cauldronData.banner_image_url;
                 }
             }
-            // Запускаем слайдер
-            setTimeout(() => setupSlider(), 0);
+            
+            // Запускаем слайдер (с небольшой задержкой, чтобы DOM обновился)
+            setTimeout(() => setupSlider(), 50);
 
             // --- Квесты и Челленджи ---
             allQuests = questsDataResp || [];
@@ -2027,14 +2034,14 @@ async function openQuestsTab(isSilent = false) {
         
         } catch (e) {
             console.error("Критическая ошибка main:", e);
-            dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки.</p>`;
+            dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки: ${e.message}</p>`;
         } finally {
             console.log("--- main() ЗАВЕРШЕНА. Скрываем лоадер. ---");
             dom.mainContent.classList.add('visible');
             dom.loaderOverlay.classList.add('hidden');
         }
     }
-
+    
     setupEventListeners();
     main();
     setInterval(refreshDataSilently, 30000);
