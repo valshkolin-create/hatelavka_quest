@@ -751,22 +751,39 @@ try {
         }
         showLoader();
         try {
-            // 1. Создаем/получаем пользователя
-            const userData = await makeApiRequest("/api/v1/user/me");
+            // 1. ЗАПРОС BOOTSTRAP (Тут есть User + Рефералы + Настройки)
+            // Мы используем его вместо /user/me и /settings/get
+            const bootstrapData = await makeApiRequest("/api/v1/bootstrap");
 
-            // 2. Параллельно: деньги + реферал (тихо)
-            const syncBalancePromise = makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(e => console.warn("BalSync err:", e));
-            const syncReferralPromise = makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn("RefSync err:", e));
+            if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
 
-            Promise.all([syncBalancePromise, syncReferralPromise]).then(() => {});
+            // 2. Параллельно догружаем то, чего нет в bootstrap (награды и синхронизация)
+            const rewardsPromise = makeApiRequest("/api/v1/user/rewards");
+            // Тихие синхронизации (не блокируют интерфейс)
+            makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(e => console.warn(e));
+            makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn(e));
 
-            // 3. Загружаем награды и настройки
-            const [rewards, settings] = await Promise.all([ 
-                makeApiRequest("/api/v1/user/rewards"),
-                makeApiRequest("/api/v1/user/settings/get")
-            ]);
+            const rewards = await rewardsPromise;
+
+            // 3. Объединяем данные для рендеринга
+            // bootstrapData.user - это профиль + рефералы
+            // bootstrapData.menu - это настройки админа
+            const userData = bootstrapData.user || {};
+            const settings = bootstrapData.menu || {};
             
-            const fullUserData = { ...userData, ...settings };
+            // Нам нужно запросить статус уведомлений отдельно или взять из user, если они там есть.
+            // В bootstrap обычно нет полей уведомлений (notify_...), поэтому сделаем быстрый дозапрос настроек, 
+            // ЛИБО (лучше) просто используем /user/settings/get, если bootstrap не возвращает флаги уведомлений.
+            // Чтобы не усложнять, давайте дернем настройки уведомлений быстро:
+            const userSettings = await makeApiRequest("/api/v1/user/settings/get");
+
+            // Собираем всё в один объект
+            const fullUserData = { 
+                ...userData, 
+                ...settings, 
+                ...userSettings 
+            };
+
             dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
             window.currentUserSettings = fullUserData;
             
@@ -777,50 +794,6 @@ try {
             dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
             console.error(e);
         } finally { hideLoader(); }
-    }
-
-    function renderSettingsList(userData) {
-        dom.settingsList.innerHTML = '';
-        const isBotActive = userData.is_bot_active === true;
-        const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
-
-        // 1. Уведомления
-        const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
-        notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
-        notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
-        dom.settingsList.appendChild(notifyCard);
-
-        // 2. Steam
-        const steamCard = document.createElement('div'); steamCard.className = 'settings-card';
-        const hasTradeLink = !!userData.trade_link;
-        steamCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-steam" style="color:#66c0f4;"></i> Steam Trade</p><span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span><span class="twitch-trust-link" id="steam-trust-btn" style="margin-top: 4px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><button id="edit-trade-link-btn" class="settings-card-btn">${hasTradeLink ? 'Изменить' : 'Привязать'}</button>`;
-        dom.settingsList.appendChild(steamCard);
-
-        // 3. Twitch
-        const twitchCard = document.createElement('div'); twitchCard.className = 'settings-card';
-        if (userData.twitch_login) {
-            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
-        } else {
-            const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
-            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><a href="${authUrl}" class="settings-card-btn twitch">Привязать</a>`;
-        }
-        dom.settingsList.appendChild(twitchCard);
-
-        // 4. Рефералка
-        const refCard = document.createElement('div'); 
-        refCard.className = 'settings-card ref-card-gradient';
-        const activeRefs = userData.active_referrals_count || 0; 
-        const currentBoost = (activeRefs * 0.1).toFixed(1);
-
-        refCard.innerHTML = `
-            <div class="settings-card-info">
-                <p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p>
-                <span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span>
-            </div>
-            <i class="fa-solid fa-chevron-right card-arrow"></i>`;
-            
-        refCard.onclick = () => openRefModal(userData);
-        dom.settingsList.appendChild(refCard);
     }
 
     // --- REFERRAL LOGIC ---
