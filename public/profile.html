@@ -819,121 +819,130 @@ try {
         dom.settingsList.appendChild(refCard);
     }
 
-   // --- MAIN ---
+    // --- MAIN ---
     async function main() {
-    // ------------------------------------------------------------------
-    // БЛОК 1: Если мы в браузере (после редиректа авторизации)
-    // ------------------------------------------------------------------
-    if (!tg.initData) {
-        document.body.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background-color: #000; color: #fff;">
-                <i class="fa-solid fa-circle-check" style="font-size: 60px; color: #34c759; margin-bottom: 20px;"></i>
-                <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Успешно!</h1>
-                <p style="color: #b0b0b0; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
-                    Аккаунт привязан.<br>Нажмите кнопку, чтобы вернуться.
-                </p>
-                <button id="return-btn" style="background-color: #007aff; color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 240px; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">
-                    Вернуться в приложение
-                </button>
-            </div>
-        `;
-        
-        // Логика кнопки возврата
-        document.getElementById('return-btn').addEventListener('click', () => {
-            // 1. Сначала пытаемся просто закрыть это окно (идеально для внутриигрового браузера)
-            try { window.close(); } catch(e) {}
-            try { window.Telegram.WebApp.close(); } catch (e) {}
+        // ------------------------------------------------------------------
+        // БЛОК 1: Если мы в браузере (после редиректа авторизации)
+        // ------------------------------------------------------------------
+        if (!tg.initData) {
+            document.body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background-color: #000; color: #fff;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 60px; color: #34c759; margin-bottom: 20px;"></i>
+                    <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Успешно!</h1>
+                    <p style="color: #b0b0b0; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
+                        Аккаунт привязан.<br>Возвращаем вас в приложение...
+                    </p>
+                    <button id="return-btn" style="background-color: #007aff; color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 240px; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">
+                        Вернуться в приложение
+                    </button>
+                </div>
+            `;
+            
+            // Функция возврата
+            const goBackToApp = () => {
+                const appLink = "https://t.me/HATElavka_bot/app";
+                
+                // 1. Сначала пробуем просто перейти по ссылке (самый надежный способ для внешних браузеров)
+                // Используем replace, чтобы нельзя было вернуться назад на страницу успеха
+                window.location.replace(appLink);
 
-            // 2. Если не закрылось — редиректим ПРЯМО В ПРИЛОЖЕНИЕ (Deep Link)
-            // Важно: /app в конце ссылки открывает Mini App, а не чат
-            setTimeout(() => {
-                window.location.href = "https://t.me/HATElavka_bot/app"; 
-            }, 100);
-        });
-
-        hideLoader();
-        return; 
-    }
-
-    // ------------------------------------------------------------------
-    // БЛОК 2: Основная логика приложения (внутри Telegram)
-    // ------------------------------------------------------------------
-
-    // Настройка кнопки Назад
-    tg.BackButton.show();
-    tg.BackButton.onClick(() => tg.close());
-
-    // Если есть кнопка "Домой" в HTML
-    const homeBtn = document.getElementById('home-btn');
-    if (homeBtn) homeBtn.addEventListener('click', () => tg.close());
-
-    // --- Функция загрузки данных (чтобы вызывать её повторно) ---
-    // isSilent = true означает "не показывать спиннер загрузки"
-    async function loadData(isSilent = false) {
-        if (!isSilent) showLoader();
-        
-        try {
-            // 1. Основные данные (Bootstrap)
-            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
-            if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
-
-            // 2. Награды
-            const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
-
-            // 3. Фоновое обновление баланса и рефералов
-            if (!isSilent) {
-                makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true)
-                    .then(data => {
-                        if (data && data.balance !== undefined) {
-                            if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
-                            document.querySelectorAll('.user-balance').forEach(el => el.textContent = data.balance.toFixed(2));
-                        }
-                    }).catch(console.warn);
-                makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
-            }
-
-            // 4. Настройки уведомлений
-            const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
-
-            // 5. Сборка объекта данных
-            const fullUserData = { 
-                ...bootstrapData.user, 
-                ...bootstrapData.menu, 
-                ...userSettings 
+                // 2. Если это встроенный браузер Telegram, ссылка выше может не сработать,
+                // поэтому пробуем закрыть окно (это вернет юзера в чат/бота)
+                setTimeout(() => {
+                    try { window.close(); } catch(e) {}
+                    try { window.Telegram.WebApp.close(); } catch(e) {}
+                }, 1000); // Ждем секунду перед закрытием, чтобы ссылка успела отработать
             };
 
-            // Обновляем заголовок
-            if (dom.profileName) {
-                dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
-            }
-            window.currentUserSettings = fullUserData;
+            // Логика кнопки (самый надежный вариант - клик пользователя)
+            document.getElementById('return-btn').addEventListener('click', goBackToApp);
 
-            // 6. ПЕРЕРИСОВКА ИНТЕРФЕЙСА (Самое важное для обновления кнопки Twitch)
-            renderSettingsList(fullUserData); 
-            renderRewards(rewards);
+            // Автоматическая попытка (может быть заблокирована браузером, но попробуем)
+            setTimeout(goBackToApp, 500);
 
-        } catch (e) {
-            console.error(e);
-            if (!isSilent && dom.rewardsList) {
-                dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
-            }
-        } finally {
-            if (!isSilent) hideLoader();
+            hideLoader();
+            return; 
         }
+
+        // ------------------------------------------------------------------
+        // БЛОК 2: Основная логика приложения (внутри Telegram)
+        // ------------------------------------------------------------------
+
+        // Настройка кнопки Назад
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => tg.close());
+
+        // Если есть кнопка "Домой" в HTML
+        const homeBtn = document.getElementById('home-btn');
+        if (homeBtn) homeBtn.addEventListener('click', () => tg.close());
+
+        // --- Функция загрузки данных (чтобы вызывать её повторно) ---
+        // isSilent = true означает "не показывать спиннер загрузки"
+        async function loadData(isSilent = false) {
+            if (!isSilent) showLoader();
+            
+            try {
+                // 1. Основные данные (Bootstrap)
+                const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
+                if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
+
+                // 2. Награды
+                const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
+
+                // 3. Фоновое обновление баланса и рефералов
+                if (!isSilent) {
+                    makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true)
+                        .then(data => {
+                            if (data && data.balance !== undefined) {
+                                if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
+                                document.querySelectorAll('.user-balance').forEach(el => el.textContent = data.balance.toFixed(2));
+                            }
+                        }).catch(console.warn);
+                    makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
+                }
+
+                // 4. Настройки уведомлений
+                const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
+
+                // 5. Сборка объекта данных
+                const fullUserData = { 
+                    ...bootstrapData.user, 
+                    ...bootstrapData.menu, 
+                    ...userSettings 
+                };
+
+                // Обновляем заголовок
+                if (dom.profileName) {
+                    dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+                }
+                window.currentUserSettings = fullUserData;
+
+                // 6. ПЕРЕРИСОВКА ИНТЕРФЕЙСА (Самое важное для обновления кнопки Twitch)
+                renderSettingsList(fullUserData); 
+                renderRewards(rewards);
+
+            } catch (e) {
+                console.error(e);
+                if (!isSilent && dom.rewardsList) {
+                    dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
+                }
+            } finally {
+                if (!isSilent) hideLoader();
+            }
+        }
+
+        // --- МАГИЯ: Авто-обновление при возврате в приложение ---
+        // Это событие срабатывает, когда вы закрываете браузер (Twitch) и видите снова приложение
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('App returned to focus. Refreshing data...');
+                loadData(true); // true = тихое обновление без черного экрана загрузки
+            }
+        });
+
+        // Первичный запуск при открытии профиля
+        await loadData(false);
     }
-
-    // --- МАГИЯ: Авто-обновление при возврате в приложение ---
-    // Это событие срабатывает, когда вы закрываете браузер (Twitch) и видите снова приложение
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            console.log('App returned to focus. Refreshing data...');
-            loadData(true); // true = тихое обновление без черного экрана загрузки
-        }
-    });
-
-    // Первичный запуск при открытии профиля
-    await loadData(false);
-}
     // --- REFERRAL LOGIC ---
     function openRefModal(userData) {
         let refPayload = userData.telegram_id;
