@@ -520,6 +520,29 @@
             font-size: 22px;
             position: relative;
         }
+        /* --- СТИЛИ ДЛЯ ОБНОВЛЕНИЯ БАЛАНСА --- */
+        .balance-display {
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            user-select: none;
+        }
+        
+        .balance-display:active {
+            transform: scale(0.96);
+            background: rgba(255, 204, 0, 0.2);
+        }
+
+        .refresh-icon {
+            font-size: 12px;
+            opacity: 0.8;
+            transition: transform 0.5s ease;
+        }
+        
+        .refresh-icon.spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
         .footer-item:active { color: #ffffff; }
 
@@ -536,10 +559,13 @@
         <button class="back-btn" onclick="goBack()">
             <i class="fa-solid fa-chevron-left"></i> <span id="nav-title">Назад</span>
         </button>
-        <div class="balance-display">
-            <span id="user-balance">...</span> <i class="fa-solid fa-coins"></i>
+        
+        <div class="balance-display" onclick="refreshBalance()">
+            <span id="user-balance">...</span> 
+            <i class="fa-solid fa-coins"></i>
+            <i class="fa-solid fa-rotate refresh-icon" id="refresh-icon" style="margin-left: 6px;"></i>
         </div>
-    </div>
+        </div>
 
     <div class="info-banner">
         <div class="info-icon">
@@ -646,6 +672,45 @@
                     track.appendChild(clone);
                 });
             }
+        }
+        // --- ЛОГИКА ОБНОВЛЕНИЯ БАЛАНСА ---
+        let isBalanceLoading = false;
+
+        function checkBalance() {
+            if (isBalanceLoading) return;
+            isBalanceLoading = true;
+            
+            const icon = document.getElementById('refresh-icon');
+            if (icon) icon.classList.add('spinning');
+
+            fetch('/api/v1/user/sync_balance', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+            })
+            .then(r => r.json())
+            .then(balanceData => {
+                let rawBalance = balanceData.balance !== undefined ? balanceData.balance : (balanceData.bot_t_coins || 0);
+                let balance = rawBalance / 100;
+                document.getElementById('user-balance').textContent = balance.toFixed(0);
+            })
+            .catch(err => {
+                console.warn("Balance sync error:", err);
+            })
+            .finally(() => {
+                isBalanceLoading = false;
+                setTimeout(() => {
+                    if (icon) icon.classList.remove('spinning');
+                }, 500);
+            });
+        }
+        
+        window.refreshBalance = function() {
+            // Вибрация при нажатии (если поддерживается)
+            if(Telegram.WebApp.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            }
+            checkBalance();
         }
 
         async function initShop() {
