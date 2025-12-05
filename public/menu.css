@@ -1091,6 +1091,7 @@
     padding: 15px;
     text-align: center;
     border: 1px solid var(--disabled-color);
+    margin-top: 15px; /* Добавил отступ, чтобы не прилипало */
 }
 
 .schedule-title {
