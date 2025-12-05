@@ -1009,26 +1009,25 @@ function renderChallenge(challengeData, isGuest) {
     
     async function refreshDataSilently() {
         try {
-            const dashboardData = await makeApiRequest("/api/v1/user/me", {}, 'POST', true);
-            if (dashboardData) {
-                userData = dashboardData || {};
-                const challengeData = dashboardData.challenge;
-                const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
-                
-                // 1. Обновление Активного Испытания (Квест)
-                if (activeQuest) {
-                    renderActiveAutomaticQuest(activeQuest, userData);
+            // ИСПОЛЬЗУЕМ HEARTBEAT ВМЕСТО USER/ME
+            // Это легкий запрос (50мс), который обновляет только баланс
+            const hbData = await makeApiRequest("/api/v1/user/heartbeat", {}, 'POST', true);
+            
+            if (hbData) {
+                // Если бот выключен глобально (сон)
+                if (hbData.is_active === false) return;
+
+                // Обновляем баланс в UI
+                if (hbData.tickets !== undefined) {
+                    document.getElementById('ticketStats').textContent = hbData.tickets;
                 }
                 
-                // 2. Обновление Ежедневного Челленджа
-                if (challengeData) {
-                    renderChallenge(challengeData, !userData.twitch_id);
-                } else {
-                    renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
-                }
+                // Если нужны глубокие обновления (например, таймер квеста закончился),
+                // можно вызвать полный user/me редко, но для интервала 30сек heartbeat идеален.
                 
-                // 👇👇👇 ВАШ ВЫЗОВ ЗДЕСЬ 👇👇👇
-                updateShortcutStatuses(userData, allQuests);
+                // Важно: так как heartbeat не возвращает quests/challenges, мы не перерисовываем
+                // карточки квестов в цикле. Это экономит ресурсы.
+                // Карточки обновятся, если пользователь нажмет кнопку или перезагрузит страницу.
             }
         } catch (e) {
             console.error("Ошибка фонового обновления:", e);
@@ -1874,202 +1873,162 @@ async function openQuestsTab(isSilent = false) {
     }
 
     async function main() {
-    // 1. Принудительно показываем спиннер в самом начале
-    dom.loaderOverlay.classList.remove('hidden');
-    
-    try {
-        console.log("--- 1. main() ЗАПУЩЕНА (Optimized) ---");
-        setTimeout(() => window.scrollTo(0, 0), 0);
-
-        if (!Telegram.WebApp.initData) {
-            document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
-            return;
-        }
-
-        // 2. ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА (Promise.all)
-        // Мы используем 'true' (silent mode) для makeApiRequest, чтобы они не дергали спиннер туда-сюда.
-        // Спиннер мы контролируем вручную в блоке finally.
+        // 1. Принудительно показываем спиннер
+        dom.loaderOverlay.classList.remove('hidden');
         
-        const [menuContent, weeklyGoalsData, dashboardData, questsDataResp] = await Promise.all([
-        // 1. Меню
-        fetch("/api/v1/content/menu", {
-            headers: { 'Content-Type': 'application/json', 'X-Init-Data': Telegram.WebApp.initData }
-        }).then(res => res.json()),
+        try {
+            console.log("--- 1. main() ЗАПУЩЕНА (Bootstrap Mode) ---");
+            setTimeout(() => window.scrollTo(0, 0), 0);
 
-        // 2. Недельные цели
-        makeApiRequest("/api/v1/user/weekly_goals", {}, 'POST', true).catch(e => null),
-
-        // 3. Профиль пользователя
-        makeApiRequest("/api/v1/user/me", {}, 'POST', true),
-
-        // 4. СПИСОК КВЕСТОВ (Перенесли сюда!)
-        makeApiRequest("/api/v1/quests/list", {}, 'POST', true).catch(e => []) 
-    ]);
-
-        // --- Обработка данных пользователя ---
-        userData = dashboardData || {};
-        document.getElementById('ticketStats').textContent = userData.tickets || 0;
-
-        // 👇 ВСТАВИТЬ ВОТ ЭТУ СТРОКУ СЮДА 👇
-        checkReferralAndWelcome(userData); 
-        // 👆 ---------------------------- 👆
-
-        const isGuest = !userData || !userData.full_name;
-        if (isGuest) {
-            dom.fullName.textContent = "Гость";
-        } else {
-            dom.fullName.textContent = userData.full_name;
-            if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
-        }
-
-        // --- Обработка меню и баннеров ---
-        renderWeeklyGoals(weeklyGoalsData);
-        if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
-            dom.weeklyGoalsAccordion.open = true;
-        }
-
-        if (menuContent) {
-            // Баннер недельных целей
-            if (menuContent.weekly_goals_banner_url) {
-                const wImg = document.getElementById('weekly-goals-banner-img');
-                if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
+            if (!Telegram.WebApp.initData) {
+                document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Ошибка</h1><p>Запустите приложение из Telegram.</p></div>`;
+                return;
             }
 
-            // Порядок слайдов
-            const sliderWrapper = document.querySelector('.slider-wrapper');
-            if (sliderWrapper && menuContent.slider_order) {
-                menuContent.slider_order.forEach(slideId => {
-                    const slide = document.querySelector(`.slide[data-event="${slideId}"]`);
-                    if (slide) sliderWrapper.appendChild(slide);
-                });
-            }
+            // 2. ЕДИНСТВЕННЫЙ ЗАПРОС ЗА ВСЕМИ ДАННЫМИ
+            // Используем 'true' (silent), чтобы не сбивать спиннер
+            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
 
-            // Баннер "Гонка"
-            const skinRaceSlide = document.querySelector('.slide[data-event="skin_race"]');
-            if (skinRaceSlide) {
-                const show = menuContent.skin_race_enabled || (userData && userData.is_admin);
-                skinRaceSlide.style.display = show ? '' : 'none';
-                if (show && menuContent.menu_banner_url) {
-                    const img = document.getElementById('menu-banner-img');
-                    if (img) img.src = menuContent.menu_banner_url;
-                }
-            }
-            
-            // Баннер "Аукцион"
-            const auctionSlide = document.querySelector('.slide[data-event="auction"]');
-            if (auctionSlide) {
-                const showAuc = menuContent.auction_enabled || (userData && userData.is_admin);
-                auctionSlide.style.display = showAuc ? '' : 'none';
-                if (showAuc) {
-                    auctionSlide.href = '/auction';
-                    const img = document.getElementById('auction-banner-img');
-                    if (img) {
-                        if (menuContent.auction_banner_url) img.src = menuContent.auction_banner_url;
-                        else if (menuContent.auction_slide_data?.image_url) img.src = menuContent.auction_slide_data.image_url;
-                    }
-                }
-            }
+            if (!bootstrapData) throw new Error("Не удалось загрузить данные (Bootstrap failed)");
 
-            // Баннер "Чекпоинт"
-            const checkpointSlide = document.querySelector('.slide[data-event="checkpoint"]');
-            if (checkpointSlide) {
-                const showCheck = menuContent.checkpoint_enabled || (userData && userData.is_admin);
-                checkpointSlide.style.display = showCheck ? '' : 'none';
-                if (showCheck && menuContent.checkpoint_banner_url) {
-                    const img = document.getElementById('checkpoint-banner-img');
-                    if (img) img.src = menuContent.checkpoint_banner_url;
-                }
-            }
+            // Распаковываем данные из одного ответа
+            const menuContent = bootstrapData.menu;
+            const weeklyGoalsData = bootstrapData.weekly_goals;
+            const dashboardData = bootstrapData.user;
+            const questsDataResp = bootstrapData.quests;
+            const cauldronData = bootstrapData.cauldron;
 
-            // Кнопка Twitch/Telegram испытаний
-            let activeQuestType = 'twitch';
-            const day = new Date().getDay();
-            if (menuContent.quest_schedule_override_enabled) {
-                activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
-            } else if (day === 0 || day === 1) {
-                activeQuestType = 'telegram';
-            }
+            // --- Обработка данных пользователя ---
+            userData = dashboardData || {};
+            document.getElementById('ticketStats').textContent = userData.tickets || 0;
 
-            const questButton = dom.questChooseBtn;
-            if (activeQuestType === 'telegram') {
-                questButton.classList.remove('twitch-theme');
-                questButton.classList.add('telegram-theme');
-                questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
+            // Проверка рефералов и приветствия
+            checkReferralAndWelcome(userData); 
+
+            const isGuest = !userData || !userData.full_name;
+            if (isGuest) {
+                dom.fullName.textContent = "Гость";
             } else {
-                questButton.classList.remove('telegram-theme');
-                questButton.classList.add('twitch-theme');
-                questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+                dom.fullName.textContent = userData.full_name;
+                if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
             }
-        }
 
-        // --- Котел (отдельный запрос, но не блокирующий критично) ---
-        // Делаем его тихим, чтобы не сбивать логику
-        fetch('/api/v1/events/cauldron/status', { headers: { 'X-Init-Data': Telegram.WebApp.initData } })
-            .then(res => res.json())
-            .then(eventData => {
-                const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
-                if (eventSlide) {
-                    const show = (eventData && eventData.is_visible_to_users) || (userData && userData.is_admin);
-                    eventSlide.style.display = show ? '' : 'none';
-                    if (show) {
-                        eventSlide.href = eventData.event_page_url || '/halloween';
-                        const img = eventSlide.querySelector('img');
-                        if (img && eventData.banner_image_url) img.src = eventData.banner_image_url;
-                    }
+            // --- Обработка меню и баннеров ---
+            renderWeeklyGoals(weeklyGoalsData);
+            if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
+                dom.weeklyGoalsAccordion.open = true;
+            }
+
+            if (menuContent) {
+                // Баннер недельных целей
+                if (menuContent.weekly_goals_banner_url) {
+                    const wImg = document.getElementById('weekly-goals-banner-img');
+                    if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
                 }
-                // Запускаем слайдер только после того, как разобрались с видимостью всех слайдов
-                setTimeout(() => setupSlider(), 0);
-            })
-            .catch(() => {
-                // Если ошибка, просто запускаем слайдер
-                setTimeout(() => setupSlider(), 0);
-            });
 
+                // Порядок слайдов
+                const sliderWrapper = document.querySelector('.slider-wrapper');
+                if (sliderWrapper && menuContent.slider_order) {
+                    menuContent.slider_order.forEach(slideId => {
+                        const slide = document.querySelector(`.slide[data-event="${slideId}"]`);
+                        if (slide) sliderWrapper.appendChild(slide);
+                    });
+                }
 
-        // --- Квесты и Челленджи ---
-        allQuests = questsDataResp || [];
-        
-        // Фильтр для рулетки
-        let activeQType = 'twitch'; 
-        // Повторяем логику определения типа (упрощенно, т.к. переменная выше локальная)
-        if (menuContent && menuContent.quest_schedule_override_enabled) activeQType = menuContent.quest_schedule_active_type;
-        else if (new Date().getDay() === 0 || new Date().getDay() === 1) activeQType = 'telegram';
-        
-        questsForRoulette = allQuests.filter(q => 
-            q.quest_type && q.quest_type.startsWith(`automatic_${activeQType}`) && !q.is_completed
-        );
+                // Баннеры (Гонка, Аукцион, Чекпоинт)
+                const setupSlide = (id, enabled, url, link) => {
+                    const slide = document.querySelector(`.slide[data-event="${id}"]`);
+                    if (slide) {
+                        const show = enabled || (userData && userData.is_admin);
+                        slide.style.display = show ? '' : 'none';
+                        if (show) {
+                            if (link) slide.href = link;
+                            if (url) {
+                                const img = document.getElementById(`${id}-banner-img`) || slide.querySelector('img');
+                                if (img) img.src = url;
+                            }
+                        }
+                    }
+                };
 
-        const activeAutomaticQuest = allQuests.find(q => q.id === userData.active_quest_id);
-        const questChooseWrapper = document.getElementById('quest-choose-wrapper');
-        if (questChooseWrapper) questChooseWrapper.classList.toggle('hidden', !!activeAutomaticQuest);
-        
-        if (activeAutomaticQuest) renderActiveAutomaticQuest(activeAutomaticQuest, userData);
-        else dom.activeAutomaticQuestContainer.innerHTML = '';
+                setupSlide('skin_race', menuContent.skin_race_enabled, menuContent.menu_banner_url);
+                setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || menuContent.auction_slide_data?.image_url, '/auction');
+                setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
 
-        if (dashboardData.challenge) renderChallenge(dashboardData.challenge, !userData.twitch_id);
-        else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+                // Кнопка Twitch/Telegram испытаний
+                let activeQuestType = 'twitch';
+                const day = new Date().getDay();
+                if (menuContent.quest_schedule_override_enabled) {
+                    activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
+                } else if (day === 0 || day === 1) {
+                    activeQuestType = 'telegram';
+                }
 
-        // --- 🔥 ВАЖНО: Обновляем цифры на Ярлыках (Магазин, Челленджи, Испытания) ---
-        updateShortcutStatuses(userData, allQuests);
+                const questButton = dom.questChooseBtn;
+                if (activeQuestType === 'telegram') {
+                    questButton.classList.remove('twitch-theme');
+                    questButton.classList.add('telegram-theme');
+                    questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
+                } else {
+                    questButton.classList.remove('telegram-theme');
+                    questButton.classList.add('twitch-theme');
+                    questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+                }
+            }
 
-        if (!localStorage.getItem('tutorialCompleted')) startTutorial();
-        if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
+            // --- Котел (данные уже пришли в bootstrap, запрос не нужен) ---
+            const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
+            if (eventSlide) {
+                const show = (cauldronData && cauldronData.is_visible_to_users) || (userData && userData.is_admin);
+                eventSlide.style.display = show ? '' : 'none';
+                if (show) {
+                    eventSlide.href = cauldronData.event_page_url || '/halloween';
+                    const img = eventSlide.querySelector('img');
+                    if (img && cauldronData.banner_image_url) img.src = cauldronData.banner_image_url;
+                }
+            }
+            // Запускаем слайдер
+            setTimeout(() => setupSlider(), 0);
 
-        // 3. ЛОГИКА ПЕРЕХОДА ПО ХЭШУ (#quests) ВНУТРИ ЕДИНОЙ ЗАГРУЗКИ
+            // --- Квесты и Челленджи ---
+            allQuests = questsDataResp || [];
+            
+            // Фильтр для рулетки
+            let activeQType = 'twitch'; 
+            if (menuContent && menuContent.quest_schedule_override_enabled) activeQType = menuContent.quest_schedule_active_type;
+            else if (new Date().getDay() === 0 || new Date().getDay() === 1) activeQType = 'telegram';
+            
+            questsForRoulette = allQuests.filter(q => 
+                q.quest_type && q.quest_type.startsWith(`automatic_${activeQType}`) && !q.is_completed
+            );
+
+            const activeAutomaticQuest = allQuests.find(q => q.id === userData.active_quest_id);
+            const questChooseWrapper = document.getElementById('quest-choose-wrapper');
+            if (questChooseWrapper) questChooseWrapper.classList.toggle('hidden', !!activeAutomaticQuest);
+            
+            if (activeAutomaticQuest) renderActiveAutomaticQuest(activeAutomaticQuest, userData);
+            else dom.activeAutomaticQuestContainer.innerHTML = '';
+
+            if (dashboardData.challenge) renderChallenge(dashboardData.challenge, !userData.twitch_id);
+            else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+
+            // Обновляем ярлыки
+            updateShortcutStatuses(userData, allQuests);
+
+            if (!localStorage.getItem('tutorialCompleted')) startTutorial();
+            if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
+
+            // Переход по хэшу #quests
             if (window.location.hash === '#quests') {
-                console.log("Обнаружен хэш #quests. Загружаем вкладку заданий без мигания...");
-                // Вызываем функцию с isSilent = true, так как спиннер еще висит
+                console.log("Обнаружен хэш #quests.");
                 await openQuestsTab(true);
-
-                // ОЧИЩАЕМ ХЭШ, чтобы не было зацикливания при вызове main() снова
                 history.replaceState(null, null, window.location.pathname + window.location.search);
             }
-    
+        
         } catch (e) {
             console.error("Критическая ошибка main:", e);
             dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки.</p>`;
         } finally {
-            // 4. СКРЫВАЕМ СПИННЕР ТОЛЬКО ОДИН РАЗ В САМОМ КОНЦЕ
             console.log("--- main() ЗАВЕРШЕНА. Скрываем лоадер. ---");
             dom.mainContent.classList.add('visible');
             dom.loaderOverlay.classList.add('hidden');
