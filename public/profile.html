@@ -798,86 +798,117 @@ try {
     }
 
     // --- MAIN ---
+    Вот полный исправленный код, начиная с функции main и до конца вашего блока.
+
+Я заменил блок ошибки if (!tg.initData) на экран успешной авторизации с кнопкой возврата, а остальной код оставил без изменений.
+
+Скопируйте этот код и замените им соответствующую часть в вашем скрипте:
+
+JavaScript
+
     async function main() {
-    if (!tg.initData) { 
-        document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Ошибка</h1><p>Запустите из Telegram.</p></div>`; 
-        hideLoader(); 
-        return; 
-    }
+        // --- ИСПРАВЛЕНИЕ: Экран успешной авторизации вместо ошибки ---
+        if (!tg.initData) {
+            document.body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 60px; color: var(--primary-color); margin-bottom: 20px;"></i>
+                    <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Авторизация успешна!</h1>
+                    <p style="color: var(--text-color-muted); font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
+                        Вы успешно привязали аккаунт.<br>Теперь можно вернуться в бота.
+                    </p>
+                    <button id="return-btn" style="background-color: var(--action-color); color: white; border: none; padding: 12px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 200px;">
+                        Вернуться в бота
+                    </button>
+                </div>
+            `;
+            
+            // Логика кнопки возврата
+            document.getElementById('return-btn').addEventListener('click', () => {
+                try {
+                    window.Telegram.WebApp.close();
+                } catch (e) {
+                    console.log('Не удалось закрыть окно программно');
+                }
+                window.location.href = "https://t.me/HATElavka_bot"; 
+            });
 
-    // --- ЛОГИКА ВОЗВРАТА В БОТА ---
-    // 1. Включаем нативную кнопку "Назад" в шапке Telegram
-    tg.BackButton.show();
-    tg.BackButton.onClick(() => {
-        tg.close();
-    });
+            hideLoader();
+            return; 
+        }
 
-    // 2. Если есть своя кнопка в HTML (например, id="home-btn"), оживляем её
-    const homeBtn = document.getElementById('home-btn'); // Или твой ID кнопки
-    if (homeBtn) {
-        homeBtn.addEventListener('click', () => {
+        // --- ЛОГИКА ВОЗВРАТА В БОТА ---
+        // 1. Включаем нативную кнопку "Назад" в шапке Telegram
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
             tg.close();
         });
-    }
 
-    showLoader();
-    try {
-        // 1. Используем BOOTSTRAP для получения User + Рефералы + Настройки
-        const bootstrapData = await makeApiRequest("/api/v1/bootstrap");
-
-        if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
-
-        // 2. Догружаем награды
-        const rewards = await makeApiRequest("/api/v1/user/rewards");
-        
-        // --- УСКОРЕННОЕ ОБНОВЛЕНИЕ БАЛАНСА ---
-        // Запускаем синхронизацию фоном. Как только придет ответ, обновляем UI точечно.
-        makeApiRequest("/api/v1/user/sync_balance", {}, 'POST')
-            .then(data => {
-                if (data && data.balance !== undefined) {
-                    console.log("Баланс обновлен:", data.balance);
-                    // Обновляем глобальные настройки
-                    if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
-                    // Ищем элемент баланса и обновляем текст (если есть класс .user-balance)
-                    const balanceEls = document.querySelectorAll('.user-balance');
-                    balanceEls.forEach(el => el.textContent = data.balance.toFixed(2)); 
-                }
-            })
-            .catch(e => console.warn("Ошибка синхронизации баланса:", e));
-
-        makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn(e));
-
-        // 3. Формируем данные
-        const userData = bootstrapData.user || {};
-        const settings = bootstrapData.menu || {};
-        
-        // Запрашиваем настройки уведомлений
-        const userSettings = await makeApiRequest("/api/v1/user/settings/get");
-
-        const fullUserData = { 
-            ...userData, 
-            ...settings, 
-            ...userSettings 
-        };
-
-        if (dom.profileName) {
-            dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+        // 2. Если есть своя кнопка в HTML (например, id="home-btn"), оживляем её
+        const homeBtn = document.getElementById('home-btn'); 
+        if (homeBtn) {
+            homeBtn.addEventListener('click', () => {
+                tg.close();
+            });
         }
-        window.currentUserSettings = fullUserData;
-        
-        // 4. Рендерим
-        renderSettingsList(fullUserData); 
-        renderRewards(rewards);
 
-    } catch (e) {
-        if (dom.rewardsList) {
-            dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
+        showLoader();
+        try {
+            // 1. Используем BOOTSTRAP для получения User + Рефералы + Настройки
+            const bootstrapData = await makeApiRequest("/api/v1/bootstrap");
+
+            if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
+
+            // 2. Догружаем награды
+            const rewards = await makeApiRequest("/api/v1/user/rewards");
+            
+            // --- УСКОРЕННОЕ ОБНОВЛЕНИЕ БАЛАНСА ---
+            // Запускаем синхронизацию фоном. Как только придет ответ, обновляем UI точечно.
+            makeApiRequest("/api/v1/user/sync_balance", {}, 'POST')
+                .then(data => {
+                    if (data && data.balance !== undefined) {
+                        console.log("Баланс обновлен:", data.balance);
+                        // Обновляем глобальные настройки
+                        if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
+                        // Ищем элемент баланса и обновляем текст (если есть класс .user-balance)
+                        const balanceEls = document.querySelectorAll('.user-balance');
+                        balanceEls.forEach(el => el.textContent = data.balance.toFixed(2)); 
+                    }
+                })
+                .catch(e => console.warn("Ошибка синхронизации баланса:", e));
+
+            makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(e => console.warn(e));
+
+            // 3. Формируем данные
+            const userData = bootstrapData.user || {};
+            const settings = bootstrapData.menu || {};
+            
+            // Запрашиваем настройки уведомлений
+            const userSettings = await makeApiRequest("/api/v1/user/settings/get");
+
+            const fullUserData = { 
+                ...userData, 
+                ...settings, 
+                ...userSettings 
+            };
+
+            if (dom.profileName) {
+                dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+            }
+            window.currentUserSettings = fullUserData;
+            
+            // 4. Рендерим
+            renderSettingsList(fullUserData); 
+            renderRewards(rewards);
+
+        } catch (e) {
+            if (dom.rewardsList) {
+                dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
+            }
+            console.error(e);
+        } finally { 
+            hideLoader(); 
         }
-        console.error(e);
-    } finally { 
-        hideLoader(); 
     }
-}
     // --- REFERRAL LOGIC ---
     function openRefModal(userData) {
         let refPayload = userData.telegram_id;
