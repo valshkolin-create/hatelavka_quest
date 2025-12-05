@@ -799,54 +799,66 @@ try {
 
     // --- MAIN ---
     async function main() {
-    // 1. ПРОВЕРКА НА REDIRECT (ПОСЛЕ АВТОРИЗАЦИИ)
-    // Если нет initData, значит мы вернулись после OAuth в браузере
+    // ------------------------------------------------------------------
+    // БЛОК 1: Если мы в браузере (после редиректа авторизации)
+    // ------------------------------------------------------------------
     if (!tg.initData) {
         document.body.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center;">
-                <i class="fa-solid fa-circle-check" style="font-size: 60px; color: var(--primary-color); margin-bottom: 20px;"></i>
-                <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Авторизация успешна!</h1>
-                <p style="color: var(--text-color-muted); font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
-                    Аккаунт успешно привязан.<br>Нажмите кнопку ниже, чтобы вернуться.
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background-color: #000; color: #fff;">
+                <i class="fa-solid fa-circle-check" style="font-size: 60px; color: #34c759; margin-bottom: 20px;"></i>
+                <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Успешно!</h1>
+                <p style="color: #b0b0b0; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
+                    Аккаунт привязан.<br>Нажмите кнопку, чтобы вернуться.
                 </p>
-                <button id="return-btn" style="background-color: var(--action-color); color: white; border: none; padding: 12px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 200px;">
-                    Вернуться в профиль
+                <button id="return-btn" style="background-color: #007aff; color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 240px; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">
+                    Вернуться в приложение
                 </button>
             </div>
         `;
         
+        // Логика кнопки возврата
         document.getElementById('return-btn').addEventListener('click', () => {
-            // Пытаемся закрыть окно, чтобы юзер открыл его заново (и данные обновились)
+            // 1. Сначала пытаемся просто закрыть это окно (идеально для внутриигрового браузера)
+            try { window.close(); } catch(e) {}
             try { window.Telegram.WebApp.close(); } catch (e) {}
-            // На всякий случай редирект, если открыто в браузере
-            window.location.href = "https://t.me/HATElavka_bot"; 
+
+            // 2. Если не закрылось — редиректим ПРЯМО В ПРИЛОЖЕНИЕ (Deep Link)
+            // Важно: /app в конце ссылки открывает Mini App, а не чат
+            setTimeout(() => {
+                window.location.href = "https://t.me/HATElavka_bot/app"; 
+            }, 100);
         });
+
         hideLoader();
         return; 
     }
 
-    // --- ЛОГИКА ОБЫЧНОГО ЗАПУСКА ---
+    // ------------------------------------------------------------------
+    // БЛОК 2: Основная логика приложения (внутри Telegram)
+    // ------------------------------------------------------------------
 
+    // Настройка кнопки Назад
     tg.BackButton.show();
     tg.BackButton.onClick(() => tg.close());
 
+    // Если есть кнопка "Домой" в HTML
     const homeBtn = document.getElementById('home-btn');
     if (homeBtn) homeBtn.addEventListener('click', () => tg.close());
 
-    // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ (REUSABLE) ---
-    // isSilent = true, чтобы не показывать спиннер при авто-обновлении
+    // --- Функция загрузки данных (чтобы вызывать её повторно) ---
+    // isSilent = true означает "не показывать спиннер загрузки"
     async function loadData(isSilent = false) {
         if (!isSilent) showLoader();
         
         try {
-            // 1. Загружаем основные данные
+            // 1. Основные данные (Bootstrap)
             const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
             if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
 
-            // 2. Загружаем награды
+            // 2. Награды
             const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
 
-            // 3. Синхронизируем баланс и рефералов (фоном)
+            // 3. Фоновое обновление баланса и рефералов
             if (!isSilent) {
                 makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true)
                     .then(data => {
@@ -861,13 +873,10 @@ try {
             // 4. Настройки уведомлений
             const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
 
-            // 5. Собираем всё вместе
-            const userData = bootstrapData.user || {};
-            const settings = bootstrapData.menu || {};
-            
+            // 5. Сборка объекта данных
             const fullUserData = { 
-                ...userData, 
-                ...settings, 
+                ...bootstrapData.user, 
+                ...bootstrapData.menu, 
                 ...userSettings 
             };
 
@@ -877,7 +886,7 @@ try {
             }
             window.currentUserSettings = fullUserData;
 
-            // 6. Рендерим интерфейс
+            // 6. ПЕРЕРИСОВКА ИНТЕРФЕЙСА (Самое важное для обновления кнопки Twitch)
             renderSettingsList(fullUserData); 
             renderRewards(rewards);
 
@@ -891,17 +900,16 @@ try {
         }
     }
 
-    // --- АВТО-ОБНОВЛЕНИЕ ПРИ ВОЗВРАТЕ ---
-    // Это ключевой момент: когда вкладка становится активной (юзер вернулся из браузера)
+    // --- МАГИЯ: Авто-обновление при возврате в приложение ---
+    // Это событие срабатывает, когда вы закрываете браузер (Twitch) и видите снова приложение
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            console.log('App active: refreshing data...');
-            // Загружаем данные "тихо" (без блокирующего спиннера), чтобы обновить интерфейс
-            loadData(true);
+            console.log('App returned to focus. Refreshing data...');
+            loadData(true); // true = тихое обновление без черного экрана загрузки
         }
     });
 
-    // Первичная загрузка
+    // Первичный запуск при открытии профиля
     await loadData(false);
 }
     // --- REFERRAL LOGIC ---
