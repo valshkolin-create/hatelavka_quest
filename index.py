@@ -8554,7 +8554,7 @@ async def save_balance_background(telegram_id: int, update_data: dict):
     except Exception as e:
         logging.error(f"[BG_SYNC] Ошибка фонового сохранения баланса: {e}")
 
-# --- ОПТИМИЗИРОВАННЫЙ ЭНДПОИНТ БАЛАНСА ---
+# --- ОПТИМИЗИРОВАННЫЙ ЭНДПОИНТ БАЛАНСА (БЫСТРОЕ ОБНОВЛЕНИЕ) ---
 @app.post("/api/v1/user/sync_balance")
 async def sync_user_balance(
     request_data: InitDataRequest,
@@ -8562,8 +8562,8 @@ async def sync_user_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    1. Если синхронизация была < 60 сек назад -> отдаем данные из БД (0.2s).
-    2. Если > 60 сек -> идем в Bot-t (1.5s) и сохраняем.
+    1. Если синхронизация была < 5 сек назад -> отдаем данные из БД (Мгновенно).
+    2. Если > 5 сек -> идем в Bot-t и обновляем (Актуально).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -8585,27 +8585,28 @@ async def sync_user_balance(
     if last_sync:
         try:
             last_sync_dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
-            # Если прошло меньше 60 секунд — НЕ обновляем
-            if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < 60:
+            # 🔥 ИЗМЕНЕНИЕ: Уменьшили кэш с 60 до 5 секунд для магазина
+            if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < 5:
                 should_refresh = False
         except ValueError:
-            pass # Ошибка парсинга даты, обновляем
+            pass 
 
-    # А. БЫСТРЫЙ ПУТЬ: Отдаем данные из базы
+    # А. БЫСТРЫЙ ПУТЬ: Отдаем данные из базы (если недавно обновляли)
     if not should_refresh:
-        # logging.info(f"⚡ [BALANCE] Отдаем из кэша БД для {telegram_id}")
         return {
             "bot_t_coins": user_data.get("bot_t_coins", 0),
             "bott_ref_id": user_data.get("bott_ref_id")
         }
 
-    # Б. МЕДЛЕННЫЙ ПУТЬ: Запрос к Bot-t (если кэш устарел)
+    # Б. МЕДЛЕННЫЙ ПУТЬ: Запрос к Bot-t (если кэш устарел > 5 сек)
     url = "https://api.bot-t.com/v1/module/bot/check-hash"
     payload = {"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}
 
     try:
         # Используем глобальный клиент
         client_to_use = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=10.0)
+        
+        # Если есть глобальный клиент, используем его, иначе создаем временный
         if global_shop_client:
              resp = await global_shop_client.post(url, json=payload)
         else:
@@ -8613,7 +8614,7 @@ async def sync_user_balance(
                  resp = await temp_client.post(url, json=payload)
         
         if resp.status_code != 200:
-            return {"bot_t_coins": user_data.get("bot_t_coins", 0)} # Возвращаем старое при ошибке
+            return {"bot_t_coins": user_data.get("bot_t_coins", 0)} 
 
         data = resp.json()
         response_data = data.get("data", {})
@@ -8621,7 +8622,7 @@ async def sync_user_balance(
         if not response_data:
              return {"bot_t_coins": user_data.get("bot_t_coins", 0)}
 
-        # Парсим
+        # Парсим данные
         internal_id = response_data.get("id")
         ref_id = None
         if response_data.get("user"):
@@ -8640,12 +8641,14 @@ async def sync_user_balance(
         if ref_id: update_data["bott_ref_id"] = ref_id
         if secret_key: update_data["bott_secret_key"] = secret_key
 
+        # Сохраняем в фоне, чтобы не задерживать ответ пользователю
         background_tasks.add_task(save_balance_background, telegram_id, update_data)
         
         return {"bot_t_coins": current_balance, "bott_ref_id": ref_id}
 
     except Exception as e:
         logging.error(f"[SYNC] Ошибка: {e}")
+        # При ошибке возвращаем старый баланс, чтобы интерфейс не ломался
         return {"bot_t_coins": user_data.get("bot_t_coins", 0)}
 
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
