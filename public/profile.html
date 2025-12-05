@@ -765,8 +765,18 @@ try {
         if (userData.twitch_login) {
             twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
         } else {
-            const authUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
-            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><a href="${authUrl}" class="settings-card-btn twitch">Привязать</a>`;
+            // --- ИСПРАВЛЕНИЕ: Формируем полный URL и используем openLink ---
+            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
+            
+            twitchCard.innerHTML = `
+                <div class="settings-card-info">
+                    <p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p>
+                    <span>Привяжите аккаунт</span>
+                    <span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>
+                </div>
+                <a href="#" onclick="Telegram.WebApp.openLink('${authUrl}'); return false;" class="settings-card-btn twitch">Привязать</a>
+            `;
+            // -------------------------------------------------------------
         }
         dom.settingsList.appendChild(twitchCard);
 
