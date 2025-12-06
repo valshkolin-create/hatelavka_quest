@@ -676,15 +676,13 @@
         // --- ОБНОВЛЕНИЕ БАЛАНСА ---
         let isBalanceLoading = false;
 
-        function checkBalance() {
+        function checkBalance(updateUI = true) {
             if (isBalanceLoading) return;
             isBalanceLoading = true;
             
-            // Запускаем анимацию кручения
             const icon = document.getElementById('refresh-icon');
             if (icon) icon.classList.add('spinning');
 
-            // Вызываем наш "Умный эндпоинт"
             fetch('/api/v1/shop/smart_balance', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -692,25 +690,26 @@
             })
             .then(r => r.json())
             .then(data => {
-                // Сервер вернул {"balance": 12345} (в копейках)
-                let coins = data.balance || 0; 
-                let displayBalance = (coins / 100).toFixed(0); // Переводим в рубли/целые
-                
-                const balanceEl = document.getElementById('user-balance');
-                if (balanceEl) {
-                    // Эффект обновления цифры
-                    balanceEl.style.opacity = '0.5';
-                    setTimeout(() => {
-                        balanceEl.textContent = displayBalance;
-                        balanceEl.style.opacity = '1';
-                    }, 150);
+                // ВНУТРИ обновляем только если updateUI === true
+                if (updateUI) {
+                    let coins = data.balance || 0; 
+                    let displayBalance = (coins / 100).toFixed(0);
+                    
+                    const balanceEl = document.getElementById('user-balance');
+                    if (balanceEl) {
+                        // Анимация мигания
+                        balanceEl.style.opacity = '0.5';
+                        setTimeout(() => {
+                            balanceEl.textContent = displayBalance;
+                            balanceEl.style.opacity = '1';
+                        }, 150);
+                    }
                 }
             })
             .catch(err => {
                 console.warn("Ошибка обновления баланса:", err);
             })
             .finally(() => {
-                // Останавливаем анимацию через 500мс (для красоты)
                 setTimeout(() => {
                     isBalanceLoading = false;
                     if (icon) icon.classList.remove('spinning');
@@ -718,39 +717,12 @@
             });
         }
         
-        // Эта функция вызывается при клике на плашку баланса
+        // Тут явно указываем true, чтобы при клике цифры менялись
         window.refreshBalance = function() {
-            // Вибрация (тактильный отклик)
             if(Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.impactOccurred('light');
             }
-            checkBalance();
-        }
-
-        async function initShop() {
-            updateNavState();
-            initPartnersScroll();
-            loadCategory(0); // Сразу грузим товары
-
-            // --- ВОТ ТУТ ГЛАВНОЕ ИЗМЕНЕНИЕ ---
-            // Мы больше не ждем /user/me. Мы сразу вызываем Smart Balance.
-            // Это запустит фоновое обновление в базе, даже если это первый вход.
-            checkBalance(); 
-
-            // Дополнительно можно получить trade_link, если нужно для покупок
-            try {
-                const userData = await fetch('/api/v1/user/me', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
-                }).then(r => r.json());
-
-                if (userData && userData.trade_link) {
-                    hasTradeLink = true;
-                }
-            } catch (e) {
-                console.log("Ошибка загрузки профиля (не критично для витрины):", e);
-            }
+            checkBalance(true); 
         }
 
         async function loadCategory(catId) {
@@ -1013,21 +985,22 @@
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
-        // --- ЗАПУСК ТОЛЬКО ПРИ СТАРТЕ ---
+       // --- ЗАПУСК ТОЛЬКО ПРИ СТАРТЕ ---
 
         // 1. Запускаем загрузку товаров
         initShop(); 
         
-        // 2. ПЕРВЫЙ ЗАПРОС: 
-        // Показывает старый кэш и заставляет сервер начать обновление в фоне
-        checkBalance();
+        // 2. ПЕРВЫЙ ЗАПРОС (Тихий): 
+        // false означает "не обновляй цифры на экране".
+        // Пользователь видит "...", пока сервер обновляет базу.
+        checkBalance(false);
 
-        // 3. ВТОРОЙ ЗАПРОС (Через 2.5 сек): 
-        // Автоматически подтягивает уже обновленные данные
+        // 3. ВТОРОЙ ЗАПРОС (Через 2.5 сек, Громкий): 
+        // true означает "покажи цифры".
+        // Забираем уже обновленные данные и показываем их.
         setTimeout(() => {
-            // Снимаем защиту от частого нажатия, чтобы авто-запрос точно прошел
             isBalanceLoading = false; 
-            checkBalance();
+            checkBalance(true); 
         }, 2500);
     </script>
 </body>
