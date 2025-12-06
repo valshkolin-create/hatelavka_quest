@@ -551,6 +551,39 @@
             color: #34c759;
             text-shadow: 0 0 10px rgba(52, 199, 89, 0.4);
         }
+        /* --- ОКНО ЗАГРУЗКИ ПОКУПКИ --- */
+        .purchase-loader {
+            position: fixed;
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7); /* Темный фон */
+            backdrop-filter: blur(5px);     /* Размытие фона */
+            z-index: 10000;                 /* Поверх всего */
+            display: none;                  /* Скрыто по умолчанию */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        
+        .purchase-loader.active {
+            display: flex;
+        }
+
+        .loader-spinner {
+            font-size: 40px;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            animation: spin 1s linear infinite;
+        }
+        
+        .loader-text {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body>
@@ -636,6 +669,11 @@
             <span>Аукцион</span>
         </a>
     </footer>
+
+    <div id="purchase-loader" class="purchase-loader">
+        <i class="fa-solid fa-circle-notch loader-spinner"></i>
+        <div class="loader-text">Оформляем покупку...</div>
+    </div>
 
     <script>
         Telegram.WebApp.ready();
@@ -987,7 +1025,12 @@
 
             Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звезд?`, (ok) => {
                 if(ok) {
-                    Telegram.WebApp.MainButton.showProgress();
+                    // 1. ВКЛЮЧАЕМ БЛОКИРОВКУ ЭКРАНА
+                    const loader = document.getElementById('purchase-loader');
+                    loader.classList.add('active');
+                    
+                    // (Опционально) Можно оставить и нативный спиннер кнопки, но оверлей важнее
+                    // Telegram.WebApp.MainButton.showProgress(); 
                     
                     fetch('/api/v1/shop/buy', {
                         method: 'POST',
@@ -1002,12 +1045,12 @@
                     })
                     .then(res => res.json().then(data => ({ status: res.status, body: data })))
                     .then(({ status, body }) => {
-                        Telegram.WebApp.MainButton.hideProgress();
                         if (status !== 200) {
                             Telegram.WebApp.showAlert(body.detail || "Ошибка при покупке");
                         } else {
                             Telegram.WebApp.showAlert("✅ Покупка успешна! Товар выдан.");
                             delete itemsCache[currentCategoryId];
+                            
                             // Обновляем баланс локально
                             let currentBal = parseFloat(document.getElementById('user-balance').textContent);
                             if (!isNaN(currentBal)) {
@@ -1017,8 +1060,12 @@
                         }
                     })
                     .catch(err => {
-                        Telegram.WebApp.MainButton.hideProgress();
                         Telegram.WebApp.showAlert("Ошибка соединения");
+                    })
+                    .finally(() => {
+                        // 2. ВЫКЛЮЧАЕМ БЛОКИРОВКУ (И при успехе, и при ошибке)
+                        loader.classList.remove('active');
+                        // Telegram.WebApp.MainButton.hideProgress();
                     });
                 }
             });
