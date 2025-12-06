@@ -1014,25 +1014,37 @@
         }
 
         window.buyItem = function(id, price, name, imageUrl) {
-            if (!hasTradeLink) {
-                Telegram.WebApp.showPopup({
-                    title: 'Нет трейд-ссылки',
-                    message: 'Для покупки укажите трейд-ссылку в профиле (Меню -> Профиль).',
-                    buttons: [{type: 'ok'}]
-                });
-                return;
-            }
+            // 1. Сначала спрашиваем подтверждение
+            Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звезд?`, async (ok) => {
+                if (!ok) return;
 
-            Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звезд?`, (ok) => {
-                if(ok) {
-                    // 1. ВКЛЮЧАЕМ БЛОКИРОВКУ ЭКРАНА
-                    const loader = document.getElementById('purchase-loader');
-                    loader.classList.add('active');
-                    
-                    // (Опционально) Можно оставить и нативный спиннер кнопки, но оверлей важнее
-                    // Telegram.WebApp.MainButton.showProgress(); 
-                    
-                    fetch('/api/v1/shop/buy', {
+                // 2. ВКЛЮЧАЕМ БЛОКИРОВКУ ЭКРАНА (сразу, чтобы не тыкали)
+                const loader = document.getElementById('purchase-loader');
+                if (loader) loader.classList.add('active');
+
+                try {
+                    // 3. ПРОВЕРЯЕМ ССЫЛКУ СВЕЖИМ ЗАПРОСОМ (самый надежный способ)
+                    // Мы не верим переменной hasTradeLink, мы верим базе данных прямо сейчас.
+                    const userCheckResp = await fetch('/api/v1/user/me', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ initData: Telegram.WebApp.initData })
+                    });
+                    const userData = await userCheckResp.json();
+
+                    // Если ссылки нет в базе - останавливаемся
+                    if (!userData || !userData.trade_link) {
+                        if (loader) loader.classList.remove('active'); // Убираем лоадер
+                        Telegram.WebApp.showPopup({
+                            title: 'Нет трейд-ссылки',
+                            message: 'Система не видит вашу трейд-ссылку. Пожалуйста, укажите её в Профиле и попробуйте снова.',
+                            buttons: [{type: 'ok'}]
+                        });
+                        return; 
+                    }
+
+                    // 4. ЕСЛИ ССЫЛКА ЕСТЬ — ДЕЛАЕМ ПОКУПКУ
+                    const buyResp = await fetch('/api/v1/shop/buy', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ 
@@ -1042,31 +1054,31 @@
                             title: name,
                             image_url: imageUrl
                         })
-                    })
-                    .then(res => res.json().then(data => ({ status: res.status, body: data })))
-                    .then(({ status, body }) => {
-                        if (status !== 200) {
-                            Telegram.WebApp.showAlert(body.detail || "Ошибка при покупке");
-                        } else {
-                            Telegram.WebApp.showAlert("✅ Покупка успешна! Товар выдан.");
-                            delete itemsCache[currentCategoryId];
-                            
-                            // Обновляем баланс локально
-                            let currentBal = parseFloat(document.getElementById('user-balance').textContent);
-                            if (!isNaN(currentBal)) {
-                                document.getElementById('user-balance').textContent = (currentBal - price).toFixed(0);
-                            }
-                            initShop(); // Перезагружаем контент
-                        }
-                    })
-                    .catch(err => {
-                        Telegram.WebApp.showAlert("Ошибка соединения");
-                    })
-                    .finally(() => {
-                        // 2. ВЫКЛЮЧАЕМ БЛОКИРОВКУ (И при успехе, и при ошибке)
-                        loader.classList.remove('active');
-                        // Telegram.WebApp.MainButton.hideProgress();
                     });
+
+                    const resData = await buyResp.json();
+
+                    if (buyResp.status !== 200) {
+                        Telegram.WebApp.showAlert(resData.detail || "Ошибка при покупке");
+                    } else {
+                        Telegram.WebApp.showAlert("✅ Покупка успешна! Товар выдан.");
+                        
+                        // Чистим кэш и обновляем баланс (визуально)
+                        delete itemsCache[currentCategoryId];
+                        let currentBal = parseFloat(document.getElementById('user-balance').textContent);
+                        if (!isNaN(currentBal)) {
+                            document.getElementById('user-balance').textContent = (currentBal - price).toFixed(0);
+                        }
+                        // Перезагружаем категорию
+                        initShop(); 
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    Telegram.WebApp.showAlert("Ошибка соединения или сервера");
+                } finally {
+                    // 5. ВЫКЛЮЧАЕМ ЛОАДЕР (в любом случае - успех или ошибка)
+                    if (loader) loader.classList.remove('active');
                 }
             });
         }
