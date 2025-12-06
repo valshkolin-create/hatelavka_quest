@@ -3340,8 +3340,8 @@ async def user_heartbeat(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    💓 Супер-легкий пинг.
-    Используется для обновления баланса в фоне вместо тяжелого /user/me.
+    💓 Расширенный пинг.
+    Возвращает баланс + прогресс активного квеста и челленджа.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -3349,24 +3349,68 @@ async def user_heartbeat(
     
     telegram_id = user_info["id"]
 
-    # Выбираем ТОЛЬКО то, что может измениться в фоне: монеты, билеты, статус
-    resp = await supabase.get(
-        "/users",
-        params={
-            "telegram_id": f"eq.{telegram_id}", 
-            "select": "coins, tickets, bot_t_coins, is_bot_active"
+    try:
+        # 1. Запрашиваем данные пользователя (баланс + активный квест)
+        # Предполагаем, что quest_progress хранится в users (как в renderActiveAutomaticQuest)
+        # Если прогресс в отдельной таблице, нужно адаптировать, но судя по коду JS - он в users.
+        user_task = supabase.get(
+            "/users",
+            params={
+                "telegram_id": f"eq.{telegram_id}", 
+                "select": "coins, tickets, bot_t_coins, is_bot_active, active_quest_id, active_quest_progress"
+            }
+        )
+
+        # 2. Запрашиваем активный челлендж (pending)
+        challenge_task = supabase.get(
+            "/user_challenges",
+            params={
+                "user_id": f"eq.{telegram_id}",
+                "status": "eq.pending",
+                "select": "progress_value, challenge:challenges(target_value)",
+                "limit": 1
+            }
+        )
+
+        # Выполняем параллельно для скорости
+        user_resp, challenge_resp = await asyncio.gather(user_task, challenge_task)
+
+        if not user_resp.json():
+            return {"is_active": False}
+
+        user_data = user_resp.json()[0]
+        
+        # Формируем ответ
+        response = {
+            "coins": user_data.get("coins", 0),
+            "tickets": user_data.get("tickets", 0),
+            "bot_t_coins": user_data.get("bot_t_coins", 0),
+            "is_bot_active": user_data.get("is_bot_active", False),
+            
+            # Данные квеста
+            "quest_id": user_data.get("active_quest_id"),
+            "quest_progress": user_data.get("active_quest_progress", 0),
+            
+            # Данные челленджа (по умолчанию пусто)
+            "challenge_progress": 0,
+            "challenge_target": 1,
+            "has_active_challenge": False
         }
-    )
-    
-    if resp.json():
-        data = resp.json()[0]
-        return {
-            "coins": data.get("coins", 0),
-            "tickets": data.get("tickets", 0),
-            "bot_t_coins": data.get("bot_t_coins", 0),
-            "is_bot_active": data.get("is_bot_active", False)
-        }
-    return {"is_active": False}
+
+        # Если есть активный челлендж, добавляем его данные
+        challenge_data = challenge_resp.json()
+        if challenge_data:
+            ch = challenge_data[0]
+            response["has_active_challenge"] = True
+            response["challenge_progress"] = ch.get("progress_value", 0)
+            if ch.get("challenge"):
+                response["challenge_target"] = ch["challenge"].get("target_value", 1)
+
+        return response
+
+    except Exception as e:
+        logging.error(f"Heartbeat error: {e}")
+        return {"is_active": False}
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
