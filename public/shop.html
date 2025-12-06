@@ -1014,6 +1014,33 @@
         }
 
         initShop();
+
+        // --- АВТО-ОБНОВЛЕНИЕ ПРИ ВОЗВРАЩЕНИИ В ПРИЛОЖЕНИЕ ---
+        
+        // 1. Слушаем событие Telegram "activated" (когда приложение разворачивается)
+        Telegram.WebApp.onEvent('activated', function() {
+            // Сбрасываем флаг загрузки, чтобы точно разрешить запрос
+            isBalanceLoading = false; 
+            checkBalance();
+        });
+
+        // 2. Слушаем стандартное событие браузера (фокус окна)
+        // Это помогает, если юзер переключался между чатами
+        window.addEventListener('focus', function() {
+            // Небольшая задержка, чтобы база успела обновиться после транзакции
+            setTimeout(() => {
+                isBalanceLoading = false;
+                checkBalance();
+            }, 100); 
+        });
+        
+        // 3. Дополнительно обновляем при изменении видимости
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                isBalanceLoading = false;
+                checkBalance();
+            }
+        });
     </script>
 </body>
 </html>
