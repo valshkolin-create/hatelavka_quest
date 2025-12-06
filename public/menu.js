@@ -1009,25 +1009,91 @@ function renderChallenge(challengeData, isGuest) {
     
     async function refreshDataSilently() {
         try {
-            // ИСПОЛЬЗУЕМ HEARTBEAT ВМЕСТО USER/ME
-            // Это легкий запрос (50мс), который обновляет только баланс
+            // Запрашиваем расширенный heartbeat
             const hbData = await makeApiRequest("/api/v1/user/heartbeat", {}, 'POST', true);
             
             if (hbData) {
-                // Если бот выключен глобально (сон)
+                // 1. Если бот выключен глобально
                 if (hbData.is_active === false) return;
 
-                // Обновляем баланс в UI
+                // 2. Обновляем баланс
                 if (hbData.tickets !== undefined) {
-                    document.getElementById('ticketStats').textContent = hbData.tickets;
+                    const ticketEl = document.getElementById('ticketStats');
+                    if (ticketEl) ticketEl.textContent = hbData.tickets;
                 }
                 
-                // Если нужны глубокие обновления (например, таймер квеста закончился),
-                // можно вызвать полный user/me редко, но для интервала 30сек heartbeat идеален.
-                
-                // Важно: так как heartbeat не возвращает quests/challenges, мы не перерисовываем
-                // карточки квестов в цикле. Это экономит ресурсы.
-                // Карточки обновятся, если пользователь нажмет кнопку или перезагрузит страницу.
+                // 3. Обновляем прогресс АВТОМАТИЧЕСКОГО КВЕСТА
+                // Ищем контейнер активного квеста
+                const activeQuestContainer = document.getElementById('active-automatic-quest-container');
+                if (activeQuestContainer && hbData.quest_id) {
+                    // Находим внутри полоску прогресса и текст
+                    const fill = activeQuestContainer.querySelector('.progress-fill');
+                    const textSpan = activeQuestContainer.querySelector('.progress-text');
+                    const claimBtn = activeQuestContainer.querySelector('.claim-reward-button'); // Если кнопка уже есть (или должна появиться)
+
+                    if (fill && textSpan) {
+                        // Нам нужно знать target квеста. В heartbeat мы его не передаем для экономии, 
+                        // поэтому берем из текущего текста DOM (например "5 / 10")
+                        const currentText = textSpan.textContent; // "5 / 10"
+                        const parts = currentText.split('/');
+                        if (parts.length === 2) {
+                            const target = parseInt(parts[1].trim());
+                            const progress = hbData.quest_progress;
+                            
+                            // Обновляем текст и ширину
+                            textSpan.textContent = `${progress} / ${target}`;
+                            const percent = Math.min(100, (progress / target) * 100);
+                            fill.style.width = `${percent}%`;
+
+                            // Если квест выполнен, но кнопки "Забрать" еще нет -> перезагружаем интерфейс мягко
+                            if (progress >= target && !claimBtn) {
+                                console.log("Квест выполнен в фоне! Обновляем UI...");
+                                // Можно вызвать main(), но чтобы не моргало, лучше просто обновить эту секцию
+                                // Для простоты вызовем main() или просто оставим как есть, 
+                                // пользователь увидит кнопку при следующем действии.
+                                // Но лучше всего принудительно обновить данные:
+                                userData.active_quest_progress = progress; // Обновляем локальную переменную
+                                const questObj = allQuests.find(q => q.id === hbData.quest_id);
+                                if (questObj) renderActiveAutomaticQuest(questObj, userData);
+                            }
+                        }
+                    }
+                }
+
+                // 4. Обновляем прогресс ЧЕЛЛЕНДЖА
+                const challengeContainer = document.getElementById('challenge-container');
+                if (challengeContainer && hbData.has_active_challenge) {
+                    const fill = challengeContainer.querySelector('.progress-fill');
+                    const textSpan = challengeContainer.querySelector('.progress-text');
+                    const claimBtn = challengeContainer.querySelector('#claim-challenge-btn');
+
+                    if (fill && textSpan) {
+                        const progress = hbData.challenge_progress;
+                        const target = hbData.challenge_target;
+                        
+                        // Определяем, есть ли иконка в тексте (💬 или ✉️)
+                        let prefix = "";
+                        const currentText = textSpan.textContent;
+                        if (currentText.includes("💬")) prefix = "💬 ";
+                        if (currentText.includes("✉️")) prefix = "✉️ ";
+                        if (currentText.includes("мин.")) prefix = ""; // Обработка минут сложнее, оставим стандарт
+
+                        // Обновляем
+                        textSpan.textContent = `${prefix}${progress} / ${target}`;
+                        const percent = Math.min(100, (progress / target) * 100);
+                        fill.style.width = `${percent}%`;
+
+                        // Если выполнено, но кнопка заблокирована или её нет
+                        if (progress >= target) {
+                             if (!claimBtn || claimBtn.disabled) {
+                                 console.log("Челлендж выполнен в фоне! Перерисовываем...");
+                                 // Обновляем локальные данные для рендера
+                                 userData.challenge.progress_value = progress;
+                                 renderChallenge(userData.challenge, false);
+                             }
+                        }
+                    }
+                }
             }
         } catch (e) {
             console.error("Ошибка фонового обновления:", e);
@@ -2238,7 +2304,7 @@ async function renderFullInterface(bootstrapData) {
     
     setupEventListeners();
     main();
-    setInterval(refreshDataSilently, 30000);
+    setInterval(refreshDataSilently, 7000);
 
 } catch (e) {
     document.getElementById('loader-overlay')?.classList.add('hidden');
