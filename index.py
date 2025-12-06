@@ -3340,8 +3340,10 @@ async def user_heartbeat(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    💓 Расширенный пинг.
-    Возвращает баланс + прогресс активного квеста и челленджа.
+    💓 Heartbeat v3 (Final):
+    1. Баланс из users.
+    2. Квесты из user_quest_progress (current_progress).
+    3. Челленджи из user_challenges (progress_value).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -3350,18 +3352,28 @@ async def user_heartbeat(
     telegram_id = user_info["id"]
 
     try:
-        # 1. Запрашиваем данные пользователя (баланс + активный квест)
-        # Предполагаем, что quest_progress хранится в users (как в renderActiveAutomaticQuest)
-        # Если прогресс в отдельной таблице, нужно адаптировать, но судя по коду JS - он в users.
+        # 1. Основные данные юзера (баланс + ID активного квеста)
         user_task = supabase.get(
             "/users",
             params={
                 "telegram_id": f"eq.{telegram_id}", 
-                "select": "coins, tickets, bot_t_coins, is_bot_active, active_quest_id, active_quest_progress"
+                "select": "coins, tickets, bot_t_coins, is_bot_active, active_quest_id"
             }
         )
 
-        # 2. Запрашиваем активный челлендж (pending)
+        # 2. Прогресс квеста (user_quest_progress)
+        quest_progress_task = supabase.get(
+            "/user_quest_progress",
+            params={
+                "user_id": f"eq.{telegram_id}",
+                "claimed_at": "is.null",
+                "select": "quest_id, current_progress",
+                "limit": 1
+            }
+        )
+
+        # 3. Активный челлендж (user_challenges)
+        # Ищем статус 'pending' и забираем progress_value
         challenge_task = supabase.get(
             "/user_challenges",
             params={
@@ -3372,44 +3384,59 @@ async def user_heartbeat(
             }
         )
 
-        # Выполняем параллельно для скорости
-        user_resp, challenge_resp = await asyncio.gather(user_task, challenge_task)
+        # Выполняем 3 запроса параллельно
+        user_resp, q_prog_resp, ch_resp = await asyncio.gather(user_task, quest_progress_task, challenge_task)
 
-        if not user_resp.json():
+        if user_resp.status_code != 200:
+            logging.error(f"Heartbeat DB Error: {user_resp.text}")
             return {"is_active": False}
 
-        user_data = user_resp.json()[0]
+        user_data_list = user_resp.json()
+        if not user_data_list:
+            return {"is_active": False}
         
-        # Формируем ответ
+        user_data = user_data_list[0]
+        
+        # Собираем ответ
         response = {
             "coins": user_data.get("coins", 0),
             "tickets": user_data.get("tickets", 0),
             "bot_t_coins": user_data.get("bot_t_coins", 0),
             "is_bot_active": user_data.get("is_bot_active", False),
             
-            # Данные квеста
             "quest_id": user_data.get("active_quest_id"),
-            "quest_progress": user_data.get("active_quest_progress", 0),
+            "quest_progress": 0, 
             
-            # Данные челленджа (по умолчанию пусто)
+            "has_active_challenge": False,
             "challenge_progress": 0,
-            "challenge_target": 1,
-            "has_active_challenge": False
+            "challenge_target": 1
         }
 
-        # Если есть активный челлендж, добавляем его данные
-        challenge_data = challenge_resp.json()
-        if challenge_data:
-            ch = challenge_data[0]
-            response["has_active_challenge"] = True
-            response["challenge_progress"] = ch.get("progress_value", 0)
-            if ch.get("challenge"):
-                response["challenge_target"] = ch["challenge"].get("target_value", 1)
+        # Данные квеста
+        if q_prog_resp.status_code == 200:
+            q_data = q_prog_resp.json()
+            if q_data:
+                progress_record = q_data[0]
+                # Сверяем ID, чтобы не показать прогресс от старого/отмененного квеста
+                if response["quest_id"] and progress_record.get("quest_id") == response["quest_id"]:
+                    response["quest_progress"] = progress_record.get("current_progress", 0)
+
+        # Данные челленджа
+        if ch_resp.status_code == 200:
+            ch_data = ch_resp.json()
+            if ch_data:
+                ch = ch_data[0]
+                response["has_active_challenge"] = True
+                response["challenge_progress"] = ch.get("progress_value", 0) # Вот оно, твое поле!
+                
+                # Получаем цель (target) из связанной таблицы challenges
+                if ch.get("challenge"):
+                    response["challenge_target"] = ch["challenge"].get("target_value", 1)
 
         return response
 
     except Exception as e:
-        logging.error(f"Heartbeat error: {e}")
+        logging.error(f"Heartbeat crash: {e}")
         return {"is_active": False}
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
