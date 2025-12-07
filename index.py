@@ -7543,12 +7543,12 @@ async def get_user_weekly_goals(
 
     try:
         # 1. Проверяем, включена ли система
-        admin_settings = await get_admin_settings_async_global() # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
+        admin_settings = await get_admin_settings_async_global()
         
         # --- 🔽 ИЗМЕНЕННАЯ ЛОГИКА 🔽 ---
         # Прячем, только если (система выключена И пользователь НЕ админ)
         if not admin_settings.weekly_goals_enabled and not is_admin:
-            return {"system_enabled": False, "goals": []} # <-- Теперь это SOFT STOP
+            return {"system_enabled": False, "goals": []} # <-- SOFT STOP
         # --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
 
         # 2. Вызываем RPC-функцию, которая соберет все данные
@@ -7558,11 +7558,10 @@ async def get_user_weekly_goals(
         )
         response.raise_for_status()
         
-        # RPC вернет готовый JSON (он может быть пуст, если week_id не совпали)
+        # RPC вернет готовый JSON
         data = response.json()
         
-        # (v3) Передаем в data, включена ли система
-        # (Клиентский код `menu (2).js` уже умеет это обрабатывать)
+        # Передаем в data, включена ли система
         data["system_enabled"] = admin_settings.weekly_goals_enabled
         return data
 
