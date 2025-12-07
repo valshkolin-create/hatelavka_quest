@@ -3300,16 +3300,25 @@ async def get_current_user_data(request_data: InitDataRequest):
                 final_response['bott_ref_id'] = user_extra.data[0].get('bott_ref_id')
                 final_response['referrer_id'] = user_extra.data[0].get('referrer_id')
 
-            # ✅ ВОЗВРАЩАЕМ ПОДСЧЕТ (чтобы бонусы на странице Events работали корректно)
+          # 🚀 ВАРИАНТ 2: Берем готовое число из колонки (Мгновенно)
             try:
-                count_resp = supabase.table("users") \
-                    .select("telegram_id", count="exact") \
-                    .eq("referrer_id", telegram_id) \
-                    .not_.is_("referral_activated_at", "null") \
+                # В запросе получения юзера добавьте 'referrals_count' в select
+                # Например: supabase.rpc("get_user_dashboard_data", ...).select("..., referrals_count")
+                
+                # Или отдельным сверх-быстрым запросом:
+                ref_resp = await supabase.table("users") \
+                    .select("referrals_count") \
+                    .eq("telegram_id", telegram_id) \
                     .execute()
-                final_response['active_referrals_count'] = count_resp.count or 0
-            except Exception as count_e:
-                logging.warning(f"Ошибка подсчета рефералов: {count_e}")
+                
+                if ref_resp.data:
+                    # Передаем это число на фронтенд как active_referrals_count
+                    final_response['active_referrals_count'] = ref_resp.data[0].get('referrals_count', 0)
+                else:
+                    final_response['active_referrals_count'] = 0
+                    
+            except Exception as e:
+                logging.warning(f"Ошибка получения referrals_count: {e}")
                 final_response['active_referrals_count'] = 0
         # ------------------------------------------------
 
