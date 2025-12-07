@@ -3300,26 +3300,24 @@ async def get_current_user_data(request_data: InitDataRequest):
                 final_response['bott_ref_id'] = user_extra.data[0].get('bott_ref_id')
                 final_response['referrer_id'] = user_extra.data[0].get('referrer_id')
 
-          # 🚀 ВАРИАНТ 2: Берем готовое число из колонки (Мгновенно)
-            try:
-                # Или отдельным сверх-быстрым запросом:
-                ref_resp = await supabase.table("users") \
-                    .select("referrals_count") \
-                    .eq("telegram_id", telegram_id) \
-                    .execute()
-                
-                if ref_resp.data:
-                    # Передаем это число на фронтенд как active_referrals_count
-                    final_response['active_referrals_count'] = ref_resp.data[0].get('referrals_count', 0)
-                else:
-                    final_response['active_referrals_count'] = 0
-                    
-            except Exception as e:
-                logging.warning(f"Ошибка получения referrals_count: {e}")
-                final_response['active_referrals_count'] = 0
+            # 🛑 ОПТИМИЗАЦИЯ: Убрали тяжелый запрос count="exact".
+            # Подсчет рефералов каждый раз при обновлении профиля убивает базу.
+            # Эти данные теперь должны приходить только при старте через /bootstrap.
+            # Для /user/me ставим заглушку 0, чтобы не ломать фронтенд.
+            final_response['active_referrals_count'] = 0 
+            
+            # Если нужно вернуть старый код, раскомментируйте строки ниже:
+            # count_resp = supabase.table("users") \
+            #     .select("telegram_id", count="exact") \
+            #     .eq("referrer_id", telegram_id) \
+            #     .not_.is_("referral_activated_at", "null") \
+            #     .execute()
+            # final_response['active_referrals_count'] = count_resp.count or 0
+            
+        except Exception as e:
+            logging.warning(f"Error fetching extra bonus data: {e}")
+            final_response['active_referrals_count'] = 0
         # ------------------------------------------------
-
-        
 
         # Настройки (используем кэшированные)
         admin_settings = await get_admin_settings_async_global()
@@ -4055,7 +4053,7 @@ async def contribute_to_cauldron(
              raise HTTPException(status_code=400, detail="Пожалуйста, укажите вашу трейд-ссылку в профиле для участия.")
         # --- КОНЕЦ ПРОВЕРКИ ---
 
-        # Вызываем RPC функцию в Supabase
+        # Вызываем RPC функцию в Supabase, которая атомарно выполнит все действия
         response = await supabase.post(
             "/rpc/contribute_to_cauldron",
             json={
@@ -4088,11 +4086,13 @@ async def contribute_to_cauldron(
             "message": "Ваш вклад принят!",
             "new_progress": new_progress,
             "new_ticket_balance": new_ticket_balance
-        }
-
+}
+    # --- 👇 ВОТ СЮДА ВСТАВЬТЕ НОВЫЙ БЛОК ---
     except HTTPException as e:
-        # Этот блок перехватит нашу ошибку о трейд-ссылке
+        # Этот блок перехватит нашу ошибку о трейд-ссылке и отправит её клиенту как есть,
+        # не давая ей "провалиться" в общий обработчик Exception ниже.
         raise e
+    # --- 👆 КОНЕЦ НОВОГО БЛОКА ---
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Ошибка на стороне базы данных.")
         raise HTTPException(status_code=400, detail=error_details)
@@ -7540,12 +7540,12 @@ async def get_user_weekly_goals(
 
     try:
         # 1. Проверяем, включена ли система
-        admin_settings = await get_admin_settings_async_global()
+        admin_settings = await get_admin_settings_async_global() # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
         
         # --- 🔽 ИЗМЕНЕННАЯ ЛОГИКА 🔽 ---
         # Прячем, только если (система выключена И пользователь НЕ админ)
         if not admin_settings.weekly_goals_enabled and not is_admin:
-            return {"system_enabled": False, "goals": []} # <-- SOFT STOP
+            return {"system_enabled": False, "goals": []} # <-- Теперь это SOFT STOP
         # --- 🔼 КОНЕЦ ИЗМЕНЕНИЯ 🔼 ---
 
         # 2. Вызываем RPC-функцию, которая соберет все данные
@@ -7555,16 +7555,18 @@ async def get_user_weekly_goals(
         )
         response.raise_for_status()
         
-        # RPC вернет готовый JSON
+        # RPC вернет готовый JSON (он может быть пуст, если week_id не совпали)
         data = response.json()
         
-        # Передаем в data, включена ли система
+        # (v3) Передаем в data, включена ли система
+        # (Клиентский код `menu (2).js` уже умеет это обрабатывать)
         data["system_enabled"] = admin_settings.weekly_goals_enabled
         return data
 
     except Exception as e:
         logging.error(f"Ошибка в get_user_weekly_goals: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить недельные задачи.")
+
 
 # (Найди эту функцию в index (1).py и ЗАМЕНИ ее)
 @app.post("/api/v1/user/weekly_goals/claim_task")
@@ -8125,6 +8127,71 @@ async def issue_twitch_reward_tickets(
     except Exception as e:
         logging.error(f"Ошибка при выдаче билетов за Twitch награду: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выдать награду.")
+
+# 2. ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ send_approval_notification НА ЭТУ:
+async def send_approval_notification(user_id: int, quest_title: str, promo_code: str):
+    """Отправляет уведомление об одобрении заявки в фоне."""
+    try:
+        safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
+        activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
+        notification_text = (
+            f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
+            f"Скопируй промокод и используй его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
+            f"Твой промокод:\n<code>{promo_code}</code>"
+        )
+        
+        # --- ИЗМЕНЕНИЕ: Добавлена кнопка подтверждения ---
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
+            [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
+        ])
+
+        await safe_send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
+    except Exception as e:
+        logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
+
+@router.callback_query(F.data.startswith("confirm_reward:"))
+async def handle_confirm_reward(
+    callback: types.CallbackQuery,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Обрабатывает кнопку 'подтвердить и удалить' для наград.
+    Удаляет запись из БД и обновляет сообщение.
+    """
+    try:
+        parts = callback.data.split(":")
+        if len(parts) != 3:
+            await callback.answer("Ошибка: неверные данные.", show_alert=True)
+            return
+
+        action, reward_type, reward_identifier = parts
+
+        if reward_type == "promocode":
+            # Удаляем промокод, так как он больше не нужен пользователю в списке
+            await supabase.delete(
+                "/promocodes",
+                params={"code": f"eq.{reward_identifier}"}
+            )
+            
+            await callback.bot.edit_message_text(
+                chat_id=callback.from_user.id,
+                message_id=callback.message.message_id,
+                text=f"✅ <b>Награда подтверждена и удалена из вашего списка.</b>\n\nКод был: <code>{html_decoration.quote(reward_identifier)}</code>",
+                reply_markup=None # Убираем кнопки
+            )
+            
+            await callback.answer("Промокод удален из вашего списка.")
+        else:
+            await callback.answer(f"Неизвестный тип награды: {reward_type}", show_alert=True)
+
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Ошибка Supabase при подтверждении награды: {e.response.text}")
+        await callback.answer("Ошибка базы данных. Попробуйте позже.", show_alert=True)
+    except Exception as e:
+        logging.error(f"Ошибка при обработке подтверждения награды: {e}", exc_info=True)
+        await callback.answer("Произошла непредвиденная ошибка.", show_alert=True)
 
 @app.post("/api/v1/admin/twitch_rewards/purchases/delete_all")
 async def delete_all_twitch_reward_purchases(
