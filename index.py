@@ -3302,9 +3302,6 @@ async def get_current_user_data(request_data: InitDataRequest):
 
           # 🚀 ВАРИАНТ 2: Берем готовое число из колонки (Мгновенно)
             try:
-                # В запросе получения юзера добавьте 'referrals_count' в select
-                # Например: supabase.rpc("get_user_dashboard_data", ...).select("..., referrals_count")
-                
                 # Или отдельным сверх-быстрым запросом:
                 ref_resp = await supabase.table("users") \
                     .select("referrals_count") \
@@ -3320,10 +3317,6 @@ async def get_current_user_data(request_data: InitDataRequest):
             except Exception as e:
                 logging.warning(f"Ошибка получения referrals_count: {e}")
                 final_response['active_referrals_count'] = 0
-
-            except Exception as e:
-                logging.warning(f"Error fetching extra bonus data: {e}")
-                final_response['active_referrals_count'] = 0      
         # ------------------------------------------------
 
         
