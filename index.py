@@ -7568,7 +7568,6 @@ async def get_user_weekly_goals(
         logging.error(f"Ошибка в get_user_weekly_goals: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить недельные задачи.")
 
-
 # (Найди эту функцию в index (1).py и ЗАМЕНИ ее)
 @app.post("/api/v1/user/weekly_goals/claim_task")
 async def claim_weekly_task_reward(
