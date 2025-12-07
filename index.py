@@ -3287,36 +3287,26 @@ async def get_current_user_data(request_data: InitDataRequest):
         final_response['is_admin'] = telegram_id in ADMIN_IDS
 
         # --- 🔥 ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ ДЛЯ БОНУСОВ (ОПТИМИЗИРОВАНО) 🔥 ---
-        try:
-            # Оставляем легкий запрос (получение своих данных), это быстро
-            user_extra = supabase.table("users") \
-                .select("referral_activated_at, bott_internal_id, bott_ref_id, referrer_id") \
-                .eq("telegram_id", telegram_id) \
-                .execute()
-            
-            if user_extra.data:
-                final_response['referral_activated_at'] = user_extra.data[0].get('referral_activated_at')
-                final_response['bott_internal_id'] = user_extra.data[0].get('bott_internal_id')
-                final_response['bott_ref_id'] = user_extra.data[0].get('bott_ref_id')
-                final_response['referrer_id'] = user_extra.data[0].get('referrer_id')
-
-            # 🛑 ОПТИМИЗАЦИЯ: Убрали тяжелый запрос count="exact".
-            # Подсчет рефералов каждый раз при обновлении профиля убивает базу.
-            # Эти данные теперь должны приходить только при старте через /bootstrap.
-            # Для /user/me ставим заглушку 0, чтобы не ломать фронтенд.
-            final_response['active_referrals_count'] = 0 
-            
-            # Если нужно вернуть старый код, раскомментируйте строки ниже:
-            # count_resp = supabase.table("users") \
-            #     .select("telegram_id", count="exact") \
-            #     .eq("referrer_id", telegram_id) \
-            #     .not_.is_("referral_activated_at", "null") \
-            #     .execute()
-            # final_response['active_referrals_count'] = count_resp.count or 0
-            
-        except Exception as e:
-            logging.warning(f"Error fetching extra bonus data: {e}")
-            final_response['active_referrals_count'] = 0
+        # 🚀 ВАРИАНТ 2: Берем готовое число из колонки (Мгновенно)
+            try:
+                # В запросе получения юзера добавьте 'referrals_count' в select
+                # Например: supabase.rpc("get_user_dashboard_data", ...).select("..., referrals_count")
+                
+                # Или отдельным сверх-быстрым запросом:
+                ref_resp = await supabase.table("users") \
+                    .select("referrals_count") \
+                    .eq("telegram_id", telegram_id) \
+                    .execute()
+                
+                if ref_resp.data:
+                    # Передаем это число на фронтенд как active_referrals_count
+                    final_response['active_referrals_count'] = ref_resp.data[0].get('referrals_count', 0)
+                else:
+                    final_response['active_referrals_count'] = 0
+                    
+            except Exception as e:
+                logging.warning(f"Ошибка получения referrals_count: {e}")
+                final_response['active_referrals_count'] = 0
         # ------------------------------------------------
 
         # Настройки (используем кэшированные)
