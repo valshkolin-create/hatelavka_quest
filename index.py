@@ -3288,25 +3288,28 @@ async def get_current_user_data(request_data: InitDataRequest):
 
         # --- 🔥 ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ ДЛЯ БОНУСОВ (ОПТИМИЗИРОВАНО) 🔥 ---
         # 🚀 ВАРИАНТ 2: Берем готовое число из колонки (Мгновенно)
-            try:
-                # В запросе получения юзера добавьте 'referrals_count' в select
-                # Например: supabase.rpc("get_user_dashboard_data", ...).select("..., referrals_count")
-                
-                # Или отдельным сверх-быстрым запросом:
-                ref_resp = await supabase.table("users") \
-                    .select("referrals_count") \
-                    .eq("telegram_id", telegram_id) \
-                    .execute()
-                
-                if ref_resp.data:
-                    # Передаем это число на фронтенд как active_referrals_count
-                    final_response['active_referrals_count'] = ref_resp.data[0].get('referrals_count', 0)
-                else:
-                    final_response['active_referrals_count'] = 0
-                    
-            except Exception as e:
-                logging.warning(f"Ошибка получения referrals_count: {e}")
+        try:
+            # В запросе получения юзера добавьте 'referrals_count' в select
+            # Например: supabase.rpc("get_user_dashboard_data", ...).select("..., referrals_count")
+            
+            # Или отдельным сверх-быстрым запросом (БЕЗ await):
+            ref_resp = supabase.table("users") \
+                .select("referrals_count") \
+                .eq("telegram_id", telegram_id) \
+                .execute()
+            
+            # Проверяем, есть ли данные
+            if ref_resp.data:
+                # Передаем это число на фронтенд как active_referrals_count
+                # .get('referrals_count', 0) защитит, если колонки нет или она null
+                count = ref_resp.data[0].get('referrals_count')
+                final_response['active_referrals_count'] = count if count is not None else 0
+            else:
                 final_response['active_referrals_count'] = 0
+                
+        except Exception as e:
+            logging.warning(f"Ошибка получения referrals_count: {e}")
+            final_response['active_referrals_count'] = 0
         # ------------------------------------------------
 
         # Настройки (используем кэшированные)
