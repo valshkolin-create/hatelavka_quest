@@ -53,6 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
+    function formatNumber(num) {
+        if (!num) return '0';
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    }
+
     // --- БЫСТРАЯ ЗАГРУЗКА ТЕМЫ ИЗ ПАМЯТИ ---
     const savedTheme = localStorage.getItem('saved_theme');
     if (savedTheme) {
