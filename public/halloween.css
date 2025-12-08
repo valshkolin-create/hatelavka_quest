@@ -394,25 +394,30 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 
 /* МОДАЛКИ (ИСПРАВЛЕНО ЦЕНТРИРОВАНИЕ) */
 .modal-overlay { 
+    /* 1. Жесткая фиксация позиции */
     position: fixed; 
-    top: 0; 
+    top: 0 !important; /* Игнорируем любые сдвиги */
     left: 0; 
     width: 100%; 
     height: 100%; 
+    
+    /* 2. Максимальный слой, чтобы перекрыть админ-панели и баннеры */
+    z-index: 9999; 
+    
     background: rgba(10, 10, 20, 0.8); 
-    z-index: 250; 
     
     display: flex; 
-    /* ВАЖНО: flex-start прижимает окно к верху (а не к центру) */
+    /* Прижимаем к верху */
     align-items: flex-start;     
     justify-content: center; 
     
-    /* === ВОТ ЭТО ЧИСЛО ОТВЕЧАЕТ ЗА ВЫСОТУ === */
-    /* Поставь 20px или 30px, чтобы поднять окно максимально высоко */
-    padding-top: 10px; 
+    /* 3. ОТСТУП ОТ ВЕРХА */
+    /* Ставим безопасный минимум (челка телефона + 10px) */
+    /* Если env() не поддерживается, будет просто 15px */
+    padding-top: calc(env(safe-area-inset-top) + 15px);
     
-    /* Отступ снизу, чтобы окно не залезало под нижнее меню */
-    padding-bottom: 100px;
+    /* Отступ снизу для футера */
+    padding-bottom: 90px;
     
     backdrop-filter: blur(var(--backdrop-blur)); 
 }
