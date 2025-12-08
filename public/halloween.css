@@ -509,7 +509,28 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .modal-progress-fill { height: 100%; background: linear-gradient(90deg, var(--danger-color), var(--action-color)); transition: width 0.5s ease; }
 /* УТИЛИТЫ */
 .tutorial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 200; transition: opacity 0.3s ease; }
-.image-viewer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 350; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 20px 20px 80px 20px; }
+.image-viewer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    
+    /* ВАЖНО: Должно быть больше, чем у .modal-overlay (9999) */
+    z-index: 10000 !important; 
+    
+    background: rgba(0, 0, 0, 0.9);
+    
+    /* Добавляем блюр и для этого окна тоже (чтобы красиво размывало список наград под ним) */
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 20px 20px 80px 20px;
+}
 .viewer-close-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; color: white; font-size: 40px; cursor: pointer; line-height: 1; padding: 5px; text-shadow: 0 0 5px black; }
 .viewer-content-wrapper { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 100%; max-height: 100%; }
 .viewer-image { max-width: 100%; max-height: 100%; object-fit: contain; }
