@@ -159,7 +159,16 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 }
 
 /* КНОПКА "КАК ИГРАТЬ" */
-.rules-button-container { text-align: center; margin-bottom: 20px; position: relative; z-index: 201; }
+.rules-button-container { 
+    display: flex;
+    justify-content: center;
+    gap: 10px; /* Отступ между кнопками */
+    margin-bottom: 20px; 
+    position: relative; 
+    /* Ставим очень высокий индекс, чтобы быть выше частиц, видео и оверлеев туториала */
+    z-index: 2002; 
+    pointer-events: auto; /* Принудительно включаем клики */
+}
 .rules-button { background: linear-gradient(45deg, var(--action-color), var(--primary-color)); color: white; border: none; padding: 10px 25px; border-radius: 20px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); transition: all 0.3s ease; }
 .rules-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--glow-color); }
 .rules-button.highlight { animation: pulse-glow 1.5s infinite; }
@@ -447,13 +456,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
         width: 200px;
         height: 200px;
     }
-
-    /* --- РЕШЕНИЕ: ПОЛНОСТЬЮ СКРЫВАЕМ ГИРЛЯНДУ НА ТЕЛЕФОНАХ --- */
-    .mobile-garland,
-    .garland-video {
-       display: none !important;
-    }
-    
+   
     /* Фикс для кнопок на мобильных */
     .rules-button-container {
         position: relative;
