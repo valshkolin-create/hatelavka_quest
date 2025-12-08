@@ -775,14 +775,31 @@ function renderPage(eventData, leaderboardData = {}) {
     // --- УНИВЕРСАЛЬНЫЕ ФУНКЦИИ МОДАЛОК ---
     function showModal(modalElement) {
         modalElement.classList.remove('hidden');
+        
+        // Блокируем скролл фона
+        document.body.classList.add('no-scroll');
+        
+        // Скрываем админ-кнопки, чтобы не мешали (старая логика)
         if (dom.adminControls && !dom.adminControls.classList.contains('expanded')) {
              dom.adminControls.style.display = 'none';
         }
     }
+
     function hideModal(modalElement) {
         modalElement.classList.add('hidden');
-        if (currentUserData.is_admin && dom.adminControls) {
-            dom.adminControls.style.display = 'flex';
+        
+        // Проверяем, есть ли еще открытые модалки (чтобы не включить скролл, если под картинкой еще открыт список)
+        // Ищем элементы с классом modal-overlay или image-viewer-overlay, у которых НЕТ класса hidden
+        const activeModals = document.querySelectorAll('.modal-overlay:not(.hidden), .image-viewer-overlay:not(.hidden)');
+        
+        // Если открытых окон больше нет — возвращаем скролл
+        if (activeModals.length === 0) {
+            document.body.classList.remove('no-scroll');
+            
+            // Возвращаем админ-кнопки (старая логика)
+            if (currentUserData.is_admin && dom.adminControls) {
+                dom.adminControls.style.display = 'flex';
+            }
         }
     }
 
