@@ -388,6 +388,25 @@ function renderPage(eventData, leaderboardData = {}) {
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
     // --- НОВАЯ ФУНКЦИЯ: Рендер списка наград в модалке ---
+    // [НОВОЕ] Вспомогательная функция для расчета % прогресса
+    function calculateEventProgress(eventData) {
+        const { goals = {}, current_progress = 0 } = eventData || {};
+        const currentLevel = getCurrentLevel(eventData);
+        
+        let currentGoal = 1, prevGoal = 0;
+        
+        if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
+        else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
+        else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
+        else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
+
+        const progressInLevel = Math.max(0, current_progress - prevGoal);
+        const goalForLevel = currentGoal - prevGoal;
+        // Считаем процент (0-100)
+        const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
+        
+        return { currentLevel, percentage };
+    }
     // --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: РАСЧЕТ ПРОГРЕССА ---
     function calculateEventProgress(eventData) {
         const { goals = {}, current_progress = 0 } = eventData || {};
@@ -411,88 +430,73 @@ function renderPage(eventData, leaderboardData = {}) {
 
     // --- ОБНОВЛЕННАЯ ФУНКЦИЯ: Рендер списка наград ---
     function renderRewardsModalContent(targetLevel) {
-        // 1. Получаем текущие данные прогресса
         const { currentLevel, percentage } = calculateEventProgress(currentEventData);
         
-        // 2. Логика доступа:
-        // Условие открытия следующего уровня: Текущий уровень должен быть заполнен на 70% и более
+        // --- ЛОГИКА 70% ---
+        // Следующий уровень открывается, если на текущем набрано >= 70%
         const isNextLevelUnlocked = percentage >= 70;
-
-        // Определяем максимально доступный для просмотра уровень
-        // Если прогресс >= 70%, можно смотреть (Current + 1). Иначе только Current.
-        const maxViewableLevel = isNextLevelUnlocked ? (currentLevel + 1) : currentLevel;
-
-        // Если уровень уже пройден (targetLevel < currentLevel), он всегда открыт
-        // Поэтому финальная проверка:
+        
+        // Максимальный уровень, который можно смотреть:
+        // Если прогресс >= 70%, то (Текущий + 1). Иначе только (Текущий).
+        const maxViewableLevel = isNextLevelUnlocked ? Math.min(currentLevel + 1, 4) : currentLevel;
+        
+        // Проверяем, закрыт ли запрошенный уровень (пройденные уровни всегда открыты)
         const isTargetLocked = targetLevel > maxViewableLevel;
 
-        // Обновляем состояние табов (иконок замков)
-        dom.rewardsTabs.forEach(btn => {
-            const btnLevel = parseInt(btn.dataset.level);
-            
-            // Активный класс
-            btn.classList.toggle('active', btnLevel === targetLevel);
-            
-            // Класс замка. 
-            // Уровень заблокирован, ЕСЛИ он больше чем (Current + 1) ВООБЩЕ 
-            // ИЛИ если он равен (Current + 1), но прогресс меньше 70%.
-            
-            let isTabLocked = false;
-            if (btnLevel > currentLevel + 1) isTabLocked = true; // Далекое будущее всегда закрыто
-            if (btnLevel === currentLevel + 1 && !isNextLevelUnlocked) isTabLocked = true; // След. уровень закрыт до 70%
-
-            // Исключение: Пройденные уровни всегда открыты
-            if (btnLevel <= currentLevel) isTabLocked = false;
-
-            btn.classList.toggle('locked', isTabLocked);
-        });
+        // Обновляем табы (кнопки)
+        if (dom.rewardsTabs) {
+            dom.rewardsTabs.forEach(btn => {
+                const btnLevel = parseInt(btn.dataset.level);
+                btn.classList.toggle('active', btnLevel === targetLevel);
+                // Вешаем замок, если уровень недоступен
+                btn.classList.toggle('locked', btnLevel > maxViewableLevel);
+            });
+        }
 
         const content = dom.rewardsListContent;
+        if (!content) return;
         content.innerHTML = '';
 
-        // 3. Если уровень ЗАКРЫТ — показываем экран с требованием 70%
+        // 1. ЕСЛИ УРОВЕНЬ ЗАКРЫТ -> ПОКАЗЫВАЕМ ЭКРАН С ЗАМКОМ
         if (isTargetLocked) {
-            // Для экрана блокировки показываем текущий прогресс
-            const neededPercent = 70;
-            const currentPercentFixed = percentage.toFixed(1);
-            
+            const currentPercentFixed = percentage.toFixed(0);
             content.innerHTML = `
                 <div class="locked-level-container">
                     <i class="fa-solid fa-lock lock-icon-large"></i>
-                    <div class="lock-title">Награды скрыты</div>
-                    <div class="lock-desc">
-                        В тумане будущего пока ничего не видно...<br>
-                        Заполните текущий этап на <strong>${neededPercent}%</strong>, чтобы подсмотреть награды!
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #fff;">Этап закрыт</div>
+                    <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5;">
+                        Заполните котел на <strong>70%</strong>, чтобы увидеть награды следующего уровня.
                     </div>
                     
                     <div class="modal-progress-wrapper">
                         <div class="modal-progress-fill" style="width: ${percentage}%"></div>
                     </div>
-                    <div class="modal-progress-text">
-                        Текущий прогресс: <span>${currentPercentFixed}%</span> / 70%
+                    <div style="font-size: 12px; color: var(--text-color-muted); margin-top: 5px;">
+                        Прогресс: <span style="color: var(--primary-color); font-weight:bold;">${currentPercentFixed}%</span> / 70%
                     </div>
                 </div>
             `;
             return;
         }
 
-        // 4. Если уровень ОТКРЫТ — Рендерим награды (Стандартная логика с улучшенной версткой)
+        // 2. ЕСЛИ ОТКРЫТ -> РЕНДЕРИМ СПИСОК
         const levels = currentEventData.levels || {};
         const levelConfig = levels[`level_${targetLevel}`] || {};
         const topPlaces = levelConfig.top_places || [];
         const tiers = levelConfig.tiers || {};
         const defaultReward = levelConfig.default_reward || {};
 
+        // Группа Топ-20
         let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Топ-20 Игроков</div>`;
-        
         if (topPlaces.length === 0) {
-            html += '<p style="font-size:12px; color:#777; font-style:italic; padding: 10px;">Награды не назначены</p>';
+            html += '<p style="font-size:12px; color:#777; padding:10px;">Награды не назначены</p>';
         } else {
             topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+                // Добавляем data-full-name для зума
                 html += `
                     <div class="modal-reward-item">
                         <span class="modal-reward-place">#${reward.place}</span>
-                        <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img">
+                        <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" data-full-name="${escapeHTML(reward.name)}">
                         <span class="modal-reward-name">${escapeHTML(reward.name)}</span>
                     </div>
                 `;
@@ -500,8 +504,8 @@ function renderPage(eventData, leaderboardData = {}) {
         }
         html += `</div>`;
 
+        // Группа Остальные
         html += `<div class="modal-rewards-group"><div class="modal-rewards-title">Награды остальным</div>`;
-
         const tierData = [
             { id: '21-30', label: '21-30', data: tiers["21-30"] },
             { id: '31-40', label: '31-40', data: tiers["31-40"] },
@@ -511,19 +515,19 @@ function renderPage(eventData, leaderboardData = {}) {
         tierData.forEach(tier => {
             const name = tier.data?.name || '---';
             const img = tier.data?.image_url || '';
-            
             html += `
                 <div class="modal-reward-item">
-                    <span class="modal-reward-place" style="font-size: 11px; width: 45px; opacity: 0.7;">${tier.label}</span>
-                    ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img">` : '<div style="width:36px;"></div>'}
+                    <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
+                    ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" data-full-name="${escapeHTML(name)}">` : '<div style="width:40px;"></div>'}
                     <span class="modal-reward-name">${escapeHTML(name)}</span>
                 </div>
             `;
         });
-        
         html += `</div>`;
+        
         content.innerHTML = html;
     }
+    
     async function fetchDataAndRender(leaderboardOnly = false) {
         console.log(`1. [MAIN] Вызвана функция fetchDataAndRender. leaderboardOnly: ${leaderboardOnly}`);
         try {
@@ -803,5 +807,20 @@ function renderPage(eventData, leaderboardData = {}) {
     if (!rulesViewed) {
         dom.rulesButton.classList.add('highlight');
         dom.tutorialOverlay.classList.remove('hidden');
+    }
+    // [НОВОЕ] Обработчик клика по наградам в модалке (Зум)
+    if (dom.rewardsListContent) {
+        dom.rewardsListContent.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-reward-img')) {
+                const imgUrl = e.target.src;
+                const name = e.target.dataset.fullName; // Берем имя из атрибута
+                
+                if (imgUrl) {
+                    dom.viewerImage.src = imgUrl;
+                    dom.viewerCaption.textContent = name || '';
+                    showModal(dom.imageViewerModal);
+                }
+            }
+        });
     }
 });
