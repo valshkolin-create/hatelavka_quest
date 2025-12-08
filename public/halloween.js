@@ -314,19 +314,45 @@ function renderPage(eventData, leaderboardData = {}) {
                            <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
                        </div>`
                     : `<span>-</span>`;
+                // --- НОВАЯ ЛОГИКА С ИКОНКАМИ ---
                 const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
                 
-                // --- ЛОГИКА ОТОБРАЖЕНИЯ ИМЕНИ (Twitch > Telegram) ---
-                let playerName = p.twitch_login || p.full_name || 'Без имени';
+                // 1. SVG Иконки (Twitch и Telegram)
+                const twitchIconSvg = `<svg class="platform-icon icon-twitch" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2.149 0L.537 4.119v16.836h5.731V24h3.224l3.045-3.045h4.657l6.269-6.269V0H2.149zm19.164 13.612l-3.582 3.582H12l-3.045 3.045v-3.045H4.119V2.149h17.194v11.463zm-12.09-5.731h2.507v5.731H9.224V7.881zm5.731 0h2.507v5.731h-2.507V7.881z"/></svg>`;
+                const telegramIconSvg = `<svg class="platform-icon icon-telegram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.928 3.52c.316-1.418-.963-2.489-2.284-1.934L2.57 9.265c-1.338.564-1.33 1.872.225 2.349l4.847 1.504 11.2-7.056c.536-.329 1.024.005.621.36l-9.08 8.184v4.167c0 .614.497.756.826.458l2.424-2.334 5.023 3.71c1.136.625 1.954.3 2.237-1.046l4.047-19.046z"/></svg>`;
+
+                let playerName;
+                let iconHtml;
+
+                // 2. Логика выбора имени и иконки
+                if (p.twitch_login) {
+                    // Если есть Твич ник - берем его и иконку Твича
+                    playerName = p.twitch_login;
+                    iconHtml = twitchIconSvg;
+                } else {
+                    // Иначе берем Телеграм имя и иконку ТГ
+                    playerName = p.full_name || 'Без имени';
+                    iconHtml = telegramIconSvg;
+                }
                 
-                if (playerName.length > 16) playerName = playerName.substring(0, 16) + '...';
+                // Обрезку JS можно оставить на всякий случай, хотя CSS text-overflow теперь тоже работает
+                // if (playerName.length > 16) playerName = playerName.substring(0, 16) + '...';
+
+                // 3. Возвращаем обновленную HTML структуру
                 return `
                 <div class="${rowClass}">
-                    <span class="rank">#${rank}</span>
-                    <span class="player">${escapeHTML(playerName)}</span>
-                    <div class="prize-image-container">${prizeImageHtml}</div>
-                    <span class="contribution align-right">${contributionAmount} 🎟️</span>
-                </div>`;
+                    <div class="leaderboard-rank">${rank}</div>
+                    
+                    <div class="leaderboard-name">
+                        <div class="player-name-container">
+                            ${iconHtml}
+                            <span class="player-name-text" title="${playerName}">${playerName}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="leaderboard-score">${formatNumber(p.total_contribution)}</div>
+                </div>
+                `;
             }).join('');
 
         // 2. Статистика текущего пользователя
