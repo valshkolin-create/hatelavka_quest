@@ -401,10 +401,18 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     height: 100%; 
     background: rgba(10, 10, 20, 0.8); 
     z-index: 250; 
+    
     display: flex; 
-    align-items: center;     /* Вертикально по центру */
-    justify-content: center; /* Горизонтально по центру */
+    /* 1. БЫЛО center, СТАЛО flex-start -> прижимаем к верху */
+    align-items: flex-start;     
+    justify-content: center; 
+    
     padding: 15px; 
+    /* 2. Отступ сверху (регулируй высоту здесь) */
+    padding-top: 60px; 
+    /* 3. Отступ снизу (чтобы не наезжало на нижний бар) */
+    padding-bottom: 90px;
+    
     backdrop-filter: blur(var(--backdrop-blur)); 
 }
 
@@ -418,9 +426,12 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     box-shadow: 0 10px 40px rgba(0,0,0,0.7); 
     display: flex; 
     flex-direction: column; 
-    max-height: 90vh; 
-    margin: 0 auto; /* Центрирование */
-    transform: none; /* УБРАН СДВИГ ВЛЕВО */
+    
+    /* 4. Высота теперь заполняет доступное пространство между отступами */
+    max-height: 100%; 
+    
+    margin: 0 auto; 
+    transform: none;
 }
 
 .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
