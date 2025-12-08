@@ -344,7 +344,7 @@ function renderPage(eventData, leaderboardData = {}) {
                     
                     <span class="player" style="display: flex; align-items: center; overflow: hidden;">
                         ${iconHtml}
-                        <span style="font-weight: 700; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="font-weight: 700; font-size: 0.7em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${escapeHTML(playerName)}
                         </span>
                     </span>
