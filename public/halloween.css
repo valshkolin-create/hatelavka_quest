@@ -862,3 +862,9 @@ body[data-theme="new_year"] .garland-video {
 .modal-progress-text span {
     color: var(--action-color);
 }
+/* === БЛОКИРОВКА СКРОЛЛА ФОНА === */
+body.no-scroll {
+    overflow: hidden !important;
+    touch-action: none; /* Для мобильных устройств */
+    height: 100vh;      /* Фиксируем высоту */
+}
