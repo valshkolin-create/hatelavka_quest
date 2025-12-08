@@ -432,23 +432,28 @@ function renderPage(eventData, leaderboardData = {}) {
     function renderRewardsModalContent(targetLevel) {
         const { currentLevel, percentage } = calculateEventProgress(currentEventData);
         
-        // --- ЛОГИКА 70% ---
-        // Следующий уровень открывается, если на текущем набрано >= 70%
+        // 1. ОПРЕДЕЛЯЕМ НАЗВАНИЕ ПРЕДМЕТА (Котел / Мешок / Сундук)
+        // Берем тему из body (самый надежный способ, т.к. она там уже стоит)
+        const activeTheme = document.body.dataset.theme || 'halloween';
+        
+        const containerNames = {
+            halloween: { acc: 'котел', prep: 'котле' },   // Винительный / Предложный
+            new_year:  { acc: 'мешок', prep: 'мешке' },
+            classic:   { acc: 'сундук', prep: 'сундуке' } // Или 'банк', если нужно
+        };
+        // Если темы нет в словаре, берем классику
+        const t = containerNames[activeTheme] || containerNames.classic;
+
+        // 2. ЛОГИКА ОТКРЫТИЯ
         const isNextLevelUnlocked = percentage >= 70;
-        
-        // Максимальный уровень, который можно смотреть:
-        // Если прогресс >= 70%, то (Текущий + 1). Иначе только (Текущий).
         const maxViewableLevel = isNextLevelUnlocked ? Math.min(currentLevel + 1, 4) : currentLevel;
-        
-        // Проверяем, закрыт ли запрошенный уровень (пройденные уровни всегда открыты)
         const isTargetLocked = targetLevel > maxViewableLevel;
 
-        // Обновляем табы (кнопки)
+        // Обновляем табы
         if (dom.rewardsTabs) {
             dom.rewardsTabs.forEach(btn => {
                 const btnLevel = parseInt(btn.dataset.level);
                 btn.classList.toggle('active', btnLevel === targetLevel);
-                // Вешаем замок, если уровень недоступен
                 btn.classList.toggle('locked', btnLevel > maxViewableLevel);
             });
         }
@@ -457,29 +462,48 @@ function renderPage(eventData, leaderboardData = {}) {
         if (!content) return;
         content.innerHTML = '';
 
-        // 1. ЕСЛИ УРОВЕНЬ ЗАКРЫТ -> ПОКАЗЫВАЕМ ЭКРАН С ЗАМКОМ
+        // 3. ЕСЛИ УРОВЕНЬ ЗАКРЫТ
         if (isTargetLocked) {
             const currentPercentFixed = percentage.toFixed(0);
+            
+            // ЛОГИКА ОТОБРАЖЕНИЯ ПРОГРЕСС-БАРА
+            // Бар показываем ТОЛЬКО если это следующий уровень (Current + 1).
+            // Если это уровни дальше (например, мы на 1, а смотрим 3 или 4), бар скрываем.
+            const showProgressBar = (targetLevel === currentLevel + 1);
+
+            let lockDescription = '';
+            
+            if (showProgressBar) {
+                // Текст для следующего уровня (с баром)
+                lockDescription = `Заполните ${t.acc} на <strong>70%</strong>, чтобы увидеть награды этого этапа.`;
+            } else {
+                // Текст для далеких уровней (без бара)
+                lockDescription = `Этот этап пока недоступен. Сначала полностью заполните ${t.acc} на предыдущих уровнях.`;
+            }
+
             content.innerHTML = `
                 <div class="locked-level-container">
                     <i class="fa-solid fa-lock lock-icon-large"></i>
                     <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #fff;">Этап закрыт</div>
+                    
                     <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5;">
-                        Заполните котел на <strong>70%</strong>, чтобы увидеть награды следующего уровня.
+                        ${lockDescription}
                     </div>
                     
-                    <div class="modal-progress-wrapper">
-                        <div class="modal-progress-fill" style="width: ${percentage}%"></div>
-                    </div>
-                    <div style="font-size: 12px; color: var(--text-color-muted); margin-top: 5px;">
-                        Прогресс: <span style="color: var(--primary-color); font-weight:bold;">${currentPercentFixed}%</span> / 70%
-                    </div>
+                    ${showProgressBar ? `
+                        <div class="modal-progress-wrapper">
+                            <div class="modal-progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-color-muted); margin-top: 5px;">
+                            Прогресс в ${t.prep}: <span style="color: var(--primary-color); font-weight:bold;">${currentPercentFixed}%</span> / 70%
+                        </div>
+                    ` : ''}
                 </div>
             `;
             return;
         }
 
-        // 2. ЕСЛИ ОТКРЫТ -> РЕНДЕРИМ СПИСОК
+        // 4. ЕСЛИ ОТКРЫТ -> РЕНДЕРИМ СПИСОК
         const levels = currentEventData.levels || {};
         const levelConfig = levels[`level_${targetLevel}`] || {};
         const topPlaces = levelConfig.top_places || [];
@@ -487,12 +511,11 @@ function renderPage(eventData, leaderboardData = {}) {
         const defaultReward = levelConfig.default_reward || {};
 
         // Группа Топ-20
-        let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Награды</div>`;
+        let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Топ-20 Игроков</div>`;
         if (topPlaces.length === 0) {
             html += '<p style="font-size:12px; color:#777; padding:10px;">Награды не назначены</p>';
         } else {
             topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
-                // Добавляем data-full-name для зума
                 html += `
                     <div class="modal-reward-item">
                         <span class="modal-reward-place">#${reward.place}</span>
