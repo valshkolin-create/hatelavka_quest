@@ -337,10 +337,18 @@ function getCurrentLevel(eventData) {
     // Собирает все данные из формы "Котла" в один объект
 function collectCauldronData() {
         const form = dom.cauldronSettingsForm;
+        
+        // Получаем даты из инпутов
+        const startDateInput = form.elements['start_date'].value;
+        const endDateInput = form.elements['end_date'].value;
+
         const content = {
             title: form.elements['title'].value,
-            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем тему, которая была загружена, иначе она сбросится
-            current_theme: currentCauldronData.current_theme || 'halloween', 
+            // Сохраняем даты в ISO формате, если они введены
+            start_date: startDateInput ? new Date(startDateInput).toISOString() : null,
+            end_date: endDateInput ? new Date(endDateInput).toISOString() : null,
+            
+            current_theme: currentCauldronData.current_theme || 'halloween',
             is_visible_to_users: form.elements['is_visible_to_users'].checked,
             goals: {
                 level_1: parseInt(form.elements['goal_level_1'].value, 10) || 0,
@@ -650,6 +658,10 @@ const showLoader = () => {
                     // ... (Заполнение основных настроек и целей оставляем как есть) ...
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
                     form.elements['title'].value = currentCauldronData.title || '';
+                    // 👇 ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ 👇
+                    form.elements['start_date'].value = formatDateToInput(currentCauldronData.start_date);
+                    form.elements['end_date'].value = formatDateToInput(currentCauldronData.end_date);
+                    // 👆 ----------------------- 👆
                     form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
                     form.elements['cauldron_image_url_1'].value = currentCauldronData.cauldron_image_url_1 || '';
                     form.elements['cauldron_image_url_2'].value = currentCauldronData.cauldron_image_url_2 || '';
