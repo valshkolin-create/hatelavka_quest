@@ -447,16 +447,9 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
         height: 200px;
     }
 
-    /* --- РЕШЕНИЕ 1: ПОЛНОСТЬЮ СКРЫВАЕМ ГИРЛЯНДУ (И ВИДЕО, И CSS) НА ТЕЛЕФОНАХ --- */
-    .mobile-garland,
-    .garland-video {
+    /* --- РЕШЕНИЕ: ПОЛНОСТЬЮ СКРЫВАЕМ ГИРЛЯНДУ НА МОБИЛЬНЫХ --- */
+    .mobile-garland {
        display: none !important;
-    }
-    
-    /* Дополнительно: фикс для кнопок на мобильных, чтобы они точно были поверх всего */
-    .rules-button-container {
-        position: relative;
-        z-index: 1002;
     }
 }
     .mobile-light {
@@ -527,6 +520,59 @@ body[data-theme="new_year"] .rules-button {
 body[data-theme="new_year"] #contribution-form button:hover,
 body[data-theme="new_year"] .rules-button:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(255, 255, 255, 0.8); filter: brightness(1.1); }
 body[data-theme="new_year"] #contribution-form button:disabled { background: #555; color: #aaa; border: 1px solid #777; box-shadow: none; transform: none; }
+
+@media (max-width: 768px) {
+    body::after { background-attachment: scroll; }
+}
+/* =========================================
+   НОВОГОДНЯЯ ВИДЕО-ГИРЛЯНДА
+   ========================================= */
+
+.garland-video {
+    display: none;
+    
+    position: absolute;
+    /* Поднимаем еще выше, чтобы провод ушел за экран, а висели только лампы */
+    top: -40px; 
+    
+    left: 0;
+    width: 100%;
+    
+    /* Увеличиваем размер, как просила */
+    height: 160px; 
+    
+    object-fit: cover;
+    object-position: top center;
+    
+    z-index: 999;
+    pointer-events: none;
+    
+    /* === ИСПРАВЛЕНИЕ БЛИКОВ === */
+    
+    /* 1. Убираем фильтр, который делал "круги" (filter: contrast...) — УДАЛЕНО */
+    
+    /* 2. Используем plus-lighter. 
+       Это лучший режим для неона на темном фоне. 
+       Он "съедает" полупрозрачную грязь и оставляет только чистый свет. 
+    */
+    mix-blend-mode: plus-lighter; 
+    
+    /* 3. Немного прозрачности (0.9), чтобы смягчить границы, если видео плохого качества */
+    opacity: 0.95; 
+}
+
+/* Если браузер на телефоне старый и не знает plus-lighter, 
+   сработает запасной вариант (screen) */
+@supports not (mix-blend-mode: plus-lighter) {
+    .garland-video {
+        mix-blend-mode: screen;
+    }
+}
+
+/* Показываем только в теме New Year */
+body[data-theme="new_year"] .garland-video {
+    display: block;
+}
 
 /* --- СТИЛИ ДЛЯ СПИСКА НАГРАД (MODAL) --- */
 
