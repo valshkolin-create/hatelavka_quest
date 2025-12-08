@@ -44,7 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
         adminDatesForm: document.getElementById('admin-dates-form'),
         adminStartDate: document.getElementById('admin-start-date'),
         adminEndDate: document.getElementById('admin-end-date'),
-        toggleEditBtn: document.getElementById('toggle-edit-btn')
+        toggleEditBtn: document.getElementById('toggle-edit-btn'),
+        // --- НОВЫЕ ЭЛЕМЕНТЫ ---
+        rewardsListButton: document.getElementById('rewards-list-button'),
+        rewardsListModal: document.getElementById('rewards-list-modal'),
+        rewardsListContent: document.getElementById('rewards-list-content'),
+        rewardsTabs: document.querySelectorAll('.rewards-tab-btn')
     };
     console.log('[INIT] DOM-элементы найдены и сохранены.');
 
@@ -337,6 +342,94 @@ function renderPage(eventData, leaderboardData = {}) {
 
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
+    // --- НОВАЯ ФУНКЦИЯ: Рендер списка наград в модалке ---
+    function renderRewardsModalContent(targetLevel) {
+        const currentLevel = getCurrentLevel(currentEventData);
+        // Логика блокировки:
+        // Можно смотреть: Текущий уровень и все предыдущие.
+        // Можно подсматривать: Текущий уровень + 1.
+        // Нельзя: Текущий уровень + 2 и дальше.
+        const maxViewableLevel = currentLevel + 1;
+
+        dom.rewardsTabs.forEach(btn => {
+            const btnLevel = parseInt(btn.dataset.level);
+            
+            // Управление классом active
+            btn.classList.toggle('active', btnLevel === targetLevel);
+            
+            // Управление блокировкой
+            if (btnLevel > maxViewableLevel) {
+                btn.classList.add('locked');
+            } else {
+                btn.classList.remove('locked');
+            }
+        });
+
+        const content = dom.rewardsListContent;
+        content.innerHTML = '';
+
+        // Если пытаемся открыть заблокированный уровень
+        if (targetLevel > maxViewableLevel) {
+            content.innerHTML = `
+                <div class="locked-level-message">
+                    <i class="fa-solid fa-lock"></i>
+                    <h3>Уровень ${targetLevel} закрыт</h3>
+                    <p>Прокачайте котел до Уровня ${targetLevel - 1}, чтобы открыть предпросмотр наград этого этапа.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const levels = currentEventData.levels || {};
+        const levelConfig = levels[`level_${targetLevel}`] || {};
+        const topPlaces = levelConfig.top_places || [];
+        const tiers = levelConfig.tiers || {};
+        const defaultReward = levelConfig.default_reward || {}; // Fallback for old structure
+
+        // 1. Рендер ТОП-20
+        let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Топ-20 Игроков</div>`;
+        
+        if (topPlaces.length === 0) {
+            html += '<p style="font-size:12px; color:#777; font-style:italic;">Награды не назначены</p>';
+        } else {
+            // Сортируем по месту
+            topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+                html += `
+                    <div class="modal-reward-item">
+                        <span class="modal-reward-place">#${reward.place}</span>
+                        <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img">
+                        <span class="modal-reward-name">${escapeHTML(reward.name)}</span>
+                    </div>
+                `;
+            });
+        }
+        html += `</div>`;
+
+        // 2. Рендер Тиров (Остальные)
+        html += `<div class="modal-rewards-group"><div class="modal-rewards-title">Награды остальным</div>`;
+
+        const tierData = [
+            { id: '21-30', label: 'Места 21-30', data: tiers["21-30"] },
+            { id: '31-40', label: 'Места 31-40', data: tiers["31-40"] },
+            { id: '41+',   label: 'Места 41+',   data: tiers["41+"] || defaultReward }
+        ];
+
+        tierData.forEach(tier => {
+            const name = tier.data?.name || '---';
+            const img = tier.data?.image_url || '';
+            
+            html += `
+                <div class="modal-reward-item">
+                    <span class="modal-reward-place" style="width: auto; padding-right: 5px; font-size: 11px; opacity: 0.7;">${tier.label}</span>
+                    ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img">` : ''}
+                    <span class="modal-reward-name">${escapeHTML(name)}</span>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        content.innerHTML = html;
+    }
     async function fetchDataAndRender(leaderboardOnly = false) {
         console.log(`1. [MAIN] Вызвана функция fetchDataAndRender. leaderboardOnly: ${leaderboardOnly}`);
         try {
@@ -449,6 +542,25 @@ function renderPage(eventData, leaderboardData = {}) {
             setTimeout(() => { submitButton.disabled = false; }, 1500);
         }
     });
+    // Открытие модалки призов
+    if (dom.rewardsListButton) {
+        dom.rewardsListButton.addEventListener('click', () => {
+            const currentLevel = getCurrentLevel(currentEventData);
+            // При открытии показываем текущий активный уровень
+            renderRewardsModalContent(currentLevel);
+            showModal(dom.rewardsListModal);
+        });
+    }
+
+    // Переключение табов внутри модалки
+    if (dom.rewardsTabs) {
+        dom.rewardsTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const level = parseInt(btn.dataset.level);
+                renderRewardsModalContent(level);
+            });
+        });
+    }
 
     // --- ЛОГИКА АДМИН-ПАНЕЛИ ---
 
