@@ -432,6 +432,7 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .viewer-image { max-width: 100%; max-height: 100%; object-fit: contain; }
 .viewer-caption { position: absolute; bottom: -50px; left: 50%; transform: translateX(-50%); background-color: rgba(18, 16, 33, 0.8); color: #f0f0f5; padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; white-space: nowrap; border: 1px solid rgba(60, 56, 82, 0.5); backdrop-filter: blur(5px); transition: opacity 0.3s ease; opacity: 0; }
 .image-viewer-overlay:not(.hidden) .viewer-caption { opacity: 1; }
+
 @media (max-width: 768px) {
     /* Базовые стили для мобилок */
     .main-container {
@@ -447,19 +448,18 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
         height: 200px;
     }
 
-    /* --- РЕШЕНИЕ 1: ПОЛНОСТЬЮ СКРЫВАЕМ ГИРЛЯНДУ (И ВИДЕО, И CSS) НА ТЕЛЕФОНАХ --- */
+    /* --- РЕШЕНИЕ: ПОЛНОСТЬЮ СКРЫВАЕМ ГИРЛЯНДУ НА ТЕЛЕФОНАХ --- */
     .mobile-garland,
     .garland-video {
        display: none !important;
     }
     
-    /* Дополнительно: фикс для кнопок на мобильных, чтобы они точно были поверх всего */
+    /* Фикс для кнопок на мобильных */
     .rules-button-container {
         position: relative;
         z-index: 1002;
     }
 }
-
 /* АДМИН-ПАНЕЛЬ */
 .admin-notice { background-color: rgba(191, 90, 242, 0.2); color: var(--action-color); padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; margin-bottom: 15px; border: 1px solid var(--action-color); display: flex; align-items: center; justify-content: center; gap: 8px; }
 .admin-controls { position: fixed; bottom: calc(60px + env(safe-area-inset-bottom) + 15px); left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 10px; background-color: var(--surface-primary); padding: 5px; border-radius: 25px; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
