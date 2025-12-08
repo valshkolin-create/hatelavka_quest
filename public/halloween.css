@@ -394,32 +394,35 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 
 /* МОДАЛКИ (ИСПРАВЛЕНО ЦЕНТРИРОВАНИЕ) */
 .modal-overlay { 
-    /* 1. Жесткая фиксация позиции */
     position: fixed; 
-    top: 0 !important; /* Игнорируем любые сдвиги */
+    top: 0 !important; 
     left: 0; 
     width: 100%; 
     height: 100%; 
-    
-    /* 2. Максимальный слой, чтобы перекрыть админ-панели и баннеры */
     z-index: 9999; 
     
-    background: rgba(10, 10, 20, 0.8); 
+    /* --- НАСТРОЙКИ ФОНА И БЛЮРА --- */
     
+    /* 1. Цвет фона: Важно оставить прозрачность (0.7-0.8), иначе блюр нечего будет размывать */
+    background: rgba(10, 10, 20, 0.75); 
+    
+    /* 2. ИСПРАВЛЕНИЕ ДЛЯ IPHONE (SAFARI / iOS) */
+    -webkit-backdrop-filter: blur(12px); 
+    
+    /* 3. Стандарт для Android и Компьютеров */
+    backdrop-filter: blur(12px); 
+    
+    /* ------------------------------ */
+
     display: flex; 
-    /* Прижимаем к верху */
     align-items: flex-start;     
     justify-content: center; 
     
-    /* 3. ОТСТУП ОТ ВЕРХА */
-    /* Ставим безопасный минимум (челка телефона + 10px) */
-    /* Если env() не поддерживается, будет просто 15px */
-    padding-top: calc(env(safe-area-inset-top) + 15px);
+    /* Отступ сверху (безопасная зона + 20px) */
+    padding-top: calc(env(safe-area-inset-top) + 20px);
     
-    /* Отступ снизу для футера */
+    /* Отступ снизу */
     padding-bottom: 90px;
-    
-    backdrop-filter: blur(var(--backdrop-blur)); 
 }
 
 .modal-content { 
