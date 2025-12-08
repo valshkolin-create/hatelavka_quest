@@ -250,8 +250,9 @@ function renderPage(eventData, leaderboardData = {}) {
             allParticipants.sort((a, b) => {
                 const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
                 if (contributionDiff !== 0) return contributionDiff;
-                const nameA = a.full_name || '';
-                const nameB = b.full_name || '';
+                // Приоритет Twitch ника при сортировке
+                const nameA = a.twitch_login || a.full_name || ''; 
+                const nameB = b.twitch_login || b.full_name || '';
                 return nameA.localeCompare(nameB);
             });
         }
@@ -314,7 +315,10 @@ function renderPage(eventData, leaderboardData = {}) {
                        </div>`
                     : `<span>-</span>`;
                 const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
-                let playerName = p.full_name || 'Без имени';
+                
+                // --- ЛОГИКА ОТОБРАЖЕНИЯ ИМЕНИ (Twitch > Telegram) ---
+                let playerName = p.twitch_login || p.full_name || 'Без имени';
+                
                 if (playerName.length > 16) playerName = playerName.substring(0, 16) + '...';
                 return `
                 <div class="${rowClass}">
