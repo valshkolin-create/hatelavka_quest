@@ -46,8 +46,9 @@
         <div id="event-dates-display" class="event-timer" data-editable="dates">
         </div>
 
-        <div class="rules-button-container">
+        <div class="rules-button-container" style="display: flex; gap: 10px; justify-content: center;">
             <button id="rules-button" class="rules-button">КАК ИГРАТЬ?</button>
+            <button id="rewards-list-button" class="rules-button" style="background: linear-gradient(45deg, #FFC107, #FF9800);">ПРИЗЫ</button>
         </div>
         
         <div class="page-layout">
@@ -175,5 +176,26 @@
 </footer>
 
     <script src="halloween.js"></script>
+
+<div id="rewards-list-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h3>Список Наград</h3>
+                <button type="button" class="modal-close-btn">&times;</button>
+            </div>
+            
+            <div class="rewards-tabs">
+                <button class="rewards-tab-btn active" data-level="1">Уровень 1</button>
+                <button class="rewards-tab-btn" data-level="2">Уровень 2</button>
+                <button class="rewards-tab-btn" data-level="3">Уровень 3</button>
+                <button class="rewards-tab-btn" data-level="4">Уровень 4</button>
+            </div>
+
+            <div class="modal-body" style="flex-grow: 1; overflow-y: auto;">
+                <div id="rewards-list-content">
+                    </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
