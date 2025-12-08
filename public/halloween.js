@@ -487,7 +487,7 @@ function renderPage(eventData, leaderboardData = {}) {
         const defaultReward = levelConfig.default_reward || {};
 
         // Группа Топ-20
-        let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Топ-20 Игроков</div>`;
+        let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Награды</div>`;
         if (topPlaces.length === 0) {
             html += '<p style="font-size:12px; color:#777; padding:10px;">Награды не назначены</p>';
         } else {
