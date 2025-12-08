@@ -403,15 +403,16 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     z-index: 250; 
     
     display: flex; 
-    /* 1. БЫЛО center, СТАЛО flex-start -> прижимаем к верху */
+    /* ВАЖНО: flex-start прижимает окно к верху (а не к центру) */
     align-items: flex-start;     
     justify-content: center; 
     
-    padding: 15px; 
-    /* 2. Отступ сверху (регулируй высоту здесь) */
-    padding-top: 60px; 
-    /* 3. Отступ снизу (чтобы не наезжало на нижний бар) */
-    padding-bottom: 90px;
+    /* === ВОТ ЭТО ЧИСЛО ОТВЕЧАЕТ ЗА ВЫСОТУ === */
+    /* Поставь 20px или 30px, чтобы поднять окно максимально высоко */
+    padding-top: 10px; 
+    
+    /* Отступ снизу, чтобы окно не залезало под нижнее меню */
+    padding-bottom: 100px;
     
     backdrop-filter: blur(var(--backdrop-blur)); 
 }
