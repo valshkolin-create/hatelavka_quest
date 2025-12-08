@@ -237,10 +237,34 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .error-message { color: var(--danger-color); font-size: 13px; margin-top: 10px; font-weight: 500; }
 
 /* ЛИДЕРБОРД */
-.leaderboard-header { display: grid; grid-template-columns: 40px 1fr 70px 80px; gap: 10px; padding: 0 5px 10px; border-bottom: 1px solid var(--border-color); font-size: 11px; font-weight: 500; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.leaderboard-header { 
+    display: grid; 
+    /* Было: 40px 1fr 70px 80px */
+    /* Стало: 40px 1fr 50px 80px (уменьшили 3-ю цифру) */
+    grid-template-columns: 40px 1fr 55px 80px; 
+    gap: 5px; /* Уменьшили отступ, чтобы дать еще больше места нику */
+    /* Остальное не трогаем */
+    padding: 0 5px 10px; 
+    border-bottom: 1px solid var(--border-color); 
+    font-size: 11px; 
+    font-weight: 500; 
+    color: var(--text-color-muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
 .align-right { text-align: right; }
 .centered-header { text-align: center; }
-.leaderboard-row { display: grid; grid-template-columns: 40px 1fr 70px 80px; gap: 10px; padding: 12px 5px; align-items: center; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
+.leaderboard-row { 
+    display: grid; 
+    /* Цифры должны быть ТОЧНО ТАКИЕ ЖЕ, как в header выше */
+    grid-template-columns: 40px 1fr 55px 80px; 
+    gap: 5px; /* Тоже уменьшили gap */
+    /* Остальное не трогаем */
+    padding: 12px 5px; 
+    align-items: center; 
+    border-bottom: 1px solid var(--border-color); 
+    transition: background-color 0.2s ease; 
+}
 .leaderboard-row:last-child { border-bottom: none; }
 .leaderboard-row.is-top-3 { font-weight: 700; }
 .leaderboard-row:hover { background-color: rgba(255, 255, 255, 0.05); }
