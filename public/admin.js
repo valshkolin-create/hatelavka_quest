@@ -339,6 +339,8 @@ function collectCauldronData() {
         const form = dom.cauldronSettingsForm;
         const content = {
             title: form.elements['title'].value,
+            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем тему, которая была загружена, иначе она сбросится
+            current_theme: currentCauldronData.current_theme || 'halloween', 
             is_visible_to_users: form.elements['is_visible_to_users'].checked,
             goals: {
                 level_1: parseInt(form.elements['goal_level_1'].value, 10) || 0,
@@ -395,7 +397,7 @@ function collectCauldronData() {
 
         return content;
     }
-
+    
     // Загружает и отображает список участников
 async function renderCauldronParticipants() {
         const container = document.getElementById('cauldron-distribution-list');
