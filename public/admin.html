@@ -696,56 +696,55 @@
                 <input type="text" name="title" required placeholder="Ведьминский котел" style="width: 100%; box-sizing: border-box;"> 
                 
                 <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                    
                     <div style="flex: 1; min-width: 140px;">
                         <label>Дата начала (UTC)</label>
                         <input type="datetime-local" name="start_date" style="width: 100%; box-sizing: border-box;">
                     </div>
-
                     <div style="flex: 1; min-width: 140px;">
                         <label>Дата окончания (UTC)</label>
                         <input type="datetime-local" name="end_date" style="width: 100%; box-sizing: border-box;">
                     </div>
+                </div>
 
-                </div>
-                </div>
+                <label>Цель Уровня 1</label>
+                <input type="number" name="goal_level_1" required placeholder="Например: 1000">
+
+                <label>Цель Уровня 2</label>
+                <input type="number" name="goal_level_2" required placeholder="Например: 3000">
+
+                <label>Цель Уровня 3</label>
+                <input type="number" name="goal_level_3" required placeholder="Например: 5000">
+
+                <label>Цель Уровня 4 (финал)</label>
+                <input type="number" name="goal_level_4" required placeholder="Например: 10000">
+
+                <label>URL баннера для главной</label>
+                <input type="text" name="banner_image_url" placeholder="https://....png">
+
+                <label>URL картинки Котла (Уровень 1)</label>
+                <input type="text" name="cauldron_image_url_1" placeholder="https://....png">
+
+                <label>URL картинки Котла (Уровень 2)</label>
+                <input type="text" name="cauldron_image_url_2" placeholder="https://....png">
+
+                <label>URL картинки Котла (Уровень 3)</label>
+                <input type="text" name="cauldron_image_url_3" placeholder="https://....png">
+
+                <label>URL картинки Котла (Уровень 4)</label>
+                <input type="text" name="cauldron_image_url_4" placeholder="https://....png">
+            </div>
+        </div>
+
+        <div class="quest-card" style="margin-top: 20px;">
+             <button type="submit" class="admin-action-btn approve" style="width: 100%;">Сохранить все настройки</button>
+        </div>
+
+        <div class="quest-card" style="margin-top: 20px;">
+            <h3 style="margin-top: 0;">Опасная зона</h3>
+            <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс</button>
         </div>
     </div>
 </form>
-                          
-                            <label>Цель Уровня 1</label>
-                            <input type="number" name="goal_level_1" required placeholder="Например: 1000">
-
-                            <label>Цель Уровня 2</label>
-                            <input type="number" name="goal_level_2" required placeholder="Например: 3000">
-
-                            <label>Цель Уровня 3</label>
-                            <input type="number" name="goal_level_3" required placeholder="Например: 5000">
-
-                            <label>Цель Уровня 4 (финал)</label>
-                            <input type="number" name="goal_level_4" required placeholder="Например: 10000">
-
-                            <label>URL баннера для главной</label>
-                            <input type="text" name="banner_image_url" placeholder="https://....png">
-
-                            <label>URL картинки Котла (Уровень 1)</label>
-                            <input type="text" name="cauldron_image_url_1" placeholder="https://....png">
-
-                            <label>URL картинки Котла (Уровень 2)</label>
-                            <input type="text" name="cauldron_image_url_2" placeholder="https://....png">
-
-                            <label>URL картинки Котла (Уровень 3)</label>
-                            <input type="text" name="cauldron_image_url_3" placeholder="https://....png">
-
-                            <label>URL картинки Котла (Уровень 4)</label>
-                            <input type="text" name="cauldron_image_url_4" placeholder="https://....png">
-                        </div>
-                    </div>
-                     <div class="quest-card" style="margin-top: 20px;">
-                        <h3 style="margin-top: 0;">Опасная зона</h3>
-                        <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс</button>
-                    </div>
-                </div>
 
                 <div id="tab-content-cauldron-rewards-1" class="tab-content hidden">
                     <div class="quest-card">
