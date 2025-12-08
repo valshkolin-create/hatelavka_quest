@@ -158,19 +158,34 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     text-shadow: 0 2px 5px rgba(0,0,0,0.5); /* Тень для читаемости */
 }
 
-/* КНОПКА "КАК ИГРАТЬ" */
-.rules-button-container { 
+/* --- ИСПРАВЛЕНИЕ КНОПОК "КАК ИГРАТЬ" И "НАГРАДЫ" --- */
+.rules-button-container {
     display: flex;
     justify-content: center;
-    gap: 10px; /* Отступ между кнопками */
-    margin-bottom: 20px; 
-    position: relative; 
-    /* Ставим очень высокий индекс, чтобы быть выше частиц, видео и оверлеев туториала */
-    z-index: 2002; 
-    pointer-events: auto; /* Принудительно включаем клики */
+    gap: 15px; /* Расстояние между кнопками */
+    margin-bottom: 20px;
+    width: 100%;
+    
+    /* КРИТИЧЕСКИ ВАЖНО: */
+    position: relative !important; 
+    z-index: 9999 !important; /* Ставим выше всех оверлеев, частиц и ведьм */
+    pointer-events: auto !important; /* Принудительно разрешаем клики */
 }
-.rules-button { background: linear-gradient(45deg, var(--action-color), var(--primary-color)); color: white; border: none; padding: 10px 25px; border-radius: 20px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); transition: all 0.3s ease; }
-.rules-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--glow-color); }
+
+/* Дополнительная страховка для самих кнопок */
+.rules-button {
+    position: relative;
+    z-index: 10000 !important; /* Ещё выше контейнера */
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    user-select: none;
+    touch-action: manipulation; /* Улучшает отклик на телефонах */
+}
+
+/* Блокируем перехват кликов частицами (на всякий случай) */
+.particles {
+    pointer-events: none !important;
+}
 .rules-button.highlight { animation: pulse-glow 1.5s infinite; }
 @keyframes pulse-glow { 0% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); } 50% { box-shadow: 0 0 20px var(--glow-color), 0 0 30px var(--glow-color); } 100% { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); } }
 
