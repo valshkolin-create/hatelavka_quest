@@ -157,37 +157,82 @@ document.addEventListener('DOMContentLoaded', () => {
     function setTheme(themeName) {
         console.log(`[THEME] Устанавливаем тему: ${themeName}`);
         
-        // 1. Сохраняем тему в память устройства (Local Storage)
+        // 1. Сохраняем и применяем тему
         localStorage.setItem('saved_theme', themeName);
-
-        // 2. Применяем тему к Body
         document.body.dataset.theme = themeName;
         
-        // 3. Обновляем кнопки в админке
+        // 2. Обновляем кнопки в админке
         if (dom.themeSwitcher) {
             dom.themeSwitcher.querySelectorAll('.theme-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.themeSet === themeName);
             });
         }
 
-        // 4. Если это админ — обновляем данные для отправки на сервер
-        if (currentUserData.is_admin) {
-            console.log('[THEME] Режим админа: тема обновлена локально.');
-            currentEventData.current_theme = themeName;
-        }
+        // 3. --- СЛОВАРЬ ТЕРМИНОВ (С ПАДЕЖАМИ) ---
+        const terms = {
+            halloween: {
+                title: 'Ведьминский Котел',    // Заголовок
+                btnAction: 'Вложить в котел',  // Кнопка
+                acc: 'котел',                  // (Куда?) В котел
+                prep: 'котле'                  // (Где?) В котле
+            },
+            new_year: {
+                title: '₊⁺🎄🎅 МЕШОК ЧУДЕС 🎅🎄⁺₊',
+                btnAction: 'Положить в мешок',
+                acc: 'мешок',
+                prep: 'мешке'
+            },
+            classic: {
+                title: 'Общий Банк',
+                btnAction: 'Пополнить банк',
+                acc: 'банк',
+                prep: 'банке'
+            }
+        };
+
+        // Выбираем словарь (или классику, если тема неизвестна)
+        const t = terms[themeName] || terms.classic;
+
+        // 4. --- ПРИМЕНЯЕМ ТЕКСТЫ ---
         
-        // 5. Логика обновления картинки награды
+        // А. Заголовок и кнопка
+        const headerTitle = document.getElementById('event-title');
+        const submitBtn = document.querySelector('#contribution-form button');
+
+        if (headerTitle) {
+            // Меняем заголовок, только если он стандартный или пустой, чтобы не затереть кастомное название с сервера
+            if (!currentEventData || !currentEventData.title || currentEventData.title === "Ивент-Котел" || currentEventData.title === "Ведьминский Котел" || currentEventData.title === "Новогодний Мешок" || currentEventData.title === "Общий Банк") {
+                headerTitle.textContent = t.title;
+            }
+        }
+        if (submitBtn) {
+            submitBtn.textContent = t.btnAction;
+        }
+
+        // Б. Текст в правилах ("Как играть?")
+        // Ищем все места, где нужно вставить слово в Винительном падеже ("в котел")
+        document.querySelectorAll('.dynamic-word-acc').forEach(el => el.textContent = t.acc);
+        
+        // Ищем все места, где нужно вставить слово в Предложном падеже ("в котле")
+        document.querySelectorAll('.dynamic-word-prep').forEach(el => el.textContent = t.prep);
+
+        // 5. Логика обновления картинки награды (осталась прежней)
+        if (currentUserData.is_admin) {
+             currentEventData.current_theme = themeName;
+        }
         if (dom.rewardImage) {
+            const THEME_ASSETS = {
+                halloween: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png' }, // Замени на свои URL
+                new_year: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png' },
+                classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }
+            };
             const currentThemeAssets = THEME_ASSETS[themeName] || THEME_ASSETS.classic;
-            const { levels = {} } = currentEventData || {}; 
             const currentLevel = getCurrentLevel(currentEventData);
-            const levelConfig = levels[`level_${currentLevel}`] || {};
+            const levelConfig = (currentEventData.levels && currentEventData.levels[`level_${currentLevel}`]) || {};
             const defaultReward = levelConfig.default_reward || {};
-            
             dom.rewardImage.src = defaultReward.image_url || currentThemeAssets.default_reward_image;
         }
     }
-
     function getCurrentLevel(eventData) {
         const { goals = {}, current_progress = 0 } = eventData || {};
         if (goals.level_3 && current_progress >= goals.level_3) return 4;
