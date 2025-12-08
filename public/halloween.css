@@ -510,3 +510,101 @@ body[data-theme="new_year"] #contribution-form button:disabled { background: #55
 body[data-theme="new_year"] .garland-video {
     display: block;
 }
+
+/* --- СТИЛИ ДЛЯ СПИСКА НАГРАД (MODAL) --- */
+
+/* Контейнер табов */
+.rewards-tabs {
+    display: flex;
+    background-color: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Кнопка таба */
+.rewards-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 12px 5px;
+    color: var(--text-color-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+/* Активный таб */
+.rewards-tab-btn.active {
+    color: var(--text-color);
+    background-color: rgba(255, 255, 255, 0.05);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+/* Заблокированный таб */
+.rewards-tab-btn.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.rewards-tab-btn.locked::after {
+    content: '\f023'; /* Иконка замка FontAwesome */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-left: 5px;
+    font-size: 10px;
+}
+
+/* Стили внутри списка наград модалки */
+.modal-rewards-group {
+    margin-bottom: 20px;
+}
+.modal-rewards-title {
+    font-size: 14px;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+/* Карточка награды в модалке (упрощенная) */
+.modal-reward-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+.modal-reward-place {
+    font-weight: 700;
+    font-size: 12px;
+    width: 25px;
+    text-align: center;
+    color: var(--action-color);
+}
+.modal-reward-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+.modal-reward-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+/* Заглушка для закрытого уровня */
+.locked-level-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-color-muted);
+}
+.locked-level-message i {
+    font-size: 40px;
+    margin-bottom: 15px;
+    color: var(--danger-color);
+    opacity: 0.7;
+}
