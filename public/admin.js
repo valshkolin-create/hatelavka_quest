@@ -201,6 +201,20 @@ try {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
+    // 👇 ВСТАВИТЬ СЮДА 👇
+    function formatDateToInput(date) {
+        if (!date) return '';
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return '';
+        const pad = (num) => String(num).padStart(2, '0');
+        const year = d.getFullYear();
+        const month = pad(d.getMonth() + 1);
+        const day = pad(d.getDate());
+        const hours = pad(d.getHours());
+        const minutes = pad(d.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+    // 👆 КОНЕЦ ВСТАВКИ 👆
     /**
      * Открывает модальное окно для поиска и выбора пользователя.
      * @param {string} title - Заголовок модального окна (н.п., "Выдать билеты: ...")
@@ -4877,29 +4891,6 @@ async function main() {
                  });
             }
             
-            /**
- * Форматирует дату для input type="datetime-local" (YYYY-MM-DDTHH:mm)
- * @param {Date|string|number} date - Дата для форматирования
- * @returns {string} Строка в формате YYYY-MM-DDTHH:mm
- */
-function formatDateToInput(date) {
-    if (!date) return '';
-    const d = new Date(date);
-    
-    // Проверка на валидность даты
-    if (isNaN(d.getTime())) return '';
-
-    const pad = (num) => String(num).padStart(2, '0');
-    
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const day = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const minutes = pad(d.getMinutes());
-
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
             updateSleepButton(sleepStatus);
             await switchView('view-admin-main');
 
