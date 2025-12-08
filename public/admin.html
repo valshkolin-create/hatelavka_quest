@@ -694,7 +694,18 @@
 
                             <label>Название ивента</label>
                             <input type="text" name="title" required placeholder="Ведьминский котел">
-
+                          
+                          <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <div style="flex: 1;">
+                                    <label>Дата начала (UTC)</label>
+                                    <input type="datetime-local" name="start_date">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>Дата окончания (UTC)</label>
+                                    <input type="datetime-local" name="end_date">
+                                </div>
+                            </div>
+                          
                             <label>Цель Уровня 1</label>
                             <input type="number" name="goal_level_1" required placeholder="Например: 1000">
 
