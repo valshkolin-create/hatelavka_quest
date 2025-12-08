@@ -909,3 +909,49 @@ body.no-scroll {
     touch-action: none; /* Для мобильных устройств */
     height: 100vh;      /* Фиксируем высоту */
 }
+/* --- Новые стили для списка лидеров с иконками --- */
+
+/* Контейнер, который держит иконку и имя вместе на одной строке */
+.player-name-container {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Расстояние между иконкой и именем */
+    justify-content: flex-start;
+    flex-grow: 1;
+    overflow: hidden; /* Чтобы длинные имена не ломали верстку */
+}
+
+/* Стилизация текста имени: жирнее и чуть меньше */
+.player-name-text {
+    font-weight: 700; /* Жирный шрифт */
+    font-size: 0.9rem; /* Немного уменьшенный размер (подберите по вкусу, например 0.85rem или 14px) */
+    white-space: nowrap; /* Текст в одну строку */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Многоточие, если не влезает */
+    color: #ffffff; /* Явный белый цвет */
+}
+
+/* Общие стили для SVG иконок платформ */
+.platform-icon {
+    width: 18px;  /* Размер иконки */
+    height: 18px;
+    flex-shrink: 0; /* Чтобы иконка не сжималась */
+    filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.3)); /* Небольшая тень для объема */
+}
+
+/* Цвет иконки Twitch (фирменный фиолетовый) */
+.icon-twitch {
+    fill: #9146FF;
+}
+
+/* Цвет иконки Telegram (фирменный голубой) */
+.icon-telegram {
+    fill: #24A1DE;
+}
+
+/* Небольшая корректировка существующего класса для лучшего выравнивания */
+.leaderboard-name {
+    display: flex;
+    align-items: center;
+    overflow: hidden; /* Важно для обрезки длинных имен */
+}
