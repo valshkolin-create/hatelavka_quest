@@ -798,11 +798,12 @@ function renderPage(eventData, leaderboardData = {}) {
     // --- УНИВЕРСАЛЬНЫЕ ФУНКЦИИ МОДАЛОК ---
     function showModal(modalElement) {
         modalElement.classList.remove('hidden');
-        
-        // Блокируем скролл фона
         document.body.classList.add('no-scroll');
+
+        // --- ДОБАВЬ ЭТО: Скрываем баннер админа, пока открыто окно ---
+        if (dom.adminNotice) dom.adminNotice.classList.add('hidden');
         
-        // Скрываем админ-кнопки, чтобы не мешали (старая логика)
+        // Скрываем кнопки админа (это у тебя уже было)
         if (dom.adminControls && !dom.adminControls.classList.contains('expanded')) {
              dom.adminControls.style.display = 'none';
         }
