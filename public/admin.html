@@ -681,30 +681,37 @@
             </div>
 
             <form id="cauldron-settings-form">
-                <div id="tab-content-cauldron-settings" class="tab-content active">
-                    <div class="quest-card">
-                        <div class="admin-form">
-                            <div class="setting-item" style="padding: 0; border: none;">
-                                <span class="setting-label">Ивент активен (виден пользователям)</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" name="is_visible_to_users">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
+    <div id="tab-content-cauldron-settings" class="tab-content active">
+        <div class="quest-card">
+            <div class="admin-form">
+                <div class="setting-item" style="padding: 0; border: none;">
+                    <span class="setting-label">Ивент активен (виден пользователям)</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" name="is_visible_to_users">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
 
-                            <label>Название ивента</label>
-                            <input type="text" name="title" required placeholder="Ведьминский котел">
-                          
-                          <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                <div style="flex: 1;">
-                                    <label>Дата начала (UTC)</label>
-                                    <input type="datetime-local" name="start_date">
-                                </div>
-                                <div style="flex: 1;">
-                                    <label>Дата окончания (UTC)</label>
-                                    <input type="datetime-local" name="end_date">
-                                </div>
-                            </div>
+                <label>Название ивента</label>
+                <input type="text" name="title" required placeholder="Ведьминский котел" style="width: 100%; box-sizing: border-box;"> 
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                    
+                    <div style="flex: 1; min-width: 140px;">
+                        <label>Дата начала (UTC)</label>
+                        <input type="datetime-local" name="start_date" style="width: 100%; box-sizing: border-box;">
+                    </div>
+
+                    <div style="flex: 1; min-width: 140px;">
+                        <label>Дата окончания (UTC)</label>
+                        <input type="datetime-local" name="end_date" style="width: 100%; box-sizing: border-box;">
+                    </div>
+
+                </div>
+                </div>
+        </div>
+    </div>
+</form>
                           
                             <label>Цель Уровня 1</label>
                             <input type="number" name="goal_level_1" required placeholder="Например: 1000">
