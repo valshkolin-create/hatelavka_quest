@@ -4805,11 +4805,10 @@ if(dom.createRoulettePrizeForm) {
     function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
 
-    // Ищем контейнер или используем сам targetElement
-    const listContainer = targetElement.querySelector('.shop-list-container') ||
-        targetElement.querySelector('.pending-actions-grid') ||
-        targetElement;
-
+    const listContainer = targetElement.querySelector('.shop-list-container') || 
+                          targetElement.querySelector('.pending-actions-grid') || 
+                          targetElement;
+                          
     listContainer.innerHTML = '';
 
     if (!purchases || purchases.length === 0) {
@@ -4819,7 +4818,7 @@ if(dom.createRoulettePrizeForm) {
 
     listContainer.innerHTML = purchases.map(p => {
         const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
-        const linkHtml = hasLink
+        const linkHtml = hasLink 
             ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
             : '<span style="color: var(--warning-color);">Не указана</span>';
 
@@ -4828,11 +4827,12 @@ if(dom.createRoulettePrizeForm) {
             imgUrl = "https://placehold.co/60?text=No+Img";
         }
 
-        // --- ВАЖНО: Передаем Title и UserID в handleShopAction ---
-        // Экранируем кавычки в названии, чтобы не сломать HTML
+        // --- ВАЖНО: Подготовка данных для кнопки ---
+        // Экранируем кавычки в названии
         const safeTitle = (p.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        // Получаем ID пользователя (если его нет, будет 0)
         const userId = p.user_id || 0; 
-        // --------------------------------------------------------
+        // -------------------------------------------
 
         return `
         <div class="shop-purchase-card" id="shop-card-${p.id}">
@@ -4876,12 +4876,18 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
     let isTicketAuto = false;
     let ticketAmount = 0;
 
-    // Проверяем наличие слова "билет" (в любом регистре)
+    // Проверяем наличие слова "билет"
     if (isApprove && title && title.toLowerCase().includes('билет')) {
+        // Проверка на ошибку передачи данных (для отладки)
+        if (!userId || userId === 0) {
+            alert("Ошибка JS: Не передан ID пользователя! Попробуйте обновить страницу (F5) или проверьте функцию renderShopPurchases.");
+            return;
+        }
+
         const numberMatch = title.match(/(\d+)/);
         ticketAmount = numberMatch ? parseInt(numberMatch[0], 10) : 1;
 
-        confirmMsg = `Обнаружены билеты: <b>${ticketAmount} шт</b>.<br>Выдать их автоматически и закрыть заявку?`;
+        confirmMsg = `Обнаружены билеты: <b>${ticketAmount} шт</b>.<br>Для пользователя ID: ${userId}<br>Выдать их автоматически и закрыть заявку?`;
         btnText = `Выдать ${ticketAmount} 🎟️`;
         isTicketAuto = true;
     }
@@ -4891,23 +4897,23 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
         showLoader();
 
         try {
-            if (isTicketAuto && userId > 0) {
-                // 1. ВЫДАЕМ БИЛЕТЫ
-                // ВАЖНО: Используем тот же адрес, что и в ручной форме (grant-stars)
-                // И тот же ключ (user_id_to_grant)
-                await makeApiRequest('/api/v1/admin/users/grant-stars', { 
-                    user_id_to_grant: userId, 
+            if (isTicketAuto) {
+                // 1. ВЫДАЕМ БИЛЕТЫ (Строго по логике ручной выдачи)
+                // Endpoint: /grant-stars
+                // Параметр: user_id_to_grant
+                const grantResult = await makeApiRequest('/api/v1/admin/users/grant-stars', { 
+                    user_id_to_grant: userId, // Важно: числовой ID
                     amount: ticketAmount 
                 }, 'POST', true);
                 
-                console.log(`[Shop] Билеты (${ticketAmount}) выданы юзеру ${userId} через endpoint grant-stars`);
+                console.log(`[Shop] Ответ сервера на выдачу:`, grantResult);
             }
 
             // 2. ЗАКРЫВАЕМ ЗАЯВКУ В МАГАЗИНЕ
             const endpoint = isApprove ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
             await makeApiRequest(endpoint, { reward_id: id }, 'POST', true);
 
-            // 3. ВИЗУАЛЬНОЕ УДАЛЕНИЕ
+            // 3. УДАЛЯЕМ ИЗ СПИСКА
             document.getElementById(`shop-card-${id}`)?.remove();
             
             // Обновляем бейдж
