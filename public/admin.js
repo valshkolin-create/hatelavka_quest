@@ -1,7 +1,33 @@
 // admin.js
 
 try {
+    const WEAR_OPTIONS = [
+    { val: '', text: 'Не указано' },
+    { val: 'Factory New', text: 'Прямо с завода (FN)' },
+    { val: 'Minimal Wear', text: 'Немного поношенное (MW)' },
+    { val: 'Field-Tested', text: 'После полевых (FT)' },
+    { val: 'Well-Worn', text: 'Поношенное (WW)' },
+    { val: 'Battle-Scarred', text: 'Закаленное в боях (BS)' }
+];
+
+const RARITY_OPTIONS = [
+    { val: '', text: 'Обычное (Серый)' },
+    { val: 'common', text: 'Ширпотреб (Белый)' },
+    { val: 'uncommon', text: 'Промышленное (Голубой)' },
+    { val: 'rare', text: 'Армейское (Синий)' },
+    { val: 'mythical', text: 'Запрещенное (Фиолетовый)' },
+    { val: 'legendary', text: 'Засекреченное (Розовый)' },
+    { val: 'ancient', text: 'Тайное (Красный)' },
+    { val: 'immortal', text: 'Золотое (Нож/Перчатки)' }
+];
+
+function generateOptionsHtml(options, selectedValue) {
+    return options.map(opt => `<option value="${opt.val}" ${opt.val === selectedValue ? 'selected' : ''}>${opt.text}</option>`).join('');
+}
+    
     const tg = window.Telegram.WebApp;
+
+    
 
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
@@ -335,18 +361,37 @@ function getCurrentLevel(eventData) {
     // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 1
 
     // Создает HTML-строку для награды из топ-20
-    function createTopRewardRow(reward = { place: '', name: '', image_url: '' }) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'top-reward-row admin-form';
-        wrapper.style.cssText = 'display: flex; flex-direction: row; align-items: center; gap: 10px; margin-bottom: 10px;';
-        wrapper.innerHTML = `
-            <input type="number" class="reward-place" placeholder="Место" value="${escapeHTML(reward.place)}" min="1" max="20" style="flex: 0 0 70px;">
-            <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(reward.name)}" style="flex: 1 1 auto;">
-            <input type="text" class="reward-image" placeholder="URL изображения" value="${escapeHTML(reward.image_url)}" style="flex: 1 1 auto;">
-            <button type="button" class="admin-action-btn reject remove-reward-btn" style="flex: 0 0 40px; padding: 8px;"><i class="fa-solid fa-trash-can"></i></button>
-        `;
-        return wrapper;
-    }
+    function createTopRewardRow(reward = {}) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'top-reward-row admin-form';
+    wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #444;';
+    
+    const place = reward.place || '';
+    const name = reward.name || '';
+    const image = reward.image_url || '';
+    const wear = reward.wear || '';     // Износ
+    const rarity = reward.rarity || ''; // Редкость
+
+    wrapper.innerHTML = `
+        <div style="display:flex; gap:10px; width: 100%;">
+            <input type="number" class="reward-place" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20" style="width: 60px;">
+            <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" style="flex: 1;">
+            <button type="button" class="admin-action-btn reject remove-reward-btn" style="width: 40px; padding: 8px;"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+        <div style="display:flex; gap:10px; width: 100%;">
+            <input type="text" class="reward-image" placeholder="URL картинки" value="${escapeHTML(image)}" style="flex: 1;">
+            
+            <select class="reward-wear" style="flex: 1;">
+                ${generateOptionsHtml(WEAR_OPTIONS, wear)}
+            </select>
+            
+            <select class="reward-rarity" style="flex: 1;">
+                ${generateOptionsHtml(RARITY_OPTIONS, rarity)}
+            </select>
+        </div>
+    `;
+    return wrapper;
+}
 
     // Собирает все данные из формы "Котла" в один объект
 function collectCauldronData() {
@@ -400,27 +445,29 @@ function collectCauldronData() {
                 const place = parseInt(row.querySelector('.reward-place').value, 10);
                 const name = row.querySelector('.reward-name').value.trim();
                 const image_url = row.querySelector('.reward-image').value.trim();
+                
+                // Берем новые значения из селектов
+                const wear = row.querySelector('.reward-wear').value;
+                const rarity = row.querySelector('.reward-rarity').value;
+
                 if (place >= 1 && place <= 20 && name) {
-                    topPlaces.push({ place, name, image_url });
+                    topPlaces.push({ place, name, image_url, wear, rarity });
                 }
             });
         }
 
-        // Сбор Тиров (используем безопасную функцию getValue)
-        const tiers = {
-            "21-30": {
-                name: getValue(`tier_21_30_name_${level}`),
-                image_url: getValue(`tier_21_30_image_url_${level}`)
-            },
-            "31-40": {
-                name: getValue(`tier_31_40_name_${level}`),
-                image_url: getValue(`tier_31_40_image_url_${level}`)
-            },
-            "41+": {
-                name: getValue(`tier_41_plus_name_${level}`),
-                image_url: getValue(`tier_41_plus_image_url_${level}`)
-            }
-        };
+        // 2. Сбор Тиров (ОБНОВЛЕНО)
+        const tiers = {};
+        ["21-30", "31-40", "41+"].forEach(tierKey => {
+        const tierData = tiers[tierKey] || {};
+        const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
+        
+        setVal(`${prefix}_name_${level}`, tierData.name);
+        setVal(`${prefix}_image_url_${level}`, tierData.image_url);
+        // Заполняем новые поля
+        setVal(`${prefix}_wear_${level}`, tierData.wear);
+        setVal(`${prefix}_rarity_${level}`, tierData.rarity);
+    });
 
         content.levels[levelKey] = {
             top_places: topPlaces,
