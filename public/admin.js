@@ -727,6 +727,13 @@ const showLoader = () => {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
 
+                    // 👇👇👇 ВСТАВИТЬ ЭТОТ БЛОК СЮДА 👇👇👇
+                    const setVal = (name, val) => {
+                        const el = form.elements[name] || document.querySelector(`[name="${name}"]`);
+                        if (el) el.value = val || '';
+                    };
+                    // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
+
                     // ... (Заполнение основных настроек и целей оставляем как есть) ...
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
                     form.elements['title'].value = currentCauldronData.title || '';
