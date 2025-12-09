@@ -555,6 +555,24 @@ class AdminShopCacheClearRequest(BaseModel):
     password: str
 
 # --- SLAY Models ---
+
+# --- SLAY Models Update ---
+class SlayContentUpdate(BaseModel):
+    initData: str
+    title: str
+    description: str
+
+class SlayNominationUpdate(BaseModel):
+    initData: str
+    id: int
+    title: str
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+
+class SlayCandidateDelete(BaseModel):
+    initData: str
+    candidate_id: int
+
 class SlayVoteRequest(BaseModel):
     initData: str
     nomination_id: int
@@ -2174,6 +2192,82 @@ async def get_auction_history(
         raise HTTPException(status_code=500, detail="Не удалось загрузить историю.")
 
 # --- SLAY Эндпоинты ---
+
+# --- SLAY ADMIN: Управление контентом страницы ---
+@app.get("/api/v1/slay/content")
+async def get_slay_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Получает заголовки страницы Slay Awards."""
+    try:
+        resp = await supabase.get(
+            "/pages_content", 
+            params={"page_name": "eq.slay_awards", "select": "content", "limit": 1}
+        )
+        data = resp.json()
+        if data and data[0].get('content'):
+            return data[0]['content']
+        # Дефолтные значения, если в базе пусто
+        return {
+            "title": "SLAY AWARDS 2025",
+            "description": "Главное событие года. Выбираем легенд чата."
+        }
+    except Exception as e:
+        return {"title": "SLAY AWARDS", "description": "Loading..."}
+
+@app.post("/api/v1/admin/slay/content/update")
+async def update_slay_content(
+    request_data: SlayContentUpdate,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Обновляет заголовок и описание."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    content = {"title": request_data.title, "description": request_data.description}
+    
+    # Используем upsert (обновление или вставка)
+    await supabase.post(
+        "/pages_content",
+        json={"page_name": "slay_awards", "content": content},
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+    return {"message": "Контент обновлен"}
+
+# --- SLAY ADMIN: Управление номинациями ---
+@app.post("/api/v1/admin/slay/nomination/update")
+async def update_slay_nomination(
+    request_data: SlayNominationUpdate,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Переименовывает номинацию или меняет картинку."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    await supabase.patch(
+        "/slay_nominations",
+        params={"id": f"eq.{request_data.id}"},
+        json={
+            "title": request_data.title,
+            "image_url": request_data.image_url,
+            "description": request_data.description
+        }
+    )
+    return {"message": "Номинация обновлена"}
+
+# --- SLAY ADMIN: Дисквалификация ---
+@app.post("/api/v1/admin/slay/candidate/delete")
+async def delete_slay_candidate(
+    request_data: SlayCandidateDelete,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Удаляет кандидата из номинации."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    await supabase.delete(
+        "/slay_candidates",
+        params={"id": f"eq.{request_data.candidate_id}"}
+    )
+    return {"message": "Кандидат удален"}
 
 # 1. Получение активных голосований (Для пользователей)
 @app.post("/api/v1/slay/active")
