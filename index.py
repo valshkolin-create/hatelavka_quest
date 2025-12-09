@@ -580,12 +580,6 @@ class SlayVoteRequest(BaseModel):
     nomination_id: int
     candidate_id: int
 
-class SlayNominationCreate(BaseModel):
-    initData: str
-    title: str
-    description: Optional[str] = ""
-    image_url: Optional[str] = None # <-- Добавили поле
-
 class SlayCandidateAdd(BaseModel):
     initData: str
     nomination_id: int
