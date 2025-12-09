@@ -774,24 +774,16 @@
         async function initShop() {
             updateNavState();
             initPartnersScroll();
-            loadCategory(0); // Сразу грузим товары
+            loadCategory(0); 
 
-            // --- ИСПРАВЛЕННАЯ ЛОГИКА СТАРТА ---
-            
-            // 1. Первый запрос (Тихий):
-            // Пытаемся обновить баланс в базе, но на экране цифры не меняем (оставляем ... или кэш)
-            checkBalance(false); 
+            checkBalance(false);
 
-            // 2. Второй запрос (Через 2.5 секунды):
-            // К этому моменту сервер уже обновил данные от Bot-t.
-            // Забираем их и показываем пользователю.
             setTimeout(() => {
-                isBalanceLoading = false; // Снимаем блокировку
-                checkBalance(true);       // Обновляем UI
+                isBalanceLoading = false; 
+                checkBalance(true);       
             }, 700);
 
-            // --- СОХРАНЕННАЯ ЛОГИКА ЗАГРУЗКИ ПРОФИЛЯ ---
-            // Дополнительно можно получить trade_link, если нужно для покупок
+            // --- ОБНОВЛЕННАЯ ЛОГИКА ЗАГРУЗКИ ПРОФИЛЯ ---
             try {
                 const userData = await fetch('/api/v1/user/me', {
                     method: 'POST',
@@ -799,12 +791,71 @@
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 }).then(r => r.json());
 
+                // 1. Проверяем трейд-ссылку
                 if (userData && userData.trade_link) {
                     hasTradeLink = true;
                 }
+
+                // 2. 🔥 ПРОВЕРЯЕМ АДМИНА И ПОКАЗЫВАЕМ КНОПКУ 🔥
+                if (userData && userData.is_admin) {
+                    const adminBtn = document.getElementById('admin-cache-control');
+                    if (adminBtn) adminBtn.style.display = 'block';
+                }
+
             } catch (e) {
-                console.log("Ошибка загрузки профиля (не критично для витрины):", e);
+                console.log("Ошибка загрузки профиля:", e);
             }
+        }
+
+        // --- НОВАЯ ФУНКЦИЯ ДЛЯ СБРОСА КЭША ---
+        window.resetShopCache = function() {
+            // Вибрация для тактильности
+            if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+
+            // Запрашиваем пароль через нативный промпт
+            // (prompt работает в WebApp и выглядит как системное окно)
+            const password = prompt("Введите пароль администратора для сброса кэша:");
+
+            if (!password) return; // Если нажал отмена
+
+            // Показываем лоадер
+            const loader = document.getElementById('purchase-loader');
+            if (loader) {
+                loader.querySelector('.loader-text').innerText = "Очистка кэша...";
+                loader.classList.add('active');
+            }
+
+            fetch('/api/v1/admin/shop/reset_cache', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    initData: Telegram.WebApp.initData,
+                    password: password 
+                })
+            })
+            .then(async r => {
+                const data = await r.json();
+                if (r.status === 200) {
+                    Telegram.WebApp.showAlert("✅ " + data.message);
+                    // Перезагружаем текущую категорию, чтобы сразу увидеть эффект
+                    itemsCache = {}; // Чистим локальный JS кэш
+                    loadCategory(currentCategoryId);
+                } else {
+                    Telegram.WebApp.showAlert("⛔ Ошибка: " + (data.detail || "Неверный пароль"));
+                }
+            })
+            .catch(err => {
+                Telegram.WebApp.showAlert("Ошибка соединения.");
+            })
+            .finally(() => {
+                // Убираем лоадер и возвращаем текст
+                if (loader) {
+                    loader.classList.remove('active');
+                    setTimeout(() => {
+                        loader.querySelector('.loader-text').innerText = "Оформляем покупку...";
+                    }, 200);
+                }
+            });
         }
         
         async function loadCategory(catId) {
@@ -1093,6 +1144,13 @@
         // Достаточно вызвать только это. 
         // Вся логика (тихий запрос + таймер на 2.5 сек) теперь находится ВНУТРИ этой функции.
         initShop();
+
+        <div id="admin-cache-control" style="display: none; position: fixed; bottom: 80px; left: 0; width: 100%; text-align: center; z-index: 9998; pointer-events: none;">
+        <span onclick="resetShopCache()" style="pointer-events: auto; cursor: pointer; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px; border: 1px solid #ff453a; font-size: 10px; color: #ff453a; font-weight: bold; backdrop-filter: blur(4px);">
+            <i class="fa-solid fa-trash-can"></i> СБРОСИТЬ КЭШ
+        </span>
+    </div>
+        
     </script>
 </body>
 </html>
