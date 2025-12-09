@@ -743,180 +743,516 @@
                 </div>
 
                 <div id="tab-content-cauldron-rewards-1" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 1)</h3>
-                        <div id="top-rewards-container-1"></div>
-                        <button type="button" id="add-top-reward-btn-1" data-level="1" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
+    <div class="quest-card">
+        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 1)</h3>
+        <div id="top-rewards-container-1"></div>
+        <button type="button" id="add-top-reward-btn-1" data-level="1" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+            <i class="fa-solid fa-plus"></i> Добавить награду за место
+        </button>
+    </div>
+
+    <div class="quest-card" style="margin-top: 15px;">
+        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+        
+        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_21_30_name_1" placeholder="Напр: AK-47 | Elite Build">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_21_30_image_url_1" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_21_30_wear_1">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
                     </div>
-
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_1" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_1" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_1" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_1" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_1" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_1" placeholder="https://...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="tab-content-cauldron-rewards-2" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 2)</h3>
-                        <div id="top-rewards-container-2"></div>
-                        <button type="button" id="add-top-reward-btn-2" data-level="2" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
-                    </div>
-
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_2" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_2" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_2" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_2" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_2" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_2" placeholder="https://...">
-                            </div>
-                        </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_21_30_rarity_1">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div id="tab-content-cauldron-rewards-3" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 3)</h3>
-                        <div id="top-rewards-container-3"></div>
-                        <button type="button" id="add-top-reward-btn-3" data-level="3" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
+        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_31_40_name_1" placeholder="Напр: M4A4 | Magnesium">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_31_40_image_url_1" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_31_40_wear_1">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
                     </div>
-
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_3" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_3" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_3" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_3" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_3" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_3" placeholder="https://...">
-                            </div>
-                        </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_31_40_rarity_1">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div id="tab-content-cauldron-rewards-4" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 4)</h3>
-                        <div id="top-rewards-container-4"></div>
-                        <button type="button" id="add-top-reward-btn-4" data-level="4" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
+        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_41_plus_name_1" placeholder="Напр: Кейс / Граффити">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_41_plus_image_url_1" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_41_plus_wear_1">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
                     </div>
-
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_4" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_4" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_4" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_4" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_4" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_4" placeholder="https://...">
-                            </div>
-                        </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_41_plus_rarity_1">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="tab-content-cauldron-rewards-2" class="tab-content hidden">
+    <div class="quest-card">
+        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 2)</h3>
+        <div id="top-rewards-container-2"></div>
+        <button type="button" id="add-top-reward-btn-2" data-level="2" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+            <i class="fa-solid fa-plus"></i> Добавить награду за место
+        </button>
+    </div>
+
+    <div class="quest-card" style="margin-top: 15px;">
+        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+        
+        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_21_30_name_2" placeholder="Напр: AK-47 | Elite Build">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_21_30_image_url_2" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_21_30_wear_2">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_21_30_rarity_2">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_31_40_name_2" placeholder="Напр: M4A4 | Magnesium">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_31_40_image_url_2" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_31_40_wear_2">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_31_40_rarity_2">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_41_plus_name_2" placeholder="Напр: Кейс / Граффити">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_41_plus_image_url_2" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_41_plus_wear_2">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_41_plus_rarity_2">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="tab-content-cauldron-rewards-3" class="tab-content hidden">
+    <div class="quest-card">
+        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 3)</h3>
+        <div id="top-rewards-container-3"></div>
+        <button type="button" id="add-top-reward-btn-3" data-level="3" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+            <i class="fa-solid fa-plus"></i> Добавить награду за место
+        </button>
+    </div>
+
+    <div class="quest-card" style="margin-top: 15px;">
+        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+        
+        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_21_30_name_3" placeholder="Напр: AK-47 | Elite Build">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_21_30_image_url_3" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_21_30_wear_3">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_21_30_rarity_3">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_31_40_name_3" placeholder="Напр: M4A4 | Magnesium">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_31_40_image_url_3" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_31_40_wear_3">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_31_40_rarity_3">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_41_plus_name_3" placeholder="Напр: Кейс / Граффити">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_41_plus_image_url_3" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_41_plus_wear_3">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_41_plus_rarity_3">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="tab-content-cauldron-rewards-4" class="tab-content hidden">
+    <div class="quest-card">
+        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 4)</h3>
+        <div id="top-rewards-container-4"></div>
+        <button type="button" id="add-top-reward-btn-4" data-level="4" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+            <i class="fa-solid fa-plus"></i> Добавить награду за место
+        </button>
+    </div>
+
+    <div class="quest-card" style="margin-top: 15px;">
+        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+        
+        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_21_30_name_4" placeholder="Напр: AK-47 | Elite Build">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_21_30_image_url_4" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_21_30_wear_4">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_21_30_rarity_4">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_31_40_name_4" placeholder="Напр: M4A4 | Magnesium">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_31_40_image_url_4" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_31_40_wear_4">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_31_40_rarity_4">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+            <div class="admin-form">
+                <label>Название</label>
+                <input type="text" name="tier_41_plus_name_4" placeholder="Напр: Кейс / Граффити">
+                
+                <label>URL картинки</label>
+                <input type="text" name="tier_41_plus_image_url_4" placeholder="https://...">
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Износ</label>
+                        <select name="tier_41_plus_wear_4">
+                            <option value="">Не выбрано</option>
+                            <option value="Factory New">Прямо с завода</option>
+                            <option value="Minimal Wear">Немного поношенное</option>
+                            <option value="Field-Tested">После полевых</option>
+                            <option value="Well-Worn">Поношенное</option>
+                            <option value="Battle-Scarred">Закаленное в боях</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px;">Редкость</label>
+                        <select name="tier_41_plus_rarity_4">
+                            <option value="">Не выбрано</option>
+                            <option value="common">Ширпотреб (Белый)</option>
+                            <option value="uncommon">Промышленное (Голубой)</option>
+                            <option value="rare">Армейское (Синий)</option>
+                            <option value="mythical">Запрещенное (Фиолетовый)</option>
+                            <option value="legendary">Засекреченное (Розовый)</option>
+                            <option value="ancient">Тайное (Красный)</option>
+                            <option value="immortal">Золотое (Нож)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
                 <div id="tab-content-cauldron-distribution" class="tab-content hidden">
                     <div class="quest-card">
