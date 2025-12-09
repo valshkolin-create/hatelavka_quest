@@ -24,6 +24,29 @@ const RARITY_OPTIONS = [
 function generateOptionsHtml(options, selectedValue) {
     return options.map(opt => `<option value="${opt.val}" ${opt.val === selectedValue ? 'selected' : ''}>${opt.text}</option>`).join('');
 }
+
+// 👇👇👇 ДОБАВЬТЕ ЭТИ ФУНКЦИИ СЮДА (ГЛОБАЛЬНО) 👇👇👇
+
+    // Функция для ПОЛУЧЕНИЯ значения (используется при сохранении)
+    function getValue(name) {
+        const form = document.getElementById('cauldron-settings-form');
+        if (!form) return '';
+        // Сначала ищем в элементах формы
+        if (form.elements[name]) return form.elements[name].value;
+        // Если форма "разорвана", ищем просто в документе по имени
+        const el = document.querySelector(`[name="${name}"]`);
+        return el ? el.value : '';
+    }
+
+    // Функция для УСТАНОВКИ значения (используется при загрузке)
+    function setVal(name, val) {
+        const form = document.getElementById('cauldron-settings-form');
+        if (!form) return;
+        const el = form.elements[name] || document.querySelector(`[name="${name}"]`);
+        if (el) el.value = val || '';
+    }
+
+    // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
     
     const tg = window.Telegram.WebApp;
 
@@ -726,13 +749,6 @@ const showLoader = () => {
                 case 'view-admin-cauldron': {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
-
-                    // 👇👇👇 ВСТАВИТЬ ЭТОТ БЛОК СЮДА 👇👇👇
-                    const setVal = (name, val) => {
-                        const el = form.elements[name] || document.querySelector(`[name="${name}"]`);
-                        if (el) el.value = val || '';
-                    };
-                    // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
 
                     // ... (Заполнение основных настроек и целей оставляем как есть) ...
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
