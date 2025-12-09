@@ -564,6 +564,7 @@ class SlayNominationCreate(BaseModel):
     initData: str
     title: str
     description: Optional[str] = ""
+    image_url: Optional[str] = None # <-- Добавили поле
 
 class SlayCandidateAdd(BaseModel):
     initData: str
@@ -2265,7 +2266,12 @@ async def create_slay_nomination(
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
 
-    await supabase.post("/slay_nominations", json={"title": request_data.title, "description": request_data.description})
+    # Сохраняем картинку
+    await supabase.post("/slay_nominations", json={
+        "title": request_data.title, 
+        "description": request_data.description,
+        "image_url": request_data.image_url # <-- Пишем в базу
+    })
     return {"message": "Номинация создана"}
 
 # 4. Админ: Добавить кандидата (по user_id)
