@@ -455,7 +455,8 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     padding: 0; 
     border-radius: 16px; 
     width: 100%; 
-    max-width: 375px; 
+    max-width: 375px;
+    background-color: #121216 !important; /* Глубокий темный цвет (почти черный) */
     box-shadow: 0 10px 40px rgba(0,0,0,0.7); 
     display: flex; 
     flex-direction: column; 
@@ -492,7 +493,8 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    background: rgba(255,255,255,0.05);
+    background: rgba(0, 0, 0, 0.5) !important;
+    border-color: rgba(255, 255, 255, 0.2);
     border-radius: 10px;
     margin-bottom: 8px;
     min-height: 56px;
@@ -824,8 +826,9 @@ body[data-theme="new_year"] .garland-video {
     transition: background 0.2s;
 }
 
-.modal-reward-item:hover {
-    background: rgba(255,255,255,0.1);
+.modal-reward-item {
+    background: rgba(0, 0, 0, 0.3) !important; /* Темная полупрозрачная подложка */
+    border: 1px solid rgba(255, 255, 255, 0.05); /* Тонкая обводка */
 }
 
 /* Фиксируем ширину колонки с местом (#1, #2) */
