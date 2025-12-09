@@ -6,105 +6,150 @@
     <title>SLAY AWARDS</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         :root {
-            --bg-color: #0a0a0a;
-            --card-bg: rgba(255, 255, 255, 0.05);
+            --bg-color: #050505;
+            --card-bg: rgba(30, 30, 30, 0.6);
             --gold: #FFD700;
+            --gold-glow: rgba(255, 215, 0, 0.4);
             --accent: #9d4edd;
+            --accent-glow: rgba(157, 78, 221, 0.4);
             --text: #ffffff;
+            --text-secondary: #aaaaaa;
+            --success: #2ecc71;
         }
         
         body {
             background-color: var(--bg-color);
             color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             min-height: 100vh;
-            background-image: radial-gradient(circle at 50% 0%, #2a1b3d 0%, #0a0a0a 60%);
+            /* Премиальный градиентный фон */
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(157, 78, 221, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 215, 0, 0.08) 0%, transparent 40%);
+            -webkit-font-smoothing: antialiased;
         }
 
+        /* --- ШАПКА --- */
         .header {
             text-align: center;
-            padding: 30px 20px;
+            padding: 40px 20px 20px;
+            position: relative;
+            overflow: hidden;
         }
 
         .slay-title {
-            font-size: 32px;
+            font-size: 36px;
             font-weight: 900;
-            background: linear-gradient(45deg, #FFD700, #FFF, #9d4edd);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin: 0;
+            /* Текстовый градиент */
+            background: linear-gradient(135deg, #fff 20%, var(--gold) 50%, #fff 80%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin: 0;
-            text-shadow: 0 0 20px rgba(157, 78, 221, 0.5);
-        }
-
-        .slay-subtitle {
-            color: #ccc;
-            font-size: 14px;
-            margin-top: 10px;
+            text-shadow: 0 0 30px var(--accent-glow);
+            position: relative;
+            z-index: 2;
         }
 
         .reward-badge {
-            display: inline-block;
-            background: rgba(255, 215, 0, 0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 215, 0, 0.15);
             border: 1px solid var(--gold);
             color: var(--gold);
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            margin-top: 10px;
-            animation: pulse 2s infinite;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 15px;
+            box-shadow: 0 0 15px var(--gold-glow);
+            animation: pulse-gold 2s infinite;
         }
 
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+        }
+
+        .slay-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: 400;
+        }
+
+        /* --- КОНТЕЙНЕР --- */
         .container {
             padding: 20px;
-            padding-bottom: 80px;
+            padding-bottom: 100px; /* Отступ снизу для скролла */
+            max-width: 600px;
+            margin: 0 auto;
         }
 
-        /* Карточка Номинации */
+        /* --- КАРТОЧКА НОМИНАЦИИ --- */
         .nomination-card {
             background: var(--card-bg);
-            border-radius: 20px;
+            border-radius: 24px;
             padding: 20px;
-            margin-bottom: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            margin-bottom: 25px;
+            /* Эффект стекла */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .nomination-header {
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
         }
 
         .nom-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 5px;
+            font-size: 18px;
+            font-weight: 800;
             color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .nom-desc {
             font-size: 13px;
-            color: #888;
-            margin-bottom: 20px;
+            color: var(--text-secondary);
+            margin-top: 4px;
         }
 
-        /* Список кандидатов */
+        /* --- СПИСОК КАНДИДАТОВ --- */
         .candidates-list {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
         .candidate-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: transform 0.2s;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            transition: all 0.2s ease;
+        }
+        
+        /* Подсветка лидера (опционально) */
+        .candidate-item.leader {
+            border-color: rgba(255, 215, 0, 0.3);
+            background: linear-gradient(90deg, rgba(255,215,0,0.05), transparent);
         }
 
         .candidate-info {
@@ -114,94 +159,176 @@
         }
 
         .candidate-avatar {
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            background: #333;
+            background: #2a2a2a;
             object-fit: cover;
-            border: 2px solid var(--accent);
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+        
+        .candidate-item.leader .candidate-avatar {
+            border-color: var(--gold);
+        }
+
+        .candidate-details {
+            display: flex;
+            flex-direction: column;
         }
 
         .candidate-name {
-            font-weight: 600;
-            font-size: 15px;
+            font-weight: 700;
+            font-size: 14px;
+            color: #fff;
+        }
+        
+        .candidate-username {
+            font-size: 11px;
+            color: var(--text-secondary);
         }
 
+        /* --- КНОПКА ГОЛОСОВАНИЯ --- */
         .vote-btn {
-            background: linear-gradient(90deg, #9d4edd, #7b2cbf);
+            background: linear-gradient(90deg, #9d4edd, #6a0dad);
             border: none;
             color: white;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: 600;
+            padding: 8px 18px;
+            border-radius: 12px;
+            font-weight: 700;
             cursor: pointer;
             font-size: 12px;
-            box-shadow: 0 4px 15px rgba(157, 78, 221, 0.3);
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(157, 78, 221, 0.4);
+            transition: transform 0.1s, box-shadow 0.2s;
         }
 
         .vote-btn:active {
-            transform: scale(0.95);
+            transform: scale(0.92);
+            box-shadow: 0 2px 10px rgba(157, 78, 221, 0.2);
         }
 
-        .vote-btn:disabled {
-            background: #333;
-            color: #666;
-            box-shadow: none;
-            cursor: not-allowed;
+        /* --- РЕЗУЛЬТАТЫ (ПОСЛЕ ГОЛОСОВАНИЯ) --- */
+        .vote-result-container {
+            text-align: right;
+            min-width: 60px;
         }
 
-        /* Прогресс бар после голосования */
-        .vote-result {
-            display: none; /* Скрыто до голосования */
+        .vote-count {
+            font-size: 14px;
+            font-weight: 800;
+            color: #fff;
+        }
+        
+        .vote-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        
+        .user-voted-badge {
+            color: var(--success);
             font-size: 12px;
-            color: var(--gold);
-            font-weight: bold;
+            margin-right: 5px;
         }
 
-        /* Анимация пульсации */
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
-        }
-
-        /* Модалка начисления */
+        /* --- МОДАЛКА НАГРАДЫ --- */
         #reward-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s;
+            transition: opacity 0.3s ease;
         }
+
         #reward-overlay.visible {
             opacity: 1;
             pointer-events: all;
         }
+
         .reward-popup {
-            background: #1a1a1a;
-            padding: 30px;
-            border-radius: 20px;
+            background: #111;
+            padding: 40px 30px;
+            border-radius: 30px;
             text-align: center;
             border: 1px solid var(--gold);
+            width: 80%;
+            max-width: 320px;
             transform: scale(0.8);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.2);
+            position: relative;
+            overflow: hidden;
         }
+
         #reward-overlay.visible .reward-popup {
             transform: scale(1);
         }
-        .close-btn {
-            margin-top: 20px;
-            background: #333;
-            border: none;
+        
+        /* Блик на модалке */
+        .reward-popup::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 60%);
+            animation: rotate 10s linear infinite;
+            z-index: -1;
+        }
+        
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .reward-icon-container {
+            margin-bottom: 20px;
+            font-size: 60px;
+            color: var(--gold);
+            text-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        .reward-title {
+            margin: 0;
             color: #fff;
-            padding: 10px 20px;
-            border-radius: 10px;
+            font-size: 24px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .reward-desc {
+            color: #ccc;
+            margin: 10px 0 25px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .close-reward-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 14px 0;
+            border-radius: 16px;
             width: 100%;
+            font-weight: 800;
+            font-size: 16px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .close-reward-btn:active {
+            opacity: 0.8;
+        }
+
+        /* Лоадер */
+        .spinner {
+            color: var(--accent);
+            font-size: 30px;
+            margin-top: 50px;
         }
     </style>
 </head>
@@ -209,50 +336,72 @@
 
     <div class="header">
         <h1 class="slay-title">SLAY AWARDS</h1>
-        <div class="reward-badge">+2 Билета за каждый голос 🎟️</div>
+        <div class="reward-badge">
+            <i class="fa-solid fa-ticket"></i> +2 Билета за голос
+        </div>
         <p class="slay-subtitle">Выбирай лучших. Получай награды.</p>
     </div>
 
     <div class="container" id="nominations-container">
-        <div style="text-align:center; margin-top:50px;">
-            <i class="fa-solid fa-spinner fa-spin" style="font-size:24px; color: var(--accent);"></i>
+        <div style="text-align:center;">
+            <i class="fa-solid fa-spinner fa-spin spinner"></i>
         </div>
     </div>
 
     <div id="reward-overlay">
         <div class="reward-popup">
-            <i class="fa-solid fa-ticket" style="font-size: 50px; color: var(--gold); margin-bottom: 20px;"></i>
-            <h2 style="margin: 0; color: #fff;">Голос принят!</h2>
-            <p style="color: #ccc; margin: 10px 0;">+2 Билета добавлено на баланс.</p>
-            <button class="close-btn" onclick="document.getElementById('reward-overlay').classList.remove('visible')">Круто</button>
+            <div class="reward-icon-container">
+                <i class="fa-solid fa-ticket fa-shake"></i>
+            </div>
+            <h2 class="reward-title">Голос принят!</h2>
+            <p class="reward-desc">
+                Твой голос учтен.<br>
+                <b style="color: var(--gold);">+2 Билета</b> добавлено в твою копилку.
+            </p>
+            <button class="close-reward-btn" onclick="closeRewardModal()">Круто!</button>
         </div>
     </div>
 
     <script>
+        // Инициализация Telegram WebApp
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
-
+        
+        // Основная функция загрузки данных
         async function loadData() {
+            const container = document.getElementById('nominations-container');
+            
             try {
+                // Запрос к нашему Python API (backend)
                 const response = await fetch('/api/v1/slay/active', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 });
+                
+                if (!response.ok) throw new Error("Ошибка сети");
+                
                 const nominations = await response.json();
                 renderNominations(nominations);
+                
             } catch (e) {
                 console.error(e);
-                Telegram.WebApp.showAlert("Ошибка загрузки данных SLAY.");
+                container.innerHTML = `
+                    <div style="text-align:center; color: #ff453a; padding: 20px;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 30px; margin-bottom: 10px;"></i><br>
+                        Не удалось загрузить номинации.<br>Попробуйте позже.
+                    </div>
+                `;
             }
         }
 
+        // Рендер карточек
         function renderNominations(nominations) {
             const container = document.getElementById('nominations-container');
             container.innerHTML = '';
 
-            if (nominations.length === 0) {
-                container.innerHTML = '<p style="text-align:center; color:#666;">Пока нет активных голосований.</p>';
+            if (!nominations || nominations.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#666; margin-top: 40px;">Пока нет активных голосований.</p>';
                 return;
             }
 
@@ -262,41 +411,79 @@
                 
                 let candidatesHtml = '';
                 
-                // Сортируем кандидатов: сначала с большим кол-вом голосов (если уже голосовал)
-                const sortedCandidates = nom.candidates.sort((a,b) => b.votes - a.votes);
+                // Если пользователь уже голосовал, сортируем по количеству голосов (лидеры сверху)
+                // Если нет - оставляем как пришло с бэкенда (или можно рандомно перемешать)
+                let candidatesList = nom.candidates;
+                if (nom.has_voted) {
+                    candidatesList.sort((a,b) => b.votes - a.votes);
+                }
 
-                sortedCandidates.forEach(cand => {
-                    const avatar = cand.photo_url || 'https://placehold.co/40x40/333/fff?text=U';
+                candidatesList.forEach((cand, index) => {
+                    // Аватарка (заглушка если нет)
+                    const avatar = cand.photo_url || 'https://placehold.co/100x100/333/fff?text=?';
+                    const username = cand.username ? `@${cand.username}` : '';
                     
-                    let actionButton = '';
+                    // Определяем контент кнопки/результата
+                    let actionContent = '';
+                    let itemClass = 'candidate-item';
+                    
+                    // Если это результаты и это лидер (1 место)
+                    if (nom.has_voted && index === 0) {
+                        itemClass += ' leader';
+                    }
+
                     if (nom.has_voted) {
-                        actionButton = `<div class="vote-result">${cand.votes} голосов</div>`;
+                        // Показываем результаты
+                        actionContent = `
+                            <div class="vote-result-container">
+                                <div class="vote-count">${cand.votes}</div>
+                                <div class="vote-label">голосов</div>
+                            </div>
+                        `;
                     } else {
-                        actionButton = `<button class="vote-btn" onclick="vote(${nom.id}, ${cand.id})">Vote</button>`;
+                        // Показываем кнопку "Голосовать"
+                        actionContent = `
+                            <button class="vote-btn" onclick="vote(${nom.id}, ${cand.id})">
+                                Vote
+                            </button>
+                        `;
                     }
 
                     candidatesHtml += `
-                        <div class="candidate-item">
+                        <div class="${itemClass}">
                             <div class="candidate-info">
                                 <img src="${avatar}" class="candidate-avatar">
-                                <div class="candidate-name">${cand.name}</div>
+                                <div class="candidate-details">
+                                    <div class="candidate-name">
+                                        ${nom.has_voted && cand.is_my_choice ? '<i class="fa-solid fa-check user-voted-badge"></i>' : ''}
+                                        ${escapeHTML(cand.name)}
+                                    </div>
+                                    <div class="candidate-username">${username}</div>
+                                </div>
                             </div>
-                            ${actionButton}
+                            ${actionContent}
                         </div>
                     `;
                 });
 
                 card.innerHTML = `
-                    <div class="nom-title">${nom.title}</div>
-                    <div class="nom-desc">${nom.description || ''}</div>
+                    <div class="nomination-header">
+                        <div class="nom-title">${escapeHTML(nom.title)}</div>
+                        <div class="nom-desc">${escapeHTML(nom.description || '')}</div>
+                    </div>
                     <div class="candidates-list">${candidatesHtml}</div>
                 `;
                 container.appendChild(card);
             });
         }
 
+        // Логика голосования
         async function vote(nominationId, candidateId) {
+            // Вибрация при нажатии
             Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            
+            // Временная блокировка всех кнопок в этой карточке (визуально)
+            // (В идеале можно добавить спиннер на нажатую кнопку)
             
             try {
                 const response = await fetch('/api/v1/slay/vote', {
@@ -313,18 +500,37 @@
                 
                 if (result.success) {
                     Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                    // Показать попап награды
+                    
+                    // Показать красивую модалку
                     document.getElementById('reward-overlay').classList.add('visible');
-                    // Перезагрузить данные, чтобы обновить UI (показать проценты/голоса)
-                    loadData();
+                    
+                    // Перезагрузить данные, чтобы обновить UI на "Результаты"
+                    // (Делаем это на фоне, пока юзер смотрит на модалку)
+                    loadData(); 
                 } else {
-                    Telegram.WebApp.showAlert(result.message || "Ошибка");
+                    Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                    Telegram.WebApp.showAlert(result.message || "Ошибка при голосовании");
                 }
             } catch (e) {
-                Telegram.WebApp.showAlert("Не удалось отправить голос.");
+                console.error(e);
+                Telegram.WebApp.showAlert("Проблема с соединением. Попробуйте позже.");
             }
         }
 
+        function closeRewardModal() {
+            Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            document.getElementById('reward-overlay').classList.remove('visible');
+        }
+
+        // Утилита для безопасности (чтобы не вставили HTML в имя)
+        function escapeHTML(str) {
+            if (!str) return "";
+            return str.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+
+        // Запуск при загрузке
         loadData();
     </script>
 </body>
