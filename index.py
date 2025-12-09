@@ -554,6 +554,23 @@ class AdminShopCacheClearRequest(BaseModel):
     initData: str
     password: str
 
+# --- SLAY Models ---
+class SlayVoteRequest(BaseModel):
+    initData: str
+    nomination_id: int
+    candidate_id: int
+
+class SlayNominationCreate(BaseModel):
+    initData: str
+    title: str
+    description: Optional[str] = ""
+
+class SlayCandidateAdd(BaseModel):
+    initData: str
+    nomination_id: int
+    user_id: int
+    custom_title: Optional[str] = None
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2154,10 +2171,120 @@ async def get_auction_history(
     except Exception as e:
         logging.error(f"Ошибка при получении истории аукциона (RPC) {auction_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить историю.")
+
+# --- SLAY Эндпоинты ---
+
+# 1. Получение активных голосований (Для пользователей)
+@app.post("/api/v1/slay/active")
+async def get_active_slay_nominations(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    user_id = user_info['id']
+
+    # Получаем номинации
+    nom_resp = await supabase.get("/slay_nominations", params={"is_active": "eq.true", "order": "id.asc"})
+    nominations = nom_resp.json()
+
+    # Получаем кандидатов с данными юзеров (имя, фото, твич)
+    cand_resp = await supabase.get(
+        "/slay_candidates", 
+        params={"select": "*, user:users(full_name, username, photo_url, twitch_login)"}
+    )
+    candidates = cand_resp.json()
+
+    # Получаем ID номинаций, где пользователь УЖЕ проголосовал
+    votes_resp = await supabase.get(
+        "/slay_votes", 
+        params={"voter_id": f"eq.{user_id}", "select": "nomination_id"}
+    )
+    voted_nomination_ids = {v['nomination_id'] for v in votes_resp.json()}
+
+    # Собираем структуру
+    result = []
+    for nom in nominations:
+        nom_candidates = [c for c in candidates if c['nomination_id'] == nom['id']]
+        # Форматируем кандидатов
+        formatted_candidates = []
+        for c in nom_candidates:
+            user_data = c.get('user', {})
+            display_name = c.get('custom_title') or user_data.get('twitch_login') or user_data.get('full_name') or "Unknown"
+            formatted_candidates.append({
+                "id": c['id'],
+                "name": display_name,
+                "photo_url": user_data.get('photo_url'),
+                "votes": c['votes_count']
+            })
+        
+        result.append({
+            "id": nom['id'],
+            "title": nom['title'],
+            "description": nom['description'],
+            "has_voted": nom['id'] in voted_nomination_ids,
+            "candidates": formatted_candidates
+        })
+
+    return result
+
+# 2. Голосование
+@app.post("/api/v1/slay/vote")
+async def vote_slay(
+    request_data: SlayVoteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+
+    try:
+        response = await supabase.post(
+            "/rpc/vote_in_slay",
+            json={
+                "p_nomination_id": request_data.nomination_id,
+                "p_candidate_id": request_data.candidate_id,
+                "p_voter_id": user_info['id']
+            }
+        )
+        result = response.json()
+        
+        if not result.get('success'):
+            raise HTTPException(status_code=400, detail=result.get('message'))
+            
+        return result
+    except Exception as e:
+        logging.error(f"Slay Vote Error: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка голосования")
+
+# 3. Админ: Создать номинацию
+@app.post("/api/v1/admin/slay/nomination/create")
+async def create_slay_nomination(
+    request_data: SlayNominationCreate, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    await supabase.post("/slay_nominations", json={"title": request_data.title, "description": request_data.description})
+    return {"message": "Номинация создана"}
+
+# 4. Админ: Добавить кандидата (по user_id)
+@app.post("/api/v1/admin/slay/candidate/add")
+async def add_slay_candidate(
+    request_data: SlayCandidateAdd, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    await supabase.post("/slay_candidates", json={
+        "nomination_id": request_data.nomination_id,
+        "user_id": request_data.user_id,
+        "custom_title": request_data.custom_title
+    })
+    return {"message": "Кандидат добавлен"}
         
 # --- НОВЫЕ ЭНДПОИНТЫ: АДМИНКА АУКЦИОНА ---
-
-
 
 @app.post("/api/v1/admin/auctions/finish_manual")
 async def admin_finish_auction(
