@@ -190,22 +190,29 @@
             bottom: 0; left: 0; width: 100%;
             padding: 15px;
             box-sizing: border-box;
-            background: linear-gradient(to top, rgba(0,0,0,0.95) 20%, transparent);
+            
+            /* 🔥 Сделали градиент более высоким и темным */
+            background: linear-gradient(to top, #000000 30%, rgba(0,0,0,0.6) 70%, transparent 100%);
+            
             z-index: 2;
         }
-
+        
         .card-title {
             color: #fff;
             font-size: 14px;
             font-weight: 800;
             text-transform: uppercase;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            
+            /* 🔥 ОБНОВЛЕННАЯ ТЕНЬ: Черный контур + черное свечение */
+            text-shadow: 0 1px 2px #000, 0 0 15px rgba(0,0,0,0.9);
+            
             margin-bottom: 10px;
             line-height: 1.3;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            z-index: 10; /* На всякий случай поднимаем выше */
         }
 
         .open-btn {
