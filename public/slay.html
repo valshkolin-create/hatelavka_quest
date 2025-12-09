@@ -507,7 +507,7 @@
                 
                 card.innerHTML = `
                     <div class="card-img-wrap">
-                        <img src="${imgUrl}" class="card-img" crossorigin="anonymous" onerror="this.src='https://placehold.co/400x400/222/555?text=NO+IMG'">
+                        <img src="${imgUrl}" class="card-img" onerror="this.src='https://placehold.co/400x400/222/555?text=NO+IMG'">
                         <div class="card-overlay">
                             <div class="card-title">${escapeHTML(nom.title)}</div>
                             <div class="open-btn" onclick="openVote(${nom.id})">
