@@ -376,7 +376,7 @@ function getCurrentLevel(eventData) {
         <div style="display:flex; gap:10px; width: 100%;">
             <input type="number" class="reward-place" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20" style="width: 60px;">
             <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" style="flex: 1;">
-            <button type="button" class="admin-action-btn reject remove-reward-btn" style="width: 40px; padding: 8px;"><i class="fa-solid fa-trash-can"></i></button>
+            <button type="button" class="admin-action-btn reject remove-reward-btn" style="width: 30px; padding: 4px; font-size: 12px;"><i class="fa-solid fa-trash-can"></i></button>
         </div>
         <div style="display:flex; gap:10px; width: 100%;">
             <input type="text" class="reward-image" placeholder="URL картинки" value="${escapeHTML(image)}" style="flex: 1;">
