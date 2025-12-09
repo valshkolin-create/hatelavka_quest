@@ -83,28 +83,35 @@
         }
 
         .main-desc {
-            font-size: 15px;
-            color: var(--text-secondary);
-            margin-top: 14px;
-            line-height: 1.6;
-            max-width: 320px;
-            margin-left: auto;
-            margin-right: auto;
-            min-height: 24px;
-        }
+    font-size: 15px;
+    color: var(--text-secondary);
+    /* Уменьшаем верхний отступ, если нужно */
+    margin-top: 10px; 
+    line-height: 1.4; /* Чуть плотнее строки */
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+    min-height: 24px;
+    
+    /* 🔥 ГЛАВНОЕ: Убираем отступ снизу у описания */
+    margin-bottom: 0px !important; 
+    padding-bottom: 0px !important;
+}
 
-        /* Текст про билеты */
-        .ticket-promo {
-            color: var(--gold);
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 5px;
-            margin-bottom: 8px;
-            display: inline-block;
-            animation: pulseText 2s infinite;
-        }
+.ticket-promo {
+    color: var(--gold);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    /* 🔥 ГЛАВНОЕ: Уменьшаем отступ сверху у билетов (можно ставить отрицательный, если надо еще выше) */
+    margin-top: 4px !important; 
+    
+    margin-bottom: 8px;
+    display: inline-block;
+    animation: pulseText 2s infinite;
+}
         
         @keyframes pulseText {
             0% { opacity: 0.8; text-shadow: 0 0 10px rgba(255,215,0,0.2); }
