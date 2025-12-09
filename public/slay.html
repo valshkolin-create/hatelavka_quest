@@ -2,21 +2,21 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SLAY TWITCH AWARDS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SLAY AWARDS</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <style>
         :root {
             --bg-color: #050505;
-            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-bg: #1c1c1e;
             --gold: #FFD700;
             --gold-glow: rgba(255, 215, 0, 0.4);
             --accent: #9d4edd;
-            --accent-glow: rgba(157, 78, 221, 0.4);
             --text: #ffffff;
-            --text-secondary: #aaaaaa;
+            --text-secondary: #8E8E93;
+            --success: #2ecc71;
         }
         
         body {
@@ -26,30 +26,25 @@
             margin: 0;
             padding: 0;
             min-height: 100vh;
-            padding-bottom: 90px; /* Отступ под нижний бар */
-            /* Премиальный фон */
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(157, 78, 221, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(255, 215, 0, 0.08) 0%, transparent 40%);
+            padding-bottom: 100px; /* Отступ под футер */
             -webkit-font-smoothing: antialiased;
         }
 
         /* --- ШАПКА --- */
         .header {
             text-align: center;
-            padding: 30px 20px 10px;
+            padding: 20px 20px 10px;
         }
 
         .slay-title {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
             margin: 0;
             background: linear-gradient(135deg, #fff 20%, var(--gold) 50%, #fff 80%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px var(--accent-glow);
         }
 
         .slay-subtitle {
@@ -58,105 +53,51 @@
             margin-top: 5px;
         }
 
-        /* --- ПОИСК (STICKY) --- */
-        .search-wrapper {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            padding: 15px 20px;
-            background: rgba(5, 5, 5, 0.85); /* Затемнение фона при скролле */
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 14px 20px;
-            padding-left: 45px; /* Место под иконку */
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
-            font-size: 16px;
-            outline: none;
-            transition: all 0.3s ease;
-            box-sizing: border-box;
-        }
-
-        .search-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 15px var(--accent-glow);
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 35px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-secondary);
-            pointer-events: none;
-        }
-
-        /* --- КОНТЕЙНЕР КАРТОЧЕК --- */
+        /* --- КАРТОЧКА НОМИНАЦИИ (НОВЫЙ ДИЗАЙН) --- */
         .container {
-            padding: 20px;
+            padding: 16px;
             max-width: 600px;
             margin: 0 auto;
         }
 
-        /* --- КАРТОЧКА --- */
         .nomination-card {
             background: var(--card-bg);
-            border-radius: 24px;
-            margin-bottom: 25px;
-            overflow: hidden; /* Чтобы картинка не вылезала */
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            margin-bottom: 30px;
+            overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: transform 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        .nomination-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(157, 78, 221, 0.3);
-        }
-
-        /* Изображение внутри карточки */
-        .card-image-container {
+        /* Изображение номинации */
+        .nomination-banner {
             width: 100%;
             height: 180px;
-            position: relative;
-        }
-
-        .card-image {
-            width: 100%;
-            height: 100%;
             object-fit: cover;
+            display: block;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
-        .card-image-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 60%;
-            background: linear-gradient(to top, rgba(30,30,30,1), transparent);
-        }
-
-        .card-content {
+        .nomination-content {
             padding: 20px;
-            position: relative;
+        }
+
+        .nom-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--gold);
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 6px;
         }
 
         .nom-title {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 800;
             color: #fff;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            line-height: 1.1;
         }
 
         .nom-desc {
@@ -165,371 +106,515 @@
             margin-bottom: 20px;
         }
 
-        /* --- ВЫБОР (SELECT) --- */
-        .custom-select-wrapper {
-            position: relative;
-            margin-bottom: 15px;
+        /* --- СПИСОК КАНДИДАТОВ --- */
+        .candidates-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .vote-select {
-            width: 100%;
-            padding: 14px;
+        .candidate-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            color: white;
-            font-size: 15px;
-            appearance: none; /* Убираем стандартную стрелку */
-            outline: none;
-            cursor: pointer;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .candidate-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        .vote-select:focus {
-            border-color: var(--gold);
+        .candidate-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #333;
+            object-fit: cover;
         }
 
-        .select-arrow {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
+        .candidate-name {
+            font-weight: 700;
+            font-size: 14px;
+            color: #fff;
+        }
+        
+        .candidate-votes {
+            font-size: 12px;
             color: var(--text-secondary);
-            pointer-events: none;
         }
 
-        /* --- КНОПКА ГОЛОСОВАНИЯ --- */
+        /* Кнопка голосования */
         .vote-btn {
-            width: 100%;
             background: linear-gradient(90deg, #9d4edd, #6a0dad);
             border: none;
             color: white;
-            padding: 14px;
-            border-radius: 14px;
-            font-weight: 800;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-weight: 700;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 12px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 15px rgba(157, 78, 221, 0.4);
-            transition: transform 0.1s, box-shadow 0.2s;
         }
 
-        .vote-btn:active {
-            transform: scale(0.96);
-            box-shadow: 0 2px 5px rgba(157, 78, 221, 0.2);
-        }
-        
-        .vote-btn:disabled {
-            background: #333;
-            color: #777;
-            box-shadow: none;
-            cursor: not-allowed;
+        /* Результаты */
+        .vote-result-badge {
+            background: rgba(255,255,255,0.1);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
         }
 
-        /* --- НИЖНИЙ БАР --- */
-        .bottom-bar {
-            position: fixed;
-            bottom: 20px; /* Чуть отступаем от низа для "парящего" эффекта */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 400px;
-            height: 65px;
-            background: rgba(20, 20, 20, 0.85);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
+        /* --- ФУТЕР (1 в 1 как в Shop) --- */
+        .app-footer {
             display: flex;
             justify-content: space-around;
             align-items: center;
-            z-index: 1000;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background-color: rgba(28, 28, 30, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 9999;
+            padding-top: 8px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            box-sizing: border-box;
         }
 
-        .nav-item {
-            color: #666;
-            text-decoration: none;
+        .footer-item {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: color 0.3s;
+            gap: 4px;
+            color: #8E8E93;
+            text-decoration: none;
             flex: 1;
-            height: 100%;
-        }
-
-        .nav-item.active {
-            color: var(--gold);
-        }
-        
-        .nav-item.active i {
-            filter: drop-shadow(0 0 8px var(--gold-glow));
-        }
-
-        .nav-icon {
-            font-size: 20px;
-            margin-bottom: 4px;
-        }
-
-        .nav-text {
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 500;
         }
 
-        /* --- МОДАЛКА НАГРАДЫ (из slay.html) --- */
-        #reward-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(10px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        #reward-overlay.visible {
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        .reward-popup {
-            background: #111;
-            padding: 40px 30px;
-            border-radius: 30px;
-            text-align: center;
-            border: 1px solid var(--gold);
-            width: 80%;
-            max-width: 320px;
-            transform: scale(0.8);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 0 50px rgba(255, 215, 0, 0.2);
-            position: relative;
-        }
-
-        #reward-overlay.visible .reward-popup {
-            transform: scale(1);
-        }
-
-        .reward-icon-container {
-            font-size: 50px;
-            color: var(--gold);
-            margin-bottom: 15px;
-        }
-
-        .reward-title {
-            color: white;
+        .footer-item .icon-wrapper {
             font-size: 22px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
         }
 
-        .close-reward-btn {
-            background: #fff;
-            color: #000;
-            border: none;
-            padding: 12px 0;
-            border-radius: 12px;
-            width: 100%;
-            font-weight: 800;
-            margin-top: 20px;
+        .footer-item.active { color: #FFFFFF; }
+        .footer-item.active .icon-wrapper { color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.4); }
+
+        /* --- АДМИН ПАНЕЛЬ --- */
+        .admin-fab {
+            position: fixed;
+            bottom: 90px;
+            left: 20px;
+            width: 45px;
+            height: 45px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 1000;
             cursor: pointer;
         }
+
+        .admin-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 10001;
+            display: none;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        .admin-modal.active { display: block; }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }
+
+        .admin-section {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .admin-input {
+            width: 100%;
+            background: #222;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        .admin-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary-color, #ffcc00);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* Поиск юзеров */
+        .user-search-result {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+        }
+        .user-search-result:active { background: #222; }
+        
+        /* Модалка пароля */
+        .pass-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 10002;
+            display: none; justify-content: center; align-items: center;
+        }
+        .pass-box { background: #1c1c1e; padding: 20px; border-radius: 16px; text-align: center; width: 80%; }
+
     </style>
 </head>
 <body>
 
     <div class="header">
         <h1 class="slay-title">SLAY AWARDS</h1>
-        <p class="slay-subtitle">2025 TWITCH EDITION</p>
+        <p class="slay-subtitle">Голосуй за легенд канала</p>
     </div>
 
-    <div class="search-wrapper">
-        <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="searchInput" class="search-input" placeholder="Найти стримера или номинацию...">
+    <div class="container" id="nominations-container">
+        <div style="text-align:center; padding: 40px; color: #666;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px;"></i>
+        </div>
     </div>
 
-    <div class="container" id="cardsContainer">
+    <footer class="app-footer">
+        <a href="/leaderboard" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+            <span>Лидерборд</span>
+        </a>
+        <a href="/menu#quests" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
+            <span>Задания</span>
+        </a>
+        <a href="/menu" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
+            <span>Главная</span>
+        </a>
+        <a href="/events" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
+            <span>Гринд</span>
+        </a>
+        <a href="/auction" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
+            <span>Аукцион</span>
+        </a>
+    </footer>
+
+    <div class="admin-fab" onclick="showPassModal()">
+        <i class="fa-solid fa-lock"></i>
+    </div>
+
+    <div class="pass-overlay" id="pass-overlay">
+        <div class="pass-box">
+            <h3>Admin Access</h3>
+            <input type="password" id="admin-pass" class="admin-input" placeholder="Code" inputmode="numeric">
+            <button class="admin-btn" onclick="checkPass()">Login</button>
+            <button class="admin-btn" style="background:#333; color:#fff; margin-top:5px;" onclick="closePassModal()">Cancel</button>
+        </div>
+    </div>
+
+    <div class="admin-modal" id="admin-panel">
+        <div class="admin-header">
+            <h2 style="margin:0; color:#fff;">Admin Panel</h2>
+            <button onclick="closeAdmin()" style="background:none; border:none; color:#fff; font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-    <nav class="bottom-bar">
-        <a href="#" class="nav-item">
-            <i class="fa-solid fa-house nav-icon"></i>
-            <span class="nav-text">Главная</span>
-        </a>
-        <a href="#" class="nav-item active">
-            <i class="fa-solid fa-trophy nav-icon"></i>
-            <span class="nav-text">Голос</span>
-        </a>
-        <a href="shop.html" class="nav-item">
-            <i class="fa-solid fa-cart-shopping nav-icon"></i>
-            <span class="nav-text">Магазин</span>
-        </a>
-        <a href="#" class="nav-item">
-            <i class="fa-regular fa-user nav-icon"></i>
-            <span class="nav-text">Профиль</span>
-        </a>
-    </nav>
+        <div class="admin-section">
+            <h3 style="margin-top:0; color: #ffcc00;">1. Создать номинацию</h3>
+            <input id="new-nom-title" class="admin-input" placeholder="Название (напр. Главный клоун)">
+            <input id="new-nom-img" class="admin-input" placeholder="Ссылка на картинку (https://...)">
+            <input id="new-nom-desc" class="admin-input" placeholder="Описание (необязательно)">
+            <button class="admin-btn" onclick="createNomination()">Создать</button>
+        </div>
 
-    <div id="reward-overlay">
-        <div class="reward-popup">
-            <div class="reward-icon-container">
-                <i class="fa-solid fa-check-circle fa-bounce"></i>
-            </div>
-            <h2 class="reward-title">Голос принят!</h2>
-            <p style="color: #ccc; font-size: 14px;">
-                Ты проголосовал за <br><b id="votedName" style="color: var(--gold);">STREAMER</b>
-            </p>
-            <button class="close-reward-btn" onclick="closeModal()">Супер!</button>
+        <div class="admin-section">
+            <h3 style="margin-top:0; color: #ffcc00;">2. Добавить участников</h3>
+            
+            <label style="color:#aaa; font-size:12px;">Выберите номинацию:</label>
+            <select id="nom-select" class="admin-input" style="height:40px;">
+                <option value="">Загрузка...</option>
+            </select>
+
+            <label style="color:#aaa; font-size:12px;">Поиск (Twitch/TG):</label>
+            <input id="user-search" class="admin-input" placeholder="Введи ник (напр. hatelove)" oninput="debouncedSearch()">
+            
+            <div id="search-results" style="max-height: 200px; overflow-y: auto; background: #1a1a1a; border-radius: 8px;">
+                </div>
         </div>
     </div>
 
     <script>
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
+        Telegram.WebApp.setHeaderColor('#050505');
 
-        // ---------------------------------------------------------
-        // ИМИТАЦИЯ БАЗЫ ДАННЫХ (Приходит из Admin Panel / Backend)
-        // ---------------------------------------------------------
-        const adminDatabase = [
-            {
-                id: 1,
-                // Ссылка на картинку номинации
-                image: "https://placehold.co/600x350/9d4edd/ffffff?text=ACTIVE+CHAT+2025", 
-                title: "Самый активный в чате",
-                description: "Кто спамил больше всех в этом году?",
-                // Список кандидатов (приходит из поиска по базе)
-                candidates: [
-                    { id: 101, name: "Killer2000" },
-                    { id: 102, name: "Sweet_Girl" },
-                    { id: 103, name: "Moderator_X" },
-                    { id: 104, name: "JustViewer" }
-                ]
-            },
-            {
-                id: 2,
-                image: "https://placehold.co/600x350/FFD700/000000?text=RAGE+MOMENT",
-                title: "Рейдж года",
-                description: "Самый громкий крик и сломанная клавиатура.",
-                candidates: [
-                    { id: 201, name: "EvilArthas" },
-                    { id: 202, name: "SilverName" },
-                    { id: 203, name: "Stray228" }
-                ]
-            },
-            {
-                id: 3,
-                image: "https://placehold.co/600x350/2ecc71/ffffff?text=BEST+DONATER",
-                title: "Шейх года",
-                description: "Топ донатер, который кормил стримера.",
-                candidates: [
-                    { id: 301, name: "RichRichie" },
-                    { id: 302, name: "CryptoKing" },
-                    { id: 303, name: "Mom'sCard" }
-                ]
+        let nominationsList = [];
+
+        // --- ЗАГРУЗКА ДАННЫХ ---
+        async function loadData() {
+            try {
+                const response = await fetch('/api/v1/slay/active', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
+                });
+                
+                const nominations = await response.json();
+                nominationsList = nominations; // Сохраняем для админки
+                renderNominations(nominations);
+                updateAdminSelect(nominations);
+            } catch (e) {
+                console.error(e);
             }
-        ];
+        }
 
-        const container = document.getElementById('cardsContainer');
-        const searchInput = document.getElementById('searchInput');
-
-        // Функция рендеринга карточек
-        function render(filterText = '') {
+        // --- РЕНДЕР (НОВЫЙ ДИЗАЙН) ---
+        function renderNominations(nominations) {
+            const container = document.getElementById('nominations-container');
             container.innerHTML = '';
-            
-            const lowerFilter = filterText.toLowerCase();
 
-            // Логика фильтрации:
-            // Показываем карточку, если поиск совпадает с названием номинации
-            // ИЛИ если поиск совпадает с именем любого из кандидатов в этой номинации
-            const filteredData = adminDatabase.filter(item => {
-                const titleMatch = item.title.toLowerCase().includes(lowerFilter);
-                const candidateMatch = item.candidates.some(c => c.name.toLowerCase().includes(lowerFilter));
-                return titleMatch || candidateMatch;
-            });
-
-            if (filteredData.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align:center; color:#666; margin-top:50px;">
-                        <i class="fa-solid fa-ghost" style="font-size:30px; margin-bottom:10px;"></i><br>
-                        Ничего не найдено
-                    </div>`;
+            if (!nominations || nominations.length === 0) {
+                container.innerHTML = '<div style="text-align:center; margin-top:50px; color:#555;">Нет активных голосований</div>';
                 return;
             }
 
-            filteredData.forEach(item => {
-                // Создаем HTML опций для select
-                // Если фильтр активен, мы можем даже подсветить найденный ник (опционально)
-                const optionsHtml = item.candidates.map(c => 
-                    `<option value="${c.name}">${c.name}</option>`
-                ).join('');
+            nominations.forEach(nom => {
+                const card = document.createElement('div');
+                card.className = 'nomination-card';
 
-                const cardHtml = `
-                    <div class="nomination-card">
-                        <div class="card-image-container">
-                            <img src="${item.image}" class="card-image" alt="${item.title}">
-                            <div class="card-image-overlay"></div>
-                        </div>
-                        
-                        <div class="card-content">
-                            <div class="nom-title">${item.title}</div>
-                            <div class="nom-desc">${item.description}</div>
+                // Картинка номинации (или заглушка)
+                const bannerUrl = nom.image_url || 'https://placehold.co/600x300/222/fff?text=SLAY+AWARDS';
 
-                            <div class="custom-select-wrapper">
-                                <select class="vote-select" id="select-${item.id}">
-                                    <option value="" disabled selected>Выберите из списка...</option>
-                                    ${optionsHtml}
-                                </select>
-                                <i class="fa-solid fa-chevron-down select-arrow"></i>
+                let listHtml = '';
+                
+                // Сортировка если голосовал
+                let candidates = nom.candidates;
+                if (nom.has_voted) {
+                    candidates.sort((a,b) => b.votes - a.votes);
+                }
+
+                candidates.forEach(cand => {
+                    const avatar = cand.photo_url || 'https://placehold.co/100?text=?';
+                    
+                    let action = '';
+                    if (nom.has_voted) {
+                        action = `<div class="vote-result-badge">${cand.votes}</div>`;
+                    } else {
+                        action = `<button class="vote-btn" onclick="vote(${nom.id}, ${cand.id})">Голос</button>`;
+                    }
+
+                    listHtml += `
+                        <div class="candidate-item">
+                            <div class="candidate-info">
+                                <img src="${avatar}" class="candidate-avatar">
+                                <div>
+                                    <div class="candidate-name">${escapeHTML(cand.name)}</div>
+                                </div>
                             </div>
+                            ${action}
+                        </div>
+                    `;
+                });
 
-                            <button class="vote-btn" onclick="submitVote(${item.id})">
-                                Проголосовать
-                            </button>
+                card.innerHTML = `
+                    <img src="${bannerUrl}" class="nomination-banner">
+                    <div class="nomination-content">
+                        <div class="nom-label">Проголосуй за номинацию:</div>
+                        <div class="nom-title">${escapeHTML(nom.title)}</div>
+                        <div class="nom-desc">${escapeHTML(nom.description || '')}</div>
+                        
+                        <div class="candidates-list">
+                            ${listHtml}
                         </div>
                     </div>
                 `;
-                container.innerHTML += cardHtml;
+                container.appendChild(card);
             });
         }
 
-        // Обработчик голосования
-        function submitVote(nominationId) {
-            const select = document.getElementById(`select-${nominationId}`);
-            const selectedValue = select.value;
+        // --- ГОЛОСОВАНИЕ ---
+        async function vote(nomId, candId) {
+            Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            try {
+                const res = await fetch('/api/v1/slay/vote', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        initData: Telegram.WebApp.initData,
+                        nomination_id: nomId,
+                        candidate_id: candId
+                    })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    Telegram.WebApp.showAlert("Голос принят! +2 Билета");
+                    loadData(); // Обновить
+                } else {
+                    Telegram.WebApp.showAlert(data.message || "Ошибка");
+                }
+            } catch(e) {
+                Telegram.WebApp.showAlert("Ошибка сети");
+            }
+        }
 
-            if (!selectedValue) {
+        // --- АДМИНКА ---
+        function showPassModal() {
+            document.getElementById('pass-overlay').style.display = 'flex';
+        }
+        function closePassModal() {
+            document.getElementById('pass-overlay').style.display = 'none';
+        }
+        function checkPass() {
+            const val = document.getElementById('admin-pass').value;
+            if(val === '6971') { // Пароль как в магазине
+                closePassModal();
+                document.getElementById('admin-panel').classList.add('active');
+            } else {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                Telegram.WebApp.showAlert("Пожалуйста, выберите стримера из списка!");
+            }
+        }
+        function closeAdmin() {
+            document.getElementById('admin-panel').classList.remove('active');
+        }
+
+        // 1. Создать номинацию
+        async function createNomination() {
+            const title = document.getElementById('new-nom-title').value;
+            const img = document.getElementById('new-nom-img').value;
+            const desc = document.getElementById('new-nom-desc').value;
+
+            if(!title) return alert("Нужен заголовок");
+
+            await fetch('/api/v1/admin/slay/nomination/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    initData: Telegram.WebApp.initData,
+                    title: title,
+                    description: desc,
+                    image_url: img // Новое поле
+                })
+            });
+            alert("Создано!");
+            loadData();
+        }
+
+        // 2. Поиск юзеров (Debounce)
+        let searchTimeout;
+        function debouncedSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(searchUsers, 500);
+        }
+
+        async function searchUsers() {
+            const term = document.getElementById('user-search').value;
+            const resultsDiv = document.getElementById('search-results');
+            if(term.length < 2) {
+                resultsDiv.innerHTML = '';
                 return;
             }
 
-            // Успех
-            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            
-            // Обновляем имя в модалке и показываем её
-            document.getElementById('votedName').innerText = selectedValue;
-            document.getElementById('reward-overlay').classList.add('visible');
-            
-            // Здесь можно отправить данные на сервер
-            // console.log(`Голос за ${selectedValue} в номинации ID ${nominationId}`);
+            // Используем уже готовый эндпоинт поиска
+            const res = await fetch('/api/v1/admin/users/search', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    initData: Telegram.WebApp.initData,
+                    search_term: term
+                })
+            });
+            const users = await res.json();
+
+            resultsDiv.innerHTML = '';
+            users.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'user-search-result';
+                div.innerHTML = `
+                    <div style="flex:1;">
+                        <div style="color:#fff; font-weight:bold;">${u.full_name}</div>
+                        <div style="color:#888; font-size:11px;">Twitch: ${u.twitch_login || '-'}</div>
+                    </div>
+                    <button style="background:#333; color:#fff; border:none; padding:5px 10px; border-radius:6px;">Add</button>
+                `;
+                div.onclick = () => addCandidate(u.telegram_id);
+                resultsDiv.appendChild(div);
+            });
         }
 
-        function closeModal() {
-            Telegram.WebApp.HapticFeedback.impactOccurred('light');
-            document.getElementById('reward-overlay').classList.remove('visible');
+        // 3. Добавить кандидата
+        async function addCandidate(userId) {
+            const nomId = document.getElementById('nom-select').value;
+            if(!nomId) return alert("Выбери номинацию!");
+
+            await fetch('/api/v1/admin/slay/candidate/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    initData: Telegram.WebApp.initData,
+                    nomination_id: parseInt(nomId),
+                    user_id: userId
+                })
+            });
+            alert("Кандидат добавлен!");
+            loadData();
         }
 
-        // Слушатель поиска
-        searchInput.addEventListener('input', (e) => {
-            render(e.target.value);
-        });
+        function updateAdminSelect(list) {
+            const sel = document.getElementById('nom-select');
+            sel.innerHTML = '<option value="">-- Выберите номинацию --</option>';
+            list.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n.id;
+                opt.innerText = n.title;
+                sel.appendChild(opt);
+            });
+        }
 
-        // Первый запуск
-        render();
+        function escapeHTML(str) {
+            if (!str) return "";
+            return str.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+
+        loadData();
     </script>
 </body>
 </html>
