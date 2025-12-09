@@ -330,10 +330,22 @@ function renderPage(eventData, leaderboardData = {}) {
                 else assignedReward = tiers["41+"];
 
                 const prizeName = escapeHTML(assignedReward?.name || '');
-                // ВЕРНУЛИ КАРТИНКУ ПРИЗА
+                
+                // --- ИСПРАВЛЕНИЕ: ДОБАВЛЯЕМ ЛОГИКУ СВЕЧЕНИЯ И ИЗНОСА ДЛЯ ТОПОВ ---
+                const rarityKey = assignedReward?.rarity;
+                const rarityColor = RARITY_COLORS[rarityKey] || null;
+                const wearKey = assignedReward?.wear;
+                const wearText = WEAR_NAMES[wearKey] || ''; // Текст износа
+
+                // Если есть цвет редкости -> добавляем тень
+                const glowStyle = rarityColor 
+                    ? `style="filter: drop-shadow(0 0 6px ${rarityColor}80);"` 
+                    : '';
+
+                // Добавляем data-wear в контейнер и glowStyle в картинку
                 const prizeImageHtml = assignedReward?.image_url
-                    ? `<div class="image-zoom-container" data-item-name="${prizeName}">
-                           <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image">
+                    ? `<div class="image-zoom-container" data-item-name="${prizeName}" data-wear="${escapeHTML(wearText)}">
+                           <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image" ${glowStyle}>
                            <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
                        </div>`
                     : `<span>-</span>`;
