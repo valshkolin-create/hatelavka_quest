@@ -550,6 +550,10 @@ class UserSettingsBatch(BaseModel):
 class ReferralActivateRequest(BaseModel):
     initData: str
 
+class AdminShopCacheClearRequest(BaseModel):
+    initData: str
+    password: str
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2467,6 +2471,42 @@ async def get_shop_purchases_details_for_admin(
     except Exception as e:
         logging.error(f"Ошибка при получении покупок магазина: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить покупки.")
+
+@app.post("/api/v1/admin/shop/reset_cache")
+async def admin_reset_shop_cache(
+    request_data: AdminShopCacheClearRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) Полностью очищает кэш магазина.
+    Требует пароль.
+    """
+    # 1. Проверка прав администратора
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # 2. Проверка пароля
+    if request_data.password != "6971":
+        raise HTTPException(status_code=403, detail="Неверный пароль администратора.")
+
+    try:
+        # 3. Удаляем ВСЕ записи из shop_cache
+        # Используем .neq("category_id", -1) как трюк, чтобы удалить все строки 
+        # (Supabase требует хоть какое-то условие для delete)
+        await supabase.table("shop_cache").delete().neq("category_id", -1).execute()
+        
+        # Также очищаем локальный in-memory кэш Python, если он используется
+        # (в твоем коде shop_goods_cache не используется активно в пользу БД, но на всякий случай)
+        global shop_goods_cache
+        shop_goods_cache = {} 
+
+        logging.info(f"Admin {user_info['id']} сбросил кэш магазина.")
+        return {"message": "Кэш магазина успешно очищен! Данные обновятся при следующей загрузке."}
+
+    except Exception as e:
+        logging.error(f"Ошибка при сбросе кэша магазина: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка при очистке кэша.")
 
 @app.get("/api/v1/auth/check_token")
 async def check_token_auth(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
