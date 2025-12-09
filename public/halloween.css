@@ -979,3 +979,41 @@ body.no-scroll {
     align-items: center;
     overflow: hidden; /* Важно для обрезки длинных имен */
 }
+/* Обновленный контейнер для награды */
+.modal-reward-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    min-height: 54px; /* Чуть больше высоты для двух строк */
+}
+
+/* Блок с текстом (Название + Износ) */
+.modal-reward-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    overflow: hidden;
+    line-height: 1.2;
+}
+
+/* Название предмета */
+.modal-reward-name {
+    font-size: 13px;
+    font-weight: 700; /* Жирнее, чтобы цвет был виден */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Текст износа */
+.reward-wear-text {
+    font-size: 10px;
+    color: var(--text-color-muted); /* Серый цвет */
+    font-weight: 400;
+    margin-top: 2px;
+}
