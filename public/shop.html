@@ -584,6 +584,134 @@
             font-weight: 600;
             letter-spacing: 0.5px;
         }
+        /* --- АДМИН МЕНЮ (FAB) --- */
+        .admin-fab-container {
+            position: fixed;
+            bottom: 90px; /* Чуть выше футера */
+            left: 16px;
+            z-index: 9990;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 10px;
+            display: none; /* Скрыто по умолчанию */
+        }
+
+        .admin-fab-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(28, 28, 30, 0.4); /* Почти прозрачный */
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .admin-fab-btn:active { transform: scale(0.9); background: rgba(255, 204, 0, 0.2); color: #ffcc00; }
+        
+        .admin-fab-btn.toggle.active {
+            transform: rotate(180deg);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Скрытые кнопки меню */
+        .admin-menu-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .admin-menu-items.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .admin-action-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 69, 58, 0.2); /* Красный оттенок */
+            color: #ff453a;
+            border: 1px solid rgba(255, 69, 58, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+        /* --- КАСТОМНОЕ МОДАЛЬНОЕ ОКНО ПАРОЛЯ --- */
+        .custom-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .custom-modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .pass-modal {
+            background: #1c1c1e;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 80%;
+            max-width: 300px;
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform: scale(0.9);
+            transition: transform 0.2s;
+        }
+        .custom-modal-overlay.active .pass-modal { transform: scale(1); }
+
+        .pass-input {
+            width: 100%;
+            background: #2c2c2e;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            color: #fff;
+            margin: 15px 0;
+            text-align: center;
+            font-size: 16px;
+            outline: none;
+            box-sizing: border-box; /* Важно для паддингов */
+        }
+        .pass-input:focus { border-color: var(--primary-color); }
+
+        .modal-buttons { display: flex; gap: 10px; justify-content: center; }
+        
+        .modal-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-cancel { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .btn-confirm { background: var(--primary-gradient); color: #000; }
     </style>
 </head>
 <body>
@@ -675,10 +803,30 @@
         <div class="loader-text">Оформляем покупку...</div>
     </div>
     
-    <div id="admin-cache-control" style="display: none; position: fixed; bottom: 80px; left: 0; width: 100%; text-align: center; z-index: 9998; pointer-events: none;">
-        <span onclick="resetShopCache()" style="pointer-events: auto; cursor: pointer; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px; border: 1px solid #ff453a; font-size: 10px; color: #ff453a; font-weight: bold; backdrop-filter: blur(4px);">
-            <i class="fa-solid fa-trash-can"></i> СБРОСИТЬ КЭШ
-        </span>
+    <div id="admin-fab" class="admin-fab-container">
+        <div class="admin-fab-btn toggle" onclick="toggleAdminMenu()">
+            <i class="fa-solid fa-chevron-up"></i>
+        </div>
+        
+        <div class="admin-menu-items" id="admin-menu-items">
+            <div class="admin-action-btn" onclick="openPassModal()">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="custom-modal-overlay">
+        <div class="pass-modal">
+            <h3 style="margin: 0 0 5px 0; color: #fff;">Admin Access</h3>
+            <p style="margin: 0; color: #8e8e93; font-size: 12px;">Введите код доступа</p>
+            
+            <input type="password" id="admin-pass-input" class="pass-input" placeholder="••••" inputmode="numeric">
+            
+            <div class="modal-buttons">
+                <button class="modal-btn btn-cancel" onclick="closePassModal()">Отмена</button>
+                <button class="modal-btn btn-confirm" onclick="submitResetCache()">OK</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -797,32 +945,57 @@
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 }).then(r => r.json());
 
-                // 1. Проверяем трейд-ссылку
-                if (userData && userData.trade_link) {
-                    hasTradeLink = true;
-                }
+                if (userData && userData.trade_link) hasTradeLink = true;
 
-                // 2. 🔥 ПРОВЕРЯЕМ АДМИНА И ПОКАЗЫВАЕМ КНОПКУ 🔥
+                // 🔥 ПОКАЗЫВАЕМ ПЛАВАЮЩЕЕ МЕНЮ ТОЛЬКО АДМИНУ 🔥
                 if (userData && userData.is_admin) {
-                    const adminBtn = document.getElementById('admin-cache-control');
-                    if (adminBtn) adminBtn.style.display = 'block';
+                    document.getElementById('admin-fab').style.display = 'flex';
                 }
 
             } catch (e) {
-                console.log("Ошибка загрузки профиля:", e);
+                console.log("Error loading profile:", e);
             }
         }
 
-        // --- НОВАЯ ФУНКЦИЯ ДЛЯ СБРОСА КЭША ---
-        window.resetShopCache = function() {
-            // Вибрация для тактильности
-            if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+        // --- ЛОГИКА АДМИН МЕНЮ ---
+        
+        function toggleAdminMenu() {
+            const toggleBtn = document.querySelector('.admin-fab-btn.toggle');
+            const menuItems = document.getElementById('admin-menu-items');
+            
+            toggleBtn.classList.toggle('active');
+            menuItems.classList.toggle('show');
+            
+            // Меняем иконку
+            const icon = toggleBtn.querySelector('i');
+            if (toggleBtn.classList.contains('active')) {
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-xmark');
+            } else {
+                icon.classList.remove('fa-xmark');
+                icon.classList.add('fa-chevron-up');
+            }
+        }
 
-            // Запрашиваем пароль через нативный промпт
-            // (prompt работает в WebApp и выглядит как системное окно)
-            const password = prompt("Введите пароль администратора для сброса кэша:");
+        // Открытие модалки
+        function openPassModal() {
+            document.getElementById('password-modal').classList.add('active');
+            document.getElementById('admin-pass-input').value = '';
+            document.getElementById('admin-pass-input').focus();
+        }
 
-            if (!password) return; // Если нажал отмена
+        // Закрытие модалки
+        function closePassModal() {
+            document.getElementById('password-modal').classList.remove('active');
+        }
+
+        // Отправка запроса на сброс
+        function submitResetCache() {
+            const password = document.getElementById('admin-pass-input').value;
+            if (!password) return;
+
+            closePassModal(); // Закрываем окно
+            toggleAdminMenu(); // Сворачиваем меню
 
             // Показываем лоадер
             const loader = document.getElementById('purchase-loader');
@@ -843,23 +1016,19 @@
                 const data = await r.json();
                 if (r.status === 200) {
                     Telegram.WebApp.showAlert("✅ " + data.message);
-                    // Перезагружаем текущую категорию, чтобы сразу увидеть эффект
                     itemsCache = {}; // Чистим локальный JS кэш
-                    loadCategory(currentCategoryId);
+                    loadCategory(currentCategoryId); // Перезагружаем страницу
                 } else {
-                    Telegram.WebApp.showAlert("⛔ Ошибка: " + (data.detail || "Неверный пароль"));
+                    Telegram.WebApp.showAlert("⛔ " + (data.detail || "Ошибка"));
                 }
             })
             .catch(err => {
                 Telegram.WebApp.showAlert("Ошибка соединения.");
             })
             .finally(() => {
-                // Убираем лоадер и возвращаем текст
                 if (loader) {
                     loader.classList.remove('active');
-                    setTimeout(() => {
-                        loader.querySelector('.loader-text').innerText = "Оформляем покупку...";
-                    }, 200);
+                    setTimeout(() => { loader.querySelector('.loader-text').innerText = "Оформляем покупку..."; }, 200);
                 }
             });
         }
