@@ -9,85 +9,85 @@
     
     <style>
         :root {
-            --bg-color: #050505;
-            --card-bg: #121212;
+            --bg: #000000;
+            --surface: #111111;
+            --surface-light: #1c1c1c;
             --gold: #FFD700;
-            --gold-gradient: linear-gradient(135deg, #FFD700 0%, #FDB931 100%);
+            --gold-dim: #C5A000;
+            --gold-gradient: linear-gradient(135deg, #FFD700 0%, #E6AC00 100%);
             --text: #ffffff;
-            --text-secondary: #8E8E93;
+            --text-secondary: #888888;
             --twitch: #9146FF;
-            --danger: #ff453a;
+            --danger: #FF3B30;
+            --border: rgba(255, 215, 0, 0.15);
         }
         
         body {
-            background-color: var(--bg-color);
-            /* Премиальный темный фон с едва заметным шумом */
-            background-image: 
-                radial-gradient(circle at 50% 0%, rgba(255, 215, 0, 0.05) 0%, transparent 60%),
-                url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            background-color: var(--bg);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             min-height: 100vh;
-            padding-bottom: 120px; 
-            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 100px;
             -webkit-font-smoothing: antialiased;
+            /* Золотая подсветка сверху */
+            background-image: radial-gradient(circle at 50% -20%, rgba(255, 215, 0, 0.1) 0%, transparent 60%);
+            background-attachment: fixed;
         }
 
-        /* --- ШАПКА --- */
+        /* --- HEADER --- */
         .header {
             text-align: center;
             padding: 40px 20px 20px;
-            position: relative;
         }
 
         .award-badge {
             display: inline-block;
             font-size: 10px;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 2px;
             color: var(--gold);
-            border: 1px solid rgba(255, 215, 0, 0.3);
+            border: 1px solid var(--border);
             padding: 6px 14px;
-            border-radius: 30px;
-            margin-bottom: 15px;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.1);
-            background: rgba(0,0,0,0.4);
+            border-radius: 50px;
+            margin-bottom: 16px;
+            background: rgba(0,0,0,0.5);
             backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.1);
         }
 
-        .slay-title {
-            font-size: 36px;
+        .main-title {
+            font-size: 32px;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin: 0;
-            background: linear-gradient(to bottom, #fff 30%, #bbb 100%);
+            background: linear-gradient(to bottom, #fff 20%, #888 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            line-height: 1;
+            text-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+            line-height: 1.1;
         }
 
-        .slay-desc {
-            font-size: 13px;
+        .main-desc {
+            font-size: 14px;
             color: var(--text-secondary);
-            margin-top: 15px;
+            margin-top: 14px;
             line-height: 1.6;
-            max-width: 90%;
+            max-width: 320px;
             margin-left: auto;
             margin-right: auto;
         }
 
-        /* Кнопка "Призы" */
         .rewards-btn {
-            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
-            border: 1px solid rgba(255,215,0,0.2);
+            background: rgba(255, 215, 0, 0.05);
+            border: 1px solid var(--border);
             color: var(--gold);
             padding: 10px 20px;
             border-radius: 12px;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 700;
             text-transform: uppercase;
             margin-top: 20px;
@@ -95,77 +95,65 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            transition: transform 0.2s;
+            transition: all 0.2s;
         }
-        .rewards-btn:active { transform: scale(0.95); }
+        .rewards-btn:active { transform: scale(0.95); background: rgba(255, 215, 0, 0.15); }
 
-        /* --- СЕТКА (2 В РЯД) --- */
-        .grid-container {
+        /* --- GRID --- */
+        .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             padding: 10px 16px;
-            opacity: 0; /* Скрыто до загрузки */
-            transition: opacity 0.3s ease;
+            opacity: 0;
+            transition: opacity 0.4s ease;
         }
-        .grid-container.loaded { opacity: 1; }
+        .grid.loaded { opacity: 1; }
 
-        .nomination-card {
-            background: var(--card-bg);
-            border-radius: 20px;
+        .card {
+            background: var(--surface);
+            border-radius: 16px;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             position: relative;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-            /* Градиентная рамка */
-            border: 1px solid transparent;
-            background-image: linear-gradient(var(--card-bg), var(--card-bg)), linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
-            background-origin: border-box;
-            background-clip: content-box, border-box;
+            transition: transform 0.2s;
         }
+        .card:active { transform: scale(0.97); }
 
-        .card-image-wrapper {
+        .card-img-wrap {
             width: 100%;
-            padding-top: 110%; /* Чуть выше квадрата */
+            padding-top: 120%; /* 1:1.2 Aspect Ratio */
             position: relative;
-            background: #000;
-        }
-
-        .card-image {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            opacity: 0.8;
-            transition: transform 0.5s ease;
+            background: #080808;
         }
         
-        /* Эффект зума при наведении (для десктопа) или активном таче */
-        .nomination-card:active .card-image {
-            transform: scale(1.05);
-            opacity: 1;
+        .card-img {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover;
+            opacity: 0.85;
+            transition: opacity 0.3s;
         }
-
-        .card-content {
+        
+        .card-overlay {
             position: absolute;
             bottom: 0; left: 0; width: 100%;
             padding: 15px;
             box-sizing: border-box;
-            background: linear-gradient(to top, rgba(0,0,0,1) 10%, transparent);
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 10%, transparent);
             z-index: 2;
         }
 
         .card-title {
+            color: #fff;
             font-size: 13px;
             font-weight: 800;
             text-transform: uppercase;
-            color: #fff;
-            margin-bottom: 10px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-            line-height: 1.2;
-            min-height: 32px;
+            margin-bottom: 10px;
+            line-height: 1.3;
+            /* Обрезка текста */
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -173,13 +161,13 @@
         }
 
         .open-btn {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.2);
             color: #fff;
             width: 100%;
-            padding: 10px 0;
-            border-radius: 10px;
+            padding: 8px 0;
+            border-radius: 8px;
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
@@ -190,362 +178,303 @@
             gap: 6px;
         }
 
-        /* --- МОДАЛКА ГОЛОСОВАНИЯ --- */
+        /* --- MODALS --- */
         .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
-            backdrop-filter: blur(20px);
-            z-index: 5000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-            display: flex;
-            flex-direction: column;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); backdrop-filter: blur(15px);
+            z-index: 5000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s; display: flex; flex-direction: column;
         }
         .modal-overlay.active { opacity: 1; pointer-events: all; }
 
         .modal-header {
-            padding: 20px;
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.5);
+            padding: 20px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.6);
         }
-        .modal-title { font-size: 16px; font-weight: 700; color: #fff; text-transform: uppercase; }
-        .close-modal-btn {
+        .modal-title { font-size: 16px; font-weight: 700; text-transform: uppercase; color: #fff; }
+        .close-btn {
             background: rgba(255,255,255,0.1); border: none; color: #fff;
             width: 32px; height: 32px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
+
         .modal-body { flex: 1; overflow-y: auto; padding: 10px; }
 
-        /* --- СПИСОК КАНДИДАТОВ --- */
-        .candidate-row {
+        /* Candidate List */
+        .cand-row {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
         }
         .cand-left { display: flex; align-items: center; gap: 14px; }
         .twitch-icon { color: var(--twitch); font-size: 20px; width: 24px; text-align: center; }
         .cand-info { display: flex; flex-direction: column; }
         .cand-name { font-size: 15px; font-weight: 700; color: #fff; }
-        .cand-tg { font-size: 11px; color: var(--text-secondary); margin-top: 3px; font-family: monospace; }
+        .cand-tg { font-size: 11px; color: var(--text-secondary); margin-top: 4px; font-family: monospace; }
 
-        .vote-action-btn {
+        .vote-btn {
             background: var(--gold-gradient); color: #000; border: none;
-            padding: 8px 16px; border-radius: 8px;
-            font-size: 11px; font-weight: 800; text-transform: uppercase;
-            cursor: pointer; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 800;
+            text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
         }
-        .vote-result-percent { font-size: 14px; font-weight: 700; color: var(--gold); }
+        .vote-res { font-size: 14px; font-weight: 700; color: var(--gold); }
 
-        /* --- МОДАЛКА ПРИЗОВ --- */
-        .rewards-list { display: flex; flex-direction: column; gap: 10px; padding: 20px; }
-        .reward-item {
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px;
+        /* Rewards List (User View) */
+        .reward-card {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px; padding: 15px; margin-bottom: 10px;
+            display: flex; align-items: center; gap: 15px;
         }
-        .reward-icon { font-size: 24px; color: var(--gold); }
-        .reward-info h4 { margin: 0; color: #fff; font-size: 14px; }
-        .reward-info p { margin: 4px 0 0; color: #888; font-size: 11px; }
+        .reward-icon-box { font-size: 24px; color: var(--gold); }
+        .reward-info h4 { margin: 0; font-size: 14px; color: #fff; }
+        .reward-info p { margin: 4px 0 0; font-size: 11px; color: #888; }
 
-        /* --- АДМИНКА --- */
-        .admin-wrapper {
-            position: fixed; bottom: calc(90px + env(safe-area-inset-bottom)); 
-            left: 50%; transform: translateX(-50%); z-index: 10000;
-            display: flex; flex-direction: column-reverse; align-items: center; gap: 12px;
-            display: none;
-        }
-        .admin-fab-btn {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(28, 28, 30, 0.4); backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.5);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; cursor: pointer; transition: all 0.3s ease;
-        }
-        .admin-fab-btn.active { transform: rotate(180deg); background: rgba(255, 255, 255, 0.1); color: #fff; }
-        .admin-menu-items {
-            display: flex; flex-direction: column; gap: 8px; opacity: 0;
-            transform: translateY(10px); pointer-events: none; transition: all 0.3s ease;
-        }
-        .admin-menu-items.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-        .admin-action-btn {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(255, 204, 0, 0.2); color: var(--gold);
-            border: 1px solid rgba(255, 204, 0, 0.3);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; cursor: pointer; backdrop-filter: blur(5px);
+        /* --- ADMIN --- */
+        .admin-fab {
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+            width: 44px; height: 44px; border-radius: 50%;
+            background: rgba(30,30,30,0.8); border: 1px solid rgba(255,255,255,0.2);
+            color: #888; display: none; align-items: center; justify-content: center;
+            font-size: 16px; backdrop-filter: blur(10px); cursor: pointer; z-index: 1000;
         }
 
-        /* Полноэкранная админка */
-        .admin-fullscreen {
+        .admin-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #050505; z-index: 10005; display: none; flex-direction: column;
-            overflow-y: auto; padding-bottom: 50px;
+            background: #050505; z-index: 6000; display: none; flex-direction: column;
+            overflow-y: auto;
         }
-        .admin-fullscreen.active { display: flex; }
-        .admin-fs-header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: #111; }
-        .admin-fs-body { padding: 20px; }
+        .admin-screen.active { display: flex; }
 
+        .admin-nav {
+            padding: 15px; background: #111; border-bottom: 1px solid #222;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+        }
+        
         .admin-input {
             width: 100%; background: #1a1a1a; border: 1px solid #333;
-            padding: 12px; border-radius: 10px; color: #fff; margin-bottom: 10px; box-sizing: border-box;
+            padding: 12px; border-radius: 10px; color: #fff; margin-bottom: 12px;
+            box-sizing: border-box; font-size: 14px;
         }
         .admin-btn {
             width: 100%; padding: 12px; background: #333; color: #fff;
-            border: none; border-radius: 10px; font-weight: 600; cursor: pointer; margin-bottom: 15px;
+            border: none; border-radius: 10px; font-weight: 600; cursor: pointer;
+            margin-bottom: 10px; font-size: 13px;
         }
-        .admin-btn.primary { background: var(--gold); color: #000; }
-        
-        /* Списки в админке */
-        .admin-item {
-            background: #111; border: 1px solid #333; padding: 15px;
-            border-radius: 10px; margin-bottom: 10px;
+        .admin-btn.gold { background: var(--gold); color: #000; }
+        .admin-btn.red { background: rgba(255, 69, 58, 0.15); color: #ff453a; border: 1px solid #ff453a; }
+
+        /* Список призов в админке */
+        .admin-prize-item {
+            background: #151515; padding: 12px; border-radius: 10px; margin-bottom: 8px;
             display: flex; justify-content: space-between; align-items: center;
-        }
-        .delete-icon {
-            color: var(--danger); font-size: 16px; cursor: pointer;
-            padding: 8px; border-radius: 6px; background: rgba(255, 69, 58, 0.1);
+            border: 1px solid #222;
         }
 
-        /* Пароль */
-        .custom-modal-overlay {
+        /* --- PASS MODAL --- */
+        .pass-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px);
-            z-index: 10002; display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            background: rgba(0,0,0,0.8); z-index: 7000; display: none;
+            align-items: center; justify-content: center;
         }
-        .custom-modal-overlay.active { opacity: 1; pointer-events: auto; }
-        .pass-modal {
-            background: #1c1c1e; border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 80%; max-width: 300px; padding: 20px; border-radius: 16px;
-            text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        .pass-box {
+            background: #1c1c1e; width: 80%; max-width: 300px; padding: 25px;
+            border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1);
         }
-        .pass-input {
-            width: 100%; background: #2c2c2e; border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 10px; border-radius: 8px; color: #fff; margin: 15px 0;
-            text-align: center; font-size: 16px; outline: none; box-sizing: border-box; 
-        }
-        .modal-buttons { display: flex; gap: 10px; }
-        .modal-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; }
-        .btn-cancel { background: rgba(255, 255, 255, 0.1); color: #fff; }
-        .btn-confirm { background: var(--gold); color: #000; }
 
-        /* Футер */
-        .app-footer {
-            display: flex; justify-content: space-around; align-items: center;
-            background-color: rgba(28, 28, 30, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        /* FOOTER */
+        .footer {
             position: fixed; bottom: 0; left: 0; width: 100%;
-            z-index: 9999;
-            padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex; justify-content: space-around; padding: 10px 0 25px;
+            z-index: 4000;
         }
-        .footer-item {
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; gap: 4px; color: #8E8E93;
-            text-decoration: none; flex: 1; font-size: 10px; font-weight: 500;
+        .f-item {
+            color: #666; text-decoration: none; font-size: 10px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
         }
-        .footer-item .icon-wrapper { font-size: 22px; }
-        .footer-item.active { color: #FFFFFF; }
-        .footer-item.active .icon-wrapper { color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.4); }
+        .f-item i { font-size: 20px; margin-bottom: 2px; }
+        .f-item.active { color: #fff; }
+        .f-item.active i { color: var(--gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="award-badge" id="page-badge">Exclusive Event</div>
-        <h1 class="slay-title" id="page-title">...</h1>
-        <p class="slay-desc" id="page-desc">...</p>
-        
+        <div class="award-badge" id="display-badge">Exclusive Event</div>
+        <h1 class="main-title" id="display-title">SLAY AWARDS</h1>
+        <p class="main-desc" id="display-desc">Loading...</p>
         <button class="rewards-btn" onclick="openRewardsModal()">
             <i class="fa-solid fa-gift"></i> Призы
         </button>
     </div>
 
-    <div class="grid-container" id="grid">
+    <div class="grid" id="grid">
         </div>
 
     <div class="modal-overlay" id="vote-modal">
         <div class="modal-header">
-            <div class="modal-title" id="modal-title">...</div>
-            <button class="close-modal-btn" onclick="closeModal('vote-modal')">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <div class="modal-title" id="vote-title">...</div>
+            <button class="close-btn" onclick="closeModal('vote-modal')"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="modal-body" id="modal-list"></div>
+        <div class="modal-body" id="vote-list"></div>
     </div>
 
     <div class="modal-overlay" id="rewards-modal">
         <div class="modal-header">
             <div class="modal-title">Награды победителям</div>
-            <button class="close-modal-btn" onclick="closeModal('rewards-modal')">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <button class="close-btn" onclick="closeModal('rewards-modal')"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="modal-body">
-            <div class="rewards-list" id="rewards-list-container">
-                </div>
-        </div>
+        <div class="modal-body" id="rewards-view-list" style="padding: 20px;"></div>
     </div>
 
-    <div id="admin-fab" class="admin-wrapper">
-        <div class="admin-fab-btn toggle" onclick="toggleAdminMenu()">
-            <i class="fa-solid fa-chevron-up"></i>
-        </div>
-        <div class="admin-menu-items" id="admin-menu-items">
-            <div class="admin-action-btn" onclick="openPassModal()">
-                <i class="fa-solid fa-gear"></i>
+    <div id="admin-fab" class="admin-fab" onclick="openPassModal()">
+        <i class="fa-solid fa-gear"></i>
+    </div>
+
+    <div class="pass-overlay" id="pass-overlay">
+        <div class="pass-box">
+            <h3 style="margin-top:0; color:#fff;">Админка</h3>
+            <input type="password" id="pass-input" class="admin-input" placeholder="Код" style="text-align:center;">
+            <div style="display:flex; gap:10px;">
+                <button class="admin-btn" onclick="closePassModal()">Отмена</button>
+                <button class="admin-btn gold" onclick="checkPass()">OK</button>
             </div>
         </div>
     </div>
 
-    <div id="password-modal" class="custom-modal-overlay">
-        <div class="pass-modal">
-            <h3 style="margin: 0 0 5px 0; color: #fff;">Админка</h3>
-            <p style="margin: 0; color: #8e8e93; font-size: 12px;">Введите код доступа</p>
-            <input type="password" id="admin-pass-input" class="pass-input" placeholder="••••" inputmode="numeric">
-            <div class="modal-buttons">
-                <button class="modal-btn btn-cancel" onclick="closePassModal()">Отмена</button>
-                <button class="modal-btn btn-confirm" onclick="checkPass()">OK</button>
-            </div>
+    <div class="admin-screen" id="admin-screen">
+        <div class="modal-header" style="background:#111;">
+            <div class="modal-title">Панель управления</div>
+            <button class="close-btn" onclick="closeAdminScreen()"><i class="fa-solid fa-xmark"></i></button>
         </div>
-    </div>
-
-    <div id="admin-screen" class="admin-fullscreen">
-        <div class="admin-fs-header">
-            <h2 style="margin:0; font-size:18px; color: #fff;">Управление SLAY</h2>
-            <button onclick="closeAdminScreen()" style="background:none; border:none; color:#fff; font-size:20px;">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+        
+        <div class="admin-nav">
+            <button class="admin-btn" onclick="showTab('main')">Главная</button>
+            <button class="admin-btn" onclick="showTab('prizes')">Призы</button>
+            <button class="admin-btn" onclick="showTab('create')">Создать</button>
+            <button class="admin-btn gold" onclick="showTab('list')">Список</button>
         </div>
-        <div class="admin-fs-body">
-            <div style="display:flex; gap:10px; margin-bottom:20px; overflow-x:auto; padding-bottom:5px;">
-                <button class="admin-btn" style="flex:1; margin:0;" onclick="showAdminTab('settings')">Главная</button>
-                <button class="admin-btn" style="flex:1; margin:0;" onclick="showAdminTab('prizes')">Призы</button>
-                <button class="admin-btn" style="flex:1; margin:0;" onclick="showAdminTab('create')">Номинация</button>
-                <button class="admin-btn primary" style="flex:1; margin:0;" onclick="showAdminTab('list')">Список</button>
-            </div>
 
-            <hr style="border-color:#222; margin-bottom:20px;">
-
-            <div id="adm-tab-settings" style="display:none;">
-                <h3 style="color:#aaa;">Оформление страницы</h3>
+        <div style="padding: 20px;">
+            
+            <div id="tab-main" style="display:none;">
                 <label style="color:#666; font-size:12px;">Бейдж (сверху)</label>
-                <input id="global-badge" class="admin-input">
+                <input id="adm-badge" class="admin-input">
                 <label style="color:#666; font-size:12px;">Заголовок</label>
-                <input id="global-title" class="admin-input">
-                <label style="color:#666; font-size:12px;">Описание ( . = перенос)</label>
-                <textarea id="global-desc" class="admin-input" style="height:80px;"></textarea>
-                <button class="admin-btn primary" onclick="saveGlobalSettings()">Сохранить</button>
+                <input id="adm-title" class="admin-input">
+                <label style="color:#666; font-size:12px;">Описание ( . = новая строка)</label>
+                <textarea id="adm-desc" class="admin-input" style="height:80px;"></textarea>
+                <button class="admin-btn gold" onclick="saveGlobalSettings()">Сохранить настройки</button>
             </div>
 
-            <div id="adm-tab-prizes" style="display:none;">
-                <h3 style="color:#aaa;">Настройка призов</h3>
-                <textarea id="prizes-json" class="admin-input" style="height:150px; font-family:monospace;" placeholder='[{"title":"Название","desc":"Описание","icon":"fa-solid fa-trophy"}]'></textarea>
-                <p style="color:#666; font-size:11px;">Формат JSON: [{"title":"...", "desc":"...", "icon":"..."}]</p>
-                <button class="admin-btn primary" onclick="savePrizes()">Сохранить список</button>
+            <div id="tab-prizes" style="display:none;">
+                <div style="background:#151515; padding:15px; border-radius:12px; border:1px solid #333; margin-bottom:20px;">
+                    <h4 style="margin:0 0 10px; color:#fff;">Добавить приз</h4>
+                    <input id="new-prize-title" class="admin-input" placeholder="Название">
+                    <input id="new-prize-desc" class="admin-input" placeholder="Описание">
+                    <input id="new-prize-icon" class="admin-input" placeholder="Иконка (fa-solid fa-gift)">
+                    <button class="admin-btn gold" onclick="addPrize()">Добавить</button>
+                </div>
+                <h4 style="color:#fff; margin-bottom:10px;">Список призов</h4>
+                <div id="adm-prizes-list"></div>
+                <button class="admin-btn" style="margin-top:20px;" onclick="savePrizesToServer()">Сохранить на сервер</button>
             </div>
 
-            <div id="adm-tab-create" style="display:none;">
-                <h3 style="color:#aaa;">Новая номинация</h3>
-                <input id="new-nom-title" class="admin-input" placeholder="Название (напр. Главный клоун)">
+            <div id="tab-create" style="display:none;">
+                <input id="new-nom-title" class="admin-input" placeholder="Название номинации">
                 <input id="new-nom-img" class="admin-input" placeholder="Картинка (URL)">
-                <input id="new-nom-desc" class="admin-input" placeholder="Описание (коротко)">
-                <button class="admin-btn primary" onclick="createNomination()">Создать</button>
+                <input id="new-nom-desc" class="admin-input" placeholder="Описание">
+                <button class="admin-btn gold" onclick="createNomination()">Создать</button>
             </div>
 
-            <div id="adm-tab-list">
-                <div id="admin-nom-list"></div>
+            <div id="tab-list">
+                <div id="adm-nom-list"></div>
                 
-                <div id="admin-edit-area" style="display:none; background:#111; padding:15px; border-radius:12px; margin-top:20px; border:1px solid var(--gold);">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-                        <h3 style="margin:0; color:var(--gold);">Редактирование</h3>
-                        <button onclick="closeEditArea()" style="background:none; border:none; color:#fff;">Закрыть</button>
-                    </div>
-
+                <div id="edit-nom-area" style="display:none; margin-top:30px; border-top:1px solid #333; padding-top:20px;">
+                    <h3 style="color:var(--gold); margin-top:0;">Редактирование</h3>
                     <label style="color:#666; font-size:12px;">Название</label>
                     <input id="edit-nom-title" class="admin-input">
                     <label style="color:#666; font-size:12px;">Картинка</label>
                     <input id="edit-nom-img" class="admin-input">
-                    <button class="admin-btn" onclick="updateNomination()">Сохранить изменения</button>
+                    <button class="admin-btn" onclick="updateNomination()">Сохранить инфо</button>
 
-                    <hr style="border-color:#333; margin:20px 0;">
-
-                    <h4 style="color:#fff;">Участники</h4>
-                    <input id="user-search" class="admin-input" placeholder="Поиск (Twitch, ID, Ник)" oninput="debouncedSearch()">
+                    <h4 style="color:#fff; margin-top:20px;">Участники</h4>
+                    <input id="user-search" class="admin-input" placeholder="Поиск (Twitch, ID)" oninput="debouncedSearch()">
                     <div id="search-results" style="margin-bottom:15px;"></div>
-
-                    <div id="admin-candidates-list" style="background:#000; padding:10px; border-radius:8px;"></div>
+                    <div id="adm-candidates-list"></div>
+                    
+                    <button class="admin-btn" style="margin-top:20px; background:#222;" onclick="closeEditArea()">Закрыть</button>
                 </div>
             </div>
+
         </div>
     </div>
 
-    <footer class="app-footer">
-        <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
-        <a href="/menu#quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
-        <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-        <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
-        <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
-    </footer>
+    <div class="footer">
+        <a href="/leaderboard" class="f-item"><i class="fa-solid fa-trophy"></i><span>Топ</span></a>
+        <a href="/menu#quests" class="f-item"><i class="fa-solid fa-check-double"></i><span>Задания</span></a>
+        <a href="/menu" class="f-item"><i class="fa-solid fa-house"></i><span>Главная</span></a>
+        <a href="/events" class="f-item"><i class="fa-solid fa-fire"></i><span>Гринд</span></a>
+        <a href="/auction" class="f-item"><i class="fa-solid fa-gavel"></i><span>Аукцион</span></a>
+    </div>
 
     <script>
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
-        Telegram.WebApp.setHeaderColor('#050505'); 
+        Telegram.WebApp.setHeaderColor('#000000'); 
 
-        let nominationsData = [];
-        let currentEditNomId = null;
-        let prizesData = []; // Хранит список призов
+        let nominations = [];
+        let prizes = [];
+        let currentEditId = null;
 
-        // --- ИНИЦИАЛИЗАЦИЯ ---
+        // --- INIT ---
         async function init() {
-            // Грузим всё параллельно для скорости
-            await Promise.all([loadPageContent(), loadNominations()]);
-            
-            // Проверка админа
+            loadContent();
+            loadNominations();
+            checkAdmin();
+        }
+
+        async function checkAdmin() {
             try {
-                const userRes = await fetch('/api/v1/user/me', {
+                const res = await fetch('/api/v1/user/me', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 });
-                const user = await userRes.json();
+                const user = await res.json();
                 if(user.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             } catch(e) {}
         }
 
-        // --- ЗАГРУЗКА КОНТЕНТА (Заголовок, Бейдж, Призы) ---
-        async function loadPageContent() {
+        // --- CONTENT ---
+        async function loadContent() {
             try {
                 const res = await fetch('/api/v1/slay/content');
                 const data = await res.json();
                 
-                // Бейдж
-                document.getElementById('page-badge').innerText = data.badge || "Exclusive Event";
+                // Отображение
+                document.getElementById('display-badge').innerText = data.badge || "Exclusive Event";
+                document.getElementById('display-title').innerText = data.title || "SLAY AWARDS";
                 
-                // Заголовок
-                document.getElementById('page-title').innerText = data.title || "SLAY AWARDS";
-                
-                // Описание с переносом строк (точка = <br>)
                 const desc = data.description || "";
-                document.getElementById('page-desc').innerHTML = desc.replace(/\./g, '.<br>');
+                // Заменяем точку на <br> только если после неё пробел или конец строки, для красоты
+                document.getElementById('display-desc').innerHTML = desc.replace(/\. /g, '.<br>').replace(/\.$/, '.');
 
-                // Призы (парсим JSON)
+                // Призы
                 try {
-                    prizesData = typeof data.prizes === 'string' ? JSON.parse(data.prizes) : (data.prizes || []);
-                } catch { prizesData = []; }
+                    prizes = typeof data.prizes === 'string' ? JSON.parse(data.prizes) : (data.prizes || []);
+                } catch { prizes = []; }
 
-                // Заполнение полей админки
-                document.getElementById('global-badge').value = data.badge || "";
-                document.getElementById('global-title').value = data.title;
-                document.getElementById('global-desc').value = data.description;
-                document.getElementById('prizes-json').value = JSON.stringify(prizesData, null, 2);
-
+                // Админка
+                document.getElementById('adm-badge').value = data.badge || "";
+                document.getElementById('adm-title').value = data.title || "";
+                document.getElementById('adm-desc').value = data.description || "";
+                
             } catch(e) { console.error(e); }
         }
 
-        // --- ЗАГРУЗКА НОМИНАЦИЙ ---
+        // --- NOMINATIONS ---
         async function loadNominations() {
             try {
                 const res = await fetch('/api/v1/slay/active', {
@@ -553,111 +482,79 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: Telegram.WebApp.initData })
                 });
-                nominationsData = await res.json();
+                nominations = await res.json();
                 renderGrid();
                 
-                // Если админка открыта - обновить её списки
-                if(document.getElementById('admin-screen').classList.contains('active')) {
-                    renderAdminList();
-                    if(currentEditNomId) refreshCandidatesList(currentEditNomId);
-                }
-            } catch (e) { console.error(e); }
+                if(currentEditId) refreshCandidates(currentEditId);
+                renderAdminList();
+            } catch(e) { console.error(e); }
         }
 
-        // --- РЕНДЕР СЕТКИ ---
         function renderGrid() {
-            const container = document.getElementById('grid');
-            container.innerHTML = '';
-
-            if(!nominationsData.length) {
-                container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#555;">Скоро анонс...</div>';
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            
+            if(!nominations.length) {
+                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#555; padding:20px;">Нет активных номинаций</div>';
                 return;
             }
 
-            nominationsData.forEach(nom => {
+            nominations.forEach(nom => {
                 const card = document.createElement('div');
-                card.className = 'nomination-card';
-                // Важно: crossorigin для картинок, чтобы не было ошибок
-                const img = nom.image_url || 'https://placehold.co/400x400/111/333?text=SLAY';
+                card.className = 'card';
+                // Важно: crossorigin для избежания ошибок CORS с картинками
+                const imgUrl = nom.image_url || 'https://placehold.co/400x400/111/333?text=SLAY';
                 
                 card.innerHTML = `
-                    <div class="card-image-wrapper">
-                        <img src="${img}" class="card-image" loading="lazy" crossorigin="anonymous" onerror="this.src='https://placehold.co/400x400/111/333?text=NO+IMG'">
-                        <div class="card-content">
+                    <div class="card-img-wrap">
+                        <img src="${imgUrl}" class="card-img" crossorigin="anonymous" onerror="this.src='https://placehold.co/400x400/222/555?text=NO+IMG'">
+                        <div class="card-overlay">
                             <div class="card-title">${escapeHTML(nom.title)}</div>
+                            <div class="open-btn" onclick="openVote(${nom.id})">
+                                Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
+                            </div>
                         </div>
-                    </div>
-                    <div style="padding:10px;">
-                        <button class="open-btn" onclick="openVoteModal(${nom.id})">
-                            Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
-                        </button>
                     </div>
                 `;
-                container.appendChild(card);
+                grid.appendChild(card);
             });
-            
-            // Показать сетку плавно
-            setTimeout(() => container.classList.add('loaded'), 50);
+            setTimeout(() => grid.classList.add('loaded'), 50);
         }
 
-        // --- МОДАЛКА ПРИЗОВ ---
-        function openRewardsModal() {
-            const container = document.getElementById('rewards-list-container');
-            container.innerHTML = '';
-            
-            if(!prizesData.length) {
-                container.innerHTML = '<p style="text-align:center; color:#666;">Список призов формируется</p>';
-            } else {
-                prizesData.forEach(p => {
-                    const item = document.createElement('div');
-                    item.className = 'reward-item';
-                    item.innerHTML = `
-                        <div class="reward-icon"><i class="${p.icon || 'fa-solid fa-gift'}"></i></div>
-                        <div class="reward-info">
-                            <h4>${escapeHTML(p.title)}</h4>
-                            <p>${escapeHTML(p.desc)}</p>
-                        </div>
-                    `;
-                    container.appendChild(item);
-                });
-            }
-            document.getElementById('rewards-modal').classList.add('active');
-        }
-
-        // --- МОДАЛКА ГОЛОСОВАНИЯ ---
-        function openVoteModal(id) {
-            const nom = nominationsData.find(n => n.id === id);
+        // --- VOTE MODAL ---
+        function openVote(id) {
+            const nom = nominations.find(n => n.id === id);
             if(!nom) return;
 
-            document.getElementById('modal-title').innerText = nom.title;
-            const list = document.getElementById('modal-list');
+            document.getElementById('vote-title').innerText = nom.title;
+            const list = document.getElementById('vote-list');
             list.innerHTML = '';
 
-            let candidates = nom.candidates;
-            if(nom.has_voted) candidates.sort((a,b) => b.votes - a.votes);
+            let cands = nom.candidates;
+            if(nom.has_voted) cands.sort((a,b) => b.votes - a.votes);
 
-            if(candidates.length === 0) list.innerHTML = '<div style="text-align:center; color:#666; margin-top:20px;">Список пуст</div>';
+            if(!cands.length) list.innerHTML = '<div style="text-align:center; color:#555; margin-top:20px;">Список пуст</div>';
 
-            candidates.forEach(cand => {
+            cands.forEach(cand => {
                 const row = document.createElement('div');
-                row.className = 'candidate-row';
+                row.className = 'cand-row';
                 
                 let action = '';
                 if(nom.has_voted) {
-                    action = `<span class="vote-result-percent">${cand.votes}</span>`;
+                    action = `<span class="vote-res">${cand.votes}</span>`;
                 } else {
-                    action = `<button class="vote-action-btn" onclick="submitVote(${nom.id}, ${cand.id})">Голос</button>`;
+                    action = `<button class="vote-btn" onclick="vote(${nom.id}, ${cand.id})">Голос</button>`;
                 }
 
-                // Логика ника
-                const tgDisplay = cand.username ? '@'+cand.username : 'ID: '+cand.id;
+                // Исправлено: берем username из базы, если есть
+                let tg = cand.username ? `@${cand.username}` : `ID: ${cand.id}`;
 
                 row.innerHTML = `
                     <div class="cand-left">
                         <div class="twitch-icon"><i class="fa-brands fa-twitch"></i></div>
                         <div class="cand-info">
                             <div class="cand-name">${escapeHTML(cand.name)}</div>
-                            <div class="cand-tg">${tgDisplay}</div>
+                            <div class="cand-tg">${tg}</div>
                         </div>
                     </div>
                     ${action}
@@ -670,118 +567,144 @@
 
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-        async function submitVote(nomId, candId) {
+        async function vote(nId, cId) {
             Telegram.WebApp.HapticFeedback.impactOccurred('medium');
             closeModal('vote-modal');
             try {
                 const res = await fetch('/api/v1/slay/vote', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData, nomination_id: nomId, candidate_id: candId })
+                    body: JSON.stringify({ initData: Telegram.WebApp.initData, nomination_id: nId, candidate_id: cId })
                 });
-                const data = await res.json();
-                if(data.success) {
+                const d = await res.json();
+                if(d.success) {
                     Telegram.WebApp.showAlert("✅ Голос принят! +2 Билета");
                     loadNominations();
                 } else {
-                    Telegram.WebApp.showAlert(data.message || "Ошибка");
+                    Telegram.WebApp.showAlert(d.message || "Ошибка");
                 }
             } catch(e) { Telegram.WebApp.showAlert("Ошибка сети"); }
         }
 
-        // ================= АДМИНКА =================
-
-        function toggleAdminMenu() {
-            document.querySelector('.admin-fab-btn').classList.toggle('active');
-            document.getElementById('admin-menu-items').classList.toggle('show');
+        // --- REWARDS MODAL ---
+        function openRewardsModal() {
+            const list = document.getElementById('rewards-view-list');
+            list.innerHTML = '';
+            if(!prizes.length) list.innerHTML = '<div style="text-align:center; color:#555;">Призы скоро появятся</div>';
+            
+            prizes.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'reward-card';
+                div.innerHTML = `
+                    <div class="reward-icon-box"><i class="${p.icon || 'fa-solid fa-gift'}"></i></div>
+                    <div class="reward-info">
+                        <h4>${escapeHTML(p.title)}</h4>
+                        <p>${escapeHTML(p.desc)}</p>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+            document.getElementById('rewards-modal').classList.add('active');
         }
-        function openPassModal() { document.getElementById('password-modal').classList.add('active'); document.getElementById('admin-pass-input').focus(); }
-        function closePassModal() { document.getElementById('password-modal').classList.remove('active'); }
+
+        // --- ADMIN ---
+        function openPassModal() { document.getElementById('pass-overlay').style.display = 'flex'; document.getElementById('pass-input').focus(); }
+        function closePassModal() { document.getElementById('pass-overlay').style.display = 'none'; }
         function checkPass() {
-            if(document.getElementById('admin-pass-input').value === '6971') {
+            if(document.getElementById('pass-input').value === '6971') {
                 closePassModal();
                 document.getElementById('admin-screen').classList.add('active');
                 renderAdminList();
+                renderPrizesAdmin();
+                showTab('list'); // По умолчанию открываем список
             } else { Telegram.WebApp.HapticFeedback.notificationOccurred('error'); }
         }
         function closeAdminScreen() { document.getElementById('admin-screen').classList.remove('active'); }
-        
-        function showAdminTab(tab) {
-            ['settings', 'prizes', 'create', 'list'].forEach(t => document.getElementById(`adm-tab-${t}`).style.display = 'none');
-            document.getElementById(`adm-tab-${tab}`).style.display = 'block';
+
+        function showTab(id) {
+            ['main', 'prizes', 'create', 'list'].forEach(t => document.getElementById('tab-'+t).style.display = 'none');
+            document.getElementById('tab-'+id).style.display = 'block';
         }
 
-        // 1. Настройки (Заголовок, Бейдж)
+        // 1. Global Settings
         async function saveGlobalSettings() {
-            const title = document.getElementById('global-title').value;
-            const badge = document.getElementById('global-badge').value;
-            const desc = document.getElementById('global-desc').value;
+            const title = document.getElementById('adm-title').value;
+            const desc = document.getElementById('adm-desc').value;
+            const badge = document.getElementById('adm-badge').value;
             
             await fetch('/api/v1/admin/slay/content/update', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     initData: Telegram.WebApp.initData, 
-                    title, description: desc, badge 
+                    title, description: desc, badge,
+                    prizes: JSON.stringify(prizes) // Сохраняем текущие призы тоже
                 })
             });
-            Telegram.WebApp.showAlert("Обновлено!");
-            loadPageContent();
+            Telegram.WebApp.showAlert("Сохранено!");
+            loadContent();
         }
 
-        // 2. Призы
-        async function savePrizes() {
-            try {
-                const jsonStr = document.getElementById('prizes-json').value;
-                JSON.parse(jsonStr); // Проверка на валидность
-                
-                await fetch('/api/v1/admin/slay/content/update', { // Используем тот же эндпоинт, просто передаем prizes
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        initData: Telegram.WebApp.initData, 
-                        title: document.getElementById('global-title').value,
-                        description: document.getElementById('global-desc').value,
-                        badge: document.getElementById('global-badge').value,
-                        prizes: jsonStr
-                    })
-                });
-                Telegram.WebApp.showAlert("Призы сохранены!");
-                loadPageContent();
-            } catch(e) {
-                alert("Ошибка JSON! Проверь формат.");
-            }
+        // 2. Prizes Logic
+        function renderPrizesAdmin() {
+            const list = document.getElementById('adm-prizes-list');
+            list.innerHTML = '';
+            prizes.forEach((p, idx) => {
+                const item = document.createElement('div');
+                item.className = 'admin-prize-item';
+                item.innerHTML = `
+                    <div><b>${escapeHTML(p.title)}</b><br><span style="font-size:11px; color:#888;">${escapeHTML(p.desc)}</span></div>
+                    <button class="admin-btn red" style="width:auto; margin:0; padding:5px 10px;" onclick="removePrize(${idx})"><i class="fa-solid fa-trash"></i></button>
+                `;
+                list.appendChild(item);
+            });
+        }
+        function addPrize() {
+            const t = document.getElementById('new-prize-title').value;
+            const d = document.getElementById('new-prize-desc').value;
+            const i = document.getElementById('new-prize-icon').value || 'fa-solid fa-gift';
+            if(!t) return;
+            prizes.push({title: t, desc: d, icon: i});
+            renderPrizesAdmin();
+            document.getElementById('new-prize-title').value = '';
+            document.getElementById('new-prize-desc').value = '';
+        }
+        function removePrize(idx) {
+            prizes.splice(idx, 1);
+            renderPrizesAdmin();
+        }
+        async function savePrizesToServer() {
+            // Используем тот же эндпоинт контента
+            await saveGlobalSettings();
         }
 
-        // 3. Создание
+        // 3. Create Nomination
         async function createNomination() {
-            const title = document.getElementById('new-nom-title').value;
-            const img = document.getElementById('new-nom-img').value;
-            const desc = document.getElementById('new-nom-desc').value;
-            if(!title) return;
+            const t = document.getElementById('new-nom-title').value;
+            const i = document.getElementById('new-nom-img').value;
+            const d = document.getElementById('new-nom-desc').value;
+            if(!t) return;
+            
             await fetch('/api/v1/admin/slay/nomination/create', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData, title, description: desc, image_url: img })
+                body: JSON.stringify({ initData: Telegram.WebApp.initData, title: t, description: d, image_url: i })
             });
             Telegram.WebApp.showAlert("Создано!");
             loadNominations();
-            showAdminTab('list');
+            showTab('list');
         }
 
-        // 4. Список
+        // 4. List & Edit
         function renderAdminList() {
-            const list = document.getElementById('admin-nom-list');
+            const list = document.getElementById('adm-nom-list');
             list.innerHTML = '';
-            nominationsData.forEach(nom => {
+            nominations.forEach(nom => {
                 const item = document.createElement('div');
-                item.className = 'admin-item';
+                item.style.cssText = "background:#1a1a1a; padding:15px; margin-bottom:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;";
                 item.innerHTML = `
-                    <div style="flex:1;">
-                        <div style="color:#fff; font-weight:bold;">${escapeHTML(nom.title)}</div>
-                        <div style="color:#666; font-size:10px;">ID: ${nom.id}</div>
-                    </div>
-                    <button style="background:var(--gold); color:#000; border:none; padding:5px 10px; border-radius:5px;" onclick="openEditArea(${nom.id})">
+                    <span style="color:#fff; font-weight:700;">${escapeHTML(nom.title)}</span>
+                    <button class="admin-btn gold" style="width:auto; margin:0; padding:6px 12px;" onclick="editNom(${nom.id})">
                         <i class="fa-solid fa-pen"></i>
                     </button>
                 `;
@@ -789,74 +712,68 @@
             });
         }
 
-        // 5. Редактирование
-        function openEditArea(id) {
-            currentEditNomId = id;
-            const nom = nominationsData.find(n => n.id === id);
-            document.getElementById('admin-edit-area').style.display = 'block';
+        function editNom(id) {
+            currentEditId = id;
+            const nom = nominations.find(n => n.id === id);
+            document.getElementById('edit-nom-area').style.display = 'block';
             document.getElementById('edit-nom-title').value = nom.title;
             document.getElementById('edit-nom-img').value = nom.image_url || '';
-            refreshCandidatesList(id);
-            document.getElementById('admin-edit-area').scrollIntoView({behavior: 'smooth'});
+            refreshCandidates(id);
+            // Скролл вниз
+            document.getElementById('edit-nom-area').scrollIntoView({behavior:'smooth'});
         }
 
         function closeEditArea() {
-            document.getElementById('admin-edit-area').style.display = 'none';
-            currentEditNomId = null;
+            document.getElementById('edit-nom-area').style.display = 'none';
+            currentEditId = null;
         }
 
         async function updateNomination() {
-            if(!currentEditNomId) return;
+            if(!currentEditId) return;
+            const t = document.getElementById('edit-nom-title').value;
+            const i = document.getElementById('edit-nom-img').value;
             await fetch('/api/v1/admin/slay/nomination/update', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    initData: Telegram.WebApp.initData,
-                    id: currentEditNomId,
-                    title: document.getElementById('edit-nom-title').value,
-                    image_url: document.getElementById('edit-nom-img').value
-                })
+                body: JSON.stringify({ initData: Telegram.WebApp.initData, id: currentEditId, title: t, image_url: i })
             });
-            Telegram.WebApp.showAlert("Сохранено!");
+            Telegram.WebApp.showAlert("Обновлено!");
             loadNominations();
         }
 
-        // 6. Участники и УДАЛЕНИЕ (КОРЗИНКА)
-        function refreshCandidatesList(nomId) {
-            const nom = nominationsData.find(n => n.id === nomId);
-            const list = document.getElementById('admin-candidates-list');
+        // 5. Candidates in Admin
+        function refreshCandidates(nomId) {
+            const nom = nominations.find(n => n.id === nomId);
+            const list = document.getElementById('adm-candidates-list');
             list.innerHTML = '';
-            
             if(!nom.candidates.length) {
-                list.innerHTML = '<div style="color:#666; text-align:center;">Нет участников</div>';
+                list.innerHTML = '<div style="color:#555; text-align:center;">Нет участников</div>';
                 return;
             }
-
             nom.candidates.forEach(cand => {
                 const item = document.createElement('div');
-                item.className = 'admin-item'; // Используем тот же класс стиля
-                item.style.marginBottom = '5px';
+                item.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #222;";
                 item.innerHTML = `
                     <div style="color:#fff;">${escapeHTML(cand.name)}</div>
-                    <div class="delete-icon" onclick="deleteCandidate(${cand.id})">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </div>
+                    <button class="admin-btn red" style="width:auto; margin:0; padding:5px 10px;" onclick="delCand(${cand.id})">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
                 `;
                 list.appendChild(item);
             });
         }
 
-        async function deleteCandidate(candId) {
-            if(!confirm("Удалить участника?")) return;
+        async function delCand(cid) {
+            if(!confirm("Удалить?")) return;
             await fetch('/api/v1/admin/slay/candidate/delete', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData, candidate_id: candId })
+                body: JSON.stringify({ initData: Telegram.WebApp.initData, candidate_id: cid })
             });
-            loadNominations();
+            loadNominations(); // Обновит всё
         }
 
-        // 7. Поиск и добавление
+        // 6. Search
         let searchTimeout;
         function debouncedSearch() { clearTimeout(searchTimeout); searchTimeout = setTimeout(searchUsers, 500); }
 
@@ -875,24 +792,26 @@
             resDiv.innerHTML = '';
             users.forEach(u => {
                 const div = document.createElement('div');
-                div.style.cssText = "padding:8px; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; color:#fff;";
+                div.style.cssText = "padding:10px; background:#222; margin-bottom:5px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; color:#fff;";
                 div.innerHTML = `
-                    <div>${u.full_name} <span style="color:#666; font-size:10px;">${u.twitch_login || ''}</span></div>
-                    <button style="background:var(--gold); color:#000; border:none; padding:4px 8px; border-radius:4px;" onclick="addCandidate(${u.telegram_id})">Add</button>
+                    <div>${escapeHTML(u.full_name)} <span style="color:#666; font-size:10px;">${u.twitch_login || ''}</span></div>
+                    <button style="background:var(--gold); color:#000; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;" onclick="addCandidate(${u.telegram_id})">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
                 `;
                 resDiv.appendChild(div);
             });
         }
 
-        async function addCandidate(userId) {
-            if(!currentEditNomId) return;
+        async function addCandidate(uid) {
+            if(!currentEditId) return;
             await fetch('/api/v1/admin/slay/candidate/add', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     initData: Telegram.WebApp.initData,
-                    nomination_id: currentEditNomId,
-                    user_id: userId
+                    nomination_id: currentEditId,
+                    user_id: uid
                 })
             });
             Telegram.WebApp.showAlert("Добавлен!");
