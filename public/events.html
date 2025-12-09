@@ -293,6 +293,112 @@
     }
     @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-40px); } }
 
+    /* --- СТИЛИ ДЛЯ SUCCESS МОДАЛКИ --- */
+.success-modal-content {
+    background: linear-gradient(160deg, #1a1a1a 0%, #2d2d2d 100%);
+    border: 1px solid var(--accent-primary);
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.15);
+    text-align: center;
+    padding: 30px 20px;
+    width: 85%;
+    max-width: 320px;
+    border-radius: 16px;
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-overlay.visible .success-modal-content {
+    transform: scale(1);
+}
+
+.success-icon-box {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 20px;
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid var(--accent-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+    position: relative;
+}
+
+.success-icon-box i {
+    font-size: 32px;
+    color: var(--accent-primary);
+    animation: popIn 0.5s ease;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    80% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.success-title-text {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.success-desc-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+/* Блок для промокода (если есть) */
+.promo-copy-box {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px dashed var(--accent-secondary);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.promo-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.promo-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    font-family: monospace;
+    user-select: text; /* Чтобы можно было выделить */
+    cursor: pointer;
+}
+
+.btn-close-success {
+    background: var(--accent-primary);
+    color: #000;
+    border: none;
+    font-weight: 700;
+    padding: 12px 0;
+    width: 100%;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.25);
+    transition: transform 0.1s;
+}
+
+.btn-close-success:active {
+    transform: scale(0.96);
+}
+
   </style>
 </head>
 <body>
@@ -378,6 +484,25 @@
         </div>
     </div>
   </div>
+
+  <div id="success-modal" class="modal-overlay">
+    <div class="success-modal-content">
+        <div class="success-icon-box">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div class="success-title-text">Успешно!</div>
+        <div class="success-desc-text" id="success-message">
+            Покупка совершена. Награда зачислена на ваш баланс.
+        </div>
+        
+        <div id="success-promo-container" class="promo-copy-box" style="display: none;">
+            <span class="promo-label">Ваш код (нажмите чтобы скопировать):</span>
+            <span class="promo-value" id="success-promo-code" onclick="copyPromo(this)">CODE123</span>
+        </div>
+
+        <button class="btn-close-success" onclick="closeSuccessModal()">Закрыть</button>
+    </div>
+</div>
 
   <footer class="app-footer">
     <a href="/leaderboard" class="footer-item">
@@ -657,6 +782,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.closeShopModal = () => dom.shopModal.classList.remove('visible');
 
+  // Функция открытия красивого окна
+    function showSuccess(message, promoCode = null) {
+        // Закрываем магазин, чтобы было чисто
+        closeShopModal();
+        
+        const modal = document.getElementById('success-modal');
+        const msgEl = document.getElementById('success-message');
+        const promoContainer = document.getElementById('success-promo-container');
+        const promoValue = document.getElementById('success-promo-code');
+
+        msgEl.textContent = message;
+
+        if (promoCode) {
+            promoContainer.style.display = 'flex';
+            promoValue.textContent = promoCode;
+        } else {
+            promoContainer.style.display = 'none';
+        }
+
+        modal.classList.add('visible');
+        
+        // Вибрация успеха
+        tg.HapticFeedback.notificationOccurred('success');
+    }
+
+    // Закрытие
+    window.closeSuccessModal = () => {
+        document.getElementById('success-modal').classList.remove('visible');
+    };
+
+    // Копирование кода по клику
+    window.copyPromo = (element) => {
+        const code = element.textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            tg.showPopup({message: 'Код скопирован!'});
+        });
+    };
+
     function renderShopList() {
         dom.shopContainer.innerHTML = '';
         const items = shopItems.filter(i => i.type === (currentTab === 'tickets' ? 'ticket' : 'promo'));
@@ -731,14 +894,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ initData: tg.initData, cost: cost, tickets_reward: rewardTickets })
                     });
-                    if (!response.ok) throw new Error();
+                    
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Ошибка обмена');
+                    }
+                    
                     const res = await response.json();
                     userState.coins = parseFloat(res.new_coins);
                     userState.tickets = res.new_tickets;
+                    
                     updateUI();
-                    renderShopList();
-                    tg.HapticFeedback.notificationOccurred('success');
-                } catch (e) { tg.showAlert('Ошибка обмена'); }
+                    
+                    // 🔥 ЗАМЕНА: Вместо просто вибрации или алерта вызываем красоту
+                    // renderShopList(); // Можно не перерисовывать, если закрываем магазин
+                    showSuccess(`Вы получили ${rewardTickets} билет(ов)!`);
+                    
+                } catch (e) { 
+                    tg.showAlert(e.message || 'Ошибка обмена'); 
+                }
             }
         });
     };
@@ -752,17 +926,26 @@ document.addEventListener('DOMContentLoaded', function() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ initData: tg.initData, reward_value: val })
                     });
-                    if (!response.ok) throw new Error('Ошибка');
+                    
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Ошибка');
+                    }
+                    
                     const res = await response.json();
                     userState.coins = parseFloat(res.new_coins);
                     updateUI();
-                    await fetchShopItems(); renderShopList();
-                    tg.showPopup({title:'Успешно!', message: `Ваш код:\n${res.promo_code}`, buttons:[{type:'ok'}]});
-                } catch(e) { tg.showAlert('Не удалось купить'); }
+                    
+                    // 🔥 ЗАМЕНА: Показываем красивое окно с кодом
+                    showSuccess(`Промокод на ${val} звезд успешно куплен!`, res.promo_code);
+                    
+                } catch(e) { 
+                    tg.showAlert(e.message || 'Не удалось купить'); 
+                }
             }
         });
     };
-
+  
     function renderFreeTicketBtn() {
         const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
         const now = new Date().getTime();
