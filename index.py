@@ -561,6 +561,8 @@ class SlayContentUpdate(BaseModel):
     initData: str
     title: str
     description: str
+    badge: Optional[str] = "Exclusive Event" # <-- Добавлено
+    prizes: Optional[str] = "[]" # <-- Добавлено (JSON строка)
 
 class SlayNominationUpdate(BaseModel):
     initData: str
@@ -2218,13 +2220,18 @@ async def update_slay_content(
     request_data: SlayContentUpdate,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Обновляет заголовок и описание."""
+    """(Админ) Обновляет контент страницы (Заголовок, Бейдж, Описание, Призы)."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
 
-    content = {"title": request_data.title, "description": request_data.description}
+    # Собираем контент
+    content = {
+        "title": request_data.title, 
+        "description": request_data.description,
+        "badge": request_data.badge,
+        "prizes": request_data.prizes # Сохраняем JSON строку призов
+    }
     
-    # Используем upsert (обновление или вставка)
     await supabase.post(
         "/pages_content",
         json={"page_name": "slay_awards", "content": content},
