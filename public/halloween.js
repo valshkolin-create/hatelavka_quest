@@ -6,6 +6,24 @@ function formatNumber(num) {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[INIT] DOMContentLoaded сработало. Начинаем инициализацию скрипта.');
 
+    const RARITY_COLORS = {
+        common: '#b0c3d9',      // Ширпотреб
+        uncommon: '#5e98d9',    // Промышленное
+        rare: '#4b69ff',        // Армейское
+        mythical: '#8847ff',    // Запрещенное
+        legendary: '#d32ce6',   // Засекреченное
+        ancient: '#eb4b4b',     // Тайное
+        immortal: '#e4ae39'     // Нож
+    };
+
+    const WEAR_NAMES = {
+        'Factory New': 'Прямо с завода',
+        'Minimal Wear': 'Немного поношенное',
+        'Field-Tested': 'После полевых',
+        'Well-Worn': 'Поношенное',
+        'Battle-Scarred': 'Закаленное в боях'
+    };    
+
     const tg = window.Telegram.WebApp;
     if (!tg) {
         console.error('[INIT] Объект window.Telegram.WebApp не найден! Скрипт не сможет работать.');
@@ -458,19 +476,36 @@ function renderPage(eventData, leaderboardData = {}) {
     }
 
     // --- ОБНОВЛЕННАЯ ФУНКЦИЯ: Рендер списка наград ---
+    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ: Рендер списка наград ---
     function renderRewardsModalContent(targetLevel) {
         const { currentLevel, percentage } = calculateEventProgress(currentEventData);
         
-        // 1. ОПРЕДЕЛЯЕМ НАЗВАНИЕ ПРЕДМЕТА (Котел / Мешок / Сундук)
-        // Берем тему из body (самый надежный способ, т.к. она там уже стоит)
-        const activeTheme = document.body.dataset.theme || 'halloween';
-        
-        const containerNames = {
-            halloween: { acc: 'котел', prep: 'котле' },   // Винительный / Предложный
-            new_year:  { acc: 'мешок', prep: 'мешке' },
-            classic:   { acc: 'сундук', prep: 'сундуке' } // Или 'банк', если нужно
+        // Словари для отображения (добавлены прямо сюда для надежности)
+        const RARITY_COLORS = {
+            common: '#b0c3d9',      // Ширпотреб (Белый/Серый)
+            uncommon: '#5e98d9',    // Промышленное (Голубой)
+            rare: '#4b69ff',        // Армейское (Синий)
+            mythical: '#8847ff',    // Запрещенное (Фиолетовый)
+            legendary: '#d32ce6',   // Засекреченное (Розовый)
+            ancient: '#eb4b4b',     // Тайное (Красный)
+            immortal: '#e4ae39'     // Нож/Перчатки (Золотой)
         };
-        // Если темы нет в словаре, берем классику
+
+        const WEAR_NAMES = {
+            'Factory New': 'Прямо с завода',
+            'Minimal Wear': 'Немного поношенное',
+            'Field-Tested': 'После полевых',
+            'Well-Worn': 'Поношенное',
+            'Battle-Scarred': 'Закаленное в боях'
+        };
+
+        // 1. ОПРЕДЕЛЯЕМ НАЗВАНИЕ ПРЕДМЕТА
+        const activeTheme = document.body.dataset.theme || 'halloween';
+        const containerNames = {
+            halloween: { acc: 'котел', prep: 'котле' },
+            new_year:  { acc: 'мешок', prep: 'мешке' },
+            classic:   { acc: 'сундук', prep: 'сундуке' }
+        };
         const t = containerNames[activeTheme] || containerNames.classic;
 
         // 2. ЛОГИКА ОТКРЫТИЯ
@@ -494,19 +529,12 @@ function renderPage(eventData, leaderboardData = {}) {
         // 3. ЕСЛИ УРОВЕНЬ ЗАКРЫТ
         if (isTargetLocked) {
             const currentPercentFixed = percentage.toFixed(0);
-            
-            // ЛОГИКА ОТОБРАЖЕНИЯ ПРОГРЕСС-БАРА
-            // Бар показываем ТОЛЬКО если это следующий уровень (Current + 1).
-            // Если это уровни дальше (например, мы на 1, а смотрим 3 или 4), бар скрываем.
             const showProgressBar = (targetLevel === currentLevel + 1);
-
             let lockDescription = '';
             
             if (showProgressBar) {
-                // Текст для следующего уровня (с баром)
                 lockDescription = `Заполните ${t.acc} на <strong>70%</strong>, чтобы увидеть награды этого этапа.`;
             } else {
-                // Текст для далеких уровней (без бара)
                 lockDescription = `Этот этап пока недоступен. Сначала полностью заполните ${t.acc} на предыдущих уровнях.`;
             }
 
@@ -514,11 +542,7 @@ function renderPage(eventData, leaderboardData = {}) {
                 <div class="locked-level-container">
                     <i class="fa-solid fa-lock lock-icon-large"></i>
                     <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #fff;">Этап закрыт</div>
-                    
-                    <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5;">
-                        ${lockDescription}
-                    </div>
-                    
+                    <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5;">${lockDescription}</div>
                     ${showProgressBar ? `
                         <div class="modal-progress-wrapper">
                             <div class="modal-progress-fill" style="width: ${percentage}%"></div>
@@ -539,24 +563,35 @@ function renderPage(eventData, leaderboardData = {}) {
         const tiers = levelConfig.tiers || {};
         const defaultReward = levelConfig.default_reward || {};
 
-        // Группа Топ-20
+        // === ГРУППА 1: Топ-20 Игроков ===
         let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Топ-20 Игроков</div>`;
         if (topPlaces.length === 0) {
             html += '<p style="font-size:12px; color:#777; padding:10px;">Награды не назначены</p>';
         } else {
             topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+                // Данные
+                const name = reward.name || '';
+                const wearKey = reward.wear;
+                const rarityKey = reward.rarity;
+                const wearText = WEAR_NAMES[wearKey] || '';
+                const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
+                const hasRarity = !!RARITY_COLORS[rarityKey];
+
                 html += `
-                    <div class="modal-reward-item">
+                    <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
                         <span class="modal-reward-place">#${reward.place}</span>
-                        <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" data-full-name="${escapeHTML(reward.name)}">
-                        <span class="modal-reward-name">${escapeHTML(reward.name)}</span>
+                        <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" data-full-name="${escapeHTML(name)}">
+                        <div class="modal-reward-info">
+                            <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                            ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+                        </div>
                     </div>
                 `;
             });
         }
         html += `</div>`;
 
-        // Группа Остальные
+        // === ГРУППА 2: Награды остальным ===
         html += `<div class="modal-rewards-group"><div class="modal-rewards-title">Награды остальным</div>`;
         const tierData = [
             { id: '21-30', label: '21-30', data: tiers["21-30"] },
@@ -565,13 +600,23 @@ function renderPage(eventData, leaderboardData = {}) {
         ];
 
         tierData.forEach(tier => {
+            // Данные
             const name = tier.data?.name || '---';
             const img = tier.data?.image_url || '';
+            const wearKey = tier.data?.wear;
+            const rarityKey = tier.data?.rarity;
+            const wearText = WEAR_NAMES[wearKey] || '';
+            const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
+            const hasRarity = !!RARITY_COLORS[rarityKey];
+
             html += `
-                <div class="modal-reward-item">
+                <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
                     <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
                     ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" data-full-name="${escapeHTML(name)}">` : '<div style="width:40px;"></div>'}
-                    <span class="modal-reward-name">${escapeHTML(name)}</span>
+                    <div class="modal-reward-info">
+                        <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                        ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+                    </div>
                 </div>
             `;
         });
