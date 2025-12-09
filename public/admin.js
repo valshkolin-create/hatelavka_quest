@@ -423,31 +423,18 @@ function getCurrentLevel(eventData) {
 
     // Собирает все данные из формы "Котла" в один объект
 function collectCauldronData() {
-    const form = dom.cauldronSettingsForm;
+    // Вспомогательные функции getValue и setVal у нас теперь глобальные, используем их
     
-    // Вспомогательная функция для безопасного получения значения
-    const getValue = (name) => {
-        // Сначала ищем в элементах формы
-        if (form.elements[name]) return form.elements[name].value;
-        // Если форма "разорвана", ищем просто в документе по имени
-        const el = document.querySelector(`[name="${name}"]`);
-        return el ? el.value : '';
-    };
-
     // Получаем даты
     const startDateInput = getValue('start_date');
     const endDateInput = getValue('end_date');
 
     const content = {
         title: getValue('title'),
-        // Сохраняем даты в ISO формате
         start_date: startDateInput ? new Date(startDateInput).toISOString() : null,
         end_date: endDateInput ? new Date(endDateInput).toISOString() : null,
-        
         current_theme: currentCauldronData.current_theme || 'halloween',
-        // Чекбокс обрабатываем отдельно
-        is_visible_to_users: form.elements['is_visible_to_users'] ? form.elements['is_visible_to_users'].checked : false,
-        
+        is_visible_to_users: document.querySelector('[name="is_visible_to_users"]')?.checked || false,
         goals: {
             level_1: parseInt(getValue('goal_level_1'), 10) || 0,
             level_2: parseInt(getValue('goal_level_2'), 10) || 0,
@@ -465,7 +452,7 @@ function collectCauldronData() {
     [1, 2, 3, 4].forEach(level => {
         const levelKey = `level_${level}`;
         
-        // Сбор Топ-20
+        // 1. Сбор Топ-20
         const topPlaces = [];
         const container = document.getElementById(`top-rewards-container-${level}`);
         if (container) {
@@ -473,8 +460,6 @@ function collectCauldronData() {
                 const place = parseInt(row.querySelector('.reward-place').value, 10);
                 const name = row.querySelector('.reward-name').value.trim();
                 const image_url = row.querySelector('.reward-image').value.trim();
-                
-                // Берем новые значения из селектов
                 const wear = row.querySelector('.reward-wear').value;
                 const rarity = row.querySelector('.reward-rarity').value;
 
@@ -484,18 +469,18 @@ function collectCauldronData() {
             });
         }
 
-        // 2. Сбор Тиров (ОБНОВЛЕНО)
+        // 2. Сбор Тиров (ПРАВИЛЬНАЯ ЛОГИКА)
         const tiers = {};
         ["21-30", "31-40", "41+"].forEach(tierKey => {
-        const tierData = tiers[tierKey] || {};
-        const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
-        
-        setVal(`${prefix}_name_${level}`, tierData.name);
-        setVal(`${prefix}_image_url_${level}`, tierData.image_url);
-        // Заполняем новые поля
-        setVal(`${prefix}_wear_${level}`, tierData.wear);
-        setVal(`${prefix}_rarity_${level}`, tierData.rarity);
-    });
+            const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
+            
+            tiers[tierKey] = {
+                name: getValue(`${prefix}_name_${level}`),
+                image_url: getValue(`${prefix}_image_url_${level}`),
+                wear: getValue(`${prefix}_wear_${level}`),
+                rarity: getValue(`${prefix}_rarity_${level}`)
+            };
+        });
 
         content.levels[levelKey] = {
             top_places: topPlaces,
@@ -701,7 +686,7 @@ const showLoader = () => {
 
         try {
             console.log(`[switchView] Входим в switch-блок для ${targetViewId}...`);
-            // --- Блок switch остается без изменений ---
+            // --- Блок switch ---
             switch (targetViewId) {
                 case 'view-admin-quests': {
                     const allQuests = await makeApiRequest('/api/v1/admin/quests/all', {}, 'POST', true);
@@ -755,109 +740,99 @@ const showLoader = () => {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
 
-                    // ... (Заполнение основных настроек и целей оставляем как есть) ...
+                    // --- [ВАЖНО] Вспомогательная функция для заполнения полей ---
+                    // Она нужна, чтобы безопасно заполнять инпуты, даже если они в другой вкладке
+                    const setVal = (name, val) => {
+                        const el = form.elements[name] || document.querySelector(`[name="${name}"]`);
+                        if (el) el.value = val || '';
+                    };
+                    // ------------------------------------------------------------
+
+                    // Заполнение основных настроек
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
-                    form.elements['title'].value = currentCauldronData.title || '';
-                    // 👇 ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ 👇
-                    form.elements['start_date'].value = formatDateToInput(currentCauldronData.start_date);
-                    form.elements['end_date'].value = formatDateToInput(currentCauldronData.end_date);
-                    // 👆 ----------------------- 👆
-                    form.elements['banner_image_url'].value = currentCauldronData.banner_image_url || '';
-                    form.elements['cauldron_image_url_1'].value = currentCauldronData.cauldron_image_url_1 || '';
-                    form.elements['cauldron_image_url_2'].value = currentCauldronData.cauldron_image_url_2 || '';
-                    form.elements['cauldron_image_url_3'].value = currentCauldronData.cauldron_image_url_3 || '';
-                    form.elements['cauldron_image_url_4'].value = currentCauldronData.cauldron_image_url_4 || '';
+                    setVal('title', currentCauldronData.title);
+                    setVal('start_date', formatDateToInput(currentCauldronData.start_date));
+                    setVal('end_date', formatDateToInput(currentCauldronData.end_date));
+                    
+                    setVal('banner_image_url', currentCauldronData.banner_image_url);
+                    setVal('cauldron_image_url_1', currentCauldronData.cauldron_image_url_1);
+                    setVal('cauldron_image_url_2', currentCauldronData.cauldron_image_url_2);
+                    setVal('cauldron_image_url_3', currentCauldronData.cauldron_image_url_3);
+                    setVal('cauldron_image_url_4', currentCauldronData.cauldron_image_url_4);
 
                     const goals = currentCauldronData.goals || {};
-                    form.elements['goal_level_1'].value = goals.level_1 || '';
-                    form.elements['goal_level_2'].value = goals.level_2 || '';
-                    form.elements['goal_level_3'].value = goals.level_3 || '';
-                    form.elements['goal_level_4'].value = goals.level_4 || '';
+                    setVal('goal_level_1', goals.level_1);
+                    setVal('goal_level_2', goals.level_2);
+                    setVal('goal_level_3', goals.level_3);
+                    setVal('goal_level_4', goals.level_4);
 
                     // Заполняем награды для каждого уровня
                     const levels = currentCauldronData.levels || {};
                     [1, 2, 3, 4].forEach(level => {
                         const levelData = levels[`level_${level}`] || {};
                         const topPlaces = levelData.top_places || [];
-                        // Поддержка старого формата (если tiers нет, берем default_reward как 41+)
-                        const tiers = levelData.tiers || {
-                            "41+": levelData.default_reward || {}
-                        };
+                        const tiers = levelData.tiers || { "41+": levelData.default_reward || {} };
 
-                        // Топ-20
+                        // 1. Заполнение Топ-20
                         const container = document.getElementById(`top-rewards-container-${level}`);
                         if (container) { 
                            container.innerHTML = ''; 
                            topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+                               // В createTopRewardRow передаем уже готовый объект reward (с полями wear/rarity)
                                container.appendChild(createTopRewardRow(reward));
                            });
                         }
 
-                        // --- НОВОЕ: Заполнение Тиров ---
-                        if (form.elements[`tier_21_30_name_${level}`]) {
-                            form.elements[`tier_21_30_name_${level}`].value = tiers["21-30"]?.name || '';
-                            form.elements[`tier_21_30_image_url_${level}`].value = tiers["21-30"]?.image_url || '';
-                        }
-                        if (form.elements[`tier_31_40_name_${level}`]) {
-                            form.elements[`tier_31_40_name_${level}`].value = tiers["31-40"]?.name || '';
-                            form.elements[`tier_31_40_image_url_${level}`].value = tiers["31-40"]?.image_url || '';
-                        }
-                        if (form.elements[`tier_41_plus_name_${level}`]) {
-                            form.elements[`tier_41_plus_name_${level}`].value = tiers["41+"]?.name || '';
-                            form.elements[`tier_41_plus_image_url_${level}`].value = tiers["41+"]?.image_url || '';
-                        }
+                        // 2. Заполнение Тиров (21-30, 31-40, 41+)
+                        ["21-30", "31-40", "41+"].forEach(tierKey => {
+                            const tierData = tiers[tierKey] || {};
+                            // Формируем префикс имени поля (например: tier_21_30)
+                            const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
+                            
+                            // Используем setVal для безопасного заполнения
+                            setVal(`${prefix}_name_${level}`, tierData.name);
+                            setVal(`${prefix}_image_url_${level}`, tierData.image_url);
+                            setVal(`${prefix}_wear_${level}`, tierData.wear);     // Грузим износ
+                            setVal(`${prefix}_rarity_${level}`, tierData.rarity); // Грузим редкость
+                        });
                     });
                     break;
                 }
-                 case 'view-admin-main': {
-                   console.log("[switchView] Выполнен case 'view-admin-main'."); // Лог выполнения case
-                   break; // Этот case остается пустым
+                case 'view-admin-main': {
+                   console.log("[switchView] Выполнен case 'view-admin-main'.");
+                   break;
                 }
-                 // --- ДОБАВЬ ЭТОТ CASE ---
-                 case 'view-admin-user-management': {
+                case 'view-admin-user-management': {
                     console.log("[switchView] Выполнен case 'view-admin-user-management'.");
                     // Сбрасываем видимость скрытых форм при переходе
                     [
                         dom.grantCheckpointStarsForm, dom.grantTicketsForm,
                         dom.freezeCheckpointStarsForm, dom.freezeTicketsForm,
                         dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm,
-                        dom.adminResetUserWeeklyProgressForm // <-- 🔽 ДОБАВЬТЕ ЭТУ СТРОКУ 🔽
+                        dom.adminResetUserWeeklyProgressForm
                     ].forEach(form => form?.classList.add('hidden'));
-                    selectedAdminUser = null; // Сбрасываем выбранного юзера
+                    selectedAdminUser = null; 
                     
-                    // --- 👇 ДОБАВЬТЕ ЭТУ СТРОКУ 👇 ---
                     loadAdminGrantLog(); 
-                    // --- 👆 КОНЕЦ ДОБАВЛЕНИЯ 👆 ---
-
                     break;
                 }
-                // --- КОНЕЦ ДОБАВЛЕНИЯ ---
-                 case 'view-admin-auctions': {
-                await loadAdminAuctions();
-                break;
-            }
-                // --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЙ БЛОК 🔽 ---
+                case 'view-admin-auctions': {
+                    await loadAdminAuctions();
+                    break;
+                }
                 case 'view-admin-weekly-goals': {
-                    // (Отступ 16 пробелов)
-                    // Мы напишем эту функцию в следующем шаге
                     await loadWeeklyGoalsData(); 
                     break;
                 }
-                 // --- 🔽 ДОБАВЬ ЭТОТ БЛОК 🔽 ---
                 case 'view-admin-schedule': {
                     await loadScheduleSettings();
                     break;
                 }
-            // --- 🔼 КОНЕЦ 🔼 ---
-                    
-                    
-                // --- ДОБАВЬТЕ ЭТОТ БЛОК ---
                 default: {
                     console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
                     break;
                 }
-                // --- КОНЕЦ БЛОКА ---
-            }
+            } // Конец switch
             console.log(`[switchView] Выход из switch-блока для ${targetViewId}.`);
         } catch (e) {
             console.error(`[switchView] ИСКЛЮЧЕНИЕ внутри switch-блока для ${targetViewId}:`, e);
