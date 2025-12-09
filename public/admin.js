@@ -2,7 +2,7 @@
 
 try {
     const WEAR_OPTIONS = [
-    { val: '', text: 'Не указано' },
+    { val: '', text: 'Качество не указано' },
     { val: 'Factory New', text: 'Прямо с завода (FN)' },
     { val: 'Minimal Wear', text: 'Немного поношенное (MW)' },
     { val: 'Field-Tested', text: 'После полевых (FT)' },
