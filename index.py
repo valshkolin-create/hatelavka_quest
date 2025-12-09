@@ -2451,6 +2451,7 @@ async def get_shop_purchases_details_for_admin(
             
             final_rewards.append({
                 "id": reward.get("id"),
+                "user_id": reward.get("user_id"),  # <--- 🔥 ДОБАВИТЬ ВОТ ЭТУ СТРОКУ 🔥
                 "title": reward.get("reward_details"), 
                 "description": raw_desc,
                 "user_full_name": user_details.get("full_name", "N/A"),
