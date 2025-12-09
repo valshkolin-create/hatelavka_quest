@@ -665,277 +665,275 @@
         </div>
 
         <div id="view-admin-cauldron" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Ивент "Котел"</h1>
-                <div style="width: 60px;"></div>
-            </div>
-
-            <div class="tabs-container" id="cauldron-tabs">
-                <button class="tab-button active" data-tab="cauldron-settings">Настройки</button>
-                <button class="tab-button" data-tab="cauldron-rewards-1">Награды Ур. 1</button>
-                <button class="tab-button" data-tab="cauldron-rewards-2">Награды Ур. 2</button>
-                <button class="tab-button" data-tab="cauldron-rewards-3">Награды Ур. 3</button>
-                <button class="tab-button" data-tab="cauldron-rewards-4">Награды Ур. 4</button>
-                <button class="tab-button" data-tab="cauldron-distribution">Участники</button>
-            </div>
-
-            <form id="cauldron-settings-form">
-    <div id="tab-content-cauldron-settings" class="tab-content active">
-        <div class="quest-card">
-            <div class="admin-form">
-                <div class="setting-item" style="padding: 0; border: none;">
-                    <span class="setting-label">Ивент активен (виден пользователям)</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" name="is_visible_to_users">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <label>Название ивента</label>
-                <input type="text" name="title" required placeholder="Ведьминский котел" style="width: 100%; box-sizing: border-box;"> 
-                
-                <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 140px;">
-                        <label>Дата начала (UTC)</label>
-                        <input type="datetime-local" name="start_date" style="width: 100%; box-sizing: border-box;">
-                    </div>
-                    <div style="flex: 1; min-width: 140px;">
-                        <label>Дата окончания (UTC)</label>
-                        <input type="datetime-local" name="end_date" style="width: 100%; box-sizing: border-box;">
-                    </div>
-                </div>
-
-                <label>Цель Уровня 1</label>
-                <input type="number" name="goal_level_1" required placeholder="Например: 1000">
-
-                <label>Цель Уровня 2</label>
-                <input type="number" name="goal_level_2" required placeholder="Например: 3000">
-
-                <label>Цель Уровня 3</label>
-                <input type="number" name="goal_level_3" required placeholder="Например: 5000">
-
-                <label>Цель Уровня 4 (финал)</label>
-                <input type="number" name="goal_level_4" required placeholder="Например: 10000">
-
-                <label>URL баннера для главной</label>
-                <input type="text" name="banner_image_url" placeholder="https://....png">
-
-                <label>URL картинки Котла (Уровень 1)</label>
-                <input type="text" name="cauldron_image_url_1" placeholder="https://....png">
-
-                <label>URL картинки Котла (Уровень 2)</label>
-                <input type="text" name="cauldron_image_url_2" placeholder="https://....png">
-
-                <label>URL картинки Котла (Уровень 3)</label>
-                <input type="text" name="cauldron_image_url_3" placeholder="https://....png">
-
-                <label>URL картинки Котла (Уровень 4)</label>
-                <input type="text" name="cauldron_image_url_4" placeholder="https://....png">
-            </div>
-        </div>
-
-        <div class="quest-card" style="margin-top: 20px;">
-             <button type="submit" class="admin-action-btn approve" style="width: 100%;">Сохранить все настройки</button>
-        </div>
-
-        <div class="quest-card" style="margin-top: 20px;">
-            <h3 style="margin-top: 0;">Опасная зона</h3>
-            <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс</button>
-        </div>
+    <div class="page-header">
+        <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+        <h1 class="page-header-title">Ивент "Котел"</h1>
+        <div style="width: 60px;"></div>
     </div>
-</form>
 
-                <div id="tab-content-cauldron-rewards-1" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 1)</h3>
-                        <div id="top-rewards-container-1"></div>
-                        <button type="button" id="add-top-reward-btn-1" data-level="1" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
+    <div class="tabs-container" id="cauldron-tabs">
+        <button class="tab-button active" data-tab="cauldron-settings">Настройки</button>
+        <button class="tab-button" data-tab="cauldron-rewards-1">Награды Ур. 1</button>
+        <button class="tab-button" data-tab="cauldron-rewards-2">Награды Ур. 2</button>
+        <button class="tab-button" data-tab="cauldron-rewards-3">Награды Ур. 3</button>
+        <button class="tab-button" data-tab="cauldron-rewards-4">Награды Ур. 4</button>
+        <button class="tab-button" data-tab="cauldron-distribution">Участники</button>
+    </div>
+
+    <form id="cauldron-settings-form">
+        
+        <div id="tab-content-cauldron-settings" class="tab-content active">
+            <div class="quest-card">
+                <div class="admin-form">
+                    <div class="setting-item" style="padding: 0; border: none;">
+                        <span class="setting-label">Ивент активен (виден пользователям)</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="is_visible_to_users">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
 
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_1" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_1" placeholder="https://...">
-                            </div>
+                    <label>Название ивента</label>
+                    <input type="text" name="title" required placeholder="Ведьминский котел" style="width: 100%; box-sizing: border-box;"> 
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 140px;">
+                            <label>Дата начала (UTC)</label>
+                            <input type="datetime-local" name="start_date" style="width: 100%; box-sizing: border-box;">
                         </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_1" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_1" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_1" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_1" placeholder="https://...">
-                            </div>
+                        <div style="flex: 1; min-width: 140px;">
+                            <label>Дата окончания (UTC)</label>
+                            <input type="datetime-local" name="end_date" style="width: 100%; box-sizing: border-box;">
                         </div>
                     </div>
+
+                    <label>Цель Уровня 1</label>
+                    <input type="number" name="goal_level_1" required placeholder="Например: 1000">
+
+                    <label>Цель Уровня 2</label>
+                    <input type="number" name="goal_level_2" required placeholder="Например: 3000">
+
+                    <label>Цель Уровня 3</label>
+                    <input type="number" name="goal_level_3" required placeholder="Например: 5000">
+
+                    <label>Цель Уровня 4 (финал)</label>
+                    <input type="number" name="goal_level_4" required placeholder="Например: 10000">
+
+                    <label>URL баннера для главной</label>
+                    <input type="text" name="banner_image_url" placeholder="https://....png">
+
+                    <label>URL картинки Котла (Уровень 1)</label>
+                    <input type="text" name="cauldron_image_url_1" placeholder="https://....png">
+
+                    <label>URL картинки Котла (Уровень 2)</label>
+                    <input type="text" name="cauldron_image_url_2" placeholder="https://....png">
+
+                    <label>URL картинки Котла (Уровень 3)</label>
+                    <input type="text" name="cauldron_image_url_3" placeholder="https://....png">
+
+                    <label>URL картинки Котла (Уровень 4)</label>
+                    <input type="text" name="cauldron_image_url_4" placeholder="https://....png">
                 </div>
+            </div>
 
-                <div id="tab-content-cauldron-rewards-2" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 2)</h3>
-                        <div id="top-rewards-container-2"></div>
-                        <button type="button" id="add-top-reward-btn-2" data-level="2" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
-                    </div>
-
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_2" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_2" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_2" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_2" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_2" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_2" placeholder="https://...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="tab-content-cauldron-rewards-3" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 3)</h3>
-                        <div id="top-rewards-container-3"></div>
-                        <button type="button" id="add-top-reward-btn-3" data-level="3" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
-                    </div>
-
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_3" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_3" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_3" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_3" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_3" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_3" placeholder="https://...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="tab-content-cauldron-rewards-4" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 4)</h3>
-                        <div id="top-rewards-container-4"></div>
-                        <button type="button" id="add-top-reward-btn-4" data-level="4" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-plus"></i> Добавить награду за место
-                        </button>
-                    </div>
-
-                    <div class="quest-card" style="margin-top: 15px;">
-                        <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
-                        
-                        <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_21_30_name_4" placeholder="Напр: AK-47 | Elite Build">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_21_30_image_url_4" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_31_40_name_4" placeholder="Напр: M4A4 | Magnesium">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_31_40_image_url_4" placeholder="https://...">
-                            </div>
-                        </div>
-
-                        <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
-                            <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
-                            <div class="admin-form">
-                                <label>Название</label>
-                                <input type="text" name="tier_41_plus_name_4" placeholder="Напр: Кейс / Граффити">
-                                <label>URL картинки</label>
-                                <input type="text" name="tier_41_plus_image_url_4" placeholder="https://...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="tab-content-cauldron-distribution" class="tab-content hidden">
-                    <div class="quest-card">
-                        <h3 style="margin: 0 0 15px;">Все участники по вкладу</h3>
-                        <div id="cauldron-distribution-list">
-                            <p style="text-align: center; color: var(--text-color-muted);">Здесь будет список участников...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="quest-card" style="margin-top: 20px;">
-                    <button type="submit" class="admin-action-btn approve" style="width: 100%;">Сохранить все настройки</button>
-                </div>
-            </form>
+            <div class="quest-card" style="margin-top: 20px;">
+                <h3 style="margin-top: 0;">Опасная зона</h3>
+                <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс</button>
+            </div>
         </div>
+
+        <div id="tab-content-cauldron-rewards-1" class="tab-content hidden">
+            <div class="quest-card">
+                <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 1)</h3>
+                <div id="top-rewards-container-1"></div>
+                <button type="button" id="add-top-reward-btn-1" data-level="1" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                    <i class="fa-solid fa-plus"></i> Добавить награду за место
+                </button>
+            </div>
+
+            <div class="quest-card" style="margin-top: 15px;">
+                <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+                
+                <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_21_30_name_1" placeholder="Напр: AK-47 | Elite Build">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_21_30_image_url_1" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_31_40_name_1" placeholder="Напр: M4A4 | Magnesium">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_31_40_image_url_1" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_41_plus_name_1" placeholder="Напр: Кейс / Граффити">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_41_plus_image_url_1" placeholder="https://...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-content-cauldron-rewards-2" class="tab-content hidden">
+            <div class="quest-card">
+                <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 2)</h3>
+                <div id="top-rewards-container-2"></div>
+                <button type="button" id="add-top-reward-btn-2" data-level="2" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                    <i class="fa-solid fa-plus"></i> Добавить награду за место
+                </button>
+            </div>
+
+            <div class="quest-card" style="margin-top: 15px;">
+                <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+                
+                <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_21_30_name_2" placeholder="Напр: AK-47 | Elite Build">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_21_30_image_url_2" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_31_40_name_2" placeholder="Напр: M4A4 | Magnesium">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_31_40_image_url_2" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_41_plus_name_2" placeholder="Напр: Кейс / Граффити">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_41_plus_image_url_2" placeholder="https://...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-content-cauldron-rewards-3" class="tab-content hidden">
+            <div class="quest-card">
+                <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 3)</h3>
+                <div id="top-rewards-container-3"></div>
+                <button type="button" id="add-top-reward-btn-3" data-level="3" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                    <i class="fa-solid fa-plus"></i> Добавить награду за место
+                </button>
+            </div>
+
+            <div class="quest-card" style="margin-top: 15px;">
+                <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+                
+                <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_21_30_name_3" placeholder="Напр: AK-47 | Elite Build">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_21_30_image_url_3" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_31_40_name_3" placeholder="Напр: M4A4 | Magnesium">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_31_40_image_url_3" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_41_plus_name_3" placeholder="Напр: Кейс / Граффити">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_41_plus_image_url_3" placeholder="https://...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-content-cauldron-rewards-4" class="tab-content hidden">
+            <div class="quest-card">
+                <h3 style="margin-top:0;">Награды для Топ-20 (Уровень 4)</h3>
+                <div id="top-rewards-container-4"></div>
+                <button type="button" id="add-top-reward-btn-4" data-level="4" class="admin-action-btn" style="background-color: var(--action-color); width: 100%; margin-top: 15px;">
+                    <i class="fa-solid fa-plus"></i> Добавить награду за место
+                </button>
+            </div>
+
+            <div class="quest-card" style="margin-top: 15px;">
+                <h3 style="margin-top:0; color: var(--text-color-muted);">Награды по рангам (Тиры)</h3>
+                
+                <div style="border-left: 3px solid #FFD700; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 21 - 30</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_21_30_name_4" placeholder="Напр: AK-47 | Elite Build">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_21_30_image_url_4" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #C0C0C0; padding-left: 10px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 31 - 40</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_31_40_name_4" placeholder="Напр: M4A4 | Magnesium">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_31_40_image_url_4" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div style="border-left: 3px solid #CD7F32; padding-left: 10px;">
+                    <h4 style="margin: 0 0 5px; font-size: 14px;">Места 41 и ниже (Всем остальным)</h4>
+                    <div class="admin-form">
+                        <label>Название</label>
+                        <input type="text" name="tier_41_plus_name_4" placeholder="Напр: Кейс / Граффити">
+                        <label>URL картинки</label>
+                        <input type="text" name="tier_41_plus_image_url_4" placeholder="https://...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-content-cauldron-distribution" class="tab-content hidden">
+            <div class="quest-card">
+                <h3 style="margin: 0 0 15px;">Все участники по вкладу</h3>
+                <div id="cauldron-distribution-list">
+                    <p style="text-align: center; color: var(--text-color-muted);">Здесь будет список участников...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="quest-card" style="margin-top: 20px; position: sticky; bottom: 20px; z-index: 100; border: 1px solid var(--primary-color);">
+            <button type="submit" class="admin-action-btn approve" style="width: 100%;">
+                <i class="fa-solid fa-floppy-disk"></i> Сохранить ВСЕ настройки Котла
+            </button>
+        </div>
+
+    </form> </div>
 
         <div id="view-admin-auctions" class="view hidden">
             <div class="page-header">
