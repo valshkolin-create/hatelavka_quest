@@ -561,8 +561,8 @@ class SlayContentUpdate(BaseModel):
     initData: str
     title: str
     description: str
-    badge: Optional[str] = "Exclusive Event" # <-- Добавлено
-    prizes: Optional[str] = "[]" # <-- Добавлено (JSON строка)
+    badge: Optional[str] = "Exclusive Event" 
+    prizes: Optional[str] = "[]" 
 
 class SlayNominationUpdate(BaseModel):
     initData: str
@@ -584,7 +584,7 @@ class SlayNominationCreate(BaseModel):
     initData: str
     title: str
     description: Optional[str] = ""
-    image_url: Optional[str] = None # <-- Добавили поле
+    image_url: Optional[str] = None 
 
 class SlayCandidateAdd(BaseModel):
     initData: str
@@ -2199,6 +2199,12 @@ async def get_auction_history(
 @app.get("/api/v1/slay/content")
 async def get_slay_content(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """Получает заголовки страницы Slay Awards."""
+    default_content = {
+        "title": "SLAY AWARDS 2025",
+        "description": "Главное событие года. Выбираем легенд чата.",
+        "badge": "Exclusive Event",
+        "prizes": "[]"
+    }
     try:
         resp = await supabase.get(
             "/pages_content", 
@@ -2206,14 +2212,16 @@ async def get_slay_content(supabase: httpx.AsyncClient = Depends(get_supabase_cl
         )
         data = resp.json()
         if data and data[0].get('content'):
-            return data[0]['content']
-        # Дефолтные значения, если в базе пусто
-        return {
-            "title": "SLAY AWARDS 2025",
-            "description": "Главное событие года. Выбираем легенд чата."
-        }
+            # Объединяем с дефолтными, чтобы badge не пропал, если его нет в базе
+            content = data[0]['content']
+            return {**default_content, **content}
+            
+        # Если в базе пусто, возвращаем дефолт
+        return default_content
+        
     except Exception as e:
-        return {"title": "SLAY AWARDS", "description": "Loading..."}
+        logging.error(f"Error fetching SLAY content: {e}")
+        return default_content
 
 @app.post("/api/v1/admin/slay/content/update")
 async def update_slay_content(
@@ -2249,14 +2257,18 @@ async def update_slay_nomination(
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
 
+    # Формируем payload. Если image_url пустой, не перезаписываем его (чтобы не стереть случайно)
+    update_payload = {
+        "title": request_data.title,
+        "description": request_data.description
+    }
+    if request_data.image_url and len(request_data.image_url.strip()) > 0:
+        update_payload["image_url"] = request_data.image_url
+
     await supabase.patch(
         "/slay_nominations",
         params={"id": f"eq.{request_data.id}"},
-        json={
-            "title": request_data.title,
-            "image_url": request_data.image_url,
-            "description": request_data.description
-        }
+        json=update_payload
     )
     return {"message": "Номинация обновлена"}
 
@@ -2316,6 +2328,7 @@ async def get_active_slay_nominations(
             formatted_candidates.append({
                 "id": c['id'],
                 "name": display_name,
+                "username": user_data.get('username'), # Добавили username для отображения @
                 "photo_url": user_data.get('photo_url'),
                 "votes": c['votes_count']
             })
@@ -2324,6 +2337,7 @@ async def get_active_slay_nominations(
             "id": nom['id'],
             "title": nom['title'],
             "description": nom['description'],
+            "image_url": nom.get('image_url'), # Обязательно возвращаем картинку
             "has_voted": nom['id'] in voted_nomination_ids,
             "candidates": formatted_candidates
         })
@@ -2348,12 +2362,23 @@ async def vote_slay(
                 "p_voter_id": user_info['id']
             }
         )
-        result = response.json()
-        
-        if not result.get('success'):
-            raise HTTPException(status_code=400, detail=result.get('message'))
-            
-        return result
+        # Если RPC возвращает void (ничего), значит ошибок нет (иначе был бы raise exception)
+        # Если RPC возвращает json, читаем его
+        if response.status_code == 200:
+             try:
+                 result = response.json()
+                 if isinstance(result, dict) and not result.get('success', True):
+                     raise HTTPException(status_code=400, detail=result.get('message'))
+             except:
+                 pass # Если не JSON, считаем успехом
+                 
+        elif response.status_code >= 400:
+             error_msg = response.json().get('message', 'Ошибка при голосовании')
+             raise HTTPException(status_code=400, detail=error_msg)
+
+        return {"success": True, "message": "Голос принят"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logging.error(f"Slay Vote Error: {e}")
         raise HTTPException(status_code=500, detail="Ошибка голосования")
@@ -2390,7 +2415,8 @@ async def add_slay_candidate(
         "custom_title": request_data.custom_title
     })
     return {"message": "Кандидат добавлен"}
-        
+
+# 4. Админ: Добавить кандидата (по user_id)        
 # --- НОВЫЕ ЭНДПОИНТЫ: АДМИНКА АУКЦИОНА ---
 
 @app.post("/api/v1/admin/auctions/finish_manual")
