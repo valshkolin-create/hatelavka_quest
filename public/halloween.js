@@ -153,6 +153,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- [НОВОЕ] Функция для сбора всех картинок наград ---
+function getAllRewardImages(eventData) {
+    const images = [];
+    // Картинка-заглушка (Подарок), если наград нет
+    const FALLBACK_GIFT = 'https://img.icons8.com/?size=100&id=wuSvVpkmKrXV&format=png&color=000000'; 
+
+    if (!eventData || !eventData.levels) return [FALLBACK_GIFT];
+
+    // Пробегаемся по всем уровням (1-4)
+    for (let i = 1; i <= 4; i++) {
+        const level = eventData.levels[`level_${i}`];
+        if (!level) continue;
+
+        // 1. Берем из Топ-20
+        if (level.top_places && Array.isArray(level.top_places)) {
+            level.top_places.forEach(r => {
+                if (r.image_url) images.push(r.image_url);
+            });
+        }
+        // 2. Берем из Тиров (остальные)
+        if (level.tiers) {
+            Object.values(level.tiers).forEach(t => {
+                if (t.image_url) images.push(t.image_url);
+            });
+        }
+        // 3. Берем дефолтную награду
+        if (level.default_reward && level.default_reward.image_url) {
+            images.push(level.default_reward.image_url);
+        }
+    }
+
+    // Если список пуст, возвращаем только подарок
+    return images.length > 0 ? images : [FALLBACK_GIFT];
+}    
+
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
@@ -726,6 +761,25 @@ function renderPage(eventData, leaderboardData = {}) {
             dom.ticketsInput.value = '';
 
             const flask = dom.flaskAnimation;
+            const activeTheme = document.body.dataset.theme || 'halloween';
+
+            // ЛОГИКА ВЫБОРА КАРТИНКИ ДЛЯ БРОСКА
+            if (activeTheme === 'new_year') {
+                // 1. Собираем все доступные картинки призов
+                const allRewards = getAllRewardImages(currentEventData);
+                // 2. Выбираем случайную
+                const randomImg = allRewards[Math.floor(Math.random() * allRewards.length)];
+                flask.src = randomImg;
+                
+                // (Опционально) Можно немного увеличить размер для скинов, так как они часто вытянутые
+                flask.style.width = '70px'; 
+                flask.style.objectFit = 'contain';
+            } else {
+                // Для Хэллоуина и Классики возвращаем стандартную колбу
+                flask.src = "https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif";
+                flask.style.width = '60px'; // Возвращаем стандартный размер
+            }
+            // === КОНЕЦ ИЗМЕНЕНИЙ ===
             const cauldron = dom.cauldronImage;
             const btnRect = submitButton.getBoundingClientRect();
             const cauldronRect = cauldron.getBoundingClientRect();
