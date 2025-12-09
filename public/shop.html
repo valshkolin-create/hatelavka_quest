@@ -674,6 +674,12 @@
         <i class="fa-solid fa-circle-notch loader-spinner"></i>
         <div class="loader-text">Оформляем покупку...</div>
     </div>
+    
+    <div id="admin-cache-control" style="display: none; position: fixed; bottom: 80px; left: 0; width: 100%; text-align: center; z-index: 9998; pointer-events: none;">
+        <span onclick="resetShopCache()" style="pointer-events: auto; cursor: pointer; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px; border: 1px solid #ff453a; font-size: 10px; color: #ff453a; font-weight: bold; backdrop-filter: blur(4px);">
+            <i class="fa-solid fa-trash-can"></i> СБРОСИТЬ КЭШ
+        </span>
+    </div>
 
     <script>
         Telegram.WebApp.ready();
@@ -1143,14 +1149,7 @@
         
         // Достаточно вызвать только это. 
         // Вся логика (тихий запрос + таймер на 2.5 сек) теперь находится ВНУТРИ этой функции.
-        initShop();
-
-        <div id="admin-cache-control" style="display: none; position: fixed; bottom: 80px; left: 0; width: 100%; text-align: center; z-index: 9998; pointer-events: none;">
-        <span onclick="resetShopCache()" style="pointer-events: auto; cursor: pointer; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px; border: 1px solid #ff453a; font-size: 10px; color: #ff453a; font-weight: bold; backdrop-filter: blur(4px);">
-            <i class="fa-solid fa-trash-can"></i> СБРОСИТЬ КЭШ
-        </span>
-    </div>
-        
+        initShop();        
     </script>
 </body>
 </html>
