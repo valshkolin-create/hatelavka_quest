@@ -473,6 +473,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function calculateBoosts() {
+        // Базовая награда
         let baseReward = (userState.streakDays * 0.1);
         if (baseReward > 1.0) baseReward = 1.0;
         
@@ -486,22 +487,24 @@ document.addEventListener('DOMContentLoaded', function() {
             boostsHTML += `<div class="boost-row"><span>🚀 Друзья (${userState.active_referrals_count}):</span><span class="boost-active">+${refBoost.toFixed(1)}</span></div>`;
         }
         
-        // 2. VIP статус новичка (ИСПРАВЛЕНО)
+        // 2. VIP статус новичка (ИСПРАВЛЕНО: Висит до последней секунды)
         if (userState.referral_activated_at) {
             const activatedTime = new Date(userState.referral_activated_at).getTime();
             const vipDuration = 7 * 24 * 60 * 60 * 1000; // Ровно 7 суток
             const expirationTime = activatedTime + vipDuration;
             const now = new Date().getTime();
             
+            // Строгое условие: пока текущее время меньше времени истечения
             if (now < expirationTime) {
                 totalBonus += 0.2;
                 
-                // Формируем красивую дату: "09.12 18:49"
+                // Формируем красивую дату (09.12 18:49)
                 const expDate = new Date(expirationTime);
                 const day = String(expDate.getDate()).padStart(2, '0');
                 const month = String(expDate.getMonth() + 1).padStart(2, '0');
                 const hours = String(expDate.getHours()).padStart(2, '0');
                 const minutes = String(expDate.getMinutes()).padStart(2, '0');
+                
                 const timeString = `${day}.${month} ${hours}:${minutes}`;
 
                 boostsHTML += `<div class="boost-row">
@@ -548,10 +551,11 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.boostContainer.style.display = 'none';
         }
 
-        // Таймер кнопки гринда
+        // Таймер кнопки гринда (24ч)
         const now = new Date().getTime();
         const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
         const diff = now - last;
+        const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
 
         if (diff < GRIND_COOLDOWN) {
             dom.grindBtn.disabled = true;
@@ -564,25 +568,29 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
         
-        // --- 🔥 ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ БИЛЕТА (Обратный отсчет) 🔥 ---
+        // --- 🔥 ЛОГИКА ТАЙМЕРА VIP 🔥 ---
         if (userState.referral_activated_at) {
             const activatedTime = new Date(userState.referral_activated_at).getTime();
             const vipDuration = 7 * 24 * 60 * 60 * 1000;
-            const timeLeft = (activatedTime + vipDuration) - now;
+            const expirationTime = activatedTime + vipDuration;
+            const timeLeft = expirationTime - now;
 
+            // Пока осталось хоть 1 миллисекунда времени
             if (timeLeft > 0) {
-                // Если осталось меньше 24 часов — показываем часы и минуты
+                // Если осталось меньше 24 часов — включаем подробный таймер
                 if (timeLeft < 24 * 60 * 60 * 1000) {
                     const h = Math.floor(timeLeft / 3600000);
                     const m = Math.floor((timeLeft % 3600000) / 60000);
+                    // Пишем "ещё..." чтобы человек понимал, что время уходит
                     dom.ticketSubtitle.textContent = `VIP: +2 билета (ещё ${h}ч ${m}м)`;
                 } else {
-                    // Если больше суток — показываем дни
+                    // Если больше суток — просто дни
                     const daysLeft = Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
                     dom.ticketSubtitle.textContent = `VIP: +2 билета (ост. ${daysLeft} дн)`;
                 }
                 dom.ticketSubtitle.style.color = "#FFD700";
             } else {
+                // Время вышло
                 dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
                 dom.ticketSubtitle.style.color = "var(--text-secondary)";
             }
