@@ -996,24 +996,32 @@ body.no-scroll {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    flex: 1;
+    flex: 1; /* Занимает все оставшееся место */
     overflow: hidden;
-    line-height: 1.2;
+    min-width: 0; /* Критично для переноса текста внутри flex */
+    margin-right: 5px; /* Небольшой отступ справа */
 }
 
 /* Название предмета */
 .modal-reward-name {
-    font-size: 13px;
-    font-weight: 700; /* Жирнее, чтобы цвет был виден */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 11px; /* Уменьшили шрифт (было 13px) */
+    font-weight: 700;
+    line-height: 1.25;
+    color: #ffffff;
+    
+    /* Разрешаем перенос текста */
+    white-space: normal; 
+    word-wrap: break-word; 
+    
+    /* Убираем многоточие, так как теперь текст переносится */
+    overflow: visible; 
+    text-overflow: clip;
 }
 
 /* Текст износа */
 .reward-wear-text {
-    font-size: 10px;
-    color: var(--text-color-muted); /* Серый цвет */
+    font-size: 9px;
+    color: var(--text-color-muted);
     font-weight: 400;
     margin-top: 2px;
 }
