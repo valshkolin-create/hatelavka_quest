@@ -584,140 +584,150 @@
             font-weight: 600;
             letter-spacing: 0.5px;
         }
-        /* --- АДМИН МЕНЮ (FAB) --- */
-        .admin-fab-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            /* Полупрозрачный фон */
-            background: rgba(28, 28, 30, 0.4); 
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.5); /* Бледный цвет иконки */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
 
-        .admin-fab-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: rgba(28, 28, 30, 0.4); /* Почти прозрачный */
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
+/* --- КОНТЕЙНЕР (ЦЕНТРИРОВАНИЕ) --- */
+/* Этот блок держит кнопку и меню по центру внизу */
+.admin-wrapper {
+    position: fixed;
+    bottom: 30px;       /* Отступ от низа */
+    left: 50%;          /* Центр экрана */
+    transform: translateX(-50%); /* Сдвиг для точного центра */
+    z-index: 10000;     /* Поверх всего */
+    display: flex;
+    flex-direction: column-reverse; /* Меню растет вверх от кнопки */
+    align-items: center; /* Центрирование элементов внутри */
+    gap: 12px;          /* Расстояние между кнопкой и меню */
+}
 
-        .admin-fab-btn:active { transform: scale(0.9); background: rgba(255, 204, 0, 0.2); color: #ffcc00; }
-        
-        .admin-fab-btn.toggle.active {
-            transform: rotate(180deg);
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
+/* --- АДМИН МЕНЮ (FAB) --- */
+.admin-fab-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    /* Полупрозрачный фон */
+    background: rgba(28, 28, 30, 0.4); 
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5); /* Бледный цвет иконки */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    /* flex-shrink: 0 гарантирует, что кнопка не сплющится */
+    flex-shrink: 0; 
+}
 
-        /* Скрытые кнопки меню */
-        .admin-menu-items {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            opacity: 0;
-            transform: translateY(20px);
-            pointer-events: none;
-            transition: all 0.3s ease;
-        }
+.admin-fab-btn:active { 
+    transform: scale(0.9); 
+    background: rgba(255, 204, 0, 0.2); 
+    color: #ffcc00; 
+}
 
-        .admin-menu-items.show {
-            opacity: 1;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
+.admin-fab-btn.toggle.active {
+    transform: rotate(180deg);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
 
-        .admin-action-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: rgba(255, 69, 58, 0.2); /* Красный оттенок */
-            color: #ff453a;
-            border: 1px solid rgba(255, 69, 58, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
-        }
+/* --- СКРЫТЫЕ КНОПКИ МЕНЮ --- */
+.admin-menu-items {
+    display: flex;
+    flex-direction: column; /* Кнопки меню друг над другом */
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(10px); /* Небольшой сдвиг для анимации */
+    pointer-events: none;
+    transition: all 0.3s ease;
+    align-items: center;
+}
 
-        /* --- КАСТОМНОЕ МОДАЛЬНОЕ ОКНО ПАРОЛЯ --- */
-        .custom-modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            z-index: 10001;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-        }
-        .custom-modal-overlay.active { opacity: 1; pointer-events: auto; }
+.admin-menu-items.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
 
-        .pass-modal {
-            background: #1c1c1e;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 80%;
-            max-width: 300px;
-            padding: 20px;
-            border-radius: 16px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            transform: scale(0.9);
-            transition: transform 0.2s;
-        }
-        .custom-modal-overlay.active .pass-modal { transform: scale(1); }
+.admin-action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 69, 58, 0.2); /* Красный оттенок */
+    color: #ff453a;
+    border: 1px solid rgba(255, 69, 58, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    transition: transform 0.2s;
+}
 
-        .pass-input {
-            width: 100%;
-            background: #2c2c2e;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 10px;
-            border-radius: 8px;
-            color: #fff;
-            margin: 15px 0;
-            text-align: center;
-            font-size: 16px;
-            outline: none;
-            box-sizing: border-box; /* Важно для паддингов */
-        }
-        .pass-input:focus { border-color: var(--primary-color); }
+.admin-action-btn:hover {
+    transform: scale(1.1);
+}
 
-        .modal-buttons { display: flex; gap: 10px; justify-content: center; }
-        
-        .modal-btn {
-            flex: 1;
-            padding: 10px;
-            border-radius: 8px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .btn-cancel { background: rgba(255, 255, 255, 0.1); color: #fff; }
-        .btn-confirm { background: var(--primary-gradient); color: #000; }
+/* --- КАСТОМНОЕ МОДАЛЬНОЕ ОКНО ПАРОЛЯ --- */
+.custom-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.custom-modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.pass-modal {
+    background: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 80%;
+    max-width: 300px;
+    padding: 20px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transform: scale(0.9);
+    transition: transform 0.2s;
+}
+.custom-modal-overlay.active .pass-modal { transform: scale(1); }
+
+.pass-input {
+    width: 100%;
+    background: #2c2c2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    color: #fff;
+    margin: 15px 0;
+    text-align: center;
+    font-size: 16px;
+    outline: none;
+    box-sizing: border-box; 
+}
+.pass-input:focus { border-color: #ffcc00; } /* Добавил цвет фокуса, если переменной нет */
+
+.modal-buttons { display: flex; gap: 10px; justify-content: center; }
+
+.modal-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+}
+.btn-cancel { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.btn-confirm { background: linear-gradient(45deg, #ffcc00, #ff9500); color: #000; } /* Заменил переменную на градиент для примера */
     </style>
 </head>
 <body>
