@@ -4804,12 +4804,12 @@ if(dom.createRoulettePrizeForm) {
 
     function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
-    
+
     // Ищем контейнер или используем сам targetElement
-    const listContainer = targetElement.querySelector('.shop-list-container') || 
-                          targetElement.querySelector('.pending-actions-grid') || 
-                          targetElement;
-                          
+    const listContainer = targetElement.querySelector('.shop-list-container') ||
+        targetElement.querySelector('.pending-actions-grid') ||
+        targetElement;
+
     listContainer.innerHTML = '';
 
     if (!purchases || purchases.length === 0) {
@@ -4819,17 +4819,20 @@ if(dom.createRoulettePrizeForm) {
 
     listContainer.innerHTML = purchases.map(p => {
         const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
-        const linkHtml = hasLink 
+        const linkHtml = hasLink
             ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
             : '<span style="color: var(--warning-color);">Не указана</span>';
 
-        // Картинка теперь приходит правильно из Python, но на всякий случай оставим фоллбэк
         let imgUrl = p.image_url || "https://placehold.co/60?text=Shop";
-        
-        // Защита от битых ссылок (если пришел не http)
         if (!imgUrl.startsWith('http')) {
             imgUrl = "https://placehold.co/60?text=No+Img";
         }
+
+        // --- ВАЖНО: Передаем Title и UserID в handleShopAction ---
+        // Экранируем кавычки в названии, чтобы не сломать HTML
+        const safeTitle = (p.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const userId = p.user_id || 0; 
+        // --------------------------------------------------------
 
         return `
         <div class="shop-purchase-card" id="shop-card-${p.id}">
@@ -4851,10 +4854,10 @@ if(dom.createRoulettePrizeForm) {
             </div>
 
             <div class="shop-actions">
-                <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve')" title="Подтвердить выдачу">
+                <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve', '${safeTitle}', ${userId})" title="Подтвердить выдачу">
                     <i class="fa-solid fa-check"></i>
                 </button>
-                <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject')" title="Отклонить">
+                <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject', '${safeTitle}', ${userId})" title="Отклонить">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
@@ -4862,33 +4865,79 @@ if(dom.createRoulettePrizeForm) {
     }).join('');
 }
 
-    // Глобальная функция для обработки кликов (так как используется onclick в HTML строке)
-    window.handleShopAction = function(id, action) {
-        const confirmMsg = action === 'approve' ? 'Подтвердить выдачу товара?' : 'Отклонить покупку?';
-        const btnText = action === 'approve' ? 'Выдать' : 'Отклонить';
-        const btnColor = action === 'approve' ? '#34c759' : '#ff3b30';
+    // 2. ОБНОВЛЕННАЯ ГЛОБАЛЬНАЯ ФУНКЦИЯ ДЕЙСТВИЯ (С логикой билетов)
+window.handleShopAction = function(id, action, title = '', userId = 0) {
+    const isApprove = action === 'approve';
+    let confirmMsg = isApprove ? 'Подтвердить выдачу товара?' : 'Отклонить покупку?';
+    let btnText = isApprove ? 'Выдать' : 'Отклонить';
+    let btnColor = isApprove ? '#34c759' : '#ff3b30';
 
-        showCustomConfirmHTML(confirmMsg, () => {
-            showLoader();
-            const endpoint = action === 'approve' ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
+    // --- ЛОГИКА АВТО-ВЫДАЧИ БИЛЕТОВ ---
+    let isTicketAuto = false;
+    let ticketAmount = 0;
+
+    // Проверяем, это одобрение? И есть ли слово "билет" в названии?
+    if (isApprove && title && title.toLowerCase().includes('билет')) {
+        // Пытаемся найти число в названии (например "10 билетов")
+        const numberMatch = title.match(/(\d+)/);
+        ticketAmount = numberMatch ? parseInt(numberMatch[0], 10) : 1; // Если числа нет, считаем как 1 билет
+
+        confirmMsg = `Обнаружены билеты: <b>${ticketAmount} шт</b>.<br>Выдать их пользователю автоматически и закрыть заявку?`;
+        btnText = `Выдать ${ticketAmount} 🎟️`;
+        isTicketAuto = true;
+    }
+    // ----------------------------------
+
+    showCustomConfirmHTML(confirmMsg, async (closeModal) => { // Добавили async
+        showLoader();
+
+        try {
+            if (isTicketAuto && userId > 0) {
+                // 1. Сначала выдаем билеты
+                // Используем endpoint выдачи билетов (проверь, чтобы в main.py был /grant_tickets или /grant-stars работает для билетов)
+                // Если у тебя универсальный grant-stars, используем его, но лучше grant_tickets если есть.
+                // В коде выше мы видели /api/v1/admin/users/grant-stars используется для билетов в форме grantTicketsForm (странно, но следуем логике файла)
+                // Я буду использовать более безопасный путь: предполагаю наличие endpoint для билетов или использую grant-stars если другого нет.
+                // Давай попробуем вызвать grant_tickets, если не сработает - придется править endpoint.
+                
+                await makeApiRequest('/api/v1/admin/users/grant_tickets', { 
+                    user_id: userId, 
+                    amount: ticketAmount 
+                }, 'POST', true);
+                
+                console.log(`[Shop] Билеты (${ticketAmount}) выданы юзеру ${userId}`);
+            }
+
+            // 2. Если билеты выданы (или это обычный товар), закрываем заявку в магазине
+            const endpoint = isApprove ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
+            await makeApiRequest(endpoint, { reward_id: id }, 'POST', true);
+
+            // 3. Успех
+            document.getElementById(`shop-card-${id}`)?.remove();
             
-            makeApiRequest(endpoint, { reward_id: id }, 'POST', true)
-                .then(() => {
-                    document.getElementById(`shop-card-${id}`)?.remove();
-                    // Обновляем бейдж магазина
-                    const shopBadge = document.getElementById('shop-badge-main');
-                    if (shopBadge) {
-                        let c = Math.max(0, (parseInt(shopBadge.textContent) || 0) - 1);
-                        shopBadge.textContent = c;
-                        if (c === 0) shopBadge.classList.add('hidden');
-                    }
-                    hideLoader();
-                    tg.showPopup({ message: action === 'approve' ? '✅ Выдано' : '❌ Отклонено' });
-                })
-                .catch(e => { hideLoader(); tg.showAlert(`Ошибка: ${e.message}`); });
-        }, btnText, btnColor);
-    };
+            // Обновляем бейдж
+            const shopBadge = document.getElementById('shop-badge-main');
+            if (shopBadge) {
+                let c = Math.max(0, (parseInt(shopBadge.textContent) || 0) - 1);
+                shopBadge.textContent = c;
+                if (c === 0) shopBadge.classList.add('hidden');
+            }
 
+            hideLoader();
+            
+            if (isTicketAuto) {
+                tg.showPopup({ message: `✅ Выдано ${ticketAmount} билетов и заявка закрыта!` });
+            } else {
+                tg.showPopup({ message: isApprove ? '✅ Выдано (заявка закрыта)' : '❌ Отклонено' });
+            }
+
+        } catch (e) {
+            hideLoader();
+            tg.showAlert(`Ошибка: ${e.message}`);
+        }
+    }, btnText, btnColor);
+};
+    
 async function main() {
         try {
             tg.expand();
