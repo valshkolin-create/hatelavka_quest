@@ -350,75 +350,86 @@ function getCurrentLevel(eventData) {
 
     // Собирает все данные из формы "Котла" в один объект
 function collectCauldronData() {
-        const form = dom.cauldronSettingsForm;
-        
-        // Получаем даты из инпутов
-        const startDateInput = form.elements['start_date'].value;
-        const endDateInput = form.elements['end_date'].value;
+    const form = dom.cauldronSettingsForm;
+    
+    // Вспомогательная функция для безопасного получения значения
+    const getValue = (name) => {
+        // Сначала ищем в элементах формы
+        if (form.elements[name]) return form.elements[name].value;
+        // Если форма "разорвана", ищем просто в документе по имени
+        const el = document.querySelector(`[name="${name}"]`);
+        return el ? el.value : '';
+    };
 
-        const content = {
-            title: form.elements['title'].value,
-            // Сохраняем даты в ISO формате, если они введены
-            start_date: startDateInput ? new Date(startDateInput).toISOString() : null,
-            end_date: endDateInput ? new Date(endDateInput).toISOString() : null,
-            
-            current_theme: currentCauldronData.current_theme || 'halloween',
-            is_visible_to_users: form.elements['is_visible_to_users'].checked,
-            goals: {
-                level_1: parseInt(form.elements['goal_level_1'].value, 10) || 0,
-                level_2: parseInt(form.elements['goal_level_2'].value, 10) || 0,
-                level_3: parseInt(form.elements['goal_level_3'].value, 10) || 0,
-                level_4: parseInt(form.elements['goal_level_4'].value, 10) || 0,
+    // Получаем даты
+    const startDateInput = getValue('start_date');
+    const endDateInput = getValue('end_date');
+
+    const content = {
+        title: getValue('title'),
+        // Сохраняем даты в ISO формате
+        start_date: startDateInput ? new Date(startDateInput).toISOString() : null,
+        end_date: endDateInput ? new Date(endDateInput).toISOString() : null,
+        
+        current_theme: currentCauldronData.current_theme || 'halloween',
+        // Чекбокс обрабатываем отдельно
+        is_visible_to_users: form.elements['is_visible_to_users'] ? form.elements['is_visible_to_users'].checked : false,
+        
+        goals: {
+            level_1: parseInt(getValue('goal_level_1'), 10) || 0,
+            level_2: parseInt(getValue('goal_level_2'), 10) || 0,
+            level_3: parseInt(getValue('goal_level_3'), 10) || 0,
+            level_4: parseInt(getValue('goal_level_4'), 10) || 0,
+        },
+        banner_image_url: getValue('banner_image_url'),
+        cauldron_image_url_1: getValue('cauldron_image_url_1'),
+        cauldron_image_url_2: getValue('cauldron_image_url_2'),
+        cauldron_image_url_3: getValue('cauldron_image_url_3'),
+        cauldron_image_url_4: getValue('cauldron_image_url_4'),
+        levels: {}
+    };
+
+    [1, 2, 3, 4].forEach(level => {
+        const levelKey = `level_${level}`;
+        
+        // Сбор Топ-20
+        const topPlaces = [];
+        const container = document.getElementById(`top-rewards-container-${level}`);
+        if (container) {
+            container.querySelectorAll('.top-reward-row').forEach(row => {
+                const place = parseInt(row.querySelector('.reward-place').value, 10);
+                const name = row.querySelector('.reward-name').value.trim();
+                const image_url = row.querySelector('.reward-image').value.trim();
+                if (place >= 1 && place <= 20 && name) {
+                    topPlaces.push({ place, name, image_url });
+                }
+            });
+        }
+
+        // Сбор Тиров (используем безопасную функцию getValue)
+        const tiers = {
+            "21-30": {
+                name: getValue(`tier_21_30_name_${level}`),
+                image_url: getValue(`tier_21_30_image_url_${level}`)
             },
-            banner_image_url: form.elements['banner_image_url'].value,
-            cauldron_image_url_1: form.elements['cauldron_image_url_1'].value,
-            cauldron_image_url_2: form.elements['cauldron_image_url_2'].value,
-            cauldron_image_url_3: form.elements['cauldron_image_url_3'].value,
-            cauldron_image_url_4: form.elements['cauldron_image_url_4'].value,
-            levels: {}
+            "31-40": {
+                name: getValue(`tier_31_40_name_${level}`),
+                image_url: getValue(`tier_31_40_image_url_${level}`)
+            },
+            "41+": {
+                name: getValue(`tier_41_plus_name_${level}`),
+                image_url: getValue(`tier_41_plus_image_url_${level}`)
+            }
         };
 
-        [1, 2, 3, 4].forEach(level => {
-            const levelKey = `level_${level}`;
-            
-            // Сбор Топ-20 (без изменений)
-            const topPlaces = [];
-            const container = document.getElementById(`top-rewards-container-${level}`);
-            if (container) {
-                container.querySelectorAll('.top-reward-row').forEach(row => {
-                    const place = parseInt(row.querySelector('.reward-place').value, 10);
-                    const name = row.querySelector('.reward-name').value.trim();
-                    const image_url = row.querySelector('.reward-image').value.trim();
-                    if (place >= 1 && place <= 20 && name) {
-                        topPlaces.push({ place, name, image_url });
-                    }
-                });
-            }
+        content.levels[levelKey] = {
+            top_places: topPlaces,
+            tiers: tiers
+        };
+    });
 
-            // --- НОВОЕ: Сбор Тиров (21-30, 31-40, 41+) ---
-            const tiers = {
-                "21-30": {
-                    name: form.elements[`tier_21_30_name_${level}`]?.value || '',
-                    image_url: form.elements[`tier_21_30_image_url_${level}`]?.value || ''
-                },
-                "31-40": {
-                    name: form.elements[`tier_31_40_name_${level}`]?.value || '',
-                    image_url: form.elements[`tier_31_40_image_url_${level}`]?.value || ''
-                },
-                "41+": {
-                    name: form.elements[`tier_41_plus_name_${level}`]?.value || '',
-                    image_url: form.elements[`tier_41_plus_image_url_${level}`]?.value || ''
-                }
-            };
-
-            content.levels[levelKey] = {
-                top_places: topPlaces,
-                tiers: tiers // Сохраняем новую структуру
-            };
-        });
-
-        return content;
-    }
+    return content;
+}
     
     // Загружает и отображает список участников
 async function renderCauldronParticipants() {
