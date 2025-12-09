@@ -2201,7 +2201,8 @@ async def get_slay_content(supabase: httpx.AsyncClient = Depends(get_supabase_cl
     """Получает заголовки страницы Slay Awards."""
     default_content = {
         "title": "SLAY AWARDS 2025",
-        "description": "Главное событие года. Выбираем легенд чата.",
+        # 👇 ИЗМЕНИ ТЕКСТ ТУТ 👇
+        "description": "Главное событие года.<br>Выбираем легенд чата.", 
         "badge": "Exclusive Event",
         "prizes": "[]"
     }
