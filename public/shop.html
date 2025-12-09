@@ -589,14 +589,15 @@
 /* Этот блок держит кнопку и меню по центру внизу */
 .admin-wrapper {
     position: fixed;
-    bottom: 30px;       /* Отступ от низа */
-    left: 50%;          /* Центр экрана */
-    transform: translateX(-50%); /* Сдвиг для точного центра */
-    z-index: 10000;     /* Поверх всего */
+    /* Было 30px. Ставим 90px, чтобы кнопка была НАД футером */
+    bottom: calc(90px + env(safe-area-inset-bottom)); 
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
     display: flex;
-    flex-direction: column-reverse; /* Меню растет вверх от кнопки */
-    align-items: center; /* Центрирование элементов внутри */
-    gap: 12px;          /* Расстояние между кнопкой и меню */
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 12px;
 }
 
 /* --- АДМИН МЕНЮ (FAB) --- */
