@@ -4876,43 +4876,36 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
     let isTicketAuto = false;
     let ticketAmount = 0;
 
-    // Проверяем, это одобрение? И есть ли слово "билет" в названии?
     if (isApprove && title && title.toLowerCase().includes('билет')) {
-        // Пытаемся найти число в названии (например "10 билетов")
         const numberMatch = title.match(/(\d+)/);
-        ticketAmount = numberMatch ? parseInt(numberMatch[0], 10) : 1; // Если числа нет, считаем как 1 билет
+        ticketAmount = numberMatch ? parseInt(numberMatch[0], 10) : 1;
 
-        confirmMsg = `Обнаружены билеты: <b>${ticketAmount} шт</b>.<br>Выдать их пользователю автоматически и закрыть заявку?`;
+        confirmMsg = `Обнаружены билеты: <b>${ticketAmount} шт</b>.<br>Выдать их автоматически и закрыть заявку?`;
         btnText = `Выдать ${ticketAmount} 🎟️`;
         isTicketAuto = true;
     }
     // ----------------------------------
 
-    showCustomConfirmHTML(confirmMsg, async (closeModal) => { // Добавили async
+    showCustomConfirmHTML(confirmMsg, async (closeModal) => {
         showLoader();
 
         try {
             if (isTicketAuto && userId > 0) {
-                // 1. Сначала выдаем билеты
-                // Используем endpoint выдачи билетов (проверь, чтобы в main.py был /grant_tickets или /grant-stars работает для билетов)
-                // Если у тебя универсальный grant-stars, используем его, но лучше grant_tickets если есть.
-                // В коде выше мы видели /api/v1/admin/users/grant-stars используется для билетов в форме grantTicketsForm (странно, но следуем логике файла)
-                // Я буду использовать более безопасный путь: предполагаю наличие endpoint для билетов или использую grant-stars если другого нет.
-                // Давай попробуем вызвать grant_tickets, если не сработает - придется править endpoint.
-                
-                await makeApiRequest('/api/v1/admin/users/grant_tickets', { 
-                    user_id: userId, 
+                // 1. ВЫДАЕМ БИЛЕТЫ
+                // ВАЖНО: Используем ключ 'user_id_to_grant', как в ручной выдаче
+                await makeApiRequest('/api/v1/admin/users/grant-tickets', { 
+                    user_id_to_grant: userId, // <--- БЫЛО user_id, СТАЛО user_id_to_grant
                     amount: ticketAmount 
                 }, 'POST', true);
                 
                 console.log(`[Shop] Билеты (${ticketAmount}) выданы юзеру ${userId}`);
             }
 
-            // 2. Если билеты выданы (или это обычный товар), закрываем заявку в магазине
+            // 2. ЗАКРЫВАЕМ ЗАЯВКУ В МАГАЗИНЕ
             const endpoint = isApprove ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
             await makeApiRequest(endpoint, { reward_id: id }, 'POST', true);
 
-            // 3. Успех
+            // 3. УДАЛЯЕМ ИЗ СПИСКА
             document.getElementById(`shop-card-${id}`)?.remove();
             
             // Обновляем бейдж
@@ -4928,7 +4921,7 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
             if (isTicketAuto) {
                 tg.showPopup({ message: `✅ Выдано ${ticketAmount} билетов и заявка закрыта!` });
             } else {
-                tg.showPopup({ message: isApprove ? '✅ Выдано (заявка закрыта)' : '❌ Отклонено' });
+                tg.showPopup({ message: isApprove ? '✅ Выдано' : '❌ Отклонено' });
             }
 
         } catch (e) {
