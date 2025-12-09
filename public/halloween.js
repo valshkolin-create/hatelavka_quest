@@ -402,18 +402,25 @@ function renderPage(eventData, leaderboardData = {}) {
             ];
 
             tierListContainer.innerHTML = tierDisplayData.map(tier => {
-                // Пытаемся взять данные конкретного тира
                 const data = tiers[tier.id] || {};
-                
-                // Если имя пустое — пишем заглушку или берем дефолт
                 const name = data.name || (levelConfig.default_reward?.name) || 'Награда не настроена';
                 
-                // Если картинка пустая — берем дефолт уровня -> берем картинку темы
+                // --- ЛОГИКА СВЕЧЕНИЯ И ИЗНОСА ---
                 const img = data.image_url || levelConfig.default_reward?.image_url || themeFallbackImg;
+                const rarityKey = data.rarity; 
+                const rarityColor = RARITY_COLORS[rarityKey] || null; // Цвет редкости
+                const wearKey = data.wear;
+                const wearText = WEAR_NAMES[wearKey] || ''; // Текст износа
 
+                // Если есть редкость, добавляем легкий drop-shadow того же цвета
+                const glowStyle = rarityColor 
+                    ? `style="filter: drop-shadow(0 0 6px ${rarityColor}80);"` // 80 в конце добавляет прозрачность
+                    : '';
+
+                // Добавляем data-wear в атрибуты
                 const imgHtml = img 
-                    ? `<div class="image-zoom-container" data-item-name="${escapeHTML(name)}">
-                           <img src="${escapeHTML(img)}" class="tier-image">
+                    ? `<div class="image-zoom-container" data-item-name="${escapeHTML(name)}" data-wear="${escapeHTML(wearText)}">
+                           <img src="${escapeHTML(img)}" class="tier-image" ${glowStyle}>
                            <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
                        </div>`
                     : '';
@@ -475,7 +482,6 @@ function renderPage(eventData, leaderboardData = {}) {
         return { currentLevel, percentage, currentGoal };
     }
 
-    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ: Рендер списка наград ---
     // --- ОБНОВЛЕННАЯ ФУНКЦИЯ: Рендер списка наград ---
     function renderRewardsModalContent(targetLevel) {
         const { currentLevel, percentage } = calculateEventProgress(currentEventData);
@@ -578,15 +584,16 @@ function renderPage(eventData, leaderboardData = {}) {
                 const hasRarity = !!RARITY_COLORS[rarityKey];
 
                 html += `
-                    <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
-                        <span class="modal-reward-place">#${reward.place}</span>
-                        <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" data-full-name="${escapeHTML(name)}">
-                        <div class="modal-reward-info">
-                            <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
-                            ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
-                        </div>
-                    </div>
-                `;
+            <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
+                <span class="modal-reward-place">#${reward.place}</span>
+                <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" 
+                     data-full-name="${escapeHTML(name)}" 
+                     data-wear="${escapeHTML(wearText)}"> <div class="modal-reward-info">
+                    <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                    ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+                </div>
+            </div>
+        `;
             });
         }
         html += `</div>`;
@@ -610,15 +617,18 @@ function renderPage(eventData, leaderboardData = {}) {
             const hasRarity = !!RARITY_COLORS[rarityKey];
 
             html += `
-                <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
-                    <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
-                    ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" data-full-name="${escapeHTML(name)}">` : '<div style="width:40px;"></div>'}
-                    <div class="modal-reward-info">
-                        <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
-                        ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
-                    </div>
+            <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
+                <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
+                ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" 
+                              data-full-name="${escapeHTML(name)}" 
+                              data-wear="${escapeHTML(wearText)}">` // ДОБАВЛЕНО
+                      : '<div style="width:40px;"></div>'}
+                <div class="modal-reward-info">
+                    <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                    ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
                 </div>
-            `;
+            </div>
+        `;
         });
         html += `</div>`;
         
@@ -812,12 +822,15 @@ function renderPage(eventData, leaderboardData = {}) {
              if (zoomContainer) {
                  const imageToZoom = zoomContainer.querySelector('img');
                  const itemName = zoomContainer.dataset.itemName;
+                 const itemWear = zoomContainer.dataset.wear; // Считываем износ
+                 
                  if (imageToZoom && imageToZoom.src) {
                      dom.viewerImage.src = imageToZoom.src;
-                     dom.viewerCaption.textContent = itemName || '';
+                     // Формируем подпись: Название (Износ)
+                     dom.viewerCaption.textContent = itemName + (itemWear ? ` (${itemWear})` : '');
                      showModal(dom.imageViewerModal);
                  }
-                 return; // Выходим
+                 return; 
              }
         }
 
@@ -928,11 +941,13 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.rewardsListContent.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-reward-img')) {
                 const imgUrl = e.target.src;
-                const name = e.target.dataset.fullName; // Берем имя из атрибута
+                const name = e.target.dataset.fullName; 
+                const wear = e.target.dataset.wear; // Считываем износ
                 
                 if (imgUrl) {
                     dom.viewerImage.src = imgUrl;
-                    dom.viewerCaption.textContent = name || '';
+                    // Формируем подпись
+                    dom.viewerCaption.textContent = name + (wear ? ` (${wear})` : '');
                     showModal(dom.imageViewerModal);
                 }
             }
