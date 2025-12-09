@@ -385,36 +385,41 @@ function getCurrentLevel(eventData) {
 
     // Создает HTML-строку для награды из топ-20
     function createTopRewardRow(reward = {}) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'top-reward-row admin-form';
-    wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #444;';
-    
-    const place = reward.place || '';
-    const name = reward.name || '';
-    const image = reward.image_url || '';
-    const wear = reward.wear || '';     // Износ
-    const rarity = reward.rarity || ''; // Редкость
+        const wrapper = document.createElement('div');
+        wrapper.className = 'top-reward-row admin-form';
+        wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #444;';
+        
+        const place = reward.place || '';
+        const name = reward.name || '';
+        const image = reward.image_url || '';
+        const wear = reward.wear || '';     // Износ
+        const rarity = reward.rarity || ''; // Редкость
 
-    wrapper.innerHTML = `
-        <div style="display:flex; gap:10px; width: 100%;">
-            <input type="number" class="reward-place" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20" style="width: 60px;">
-            <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" style="flex: 1;">
-            <button type="button" class="admin-action-btn reject remove-reward-btn" style="width: 30px; padding: 4px; font-size: 12px;"><i class="fa-solid fa-trash-can"></i></button>
-        </div>
-        <div style="display:flex; gap:10px; width: 100%;">
-            <input type="text" class="reward-image" placeholder="URL картинки" value="${escapeHTML(image)}" style="flex: 1;">
+        wrapper.innerHTML = `
+            <div style="display:flex; gap:10px; width: 100%; align-items: center;">
+                <input type="number" class="reward-place" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20" style="width: 50px;">
+                <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" style="flex: 1;">
+                
+                <button type="button" class="admin-action-btn reject remove-reward-btn" 
+                        style="width: 24px; height: 24px; padding: 0; font-size: 11px; flex: 0 0 24px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
             
-            <select class="reward-wear" style="flex: 1;">
-                ${generateOptionsHtml(WEAR_OPTIONS, wear)}
-            </select>
-            
-            <select class="reward-rarity" style="flex: 1;">
-                ${generateOptionsHtml(RARITY_OPTIONS, rarity)}
-            </select>
-        </div>
-    `;
-    return wrapper;
-}
+            <div style="display:flex; gap:10px; width: 100%;">
+                <input type="text" class="reward-image" placeholder="URL картинки" value="${escapeHTML(image)}" style="flex: 1;">
+                
+                <select class="reward-wear" style="flex: 1;">
+                    ${generateOptionsHtml(WEAR_OPTIONS, wear)}
+                </select>
+                
+                <select class="reward-rarity" style="flex: 1;">
+                    ${generateOptionsHtml(RARITY_OPTIONS, rarity)}
+                </select>
+            </div>
+        `;
+        return wrapper;
+    }
 
     // Собирает все данные из формы "Котла" в один объект
 function collectCauldronData() {
