@@ -4876,6 +4876,7 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
     let isTicketAuto = false;
     let ticketAmount = 0;
 
+    // Проверяем наличие слова "билет" (в любом регистре)
     if (isApprove && title && title.toLowerCase().includes('билет')) {
         const numberMatch = title.match(/(\d+)/);
         ticketAmount = numberMatch ? parseInt(numberMatch[0], 10) : 1;
@@ -4892,20 +4893,21 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
         try {
             if (isTicketAuto && userId > 0) {
                 // 1. ВЫДАЕМ БИЛЕТЫ
-                // ВАЖНО: Используем ключ 'user_id_to_grant', как в ручной выдаче
-                await makeApiRequest('/api/v1/admin/users/grant-tickets', { 
-                    user_id_to_grant: userId, // <--- БЫЛО user_id, СТАЛО user_id_to_grant
+                // ВАЖНО: Используем тот же адрес, что и в ручной форме (grant-stars)
+                // И тот же ключ (user_id_to_grant)
+                await makeApiRequest('/api/v1/admin/users/grant-stars', { 
+                    user_id_to_grant: userId, 
                     amount: ticketAmount 
                 }, 'POST', true);
                 
-                console.log(`[Shop] Билеты (${ticketAmount}) выданы юзеру ${userId}`);
+                console.log(`[Shop] Билеты (${ticketAmount}) выданы юзеру ${userId} через endpoint grant-stars`);
             }
 
             // 2. ЗАКРЫВАЕМ ЗАЯВКУ В МАГАЗИНЕ
             const endpoint = isApprove ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
             await makeApiRequest(endpoint, { reward_id: id }, 'POST', true);
 
-            // 3. УДАЛЯЕМ ИЗ СПИСКА
+            // 3. ВИЗУАЛЬНОЕ УДАЛЕНИЕ
             document.getElementById(`shop-card-${id}`)?.remove();
             
             // Обновляем бейдж
