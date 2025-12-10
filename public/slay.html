@@ -323,11 +323,13 @@
             opacity: 1;
         }
 
+        /* Стиль для остальных кнопок, когда голос уже отдан (Серые) */
         .vote-action-btn:disabled:not(.voted) {
-            background: #333;
-            color: #777;
+            background: #2a2a2a;
+            color: #555;
             box-shadow: none;
-            cursor: default;
+            border: 1px solid rgba(255,255,255,0.05);
+            cursor: not-allowed;
         }
 
         /* Rewards List */
@@ -787,16 +789,30 @@
                 document.getElementById('vote-modal').classList.add('active');
                 return;
             }
+            
+            // Получаем сохраненный локально ID, если API тупит
+            const savedVoteId = localStorage.getItem('slay_vote_' + nom.id);
 
             cands.forEach(cand => {
                 const card = document.createElement('div');
                 card.className = 'vote-card';
 
                 let btnHTML = '';
+                
+                // Проверяем: это тот кандидат, за которого голосовали?
+                // Смотрим флаг is_voted, или id в номинации, или локальное хранилище
+                const isSelected = cand.is_voted || (nom.voted_candidate_id === cand.id) || (savedVoteId && parseInt(savedVoteId) === cand.id);
+
                 if(nom.has_voted) {
-                    // Используем класс .voted для подсветки (зеленый)
-                    btnHTML = `<button class="vote-action-btn voted" disabled><i class="fa-solid fa-check"></i> Выбрано</button>`;
+                    if (isSelected) {
+                        // ТОЛЬКО ЭТОТ - ЗЕЛЕНЫЙ
+                        btnHTML = `<button class="vote-action-btn voted" disabled><i class="fa-solid fa-check"></i> Выбрано</button>`;
+                    } else {
+                        // ОСТАЛЬНЫЕ - СЕРЫЕ (DISABLED)
+                        btnHTML = `<button class="vote-action-btn" disabled>Голос</button>`;
+                    }
                 } else {
+                    // ЕСЛИ ЕЩЕ НЕ ГОЛОСОВАЛ - ОБЫЧНАЯ КНОПКА
                     btnHTML = `<button class="vote-action-btn" onclick="vote(${nom.id}, ${cand.id})">Голос</button>`;
                 }
 
@@ -819,6 +835,10 @@
 
         async function vote(nId, cId) {
             Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            
+            // СРАЗУ СОХРАНЯЕМ В ПАМЯТЬ ТЕЛЕФОНА (Чтобы кнопка загорелась, даже если сервер не вернет ID)
+            localStorage.setItem('slay_vote_' + nId, cId);
+            
             closeModal('vote-modal');
             try {
                 const res = await fetch('/api/v1/slay/vote', {
