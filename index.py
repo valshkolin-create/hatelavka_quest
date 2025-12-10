@@ -592,6 +592,10 @@ class SlayCandidateAdd(BaseModel):
     user_id: int
     custom_title: Optional[str] = None
 
+class SlayNominationFinish(BaseModel):
+    initData: str
+    nomination_id: int
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2296,6 +2300,9 @@ async def delete_slay_candidate(
     return {"message": "Кандидат удален"}
 
 # 1. Получение активных голосований (Для пользователей)
+
+
+
 @app.post("/api/v1/slay/active")
 async def get_active_slay_nominations(
     request_data: InitDataRequest,
@@ -2305,32 +2312,38 @@ async def get_active_slay_nominations(
     if not user_info: raise HTTPException(status_code=401)
     user_id = user_info['id']
 
-    # 1. Получаем номинации
+    # 1. Получаем номинации (включая winner_id)
     nom_resp = await supabase.get("/slay_nominations", params={"is_active": "eq.true", "order": "id.asc"})
     nominations = nom_resp.json()
 
-    # 2. Получаем кандидатов с данными юзеров (имя, фото, твич)
+    # 2. Получаем кандидатов с данными юзеров
     cand_resp = await supabase.get(
         "/slay_candidates", 
         params={"select": "*, user:users(full_name, username, photo_url, twitch_login)"}
     )
     candidates = cand_resp.json()
 
-    # 3. Получаем ГОЛОСА пользователя (Nomination ID + Candidate ID)
-    # --- 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: запрашиваем candidate_id ---
+    # 3. Получаем ГОЛОСА пользователя
     votes_resp = await supabase.get(
         "/slay_votes", 
         params={"voter_id": f"eq.{user_id}", "select": "nomination_id, candidate_id"}
     )
-    
-    # Создаем словарь: { id_номинации: id_выбранного_кандидата }
     votes_map = {v['nomination_id']: v['candidate_id'] for v in votes_resp.json()}
 
     # 4. Собираем структуру
     result = []
     for nom in nominations:
         nom_candidates = [c for c in candidates if c['nomination_id'] == nom['id']]
-        # Форматируем кандидатов
+        
+        # --- НОВАЯ ЛОГИКА: Ищем имя победителя ---
+        winner_name = None
+        if nom.get('winner_id'):
+            winner_cand = next((c for c in nom_candidates if c['id'] == nom['winner_id']), None)
+            if winner_cand:
+                user_data = winner_cand.get('user', {})
+                winner_name = winner_cand.get('custom_title') or user_data.get('twitch_login') or user_data.get('full_name') or "Unknown"
+        # -----------------------------------------
+
         formatted_candidates = []
         for c in nom_candidates:
             user_data = c.get('user', {})
@@ -2343,18 +2356,54 @@ async def get_active_slay_nominations(
                 "votes": c['votes_count']
             })
         
-        # --- 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: Добавляем voted_candidate_id в ответ ---
         result.append({
             "id": nom['id'],
             "title": nom['title'],
             "description": nom['description'],
             "image_url": nom.get('image_url'),
-            "has_voted": nom['id'] in votes_map,           # True/False
-            "voted_candidate_id": votes_map.get(nom['id']), # ID кандидата или None
+            "has_voted": nom['id'] in votes_map,
+            "voted_candidate_id": votes_map.get(nom['id']),
+            "winner_id": nom.get('winner_id'),     # <-- Передаем ID победителя
+            "winner_name": winner_name,            # <-- Передаем Имя победителя
             "candidates": formatted_candidates
         })
 
     return result
+
+@app.post("/api/v1/admin/slay/nomination/finish")
+async def finish_slay_nomination(
+    request_data: SlayNominationFinish,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Завершает номинацию: находит лидера по голосам и записывает winner_id."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    nom_id = request_data.nomination_id
+
+    # 1. Получаем кандидатов для этой номинации
+    cand_resp = await supabase.get(
+        "/slay_candidates",
+        params={"nomination_id": f"eq.{nom_id}", "select": "id, votes_count"}
+    )
+    candidates = cand_resp.json()
+
+    if not candidates:
+        raise HTTPException(status_code=400, detail="Нет кандидатов.")
+
+    # 2. Находим кандидата с макс. голосами
+    # Сортируем по убыванию голосов
+    candidates.sort(key=lambda x: x['votes_count'], reverse=True)
+    winner = candidates[0]
+
+    # 3. Обновляем номинацию
+    await supabase.patch(
+        "/slay_nominations",
+        params={"id": f"eq.{nom_id}"},
+        json={"winner_id": winner['id']}
+    )
+
+    return {"message": f"Номинация завершена. Победитель ID: {winner['id']}"}
 
 # 2. Голосование
 @app.post("/api/v1/slay/vote")
