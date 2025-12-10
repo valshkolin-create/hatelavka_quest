@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SLAY AWARDS 2025</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
     
     <style>
         /* === ПРЕМИУМ СТИЛИ (ОБНОВЛЕННЫЕ) === */
@@ -684,7 +684,7 @@
     <footer class="app-footer">
         <a href="/leaderboard" class="footer-item">
             <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
-            <span>Топ</span>
+            <span>Лидерборд</span>
         </a>
         <a href="/menu#quests" class="footer-item">
             <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
@@ -784,7 +784,7 @@
             grid.innerHTML = '';
             
             if(!nominations.length) {
-                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#555; padding:20px;">Нет активных номинаций</div>';
+                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#555;">Нет номинаций</div>';
                 return;
             }
 
@@ -792,7 +792,7 @@
                 const card = document.createElement('div');
                 card.style.animationDelay = (index * 0.1) + 's';
                 const imgUrl = nom.image_url || 'https://placehold.co/400x400/111/333?text=SLAY';
-                
+
                 // --- ПРОВЕРКА: Если есть победитель, меняем вид ---
                 if (nom.winner_id) {
                     card.className = 'card winner';
@@ -825,6 +825,7 @@
                 }
                 grid.appendChild(card);
             });
+        }
 
         // --- VOTE MODAL (UPDATED GRID) ---
         function openVote(id) {
@@ -1068,24 +1069,23 @@
             list.innerHTML = '';
             nominations.forEach(nom => {
                 const item = document.createElement('div');
-                item.style.cssText = "background:#1a1a1a; padding:15px; margin-bottom:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;";
+                item.style.cssText = "background:#1a1a1a; padding:15px; margin-bottom:10px; border-radius:10px;";
                 
                 // Бейдж статуса
                 const statusBadge = nom.winner_id ? `<span style="color:#34C759; font-size:10px; border:1px solid #34C759; padding:2px 4px; border-radius:4px; margin-left:5px;">ЗАВЕРШЕНО</span>` : '';
 
                 item.innerHTML = `
-                    <div style="display:flex; align-items:center;">
-                        <span style="color:#fff; font-weight:700;">${escapeHTML(nom.title)}</span>
-                        ${statusBadge}
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        ${!nom.winner_id ? `
-                        <button class="admin-btn finish" style="width:auto; margin:0; padding:6px 10px;" onclick="finishNom(${nom.id})">
-                            <i class="fa-solid fa-flag-checkered"></i>
-                        </button>` : ''}
-                        <button class="admin-btn gold" style="width:auto; margin:0; padding:6px 12px;" onclick="editNom(${nom.id})">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="color:#fff; font-weight:700;">${escapeHTML(nom.title)} ${statusBadge}</span>
+                        <div style="display:flex; gap:8px;">
+                            ${!nom.winner_id ? `
+                            <button class="admin-btn finish" style="width:auto; margin:0; padding:6px 10px;" onclick="finishNom(${nom.id})">
+                                <i class="fa-solid fa-flag-checkered"></i>
+                            </button>` : ''}
+                            <button class="admin-btn gold" style="width:auto; margin:0; padding:6px 12px;" onclick="editNom(${nom.id})">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                        </div>
                     </div>
                 `;
                 list.appendChild(item);
