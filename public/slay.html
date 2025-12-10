@@ -931,19 +931,23 @@
             const title = document.getElementById('adm-title').value;
             const desc = document.getElementById('adm-desc').value;
             
+            console.log("Отправляем на сервер:", { title, desc, prizes });
+
             await fetch('/api/v1/admin/slay/content/update', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     initData: Telegram.WebApp.initData, 
-                    title, description: desc, 
-                    prizes: JSON.stringify(prizes) 
+                    title: title, 
+                    description: desc, 
+                    badge: "Exclusive Event",
+                    prizes: prizes 
                 })
             });
             Telegram.WebApp.showAlert("Сохранено!");
             loadContent();
         }
-
+        
         // 2. Prizes Logic
         function renderPrizesAdmin() {
             const list = document.getElementById('adm-prizes-list');
