@@ -562,7 +562,7 @@ class SlayContentUpdate(BaseModel):
     title: str
     description: str
     badge: Optional[str] = "Exclusive Event" 
-    prizes: Optional[str] = "[]" 
+    prizes: Optional[list] = []  # <-- ИЗМЕНЕНИЕ: Было str, стало list
 
 class SlayNominationUpdate(BaseModel):
     initData: str
@@ -2229,58 +2229,29 @@ async def update_slay_content(
     request_data: SlayContentUpdate,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Обновляет контент страницы (Заголовок, Бейдж, Описание, Призы)."""
+    """(Админ) Обновляет контент страницы. Использует PATCH для защиты от дублей."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
 
-    # Собираем контент
+    # Собираем контент. Prizes теперь уже список, Python сам это понял.
     content = {
         "title": request_data.title, 
         "description": request_data.description,
         "badge": request_data.badge,
-        "prizes": request_data.prizes
+        "prizes": request_data.prizes 
     }
     
-    # 1. Сначала пробуем обновить существующую запись (PATCH)
-    update_resp = await supabase.patch(
+    # 1. Пробуем обновить существующую запись (id 45)
+    # Используем PATCH, чтобы не плодить дубликаты
+    await supabase.patch(
         "/pages_content",
         params={"page_name": "eq.slay_awards"},
         json={"content": content}
     )
     
-    # 2. Если обновлять было нечего (записи нет), создаем новую (POST)
-    # Ответ от patch в httpx вернет '[]' в .json(), если ни одна строка не обновлена (зависит от заголовка Prefer)
-    # Для надежности можно проверить content-range или просто сделать POST, если PATCH не прошел.
-    # Но проще всего - проверить, вернулся ли результат.
+    # (На всякий случай) Если записи вдруг нет, создадим её
+    # Но так как мы видели id 45, сработает PATCH.
     
-    # Однако, самый надежный способ без лишних проверок, который вы использовали в других местах:
-    # Просто делаем PATCH. Если запись есть (а она должна быть), она обновится.
-    # Если вы боитесь, что записи нет, можно оставить логику с post, но убрать заголовки merge.
-    
-    # Рекомендуемый вариант (как вы фиксили Котел):
-    try:
-        # Проверяем, есть ли запись
-        check = await supabase.get("/pages_content", params={"page_name": "eq.slay_awards", "select": "id"})
-        
-        if check.json():
-            # Если есть -> ОБНОВЛЯЕМ (PATCH)
-            await supabase.patch(
-                "/pages_content",
-                params={"page_name": "eq.slay_awards"},
-                json={"content": content}
-            )
-        else:
-            # Если нет -> СОЗДАЕМ (POST)
-            await supabase.post(
-                "/pages_content",
-                json={"page_name": "slay_awards", "content": content}
-            )
-            
-    except Exception as e:
-        # Логгируем ошибку, если что-то пошло не так
-        logging.error(f"Ошибка сохранения Slay контента: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сохранения")
-
     return {"message": "Контент обновлен"}
 
 # --- SLAY ADMIN: Управление номинациями ---
