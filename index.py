@@ -2238,14 +2238,49 @@ async def update_slay_content(
         "title": request_data.title, 
         "description": request_data.description,
         "badge": request_data.badge,
-        "prizes": request_data.prizes # Сохраняем JSON строку призов
+        "prizes": request_data.prizes
     }
     
-    await supabase.post(
+    # 1. Сначала пробуем обновить существующую запись (PATCH)
+    update_resp = await supabase.patch(
         "/pages_content",
-        json={"page_name": "slay_awards", "content": content},
-        headers={"Prefer": "resolution=merge-duplicates"}
+        params={"page_name": "eq.slay_awards"},
+        json={"content": content}
     )
+    
+    # 2. Если обновлять было нечего (записи нет), создаем новую (POST)
+    # Ответ от patch в httpx вернет '[]' в .json(), если ни одна строка не обновлена (зависит от заголовка Prefer)
+    # Для надежности можно проверить content-range или просто сделать POST, если PATCH не прошел.
+    # Но проще всего - проверить, вернулся ли результат.
+    
+    # Однако, самый надежный способ без лишних проверок, который вы использовали в других местах:
+    # Просто делаем PATCH. Если запись есть (а она должна быть), она обновится.
+    # Если вы боитесь, что записи нет, можно оставить логику с post, но убрать заголовки merge.
+    
+    # Рекомендуемый вариант (как вы фиксили Котел):
+    try:
+        # Проверяем, есть ли запись
+        check = await supabase.get("/pages_content", params={"page_name": "eq.slay_awards", "select": "id"})
+        
+        if check.json():
+            # Если есть -> ОБНОВЛЯЕМ (PATCH)
+            await supabase.patch(
+                "/pages_content",
+                params={"page_name": "eq.slay_awards"},
+                json={"content": content}
+            )
+        else:
+            # Если нет -> СОЗДАЕМ (POST)
+            await supabase.post(
+                "/pages_content",
+                json={"page_name": "slay_awards", "content": content}
+            )
+            
+    except Exception as e:
+        # Логгируем ошибку, если что-то пошло не так
+        logging.error(f"Ошибка сохранения Slay контента: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка сохранения")
+
     return {"message": "Контент обновлен"}
 
 # --- SLAY ADMIN: Управление номинациями ---
