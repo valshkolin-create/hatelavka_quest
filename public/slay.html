@@ -495,6 +495,15 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Вставь это в <style> */
+.vote-btn.active {
+    background: #ffffff; /* Белый фон */
+    color: #000000;      /* Черный текст */
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+    border: 2px solid var(--gold);
+}
+
     </style>
 </head>
 <body>
@@ -509,7 +518,7 @@
             <h1 class="main-title" id="display-title"></h1>
             <p class="main-desc" id="display-desc"></p>
             
-            <div class="ticket-promo">✨ +2 Билета за каждый голос</div><br>
+            <div class="ticket-promo">✨ +3 Билета за каждый голос</div><br>
 
             <button class="rewards-btn" onclick="openRewardsModal()">
                 <i class="fa-solid fa-gift"></i> Призы
@@ -751,78 +760,130 @@
         }
 
         // --- VOTE MODAL (UPDATED GRID) ---
-        function openVote(id) {
-            const nom = nominations.find(n => n.id === id);
-            if(!nom) return;
+       let currentNominationId = null; // ID текущей номинации
+let selectedCandidateId = null; // ID выбранного кандидата
 
-            // Блокируем скролл фона
-            document.body.classList.add('modal-open');
+function openVote(id) {
+    currentNominationId = id;
+    selectedCandidateId = null; // Сбрасываем выбор при открытии
+    renderVoteList();           // Рисуем список
+    document.getElementById('vote-modal').classList.add('active');
+}
 
-            document.getElementById('vote-title').innerText = nom.title;
-            const container = document.getElementById('vote-list-container');
-            container.innerHTML = '';
+// Эта функция рисует список и обновляет кнопки
+function renderVoteList() {
+    const nom = nominations.find(n => n.id === currentNominationId);
+    if(!nom) return;
 
-            // Grid container
-            const grid = document.createElement('div');
-            grid.className = 'vote-grid';
+    document.getElementById('vote-title').innerText = nom.title;
+    const list = document.getElementById('vote-list');
+    list.innerHTML = '';
 
-            let cands = nom.candidates;
-            // Если уже голосовал, можно сортировать, но кол-во голосов не показываем
-            if(nom.has_voted) cands.sort((a,b) => b.votes - a.votes);
+    let cands = nom.candidates;
+    // Если уже голосовали — сортируем по голосам
+    if(nom.has_voted) cands.sort((a,b) => b.votes - a.votes);
 
-            if(!cands.length) {
-                container.innerHTML = '<div style="text-align:center; color:#555; margin-top:20px;">Список пуст</div>';
-                document.getElementById('vote-modal').classList.add('active');
-                return;
-            }
+    if(!cands.length) list.innerHTML = '<div style="text-align:center; color:#555; margin-top:20px;">Список пуст</div>';
 
-            cands.forEach(cand => {
-                const card = document.createElement('div');
-                card.className = 'vote-card';
-
-                let btnHTML = '';
-                if(nom.has_voted) {
-                    btnHTML = `<button class="vote-action-btn" disabled>Выбрано</button>`;
-                } else {
-                    btnHTML = `<button class="vote-action-btn" onclick="vote(${nom.id}, ${cand.id})">Голос</button>`;
-                }
-
-                card.innerHTML = `
-                    <div class="vote-icon"><i class="fa-brands fa-twitch"></i></div>
-                    <div class="vote-name">${escapeHTML(cand.name)}</div>
-                    ${btnHTML}
-                `;
-                grid.appendChild(card);
-            });
-
-            container.appendChild(grid);
-            document.getElementById('vote-modal').classList.add('active');
+    cands.forEach(cand => {
+        const row = document.createElement('div');
+        row.className = 'cand-row';
+        
+        let action = '';
+        
+        if(nom.has_voted) {
+            // Если уже голосовал — показываем просто цифру
+            action = `<span class="vote-res">${cand.votes}</span>`;
+        } else {
+            // Проверяем, выбран ли этот кандидат сейчас
+            const isActive = (selectedCandidateId === cand.id);
+            
+            // Рисуем кнопку. Если isActive = true, добавляем класс active и меняем текст
+            action = `
+            <button 
+                class="vote-btn ${isActive ? 'active' : ''}" 
+                onclick="selectCandidate(${cand.id})"
+            >
+                ${isActive ? 'Выбрано ✅' : 'Выбрать'}
+            </button>`;
         }
+        
+        row.innerHTML = `
+            <div class="cand-left">
+                <div class="twitch-icon"><i class="fa-brands fa-twitch"></i></div>
+                <div class="cand-info">
+                    <div class="cand-name">${escapeHTML(cand.name)}</div>
+                </div>
+            </div>
+            ${action}
+        `;
+        list.appendChild(row);
+    });
 
-        function closeModal(id) { 
-            document.getElementById(id).classList.remove('active');
-            // Разблокируем скролл, если закрываем модалку
-            document.body.classList.remove('modal-open');
-        }
+    // Добавляем кнопку "ПОДТВЕРДИТЬ" в самый низ, если кто-то выбран и мы еще не голосовали
+    if(selectedCandidateId && !nom.has_voted) {
+        const confirmBtn = document.createElement('div');
+        confirmBtn.style.marginTop = '20px';
+        confirmBtn.innerHTML = `
+            <button onclick="submitVote()" style="
+                width: 100%;
+                background: var(--gold-gradient);
+                color: #000;
+                font-weight: 900;
+                padding: 16px;
+                border: none;
+                border-radius: 14px;
+                font-size: 16px;
+                text-transform: uppercase;
+                box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+                animation: fadeInUp 0.3s ease;
+            ">
+                Подтвердить выбор (+3 Билета)
+            </button>
+        `;
+        list.appendChild(confirmBtn);
+        // Прокручиваем вниз, чтобы кнопку было видно
+        setTimeout(() => confirmBtn.scrollIntoView({behavior: 'smooth'}), 100);
+    }
+}
 
-        async function vote(nId, cId) {
-            Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-            closeModal('vote-modal');
-            try {
-                const res = await fetch('/api/v1/slay/vote', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData, nomination_id: nId, candidate_id: cId })
-                });
-                const d = await res.json();
-                if(d.success) {
-                    Telegram.WebApp.showAlert("✅ Голос принят! +3 Билета");
-                    loadNominations();
-                } else {
-                    Telegram.WebApp.showAlert(d.message || "Ошибка");
-                }
-            } catch(e) { Telegram.WebApp.showAlert("Ошибка сети"); }
+// Функция выбора (просто меняет ID и перерисовывает)
+function selectCandidate(cId) {
+    // Включаем виброотклик при выборе
+    Telegram.WebApp.HapticFeedback.selectionChanged(); 
+    selectedCandidateId = cId;
+    renderVoteList();
+}
+
+// Функция отправки голоса (вызывается кнопкой "Подтвердить")
+async function submitVote() {
+    if(!currentNominationId || !selectedCandidateId) return;
+    
+    Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+    // Можно сразу закрыть или показать загрузку. Закроем для удобства.
+    closeModal('vote-modal');
+
+    try {
+        const res = await fetch('/api/v1/slay/vote', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                initData: Telegram.WebApp.initData, 
+                nomination_id: currentNominationId, 
+                candidate_id: selectedCandidateId 
+            })
+        });
+        const d = await res.json();
+        if(d.success) {
+            Telegram.WebApp.showAlert("✅ Голос принят! +3 Билета"); // Текст попапа
+            loadNominations(); // Обновляем данные
+        } else {
+            Telegram.WebApp.showAlert(d.message || "Ошибка");
         }
+    } catch(e) { 
+        Telegram.WebApp.showAlert("Ошибка сети"); 
+    }
+}
 
         // --- REWARDS MODAL ---
         function openRewardsModal() {
@@ -896,22 +957,44 @@
 
         // 1. Global Settings
         async function saveGlobalSettings() {
-            const title = document.getElementById('adm-title').value;
-            const desc = document.getElementById('adm-desc').value;
-            
-            await fetch('/api/v1/admin/slay/content/update', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    initData: Telegram.WebApp.initData, 
-                    title, description: desc, 
-                    prizes: JSON.stringify(prizes) 
-                })
-            });
-            Telegram.WebApp.showAlert("Сохранено!");
-            loadContent();
-        }
+    const title = document.getElementById('adm-title').value;
+    const desc = document.getElementById('adm-desc').value;
 
+    console.log("Пытаюсь обновить:", title);
+
+    // 1. Сначала проверим, видит ли Supabase вообще эту строку
+    const { data: searchData } = await supabase
+        .from('pages_content')
+        .select('*')
+        .eq('page_name', 'slay_awards'); // Проверь это название
+    
+    console.log("Найдено строк перед обновлением:", searchData);
+
+    if (searchData.length === 0) {
+        alert("ОШИБКА: Запись 'slay_awards' не найдена в базе! Проверь page_name.");
+        return;
+    }
+
+    // 2. Пробуем обновить
+    const newContent = { title: title, description: desc }; // ВАЖНО: Формируем JSON
+
+    const { data, error } = await supabase
+        .from('pages_content')
+        .update({ content: newContent }) // Пишем в колонку content
+        .eq('page_name', 'slay_awards')
+        .select();
+
+    if (error) {
+        console.error("Ошибка Supabase:", error);
+        alert("Ошибка прав доступа (RLS) или базы данных.");
+    } else if (data.length === 0) {
+        console.warn("Запрос прошел без ошибок, но данные НЕ изменились.");
+        alert("Запись найдена, но не обновлена. Скорее всего RLS запрещает запись, но разрешает чтение.");
+    } else {
+        console.log("Успех:", data);
+        alert("Успешно сохранено!");
+    }
+}
         // 2. Prizes Logic
         function renderPrizesAdmin() {
             const list = document.getElementById('adm-prizes-list');
