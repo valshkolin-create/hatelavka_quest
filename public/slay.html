@@ -706,7 +706,8 @@
                 document.getElementById('display-title').innerText = data.title || "SLAY AWARDS";
                 
                 const desc = data.description || "";
-                document.getElementById('display-desc').innerHTML = desc.replace(/\. /g, '.<br>').replace(/\.$/, '.');
+            // Заменяем символы переноса строки (\n) на тег <br>
+            document.getElementById('display-desc').innerHTML = desc.replace(/\n/g, '<br>');
 
                 try {
                     prizes = typeof data.prizes === 'string' ? JSON.parse(data.prizes) : (data.prizes || []);
