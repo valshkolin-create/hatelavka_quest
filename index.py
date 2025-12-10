@@ -2299,25 +2299,28 @@ async def get_active_slay_nominations(
     if not user_info: raise HTTPException(status_code=401)
     user_id = user_info['id']
 
-    # Получаем номинации
+    # 1. Получаем номинации
     nom_resp = await supabase.get("/slay_nominations", params={"is_active": "eq.true", "order": "id.asc"})
     nominations = nom_resp.json()
 
-    # Получаем кандидатов с данными юзеров (имя, фото, твич)
+    # 2. Получаем кандидатов с данными юзеров (имя, фото, твич)
     cand_resp = await supabase.get(
         "/slay_candidates", 
         params={"select": "*, user:users(full_name, username, photo_url, twitch_login)"}
     )
     candidates = cand_resp.json()
 
-    # Получаем ID номинаций, где пользователь УЖЕ проголосовал
+    # 3. Получаем ГОЛОСА пользователя (Nomination ID + Candidate ID)
+    # --- 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: запрашиваем candidate_id ---
     votes_resp = await supabase.get(
         "/slay_votes", 
-        params={"voter_id": f"eq.{user_id}", "select": "nomination_id"}
+        params={"voter_id": f"eq.{user_id}", "select": "nomination_id, candidate_id"}
     )
-    voted_nomination_ids = {v['nomination_id'] for v in votes_resp.json()}
+    
+    # Создаем словарь: { id_номинации: id_выбранного_кандидата }
+    votes_map = {v['nomination_id']: v['candidate_id'] for v in votes_resp.json()}
 
-    # Собираем структуру
+    # 4. Собираем структуру
     result = []
     for nom in nominations:
         nom_candidates = [c for c in candidates if c['nomination_id'] == nom['id']]
@@ -2329,17 +2332,19 @@ async def get_active_slay_nominations(
             formatted_candidates.append({
                 "id": c['id'],
                 "name": display_name,
-                "username": user_data.get('username'), # Добавили username для отображения @
+                "username": user_data.get('username'), 
                 "photo_url": user_data.get('photo_url'),
                 "votes": c['votes_count']
             })
         
+        # --- 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: Добавляем voted_candidate_id в ответ ---
         result.append({
             "id": nom['id'],
             "title": nom['title'],
             "description": nom['description'],
-            "image_url": nom.get('image_url'), # Обязательно возвращаем картинку
-            "has_voted": nom['id'] in voted_nomination_ids,
+            "image_url": nom.get('image_url'),
+            "has_voted": nom['id'] in votes_map,           # True/False
+            "voted_candidate_id": votes_map.get(nom['id']), # ID кандидата или None
             "candidates": formatted_candidates
         })
 
