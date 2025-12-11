@@ -3748,48 +3748,26 @@ async def get_current_user_data(request_data: InitDataRequest):
         final_response['event_participations'] = data.get('event_participations', {})
         final_response['is_admin'] = telegram_id in ADMIN_IDS
 
-        # --- 🔥 НОВЫЙ КОД ЗДЕСЬ 🔥 ---
-        
-        # Получаем twitch_status (ВСТАВЬТЕ ЭТО)
+        # --- 🔥 ПОЛУЧЕНИЕ СТАТУСА TWITCH ---
         twitch_status_resp = supabase.table("users").select("twitch_status").eq("telegram_id", telegram_id).execute()
         twitch_status = None
         if twitch_status_resp.data:
             twitch_status = twitch_status_resp.data[0].get('twitch_status')
         final_response['twitch_status'] = twitch_status # 'vip', 'subscriber', 'none'
         
-        # Получаем настройки гринда
+        # --- 🔥 ПОЛУЧЕНИЕ НАСТРОЕК ГРИНДА ---
         grind_settings = await get_grind_settings_async_global()
         final_response['grind_settings'] = grind_settings.dict()
         
-        # --- КОНЕЦ НОВОГО КОДА ---
-        
-        # ... (старый код получения active_referrals_count и admin_settings) ...
-        admin_settings = await get_admin_settings_async_global()
-        final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
-        final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
-        
-        # Стрим
-        stream_status_resp = supabase.table("settings").select("value").eq("key", "twitch_stream_status").execute()
-        final_response['is_stream_online'] = stream_status_resp.data[0].get('value', False) if stream_status_resp.data else False
-
-        return JSONResponse(content=final_response)
-
-        # --- 🔥 ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ ДЛЯ БОНУСОВ (ОПТИМИЗИРОВАНО) 🔥 ---
-        # 🚀 ВАРИАНТ 2: Берем готовое число из колонки (Мгновенно)
+        # --- 🔥 ПОЛУЧЕНИЕ РЕФЕРАЛОВ (БЫЛО НЕДОСТУПНО) ---
         try:
-            # В запросе получения юзера добавьте 'referrals_count' в select
-            # Например: supabase.rpc("get_user_dashboard_data", ...).select("..., referrals_count")
-            
-            # Или отдельным сверх-быстрым запросом (БЕЗ await):
+            # Используем быстрый запрос к таблице users
             ref_resp = supabase.table("users") \
                 .select("referrals_count") \
                 .eq("telegram_id", telegram_id) \
                 .execute()
             
-            # Проверяем, есть ли данные
             if ref_resp.data:
-                # Передаем это число на фронтенд как active_referrals_count
-                # .get('referrals_count', 0) защитит, если колонки нет или она null
                 count = ref_resp.data[0].get('referrals_count')
                 final_response['active_referrals_count'] = count if count is not None else 0
             else:
@@ -3798,17 +3776,17 @@ async def get_current_user_data(request_data: InitDataRequest):
         except Exception as e:
             logging.warning(f"Ошибка получения referrals_count: {e}")
             final_response['active_referrals_count'] = 0
-        # ------------------------------------------------
 
-        # Настройки (используем кэшированные)
+        # --- ОБЩИЕ НАСТРОЙКИ ---
         admin_settings = await get_admin_settings_async_global()
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
         final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
         
-        # Стрим
+        # --- СТАТУС СТРИМА ---
         stream_status_resp = supabase.table("settings").select("value").eq("key", "twitch_stream_status").execute()
         final_response['is_stream_online'] = stream_status_resp.data[0].get('value', False) if stream_status_resp.data else False
 
+        # ✅ ЕДИНСТВЕННЫЙ RETURN В КОНЦЕ
         return JSONResponse(content=final_response)
 
     except Exception as e:
