@@ -3401,27 +3401,46 @@ async def get_public_quests(request_data: InitDataRequest):
         logging.error(f"Ошибка при получении квестов RPC: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
+# 👇 Убедитесь, что этот импорт есть в начале файла
+from urllib.parse import urlencode
+
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(initData: str):
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
+    
+    # Генерируем state
     state = create_twitch_state(initData)
     
-    # --- 👇 ОБНОВЛЕННЫЕ СКОУПЫ (ПРАВА) 👇 ---
-    # Добавили user:read:subscriptions чтобы проверять подписку
-    scopes = "user:read:email+channel:read:redemptions+user:read:subscriptions+channel:read:vips"
+    # Права доступа (Scopes)
+    scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
     
-    twitch_auth_url = (
-        "https://id.twitch.tv/oauth2/authorize"
-        f"?response_type=code"
-        f"&client_id={TWITCH_CLIENT_ID}"
-        f"&redirect_uri={TWITCH_REDIRECT_URI}"
-        f"&scope={scopes}" 
-        f"&state={state}"
+    # Параметры для URL
+    params = {
+        "response_type": "code",
+        "client_id": TWITCH_CLIENT_ID,
+        "redirect_uri": TWITCH_REDIRECT_URI,
+        "scope": scopes_list,
+        "state": state
+    }
+    
+    # Формируем безопасную ссылку
+    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{urlencode(params)}"
+    
+    # 🔥 ИЗМЕНЕНИЕ: Возвращаем JSON с ссылкой, а не делаем редирект.
+    # Это позволит фронтенду самому решить, как её открыть (через openLink).
+    response = JSONResponse(content={"url": twitch_auth_url})
+    
+    # Устанавливаем cookie (важно!)
+    response.set_cookie(
+        key="twitch_oauth_init_data", 
+        value=initData, 
+        max_age=300, 
+        path="/", 
+        samesite="None", 
+        secure=True
     )
-    response = Response(status_code=307)
-    response.headers['Location'] = twitch_auth_url
-    response.set_cookie(key="twitch_oauth_init_data", value=initData, max_age=300, path="/", samesite="None", secure=True)
+    
     return response
 
 @app.get("/api/v1/auth/twitch_callback")
