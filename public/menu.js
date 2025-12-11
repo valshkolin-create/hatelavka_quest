@@ -1442,14 +1442,27 @@ function openWelcomePopup(userData) {
     const actionBtn = document.getElementById('action-btn');
 
     // 1. Настраиваем клики по плашкам
-    stepTwitch.onclick = () => {
+    stepTwitch.onclick = async () => {
         if (!userData.twitch_id) {
-            // [ВАЖНО] Сохраняем флаг, что мы ушли на авторизацию
+            // 1. Ставим флаг возврата
             localStorage.setItem('openRefPopupOnLoad', 'true');
 
-            // Формируем ссылку и открываем
-            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
-            Telegram.WebApp.openLink(authUrl);
+            try {
+                // 2. Сначала "спрашиваем" ссылку у нашего сервера
+                const apiUrl = `/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                // 3. Если сервер вернул {"url": "..."}, открываем её
+                if (data.url) {
+                    Telegram.WebApp.openLink(data.url);
+                } else {
+                    alert("Ошибка: Сервер не вернул ссылку для входа.");
+                }
+            } catch (e) {
+                console.error("Ошибка при получении ссылки:", e);
+                alert("Не удалось связаться с сервером.");
+            }
         } else {
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         }
