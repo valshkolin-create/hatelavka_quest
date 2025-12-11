@@ -584,7 +584,12 @@ class SlayNominationCreate(BaseModel):
     initData: str
     title: str
     description: Optional[str] = ""
-    image_url: Optional[str] = None 
+    image_url: Optional[str] = None
+
+class GrindSettings(BaseModel):
+    twitch_status_boost_coins: float = 0.5
+    twitch_status_free_tickets: int = 5
+    ref_boost_coins_per_user: float = 0.1
 
 class SlayCandidateAdd(BaseModel):
     initData: str
@@ -1129,6 +1134,46 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
         admin_settings_cache["settings"] = None
         admin_settings_cache["last_checked"] = 0
         return AdminSettings()
+
+# --- НОВЫЙ КЭШ ДЛЯ НАСТРОЕК ГРИНДА ---
+grind_settings_cache = {
+    "settings": None, 
+    "last_checked": 0 
+}
+GRIND_SETTINGS_CACHE_DURATION = 300 # Кэшировать настройки на 5 минут
+
+async def get_grind_settings_async_global() -> GrindSettings:
+    """Получает настройки гринда (с кэшированием) из Supabase, используя twitch_ префиксы."""
+    now = time.time()
+    if grind_settings_cache["settings"] and (now - grind_settings_cache["last_checked"] < GRIND_SETTINGS_CACHE_DURATION):
+        return grind_settings_cache["settings"]
+
+    logging.info("⚙️ Кэш настроек гринда истек, запрашиваем из БД...")
+    try:
+        response = supabase.table("grind_settings").select("*").eq("id", 1).limit(1).execute()
+        data = response.data
+
+        if data and data[0]:
+            settings_data = data[0]
+            loaded_settings = GrindSettings(
+                twitch_status_boost_coins=settings_data.get('twitch_status_boost_coins', 0.5),
+                twitch_status_free_tickets=settings_data.get('twitch_status_free_tickets', 5),
+                ref_boost_coins_per_user=settings_data.get('ref_boost_coins_per_user', 0.1),
+            )
+            grind_settings_cache["settings"] = loaded_settings
+            grind_settings_cache["last_checked"] = now
+            return loaded_settings
+        else:
+            default_settings = GrindSettings()
+            grind_settings_cache["settings"] = default_settings
+            grind_settings_cache["last_checked"] = now
+            return default_settings
+
+    except Exception as e:
+        logging.error(f"Не удалось получить grind_settings: {e}", exc_info=True)
+        grind_settings_cache["settings"] = None
+        grind_settings_cache["last_checked"] = 0
+        return GrindSettings()
 
 
 async def get_ticket_reward_amount_global(action_type: str) -> int:
@@ -3702,6 +3747,32 @@ async def get_current_user_data(request_data: InitDataRequest):
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
         final_response['is_admin'] = telegram_id in ADMIN_IDS
+
+        # --- 🔥 НОВЫЙ КОД ЗДЕСЬ 🔥 ---
+        
+        # Получаем twitch_status (ВСТАВЬТЕ ЭТО)
+        twitch_status_resp = supabase.table("users").select("twitch_status").eq("telegram_id", telegram_id).execute()
+        twitch_status = None
+        if twitch_status_resp.data:
+            twitch_status = twitch_status_resp.data[0].get('twitch_status')
+        final_response['twitch_status'] = twitch_status # 'vip', 'subscriber', 'none'
+        
+        # Получаем настройки гринда
+        grind_settings = await get_grind_settings_async_global()
+        final_response['grind_settings'] = grind_settings.dict()
+        
+        # --- КОНЕЦ НОВОГО КОДА ---
+        
+        # ... (старый код получения active_referrals_count и admin_settings) ...
+        admin_settings = await get_admin_settings_async_global()
+        final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
+        final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
+        
+        # Стрим
+        stream_status_resp = supabase.table("settings").select("value").eq("key", "twitch_stream_status").execute()
+        final_response['is_stream_online'] = stream_status_resp.data[0].get('value', False) if stream_status_resp.data else False
+
+        return JSONResponse(content=final_response)
 
         # --- 🔥 ДОПОЛНИТЕЛЬНЫЕ ДАННЫЕ ДЛЯ БОНУСОВ (ОПТИМИЗИРОВАНО) 🔥 ---
         # 🚀 ВАРИАНТ 2: Берем готовое число из колонки (Мгновенно)
