@@ -2406,6 +2406,7 @@ async def finish_slay_nomination(
     return {"message": f"Номинация завершена. Победитель ID: {winner['id']}"}
 
 # 2. Голосование
+# --- ЗАМЕНИТЬ ФУНКЦИЮ vote_slay ПОЛНОСТЬЮ ---
 @app.post("/api/v1/slay/vote")
 async def vote_slay(
     request_data: SlayVoteRequest,
@@ -2413,25 +2414,80 @@ async def vote_slay(
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(status_code=401)
+    
+    user_id = user_info['id']
 
+    # -----------------------------------------------------------
+    # 🚫 1. ПРОВЕРКА НА САМОГОЛОСОВАНИЕ (Self-vote check)
+    # -----------------------------------------------------------
+    try:
+        # Узнаем, кто владелец кандидата, за которого идет голос
+        cand_resp = await supabase.get(
+            "/slay_candidates",
+            params={"id": f"eq.{request_data.candidate_id}", "select": "user_id"}
+        )
+        candidates_data = cand_resp.json()
+        
+        if candidates_data:
+            candidate_owner_id = candidates_data[0].get('user_id')
+            
+            # Если ID голосующего совпадает с ID кандидата
+            if candidate_owner_id == user_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Голосовать за самого себя нельзя! 🤡"
+                )
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logging.error(f"Ошибка проверки самолайка: {e}")
+        # Если база упала, лучше не дать проголосовать, чем допустить накрутку
+        raise HTTPException(status_code=500, detail="Ошибка проверки кандидата")
+
+    # -----------------------------------------------------------
+    # 🔒 2. ПРОВЕРКА ПОДПИСКИ (Gatekeeping)
+    # -----------------------------------------------------------
+    REQUIRED_CHANNEL_ID = -1002144676097 
+    
+    try:
+        temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
+        await temp_bot.session.close()
+        
+        if chat_member.status in ['left', 'kicked']:
+            raise HTTPException(
+                status_code=403, 
+                detail="Для голосования необходимо подписаться на канал HATElove_ttv!"
+            )
+            
+    except TelegramForbiddenError:
+        logging.error(f"Бот не админ в канале {REQUIRED_CHANNEL_ID}")
+    except HTTPException as he:
+        raise he 
+    except Exception as e:
+        logging.error(f"Ошибка проверки подписки: {e}")
+        pass 
+
+    # -----------------------------------------------------------
+    # ✅ 3. ЗАПИСЬ ГОЛОСА
+    # -----------------------------------------------------------
     try:
         response = await supabase.post(
             "/rpc/vote_in_slay",
             json={
                 "p_nomination_id": request_data.nomination_id,
                 "p_candidate_id": request_data.candidate_id,
-                "p_voter_id": user_info['id']
+                "p_voter_id": user_id
             }
         )
-        # Если RPC возвращает void (ничего), значит ошибок нет (иначе был бы raise exception)
-        # Если RPC возвращает json, читаем его
+        
         if response.status_code == 200:
              try:
                  result = response.json()
                  if isinstance(result, dict) and not result.get('success', True):
                      raise HTTPException(status_code=400, detail=result.get('message'))
              except:
-                 pass # Если не JSON, считаем успехом
+                 pass 
                  
         elif response.status_code >= 400:
              error_msg = response.json().get('message', 'Ошибка при голосовании')
