@@ -900,26 +900,69 @@
         }
 
         async function vote(nId, cId) {
-            Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            const tg = Telegram.WebApp;
+            tg.HapticFeedback.impactOccurred('medium');
             
-            // СРАЗУ СОХРАНЯЕМ В ПАМЯТЬ ТЕЛЕФОНА (Чтобы кнопка загорелась, даже если сервер не вернет ID)
+            // СРАЗУ СОХРАНЯЕМ В ПАМЯТЬ ТЕЛЕФОНА
             localStorage.setItem('slay_vote_' + nId, cId);
             
             closeModal('vote-modal');
+
             try {
                 const res = await fetch('/api/v1/slay/vote', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData, nomination_id: nId, candidate_id: cId })
+                    body: JSON.stringify({ 
+                        initData: tg.initData, 
+                        nomination_id: nId, 
+                        candidate_id: cId 
+                    })
                 });
-                const d = await res.json();
-                if(d.success) {
-                    Telegram.WebApp.showAlert("✅ Голос принят! +3 Билета");
-                    loadNominations();
-                } else {
-                    Telegram.WebApp.showAlert(d.message || "Ошибка");
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    // 1. ЕСЛИ НЕТ ПОДПИСКИ (403)
+                    if (res.status === 403 && data.detail === "subscription_required") {
+                        tg.showPopup({
+                            title: '🔒 Доступ закрыт',
+                            message: 'Чтобы голосовать за легенд, нужно быть частью семьи!\n\nПодпишись на канал HATElove_ttv.',
+                            buttons: [
+                                {id: 'sub', type: 'default', text: 'Подписаться ✈️'},
+                                {type: 'cancel', text: 'Позже'}
+                            ]
+                        }, function(btnId) {
+                            if (btnId === 'sub') {
+                                tg.openTelegramLink('https://t.me/HATElove_ttv');
+                            }
+                        });
+                        return;
+                    }
+
+                    // 2. ЕСЛИ ГОЛОСУЕТ САМ ЗА СЕБЯ (400)
+                    if (res.status === 400) {
+                        tg.showAlert(data.detail || "Голосовать за самого себя нельзя! 🤡");
+                        return;
+                    }
+
+                    // ОСТАЛЬНЫЕ ОШИБКИ
+                    throw new Error(data.detail || 'Ошибка сервера');
                 }
-            } catch(e) { Telegram.WebApp.showAlert("Ошибка сети"); }
+
+                // 3. УСПЕХ
+                if(data.success) {
+                    tg.showPopup({
+                        title: 'Успех! ❤️',
+                        message: 'Твой голос принят.\n+3 Билета начислены!',
+                        buttons: [{type: 'ok'}]
+                    });
+                    loadNominations();
+                }
+
+            } catch(e) { 
+                console.error(e);
+                Telegram.WebApp.showAlert("Ошибка сети или сервера. Попробуйте позже."); 
+            }
         }
 
         // --- REWARDS MODAL ---
