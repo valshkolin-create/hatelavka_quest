@@ -1552,6 +1552,74 @@ async def ensure_twitch_cache(supabase: httpx.AsyncClient):
     except Exception as e:
         logging.error(f"Ошибка обновления кэша Twitch: {e}")
 
+async def auto_sync_vips_logic(supabase: httpx.AsyncClient):
+    """
+    🔄 Магическая функция: Обновляет токен стримера и синхронизирует VIP-ов.
+    """
+    broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
+    if not broadcaster_id: return
+
+    # 1. Достаем Refresh Token стримера из базы
+    resp = await supabase.get(
+        "/users", 
+        params={"twitch_id": f"eq.{broadcaster_id}", "select": "twitch_refresh_token"}
+    )
+    data = resp.json()
+    if not data or not data[0].get("twitch_refresh_token"):
+        logging.error("❌ Не найден Refresh Token стримера. Зайдите в бота через Twitch!")
+        return
+
+    old_refresh_token = data[0]["twitch_refresh_token"]
+
+    # 2. Обновляем токен через Twitch API
+    async with httpx.AsyncClient() as client:
+        refresh_resp = await client.post(
+            "https://id.twitch.tv/oauth2/token",
+            data={
+                "client_id": TWITCH_CLIENT_ID,
+                "client_secret": TWITCH_CLIENT_SECRET,
+                "grant_type": "refresh_token",
+                "refresh_token": old_refresh_token
+            }
+        )
+        
+        if refresh_resp.status_code != 200:
+            logging.error(f"❌ Ошибка обновления токена: {refresh_resp.text}")
+            return
+
+        tokens = refresh_resp.json()
+        new_access_token = tokens["access_token"]
+        new_refresh_token = tokens.get("refresh_token", old_refresh_token)
+
+        # 3. Сохраняем новые ключи в базу (чтобы в следующий раз тоже сработало)
+        await supabase.patch(
+            "/users",
+            params={"twitch_id": f"eq.{broadcaster_id}"},
+            json={"twitch_access_token": new_access_token, "twitch_refresh_token": new_refresh_token}
+        )
+
+        # 4. Скачиваем список VIP-ов
+        headers = {"Authorization": f"Bearer {new_access_token}", "Client-Id": TWITCH_CLIENT_ID}
+        vips_resp = await client.get(
+            f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&first=100",
+            headers=headers
+        )
+        
+        if vips_resp.status_code == 200:
+            vips_data = vips_resp.json().get("data", [])
+            vip_logins = [v["user_login"].lower() for v in vips_data]
+            
+            if vip_logins:
+                # 5. Проставляем статус VIP в базе
+                await supabase.patch(
+                    "/users",
+                    json={"twitch_status": "vip"},
+                    params={"twitch_login": f"in.({','.join(vip_logins)})"}
+                )
+                logging.info(f"✅ Авто-синхронизация: Обновлено {len(vip_logins)} VIP-ов!")
+        else:
+            logging.error(f"Ошибка получения VIP: {vips_resp.text}")
+
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
     if not message_id: return
@@ -1582,6 +1650,16 @@ async def process_twitch_notification_background(data: dict, message_id: str):
             
             # 1. Сохраняем статус в settings (чтобы в профиле горело "Онлайн")
             await supabase.post("/settings", json={"key": "twitch_stream_status", "value": True}, headers={"Prefer": "resolution=merge-duplicates"})
+
+            # --- 🔥 НАЧАЛО ВСТАВКИ: АВТО-СИНХРОНИЗАЦИЯ VIP 🔥 ---
+            try:
+                # Передаем текущий клиент supabase в функцию магии
+                logging.info("🔄 Запуск авто-обновления VIP-ов...")
+                await auto_sync_vips_logic(supabase)
+            except Exception as e:
+                # Оборачиваем в try/except, чтобы ошибка VIP не сломала рассылку уведомления о стриме
+                logging.error(f"⚠️ Ошибка при авто-синхронизации VIP: {e}")
+            # --- 🔥 КОНЕЦ ВСТАВКИ 🔥 ---
             
             # 2. Формируем сообщение (Текст 1-в-1 как в тесте)
             msg_text = (
@@ -1595,6 +1673,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
             # и отправит им сообщение в личку.
             await broadcast_notification_task(msg_text, "notify_stream_start")
             return
+            
 
         elif event_type == "stream.offline":
             logging.info("⚫ Стрим OFFLINE.")
@@ -3249,12 +3328,15 @@ async def twitch_oauth_callback(
         raise HTTPException(status_code=403, detail="Invalid state. CSRF attack?")
         
     async with httpx.AsyncClient() as client:
-        # 1. Обмениваем код на токен
+        # 1. Exchange code for token
         token_response = await client.post(
             "https://id.twitch.tv/oauth2/token",
             data={
-                "client_id": TWITCH_CLIENT_ID, "client_secret": TWITCH_CLIENT_SECRET,
-                "code": code, "grant_type": "authorization_code", "redirect_uri": TWITCH_REDIRECT_URI,
+                "client_id": TWITCH_CLIENT_ID, 
+                "client_secret": TWITCH_CLIENT_SECRET,
+                "code": code, 
+                "grant_type": "authorization_code", 
+                "redirect_uri": TWITCH_REDIRECT_URI,
             }
         )
         token_data = token_response.json()
@@ -3262,63 +3344,85 @@ async def twitch_oauth_callback(
             raise HTTPException(status_code=500, detail="Failed to get access token from Twitch")
             
         access_token = token_data["access_token"]
+        refresh_token = token_data.get("refresh_token") 
         headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
         
-        # 2. Получаем данные пользователя Twitch
+        # 2. Get user data
         user_response = await client.get("https://api.twitch.tv/helix/users", headers=headers)
         user_data = user_response.json()
         if not user_data.get("data"):
             raise HTTPException(status_code=500, detail="Failed to get user info from Twitch")
-            
+
         twitch_user = user_data["data"][0]
         twitch_id = twitch_user["id"]
         twitch_login = twitch_user["login"] 
         
-        # --- 🔥 НОВАЯ ЛОГИКА: ПРОВЕРКА ПОДПИСКИ 🔥 ---
-        
-        # ID вашего канала (Стримера). Лучше вынести в .env: TWITCH_BROADCASTER_ID
-        # Если не задано, попробуем использовать ID админа из базы (если он там есть)
-        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID", "12345678") # <-- ЗАМЕНИТЕ 12345678 НА ВАШ ID КАНАЛА
-        
-        determined_status = None # По умолчанию
-        
-        try:
-            # Проверяем подписку пользователя на канал стримера
-            sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
-            sub_resp = await client.get(sub_url, headers=headers)
-            
-            if sub_resp.status_code == 200:
-                # Если 200 OK — значит есть подписка!
-                determined_status = "subscriber"
-                logging.info(f"✅ Пользователь {twitch_login} имеет подписку!")
-            elif sub_resp.status_code == 404:
-                # 404 — нет подписки
-                determined_status = None
-                logging.info(f"Пользователь {twitch_login} без подписки.")
-            else:
-                logging.warning(f"Ошибка проверки подписки: {sub_resp.text}")
-                
-        except Exception as e:
-            logging.error(f"Ошибка при проверке статуса Twitch: {e}")
-
-        # ----------------------------------------------------
-
-        # 3. Сохраняем в Supabase
+        # 3. Prepare data for Supabase update
         user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
         if not user_info or "id" not in user_info:
             raise HTTPException(status_code=401, detail="Invalid Telegram initData")
             
         telegram_id = user_info["id"]
+
+        update_payload = {
+            "twitch_id": twitch_id, 
+            "twitch_login": twitch_login
+        }
+
+        # --- 👑 ADMIN LOGIC (Save Keys) ---
+        # Get Broadcaster ID from environment variable
+        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
         
-        # Обновляем таблицу users: добавляем twitch_status
+        # If the user logging in IS the streamer, save their keys for auto-updates later
+        if broadcaster_id and str(twitch_id) == str(broadcaster_id):
+            update_payload["twitch_access_token"] = access_token
+            update_payload["twitch_refresh_token"] = refresh_token
+            logging.info("🔑 Streamer keys successfully saved to DB!")
+
+        # --- 👤 USER LOGIC (Check Subscription) ---
+        new_status = "none" # Default status
+        
+        if broadcaster_id:
+            try:
+                # Check subscription of the current user to the broadcaster's channel
+                # This works using the user's own token (access_token)
+                sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
+                sub_resp = await client.get(sub_url, headers=headers)
+                
+                if sub_resp.status_code == 200:
+                    new_status = "subscriber" # ✅ Found subscription
+                    logging.info(f"✅ User {twitch_login} is a SUBSCRIBER!")
+                elif sub_resp.status_code == 404:
+                    # 404 means no subscription found
+                    logging.info(f"User {twitch_login} is not a subscriber.")
+                else:
+                    logging.warning(f"Twitch API Error checking subscription: {sub_resp.text}")
+            except Exception as e:
+                logging.error(f"Error checking subscription: {e}")
+
+        # --- 🛡️ VIP STATUS PROTECTION ---
+        # Check current status in DB to avoid overwriting VIP with 'subscriber' or 'none'
+        # VIP status must be set manually in DB or via separate Admin Sync logic
+        try:
+            current_user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
+            current_status_db = current_user_resp.json()[0].get("twitch_status") if current_user_resp.json() else None
+            
+            final_status = new_status
+            
+            # If user is already VIP in DB, do not downgrade them
+            if current_status_db == "vip":
+                final_status = "vip" 
+            
+            update_payload["twitch_status"] = final_status
+            
+        except Exception as e:
+             logging.error(f"Error checking existing DB status: {e}")
+
+        # 4. Update users table
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
-            json={
-                "twitch_id": twitch_id, 
-                "twitch_login": twitch_login,
-                "twitch_status": determined_status # <-- Записываем статус!
-            }
+            json=update_payload
         )
         
     redirect_url = f"{WEB_APP_URL}/profile"
@@ -9899,6 +10003,8 @@ async def send_test_notification_api(
     background_tasks.add_task(safe_send_message, telegram_id, msg)
     
     return {"status": "sent"}
+
+
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
 
