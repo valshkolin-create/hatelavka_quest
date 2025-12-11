@@ -3219,13 +3219,17 @@ async def twitch_oauth_start(initData: str):
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
     state = create_twitch_state(initData)
+    
+    # --- 👇 ОБНОВЛЕННЫЕ СКОУПЫ (ПРАВА) 👇 ---
+    # Добавили user:read:subscriptions чтобы проверять подписку
+    scopes = "user:read:email+channel:read:redemptions+user:read:subscriptions"
+    
     twitch_auth_url = (
         "https://id.twitch.tv/oauth2/authorize"
         f"?response_type=code"
         f"&client_id={TWITCH_CLIENT_ID}"
         f"&redirect_uri={TWITCH_REDIRECT_URI}"
-        f"&scope=user:read:email+channel:read:redemptions"  # <--- ДОБАВИЛИ ПРАВА
-        f"&scope=user:read:email"
+        f"&scope={scopes}" 
         f"&state={state}"
     )
     response = Response(status_code=307)
@@ -3243,7 +3247,9 @@ async def twitch_oauth_callback(
     init_data = request.cookies.get("twitch_oauth_init_data")
     if not init_data or not validate_twitch_state(state, init_data):
         raise HTTPException(status_code=403, detail="Invalid state. CSRF attack?")
+        
     async with httpx.AsyncClient() as client:
+        # 1. Обмениваем код на токен
         token_response = await client.post(
             "https://id.twitch.tv/oauth2/token",
             data={
@@ -3254,24 +3260,67 @@ async def twitch_oauth_callback(
         token_data = token_response.json()
         if "access_token" not in token_data:
             raise HTTPException(status_code=500, detail="Failed to get access token from Twitch")
+            
         access_token = token_data["access_token"]
         headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
+        
+        # 2. Получаем данные пользователя Twitch
         user_response = await client.get("https://api.twitch.tv/helix/users", headers=headers)
         user_data = user_response.json()
         if not user_data.get("data"):
             raise HTTPException(status_code=500, detail="Failed to get user info from Twitch")
+            
         twitch_user = user_data["data"][0]
         twitch_id = twitch_user["id"]
         twitch_login = twitch_user["login"] 
+        
+        # --- 🔥 НОВАЯ ЛОГИКА: ПРОВЕРКА ПОДПИСКИ 🔥 ---
+        
+        # ID вашего канала (Стримера). Лучше вынести в .env: TWITCH_BROADCASTER_ID
+        # Если не задано, попробуем использовать ID админа из базы (если он там есть)
+        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID", "12345678") # <-- ЗАМЕНИТЕ 12345678 НА ВАШ ID КАНАЛА
+        
+        determined_status = None # По умолчанию
+        
+        try:
+            # Проверяем подписку пользователя на канал стримера
+            sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
+            sub_resp = await client.get(sub_url, headers=headers)
+            
+            if sub_resp.status_code == 200:
+                # Если 200 OK — значит есть подписка!
+                determined_status = "subscriber"
+                logging.info(f"✅ Пользователь {twitch_login} имеет подписку!")
+            elif sub_resp.status_code == 404:
+                # 404 — нет подписки
+                determined_status = None
+                logging.info(f"Пользователь {twitch_login} без подписки.")
+            else:
+                logging.warning(f"Ошибка проверки подписки: {sub_resp.text}")
+                
+        except Exception as e:
+            logging.error(f"Ошибка при проверке статуса Twitch: {e}")
+
+        # ----------------------------------------------------
+
+        # 3. Сохраняем в Supabase
         user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
         if not user_info or "id" not in user_info:
             raise HTTPException(status_code=401, detail="Invalid Telegram initData")
+            
         telegram_id = user_info["id"]
+        
+        # Обновляем таблицу users: добавляем twitch_status
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
-            json={"twitch_id": twitch_id, "twitch_login": twitch_login}
+            json={
+                "twitch_id": twitch_id, 
+                "twitch_login": twitch_login,
+                "twitch_status": determined_status # <-- Записываем статус!
+            }
         )
+        
     redirect_url = f"{WEB_APP_URL}/profile"
     response = Response(status_code=307)
     response.headers['Location'] = redirect_url
