@@ -540,8 +540,16 @@ document.addEventListener('DOMContentLoaded', function() {
         lastGrindTime: null, 
         lastFreeTicket: null,
         active_referrals_count: 0,
-        referral_activated_at: null
+        referral_activated_at: null,
+        twitch_status: null // <-- НОВОЕ ПОЛЕ
     };
+  // <-- ДОБАВИТЬ ЭТОТ БЛОК
+    let grindSettings = { 
+        twitch_status_boost_coins: 0.5,
+        twitch_status_free_tickets: 5,
+        ref_boost_coins_per_user: 0.1
+    };
+    // ----------------------
 
     let shopItems = [];
     let currentTab = 'tickets';
@@ -582,9 +590,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 userState.lastGrindTime = data.last_grind_at;
                 userState.lastFreeTicket = data.last_free_ticket_claimed_at;
                 
-                // Данные для бустов
+                // Данные для бустов (старая логика)
                 userState.active_referrals_count = data.active_referrals_count || 0;
                 userState.referral_activated_at = data.referral_activated_at;
+                
+                // --- 🔥 НОВАЯ ЛОГИКА 🔥 ---
+                userState.twitch_status = data.twitch_status; // 'vip', 'subscriber', или null
+                if (data.grind_settings) {
+                    grindSettings = data.grind_settings;
+                }
+                // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
                 
                 updateUI();
                 renderStreakVisuals();
@@ -596,6 +611,11 @@ document.addEventListener('DOMContentLoaded', function() {
             tg.showAlert("Ошибка загрузки данных.");
         }
     }
+  
+  function isTwitchBoostActive() {
+        return userState.twitch_status === 'vip' || userState.twitch_status === 'subscriber';
+    }
+  
 
     function calculateBoosts() {
         // Базовая награда
@@ -638,6 +658,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>`;
             }
         }
+      
+      // --- 🔥 НОВАЯ ЛОГИКА TWITCH STATUS BOOST 🔥 ---
+        const twitchStatus = userState.twitch_status;
+        if (twitchStatus === 'vip' || twitchStatus === 'subscriber') {
+            const statusCoins = grindSettings.twitch_status_boost_coins; // <-- Используем новую настройку
+            
+            // Если VIP Новичка еще активен, мы не добавляем монеты за Twitch Status,
+            // но отображаем его как самый высокий статус.
+            // ИЛИ: мы добавляем его как отдельный бонус:
+            
+            // Если VIP Новичка НЕ активен ИЛИ это VIP/Sub дает БОЛЬШЕ монет:
+            // Для простоты: добавляем как отдельный бонус (вы можете настроить приоритет позже)
+            totalBonus += statusCoins;
+            const statusLabel = twitchStatus === 'vip' ? '👑 VIP Twitch' : '⭐ Sub Twitch';
+            boostsHTML += `<div class="boost-row">
+                <span class="boost-vip">${statusLabel} Boost:</span>
+                <span class="boost-vip">+${statusCoins.toFixed(1)}</span>
+            </div>`;
+        }
+        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
         
         return { totalBonus, boostsHTML, baseReward };
     }
@@ -693,36 +733,48 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
         
-        // --- 🔥 ЛОГИКА ТАЙМЕРА VIP 🔥 ---
-        if (userState.referral_activated_at) {
+        // --- 🔥 ЛОГИКА ТАЙМЕРА VIP/SUB 🔥 ---
+        
+        const isNoviceVipActive = isVipActive(); // Проверяем старый 7-дневный таймер
+        const isTwitchStatusActive = isTwitchBoostActive(); // Проверяем новый статус Twitch
+        
+        // Значения наград
+        const noviceVipTickets = 2; // Жестко задано
+        const twitchStatusTickets = grindSettings.twitch_status_free_tickets; // Из настройки
+
+        if (isNoviceVipActive) {
+            // ЛОГИКА 1: VIP Новичка АКТИВЕН (отображаем его, как приоритет)
             const activatedTime = new Date(userState.referral_activated_at).getTime();
             const vipDuration = 7 * 24 * 60 * 60 * 1000;
             const expirationTime = activatedTime + vipDuration;
             const timeLeft = expirationTime - now;
 
-            // Пока осталось хоть 1 миллисекунда времени
             if (timeLeft > 0) {
-                // Если осталось меньше 24 часов — включаем подробный таймер
                 if (timeLeft < 24 * 60 * 60 * 1000) {
                     const h = Math.floor(timeLeft / 3600000);
                     const m = Math.floor((timeLeft % 3600000) / 60000);
-                    // Пишем "ещё..." чтобы человек понимал, что время уходит
-                    dom.ticketSubtitle.textContent = `VIP: +2 билета (ещё ${h}ч ${m}м)`;
+                    dom.ticketSubtitle.textContent = `VIP: +${noviceVipTickets} билета (ещё ${h}ч ${m}м)`;
                 } else {
-                    // Если больше суток — просто дни
                     const daysLeft = Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
-                    dom.ticketSubtitle.textContent = `VIP: +2 билета (ост. ${daysLeft} дн)`;
+                    dom.ticketSubtitle.textContent = `VIP: +${noviceVipTickets} билета (ост. ${daysLeft} дн)`;
                 }
                 dom.ticketSubtitle.style.color = "#FFD700";
-            } else {
-                // Время вышло
-                dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
-                dom.ticketSubtitle.style.color = "var(--text-secondary)";
+                return; // Выходим, так как Новичок активен
             }
-        } else {
-            dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
-            dom.ticketSubtitle.style.color = "var(--text-secondary)";
+            // Если NoviceVipActive == true, но timeLeft <= 0, то мы проваливаемся в следующие проверки
         }
+        
+        if (isTwitchStatusActive) {
+             // ЛОГИКА 2: Twitch VIP/Sub АКТИВЕН (Новичок либо истек, либо его не было)
+             dom.ticketSubtitle.textContent = `VIP/Sub Twitch: +${twitchStatusTickets} билета!`;
+             dom.ticketSubtitle.style.color = "#FFD700";
+        }
+        else {
+             // ЛОГИКА 3: Все бусты НЕ АКТИВНЫ
+             dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
+             dom.ticketSubtitle.style.color = "var(--text-secondary)";
+        }
+        
     }
   
     function renderStreakVisuals() {
@@ -949,12 +1001,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderFreeTicketBtn() {
         const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
         const now = new Date().getTime();
-        const diff = now - lastClaim;
+        const diff = now - last;
+        const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
+
+        const isNoviceVipActive = isVipActive(); 
+        const isTwitchStatusActive = isTwitchBoostActive(); 
+        const isBoosted = isNoviceVipActive || isTwitchStatusActive;
+
+        let ticketsReward = 1;
+        if (isNoviceVipActive) {
+            ticketsReward = 2; // Приоритет старому VIP Новичка (2 билета)
+        } else if (isTwitchStatusActive) {
+            ticketsReward = grindSettings.twitch_status_free_tickets; // Новая настройка
+        } else {
+             ticketsReward = 1; // Базовая награда (1 билет)
+        }
 
         if (diff > GRIND_COOLDOWN) {
-            // Если VIP, показываем что дадут 2 билета
-            const btnText = isVipActive() ? "+2 БИЛЕТА (VIP)" : "ПОЛУЧИТЬ";
-            const btnColor = isVipActive() ? "#FFD700" : "#fff";
+            const btnText = isBoosted ? `+${ticketsReward} БИЛЕТА (VIP)` : "ПОЛУЧИТЬ";
+            const btnColor = isBoosted ? "#FFD700" : "#fff";
             
             dom.freeTicketContainer.innerHTML = `<button class="mini-btn" style="border-color:${btnColor}; color:${btnColor}; width:100%;" onclick="claimFreeTicket()">${btnText}</button>`;
         } else {
