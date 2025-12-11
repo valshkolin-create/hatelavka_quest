@@ -999,24 +999,32 @@ document.addEventListener('DOMContentLoaded', function() {
     };
   
     function renderFreeTicketBtn() {
+        // 1. Получаем время последнего клейма (используем lastClaim, а не last)
         const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
         const now = new Date().getTime();
-        const diff = now - last;
+        
+        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+        const diff = now - lastClaim; // Было: now - last (что вызывало ошибку)
+        // -------------------------
+        
         const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
 
+        // 2. Логика определения типа награды (VIP Новичка vs Twitch VIP)
         const isNoviceVipActive = isVipActive(); 
         const isTwitchStatusActive = isTwitchBoostActive(); 
         const isBoosted = isNoviceVipActive || isTwitchStatusActive;
 
         let ticketsReward = 1;
+        
         if (isNoviceVipActive) {
-            ticketsReward = 2; // Приоритет старому VIP Новичка (2 билета)
+            ticketsReward = 2; // Приоритет: VIP Новичка (2 билета)
         } else if (isTwitchStatusActive) {
-            ticketsReward = grindSettings.twitch_status_free_tickets; // Новая настройка
+            ticketsReward = grindSettings.twitch_status_free_tickets; // Настройка: Twitch VIP
         } else {
-             ticketsReward = 1; // Базовая награда (1 билет)
+             ticketsReward = 1; // База
         }
 
+        // 3. Отрисовка кнопки
         if (diff > GRIND_COOLDOWN) {
             const btnText = isBoosted ? `+${ticketsReward} БИЛЕТА (VIP)` : "ПОЛУЧИТЬ";
             const btnColor = isBoosted ? "#FFD700" : "#fff";
