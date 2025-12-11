@@ -725,6 +725,9 @@
         </button>
     </div>
 </div>
+    <div id="action-loader" class="custom-modal-overlay" style="z-index: 20000;">
+    <div class="loader-spinner" style="width: 50px; height: 50px; border-width: 4px;"></div>
+</div>
 
     <footer class="app-footer">
         <a href="/leaderboard" class="footer-item">
@@ -769,6 +772,13 @@
         }
         function closeSuccessModal() {
             document.getElementById('success-modal').classList.remove('active');
+        }
+        function showLoader() {
+            document.getElementById('action-loader').classList.add('active');
+        }
+
+        function hideLoader() {
+            document.getElementById('action-loader').classList.remove('active');
         }
 
         // --- INIT ---
@@ -960,10 +970,11 @@
             const tg = Telegram.WebApp;
             tg.HapticFeedback.impactOccurred('medium');
             
-            // СРАЗУ СОХРАНЯЕМ В ПАМЯТЬ ТЕЛЕФОНА
+            // Сохраняем выбор визуально
             localStorage.setItem('slay_vote_' + nId, cId);
             
-            closeModal('vote-modal');
+            closeModal('vote-modal'); // Закрываем меню выбора
+            showLoader();             // ⏳ ВКЛЮЧАЕМ ЗАГРУЗКУ (Блокируем экран)
 
             try {
                 const res = await fetch('/api/v1/slay/vote', {
@@ -978,34 +989,37 @@
 
                 const data = await res.json();
 
+                // Искусственная задержка (300мс), чтобы лоадер не моргал слишком быстро
+                // Это добавляет ощущения "веса" и плавности
+                await new Promise(r => setTimeout(r, 300));
+
                 if (!res.ok) {
-                    // 1. ЕСЛИ НЕТ ПОДПИСКИ (403) -> ОТКРЫВАЕМ SLAY МОДАЛКУ ПОДПИСКИ
+                    // 1. ОШИБКА ПОДПИСКИ
                     if (res.status === 403 && data.detail === "subscription_required") {
                         document.getElementById('sub-modal').classList.add('active');
                         return;
                     }
 
-                    // 2. ЕСЛИ ГОЛОСУЕТ САМ ЗА СЕБЯ (400)
+                    // 2. ОШИБКА САМОЛАЙКА
                     if (res.status === 400) {
                         tg.showAlert(data.detail || "Голосовать за самого себя нельзя! 🤡");
                         return;
                     }
 
-                    // ОСТАЛЬНЫЕ ОШИБКИ
                     throw new Error(data.detail || 'Ошибка сервера');
                 }
 
-                // 3. УСПЕХ -> ОТКРЫВАЕМ SLAY МОДАЛКУ УСПЕХА
+                // 3. УСПЕХ
                 if(data.success) {
                     document.getElementById('success-modal').classList.add('active');
-                    
-                    // Обновляем данные на фоне
-                    loadNominations();
+                    loadNominations(); // Обновляем цифры на фоне
                 }
 
             } catch(e) { 
                 console.error(e);
                 tg.showAlert("Ошибка сети или сервера. Попробуйте позже."); 
+            } finally {
+                hideLoader(); // ✅ ВЫКЛЮЧАЕМ ЗАГРУЗКУ (В любом случае)
             }
         }
         
