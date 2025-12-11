@@ -705,6 +705,26 @@
         </div>
     </div>
 </div>
+    <div id="success-modal" class="custom-modal-overlay">
+    <div class="pass-modal" style="padding: 30px 20px; max-width: 320px; border-color: var(--gold);">
+        <div style="font-size: 42px; color: var(--gold); margin-bottom: 20px; text-shadow: 0 0 25px rgba(255, 215, 0, 0.6);">
+            <i class="fa-solid fa-ticket"></i>
+        </div>
+        
+        <h3 style="color: #fff; font-size: 24px; font-weight: 800; text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px;">
+            УСПЕХ!
+        </h3>
+        
+        <p style="color: #ccc; font-size: 15px; line-height: 1.5; margin: 0 0 25px 0;">
+            Твой голос учтен.<br>
+            <span style="color: var(--gold); font-weight: 700;">+3 Билета начислены!</span>
+        </p>
+        
+        <button class="modal-btn btn-confirm" onclick="closeSuccessModal()" style="width: 100%;">
+            Отлично!
+        </button>
+    </div>
+</div>
 
     <footer class="app-footer">
         <a href="/leaderboard" class="footer-item">
@@ -746,6 +766,9 @@
             // Закрываем модалку и открываем канал
             closeSubModal();
             Telegram.WebApp.openTelegramLink('https://t.me/HATElove_ttv');
+        }
+        function closeSuccessModal() {
+            document.getElementById('success-modal').classList.remove('active');
         }
 
         // --- INIT ---
@@ -956,7 +979,7 @@
                 const data = await res.json();
 
                 if (!res.ok) {
-                    // 1. ЕСЛИ НЕТ ПОДПИСКИ (403) -> ОТКРЫВАЕМ SLAY МОДАЛКУ
+                    // 1. ЕСЛИ НЕТ ПОДПИСКИ (403) -> ОТКРЫВАЕМ SLAY МОДАЛКУ ПОДПИСКИ
                     if (res.status === 403 && data.detail === "subscription_required") {
                         document.getElementById('sub-modal').classList.add('active');
                         return;
@@ -972,13 +995,11 @@
                     throw new Error(data.detail || 'Ошибка сервера');
                 }
 
-                // 3. УСПЕХ
+                // 3. УСПЕХ -> ОТКРЫВАЕМ SLAY МОДАЛКУ УСПЕХА
                 if(data.success) {
-                    tg.showPopup({
-                        title: 'Успех! ❤️',
-                        message: 'Твой голос принят.\n+3 Билета начислены!',
-                        buttons: [{type: 'ok'}]
-                    });
+                    document.getElementById('success-modal').classList.add('active');
+                    
+                    // Обновляем данные на фоне
                     loadNominations();
                 }
 
