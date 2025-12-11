@@ -3402,6 +3402,7 @@ async def get_public_quests(request_data: InitDataRequest):
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
 # 👇 Убедитесь, что этот импорт есть в начале файла
+# 👇 Убедитесь, что этот импорт есть в самом верху файла index.py
 from urllib.parse import urlencode
 
 @app.get("/api/v1/auth/twitch_oauth")
@@ -3409,13 +3410,12 @@ async def twitch_oauth_start(initData: str):
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
     
-    # Генерируем state
     state = create_twitch_state(initData)
     
-    # Права доступа (Scopes)
+    # Права (Scopes) через пробел
     scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
     
-    # Параметры для URL
+    # 1. Собираем параметры через словарь (это исправит ошибку "missing response type")
     params = {
         "response_type": "code",
         "client_id": TWITCH_CLIENT_ID,
@@ -3424,14 +3424,15 @@ async def twitch_oauth_start(initData: str):
         "state": state
     }
     
-    # Формируем безопасную ссылку
+    # 2. Генерируем ссылку
     twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{urlencode(params)}"
     
-    # 🔥 ИЗМЕНЕНИЕ: Возвращаем JSON с ссылкой, а не делаем редирект.
-    # Это позволит фронтенду самому решить, как её открыть (через openLink).
-    response = JSONResponse(content={"url": twitch_auth_url})
+    # 3. 🔥 ВАЖНО: Делаем REDIRECT (307), а не JSON.
+    # Это заставит браузер (Яндекс/Chrome) сохранить куку у себя.
+    response = Response(status_code=307)
+    response.headers['Location'] = twitch_auth_url
     
-    # Устанавливаем cookie (важно!)
+    # Устанавливаем куку
     response.set_cookie(
         key="twitch_oauth_init_data", 
         value=initData, 
