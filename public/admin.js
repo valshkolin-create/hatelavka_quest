@@ -1420,7 +1420,7 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
             const finalSliderOrder = loadedOrder.filter(id => defaultOrder.includes(id));
 
             const slideNames = {
-                skin_race: 'Гонка за скинами',
+                skin_race: 'HATElove Awards',
                 cauldron: 'Ивент "Котел"',
                 auction: 'Аукцион',
                 checkpoint: 'Марафон Чекпоинт'
