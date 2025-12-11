@@ -1286,6 +1286,17 @@ async function checkReferralAndWelcome(userData) {
     const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
     const bonusBtn = document.getElementById('open-bonus-btn');
 
+    // --- ОПТИМИЗАЦИЯ: Мгновенный показ кнопки (если есть ссылка r_) ---
+    let potentialReferral = false;
+    if (startParam && startParam.startsWith('r_') && !userData.referral_activated_at) {
+        potentialReferral = true;
+        // Сразу показываем кнопку, не ждем сеть
+        if (bonusBtn) {
+            bonusBtn.classList.remove('hidden');
+            bonusBtn.onclick = () => openWelcomePopup(userData);
+        }
+    }
+
     // 1. Попытка синхронизации при входе по ссылке
     if (startParam && startParam.startsWith('r_')) {
         try {
@@ -1295,23 +1306,27 @@ async function checkReferralAndWelcome(userData) {
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
             const syncData = await syncRes.json();
+            
+            // Если сервер подтвердил реферала, обновляем локальные данные
             if (syncData.referrer) {
                 userData.referrer_id = syncData.referrer;
+            } else if (syncData.status === 'already_has_ref' || syncData.status === 'no_change') {
+                // Если реферал уже был, ничего страшного, оставляем как есть
             }
         } catch (e) { console.error("Ref sync error", e); }
     }
 
-    // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
+    // --- ЛОГИКА ОТОБРАЖЕНИЯ (ФИНАЛЬНАЯ ПРОВЕРКА) ---
 
-    // Если бонус УЖЕ получен -> Прячем всё
+    // Если бонус УЖЕ получен -> Прячем всё (даже если показали ранее)
     if (userData.referral_activated_at) {
         if (bonusBtn) bonusBtn.classList.add('hidden');
         localStorage.removeItem('openRefPopupOnLoad'); 
         return; 
     }
 
-    // Если есть реферер -> Показываем
-    if (userData.referrer_id) {
+    // Если есть реферер (подтвержденный сервером ИЛИ мы только что пришли по ссылке) -> Показываем
+    if (userData.referrer_id || potentialReferral) {
         if (bonusBtn) {
             bonusBtn.classList.remove('hidden');
             bonusBtn.onclick = () => openWelcomePopup(userData);
@@ -1322,20 +1337,18 @@ async function checkReferralAndWelcome(userData) {
         const isDeferred = localStorage.getItem('bonusPopupDeferred');
 
         if (shouldRestorePopup) {
-            // Вернулся после Twitch -> Открываем СРАЗУ
             openWelcomePopup(userData);
             localStorage.removeItem('openRefPopupOnLoad');
         } 
         else if (!isDeferred) {
-            // Первый раз (не нажимал "Позже") -> Открываем
             openWelcomePopup(userData);
         } 
         else {
-            // Нажимал "Позже" -> Только уведомление сверху
             showTopBonusNotification(userData);
         }
     } 
     else {
+        // Если реферала нет и ссылки не было -> прячем
         if (bonusBtn) bonusBtn.classList.add('hidden');
     }
 }
@@ -2064,7 +2077,7 @@ async function renderFullInterface(bootstrapData) {
     allQuests = questsDataResp || [];
 
     // Проверки рефералов
-    checkReferralAndWelcome(userData);
+    await checkReferralAndWelcome(userData); // <--- ДОБАВИЛИ await
 
     // Баланс
     if (document.getElementById('ticketStats')) {
