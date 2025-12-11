@@ -2417,11 +2417,8 @@ async def vote_slay(
     
     user_id = user_info['id']
 
-    # -----------------------------------------------------------
-    # 🚫 1. ПРОВЕРКА НА САМОГОЛОСОВАНИЕ (Self-vote check)
-    # -----------------------------------------------------------
+    # 1. ПРОВЕРКА НА САМОГОЛОСОВАНИЕ
     try:
-        # Узнаем, кто владелец кандидата, за которого идет голос
         cand_resp = await supabase.get(
             "/slay_candidates",
             params={"id": f"eq.{request_data.candidate_id}", "select": "user_id"}
@@ -2430,8 +2427,6 @@ async def vote_slay(
         
         if candidates_data:
             candidate_owner_id = candidates_data[0].get('user_id')
-            
-            # Если ID голосующего совпадает с ID кандидата
             if candidate_owner_id == user_id:
                 raise HTTPException(
                     status_code=400,
@@ -2441,23 +2436,23 @@ async def vote_slay(
         raise he
     except Exception as e:
         logging.error(f"Ошибка проверки самолайка: {e}")
-        # Если база упала, лучше не дать проголосовать, чем допустить накрутку
         raise HTTPException(status_code=500, detail="Ошибка проверки кандидата")
 
-    # -----------------------------------------------------------
-    # 🔒 2. ПРОВЕРКА ПОДПИСКИ (Gatekeeping)
-    # -----------------------------------------------------------
+    # 2. ПРОВЕРКА ПОДПИСКИ (Gatekeeping)
     REQUIRED_CHANNEL_ID = -1002144676097 
-    
+    CHANNEL_LINK = "https://t.me/HATElove_ttv" # Ссылка для кнопки
+
     try:
         temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
         chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
         await temp_bot.session.close()
         
+        # Если статус left (вышел) или kicked (кикнут/забанен)
         if chat_member.status in ['left', 'kicked']:
+            # Важно: Мы возвращаем 403 Forbidden и специальный текст
             raise HTTPException(
                 status_code=403, 
-                detail="Для голосования необходимо подписаться на канал HATElove_ttv!"
+                detail="subscription_required" 
             )
             
     except TelegramForbiddenError:
@@ -2468,9 +2463,7 @@ async def vote_slay(
         logging.error(f"Ошибка проверки подписки: {e}")
         pass 
 
-    # -----------------------------------------------------------
-    # ✅ 3. ЗАПИСЬ ГОЛОСА
-    # -----------------------------------------------------------
+    # 3. ЗАПИСЬ ГОЛОСА
     try:
         response = await supabase.post(
             "/rpc/vote_in_slay",
