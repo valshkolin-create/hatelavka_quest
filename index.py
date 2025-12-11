@@ -1622,11 +1622,17 @@ async def auto_sync_vips_logic(supabase: httpx.AsyncClient):
 
 async def silent_update_twitch_user(telegram_id: int):
     """
-    Фоновая задача: Обновляет никнейм и статус подписки (С ЗАЩИТОЙ ОТ СПАМА).
+    Фоновая задача: Проверяет подписку при входе, используя сохраненный токен юзера.
     """
+    # Настройка кэша (в секундах). 
+    # 14400 секунд = 4 часа. 
+    # Если хочешь проверять чаще (например, раз в 10 минут), поставь 600.
+    CACHE_TTL_SECONDS = 14400 
+
     try:
-        # 1. Получаем токены и время последнего обновления
         client = await get_background_client()
+        
+        # 1. Берем данные юзера
         user_resp = await client.get(
             "/users", 
             params={
@@ -1636,26 +1642,31 @@ async def silent_update_twitch_user(telegram_id: int):
         )
         user_data = user_resp.json()
         
+        # Если юзер не привязывал Твич — выходим
         if not user_data or not user_data[0].get("twitch_refresh_token"):
-            return # Не привязан Twitch
+            return 
 
         user = user_data[0]
         
-        # --- 🛡️ ЗАЩИТА ОТ СПАМА И ЛИМИТОВ ---
+        # --- 🛡️ ПРОВЕРКА КЭША ---
         last_sync_str = user.get("last_twitch_sync")
         if last_sync_str:
-            last_sync_dt = datetime.fromisoformat(last_sync_str.replace('Z', '+00:00'))
-            # Если прошло меньше 5 минут (300 секунд), выходим и не тратим ресурсы
-            if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < 300:
-                # logging.info(f"⏳ Синхронизация Twitch для {telegram_id} пропущена (кэш свежий).")
-                return
-        # ------------------------------------
+            try:
+                last_sync_dt = datetime.fromisoformat(last_sync_str.replace('Z', '+00:00'))
+                seconds_passed = (datetime.now(timezone.utc) - last_sync_dt).total_seconds()
+                
+                # Если прошло меньше 4 часов (или сколько ты настроил), не проверяем
+                if seconds_passed < CACHE_TTL_SECONDS:
+                    return
+            except ValueError:
+                pass # Если дата битая, проверяем заново
+        # -----------------------
 
         refresh_token = user["twitch_refresh_token"]
         twitch_id = user["twitch_id"]
         current_status = user.get("twitch_status")
 
-        # 2. Обновляем токен
+        # 2. Обновляем протухший токен (Refresh -> Access)
         async with httpx.AsyncClient() as tw_client:
             token_resp = await tw_client.post(
                 "https://id.twitch.tv/oauth2/token",
@@ -1667,7 +1678,9 @@ async def silent_update_twitch_user(telegram_id: int):
                 }
             )
             
+            # Если токен не обновился (юзер отозвал права), выходим
             if token_resp.status_code != 200:
+                logging.warning(f"Токен Twitch для {telegram_id} умер. Требуется перепривязка.")
                 return
 
             new_tokens = token_resp.json()
@@ -1676,32 +1689,42 @@ async def silent_update_twitch_user(telegram_id: int):
             
             headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
 
-            # 3. Узнаем АКТУАЛЬНЫЙ никнейм
+            # 3. Узнаем АКТУАЛЬНЫЙ никнейм (на случай смены)
             user_api_resp = await tw_client.get("https://api.twitch.tv/helix/users", headers=headers)
             twitch_login_actual = None
             if user_api_resp.status_code == 200:
-                twitch_login_actual = user_api_resp.json()["data"][0]["login"]
+                data_json = user_api_resp.json()
+                if data_json.get("data"):
+                    twitch_login_actual = data_json["data"][0]["login"]
 
-            # 4. Проверяем подписку
+            # 4. 🔥 ПРОВЕРЯЕМ ПОДПИСКУ 🔥
             broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
             new_status = "none"
-            if broadcaster_id:
-                sub_resp = await tw_client.get(
-                    f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
-                    headers=headers
-                )
-                if sub_resp.status_code == 200:
-                    new_status = "subscriber"
             
+            if broadcaster_id:
+                try:
+                    # Этот запрос работает от имени ПОЛЬЗОВАТЕЛЯ
+                    sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
+                    sub_resp = await tw_client.get(sub_url, headers=headers)
+                    
+                    if sub_resp.status_code == 200:
+                        new_status = "subscriber"
+                        # logging.info(f"✅ [Silent Check] Юзер {telegram_id} — ПОДПИСЧИК.")
+                    elif sub_resp.status_code == 404:
+                        new_status = "none"
+                except Exception as e:
+                    logging.error(f"Ошибка проверки подписки в фоне: {e}")
+
+            # 5. Защита VIP (не понижаем, если он VIP)
             if current_status == "vip":
                 new_status = "vip"
 
-            # 5. Обновляем базу + записываем время синхронизации
+            # 6. Сохраняем в базу (обновляем статус, ник и ключи)
             update_data = {
                 "twitch_access_token": access_token,
                 "twitch_refresh_token": new_refresh,
                 "twitch_status": new_status,
-                "last_twitch_sync": datetime.now(timezone.utc).isoformat() # 🔥 Запоминаем время
+                "last_twitch_sync": datetime.now(timezone.utc).isoformat()
             }
             if twitch_login_actual:
                 update_data["twitch_login"] = twitch_login_actual
@@ -1709,7 +1732,7 @@ async def silent_update_twitch_user(telegram_id: int):
             await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
 
     except Exception as e:
-        logging.error(f"Ошибка тихого обновления Twitch: {e}")
+        logging.error(f"Критическая ошибка тихого обновления: {e}")
 
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
@@ -3984,22 +4007,21 @@ async def get_current_user_data(
         grind_settings = await get_grind_settings_async_global()
         final_response['grind_settings'] = grind_settings.dict()
         
-        # --- 🔥 ПОЛУЧЕНИЕ РЕФЕРАЛОВ (БЫЛО НЕДОСТУПНО) ---
+        # --- 🔥 ПОЛУЧЕНИЕ РЕФЕРАЛОВ (ЧЕСТНЫЙ ПОДСЧЕТ) ---
         try:
-            # Используем быстрый запрос к таблице users
-            ref_resp = supabase.table("users") \
-                .select("referrals_count") \
-                .eq("telegram_id", telegram_id) \
+            # Считаем реальные строки в базе, где referrer_id = наш ID
+            # И где referral_activated_at не пустой (только активные)
+            count_resp = supabase.table("users") \
+                .select("telegram_id", count="exact") \
+                .eq("referrer_id", telegram_id) \
+                .not_.is_("referral_activated_at", "null") \
                 .execute()
             
-            if ref_resp.data:
-                count = ref_resp.data[0].get('referrals_count')
-                final_response['active_referrals_count'] = count if count is not None else 0
-            else:
-                final_response['active_referrals_count'] = 0
+            # .count вернет точное число найденных строк
+            final_response['active_referrals_count'] = count_resp.count if count_resp.count is not None else 0
                 
         except Exception as e:
-            logging.warning(f"Ошибка получения referrals_count: {e}")
+            logging.warning(f"Ошибка подсчета рефералов: {e}")
             final_response['active_referrals_count'] = 0
 
         # --- ОБЩИЕ НАСТРОЙКИ ---
