@@ -3409,7 +3409,7 @@ async def twitch_oauth_start(initData: str):
     
     # --- 👇 ОБНОВЛЕННЫЕ СКОУПЫ (ПРАВА) 👇 ---
     # Добавили user:read:subscriptions чтобы проверять подписку
-    scopes = "user:read:email+channel:read:redemptions+user:read:subscriptions"
+    scopes = "user:read:email+channel:read:redemptions+user:read:subscriptions+channel:read:vips"
     
     twitch_auth_url = (
         "https://id.twitch.tv/oauth2/authorize"
