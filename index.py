@@ -665,7 +665,21 @@ CONDITION_TO_COLUMN = {
     "telegram_messages_week": "telegram_weekly_message_count",
     "telegram_messages_month": "telegram_monthly_message_count",
 }
-
+# --- Helper для очистки имен от рекламы ---
+def clean_user_name_text(text: str) -> str:
+    if not text:
+        return "User"
+    
+    # Список запрещенных фраз (в нижнем регистре для простоты)
+    banned = ["@cs_shot_bot", "t.me/", "cs.money", "http"]
+    
+    cleaned_text = text
+    for phrase in banned:
+        # re.escape экранирует спецсимволы, re.IGNORECASE игнорирует регистр
+        cleaned_text = re.sub(re.escape(phrase), "", cleaned_text, flags=re.IGNORECASE)
+    
+    # Убираем пробелы и проверяем, не стала ли строка пустой
+    return cleaned_text.strip() or "User"
 # --- Setup ---
 load_dotenv()
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
@@ -922,7 +936,8 @@ dp.include_router(router)
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
-    full_name = message.from_user.full_name
+    # 🔥 Очищаем имя тут тоже
+    full_name = clean_user_name_text(message.from_user.full_name)
     username = message.from_user.username
     
     try:
@@ -1269,19 +1284,20 @@ async def bootstrap_app(
 
         # 🔥 ЕСЛИ ЮЗЕРА НЕТ — СОЗДАЕМ ЕГО 🔥
         if not rpc_data or not rpc_data.get('profile'):
-            logging.info(f"🆕 Новый пользователь {telegram_id}. Создаем запись в таблице users...")
+            logging.info(f"🆕 Новый пользователь {telegram_id}...")
             
-            full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
+            raw_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+            # 🔥 Очищаем имя перед записью в базу
+            full_name_tg = clean_user_name_text(raw_full_name) 
+            
             username_tg = user_info.get("username")
             
-            # Выполняем INSERT
             await supabase.post(
                 "/users",
                 json={
                     "telegram_id": telegram_id,
                     "username": username_tg,
-                    "full_name": full_name_tg
-                    # Остальные поля заполнятся значениями по умолчанию (default) в базе
+                    "full_name": full_name_tg # Запишется чистое имя
                 },
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
@@ -2269,7 +2285,8 @@ async def make_auction_bid(
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
-    user_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Пользователь")
+    raw_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "Пользователь")
+    user_name = clean_user_name_text(raw_name)
 
     try:
         # --- 1. ПРОВЕРКА ТРЕЙД-ССЫЛКИ ---
