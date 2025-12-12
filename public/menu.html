@@ -315,23 +315,25 @@
       </div>
   </div>
   <div id="sos-modal-overlay" class="prompt-overlay hidden" style="z-index: 10002;">
-    <div class="prompt-modal" style="width: 90%; max-width: 320px; padding: 24px; border: 1px solid rgba(255, 255, 255, 0.1);">
-        <div style="background: #ff3b30; color: white; width: 48px; height: 48px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; border-radius: 4px; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); letter-spacing: 1px;">
+    <div class="prompt-modal" style="width: 90%; max-width: 320px; padding: 24px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px;">
+        
+        <div style="background: #ff3b30; color: white; width: 48px; height: 48px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); letter-spacing: 1px;">
             SOS
         </div>
 
-        <h3 style="margin-bottom: 12px; font-size: 20px; color: #fff;">Нужна помощь?</h3>
+        <h3 style="margin-bottom: 12px; font-size: 20px; color: #fff; font-weight: 700;">Нужна помощь?</h3>
         
-        <p style="color: #aaa; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
-            Не удается привязать аккаунт автоматически?<br><br>
+        <p style="color: #8e8e93; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
+            Не удается привязать аккаунт автоматически?<br>
             Напишите администратору, он добавит ваш Twitch вручную.
         </p>
 
         <div style="display: flex; gap: 10px;">
-            <button id="sos-admin-btn" class="confirm-btn" style="background: #34c759; color: #fff; margin: 0; font-size: 14px; flex: 1;">
+            <button id="sos-admin-btn" style="flex: 1; background: #34c759; color: #fff; border: none; border-radius: 12px; height: 44px; font-size: 14px; font-weight: 600; cursor: pointer;">
                 Написать админу
             </button>
-            <button id="sos-close-btn" class="cancel-btn" style="background: #3a3a3c; color: #fff; margin: 0; font-size: 14px; flex: 1;">
+            
+            <button id="sos-close-btn" style="flex: 1; background: #2c2c2e; color: #fff; border: none; border-radius: 12px; height: 44px; font-size: 14px; font-weight: 600; cursor: pointer;">
                 Закрыть
             </button>
         </div>
