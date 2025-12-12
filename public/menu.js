@@ -1432,23 +1432,29 @@ function markStepPending(el, icon) {
 function openWelcomePopup(userData) {
     const popup = document.getElementById('welcome-popup');
     const successModal = document.getElementById('subscription-success-modal');
+    
+    // Элементы нового окна SOS
+    const sosOverlay = document.getElementById('sos-modal-overlay');
+    const sosCloseBtn = document.getElementById('sos-close-btn');
+    const sosAdminBtn = document.getElementById('sos-admin-btn');
+
     if (!popup) return;
 
     const stepTwitch = document.getElementById('step-twitch');
     const stepTg = document.getElementById('step-tg');
-    const iconTwitch = document.getElementById('icon-twitch');
+    
+    // Ищем иконки (для Телеграма она статична, для Твича найдем позже, так как перезапишем HTML)
     const iconTg = document.getElementById('icon-tg');
     const actionBtn = document.getElementById('action-btn');
 
-    // 1. Настраиваем логику Twitch (Кнопки или Галочка)
+    // --- 1. Логика отрисовки Twitch (если не привязан) ---
     if (!userData.twitch_id) {
         
-        // Ссылка для авторизации
         const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
         
-        // Перерисовываем содержимое элемента step-twitch
+        // Перерисовываем блок, добавляя кнопки И КРУЖОЧЕК СТАТУСА
         stepTwitch.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="fa-brands fa-twitch" style="font-size: 20px; color: #9146ff; width: 24px; text-align: center;"></i>
                     <div style="text-align: left;">
@@ -1456,26 +1462,27 @@ function openWelcomePopup(userData) {
                         <div style="font-size: 11px; color: #aaa;">Обязательно для бонуса</div>
                     </div>
                 </div>
+                <i id="icon-twitch" class="fa-regular fa-circle" style="color: #aaa; font-size: 16px;"></i>
             </div>
 
             <div style="display: flex; gap: 8px; width: 100%;">
-                <button id="twitch-help-btn-popup" style="background-color: #9146ff; color: white; border: none; border-radius: 8px; width: 42px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                    <i class="fa-solid fa-circle-question" style="font-size: 18px;"></i>
+                <button id="twitch-help-btn-popup" style="background-color: rgba(145, 70, 255, 0.2); color: #9146ff; border: 1px solid rgba(145, 70, 255, 0.4); border-radius: 8px; width: 42px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                    <i class="fa-solid fa-question" style="font-size: 16px;"></i>
                 </button>
 
-                <button id="connect-twitch-btn-popup" style="background-color: #9146ff; color: white; border: none; border-radius: 8px; height: 36px; flex-grow: 1; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <button id="connect-twitch-btn-popup" style="background-color: #9146ff; color: white; border: none; border-radius: 8px; height: 36px; flex-grow: 1; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px;">
                     <i class="fa-brands fa-twitch"></i> Привязать
                 </button>
             </div>
         `;
         
-        // Убираем кликабельность самой плашки и меняем стиль
+        // Убираем кликабельность самой плашки (чтобы клик шел только по кнопкам)
         stepTwitch.onclick = null; 
         stepTwitch.style.cursor = 'default';
         stepTwitch.style.display = 'block';
         stepTwitch.style.padding = '12px';
 
-        // Вешаем обработчики на новые кнопки
+        // Вешаем обработчики (делаем это с задержкой 0, чтобы HTML успел обновиться)
         setTimeout(() => {
             const btnConnect = document.getElementById('connect-twitch-btn-popup');
             const btnHelp = document.getElementById('twitch-help-btn-popup');
@@ -1488,10 +1495,14 @@ function openWelcomePopup(userData) {
                 };
             }
 
+            // --- ЛОГИКА ОТКРЫТИЯ ОКНА SOS ---
             if (btnHelp) {
                 btnHelp.onclick = (e) => {
                     e.stopPropagation();
-                    Telegram.WebApp.openTelegramLink('https://t.me/hatelove_twitch?text=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82!%20%D0%9D%D0%B5%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B0%D0%B5%D1%82%D1%81%D1%8F%20%D0%B0%D0%B2%D1%82%D0%BE%D0%BC%D0%B0%D1%82%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8%20%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D1%8C%D1%81%D1%8F');
+                    // Скрываем Приветственный попап (убираем класс visible)
+                    popup.classList.remove('visible');
+                    // Показываем SOS попап
+                    if(sosOverlay) sosOverlay.classList.remove('hidden');
                 };
             }
         }, 0);
@@ -1501,25 +1512,47 @@ function openWelcomePopup(userData) {
         stepTwitch.onclick = () => {
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         };
-        // Иконку красим ниже
+    }
+    
+    // --- ОБРАБОТЧИКИ ДЛЯ ОКНА SOS ---
+    if (sosCloseBtn) {
+        sosCloseBtn.onclick = () => {
+            // Скрываем SOS
+            sosOverlay.classList.add('hidden');
+            // Возвращаем Приветственный попап
+            popup.classList.add('visible');
+        };
+    }
+    if (sosAdminBtn) {
+        sosAdminBtn.onclick = () => {
+             Telegram.WebApp.openTelegramLink('https://t.me/hatelove_twitch');
+        };
     }
 
-    // 2. Настраиваем логику Telegram
+    // --- 2. Логика Telegram ---
     stepTg.onclick = () => {
         Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv');
     };
 
+    // Показываем основное окно
     popup.classList.add('visible');
 
-    // 3. Визуальная проверка статусов
+    // --- 3. Визуальная проверка статусов ---
+    // Находим иконку Twitch (она была создана динамически выше, либо уже была в HTML)
+    const iconTwitch = document.getElementById('icon-twitch');
+
     if (userData.twitch_id) {
         markStepDone(stepTwitch, iconTwitch);
     } else {
         markStepPending(stepTwitch, iconTwitch);
     }
+    
+    // Проверка статуса подписки Telegram (предполагаем поле is_telegram_subscribed)
+    // Если такого поля нет, можно использовать логику, что если юзер открыл попап, он еще не проверен полностью
     markStepPending(stepTg, iconTg);
 
-    // 4. Логика кнопки "Проверить"
+
+    // --- 4. Логика кнопки "Проверить" ---
     const attemptActivation = async () => {
         actionBtn.disabled = true;
         actionBtn.textContent = "Проверка...";
@@ -1535,7 +1568,8 @@ function openWelcomePopup(userData) {
 
             if (response.ok) {
                 // --- УСПЕХ ---
-                markStepDone(stepTwitch, iconTwitch);
+                // Обновляем иконки на зеленые галочки
+                markStepDone(stepTwitch, document.getElementById('icon-twitch'));
                 markStepDone(stepTg, iconTg);
                 
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -1562,11 +1596,14 @@ function openWelcomePopup(userData) {
                 
                 const msg = res.detail || "";
                 
+                // Снова ищем иконку Twitch, так как она динамическая
+                const currentTwitchIcon = document.getElementById('icon-twitch');
+
                 if (msg.includes("канал") || msg.includes("подпишитесь")) {
-                    markStepDone(stepTwitch, iconTwitch);
+                    markStepDone(stepTwitch, currentTwitchIcon);
                     markStepError(stepTg, iconTg);
                 } else if (msg.includes("Twitch") || msg.includes("привяжите")) {
-                    markStepError(stepTwitch, iconTwitch);
+                    markStepError(stepTwitch, currentTwitchIcon);
                     markStepPending(stepTg, iconTg);
                 } else {
                     Telegram.WebApp.showAlert(msg);
@@ -1580,7 +1617,7 @@ function openWelcomePopup(userData) {
     };
 
     actionBtn.onclick = attemptActivation;
-} // <-- ВОТ ЭТА СКОБКА БЫЛА ПРОПУЩЕНА
+}
     
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
