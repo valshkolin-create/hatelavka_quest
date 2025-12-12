@@ -679,11 +679,87 @@
 </footer>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ФУНКЦИИ (Доступны всегда) ---
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
 
+    // 1. Исправленная функция копирования
+    window.copyPromo = function(element) {
+        // Берем текст конкретно по ID, чтобы избежать ошибок с передачей 'this'
+        const codeElement = document.getElementById('success-promo-code');
+        if (!codeElement) return;
+
+        const codeToCopy = codeElement.innerText.trim(); // Убираем пробелы
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(codeToCopy)
+                .then(() => {
+                    tg.showPopup({ message: 'Код скопирован!' });
+                    // Визуальный эффект
+                    codeElement.style.opacity = '0.5';
+                    setTimeout(() => codeElement.style.opacity = '1', 200);
+                })
+                .catch(err => {
+                    // Если не сработал новый метод, пробуем старый (фоллбэк)
+                    fallbackCopyTextToClipboard(codeToCopy);
+                });
+        } else {
+            fallbackCopyTextToClipboard(codeToCopy);
+        }
+    };
+
+    // Старый надежный метод копирования (если первый не сработал)
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed"; 
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            tg.showPopup({ message: 'Код скопирован!' });
+        } catch (err) {
+            tg.showAlert('Не удалось скопировать код автоматически.');
+        }
+        document.body.removeChild(textArea);
+    }
+
+    // 2. Функции закрытия окон (Явно привязаны к window)
+    window.closeSuccessModal = function() {
+        document.getElementById('success-modal').classList.remove('visible');
+    };
+
+    window.openHowToUsePopup = function() {
+        // Можно закрыть окно успеха, если нужно
+        // document.getElementById('success-modal').classList.remove('visible');
+        document.getElementById('how-to-use-popup').classList.add('visible');
+    };
+
+    window.closeHowToUsePopup = function() {
+        document.getElementById('how-to-use-popup').classList.remove('visible');
+    };
+
+    window.openShopModal = async function() {
+        document.getElementById('shop-modal').classList.add('visible');
+        document.getElementById('shop-container').innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
+        await fetchShopItems(); 
+        renderShopList();
+    };
+
+    window.closeShopModal = function() {
+        document.getElementById('shop-modal').classList.remove('visible');
+    };
+
+    window.switchTab = function(tab) {
+        currentTab = tab;
+        document.getElementById('tab-tickets').classList.toggle('active', tab === 'tickets');
+        document.getElementById('tab-promos').classList.toggle('active', tab === 'promos');
+        renderShopList();
+    };
+
+    // --- ПЕРЕМЕННЫЕ СОСТОЯНИЯ ---
     let userState = {
         coins: 0.0,
         tickets: 0,
@@ -692,21 +768,21 @@ document.addEventListener('DOMContentLoaded', function() {
         lastFreeTicket: null,
         active_referrals_count: 0,
         referral_activated_at: null,
-        twitch_status: null // <-- НОВОЕ ПОЛЕ
+        twitch_status: null
     };
-  // <-- ДОБАВИТЬ ЭТОТ БЛОК
+
     let grindSettings = { 
         twitch_status_boost_coins: 0.5,
         twitch_status_free_tickets: 5,
         ref_boost_coins_per_user: 0.1
     };
-    // ----------------------
 
     let shopItems = [];
     let currentTab = 'tickets';
     const MAX_STREAK = 10;
     const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
 
+    // Ссылки на DOM элементы
     const dom = {
         coinsDisplay: document.getElementById('user-coins'),
         ticketsDisplay: document.getElementById('user-tickets'),
@@ -719,11 +795,51 @@ document.addEventListener('DOMContentLoaded', function() {
         grindBtnText: document.getElementById('grind-btn-text'),
         freeTicketContainer: document.getElementById('free-ticket-container'),
         ticketSubtitle: document.getElementById('ticket-subtitle'),
-        shopModal: document.getElementById('shop-modal'),
-        shopContainer: document.getElementById('shop-container'),
-        tabTickets: document.getElementById('tab-tickets'),
-        tabPromos: document.getElementById('tab-promos')
+        shopContainer: document.getElementById('shop-container')
     };
+
+    // --- ОСНОВНАЯ ЛОГИКА ---
+    document.addEventListener('DOMContentLoaded', function() {
+        init();
+
+        // Обработчик кнопки ГРИНД
+        if(dom.grindBtn) {
+            dom.grindBtn.addEventListener('click', async () => {
+                if (dom.grindBtn.disabled) return;
+                tg.HapticFeedback.impactOccurred('medium');
+                dom.grindBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/api/v1/user/grind/claim', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData })
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || "Ошибка");
+                    }
+
+                    const res = await response.json();
+                    
+                    const claimed = parseFloat(res.reward_claimed).toFixed(2);
+                    showFloatText(dom.grindBtn, `+${claimed}`, 'var(--accent-primary)');
+                    
+                    userState.coins = parseFloat(res.new_coins);
+                    userState.streakDays = res.streak_days;
+                    userState.lastGrindTime = res.last_grind_at;
+
+                    updateUI();
+                    renderStreakVisuals();
+
+                } catch (e) {
+                    tg.showAlert(e.message);
+                    dom.grindBtn.disabled = false;
+                }
+            });
+        }
+    });
 
     async function init() {
         try {
@@ -740,17 +856,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 userState.streakDays = data.streak_days || 1;
                 userState.lastGrindTime = data.last_grind_at;
                 userState.lastFreeTicket = data.last_free_ticket_claimed_at;
-                
-                // Данные для бустов (старая логика)
                 userState.active_referrals_count = data.active_referrals_count || 0;
                 userState.referral_activated_at = data.referral_activated_at;
+                userState.twitch_status = data.twitch_status;
                 
-                // --- 🔥 НОВАЯ ЛОГИКА 🔥 ---
-                userState.twitch_status = data.twitch_status; // 'vip', 'subscriber', или null
                 if (data.grind_settings) {
                     grindSettings = data.grind_settings;
                 }
-                // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
                 
                 updateUI();
                 renderStreakVisuals();
@@ -758,91 +870,52 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {
             console.error("Ошибка инициализации:", e);
-            dom.coinsDisplay.textContent = "0.0";
-            tg.showAlert("Ошибка загрузки данных.");
+            if(dom.coinsDisplay) dom.coinsDisplay.textContent = "0.0";
         }
     }
-  
-  function isTwitchBoostActive() {
+
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+    function isTwitchBoostActive() {
         return userState.twitch_status === 'vip' || userState.twitch_status === 'subscriber';
     }
-  
 
-    function calculateBoosts() {
-        // Базовая награда
-        let baseReward = (userState.streakDays * 0.1);
-        if (baseReward > 1.0) baseReward = 1.0;
-        
-        let totalBonus = 0;
-        let boostsHTML = "";
-        
-        // 1. Буст от друзей
-        if (userState.active_referrals_count > 0) {
-            const refBoost = userState.active_referrals_count * 0.1;
-            totalBonus += refBoost;
-            boostsHTML += `<div class="boost-row"><span>🚀 Друзья (${userState.active_referrals_count}):</span><span class="boost-active">+${refBoost.toFixed(1)}</span></div>`;
-        }
-        
-        // 2. VIP статус новичка (ИСПРАВЛЕНО: Висит до последней секунды)
-        if (userState.referral_activated_at) {
-            const activatedTime = new Date(userState.referral_activated_at).getTime();
-            const vipDuration = 7 * 24 * 60 * 60 * 1000; // Ровно 7 суток
-            const expirationTime = activatedTime + vipDuration;
-            const now = new Date().getTime();
-            
-            // Строгое условие: пока текущее время меньше времени истечения
-            if (now < expirationTime) {
-                totalBonus += 0.2;
-                
-                // Формируем красивую дату (09.12 18:49)
-                const expDate = new Date(expirationTime);
-                const day = String(expDate.getDate()).padStart(2, '0');
-                const month = String(expDate.getMonth() + 1).padStart(2, '0');
-                const hours = String(expDate.getHours()).padStart(2, '0');
-                const minutes = String(expDate.getMinutes()).padStart(2, '0');
-                
-                const timeString = `${day}.${month} ${hours}:${minutes}`;
-
-                boostsHTML += `<div class="boost-row">
-                    <span class="boost-vip">⚡ Новичок (до ${timeString}):</span>
-                    <span class="boost-vip">+0.2</span>
-                </div>`;
-            }
-        }
-      
-      // --- 🔥 НОВАЯ ЛОГИКА TWITCH STATUS BOOST 🔥 ---
-        const twitchStatus = userState.twitch_status;
-        if (twitchStatus === 'vip' || twitchStatus === 'subscriber') {
-            const statusCoins = grindSettings.twitch_status_boost_coins; // <-- Используем новую настройку
-            
-            // Если VIP Новичка еще активен, мы не добавляем монеты за Twitch Status,
-            // но отображаем его как самый высокий статус.
-            // ИЛИ: мы добавляем его как отдельный бонус:
-            
-            // Если VIP Новичка НЕ активен ИЛИ это VIP/Sub дает БОЛЬШЕ монет:
-            // Для простоты: добавляем как отдельный бонус (вы можете настроить приоритет позже)
-            totalBonus += statusCoins;
-            const statusLabel = twitchStatus === 'vip' ? '👑 VIP Twitch' : '⭐ Sub Twitch';
-            boostsHTML += `<div class="boost-row">
-                <span class="boost-vip">${statusLabel} Boost:</span>
-                <span class="boost-vip">+${statusCoins.toFixed(1)}</span>
-            </div>`;
-        }
-        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-        
-        return { totalBonus, boostsHTML, baseReward };
-    }
-
-    // 👇👇👇 ДОБАВЬТЕ ЭТУ ФУНКЦИЮ, ЕЁ НЕ ХВАТАЛО 👇👇👇
     function isVipActive() {
         if (!userState.referral_activated_at) return false;
         const activatedTime = new Date(userState.referral_activated_at).getTime();
         const now = new Date().getTime();
         return (now - activatedTime) < (7 * 24 * 60 * 60 * 1000);
     }
-    // 👆👆👆 ------------------------------------- 👆👆👆
+
+    function calculateBoosts() {
+        let baseReward = (userState.streakDays * 0.1);
+        if (baseReward > 1.0) baseReward = 1.0;
+        
+        let totalBonus = 0;
+        let boostsHTML = "";
+        
+        if (userState.active_referrals_count > 0) {
+            const refBoost = userState.active_referrals_count * 0.1;
+            totalBonus += refBoost;
+            boostsHTML += `<div class="boost-row"><span>🚀 Друзья (${userState.active_referrals_count}):</span><span class="boost-active">+${refBoost.toFixed(1)}</span></div>`;
+        }
+        
+        if (isVipActive()) {
+            totalBonus += 0.2;
+            boostsHTML += `<div class="boost-row"><span class="boost-vip">⚡ Новичок:</span><span class="boost-vip">+0.2</span></div>`;
+        }
+      
+        if (isTwitchBoostActive()) {
+            const statusCoins = grindSettings.twitch_status_boost_coins;
+            totalBonus += statusCoins;
+            const statusLabel = userState.twitch_status === 'vip' ? '👑 VIP Twitch' : '⭐ Sub Twitch';
+            boostsHTML += `<div class="boost-row"><span class="boost-vip">${statusLabel}:</span><span class="boost-vip">+${statusCoins.toFixed(1)}</span></div>`;
+        }
+        
+        return { totalBonus, boostsHTML, baseReward };
+    }
 
     function updateUI() {
+        if(!dom.coinsDisplay) return;
         dom.coinsDisplay.textContent = userState.coins.toFixed(1);
         dom.ticketsDisplay.textContent = userState.tickets;
         dom.streakDayDisplay.textContent = userState.streakDays;
@@ -850,7 +923,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const { totalBonus, boostsHTML, baseReward } = calculateBoosts();
         const totalReward = (baseReward + totalBonus).toFixed(1); 
         
-        // Красим награду
         if (totalBonus > 0) {
             dom.todayRewardDisplay.textContent = `+${totalReward} (с бонусом)`;
             dom.todayRewardDisplay.style.color = "#FFD700"; 
@@ -859,7 +931,6 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.todayRewardDisplay.style.color = "#fff";
         }
         
-        // Показываем список бустов
         if (boostsHTML) {
             dom.boostContainer.innerHTML = boostsHTML;
             dom.boostContainer.style.display = 'flex';
@@ -867,11 +938,10 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.boostContainer.style.display = 'none';
         }
 
-        // Таймер кнопки гринда (24ч)
+        // Таймер кнопки гринда
         const now = new Date().getTime();
         const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
         const diff = now - last;
-        const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
 
         if (diff < GRIND_COOLDOWN) {
             dom.grindBtn.disabled = true;
@@ -884,51 +954,12 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
         
-        // --- 🔥 ЛОГИКА ТАЙМЕРА VIP/SUB 🔥 ---
-        
-        const isNoviceVipActive = isVipActive(); // Проверяем старый 7-дневный таймер
-        const isTwitchStatusActive = isTwitchBoostActive(); // Проверяем новый статус Twitch
-        
-        // Значения наград
-        const noviceVipTickets = 2; // Жестко задано
-        const twitchStatusTickets = grindSettings.twitch_status_free_tickets; // Из настройки
-
-        if (isNoviceVipActive) {
-            // ЛОГИКА 1: VIP Новичка АКТИВЕН (отображаем его, как приоритет)
-            const activatedTime = new Date(userState.referral_activated_at).getTime();
-            const vipDuration = 7 * 24 * 60 * 60 * 1000;
-            const expirationTime = activatedTime + vipDuration;
-            const timeLeft = expirationTime - now;
-
-            if (timeLeft > 0) {
-                if (timeLeft < 24 * 60 * 60 * 1000) {
-                    const h = Math.floor(timeLeft / 3600000);
-                    const m = Math.floor((timeLeft % 3600000) / 60000);
-                    dom.ticketSubtitle.textContent = `VIP: +${noviceVipTickets} билета (ещё ${h}ч ${m}м)`;
-                } else {
-                    const daysLeft = Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
-                    dom.ticketSubtitle.textContent = `VIP: +${noviceVipTickets} билета (ост. ${daysLeft} дн)`;
-                }
-                dom.ticketSubtitle.style.color = "#FFD700";
-                return; // Выходим, так как Новичок активен
-            }
-            // Если NoviceVipActive == true, но timeLeft <= 0, то мы проваливаемся в следующие проверки
-        }
-        
-        if (isTwitchStatusActive) {
-             // ЛОГИКА 2: Twitch VIP/Sub АКТИВЕН (Новичок либо истек, либо его не было)
-             dom.ticketSubtitle.textContent = `VIP/Sub Twitch: +${twitchStatusTickets} билета!`;
-             dom.ticketSubtitle.style.color = "#FFD700";
-        }
-        else {
-             // ЛОГИКА 3: Все бусты НЕ АКТИВНЫ
-             dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
-             dom.ticketSubtitle.style.color = "var(--text-secondary)";
-        }
-        
+        // Таймер тикета
+        renderFreeTicketBtn();
     }
   
     function renderStreakVisuals() {
+        if(!dom.streakSteps) return;
         dom.streakSteps.innerHTML = '';
         let percent = ((userState.streakDays - 1) / (MAX_STREAK - 1)) * 100;
         if (percent > 100) percent = 100;
@@ -947,7 +978,151 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- МАГАЗИН ---
+    function renderFreeTicketBtn() {
+        const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
+        const now = new Date().getTime();
+        const diff = now - lastClaim;
+        
+        const isBoosted = isVipActive() || isTwitchBoostActive();
+        let ticketsReward = 1;
+        
+        if (isVipActive()) ticketsReward = 2; 
+        else if (isTwitchBoostActive()) ticketsReward = grindSettings.twitch_status_free_tickets;
+
+        if (diff > GRIND_COOLDOWN) {
+            const btnText = isBoosted ? `+${ticketsReward} БИЛЕТА (VIP)` : "ПОЛУЧИТЬ";
+            const btnColor = isBoosted ? "#FFD700" : "#fff";
+            
+            dom.freeTicketContainer.innerHTML = `<button class="mini-btn" style="border-color:${btnColor}; color:${btnColor}; width:100%;" onclick="claimFreeTicket()">${btnText}</button>`;
+            
+            // Текст над кнопкой
+            if(isBoosted) {
+                 dom.ticketSubtitle.textContent = `VIP/Sub: Доступно ${ticketsReward} билета!`;
+                 dom.ticketSubtitle.style.color = "#FFD700";
+            } else {
+                 dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
+                 dom.ticketSubtitle.style.color = "#AAAAAA";
+            }
+
+        } else {
+            const remaining = GRIND_COOLDOWN - diff;
+            const h = Math.floor(remaining / 3600000);
+            const m = Math.floor((remaining % 3600000) / 60000);
+            dom.freeTicketContainer.innerHTML = `<span style="font-size:11px; color:#555;">${h}ч ${m}м</span>`;
+            
+            // Текст над таймером
+            if(isBoosted) {
+                 dom.ticketSubtitle.textContent = `VIP: следующая награда через...`;
+                 dom.ticketSubtitle.style.color = "#FFD700";
+            } else {
+                 dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
+                 dom.ticketSubtitle.style.color = "#AAAAAA";
+            }
+        }
+    }
+
+    // --- МАГАЗИН И ФУНКЦИИ ОКНА УСПЕХА ---
+    function showSuccess(message, promoCode = null) {
+        closeShopModal();
+        
+        const modal = document.getElementById('success-modal');
+        const msgEl = document.getElementById('success-message');
+        const promoContainer = document.getElementById('success-promo-container');
+        const promoValue = document.getElementById('success-promo-code');
+        const instructionBlock = document.getElementById('promo-instruction-block');
+
+        msgEl.textContent = message;
+
+        if (promoCode) {
+            promoContainer.style.display = 'flex';
+            promoValue.textContent = promoCode;
+            if(instructionBlock) instructionBlock.style.display = 'block';
+        } else {
+            promoContainer.style.display = 'none';
+            if(instructionBlock) instructionBlock.style.display = 'none';
+        }
+
+        modal.classList.add('visible');
+        tg.HapticFeedback.notificationOccurred('success');
+    }
+
+    // --- API ВЫЗОВЫ ГЛОБАЛЬНЫЕ ---
+    window.claimFreeTicket = async () => {
+        try {
+            const response = await fetch('/api/v1/user/claim-free-ticket', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData })
+            });
+            
+            if (response.ok) {
+                const res = await response.json();
+                let incoming = res.new_ticket_balance;
+                let finalTickets = (typeof incoming === 'object' && incoming !== null) ? Number(incoming.new_ticket_balance) : Number(incoming);
+                
+                userState.tickets = finalTickets;
+                userState.lastFreeTicket = new Date().toISOString();
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.showAlert(res.message); 
+                updateUI();
+            } else { throw new Error(); }
+        } catch (e) { 
+            console.error(e);
+            tg.showAlert('Ошибка получения билета'); 
+        }
+    };
+
+    window.exchangeCoins = async (cost, rewardTickets) => {
+        tg.showConfirm(`Купить ${rewardTickets} билет(ов) за ${cost} монет?`, async (ok) => {
+            if (ok) {
+                try {
+                    const response = await fetch('/api/v1/user/grind/exchange', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData, cost: cost, tickets_reward: rewardTickets })
+                    });
+                    
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Ошибка обмена');
+                    }
+                    
+                    const res = await response.json();
+                    userState.coins = parseFloat(res.new_coins);
+                    userState.tickets = res.new_tickets;
+                    updateUI();
+                    showSuccess(`Вы получили ${rewardTickets} билет(ов)!`);
+                    
+                } catch (e) { tg.showAlert(e.message || 'Ошибка обмена'); }
+            }
+        });
+    };
+
+    window.buyItem = async (val) => {
+        tg.showConfirm(`Купить код на ${val} звезд?`, async (ok) => {
+            if(ok) {
+                try {
+                    const response = await fetch('/api/v1/user/grind/buy_item', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData, reward_value: val })
+                    });
+                    
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Ошибка');
+                    }
+                    
+                    const res = await response.json();
+                    userState.coins = parseFloat(res.new_coins);
+                    updateUI();
+                    showSuccess(`Промокод на ${val} звезд успешно куплен!`, res.promo_code);
+                    
+                } catch(e) { tg.showAlert(e.message || 'Не удалось купить'); }
+            }
+        });
+    };
+
     async function fetchShopItems() {
         shopItems = [
             { type: 'ticket', cost: 3, reward: 1, title: '1 Билет' },
@@ -968,73 +1143,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {}
     }
-
-    window.switchTab = (tab) => {
-        currentTab = tab;
-        dom.tabTickets.classList.toggle('active', tab === 'tickets');
-        dom.tabPromos.classList.toggle('active', tab === 'promos');
-        renderShopList();
-    };
-
-    window.openShopModal = async () => {
-        dom.shopModal.classList.add('visible');
-        dom.shopContainer.innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
-        await fetchShopItems(); 
-        renderShopList();
-    };
-
-    window.closeShopModal = () => dom.shopModal.classList.remove('visible');
-
-  // Функция открытия красивого окна
-    // Функция открытия красивого окна
-  // Управление попапом инструкции
-    window.openHowToUsePopup = () => {
-    // Скрываем окно успеха, чтобы не было наложения (опционально, можно оставить оба)
-    // document.getElementById('success-modal').classList.remove('visible'); 
-    
-    document.getElementById('how-to-use-popup').classList.add('visible');
-};
-
-window.closeHowToUsePopup = () => {
-    document.getElementById('how-to-use-popup').classList.remove('visible');
-    
-    // Если мы закрыли инструкцию, можно вернуть пользователя к окну с кодом, если оно еще нужно
-    // Но обычно логичнее просто закрыть текущее окно.
-};
-function showSuccess(message, promoCode = null) {
-    // Закрываем магазин
-    closeShopModal();
-    
-    const modal = document.getElementById('success-modal');
-    const msgEl = document.getElementById('success-message');
-    const promoContainer = document.getElementById('success-promo-container');
-    const promoValue = document.getElementById('success-promo-code');
-    
-    // Новые элементы
-    const instructionBlock = document.getElementById('promo-instruction-block');
-
-    msgEl.textContent = message;
-
-    if (promoCode) {
-        // Если это промокод
-        promoContainer.style.display = 'flex';
-        promoValue.textContent = promoCode;
-        
-        // 🔥 Показываем инструкцию и текст о профиле
-        if(instructionBlock) instructionBlock.style.display = 'block';
-    } else {
-        // Если это просто билеты или другое
-        promoContainer.style.display = 'none';
-        
-        // 🔥 Скрываем инструкцию
-        if(instructionBlock) instructionBlock.style.display = 'none';
-    }
-
-    modal.classList.add('visible');
-    
-    // Вибрация успеха
-    tg.HapticFeedback.notificationOccurred('success');
-}
 
     function renderShopList() {
         dom.shopContainer.innerHTML = '';
@@ -1064,189 +1172,8 @@ function showSuccess(message, promoCode = null) {
         });
     }
 
-    // --- ДЕЙСТВИЯ ---
-    dom.grindBtn.addEventListener('click', async () => {
-        if (dom.grindBtn.disabled) return;
-        tg.HapticFeedback.impactOccurred('medium');
-        dom.grindBtn.disabled = true;
-
-        try {
-            const response = await fetch('/api/v1/user/grind/claim', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData })
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.detail || "Ошибка");
-            }
-
-            const res = await response.json();
-            
-            // Анимация текста
-            const claimed = parseFloat(res.reward_claimed).toFixed(2);
-            showFloatText(dom.grindBtn, `+${claimed}`, 'var(--accent-primary)');
-            
-            userState.coins = parseFloat(res.new_coins);
-            userState.streakDays = res.streak_days;
-            userState.lastGrindTime = res.last_grind_at;
-
-            updateUI();
-            renderStreakVisuals();
-
-        } catch (e) {
-            tg.showAlert(e.message);
-            dom.grindBtn.disabled = false;
-        }
-    });
-
-    window.exchangeCoins = async (cost, rewardTickets) => {
-        tg.showConfirm(`Купить ${rewardTickets} билет(ов) за ${cost} монет?`, async (ok) => {
-            if (ok) {
-                try {
-                    const response = await fetch('/api/v1/user/grind/exchange', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: tg.initData, cost: cost, tickets_reward: rewardTickets })
-                    });
-                    
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.detail || 'Ошибка обмена');
-                    }
-                    
-                    const res = await response.json();
-                    userState.coins = parseFloat(res.new_coins);
-                    userState.tickets = res.new_tickets;
-                    
-                    updateUI();
-                    
-                    // 🔥 ЗАМЕНА: Вместо просто вибрации или алерта вызываем красоту
-                    // renderShopList(); // Можно не перерисовывать, если закрываем магазин
-                    showSuccess(`Вы получили ${rewardTickets} билет(ов)!`);
-                    
-                } catch (e) { 
-                    tg.showAlert(e.message || 'Ошибка обмена'); 
-                }
-            }
-        });
-    };
-
-    window.buyItem = async (val) => {
-        tg.showConfirm(`Купить код на ${val} звезд?`, async (ok) => {
-            if(ok) {
-                try {
-                    const response = await fetch('/api/v1/user/grind/buy_item', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: tg.initData, reward_value: val })
-                    });
-                    
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.detail || 'Ошибка');
-                    }
-                    
-                    const res = await response.json();
-                    userState.coins = parseFloat(res.new_coins);
-                    updateUI();
-                    
-                    // 🔥 ЗАМЕНА: Показываем красивое окно с кодом
-                    showSuccess(`Промокод на ${val} звезд успешно куплен!`, res.promo_code);
-                    
-                } catch(e) { 
-                    tg.showAlert(e.message || 'Не удалось купить'); 
-                }
-            }
-        });
-    };
-  
-    function renderFreeTicketBtn() {
-        // 1. Получаем время последнего клейма (используем lastClaim, а не last)
-        const lastClaim = userState.lastFreeTicket ? new Date(userState.lastFreeTicket).getTime() : 0;
-        const now = new Date().getTime();
-        
-        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-        const diff = now - lastClaim; // Было: now - last (что вызывало ошибку)
-        // -------------------------
-        
-        const GRIND_COOLDOWN = 24 * 60 * 60 * 1000;
-
-        // 2. Логика определения типа награды (VIP Новичка vs Twitch VIP)
-        const isNoviceVipActive = isVipActive(); 
-        const isTwitchStatusActive = isTwitchBoostActive(); 
-        const isBoosted = isNoviceVipActive || isTwitchStatusActive;
-
-        let ticketsReward = 1;
-        
-        if (isNoviceVipActive) {
-            ticketsReward = 2; // Приоритет: VIP Новичка (2 билета)
-        } else if (isTwitchStatusActive) {
-            ticketsReward = grindSettings.twitch_status_free_tickets; // Настройка: Twitch VIP
-        } else {
-             ticketsReward = 1; // База
-        }
-
-        // 3. Отрисовка кнопки
-        if (diff > GRIND_COOLDOWN) {
-            const btnText = isBoosted ? `+${ticketsReward} БИЛЕТА (VIP)` : "ПОЛУЧИТЬ";
-            const btnColor = isBoosted ? "#FFD700" : "#fff";
-            
-            dom.freeTicketContainer.innerHTML = `<button class="mini-btn" style="border-color:${btnColor}; color:${btnColor}; width:100%;" onclick="claimFreeTicket()">${btnText}</button>`;
-        } else {
-            const remaining = GRIND_COOLDOWN - diff;
-            const h = Math.floor(remaining / 3600000);
-            const m = Math.floor((remaining % 3600000) / 60000);
-            dom.freeTicketContainer.innerHTML = `<span style="font-size:11px; color:#555;">${h}ч ${m}м</span>`;
-        }
-    }
-
-   window.claimFreeTicket = async () => {
-        try {
-            const response = await fetch('/api/v1/user/claim-free-ticket', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData })
-            });
-            
-            if (response.ok) {
-                const res = await response.json();
-                
-                // --- ИСПРАВЛЕНИЕ: Достаем число из "матрешки" ---
-                let incoming = res.new_ticket_balance;
-                let finalTickets = 0;
-
-                // 1. Если это объект (ваша ситуация: {new_ticket_balance: 50})
-                if (typeof incoming === 'object' && incoming !== null) {
-                    // Берем внутреннее значение
-                    finalTickets = Number(incoming.new_ticket_balance);
-                } 
-                // 2. Если вдруг структура изменится и придет сразу число
-                else {
-                    finalTickets = Number(incoming);
-                }
-                
-                // Присваиваем чистое число
-                userState.tickets = finalTickets;
-                // -----------------------------------------------
-
-                userState.lastFreeTicket = new Date().toISOString();
-                tg.HapticFeedback.notificationOccurred('success');
-                tg.showAlert(res.message); 
-                
-                updateUI();
-                renderFreeTicketBtn();
-            } else { throw new Error(); }
-        } catch (e) { 
-            console.error(e);
-            tg.showAlert('Ошибка получения билета'); 
-        }
-    };
-
     function startTimers() {
-        setInterval(() => { updateUI(); renderFreeTicketBtn(); }, 60000);
-        renderFreeTicketBtn();
+        setInterval(() => { updateUI(); }, 60000);
     }
 
     function showFloatText(element, text, color) {
@@ -1260,9 +1187,6 @@ function showSuccess(message, promoCode = null) {
         document.body.appendChild(floatEl);
         setTimeout(() => floatEl.remove(), 1000);
     }
-
-    init();
-});
 </script>
 </body>
 </html>
