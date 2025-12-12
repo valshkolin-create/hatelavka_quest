@@ -579,8 +579,8 @@
     <div class="shop-info-left">
         <i class="fa-solid fa-shop shop-icon-large"></i>
         <div class="shop-text">
-            <h4>Магазин Наград</h4>
-            <p>Обмен гринд-монет на билеты и промокоды</p>
+            <h4>Обменник гринд монет (магазин наград)</h4>
+            <p>Обмен гринд монет на билеты и промокоды</p>
         </div>
     </div>
     <div class="shop-arrow"><i class="fa-solid fa-chevron-right"></i></div>
@@ -963,7 +963,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 promos.forEach(p => {
                     shopItems.push({
                         type: 'promo', cost: p.reward_value, reward: p.reward_value,
-                        title: `Код на ${p.reward_value} ★`, quantity: p.quantity
+                        title: `Код на ${p.reward_value} 🟡`, quantity: p.quantity
                     });
                 });
                 shopItems.sort((a, b) => a.cost - b.cost);
