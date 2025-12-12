@@ -1428,6 +1428,7 @@ function markStepPending(el, icon) {
 }
 
 // --- ОСНОВНАЯ ФУНКЦИЯ ПОПАПА (С ЛОГИКОЙ ВОЗВРАТА) ---
+// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОЛНОСТЬЮ) ---
 function openWelcomePopup(userData) {
     const popup = document.getElementById('welcome-popup');
     const successModal = document.getElementById('subscription-success-modal');
@@ -1439,9 +1440,8 @@ function openWelcomePopup(userData) {
     const iconTg = document.getElementById('icon-tg');
     const actionBtn = document.getElementById('action-btn');
 
-    // 1. Настраиваем клики по плашкам
-    stepTwitch.onclick = () => {
-        if (!userData.twitch_id) {
+    // 1. Настраиваем логику Twitch (Кнопки или Галочка)
+    if (!userData.twitch_id) {
         
         // Ссылка для авторизации
         const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
@@ -1469,20 +1469,20 @@ function openWelcomePopup(userData) {
             </div>
         `;
         
-        // Убираем стандартные стили кликабельной плашки, так как теперь кнопки внутри
+        // Убираем кликабельность самой плашки и меняем стиль
         stepTwitch.onclick = null; 
         stepTwitch.style.cursor = 'default';
         stepTwitch.style.display = 'block';
         stepTwitch.style.padding = '12px';
 
-        // Вешаем обработчики на новые кнопки (через setTimeout, чтобы DOM успел обновиться)
+        // Вешаем обработчики на новые кнопки
         setTimeout(() => {
             const btnConnect = document.getElementById('connect-twitch-btn-popup');
             const btnHelp = document.getElementById('twitch-help-btn-popup');
 
             if (btnConnect) {
                 btnConnect.onclick = (e) => {
-                    e.stopPropagation(); // Чтобы клик не ушел выше
+                    e.stopPropagation();
                     localStorage.setItem('openRefPopupOnLoad', 'true');
                     Telegram.WebApp.openLink(authUrl, { try_instant_view: false });
                 };
@@ -1491,27 +1491,27 @@ function openWelcomePopup(userData) {
             if (btnHelp) {
                 btnHelp.onclick = (e) => {
                     e.stopPropagation();
-                    // Ссылка на личку с админом
                     Telegram.WebApp.openTelegramLink('https://t.me/hatelove_twitch?text=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82!%20%D0%9D%D0%B5%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B0%D0%B5%D1%82%D1%81%D1%8F%20%D0%B0%D0%B2%D1%82%D0%BE%D0%BC%D0%B0%D1%82%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8%20%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D1%8C%D1%81%D1%8F');
                 };
             }
         }, 0);
 
     } else {
-        // 2. Если УЖЕ привязан — оставляем старое поведение (просто галочка)
+        // Если УЖЕ привязан — оставляем старое поведение
         stepTwitch.onclick = () => {
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         };
-        // Красим иконку в зеленый (функция уже есть в коде ниже)
+        // Иконку красим ниже
     }
 
+    // 2. Настраиваем логику Telegram
     stepTg.onclick = () => {
         Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv');
     };
 
     popup.classList.add('visible');
 
-    // 2. Визуальная проверка текущего статуса
+    // 3. Визуальная проверка статусов
     if (userData.twitch_id) {
         markStepDone(stepTwitch, iconTwitch);
     } else {
@@ -1519,7 +1519,7 @@ function openWelcomePopup(userData) {
     }
     markStepPending(stepTg, iconTg);
 
-    // 3. Логика кнопки "Проверить"
+    // 4. Логика кнопки "Проверить"
     const attemptActivation = async () => {
         actionBtn.disabled = true;
         actionBtn.textContent = "Проверка...";
@@ -1542,20 +1542,15 @@ function openWelcomePopup(userData) {
                 actionBtn.textContent = "Успешно!";
                 actionBtn.style.background = "#34c759";
                 
-                // Прячем кнопку "Бонус"
                 document.getElementById('open-bonus-btn')?.classList.add('hidden');
-
-                // Очищаем флаг возврата
                 localStorage.removeItem('openRefPopupOnLoad');
 
                 setTimeout(() => {
                     popup.classList.remove('visible');
                     if (successModal) {
                         successModal.classList.remove('hidden');
-                        successModal.classList.add('visible'); // Показываем окно успеха
+                        successModal.classList.add('visible');
                     }
-                    // Обновляем данные на странице (баланс и т.д.)
-                    // Вызываем main() или refreshDataSilently(), но аккуратно, чтобы не зациклить
                     refreshDataSilently(); 
                 }, 800);
 
@@ -1585,10 +1580,8 @@ function openWelcomePopup(userData) {
     };
 
     actionBtn.onclick = attemptActivation;
-}
+} // <-- ВОТ ЭТА СКОБКА БЫЛА ПРОПУЩЕНА
     
-
-
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
     // Логика кнопки "В главное меню" в новом окне успеха
