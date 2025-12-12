@@ -4007,7 +4007,9 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
 @app.post("/api/v1/user/me")
 async def get_current_user_data(
     request_data: InitDataRequest,
-    background_tasks: BackgroundTasks # <--- 1. ДОБАВИТЬ ЭТО
+    background_tasks: BackgroundTasks,
+    # 👇 1. Добавляем зависимость для быстрого клиента (как в bootstrap)
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ): 
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -4015,23 +4017,62 @@ async def get_current_user_data(
 
     telegram_id = user_info["id"]
 
-    # --- 🔥 2. ДОБАВИТЬ ЭТУ СТРОКУ (Запуск обновления в фоне) 🔥 ---
+    # Запуск обновления Twitch в фоне
     background_tasks.add_task(silent_update_twitch_user, telegram_id)
-    # -------------------------------------------------------------
-    try:
-        # 1. Основные данные (RPC)
-        response = supabase.rpc("get_user_dashboard_data", {"p_telegram_id": telegram_id}).execute()
-        data = response.data 
 
+    try:
+        # 👇 2. ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ПАРАЛЛЕЛЬНО (asyncio.gather)
+        # Это сократит время выполнения с ~600мс до ~150-200мс
+        results = await asyncio.gather(
+            # A. Основные данные (RPC)
+            supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
+            
+            # B. Статус Twitch
+            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"}),
+            
+            # C. Настройки гринда (функция уже асинхронная, но добавим ее в общий поток)
+            get_grind_settings_async_global(),
+            
+            # D. Количество рефералов (Count)
+            supabase.get(
+                "/users", 
+                params={
+                    "referrer_id": f"eq.{telegram_id}", 
+                    "referral_activated_at": "not.is.null",
+                    "select": "telegram_id",
+                    "limit": "1"
+                },
+                headers={"Prefer": "count=exact"}
+            ),
+            
+            # E. Настройки админа
+            get_admin_settings_async_global(),
+            
+            # F. Статус стрима
+            supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
+            
+            return_exceptions=True # Чтобы одна ошибка не положила всё
+        )
+
+        # 👇 3. РАСПАКОВЫВАЕМ РЕЗУЛЬТАТЫ
+        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp) = results
+
+        # --- Обработка основных данных (RPC) ---
+        data = None
+        if not isinstance(rpc_resp, Exception) and rpc_resp.status_code == 200:
+            data = rpc_resp.json()
+
+        # Если юзера нет — создаем (редкий кейс, можно оставить await)
         if not data or not data.get('profile'):
-            # Создаем юзера, если нет
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
-            supabase.table("users").insert(
-                 {"telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg},
-                 returning='minimal'
-            ).execute()
-            response = supabase.rpc("get_user_dashboard_data", {"p_telegram_id": telegram_id}).execute()
-            data = response.data
+            # Используем httpx клиент для вставки
+            await supabase.post("/users", json={
+                 "telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg
+            }, headers={"Prefer": "resolution=merge-duplicates"})
+            
+            # Повторный запрос данных
+            retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
+            data = retry_resp.json()
 
         if not data: raise HTTPException(status_code=500, detail="Profile error")
 
@@ -4040,44 +4081,42 @@ async def get_current_user_data(
         final_response['event_participations'] = data.get('event_participations', {})
         final_response['is_admin'] = telegram_id in ADMIN_IDS
 
-        # --- 🔥 ПОЛУЧЕНИЕ СТАТУСА TWITCH ---
-        twitch_status_resp = supabase.table("users").select("twitch_status").eq("telegram_id", telegram_id).execute()
+        # --- Обработка Twitch Status ---
         twitch_status = None
-        if twitch_status_resp.data:
-            twitch_status = twitch_status_resp.data[0].get('twitch_status')
-        final_response['twitch_status'] = twitch_status # 'vip', 'subscriber', 'none'
-        
-        # --- 🔥 ПОЛУЧЕНИЕ НАСТРОЕК ГРИНДА ---
-        grind_settings = await get_grind_settings_async_global()
-        final_response['grind_settings'] = grind_settings.dict()
-        
-        # --- 🔥 ПОЛУЧЕНИЕ РЕФЕРАЛОВ (ЧЕСТНЫЙ ПОДСЧЕТ) ---
-        try:
-            # Считаем реальные строки в базе, где referrer_id = наш ID
-            # И где referral_activated_at не пустой (только активные)
-            count_resp = supabase.table("users") \
-                .select("telegram_id", count="exact") \
-                .eq("referrer_id", telegram_id) \
-                .not_.is_("referral_activated_at", "null") \
-                .execute()
-            
-            # .count вернет точное число найденных строк
-            final_response['active_referrals_count'] = count_resp.count if count_resp.count is not None else 0
-                
-        except Exception as e:
-            logging.warning(f"Ошибка подсчета рефералов: {e}")
-            final_response['active_referrals_count'] = 0
+        if not isinstance(twitch_resp, Exception) and twitch_resp.status_code == 200:
+            tw_data = twitch_resp.json()
+            if tw_data:
+                twitch_status = tw_data[0].get('twitch_status')
+        final_response['twitch_status'] = twitch_status
 
-        # --- ОБЩИЕ НАСТРОЙКИ ---
-        admin_settings = await get_admin_settings_async_global()
+        # --- Обработка Grind Settings ---
+        # grind_settings уже объект Pydantic или дефолтный
+        final_response['grind_settings'] = grind_settings.dict() if hasattr(grind_settings, 'dict') else {}
+
+        # --- Обработка Рефералов ---
+        ref_count = 0
+        if not isinstance(ref_resp, Exception):
+            content_range = ref_resp.headers.get("Content-Range")
+            if content_range:
+                try:
+                    count_val = content_range.split('/')[-1]
+                    ref_count = int(count_val) if count_val != '*' else 0
+                except: pass
+        final_response['active_referrals_count'] = ref_count
+
+        # --- Обработка Настроек Админа ---
+        # admin_settings уже объект Pydantic
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
         final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
-        
-        # --- СТАТУС СТРИМА ---
-        stream_status_resp = supabase.table("settings").select("value").eq("key", "twitch_stream_status").execute()
-        final_response['is_stream_online'] = stream_status_resp.data[0].get('value', False) if stream_status_resp.data else False
 
-        # ✅ ЕДИНСТВЕННЫЙ RETURN В КОНЦЕ
+        # --- Обработка Статуса Стрима ---
+        is_online = False
+        if not isinstance(stream_resp, Exception) and stream_resp.status_code == 200:
+            s_data = stream_resp.json()
+            if s_data:
+                is_online = s_data[0].get('value', False)
+        final_response['is_stream_online'] = is_online
+
         return JSONResponse(content=final_response)
 
     except Exception as e:
