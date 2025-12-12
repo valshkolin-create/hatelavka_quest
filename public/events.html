@@ -398,6 +398,76 @@
 .btn-close-success:active {
     transform: scale(0.96);
 }
+    /* --- СТИЛИ ДЛЯ КНОПКИ "ГДЕ ИСПОЛЬЗОВАТЬ" И ПОПАПА ИНСТРУКЦИИ --- */
+
+/* Кнопка (копия из профиля) */
+.reward-how-to-use-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #007aff; /* Action color */
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    text-decoration: none;
+    margin-top: 5px;
+    margin-bottom: 15px; /* Отступ снизу в модалке */
+    width: 100%; /* На всю ширину в модалке */
+}
+.reward-how-to-use-btn i {
+    font-size: 13px;
+}
+.reward-how-to-use-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+.reward-how-to-use-btn:active {
+    transform: scale(0.96);
+}
+
+/* Стили попапа "Как использовать" (адаптированные под events.html) */
+.custom-popup {
+    background-color: #1c1c1e;
+    border-radius: 14px;
+    padding: 20px;
+    width: 90%; 
+    max-width: 380px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    transform: scale(0.95);
+    transition: transform 0.2s;
+}
+.modal-overlay.visible .custom-popup {
+    transform: scale(1);
+}
+.custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; color: #fff; }
+.custom-popup p { margin: 0 0 15px 0; font-size: 14px; color: #b0b0b0; line-height: 1.4; }
+
+/* Кнопки внутри попапа */
+.popup-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+.popup-btn { 
+    width: 100%; border: none; padding: 12px; border-radius: 10px; 
+    font-size: 16px; font-weight: 600; cursor: pointer; 
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    text-decoration: none;
+}
+.popup-btn.primary { background-color: #34c759; color: white; } /* Green */
+.popup-btn.secondary { background-color: #3a3a3c; color: white; }
+
+/* Текст-подсказка "Сохранено в профиле" */
+.saved-in-profile-text {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 5px;
+    display: block;
+}
 
   </style>
 </head>
@@ -500,6 +570,14 @@
             <span class="promo-value" id="success-promo-code" onclick="copyPromo(this)">CODE123</span>
         </div>
 
+        <div id="promo-instruction-block" style="display: none;">
+            <span class="saved-in-profile-text">
+                <i class="fa-solid fa-floppy-disk"></i> Код также сохранен в вашем профиле
+            </span>
+            <button class="reward-how-to-use-btn" onclick="openHowToUsePopup()">
+                <i class="fa-solid fa-circle-question"></i> Как использовать?
+            </button>
+        </div>
         <button class="btn-close-success" onclick="closeSuccessModal()">Закрыть</button>
     </div>
 </div>
@@ -525,6 +603,26 @@
         <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
         <span>Аукцион</span>
     </a>
+    <button class="btn-close-success" onclick="closeSuccessModal()">Закрыть</button>
+    </div>
+</div>
+
+<div id="how-to-use-popup" class="modal-overlay">
+    <div class="custom-popup">
+        <h3>Как использовать код?</h3>
+        <p>Скопируйте код и активируйте его в боте.</p>
+        <img src="https://i.postimg.cc/k4WyP04y/IMG-9212.gif" alt="Инструкция" style="width:100%; border-radius:10px;">
+        
+        <div class="popup-actions">
+            <a href="https://t.me/HATElavka_bot" class="popup-btn primary">
+                <i class="fa-brands fa-telegram"></i> Открыть HATElavka
+            </a>
+            <button onclick="closeHowToUsePopup()" class="popup-btn secondary">
+                Закрыть
+            </button>
+        </div>
+    </div>
+</div>
 </footer>
 
 <script>
@@ -835,42 +933,55 @@ document.addEventListener('DOMContentLoaded', function() {
     window.closeShopModal = () => dom.shopModal.classList.remove('visible');
 
   // Функция открытия красивого окна
-    function showSuccess(message, promoCode = null) {
-        // Закрываем магазин, чтобы было чисто
-        closeShopModal();
+    // Функция открытия красивого окна
+  // Управление попапом инструкции
+    window.openHowToUsePopup = () => {
+    // Скрываем окно успеха, чтобы не было наложения (опционально, можно оставить оба)
+    // document.getElementById('success-modal').classList.remove('visible'); 
+    
+    document.getElementById('how-to-use-popup').classList.add('visible');
+};
+
+window.closeHowToUsePopup = () => {
+    document.getElementById('how-to-use-popup').classList.remove('visible');
+    
+    // Если мы закрыли инструкцию, можно вернуть пользователя к окну с кодом, если оно еще нужно
+    // Но обычно логичнее просто закрыть текущее окно.
+};
+function showSuccess(message, promoCode = null) {
+    // Закрываем магазин
+    closeShopModal();
+    
+    const modal = document.getElementById('success-modal');
+    const msgEl = document.getElementById('success-message');
+    const promoContainer = document.getElementById('success-promo-container');
+    const promoValue = document.getElementById('success-promo-code');
+    
+    // Новые элементы
+    const instructionBlock = document.getElementById('promo-instruction-block');
+
+    msgEl.textContent = message;
+
+    if (promoCode) {
+        // Если это промокод
+        promoContainer.style.display = 'flex';
+        promoValue.textContent = promoCode;
         
-        const modal = document.getElementById('success-modal');
-        const msgEl = document.getElementById('success-message');
-        const promoContainer = document.getElementById('success-promo-container');
-        const promoValue = document.getElementById('success-promo-code');
-
-        msgEl.textContent = message;
-
-        if (promoCode) {
-            promoContainer.style.display = 'flex';
-            promoValue.textContent = promoCode;
-        } else {
-            promoContainer.style.display = 'none';
-        }
-
-        modal.classList.add('visible');
+        // 🔥 Показываем инструкцию и текст о профиле
+        if(instructionBlock) instructionBlock.style.display = 'block';
+    } else {
+        // Если это просто билеты или другое
+        promoContainer.style.display = 'none';
         
-        // Вибрация успеха
-        tg.HapticFeedback.notificationOccurred('success');
+        // 🔥 Скрываем инструкцию
+        if(instructionBlock) instructionBlock.style.display = 'none';
     }
 
-    // Закрытие
-    window.closeSuccessModal = () => {
-        document.getElementById('success-modal').classList.remove('visible');
-    };
-
-    // Копирование кода по клику
-    window.copyPromo = (element) => {
-        const code = element.textContent;
-        navigator.clipboard.writeText(code).then(() => {
-            tg.showPopup({message: 'Код скопирован!'});
-        });
-    };
+    modal.classList.add('visible');
+    
+    // Вибрация успеха
+    tg.HapticFeedback.notificationOccurred('success');
+}
 
     function renderShopList() {
         dom.shopContainer.innerHTML = '';
