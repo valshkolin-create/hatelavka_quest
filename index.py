@@ -3442,15 +3442,24 @@ from urllib.parse import urlencode
 
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(initData: str):
+    # --- ЛОГ: Начало запроса ---
+    logging.info("🟣 [Twitch OAuth] Получен запрос на авторизацию.")
+    
     if not initData:
+        logging.error("❌ [Twitch OAuth] Ошибка: initData отсутствует!")
         raise HTTPException(status_code=400, detail="initData is required")
     
+    # Проверка переменных окружения (Частая причина ошибок)
+    if not TWITCH_CLIENT_ID or not TWITCH_REDIRECT_URI:
+        logging.error(f"❌ [Twitch OAuth] Ошибка конфига! ClientID={bool(TWITCH_CLIENT_ID)}, RedirectURI={bool(TWITCH_REDIRECT_URI)}")
+        raise HTTPException(status_code=500, detail="Server configuration error")
+
     state = create_twitch_state(initData)
     
-    # Права (Scopes) через пробел
+    # Права (Scopes)
     scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
     
-    # 1. Собираем параметры через словарь (это исправит ошибку "missing response type")
+    # 1. Собираем параметры
     params = {
         "response_type": "code",
         "client_id": TWITCH_CLIENT_ID,
@@ -3460,12 +3469,20 @@ async def twitch_oauth_start(initData: str):
     }
     
     # 2. Генерируем ссылку
-    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{urlencode(params)}"
+    query_string = urlencode(params)
+    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
     
-    # 3. 🔥 ВАЖНО: Делаем REDIRECT (307), а не JSON.
-    # Это заставит браузер (Яндекс/Chrome) сохранить куку у себя.
+    # --- ЛОГ: Какая ссылка сгенерировалась ---
+    logging.info(f"🔗 [Twitch OAuth] Редирект пользователя на: {twitch_auth_url}")
+    
+    # 3. Формируем ответ
     response = Response(status_code=307)
     response.headers['Location'] = twitch_auth_url
+    
+    # 🔥 ВАЖНО: Запрещаем кэширование (Фикс для Android)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     
     # Устанавливаем куку
     response.set_cookie(
