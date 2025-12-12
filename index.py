@@ -28,7 +28,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import Update, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode
 from aiogram.client.bot import DefaultBotProperties
-from aiogram.exceptions import TelegramForbiddenError
+from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from fastapi import FastAPI, Request, HTTPException, Query, Depends, Body, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -2707,28 +2707,40 @@ async def vote_slay(
 
     # 2. ПРОВЕРКА ПОДПИСКИ (Gatekeeping)
     REQUIRED_CHANNEL_ID = -1002144676097 
-    CHANNEL_LINK = "https://t.me/HATElove_ttv" # Ссылка для кнопки
-
+    
+    # Создаем бота вне блока try, чтобы закрыть его в finally
+    temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    
     try:
-        temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
         chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
-        await temp_bot.session.close()
         
         # Если статус left (вышел) или kicked (кикнут/забанен)
         if chat_member.status in ['left', 'kicked']:
-            # Важно: Мы возвращаем 403 Forbidden и специальный текст
-            raise HTTPException(
-                status_code=403, 
-                detail="subscription_required" 
-            )
+            raise HTTPException(status_code=403, detail="subscription_required")
             
     except TelegramForbiddenError:
         logging.error(f"Бот не админ в канале {REQUIRED_CHANNEL_ID}")
+        # Если бот не админ, мы не можем проверить подписку, поэтому пропускаем или блокируем (на ваше усмотрение)
+        # Обычно лучше пропустить, чтобы не блокировать функционал из-за ошибки настройки
+        pass 
+    except TelegramBadRequest as e:
+        # 🔥 ФИКС: Обработка PARTICIPANT_ID_INVALID
+        # Если Telegram говорит, что ID невалиден, значит, он не может найти связь юзера с чатом.
+        # Чаще всего это равносильно отсутствию подписки.
+        if "PARTICIPANT_ID_INVALID" in str(e):
+            logging.warning(f"Ошибка ID при проверке подписки для {user_id}. Считаем, что не подписан.")
+            raise HTTPException(status_code=403, detail="subscription_required")
+        else:
+            logging.error(f"Ошибка TelegramBadRequest: {e}")
+            pass
     except HTTPException as he:
         raise he 
     except Exception as e:
         logging.error(f"Ошибка проверки подписки: {e}")
         pass 
+    finally:
+        # 🔥 ФИКС: Сессия закрывается ВСЕГДА, даже если была ошибка
+        await temp_bot.session.close()
 
     # 3. ЗАПИСЬ ГОЛОСА
     try:
