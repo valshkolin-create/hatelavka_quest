@@ -1714,28 +1714,51 @@ async def silent_update_twitch_user(telegram_id: int):
             
             headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
 
-            # 3. Узнаем АКТУАЛЬНЫЙ никнейм
-            user_api_resp = await tw_client.get("https://api.twitch.tv/helix/users", headers=headers)
-            twitch_login_actual = None
-            if user_api_resp.status_code == 200:
-                twitch_login_actual = user_api_resp.json()["data"][0]["login"]
+            # 🚀 ОПТИМИЗАЦИЯ: Формируем список задач для параллельного запуска
+            tasks = [
+                # Задача 0: Получение данных пользователя (никнейм)
+                tw_client.get("https://api.twitch.tv/helix/users", headers=headers)
+            ]
 
-            # 4. Проверяем подписку
             broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
-            new_status = "none"
+            
+            # Задача 1: Проверка подписки (добавляем только если есть ID стримера)
             if broadcaster_id:
+                tasks.append(tw_client.get(
+                    f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
+                    headers=headers
+                ))
+
+            # 🔥 Запускаем все запросы ОДНОВРЕМЕННО
+            # return_exceptions=True гарантирует, что если один упадет, второй не сломается
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # --- Обработка результатов ---
+
+            # 1. Никнейм (результат первой задачи)
+            user_api_resp = results[0]
+            twitch_login_actual = None
+            
+            if not isinstance(user_api_resp, Exception) and user_api_resp.status_code == 200:
                 try:
-                    sub_resp = await tw_client.get(
-                        f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
-                        headers=headers
-                    )
+                    userData = user_api_resp.json()
+                    if userData.get("data"):
+                        twitch_login_actual = userData["data"][0]["login"]
+                except Exception:
+                    pass
+
+            # 2. Подписка (результат второй задачи, если она была)
+            new_status = "none"
+            
+            if broadcaster_id and len(results) > 1:
+                sub_resp = results[1]
+                if not isinstance(sub_resp, Exception):
                     if sub_resp.status_code == 200:
                         new_status = "subscriber"
                     elif sub_resp.status_code == 404:
                         new_status = "none"
-                except: pass
             
-            # Если он VIP, не понижаем его
+            # Если пользователь VIP, не понижаем его статус
             if current_status == "vip":
                 new_status = "vip"
 
@@ -6067,7 +6090,7 @@ async def get_user_rewards(
     request_data: InitDataRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает ОБЪЕДИНЕННЫЙ список наград: промокоды и ручные выдачи."""
+    """Возвращает ОБЪЕДИНЕННЫЙ список наград: промокоды и ручные выдачи (ПАРАЛЛЕЛЬНО)."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info: 
         raise HTTPException(status_code=401, detail="Доступ запрещен")
@@ -6076,46 +6099,53 @@ async def get_user_rewards(
     all_rewards = []
 
     try:
-        # 1. Получаем промокоды
-        promocodes_resp = await supabase.get(
-            "/promocodes", 
-            params={
-                "telegram_id": f"eq.{user_id}", 
-                "select": "code,description,reward_value,claimed_at"
-            }
+        # 🚀 ЗАПУСКАЕМ ЗАПРОСЫ ПАРАЛЛЕЛЬНО
+        results = await asyncio.gather(
+            # 1. Промокоды
+            supabase.get(
+                "/promocodes", 
+                params={
+                    "telegram_id": f"eq.{user_id}", 
+                    "select": "code,description,reward_value,claimed_at"
+                }
+            ),
+            # 2. Ручные выдачи
+            supabase.get(
+                "/manual_grants",
+                params={
+                    "user_id": f"eq.{user_id}",
+                    "select": "id, created_at, grant_type, amount"
+                }
+            )
         )
-        promocodes = promocodes_resp.json()
-        for promo in promocodes:
-            all_rewards.append({
-                "type": "promocode",
-                "date": promo['claimed_at'],
-                "data": promo
-            })
+        
+        promocodes_resp, grants_resp = results
 
-        # 2. Получаем ручные выдачи
-        grants_resp = await supabase.get(
-            "/manual_grants",
-            params={
-                "user_id": f"eq.{user_id}",
-                # 👇 ДОБАВЛЕНО 'id' В ЗАПРОС 👇
-                "select": "id, created_at, grant_type, amount"
-            }
-        )
-        grants = grants_resp.json()
-        for grant in grants:
-            all_rewards.append({
-                "type": "grant",
-                "date": grant['created_at'],
-                "data": grant
-            })
+        # Обработка промокодов
+        if promocodes_resp.status_code == 200:
+            for promo in promocodes_resp.json():
+                all_rewards.append({
+                    "type": "promocode",
+                    "date": promo['claimed_at'],
+                    "data": promo
+                })
+
+        # Обработка грантов
+        if grants_resp.status_code == 200:
+            for grant in grants_resp.json():
+                all_rewards.append({
+                    "type": "grant",
+                    "date": grant['created_at'],
+                    "data": grant
+                })
             
-        # 3. Сортируем все награды по дате (новые сверху)
+        # Сортируем
         all_rewards.sort(key=lambda x: x['date'], reverse=True)
         
         return all_rewards
 
     except Exception as e:
-        logging.error(f"Ошибка при получении объединенных наград для {user_id}: {e}", exc_info=True)
+        logging.error(f"Ошибка при получении наград для {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить список наград.")
 
 # --- ИСПРАВЛЕННЫЙ ЭНДПОИНТ ДЛЯ КВЕСТОВ ---
@@ -6396,13 +6426,15 @@ async def activate_referral_bonus(
     
 # --- Пользовательские эндпоинты ---
 @app.post("/api/v1/user/challenge/available")
-async def get_available_challenges(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_available_challenges(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info: raise HTTPException(status_code=401, detail="Доступ запрещен")
     telegram_id = user_info["id"]
 
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-    # Проверяем активные челленджи, но также учитываем, не истек ли их срок
+    # 1. Проверяем активные челленджи (Этот запрос оставляем первым, это логическая отсечка)
     pending_resp = await supabase.get(
         "/user_challenges", 
         params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "id,expires_at"}
@@ -6416,36 +6448,49 @@ async def get_available_challenges(request_data: InitDataRequest, supabase: http
         is_expired = False
         if expires_at_str:
             try:
-                # Преобразуем строку в объект времени с часовым поясом
                 expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
                 if expires_at < datetime.now(timezone.utc):
                     is_expired = True
-                    # Срок челленджа истек, обновляем его статус в базе
-                    await supabase.patch(
+                    # Срок истек - обновляем статус (не ждем ответа, отправляем и идем дальше)
+                    asyncio.create_task(supabase.patch(
                         "/user_challenges",
                         params={"id": f"eq.{current_challenge['id']}"},
                         json={"status": "expired"}
-                    )
+                    ))
             except ValueError:
-                # На случай, если дата в базе имеет неверный формат
-                logging.warning(f"Неверный формат даты истечения срока для челленджа {current_challenge['id']}")
+                pass
 
-        # Выдаем ошибку, только если челлендж действительно активен (не истек)
         if not is_expired:
             raise HTTPException(status_code=409, detail="У вас уже есть активный челлендж.")
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-    # Проверяем, привязан ли Twitch у пользователя
-    user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_id"})
-    user_has_twitch = user_resp.json() and user_resp.json()[0].get("twitch_id") is not None
-
-    completed_resp = await supabase.get("/user_challenges", params={"user_id": f"eq.{telegram_id}", "status": "in.(claimed,expired)", "select": "challenge_id"})
-    completed_ids = {c['challenge_id'] for c in completed_resp.json()}
+    # 🚀 2. ЗАПУСКАЕМ ОСТАЛЬНЫЕ 3 ЗАПРОСА ПАРАЛЛЕЛЬНО
+    results = await asyncio.gather(
+        # A. Проверка Twitch ID
+        supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_id"}),
+        
+        # B. Выполненные челленджи
+        supabase.get("/user_challenges", params={"user_id": f"eq.{telegram_id}", "status": "in.(claimed,expired)", "select": "challenge_id"}),
+        
+        # C. Все доступные челленджи
+        supabase.get("/challenges", params={"is_active": "eq.true", "select": "id,description,reward_amount,condition_type"})
+    )
     
-    available_resp = await supabase.get("/challenges", params={"is_active": "eq.true", "select": "id,description,reward_amount,condition_type"})
-    all_available = [c for c in available_resp.json() if c['id'] not in completed_ids]
+    user_resp, completed_resp, available_resp = results
 
-    # Фильтруем квесты, если нет Twitch
+    # Обработка результатов
+    user_has_twitch = False
+    if user_resp.status_code == 200 and user_resp.json():
+        user_has_twitch = user_resp.json()[0].get("twitch_id") is not None
+
+    completed_ids = set()
+    if completed_resp.status_code == 200:
+        completed_ids = {c['challenge_id'] for c in completed_resp.json()}
+    
+    all_available = []
+    if available_resp.status_code == 200:
+        all_available = [c for c in available_resp.json() if c['id'] not in completed_ids]
+
+    # Фильтруем
     if not user_has_twitch:
         final_available = [c for c in all_available if c.get("condition_type") != 'twitch_points']
     else:
