@@ -1331,6 +1331,11 @@ async def bootstrap_app(
             if s_data:
                 user_data['is_stream_online'] = s_data[0].get('value', False)
 
+        # --- 👇 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 👇 ---
+        # Считаем, что подписан, если бонус уже был активирован ранее
+        user_data['is_telegram_subscribed'] = True if user_data.get('referral_activated_at') else False
+        # -------------------------------------
+
         # Реферальные данные (Task F)
         if not isinstance(user_extra_res, Exception) and user_extra_res.status_code == 200:
             extra_data_list = user_extra_res.json()
@@ -4116,6 +4121,10 @@ async def get_current_user_data(
             if s_data:
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
+
+        # --- 👇 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 👇 ---
+        final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
+        # -------------------------------------
 
         return JSONResponse(content=final_response)
 
