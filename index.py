@@ -3441,10 +3441,29 @@ async def get_public_quests(request_data: InitDataRequest):
 from urllib.parse import urlencode
 
 @app.get("/api/v1/auth/twitch_oauth")
-async def twitch_oauth_start(initData: str):
-    logging.info("🟣 [Twitch OAuth] Получен запрос на авторизацию.")
+async def twitch_oauth_start(
+    request: Request, # <--- ВАЖНО: Добавили request для чтения заголовков устройства
+    initData: str
+):
+    # 1. Парсим данные пользователя для логов
+    try:
+        user_data = dict(parse_qsl(initData))
+        user_json = json.loads(user_data.get("user", "{}"))
+        user_id = user_json.get("id", "unknown")
+        username = user_json.get("username", "unknown")
+    except:
+        user_id = "parse_error"
+        username = "parse_error"
+
+    # 2. Получаем информацию об устройстве (User-Agent)
+    user_agent = request.headers.get('user-agent', 'unknown')
+
+    # --- ЛОГ: МАКСИМАЛЬНАЯ ДЕТАЛИЗАЦИЯ ---
+    logging.info(f"🟣 [Twitch OAuth] Запрос от: ID={user_id} (@{username})")
+    logging.info(f"📱 [Twitch OAuth] Устройство: {user_agent}")
     
     if not initData:
+        logging.error(f"❌ [Twitch OAuth] Ошибка: initData пустой для user {user_id}")
         raise HTTPException(status_code=400, detail="initData is required")
     
     # Проверка переменных
@@ -3467,10 +3486,9 @@ async def twitch_oauth_start(initData: str):
     query_string = urlencode(params)
     twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
     
-    logging.info(f"🔗 [Twitch HTML Redirect] Генерируем страницу: {twitch_auth_url}")
+    logging.info(f"🔗 [Twitch HTML Redirect] Сгенерирована ссылка: {twitch_auth_url}")
 
-    # 🔥 ИСПРАВЛЕНИЕ: Используем обычные кавычки и .replace()
-    # Это не ломает подсветку кода на GitHub, в отличие от f-строк с HTML
+    # Используем безопасный метод вставки (без f-строк HTML, чтобы не ломать подсветку)
     html_template = """
     <!DOCTYPE html>
     <html>
@@ -3488,13 +3506,10 @@ async def twitch_oauth_start(initData: str):
     </html>
     """
     
-    # Вставляем ссылку безопасным методом
     html_content = html_template.replace("TARGET_URL", twitch_auth_url)
     
-    # Отдаем HTML
     response = Response(content=html_content, media_type="text/html")
     
-    # Ставим куку
     response.set_cookie(
         key="twitch_oauth_init_data", 
         value=initData, 
