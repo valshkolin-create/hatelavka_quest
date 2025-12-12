@@ -401,6 +401,12 @@ function renderPage(eventData, leaderboardData = {}) {
                     playerName = p.full_name || 'Без имени';
                     iconHtml = telegramIconSvg;
                 }
+                // --- ОЧИСТКА НИКА ОТ РЕКЛАМЫ ---
+                if (playerName) {
+                    playerName = playerName
+                        .replace(/@cs_shot_bot/gi, '') // Убирает @cs_shot_bot (независимо от регистра)
+                        .trim(); // Убирает лишние пробелы по краям
+                }
 
                 // --- ВЕРНУЛИ СТАРУЮ СТРУКТУРУ ВЕРСТКИ (4 элемента), НО ОБНОВИЛИ SPAN.PLAYER ---
                 return `
