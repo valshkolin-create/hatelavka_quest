@@ -3456,7 +3456,7 @@ async def twitch_oauth_start(
     request: Request,
     initData: str
 ):
-    # 1. Логируем устройство
+    # 1. Логи
     user_agent = request.headers.get('user-agent', 'unknown')
     logging.info(f"🟣 [Twitch OAuth] Start. Device: {user_agent}")
     
@@ -3470,7 +3470,7 @@ async def twitch_oauth_start(
     state = create_twitch_state(initData)
     scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
     
-    # 2. Добавляем timestamp для уникальности
+    # 2. Уникальность ссылки (Анти-кэш)
     unique_ts = int(time.time())
 
     params = {
@@ -3488,8 +3488,7 @@ async def twitch_oauth_start(
     
     logging.info(f"🔗 [Twitch] Generated URL: {twitch_auth_url}")
 
-    # 3. HTML (Безопасный формат для подсветки синтаксиса)
-    # Мы собираем HTML из отдельных строк, чтобы избежать глюка с "синим текстом"
+    # 3. HTML (Безопасный список строк + ЗАЩИТА ОТ ДВОЙНОГО КЛИКА)
     html_parts = [
         '<!DOCTYPE html>',
         '<html lang="en">',
@@ -3499,14 +3498,26 @@ async def twitch_oauth_start(
         '<title>Login to Twitch</title>',
         '<style>',
         'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
-        '.btn { background-color: #9146FF; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 18px; margin-top: 20px; display: block; }',
+        '.btn { background-color: #9146FF; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 18px; margin-top: 20px; display: block; transition: opacity 0.2s; }',
+        '.btn.disabled { opacity: 0.6; pointer-events: none; cursor: default; }', # Стиль для отключенной кнопки
         '</style>',
         '</head>',
         '<body>',
         '<p>Переход на Twitch...</p>',
-        f'<a href="{twitch_auth_url}" class="btn">Нажмите для входа</a>',
+        
+        # Кнопка с защитой от двойного клика (onclick)
+        f'<a href="{twitch_auth_url}" id="loginBtn" class="btn" onclick="disableBtn(this)">Нажмите для входа</a>',
+        
         '<script>',
-        f'setTimeout(function() {{ window.location.href = "{twitch_auth_url}"; }}, 100);',
+        # Функция блокировки
+        'function disableBtn(el) { el.classList.add("disabled"); el.innerText = "Загрузка..."; }',
+        
+        # Авто-переход с блокировкой кнопки
+        f'setTimeout(function() {{',
+        '  var btn = document.getElementById("loginBtn");',
+        '  if(btn) disableBtn(btn);', # Визуально показываем, что процесс пошел
+        f'  window.location.replace("{twitch_auth_url}");',
+        f'}}, 100);',
         '</script>',
         '</body>',
         '</html>'
@@ -3514,7 +3525,7 @@ async def twitch_oauth_start(
     
     html_content = "".join(html_parts)
     
-    # 4. Отдаем ответ
+    # 4. Ответ
     response = Response(content=html_content, media_type="text/html")
     
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
