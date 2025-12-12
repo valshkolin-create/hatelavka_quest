@@ -3442,24 +3442,20 @@ from urllib.parse import urlencode
 
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(initData: str):
-    # --- ЛОГ: Начало запроса ---
     logging.info("🟣 [Twitch OAuth] Получен запрос на авторизацию.")
     
     if not initData:
-        logging.error("❌ [Twitch OAuth] Ошибка: initData отсутствует!")
         raise HTTPException(status_code=400, detail="initData is required")
     
-    # Проверка переменных окружения (Частая причина ошибок)
+    # Проверка переменных
     if not TWITCH_CLIENT_ID or not TWITCH_REDIRECT_URI:
-        logging.error(f"❌ [Twitch OAuth] Ошибка конфига! ClientID={bool(TWITCH_CLIENT_ID)}, RedirectURI={bool(TWITCH_REDIRECT_URI)}")
-        raise HTTPException(status_code=500, detail="Server configuration error")
+        logging.error("❌ Config Error: ClientID or RedirectURI missing")
+        raise HTTPException(status_code=500, detail="Server config error")
 
     state = create_twitch_state(initData)
-    
-    # Права (Scopes)
     scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
     
-    # 1. Собираем параметры
+    # Параметры ссылки
     params = {
         "response_type": "code",
         "client_id": TWITCH_CLIENT_ID,
@@ -3468,23 +3464,37 @@ async def twitch_oauth_start(initData: str):
         "state": state
     }
     
-    # 2. Генерируем ссылку
     query_string = urlencode(params)
     twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
     
-    # --- ЛОГ: Какая ссылка сгенерировалась ---
-    logging.info(f"🔗 [Twitch OAuth] Редирект пользователя на: {twitch_auth_url}")
+    logging.info(f"🔗 [Twitch HTML Redirect] Генерируем страницу: {twitch_auth_url}")
+
+    # 🔥 ИСПРАВЛЕНИЕ: Используем обычные кавычки и .replace()
+    # Это не ломает подсветку кода на GitHub, в отличие от f-строк с HTML
+    html_template = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Redirecting...</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script type="text/javascript">
+            window.location.replace("TARGET_URL");
+        </script>
+    </head>
+    <body>
+        <p style="text-align:center; margin-top:20px;">Переход на Twitch...</p>
+    </body>
+    </html>
+    """
     
-    # 3. Формируем ответ
-    response = Response(status_code=307)
-    response.headers['Location'] = twitch_auth_url
+    # Вставляем ссылку безопасным методом
+    html_content = html_template.replace("TARGET_URL", twitch_auth_url)
     
-    # 🔥 ВАЖНО: Запрещаем кэширование (Фикс для Android)
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    # Отдаем HTML
+    response = Response(content=html_content, media_type="text/html")
     
-    # Устанавливаем куку
+    # Ставим куку
     response.set_cookie(
         key="twitch_oauth_init_data", 
         value=initData, 
@@ -3495,7 +3505,7 @@ async def twitch_oauth_start(initData: str):
     )
     
     return response
-
+    
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
     request: Request, 
