@@ -6336,8 +6336,7 @@ async def activate_referral_bonus(
     request_data: ReferralActivateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    import traceback # Для вывода деталей ошибок в лог
-
+    import traceback
     logging.info("--- [REFERRAL_ACTIVATE] Попытка активации бонуса ---")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -6345,7 +6344,13 @@ async def activate_referral_bonus(
         logging.error("[REFERRAL_ACTIVATE] ❌ Неверный initData")
         raise HTTPException(status_code=401)
     
-    user_id = user_info["id"]
+    # 🔥 ФИКС 1: Явное преобразование в int
+    try:
+        user_id = int(user_info["id"])
+    except ValueError:
+        logging.error(f"[REFERRAL_ACTIVATE] ❌ Некорректный ID пользователя: {user_info.get('id')}")
+        raise HTTPException(status_code=400, detail="Invalid User ID format")
+
     logging.info(f"[REFERRAL_ACTIVATE] Пользователь: {user_id}")
 
     # 1. Получаем данные пользователя
@@ -6365,11 +6370,6 @@ async def activate_referral_bonus(
         logging.info("[REFERRAL_ACTIVATE] ⚠️ Уже активировано ранее")
         return {"message": "Бонус уже активирован ранее!", "already_done": True}
 
-    # Если нет реферала (или можно убрать эту проверку, если бонус для всех)
-    # if not user.get("referrer_id"):
-    #     logging.warning("[REFERRAL_ACTIVATE] ⛔ Нет реферала")
-    #     raise HTTPException(status_code=400, detail="Вас никто не приглашал.")
-
     # 2. Проверка TWITCH
     if not user.get("twitch_id"):
         logging.warning("[REFERRAL_ACTIVATE] ⛔ Twitch не привязан")
@@ -6378,9 +6378,11 @@ async def activate_referral_bonus(
     # 3. Проверка ПОДПИСКИ НА КАНАЛ
     logging.info(f"[REFERRAL_ACTIVATE] Проверка подписки в канале {REQUIRED_CHANNEL_ID}...")
     
-    temp_bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # 🔥 ФИКС 2: Используем глобального бота 'bot' вместо создания 'temp_bot'
+    # Это надежнее и быстрее. 'bot' объявлен в начале вашего файла index.py
     try:
-        chat_member = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
+        # Используем глобальный объект bot
+        chat_member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
         logging.info(f"[REFERRAL_ACTIVATE] Статус в канале: {chat_member.status}")
         
         if chat_member.status in ['left', 'kicked']:
@@ -6390,20 +6392,27 @@ async def activate_referral_bonus(
         logging.error(f"[REFERRAL_ACTIVATE] ❌ Бот не админ в канале {REQUIRED_CHANNEL_ID}")
         raise HTTPException(status_code=500, detail="Ошибка: Бот не является администратором канала.")
     except HTTPException as he:
-        raise he # Пробрасываем наши ошибки
+        raise he 
     except Exception as e:
+        # Логируем точную ошибку
         logging.error(f"[REFERRAL_ACTIVATE] ❌ Ошибка проверки подписки: {e}")
+        
+        # Если Telegram всё равно ругается на ID (редкий баг), можно попробовать пропустить
+        if "PARTICIPANT_ID_INVALID" in str(e):
+            logging.error(f"[REFERRAL_ACTIVATE] Странная ошибка ID {user_id}. Пробуем пропустить проверку (fail-safe).")
+            # Если хотите жесткую проверку — раскомментируйте raise ниже. 
+            # Если хотите дать бонус при ошибке телеграма — закомментируйте raise.
+            raise HTTPException(status_code=400, detail="Ошибка проверки ID в Telegram. Попробуйте позже.")
+            
         if "chat not found" in str(e).lower():
              raise HTTPException(status_code=500, detail="Ошибка настройки: Канал не найден.")
         raise HTTPException(status_code=400, detail="Не удалось проверить подписку. Попробуйте позже.")
-    finally:
-        await temp_bot.session.close()
 
     # 4. Выдача награды
     try:
         logging.info("[REFERRAL_ACTIVATE] ✅ Условия выполнены. Начисляем награду...")
         await supabase.post("/rpc/increment_coins", json={"p_user_id": user_id, "p_amount": 10})
-        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 1}) # Добавил билетик бонусом
+        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 1}) 
         
         await supabase.patch(
             "/users",
