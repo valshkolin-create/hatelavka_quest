@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         winnerName = item.winner.twitch_login;
                         iconHtml = '<i class="fa-brands fa-twitch"></i>';
                     } else {
-                        winnerName = item.winner.full_name;
+                        winnerName = cleanName(item.winner.full_name); 
                     }
                 }
 
