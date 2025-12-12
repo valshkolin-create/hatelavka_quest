@@ -79,6 +79,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
 
+    // 🔥 НОВАЯ ФУНКЦИЯ: Очистка рекламы из ника
+    function cleanName(str) {
+        if (typeof str !== 'string') return 'Аноним';
+        
+        // Список фраз для удаления (регистронезависимо)
+        const bannedPhrases = [
+            '@cs_shot_bot', 
+            't.me/', 
+            'cs.money' // Можешь добавлять свои варианты сюда
+        ];
+
+        let cleanStr = str;
+        bannedPhrases.forEach(phrase => {
+            // Создаем регулярку для глобального удаления без учета регистра
+            const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            cleanStr = cleanStr.replace(regex, '');
+        });
+
+        // Убираем лишние пробелы. Если имя стало пустым, пишем "Пользователь"
+        return cleanStr.trim() || 'Пользователь';
+    }
+
     async function makeApiRequest(url, body = {}, method = 'POST', showLoader = true) {
         if (showLoader) dom.loader.classList.remove('hidden');
         try {
@@ -294,11 +316,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     displayName = auction.bidder.twitch_login;
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
                 } else {
-                    displayName = auction.bidder.full_name || 'ㅤ';
+                    // 🔥 БЫЛО: displayName = auction.bidder.full_name || 'ㅤ';
+                    // 🔥 СТАЛО:
+                    displayName = cleanName(auction.bidder.full_name); 
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
-                displayName = auction.current_highest_bidder_name;
+                // 🔥 БЫЛО: displayName = auction.current_highest_bidder_name;
+                // 🔥 СТАЛО:
+                displayName = cleanName(auction.current_highest_bidder_name);
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
 
@@ -513,7 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         displayName = bid.user.twitch_login;
                         iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
                     } else if (bid.user.full_name) {
-                        displayName = bid.user.full_name;
+                        // 🔥 БЫЛО: displayName = bid.user.full_name;
+                        // 🔥 СТАЛО:
+                        displayName = cleanName(bid.user.full_name);
                     }
                 }
 
@@ -950,14 +978,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
                     isTwitch = true;
                 } else {
-                    displayName = auction.bidder.full_name || 'Аноним';
+                    // 🔥 БЫЛО: displayName = auction.bidder.full_name || 'Аноним';
+                    // 🔥 СТАЛО:
+                    displayName = cleanName(auction.bidder.full_name);
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
-                displayName = auction.current_highest_bidder_name;
+                // 🔥 БЫЛО: displayName = auction.current_highest_bidder_name;
+                // 🔥 СТАЛО:
+                displayName = cleanName(auction.current_highest_bidder_name);
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
-
+            
             // Формируем новый HTML
             let newHtmlContent = '';
             
