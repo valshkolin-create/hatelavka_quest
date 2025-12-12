@@ -1644,13 +1644,15 @@ async def auto_sync_vips_logic(supabase: httpx.AsyncClient):
 
 async def silent_update_twitch_user(telegram_id: int):
     """
-    Фоновая задача: Обновляет никнейм и статус подписки при запуске приложения.
-    С защитой от спама (кэш 5 минут).
+    Фоновая задача: Обновляет никнейм и статус подписки.
+    Логика:
+    1. Если зашел первый раз (или давно не было проверки) -> Проверяем СРАЗУ.
+    2. Если недавно проверяли (< 5 мин) -> Пропускаем (экономим запросы).
     """
-    CACHE_TTL_SECONDS = 300 # 5 минут кэша, чтобы не долбить API при каждом перезапуске
+    CACHE_TTL_SECONDS = 300 # 5 минут
 
     try:
-        # 1. Получаем токены и время последнего обновления
+        # 1. Получаем данные пользователя
         client = await get_background_client()
         user_resp = await client.get(
             "/users", 
@@ -1665,16 +1667,24 @@ async def silent_update_twitch_user(telegram_id: int):
             return # Не привязан Twitch
 
         user = user_data[0]
-        
-        # --- 🛡️ ЗАЩИТА ОТ СПАМА (КЭШ) ---
         last_sync_str = user.get("last_twitch_sync")
+
+        # --- 🔥 ЛОГИКА ПРОВЕРКИ + ЛОГИ ---
         if last_sync_str:
             try:
                 last_sync_dt = datetime.fromisoformat(last_sync_str.replace('Z', '+00:00'))
-                if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < CACHE_TTL_SECONDS:
-                    return # Кэш свежий, выходим
+                elapsed = (datetime.now(timezone.utc) - last_sync_dt).total_seconds()
+                
+                if elapsed < CACHE_TTL_SECONDS:
+                    # Лог, чтобы ты видел, что все работает, но запрос пропущен
+                    logging.info(f"⏳ [Twitch] Пропуск для {telegram_id}: кэш свежий ({int(elapsed)} сек).")
+                    return 
+                else:
+                    logging.info(f"🔄 [Twitch] Кэш истек для {telegram_id}. Обновляем...")
             except ValueError:
-                pass 
+                logging.warning(f"⚠️ [Twitch] Ошибка даты для {telegram_id}, обновляем принудительно.")
+        else:
+            logging.info(f"🆕 [Twitch] Первичная проверка для {telegram_id}. Обновляем мгновенно!")
         # --------------------------------
 
         refresh_token = user["twitch_refresh_token"]
@@ -1693,8 +1703,9 @@ async def silent_update_twitch_user(telegram_id: int):
                 }
             )
             
+            # 🔥 ВАЖНЫЙ ЛОГ ОШИБКИ
             if token_resp.status_code != 200:
-                # Если токен умер (юзер отозвал права), можно записать лог
+                logging.error(f"❌ [Twitch Error] Не удалось обновить токен для {telegram_id}: {token_resp.text}")
                 return
 
             new_tokens = token_resp.json()
@@ -1703,7 +1714,7 @@ async def silent_update_twitch_user(telegram_id: int):
             
             headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
 
-            # 3. Узнаем АКТУАЛЬНЫЙ никнейм (Фикс смены ника)
+            # 3. Узнаем АКТУАЛЬНЫЙ никнейм
             user_api_resp = await tw_client.get("https://api.twitch.tv/helix/users", headers=headers)
             twitch_login_actual = None
             if user_api_resp.status_code == 200:
@@ -1724,7 +1735,7 @@ async def silent_update_twitch_user(telegram_id: int):
                         new_status = "none"
                 except: pass
             
-            # Если он VIP, не понижаем его до саба или none
+            # Если он VIP, не понижаем его
             if current_status == "vip":
                 new_status = "vip"
 
@@ -1739,11 +1750,13 @@ async def silent_update_twitch_user(telegram_id: int):
                 update_data["twitch_login"] = twitch_login_actual
 
             await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
-            logging.info(f"✅ Auto-Sync Twitch для {telegram_id}: Ник={twitch_login_actual}, Статус={new_status}")
+            
+            # Лог успешного обновления
+            logging.info(f"✅ [Twitch] Успех для {telegram_id}: Ник={twitch_login_actual}, Статус={new_status}")
 
     except Exception as e:
-        logging.error(f"Ошибка тихого обновления Twitch: {e}")
-
+        logging.error(f"❌ [Twitch Critical] Ошибка функции: {e}")
+        
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
     if not message_id: return
