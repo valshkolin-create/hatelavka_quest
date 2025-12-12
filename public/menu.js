@@ -1290,7 +1290,6 @@ async function checkReferralAndWelcome(userData) {
     let potentialReferral = false;
     if (startParam && startParam.startsWith('r_') && !userData.referral_activated_at) {
         potentialReferral = true;
-        // Сразу показываем кнопку, не ждем сеть
         if (bonusBtn) {
             bonusBtn.classList.remove('hidden');
             bonusBtn.onclick = () => openWelcomePopup(userData);
@@ -1300,39 +1299,41 @@ async function checkReferralAndWelcome(userData) {
     // 1. Попытка синхронизации при входе по ссылке
     if (startParam && startParam.startsWith('r_')) {
         try {
-            const syncRes = await fetch('/api/v1/user/sync_referral', {
+            await fetch('/api/v1/user/sync_referral', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
-            const syncData = await syncRes.json();
-            
-            // Если сервер подтвердил реферала, обновляем локальные данные
-            if (syncData.referrer) {
-                userData.referrer_id = syncData.referrer;
-            } else if (syncData.status === 'already_has_ref' || syncData.status === 'no_change') {
-                // Если реферал уже был, ничего страшного, оставляем как есть
-            }
+            // Мы не ждем ответа для UI, просто шлем запрос
         } catch (e) { console.error("Ref sync error", e); }
     }
 
     // --- ЛОГИКА ОТОБРАЖЕНИЯ (ФИНАЛЬНАЯ ПРОВЕРКА) ---
 
-    // Если бонус УЖЕ получен -> Прячем всё (даже если показали ранее)
+    // 🔥 ИСПРАВЛЕНИЕ БАГА: Если бонус УЖЕ получен -> Чистим всё и выходим
     if (userData.referral_activated_at) {
         if (bonusBtn) bonusBtn.classList.add('hidden');
-        localStorage.removeItem('openRefPopupOnLoad'); 
+        
+        // Удаляем все флаги, чтобы уведомление не вылезло снова
+        localStorage.removeItem('openRefPopupOnLoad');
+        localStorage.removeItem('bonusPopupDeferred'); 
+        
+        // Принудительно скрываем уведомление, если оно успело появиться
+        const notif = document.getElementById('new-promo-notification');
+        if (notif && notif.classList.contains('bonus-mode')) {
+            notif.classList.add('hidden');
+            notif.classList.remove('bonus-mode'); // Убираем наш класс-маркер
+        }
         return; 
     }
 
-    // Если есть реферер (подтвержденный сервером ИЛИ мы только что пришли по ссылке) -> Показываем
+    // Если есть реферер (подтвержденный сервером ИЛИ мы только что пришли по ссылке)
     if (userData.referrer_id || potentialReferral) {
         if (bonusBtn) {
             bonusBtn.classList.remove('hidden');
             bonusBtn.onclick = () => openWelcomePopup(userData);
         }
 
-        // Проверяем флаги
         const shouldRestorePopup = localStorage.getItem('openRefPopupOnLoad');
         const isDeferred = localStorage.getItem('bonusPopupDeferred');
 
@@ -1348,7 +1349,6 @@ async function checkReferralAndWelcome(userData) {
         }
     } 
     else {
-        // Если реферала нет и ссылки не было -> прячем
         if (bonusBtn) bonusBtn.classList.add('hidden');
     }
 }
@@ -1358,23 +1358,21 @@ function showTopBonusNotification(userData) {
     const notif = document.getElementById('new-promo-notification');
     if (!notif) return;
 
-    // Меняем текст и стиль уведомления
     const span = notif.querySelector('span');
     if (span) span.innerHTML = '🎁 <b>Ваш бонус ждет!</b> Нажмите, чтобы забрать.';
     
-    notif.style.backgroundColor = '#FFD700'; // Золотой цвет
+    notif.style.backgroundColor = '#FFD700';
     notif.style.color = '#000';
     notif.classList.remove('hidden');
+    notif.classList.add('bonus-mode'); // Добавляем метку для очистки
 
-    // При клике на само уведомление — открываем попап
     notif.onclick = (e) => {
-        // Если клик не по крестику
         if (!e.target.classList.contains('promo-notification-close')) {
             openWelcomePopup(userData);
             notif.classList.add('hidden');
         }
     };
-}    
+}
 // Вспомогательные функции стилей (Обновил цвета рамок)
 function markStepDone(el, icon) {
     if(el) { el.style.borderColor = "#34c759"; el.style.background = "rgba(52, 199, 89, 0.1)"; }
