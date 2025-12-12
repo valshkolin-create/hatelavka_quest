@@ -447,21 +447,38 @@ try {
     async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) dom.loaderOverlay.classList.remove('hidden');
         try {
-            const options = { method, headers: { 'Content-Type': 'application/json' } };
+            // Устанавливаем таймаут 25 секунд (чтобы не висело вечно)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+            const options = { 
+                method, 
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal // <--- Подключаем сигнал
+            };
+            
             if (method !== 'GET') {
                 options.body = JSON.stringify({ ...body, initData: Telegram.WebApp.initData });
             }
+            
             const response = await fetch(url, options);
+            clearTimeout(timeoutId); // <--- Очищаем таймер, если успели
+
             if (response.status === 429) {
-                const errorResult = await response.json();
-                Telegram.WebApp.showAlert(errorResult.detail || 'Действие временно недоступно.');
+                // ... обработка 429 ...
                 throw new Error('Cooldown active'); 
             }
             if (response.status === 204) return null;
+            
             const result = await response.json();
             if (!response.ok) throw new Error(result.detail || result.message || 'Ошибка сервера');
             return result;
         } catch (e) {
+            // Обработка таймаута
+            if (e.name === 'AbortError') {
+                e.message = "Превышено время ожидания ответа от сервера.";
+            }
+            
             if (e.message !== 'Cooldown active' && !isSilent) {
                  Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
             }
@@ -2104,19 +2121,29 @@ async function openQuestsTab(isSilent = false) {
 function preloadImages(urls) {
     if (!urls || urls.length === 0) return Promise.resolve();
     
-    const promises = urls.map(url => {
+    // Создаем массив промисов для картинок
+    const imagePromises = urls.map(url => {
         return new Promise((resolve) => {
             if (!url) return resolve();
             const img = new Image();
             img.src = url;
-            // Считаем картинку загруженной даже при ошибке, чтобы не блокировать интерфейс
             img.onload = resolve;
-            img.onerror = resolve; 
+            img.onerror = resolve; // Если ошибка загрузки - тоже продолжаем
         });
     });
-    return Promise.all(promises);
-}
 
+    // Создаем промис-таймаут (2.5 секунды)
+    const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => {
+            console.warn("⏳ Preload images timed out, showing interface anyway.");
+            resolve();
+        }, 2500); 
+    });
+
+    // Ждем либо загрузки всех картинок, либо истечения таймера
+    return Promise.race([Promise.all(imagePromises), timeoutPromise]);
+}
+    
 // --- ОПТИМИЗАЦИЯ: Сбор всех URL из данных ---
 function extractImageUrls(data) {
     const urls = [];
@@ -2385,6 +2412,11 @@ async function renderFullInterface(bootstrapData) {
         
         } catch (e) {
             console.error("Критическая ошибка main:", e);
+            
+            // 🔥 ДОБАВЛЕНО: Если произошла ошибка, чистим кэш, чтобы при перезагрузке данные скачались заново
+            localStorage.removeItem('app_bootstrap_cache');
+            console.log("🧹 Кэш очищен из-за ошибки.");
+            
             if (!hasCache) {
                 dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки: ${e.message}</p>`;
             }
