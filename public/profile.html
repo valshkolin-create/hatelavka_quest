@@ -641,6 +641,32 @@
         </div>
     </div>
 </div>
+    
+    <div id="twitch-help-popup" class="custom-popup-overlay">
+    <div class="custom-popup">
+        <div style="font-size: 40px; margin-bottom: 10px;">🆘</div>
+        <h3>Нужна помощь?</h3>
+        
+        <div style="text-align: left; font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 20px;">
+            <p>Не удается привязать аккаунт автоматически?</p>
+            <p>Напишите администратору, он добавит ваш Twitch вручную.</p>
+            <p style="font-size: 12px; color: #888; margin-top: 10px;">
+                *Нажмите кнопку ниже, чтобы открыть диалог с уже готовым сообщением.
+            </p>
+        </div>
+
+        <div class="popup-actions" style="grid-template-columns: 1fr; gap: 10px;">
+            <a href="https://t.me/hatelove_twitch?text=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82!%20%D0%9D%D0%B5%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B0%D0%B5%D1%82%D1%81%D1%8F%20%D0%B0%D0%B2%D1%82%D0%BE%D0%BC%D0%B0%D1%82%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8%20%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D1%8C%D1%81%D1%8F,%20%D0%BF%D0%BE%D0%BC%D0%BE%D0%B3%D0%B8%20%D0%BF%D0%BE%D0%B6%D0%B0%D0%BB%D1%83%D0%B9%D1%81%D1%82%D0%B0" 
+               target="_blank" 
+               class="popup-btn primary" 
+               style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
+               <i class="fa-regular fa-paper-plane" style="margin-right: 8px;"></i> Написать админу
+            </a>
+            <button id="twitch-help-close" class="popup-btn secondary">Закрыть</button>
+        </div>
+    </div>
+</div>
+    
 
     <div id="referral-popup" class="custom-popup-overlay">
         <div class="custom-popup" style="text-align: left;">
@@ -785,7 +811,7 @@ try {
                 <button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>
             `;
         } else {
-            // СЦЕНАРИЙ: НЕ ПРИВЯЗАН (АВТОРИЗАЦИЯ)
+            // СЦЕНАРИЙ: НЕ ПРИВЯЗАН
             
             // Генерируем ссылку для бэкенда
             const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
@@ -798,21 +824,31 @@ try {
                         <i class="fa-solid fa-shield-halved"></i> Безопасно ли это?
                     </span>
                 </div>
-                <button id="connect-twitch-btn" class="settings-card-btn twitch">Привязать</button>
+                
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                    <button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button>
+                    <button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button>
+                </div>
             `;
 
-            // Навешиваем обработчик события аккуратно через JS, а не внутри HTML
-            // Это предотвращает ошибки с кавычками в длинных ссылках
+            // Логика кнопки "Привязать"
             const connectBtn = twitchCard.querySelector('#connect-twitch-btn');
             if (connectBtn) {
                 connectBtn.onclick = () => {
-                    // try_instant_view: false — гарантирует открытие во внешнем браузере
                     tg.openLink(authUrl, { try_instant_view: false });
+                };
+            }
+            
+            // Логика кнопки "Помощь"
+            const helpBtn = twitchCard.querySelector('#twitch-help-btn');
+            if (helpBtn) {
+                helpBtn.onclick = (e) => {
+                    e.stopPropagation(); // Чтобы не срабатывал клик по карточке, если он есть
+                    document.getElementById('twitch-help-popup').classList.add('visible');
                 };
             }
         }
         dom.settingsList.appendChild(twitchCard);
-
         // 4. Реферальная система
         const refCard = document.createElement('div'); 
         refCard.className = 'settings-card ref-card-gradient';
@@ -1070,6 +1106,7 @@ try {
             tg.HapticFeedback.notificationOccurred('success');
             return;
         }
+        
         const delBtn = target.closest('.reward-card-delete-btn');
         if (delBtn) {
             const card = delBtn.closest('.reward-card');
@@ -1093,6 +1130,11 @@ try {
         await makeApiRequest('/api/v1/user/trade_link/save', {trade_link:v});
         main();
     };
+    // Закрытие попапа помощи
+    const twitchHelpCloseBtn = document.getElementById('twitch-help-close');
+    if (twitchHelpCloseBtn) {
+        twitchHelpCloseBtn.onclick = () => document.getElementById('twitch-help-popup').classList.remove('visible');
+    }
     
     // Закрытие настроек уведомлений
     dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
