@@ -3456,78 +3456,112 @@ async def twitch_oauth_start(
     request: Request,
     initData: str
 ):
-    # 1. Логи
+    # 1. Логируем устройство для отладки
     user_agent = request.headers.get('user-agent', 'unknown')
-    logging.info(f"🟣 [Twitch OAuth] Start. Device: {user_agent}")
+    
+    # Парсинг ID (безопасный)
+    try:
+        user_data = dict(parse_qsl(initData))
+        user_json = json.loads(user_data.get("user", "{}"))
+        user_id = user_json.get("id", "unknown")
+    except:
+        user_id = "unknown"
+
+    logging.info(f"🟣 [Twitch OAuth] Start. User: {user_id} | Device: {user_agent}")
     
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
     
     if not TWITCH_CLIENT_ID or not TWITCH_REDIRECT_URI:
-        logging.error("❌ Config Error")
-        raise HTTPException(status_code=500, detail="Config error")
+        logging.error("❌ Config Error: TWITCH_CLIENT_ID or REDIRECT_URI is missing")
+        raise HTTPException(status_code=500, detail="Server config error")
 
+    # 2. Подготовка данных
     state = create_twitch_state(initData)
-    scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
-    
-    # 2. Уникальность ссылки (Анти-кэш)
     unique_ts = int(time.time())
+    scopes = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
 
-    params = {
-        "response_type": "code",
-        "client_id": TWITCH_CLIENT_ID,
-        "redirect_uri": TWITCH_REDIRECT_URI,
-        "scope": scopes_list,
-        "state": state,
-        "force_verify": "true",
-        "__t": unique_ts 
-    }
-    
-    query_string = urlencode(params)
-    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
-    
-    logging.info(f"🔗 [Twitch] Generated URL: {twitch_auth_url}")
+    # 3. HTML ШАБЛОН (Без f-строк, чтобы не ломать подсветку GitHub)
+    # Мы используем плейсхолдеры __VAR__, которые заменим ниже
+    html_template = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Redirecting...</title>
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <style>
+            body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            .loader { border: 4px solid #f3f3f3; border-top: 4px solid #9146FF; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            .btn { background-color: #9146FF; color: white; padding: 14px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 20px; display: none; }
+        </style>
+    </head>
+    <body>
+        <div class="loader"></div>
+        <p id="status">Connecting to Twitch...</p>
+        <a id="manualLink" href="#" class="btn">Click here to Login</a>
 
-    # 3. HTML (Безопасный список строк + ЗАЩИТА ОТ ДВОЙНОГО КЛИКА)
-    html_parts = [
-        '<!DOCTYPE html>',
-        '<html lang="en">',
-        '<head>',
-        '<meta charset="UTF-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '<title>Login to Twitch</title>',
-        '<style>',
-        'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
-        '.btn { background-color: #9146FF; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 18px; margin-top: 20px; display: block; transition: opacity 0.2s; }',
-        '.btn.disabled { opacity: 0.6; pointer-events: none; cursor: default; }', # Стиль для отключенной кнопки
-        '</style>',
-        '</head>',
-        '<body>',
-        '<p>Переход на Twitch...</p>',
-        
-        # Кнопка с защитой от двойного клика (onclick)
-        f'<a href="{twitch_auth_url}" id="loginBtn" class="btn" onclick="disableBtn(this)">Нажмите для входа</a>',
-        
-        '<script>',
-        # Функция блокировки
-        'function disableBtn(el) { el.classList.add("disabled"); el.innerText = "Загрузка..."; }',
-        
-        # Авто-переход с блокировкой кнопки
-        f'setTimeout(function() {{',
-        '  var btn = document.getElementById("loginBtn");',
-        '  if(btn) disableBtn(btn);', # Визуально показываем, что процесс пошел
-        f'  window.location.replace("{twitch_auth_url}");',
-        f'}}, 100);',
-        '</script>',
-        '</body>',
-        '</html>'
-    ]
+        <script>
+            // Данные внедряются Python-ом через .replace()
+            const CLIENT_ID = "__CLIENT_ID__";
+            const REDIRECT_URI = "__REDIRECT_URI__";
+            const SCOPE = "__SCOPE__";
+            const STATE = "__STATE__";
+            const TS = "__TS__";
+
+            try {
+                // Сборка ссылки НА КЛИЕНТЕ (JS) гарантирует правильную кодировку символов
+                const baseUrl = "https://id.twitch.tv/oauth2/authorize";
+                const params = new URLSearchParams();
+                
+                // Строгий порядок параметров для Android WebView
+                params.append("response_type", "code");
+                params.append("client_id", CLIENT_ID);
+                params.append("redirect_uri", REDIRECT_URI);
+                params.append("scope", SCOPE);
+                params.append("state", STATE);
+                params.append("force_verify", "true");
+                params.append("__t", TS);
+
+                const finalUrl = baseUrl + "?" + params.toString();
+                
+                // Установка ссылки для кнопки (план Б)
+                const btn = document.getElementById('manualLink');
+                btn.href = finalUrl;
+                
+                // Автоматический переход
+                setTimeout(() => {
+                    window.location.replace(finalUrl);
+                    
+                    // Если переход завис (Android иногда блокирует авто-редиректы), показываем кнопку
+                    setTimeout(() => {
+                        document.getElementById('status').innerText = "Taking too long?";
+                        btn.style.display = "block";
+                        document.querySelector('.loader').style.display = "none";
+                    }, 2500);
+                }, 100);
+
+            } catch (e) {
+                document.getElementById('status').innerText = "Error: " + e.message;
+            }
+        </script>
+    </body>
+    </html>
+    """
+
+    # 4. Вставляем данные безопасным способом
+    html_content = html_template.replace("__CLIENT_ID__", TWITCH_CLIENT_ID) \
+                                .replace("__REDIRECT_URI__", TWITCH_REDIRECT_URI) \
+                                .replace("__SCOPE__", scopes) \
+                                .replace("__STATE__", state) \
+                                .replace("__TS__", str(unique_ts))
     
-    html_content = "".join(html_parts)
-    
-    # 4. Ответ
+    # 5. Отдаем ответ
     response = Response(content=html_content, media_type="text/html")
     
+    # Анти-кэш заголовки
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
