@@ -3449,90 +3449,79 @@ async def get_public_quests(request_data: InitDataRequest):
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
 # 👇 Убедитесь, что этот импорт есть в начале файла
+# 👇 Убедитесь, что этот импорт есть в самом верху файла index.py
 from urllib.parse import urlencode
 
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(
-    request: Request,
+    request: Request, # <--- ВАЖНО: Добавили request для чтения заголовков устройства
     initData: str
 ):
-    # 1. Логи
-    user_agent = request.headers.get('user-agent', 'unknown')
-    
-    # Парсим ID для логов
+    # 1. Парсим данные пользователя для логов
     try:
         user_data = dict(parse_qsl(initData))
         user_json = json.loads(user_data.get("user", "{}"))
         user_id = user_json.get("id", "unknown")
+        username = user_json.get("username", "unknown")
     except:
-        user_id = "unknown"
+        user_id = "parse_error"
+        username = "parse_error"
 
-    logging.info(f"🟣 [Twitch OAuth] Start. User: {user_id} | Device: {user_agent}")
+    # 2. Получаем информацию об устройстве (User-Agent)
+    user_agent = request.headers.get('user-agent', 'unknown')
+
+    # --- ЛОГ: МАКСИМАЛЬНАЯ ДЕТАЛИЗАЦИЯ ---
+    logging.info(f"🟣 [Twitch OAuth] Запрос от: ID={user_id} (@{username})")
+    logging.info(f"📱 [Twitch OAuth] Устройство: {user_agent}")
     
     if not initData:
+        logging.error(f"❌ [Twitch OAuth] Ошибка: initData пустой для user {user_id}")
         raise HTTPException(status_code=400, detail="initData is required")
     
-    # ЛОГИРУЕМ КОНФИГУРАЦИЮ (чтобы исключить ошибку в .env)
-    logging.info(f"⚙️ Config Check: ClientID={TWITCH_CLIENT_ID[:5]}... RedirectURI={TWITCH_REDIRECT_URI}")
-
+    # Проверка переменных
     if not TWITCH_CLIENT_ID or not TWITCH_REDIRECT_URI:
-        logging.error("❌ Config Error: Env vars missing")
+        logging.error("❌ Config Error: ClientID or RedirectURI missing")
         raise HTTPException(status_code=500, detail="Server config error")
 
     state = create_twitch_state(initData)
-    unique_ts = int(time.time())
-    scopes = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
-
-    # 2. HTML С ФОРМОЙ (Самый надежный метод для Android)
-    # Мы не собираем ссылку вручную. Мы создаем форму с inputs.
-    html_parts = [
-        '<!DOCTYPE html>',
-        '<html lang="en">',
-        '<head>',
-        '<meta charset="UTF-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '<title>Login to Twitch</title>',
-        '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
-        '<style>',
-        'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
-        '.btn { background-color: #9146FF; color: white; border: none; padding: 16px 32px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-top: 20px; cursor: pointer; }',
-        '</style>',
-        '</head>',
-        '<body>',
-        '<p>Connecting to Twitch...</p>',
-        
-        # ФОРМА: Браузер сам соберет правильный URL
-        '<form id="oauthForm" action="https://id.twitch.tv/oauth2/authorize" method="GET">',
-        '   <input type="hidden" name="response_type" value="code">',
-        f'  <input type="hidden" name="client_id" value="{TWITCH_CLIENT_ID}">',
-        f'  <input type="hidden" name="redirect_uri" value="{TWITCH_REDIRECT_URI}">',
-        f'  <input type="hidden" name="scope" value="{scopes}">',
-        f'  <input type="hidden" name="state" value="{state}">',
-        f'  <input type="hidden" name="__t" value="{unique_ts}">', # Анти-кэш
-        '   <button type="submit" class="btn">Нажмите для входа</button>',
-        '</form>',
-
-        '<script>',
-        # Пытаемся отправить форму автоматически
-        'setTimeout(function() {',
-        '   var form = document.getElementById("oauthForm");',
-        '   if(form) form.submit();',
-        '}, 100);',
-        '</script>',
-        '</body>',
-        '</html>'
-    ]
+    scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
     
-    html_content = "".join(html_parts)
+    # Параметры ссылки
+    params = {
+        "response_type": "code",
+        "client_id": TWITCH_CLIENT_ID,
+        "redirect_uri": TWITCH_REDIRECT_URI,
+        "scope": scopes_list,
+        "state": state
+    }
     
-    # 3. Отдаем ответ
+    query_string = urlencode(params)
+    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
+    
+    logging.info(f"🔗 [Twitch HTML Redirect] Сгенерирована ссылка: {twitch_auth_url}")
+
+    # Используем безопасный метод вставки (без f-строк HTML, чтобы не ломать подсветку)
+    html_template = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Redirecting...</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script type="text/javascript">
+            window.location.replace("TARGET_URL");
+        </script>
+    </head>
+    <body>
+        <p style="text-align:center; margin-top:20px;">Переход на Twitch...</p>
+    </body>
+    </html>
+    """
+    
+    html_content = html_template.replace("TARGET_URL", twitch_auth_url)
+    
     response = Response(content=html_content, media_type="text/html")
     
-    # Анти-кэш заголовки (на всякий случай)
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-
     response.set_cookie(
         key="twitch_oauth_init_data", 
         value=initData, 
