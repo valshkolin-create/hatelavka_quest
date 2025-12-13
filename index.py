@@ -3456,87 +3456,68 @@ async def twitch_oauth_start(
     request: Request,
     initData: str
 ):
-    # 1. Логируем устройство
+    # 1. Логи
     user_agent = request.headers.get('user-agent', 'unknown')
-    logging.info(f"🟣 [Twitch OAuth] Debug Mode. Device: {user_agent}")
+    
+    # Парсим ID для логов
+    try:
+        user_data = dict(parse_qsl(initData))
+        user_json = json.loads(user_data.get("user", "{}"))
+        user_id = user_json.get("id", "unknown")
+    except:
+        user_id = "unknown"
+
+    logging.info(f"🟣 [Twitch OAuth] Start. User: {user_id} | Device: {user_agent}")
     
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
+    
+    # ЛОГИРУЕМ КОНФИГУРАЦИЮ (чтобы исключить ошибку в .env)
+    logging.info(f"⚙️ Config Check: ClientID={TWITCH_CLIENT_ID[:5]}... RedirectURI={TWITCH_REDIRECT_URI}")
+
     if not TWITCH_CLIENT_ID or not TWITCH_REDIRECT_URI:
-        logging.error("❌ Config Error")
-        raise HTTPException(status_code=500, detail="Config error")
+        logging.error("❌ Config Error: Env vars missing")
+        raise HTTPException(status_code=500, detail="Server config error")
 
     state = create_twitch_state(initData)
     unique_ts = int(time.time())
     scopes = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
 
-    # 2. Собираем ссылку
-    params = {
-        "response_type": "code",
-        "client_id": TWITCH_CLIENT_ID,
-        "redirect_uri": TWITCH_REDIRECT_URI,
-        "scope": scopes,
-        "state": state,
-        "force_verify": "true",
-        "__t": unique_ts
-    }
-    
-    query_string = urlencode(params)
-    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
-    
-    # 3. HTML С ДИАГНОСТИКОЙ (ALERTS)
+    # 2. HTML С ФОРМОЙ (Самый надежный метод для Android)
+    # Мы не собираем ссылку вручную. Мы создаем форму с inputs.
     html_parts = [
         '<!DOCTYPE html>',
-        '<html>',
+        '<html lang="en">',
         '<head>',
         '<meta charset="UTF-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '<title>Twitch Login Debug</title>',
+        '<title>Login to Twitch</title>',
         '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
         '<style>',
-        'body { background-color: #0e0e10; color: #fff; font-family: sans-serif; padding: 20px; word-break: break-all; }',
-        '.btn { background-color: #9146FF; color: white; padding: 20px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 18px; border: none; margin-top: 20px; cursor: pointer; display: block; text-align: center; text-decoration: none; }',
-        '.debug-info { font-size: 10px; color: #888; margin-top: 20px; background: #222; padding: 10px; border-radius: 5px; }',
+        'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
+        '.btn { background-color: #9146FF; color: white; border: none; padding: 16px 32px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-top: 20px; cursor: pointer; }',
         '</style>',
         '</head>',
         '<body>',
+        '<p>Connecting to Twitch...</p>',
         
-        '<h2>Вход через Twitch</h2>',
-        '<p>Нажмите кнопку ниже. Должны появляться всплывающие окна.</p>',
-        
-        # Кнопка вызывает функцию JS
-        f'<button onclick="startLogin(\'{twitch_auth_url}\')" class="btn">НАЖАТЬ ДЛЯ ВХОДА</button>',
-        
-        # Запасная обычная ссылка (если JS сломается совсем)
-        f'<a href="{twitch_auth_url}" target="_blank" style="display:block; margin-top:30px; color: #9146FF; text-align: center;">Запасная ссылка (обычная)</a>',
-
-        # Выводим ссылку текстом для проверки
-        f'<div class="debug-info">URL: {twitch_auth_url}</div>',
+        # ФОРМА: Браузер сам соберет правильный URL
+        '<form id="oauthForm" action="https://id.twitch.tv/oauth2/authorize" method="GET">',
+        '   <input type="hidden" name="response_type" value="code">',
+        f'  <input type="hidden" name="client_id" value="{TWITCH_CLIENT_ID}">',
+        f'  <input type="hidden" name="redirect_uri" value="{TWITCH_REDIRECT_URI}">',
+        f'  <input type="hidden" name="scope" value="{scopes}">',
+        f'  <input type="hidden" name="state" value="{state}">',
+        f'  <input type="hidden" name="__t" value="{unique_ts}">', # Анти-кэш
+        '   <button type="submit" class="btn">Нажмите для входа</button>',
+        '</form>',
 
         '<script>',
-        'function startLogin(url) {',
-        '   // ШАГ 1: Проверка нажатия',
-        '   alert("1. Кнопка нажата. Пробуем открыть...");',
-        
-        '   try {',
-        '       // ШАГ 2: Проверка наличия Telegram SDK',
-        '       if (window.Telegram && window.Telegram.WebApp) {',
-        '           alert("2. Telegram SDK найден. Вызываем openLink...");',
-        '           window.Telegram.WebApp.openLink(url, {try_instant_view: false});',
-        '       } else {',
-        '           alert("2. Telegram SDK НЕ найден! Используем window.open");',
-        '           window.open(url, "_blank");',
-        '       }',
-        '   } catch (e) {',
-        '       alert("ОШИБКА JS: " + e.message);',
-        '   }',
-        '}',
-        
-        '// Инициализация',
-        'if (window.Telegram && window.Telegram.WebApp) {',
-        '    window.Telegram.WebApp.ready();',
-        '    window.Telegram.WebApp.expand();',
-        '}',
+        # Пытаемся отправить форму автоматически
+        'setTimeout(function() {',
+        '   var form = document.getElementById("oauthForm");',
+        '   if(form) form.submit();',
+        '}, 100);',
         '</script>',
         '</body>',
         '</html>'
@@ -3544,9 +3525,10 @@ async def twitch_oauth_start(
     
     html_content = "".join(html_parts)
     
+    # 3. Отдаем ответ
     response = Response(content=html_content, media_type="text/html")
     
-    # Анти-кэш
+    # Анти-кэш заголовки (на всякий случай)
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
