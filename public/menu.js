@@ -1033,84 +1033,95 @@ function renderChallenge(challengeData, isGuest) {
                 // 1. Если бот выключен глобально
                 if (hbData.is_active === false) return;
 
-                // 2. Обновляем баланс
+                // 2. Обновляем баланс в интерфейсе и в памяти
                 if (hbData.tickets !== undefined) {
+                    userData.tickets = hbData.tickets; // Обновляем память
                     const ticketEl = document.getElementById('ticketStats');
                     if (ticketEl) ticketEl.textContent = hbData.tickets;
                 }
                 
                 // 3. Обновляем прогресс АВТОМАТИЧЕСКОГО КВЕСТА
-                // Ищем контейнер активного квеста
-                const activeQuestContainer = document.getElementById('active-automatic-quest-container');
-                if (activeQuestContainer && hbData.quest_id) {
-                    // Находим внутри полоску прогресса и текст
-                    const fill = activeQuestContainer.querySelector('.progress-fill');
-                    const textSpan = activeQuestContainer.querySelector('.progress-text');
-                    const claimBtn = activeQuestContainer.querySelector('.claim-reward-button'); // Если кнопка уже есть (или должна появиться)
+                if (hbData.quest_id) {
+                    // Обновляем глобальную переменную
+                    userData.active_quest_id = hbData.quest_id;
+                    userData.active_quest_progress = hbData.quest_progress;
 
-                    if (fill && textSpan) {
-                        // Нам нужно знать target квеста. В heartbeat мы его не передаем для экономии, 
-                        // поэтому берем из текущего текста DOM (например "5 / 10")
-                        const currentText = textSpan.textContent; // "5 / 10"
-                        const parts = currentText.split('/');
-                        if (parts.length === 2) {
-                            const target = parseInt(parts[1].trim());
-                            const progress = hbData.quest_progress;
-                            
-                            // Обновляем текст и ширину
-                            textSpan.textContent = `${progress} / ${target}`;
-                            const percent = Math.min(100, (progress / target) * 100);
-                            fill.style.width = `${percent}%`;
+                    // Находим квест в базе, чтобы точно знать цель (target)
+                    const activeQuest = allQuests.find(q => q.id === hbData.quest_id);
+                    
+                    if (activeQuest) {
+                        const target = activeQuest.target_value || 1;
+                        const progress = hbData.quest_progress;
+                        
+                        // А. Обновляем карточку во вкладке "Задания" (если она есть)
+                        const activeQuestContainer = document.getElementById('active-automatic-quest-container');
+                        if (activeQuestContainer) {
+                            const fill = activeQuestContainer.querySelector('.progress-fill');
+                            const textSpan = activeQuestContainer.querySelector('.progress-text');
+                            const claimBtn = activeQuestContainer.querySelector('.claim-reward-button');
 
-                            // Если квест выполнен, но кнопки "Забрать" еще нет -> перезагружаем интерфейс мягко
-                            if (progress >= target && !claimBtn) {
-                                console.log("Квест выполнен в фоне! Обновляем UI...");
-                                // Можно вызвать main(), но чтобы не моргало, лучше просто обновить эту секцию
-                                // Для простоты вызовем main() или просто оставим как есть, 
-                                // пользователь увидит кнопку при следующем действии.
-                                // Но лучше всего принудительно обновить данные:
-                                userData.active_quest_progress = progress; // Обновляем локальную переменную
-                                const questObj = allQuests.find(q => q.id === hbData.quest_id);
-                                if (questObj) renderActiveAutomaticQuest(questObj, userData);
+                            if (fill && textSpan) {
+                                // Формируем текст с иконками, если нужно
+                                let prefix = "";
+                                if (activeQuest.quest_type && activeQuest.quest_type.includes('twitch_messages')) prefix = "💬 ";
+                                else if (activeQuest.quest_type && activeQuest.quest_type.includes('telegram_messages')) prefix = "✉️ ";
+                                
+                                const suffix = (activeQuest.quest_type && activeQuest.quest_type.includes('uptime')) ? " мин." : "";
+
+                                // Обновляем текст и полоску
+                                textSpan.textContent = `${prefix}${progress} / ${target}${suffix}`;
+                                const percent = Math.min(100, (progress / target) * 100);
+                                fill.style.width = `${percent}%`;
+
+                                // Если квест выполнен, но кнопки нет -> обновляем UI
+                                if (progress >= target && !claimBtn) {
+                                    console.log("Квест выполнен в фоне! Обновляем UI...");
+                                    renderActiveAutomaticQuest(activeQuest, userData);
+                                }
                             }
                         }
                     }
                 }
 
                 // 4. Обновляем прогресс ЧЕЛЛЕНДЖА
-                const challengeContainer = document.getElementById('challenge-container');
-                if (challengeContainer && hbData.has_active_challenge) {
-                    const fill = challengeContainer.querySelector('.progress-fill');
-                    const textSpan = challengeContainer.querySelector('.progress-text');
-                    const claimBtn = challengeContainer.querySelector('#claim-challenge-btn');
+                if (hbData.has_active_challenge) {
+                    // Обновляем память (если объект challenge существует)
+                    if (!userData.challenge) userData.challenge = {};
+                    userData.challenge.progress_value = hbData.challenge_progress;
+                    userData.challenge.target_value = hbData.challenge_target;
 
-                    if (fill && textSpan) {
-                        const progress = hbData.challenge_progress;
-                        const target = hbData.challenge_target;
-                        
-                        // Определяем, есть ли иконка в тексте (💬 или ✉️)
-                        let prefix = "";
-                        const currentText = textSpan.textContent;
-                        if (currentText.includes("💬")) prefix = "💬 ";
-                        if (currentText.includes("✉️")) prefix = "✉️ ";
-                        if (currentText.includes("мин.")) prefix = ""; // Обработка минут сложнее, оставим стандарт
+                    const challengeContainer = document.getElementById('challenge-container');
+                    if (challengeContainer) {
+                        const fill = challengeContainer.querySelector('.progress-fill');
+                        const textSpan = challengeContainer.querySelector('.progress-text');
+                        const claimBtn = challengeContainer.querySelector('#claim-challenge-btn');
 
-                        // Обновляем
-                        textSpan.textContent = `${prefix}${progress} / ${target}`;
-                        const percent = Math.min(100, (progress / target) * 100);
-                        fill.style.width = `${percent}%`;
+                        if (fill && textSpan) {
+                            const progress = hbData.challenge_progress;
+                            const target = hbData.challenge_target;
+                            
+                            // Определяем префикс по текущему тексту (простой способ)
+                            let prefix = "";
+                            const currentText = textSpan.textContent;
+                            if (currentText.includes("💬")) prefix = "💬 ";
+                            if (currentText.includes("✉️")) prefix = "✉️ ";
+                            
+                            const suffix = currentText.includes("мин.") ? " мин." : "";
 
-                        // Если выполнено, но кнопка заблокирована или её нет
-                        if (progress >= target) {
-                             if (!claimBtn || claimBtn.disabled) {
-                                 console.log("Челлендж выполнен в фоне! Перерисовываем...");
-                                 // Обновляем локальные данные для рендера
-                                 userData.challenge.progress_value = progress;
-                                 renderChallenge(userData.challenge, false);
-                             }
+                            textSpan.textContent = `${prefix}${progress} / ${target}${suffix}`;
+                            const percent = Math.min(100, (progress / target) * 100);
+                            fill.style.width = `${percent}%`;
+
+                            if (progress >= target && (!claimBtn || claimBtn.disabled)) {
+                                console.log("Челлендж выполнен в фоне! Перерисовываем...");
+                                renderChallenge(userData.challenge, false);
+                            }
                         }
                     }
                 }
+
+                // 5. 🔥 ВАЖНО: Обновляем ярлыки на ГЛАВНОЙ странице
+                updateShortcutStatuses(userData, allQuests);
             }
         } catch (e) {
             console.error("Ошибка фонового обновления:", e);
