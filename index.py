@@ -3456,9 +3456,9 @@ async def twitch_oauth_start(
     request: Request,
     initData: str
 ):
-    # Логи
+    # 1. Логи
     user_agent = request.headers.get('user-agent', 'unknown')
-    logging.info(f"🟣 [Twitch OAuth] External Open. Device: {user_agent}")
+    logging.info(f"🟣 [Twitch OAuth] Hybrid Redirect. Device: {user_agent}")
     
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
@@ -3467,11 +3467,10 @@ async def twitch_oauth_start(
         raise HTTPException(status_code=500, detail="Config error")
 
     state = create_twitch_state(initData)
-    # Используем time.time() для уникальности, чтобы не кэшировалось
     unique_ts = int(time.time())
     scopes = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
 
-    # Сборка параметров для URL
+    # 2. Сборка параметров
     params = {
         "response_type": "code",
         "client_id": TWITCH_CLIENT_ID,
@@ -3482,40 +3481,81 @@ async def twitch_oauth_start(
         "__t": unique_ts
     }
     
-    # Собираем готовую ссылку здесь, чтобы передать её в JS
     query_string = urlencode(params)
-    twitch_full_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
-
-    # HTML, который скажет Телеграму открыть ссылку во внешнем браузере
-    html_content = [
+    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
+    
+    # 3. HTML С ГИБРИДНОЙ ЛОГИКОЙ
+    # Мы используем список строк, чтобы не ломать подсветку синтаксиса в GitHub/VSCode
+    html_parts = [
         '<!DOCTYPE html>',
         '<html>',
         '<head>',
         '<meta charset="UTF-8">',
-        '<title>Redirecting...</title>',
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+        '<title>Twitch Login</title>',
         '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
-        '<style>body { background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }</style>',
+        '<style>',
+        'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
+        '.loader { border: 4px solid #f3f3f3; border-top: 4px solid #9146FF; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }',
+        '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }',
+        '.btn { background-color: #9146FF; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 18px; margin-top: 20px; text-align: center; display: block; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }',
+        'p { margin-top: 20px; color: #adadb8; }',
+        '</style>',
         '</head>',
         '<body>',
-        '<p>Открываем Twitch...</p>',
+        
+        # Лоадер
+        '<div class="loader"></div>',
+        
+        # Кнопка (План Б) - Нажатие пальцем работает лучше всего
+        # Мы вставляем ссылку позже через JS, чтобы избежать проблем с кавычками
+        '<a id="loginBtn" href="#" class="btn">НАЖМИТЕ ДЛЯ ВХОДА</a>',
+        
+        '<p id="status">Попытка автоматического входа...</p>',
+
         '<script>',
-        f'  const authUrl = "{twitch_full_url}";',
-        '  // Пытаемся использовать нативный метод Telegram',
-        '  if (window.Telegram && window.Telegram.WebApp) {',
-        '      // try_instant_view: false заставляет открыть системный браузер',
-        '      window.Telegram.WebApp.openLink(authUrl, {try_instant_view: false});',
-        '  } else {',
-        '      // Фоллбэк для обычного браузера',
-        '      window.location.href = authUrl;',
+        f'  const TARGET_URL = "{twitch_auth_url}";',
+        
+        '  // 1. Настраиваем кнопку',
+        '  const btn = document.getElementById("loginBtn");',
+        '  btn.href = TARGET_URL;',
+        
+        '  // Функция перехода',
+        '  function tryRedirect() {',
+        '      // Попытка 1: Через SDK Телеграма (лучший вариант)',
+        '      if (window.Telegram && window.Telegram.WebApp) {',
+        '          window.Telegram.WebApp.openLink(TARGET_URL, {try_instant_view: false});',
+        '      }',
+        
+        '      // Попытка 2: Обычный редирект (План Б)',
+        '      // Если SDK не сработал за 500мс, браузер выполнит это',
+        '      setTimeout(function() {',
+        '          window.location.href = TARGET_URL;',
+        '      }, 500);',
         '  }',
+
+        '  // Запуск при загрузке',
+        '  tryRedirect();',
+        
+        '  // Если через 3 секунды мы все еще тут - меняем текст',
+        '  setTimeout(function() {',
+        '      document.getElementById("status").innerText = "Если переход не случился, нажмите кнопку выше.";',
+        '  }, 3000);',
         '</script>',
         '</body>',
         '</html>'
     ]
     
-    response = Response(content="".join(html_content), media_type="text/html")
+    # Собираем HTML в одну строку
+    html_content = "".join(html_parts)
     
-    # Ставим куку как обычно
+    response = Response(content=html_content, media_type="text/html")
+    
+    # Заголовки против кэша
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
     response.set_cookie(
         key="twitch_oauth_init_data", 
         value=initData, 
