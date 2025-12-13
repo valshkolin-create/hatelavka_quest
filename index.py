@@ -3456,9 +3456,9 @@ async def twitch_oauth_start(
     request: Request,
     initData: str
 ):
-    # 1. Логи
+    # 1. Логируем устройство
     user_agent = request.headers.get('user-agent', 'unknown')
-    logging.info(f"🟣 [Twitch OAuth] Hybrid Redirect. Device: {user_agent}")
+    logging.info(f"🟣 [Twitch OAuth] Debug Mode. Device: {user_agent}")
     
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
@@ -3470,7 +3470,7 @@ async def twitch_oauth_start(
     unique_ts = int(time.time())
     scopes = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
 
-    # 2. Сборка параметров
+    # 2. Собираем ссылку
     params = {
         "response_type": "code",
         "client_id": TWITCH_CLIENT_ID,
@@ -3484,74 +3484,69 @@ async def twitch_oauth_start(
     query_string = urlencode(params)
     twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
     
-    # 3. HTML С ГИБРИДНОЙ ЛОГИКОЙ
-    # Мы используем список строк, чтобы не ломать подсветку синтаксиса в GitHub/VSCode
+    # 3. HTML С ДИАГНОСТИКОЙ (ALERTS)
     html_parts = [
         '<!DOCTYPE html>',
         '<html>',
         '<head>',
         '<meta charset="UTF-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '<title>Twitch Login</title>',
+        '<title>Twitch Login Debug</title>',
         '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
         '<style>',
-        'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
-        '.loader { border: 4px solid #f3f3f3; border-top: 4px solid #9146FF; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }',
-        '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }',
-        '.btn { background-color: #9146FF; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 18px; margin-top: 20px; text-align: center; display: block; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }',
-        'p { margin-top: 20px; color: #adadb8; }',
+        'body { background-color: #0e0e10; color: #fff; font-family: sans-serif; padding: 20px; word-break: break-all; }',
+        '.btn { background-color: #9146FF; color: white; padding: 20px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 18px; border: none; margin-top: 20px; cursor: pointer; display: block; text-align: center; text-decoration: none; }',
+        '.debug-info { font-size: 10px; color: #888; margin-top: 20px; background: #222; padding: 10px; border-radius: 5px; }',
         '</style>',
         '</head>',
         '<body>',
         
-        # Лоадер
-        '<div class="loader"></div>',
+        '<h2>Вход через Twitch</h2>',
+        '<p>Нажмите кнопку ниже. Должны появляться всплывающие окна.</p>',
         
-        # Кнопка (План Б) - Нажатие пальцем работает лучше всего
-        # Мы вставляем ссылку позже через JS, чтобы избежать проблем с кавычками
-        '<a id="loginBtn" href="#" class="btn">НАЖМИТЕ ДЛЯ ВХОДА</a>',
+        # Кнопка вызывает функцию JS
+        f'<button onclick="startLogin(\'{twitch_auth_url}\')" class="btn">НАЖАТЬ ДЛЯ ВХОДА</button>',
         
-        '<p id="status">Попытка автоматического входа...</p>',
+        # Запасная обычная ссылка (если JS сломается совсем)
+        f'<a href="{twitch_auth_url}" target="_blank" style="display:block; margin-top:30px; color: #9146FF; text-align: center;">Запасная ссылка (обычная)</a>',
+
+        # Выводим ссылку текстом для проверки
+        f'<div class="debug-info">URL: {twitch_auth_url}</div>',
 
         '<script>',
-        f'  const TARGET_URL = "{twitch_auth_url}";',
+        'function startLogin(url) {',
+        '   // ШАГ 1: Проверка нажатия',
+        '   alert("1. Кнопка нажата. Пробуем открыть...");',
         
-        '  // 1. Настраиваем кнопку',
-        '  const btn = document.getElementById("loginBtn");',
-        '  btn.href = TARGET_URL;',
+        '   try {',
+        '       // ШАГ 2: Проверка наличия Telegram SDK',
+        '       if (window.Telegram && window.Telegram.WebApp) {',
+        '           alert("2. Telegram SDK найден. Вызываем openLink...");',
+        '           window.Telegram.WebApp.openLink(url, {try_instant_view: false});',
+        '       } else {',
+        '           alert("2. Telegram SDK НЕ найден! Используем window.open");',
+        '           window.open(url, "_blank");',
+        '       }',
+        '   } catch (e) {',
+        '       alert("ОШИБКА JS: " + e.message);',
+        '   }',
+        '}',
         
-        '  // Функция перехода',
-        '  function tryRedirect() {',
-        '      // Попытка 1: Через SDK Телеграма (лучший вариант)',
-        '      if (window.Telegram && window.Telegram.WebApp) {',
-        '          window.Telegram.WebApp.openLink(TARGET_URL, {try_instant_view: false});',
-        '      }',
-        
-        '      // Попытка 2: Обычный редирект (План Б)',
-        '      // Если SDK не сработал за 500мс, браузер выполнит это',
-        '      setTimeout(function() {',
-        '          window.location.href = TARGET_URL;',
-        '      }, 500);',
-        '  }',
-
-        '  // Запуск при загрузке',
-        '  tryRedirect();',
-        
-        '  // Если через 3 секунды мы все еще тут - меняем текст',
-        '  setTimeout(function() {',
-        '      document.getElementById("status").innerText = "Если переход не случился, нажмите кнопку выше.";',
-        '  }, 3000);',
+        '// Инициализация',
+        'if (window.Telegram && window.Telegram.WebApp) {',
+        '    window.Telegram.WebApp.ready();',
+        '    window.Telegram.WebApp.expand();',
+        '}',
         '</script>',
         '</body>',
         '</html>'
     ]
     
-    # Собираем HTML в одну строку
     html_content = "".join(html_parts)
     
     response = Response(content=html_content, media_type="text/html")
     
-    # Заголовки против кэша
+    # Анти-кэш
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
