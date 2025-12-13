@@ -3456,10 +3456,10 @@ async def twitch_oauth_start(
     request: Request,
     initData: str
 ):
-    # 1. Логируем устройство для отладки
+    # 1. Логи
     user_agent = request.headers.get('user-agent', 'unknown')
     
-    # Парсинг ID (безопасный)
+    # Парсим ID для логов
     try:
         user_data = dict(parse_qsl(initData))
         user_json = json.loads(user_data.get("user", "{}"))
@@ -3472,96 +3472,63 @@ async def twitch_oauth_start(
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
     
+    # ЛОГИРУЕМ КОНФИГУРАЦИЮ (чтобы исключить ошибку в .env)
+    logging.info(f"⚙️ Config Check: ClientID={TWITCH_CLIENT_ID[:5]}... RedirectURI={TWITCH_REDIRECT_URI}")
+
     if not TWITCH_CLIENT_ID or not TWITCH_REDIRECT_URI:
-        logging.error("❌ Config Error: TWITCH_CLIENT_ID or REDIRECT_URI is missing")
+        logging.error("❌ Config Error: Env vars missing")
         raise HTTPException(status_code=500, detail="Server config error")
 
-    # 2. Подготовка данных
     state = create_twitch_state(initData)
     unique_ts = int(time.time())
     scopes = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
 
-    # 3. HTML ШАБЛОН (Без f-строк, чтобы не ломать подсветку GitHub)
-    # Мы используем плейсхолдеры __VAR__, которые заменим ниже
-    html_template = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Redirecting...</title>
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
-        <style>
-            body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            .loader { border: 4px solid #f3f3f3; border-top: 4px solid #9146FF; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-            .btn { background-color: #9146FF; color: white; padding: 14px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 20px; display: none; }
-        </style>
-    </head>
-    <body>
-        <div class="loader"></div>
-        <p id="status">Connecting to Twitch...</p>
-        <a id="manualLink" href="#" class="btn">Click here to Login</a>
+    # 2. HTML С ФОРМОЙ (Самый надежный метод для Android)
+    # Мы не собираем ссылку вручную. Мы создаем форму с inputs.
+    html_parts = [
+        '<!DOCTYPE html>',
+        '<html lang="en">',
+        '<head>',
+        '<meta charset="UTF-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+        '<title>Login to Twitch</title>',
+        '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
+        '<style>',
+        'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
+        '.btn { background-color: #9146FF; color: white; border: none; padding: 16px 32px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-top: 20px; cursor: pointer; }',
+        '</style>',
+        '</head>',
+        '<body>',
+        '<p>Connecting to Twitch...</p>',
+        
+        # ФОРМА: Браузер сам соберет правильный URL
+        '<form id="oauthForm" action="https://id.twitch.tv/oauth2/authorize" method="GET">',
+        '   <input type="hidden" name="response_type" value="code">',
+        f'  <input type="hidden" name="client_id" value="{TWITCH_CLIENT_ID}">',
+        f'  <input type="hidden" name="redirect_uri" value="{TWITCH_REDIRECT_URI}">',
+        f'  <input type="hidden" name="scope" value="{scopes}">',
+        f'  <input type="hidden" name="state" value="{state}">',
+        f'  <input type="hidden" name="__t" value="{unique_ts}">', # Анти-кэш
+        '   <button type="submit" class="btn">Нажмите для входа</button>',
+        '</form>',
 
-        <script>
-            // Данные внедряются Python-ом через .replace()
-            const CLIENT_ID = "__CLIENT_ID__";
-            const REDIRECT_URI = "__REDIRECT_URI__";
-            const SCOPE = "__SCOPE__";
-            const STATE = "__STATE__";
-            const TS = "__TS__";
-
-            try {
-                // Сборка ссылки НА КЛИЕНТЕ (JS) гарантирует правильную кодировку символов
-                const baseUrl = "https://id.twitch.tv/oauth2/authorize";
-                const params = new URLSearchParams();
-                
-                // Строгий порядок параметров для Android WebView
-                params.append("response_type", "code");
-                params.append("client_id", CLIENT_ID);
-                params.append("redirect_uri", REDIRECT_URI);
-                params.append("scope", SCOPE);
-                params.append("state", STATE);
-                params.append("force_verify", "true");
-                params.append("__t", TS);
-
-                const finalUrl = baseUrl + "?" + params.toString();
-                
-                // Установка ссылки для кнопки (план Б)
-                const btn = document.getElementById('manualLink');
-                btn.href = finalUrl;
-                
-                // Автоматический переход
-                setTimeout(() => {
-                    window.location.replace(finalUrl);
-                    
-                    // Если переход завис (Android иногда блокирует авто-редиректы), показываем кнопку
-                    setTimeout(() => {
-                        document.getElementById('status').innerText = "Taking too long?";
-                        btn.style.display = "block";
-                        document.querySelector('.loader').style.display = "none";
-                    }, 2500);
-                }, 100);
-
-            } catch (e) {
-                document.getElementById('status').innerText = "Error: " + e.message;
-            }
-        </script>
-    </body>
-    </html>
-    """
-
-    # 4. Вставляем данные безопасным способом
-    html_content = html_template.replace("__CLIENT_ID__", TWITCH_CLIENT_ID) \
-                                .replace("__REDIRECT_URI__", TWITCH_REDIRECT_URI) \
-                                .replace("__SCOPE__", scopes) \
-                                .replace("__STATE__", state) \
-                                .replace("__TS__", str(unique_ts))
+        '<script>',
+        # Пытаемся отправить форму автоматически
+        'setTimeout(function() {',
+        '   var form = document.getElementById("oauthForm");',
+        '   if(form) form.submit();',
+        '}, 100);',
+        '</script>',
+        '</body>',
+        '</html>'
+    ]
     
-    # 5. Отдаем ответ
+    html_content = "".join(html_parts)
+    
+    # 3. Отдаем ответ
     response = Response(content=html_content, media_type="text/html")
     
-    # Анти-кэш заголовки
+    # Анти-кэш заголовки (на всякий случай)
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
