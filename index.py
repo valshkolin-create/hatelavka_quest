@@ -3456,83 +3456,66 @@ async def twitch_oauth_start(
     request: Request,
     initData: str
 ):
-    # 1. Логи
+    # Логи
     user_agent = request.headers.get('user-agent', 'unknown')
-    
-    # Парсим ID для логов
-    try:
-        user_data = dict(parse_qsl(initData))
-        user_json = json.loads(user_data.get("user", "{}"))
-        user_id = user_json.get("id", "unknown")
-    except:
-        user_id = "unknown"
-
-    logging.info(f"🟣 [Twitch OAuth] Start. User: {user_id} | Device: {user_agent}")
+    logging.info(f"🟣 [Twitch OAuth] External Open. Device: {user_agent}")
     
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
-    
-    # ЛОГИРУЕМ КОНФИГУРАЦИЮ (чтобы исключить ошибку в .env)
-    logging.info(f"⚙️ Config Check: ClientID={TWITCH_CLIENT_ID[:5]}... RedirectURI={TWITCH_REDIRECT_URI}")
-
     if not TWITCH_CLIENT_ID or not TWITCH_REDIRECT_URI:
-        logging.error("❌ Config Error: Env vars missing")
-        raise HTTPException(status_code=500, detail="Server config error")
+        logging.error("❌ Config Error")
+        raise HTTPException(status_code=500, detail="Config error")
 
     state = create_twitch_state(initData)
+    # Используем time.time() для уникальности, чтобы не кэшировалось
     unique_ts = int(time.time())
     scopes = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
 
-    # 2. HTML С ФОРМОЙ (Самый надежный метод для Android)
-    # Мы не собираем ссылку вручную. Мы создаем форму с inputs.
-    html_parts = [
+    # Сборка параметров для URL
+    params = {
+        "response_type": "code",
+        "client_id": TWITCH_CLIENT_ID,
+        "redirect_uri": TWITCH_REDIRECT_URI,
+        "scope": scopes,
+        "state": state,
+        "force_verify": "true",
+        "__t": unique_ts
+    }
+    
+    # Собираем готовую ссылку здесь, чтобы передать её в JS
+    query_string = urlencode(params)
+    twitch_full_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
+
+    # HTML, который скажет Телеграму открыть ссылку во внешнем браузере
+    html_content = [
         '<!DOCTYPE html>',
-        '<html lang="en">',
+        '<html>',
         '<head>',
         '<meta charset="UTF-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '<title>Login to Twitch</title>',
+        '<title>Redirecting...</title>',
         '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
-        '<style>',
-        'body { background-color: #0e0e10; color: #efeff1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
-        '.btn { background-color: #9146FF; color: white; border: none; padding: 16px 32px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-top: 20px; cursor: pointer; }',
-        '</style>',
+        '<style>body { background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }</style>',
         '</head>',
         '<body>',
-        '<p>Connecting to Twitch...</p>',
-        
-        # ФОРМА: Браузер сам соберет правильный URL
-        '<form id="oauthForm" action="https://id.twitch.tv/oauth2/authorize" method="GET">',
-        '   <input type="hidden" name="response_type" value="code">',
-        f'  <input type="hidden" name="client_id" value="{TWITCH_CLIENT_ID}">',
-        f'  <input type="hidden" name="redirect_uri" value="{TWITCH_REDIRECT_URI}">',
-        f'  <input type="hidden" name="scope" value="{scopes}">',
-        f'  <input type="hidden" name="state" value="{state}">',
-        f'  <input type="hidden" name="__t" value="{unique_ts}">', # Анти-кэш
-        '   <button type="submit" class="btn">Нажмите для входа</button>',
-        '</form>',
-
+        '<p>Открываем Twitch...</p>',
         '<script>',
-        # Пытаемся отправить форму автоматически
-        'setTimeout(function() {',
-        '   var form = document.getElementById("oauthForm");',
-        '   if(form) form.submit();',
-        '}, 100);',
+        f'  const authUrl = "{twitch_full_url}";',
+        '  // Пытаемся использовать нативный метод Telegram',
+        '  if (window.Telegram && window.Telegram.WebApp) {',
+        '      // try_instant_view: false заставляет открыть системный браузер',
+        '      window.Telegram.WebApp.openLink(authUrl, {try_instant_view: false});',
+        '  } else {',
+        '      // Фоллбэк для обычного браузера',
+        '      window.location.href = authUrl;',
+        '  }',
         '</script>',
         '</body>',
         '</html>'
     ]
     
-    html_content = "".join(html_parts)
+    response = Response(content="".join(html_content), media_type="text/html")
     
-    # 3. Отдаем ответ
-    response = Response(content=html_content, media_type="text/html")
-    
-    # Анти-кэш заголовки (на всякий случай)
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-
+    # Ставим куку как обычно
     response.set_cookie(
         key="twitch_oauth_init_data", 
         value=initData, 
