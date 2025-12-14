@@ -607,6 +607,11 @@ class AdminLinkTwitchManualRequest(BaseModel):
     twitch_login: str
     twitch_id: str
 
+class CauldronRewardStatusRequest(BaseModel):
+    initData: str
+    user_id: int
+    is_sent: bool
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -4423,6 +4428,44 @@ async def get_cauldron_participants_for_admin(
     except Exception as e:
         logging.error(f"Ошибка при получении участников котла для админа: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список участников.")
+
+@app.post("/api/v1/admin/events/cauldron/toggle_reward_status")
+async def toggle_cauldron_reward_status(
+    request_data: CauldronRewardStatusRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    (Админ) Переключает статус выдачи награды для участника Котла.
+    Использует таблицу upsert (вставка или обновление).
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Используем upsert: если записи нет — создаст, если есть — обновит
+        # В Supabase-py / PostgREST это делается через .upsert() или .post(..., upsert=True)
+        # В httpx мы используем POST с заголовком Preference: resolution=merge-duplicates
+        
+        payload = {
+            "user_id": request_data.user_id,
+            "is_sent": request_data.is_sent,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+
+        response = await supabase.post(
+            "/cauldron_reward_status",
+            json=payload,
+            headers={"Prefer": "resolution=merge-duplicates"} # Это включает режим UPSERT
+        )
+        response.raise_for_status()
+
+        status_text = "выдана" if request_data.is_sent else "не выдана"
+        return {"message": f"Статус обновлен: награда {status_text}."}
+
+    except Exception as e:
+        logging.error(f"Ошибка при обновлении статуса награды котла: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сохранить статус.")
 
 @app.post("/api/v1/admin/events/create")
 async def create_event(
