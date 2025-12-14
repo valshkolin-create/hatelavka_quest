@@ -500,75 +500,153 @@ function collectCauldronData() {
     
     // Загружает и отображает список участников
 async function renderCauldronParticipants() {
-        const container = document.getElementById('cauldron-distribution-list');
-        if (!container) return;
-        container.innerHTML = '<p style="text-align: center;">Загрузка участников...</p>';
-        try {
-            const participants = await makeApiRequest('/api/v1/admin/events/cauldron/participants', {}, 'POST', true);
-            if (!participants || participants.length === 0) {
-                container.innerHTML = '<p style="text-align: center;">Участников пока нет.</p>';
-                return;
-            }
-
-            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-            // Стабильная сортировка, чтобы избежать расхождений с клиентской частью
-            participants.sort((a, b) => {
-                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
-                if (contributionDiff !== 0) {
-                    return contributionDiff;
-                }
-                // Если вклады одинаковые, сортируем по имени для стабильности
-                const nameA = a.full_name || '';
-                const nameB = b.full_name || '';
-                return nameA.localeCompare(nameB);
-            });
-            // Определяем, какой уровень наград сейчас активен
-            let activeRewardLevel = null;
-            if (currentCauldronData && currentCauldronData.levels) {
-                const currentLevel = getCurrentLevel(currentCauldronData); // Используем функцию для определения текущего уровня
-                activeRewardLevel = currentCauldronData.levels[`level_${currentLevel}`];
-            }
-            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
-            container.innerHTML = `
-                <div class="distribution-header"><span>#</span><span>Участник</span><span>Вклад</span><span>Приз</span><span>Трейд</span></div>
-                ${participants.map((p, index) => {
-                    const place = index + 1;
-                    let prize = null;
-
-                    // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-                    if (activeRewardLevel) {
-                        // Сначала ищем награду в топе (для мест с 1 по 20)
-                        prize = activeRewardLevel.top_places?.find(r => r.place === place);
-
-                        // Если для этого места нет награды в топе, назначаем награду по умолчанию
-                        if (!prize) {
-                            prize = activeRewardLevel.default_reward;
-                        }
-                    }
-                    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
-                    const prizeHtml = prize && prize.name
-                        ? `<div class="dist-prize">
-                               <img src="${escapeHTML(prize.image_url || '')}" alt="Prize">
-                               <span>${escapeHTML(prize.name)}</span>
-                           </div>`
-                        : '<span class="no-prize">Нет</span>';
-
-                    return `
-                        <div class="distribution-row">
-                            <span class="dist-place">${place}</span>
-                            <span class="dist-name">${escapeHTML(p.full_name || 'Без имени')}</span>
-                            <span class="dist-amount">${p.total_contribution}</span>
-                            ${prizeHtml}
-                            <span class="dist-link">${p.trade_link ? `<a href="${escapeHTML(p.trade_link)}" target="_blank">Открыть</a>` : '<span class="no-link">Нет</span>'}</span>
-                        </div>`;
-                }).join('')}`;
-        } catch (e) {
-            container.innerHTML = `<p class="error-message">Не удалось загрузить: ${e.message}</p>`;
+    const container = document.getElementById('cauldron-distribution-list');
+    if (!container) return;
+    
+    // 1. Сохраняем текущую позицию скролла
+    const scrollPos = container.scrollTop;
+    
+    container.innerHTML = '<p style="text-align: center;">Загрузка участников...</p>';
+    
+    try {
+        // Запрашиваем участников (предполагаем, что бэкенд возвращает поле is_reward_sent)
+        const participants = await makeApiRequest('/api/v1/admin/events/cauldron/participants', {}, 'POST', true);
+        
+        if (!participants || participants.length === 0) {
+            container.innerHTML = '<p style="text-align: center;">Участников пока нет.</p>';
+            return;
         }
+
+        // Сортировка
+        participants.sort((a, b) => {
+            const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
+            if (contributionDiff !== 0) return contributionDiff;
+            return (a.full_name || '').localeCompare(b.full_name || '');
+        });
+
+        // Определяем текущий уровень наград
+        let activeRewardLevel = null;
+        if (currentCauldronData && currentCauldronData.levels) {
+            const currentLevel = getCurrentLevel(currentCauldronData);
+            activeRewardLevel = currentCauldronData.levels[`level_${currentLevel}`];
+        }
+
+        // Хедер таблицы (компактный)
+        let html = `
+            <div class="distribution-header compact-header">
+                <span style="width:30px; text-align:center;">#</span>
+                <span style="flex:1;">Участник</span>
+                <span style="width:60px; text-align:center;">Вклад</span>
+                <span style="flex:1.5;">Награда</span>
+                <span style="width:40px; text-align:center;">Трейд</span>
+                <span style="width:40px; text-align:center;">Статус</span>
+            </div>
+            <div class="participants-scroll-list">
+        `;
+
+        html += participants.map((p, index) => {
+            const place = index + 1;
+            let prize = null;
+
+            if (activeRewardLevel) {
+                // 1. Проверяем Топ-20
+                if (place <= 20) {
+                    prize = activeRewardLevel.top_places?.find(r => r.place === place);
+                } 
+                // 2. Проверяем Тиры (21-30, 31-40, 41+)
+                else {
+                    const tiers = activeRewardLevel.tiers || {};
+                    if (place <= 30) prize = tiers["21-30"];
+                    else if (place <= 40) prize = tiers["31-40"];
+                    else prize = tiers["41+"] || activeRewardLevel.default_reward;
+                }
+            }
+
+            // Формируем HTML приза
+            const prizeHtml = prize && prize.name
+                ? `<div class="dist-prize compact">
+                       <img src="${escapeHTML(prize.image_url || '')}" onerror="this.style.display='none'">
+                       <span title="${escapeHTML(prize.name)}">${escapeHTML(prize.name)}</span>
+                   </div>`
+                : '<span class="no-prize">-</span>';
+
+            // Кнопка статуса (Выдано / Не выдано)
+            // Используем data-аттрибуты для обработки клика
+            const isSent = p.is_reward_sent || false; // Бэкенд должен возвращать это поле
+            const statusBtn = `
+                <button class="status-toggle-btn ${isSent ? 'sent' : 'pending'}" 
+                        data-user-id="${p.user_id}" 
+                        data-current-status="${isSent}"
+                        onclick="toggleRewardStatus(this, event)">
+                    <i class="fa-solid ${isSent ? 'fa-check' : 'fa-clock'}"></i>
+                </button>
+            `;
+
+            const tradeLink = p.trade_link && p.trade_link.startsWith('http')
+                ? `<a href="${escapeHTML(p.trade_link)}" target="_blank" class="compact-link"><i class="fa-solid fa-link"></i></a>`
+                : `<span class="compact-no-link"><i class="fa-solid fa-link-slash"></i></span>`;
+
+            return `
+                <div class="distribution-row compact-row ${isSent ? 'row-sent' : ''}">
+                    <span class="dist-place">${place}</span>
+                    <div class="dist-name-wrapper">
+                        <span class="dist-name" title="${escapeHTML(p.full_name)}">${escapeHTML(p.full_name || 'No Name')}</span>
+                        ${p.twitch_login ? `<span class="dist-twitch"><i class="fa-brands fa-twitch"></i> ${escapeHTML(p.twitch_login)}</span>` : ''}
+                    </div>
+                    <span class="dist-amount">${p.total_contribution}</span>
+                    ${prizeHtml}
+                    <span class="dist-link-wrapper">${tradeLink}</span>
+                    <div class="dist-status-wrapper">${statusBtn}</div>
+                </div>`;
+        }).join('');
+
+        html += `</div>`; // Закрываем wrapper
+        container.innerHTML = html;
+        
+        // Восстанавливаем скролл
+        container.scrollTop = scrollPos;
+
+    } catch (e) {
+        container.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
     }
-    // --- Конец новых функций для "Котла" ---
+}
+
+// Добавь эту новую функцию в конец admin.js (глобально)
+window.toggleRewardStatus = async function(btn, event) {
+    event.stopPropagation(); // Чтобы не кликалось что-то еще
+    
+    const userId = btn.dataset.userId;
+    const currentStatus = btn.dataset.currentStatus === 'true';
+    const newStatus = !currentStatus;
+
+    // Визуальное обновление (оптимистичное)
+    const icon = btn.querySelector('i');
+    btn.disabled = true;
+    
+    try {
+        // Отправляем запрос на бэкенд (Тебе нужно добавить этот эндпоинт в Python)
+        // Если эндпоинта нет, используй заглушку или скажи, я напишу SQL запрос
+        await makeApiRequest('/api/v1/admin/events/cauldron/toggle_reward_status', {
+            user_id: parseInt(userId),
+            is_sent: newStatus
+        }, 'POST', true);
+
+        // Обновляем кнопку
+        btn.dataset.currentStatus = newStatus;
+        btn.className = `status-toggle-btn ${newStatus ? 'sent' : 'pending'}`;
+        icon.className = `fa-solid ${newStatus ? 'fa-check' : 'fa-clock'}`;
+        
+        // Подсвечиваем строку
+        const row = btn.closest('.distribution-row');
+        if(newStatus) row.classList.add('row-sent');
+        else row.classList.remove('row-sent');
+
+    } catch (e) {
+        tg.showAlert('Ошибка сохранения статуса: ' + e.message);
+    } finally {
+        btn.disabled = false;
+    }
+};
 
 async function loadStatistics() {
         showLoader();
