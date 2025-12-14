@@ -44,6 +44,13 @@
                         <div class="icon-wrapper" style="color: var(--twitch-color);"><i class="fa-brands fa-twitch"></i></div>
                         <span>Twitch награды</span>
                     </div>
+                  <div class="admin-icon-button" id="btn-manual-twitch-link">
+                        <div class="icon-wrapper" style="color: #6441a5; position: relative;">
+                            <i class="fa-solid fa-link"></i>
+                            <i class="fa-brands fa-twitch" style="font-size: 10px; position: absolute; bottom: 12px; right: 12px;"></i>
+                        </div>
+                        <span>Связь Twitch</span>
+                    </div>
                   <div class="admin-icon-button" data-view="view-admin-shop">
                         <div class="icon-wrapper" style="color: #ffcc00;">
                             <i class="fa-solid fa-cart-shopping"></i>
@@ -1694,6 +1701,38 @@
                     
                     <button type="submit">Добавить Задачу</button>
                     <button type="button" id="weekly-goal-cancel-edit-btn" class="admin-action-btn reject hidden" style="margin-top: -5px;">Отмена (сбросить форму)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+  <div id="manual-twitch-link-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Привязка Twitch</h2>
+                <button class="modal-close-btn" data-close-modal="manual-twitch-link-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="manual-twitch-link-form" class="admin-form">
+                    <p style="margin-top:0; color: var(--text-color-muted); font-size: 13px;">
+                        Пользователь: <strong id="mtl-user-display" style="color: white;">...</strong>
+                    </p>
+                    <input type="hidden" name="user_id">
+                    
+                    <label>Twitch Login (Никнейм)</label>
+                    <input type="text" name="twitch_login" id="mtl-login-input" required placeholder="hatelove_ttv">
+                    
+                    <label>Twitch ID (Число)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" name="twitch_id" required placeholder="883996654" style="flex-grow: 1;">
+                        <a href="#" id="mtl-find-id-btn" target="_blank" class="admin-menu-button" style="width: auto; padding: 10px; background-color: #555; display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Найти ID на сайте">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </a>
+                    </div>
+                    
+                    <div class="prompt-actions" style="margin-top: 20px;">
+                        <button type="button" class="cancel-btn" data-close-modal="manual-twitch-link-modal">Отмена</button>
+                        <button type="submit" class="confirm-btn">Привязать</button>
+                    </div>
                 </form>
             </div>
         </div>
