@@ -706,6 +706,18 @@ function renderPage(eventData, leaderboardData = {}) {
     // Добавляем новые элементы в объект dom
     dom.gatekeeperOverlay = document.getElementById('gatekeeper-overlay');
     dom.checkSubBtn = document.getElementById('check-sub-btn');
+        
+    // Находим новую кнопку
+    const subscribeBtn = document.getElementById('subscribe-channel-btn');
+
+    // Добавляем обработчик
+    if (subscribeBtn) {
+        subscribeBtn.addEventListener('click', () => {
+            // Используем нативный метод Telegram
+            // Он откроет канал поверх приложения
+            tg.openTelegramLink('https://t.me/hatelove_ttv');
+        });
+    }
 
     // Функция проверки подписки
     async function checkSubscriptionStatus() {
