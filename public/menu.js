@@ -73,7 +73,7 @@ try {
     const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
 
     function setupSlider() {
-        console.log("--- [setupSlider] Запуск ---");
+        // console.log("--- [setupSlider] Запуск ---");
 
         // 1. Сбрасываем предыдущий интервал, если он был
         if (slideInterval) clearInterval(slideInterval);
@@ -83,15 +83,16 @@ try {
 
         // Находим слайды
         const allSlides = container.querySelectorAll('.slide');
-        const visibleSlides = Array.from(allSlides).filter(
-            slide => window.getComputedStyle(slide).display !== 'none'
-        );
+        
+        // Фильтруем слайды (проверяем, не скрыты ли они стилями)
+        const visibleSlides = Array.from(allSlides).filter(slide => {
+            return slide.style.display !== 'none';
+        });
 
         const wrapper = container.querySelector('.slider-wrapper');
         const dotsContainer = container.querySelector('.slider-dots');
         
-        // --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Очистка кнопок от старых событий ---
-        // Мы клонируем кнопки, чтобы удалить накопившиеся Event Listeners
+        // --- Очистка кнопок от старых событий ---
         let prevBtnOld = document.getElementById('slide-prev-btn');
         let nextBtnOld = document.getElementById('slide-next-btn');
         
@@ -106,8 +107,11 @@ try {
 
         // Если слайдов 0
         if (visibleSlides.length === 0) {
-            container.style.display = 'none';
+            console.log("Слайдер: Ждем загрузки слайдов...");
+            // container.style.display = 'none'; // <--- ЭТА СТРОКА ЗАКОММЕНТИРОВАНА, ЧТОБЫ НЕ СКРЫВАТЬ БЛОК
             return;
+        } else {
+             container.style.display = ''; 
         }
 
         // Если слайд 1
@@ -127,7 +131,7 @@ try {
         nextBtn.style.display = 'flex';
         if (dotsContainer) dotsContainer.style.display = 'flex';
         
-        // Генерация точек (здесь очистка происходит через innerHTML = '', это ок)
+        // Генерация точек
         dotsContainer.innerHTML = '';
         visibleSlides.forEach((_, i) => {
             const dot = document.createElement('button');
@@ -165,7 +169,7 @@ try {
             slideInterval = setInterval(nextSlide, slideDuration);
         }
 
-        // Теперь вешаем события на ЧИСТЫЕ кнопки
+        // Вешаем события на кнопки
         prevBtn.addEventListener('click', () => {
             prevSlide();
             resetSlideInterval();
@@ -182,10 +186,7 @@ try {
         let touchEndX = 0;
         let isSwiping = false;
 
-        // Удаляем старые листенеры с контейнера (через клонирование контейнера нельзя, т.к. внутри слайды)
-        // Поэтому используем простой флаг isSwiping, он не накапливается критично
-        
-        container.ontouchstart = (e) => { // Используем on... свойства для перезаписи
+        container.ontouchstart = (e) => {
             touchStartX = e.touches[0].clientX;
             touchEndX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
@@ -217,7 +218,7 @@ try {
         };
         
         allSlides.forEach(slide => {
-            slide.onclick = (e) => { // Перезаписываем onclick
+            slide.onclick = (e) => {
                 if (isSwiping) e.preventDefault();
             };
         });
@@ -2289,7 +2290,17 @@ async function renderFullInterface(bootstrapData) {
     }
 
     // Запускаем логику слайдера
-    setTimeout(() => setupSlider(), 50);
+    // 👇 НОВЫЙ БЛОК НАЧАЛО 👇
+    setupSlider(); // Запуск сразу
+    setTimeout(() => setupSlider(), 100);  // Чуть позже
+    setTimeout(() => setupSlider(), 500);  // Еще позже
+    setTimeout(() => setupSlider(), 2000); // Страховка для медленного интернета
+
+    // Перезапуск при загрузке каждой картинки
+    document.querySelectorAll('.slide img').forEach(img => {
+        img.onload = () => setupSlider();
+    });
+    // 👆 НОВЫЙ БЛОК КОНЕЦ 👆
 
     // Фильтры и рулетка
     let activeQType = 'twitch'; 
