@@ -703,7 +703,61 @@ function renderPage(eventData, leaderboardData = {}) {
     
     content.innerHTML = html;
 }
-    
+    // Добавляем новые элементы в объект dom
+    dom.gatekeeperOverlay = document.getElementById('gatekeeper-overlay');
+    dom.checkSubBtn = document.getElementById('check-sub-btn');
+
+    // Функция проверки подписки
+    async function checkSubscriptionStatus() {
+        // Если пользователь админ, пропускаем проверку (опционально, но удобно для тестов)
+        // Но так как данные юзера грузятся параллельно, надежнее проверить сервер.
+        
+        try {
+            if (dom.checkSubBtn) {
+                dom.checkSubBtn.textContent = 'Проверяю...';
+                dom.checkSubBtn.disabled = true;
+            }
+
+            const response = await makeApiRequest('/api/v1/user/check_subscription', {}, 'POST');
+            
+            if (response.is_subscribed) {
+                // Если подписан -> Скрываем оверлей
+                dom.gatekeeperOverlay.classList.add('hidden');
+                document.body.classList.remove('no-scroll');
+                return true;
+            } else {
+                // Если НЕ подписан -> Показываем оверлей
+                dom.gatekeeperOverlay.classList.remove('hidden');
+                document.body.classList.add('no-scroll'); // Блокируем скролл фона
+                return false;
+            }
+        } catch (e) {
+            console.error('[SUB] Ошибка проверки подписки:', e);
+            // В случае ошибки сети лучше не блокировать намертво, но тут решайте сами.
+            // Пока оставим оверлей, чтобы человек попробовал нажать кнопку еще раз.
+            return false;
+        } finally {
+            if (dom.checkSubBtn) {
+                dom.checkSubBtn.textContent = 'Проверить подписку';
+                dom.checkSubBtn.disabled = false;
+            }
+        }
+    }
+
+    // Навешиваем обработчик на кнопку "Проверить"
+    if (dom.checkSubBtn) {
+        dom.checkSubBtn.addEventListener('click', () => {
+            // При клике снова проверяем
+            checkSubscriptionStatus().then(isSubscribed => {
+                if (isSubscribed) {
+                    tg.showAlert("Спасибо за подписку! Доступ открыт.");
+                } else {
+                    tg.showAlert("Вы все еще не подписаны на канал.");
+                }
+            });
+        });
+    }
+        
     async function fetchDataAndRender(leaderboardOnly = false) {
         console.log(`1. [MAIN] Вызвана функция fetchDataAndRender. leaderboardOnly: ${leaderboardOnly}`);
         try {
@@ -1017,7 +1071,27 @@ function renderPage(eventData, leaderboardData = {}) {
     console.log('[INIT] Telegram.WebApp.ready() вызван.');
     tg.expand();
     console.log('[INIT] Telegram.WebApp.expand() вызван.');
-    fetchDataAndRender();
+    // ✅ ВСТАВЬТЕ ВМЕСТО НЕЕ ЭТОТ БЛОК:
+    console.log('[INIT] Запуск проверок...');
+    
+    // Сначала проверим подписку
+    checkSubscriptionStatus().then((isSubscribed) => {
+        // Загружаем данные страницы в любом случае
+        fetchDataAndRender();
+        
+        // Если не подписан — показываем оверлей
+        if (!isSubscribed) {
+            console.log('[INIT] Подписка отсутствует. Показываем Gatekeeper.');
+            dom.gatekeeperOverlay.classList.remove('hidden');
+        }
+    });
+    // ==========================================
+
+    const rulesViewed = localStorage.getItem('cauldronRulesViewed');
+    if (!rulesViewed) {
+        dom.rulesButton.classList.add('highlight');
+        dom.tutorialOverlay.classList.remove('hidden');
+    }
 
     const rulesViewed = localStorage.getItem('cauldronRulesViewed');
     if (!rulesViewed) {
