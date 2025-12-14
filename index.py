@@ -601,6 +601,12 @@ class SlayNominationFinish(BaseModel):
     initData: str
     nomination_id: int
 
+class AdminLinkTwitchManualRequest(BaseModel):
+    initData: str
+    user_id: int
+    twitch_login: str
+    twitch_id: str
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -6789,6 +6795,29 @@ async def admin_search_users(
         logging.error(f"Ошибка при поиске пользователя (админ): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось выполнить поиск.")
 
+@app.post("/api/v1/admin/users/link_twitch_manual")
+async def admin_link_twitch_manual(
+    request_data: AdminLinkTwitchManualRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Ручная привязка Twitch к пользователю (3 этапа)."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # Обновляем данные пользователя: Логин, ID и ставим статус подписчика (чтобы работали бонусы)
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{request_data.user_id}"},
+        json={
+            "twitch_login": request_data.twitch_login,
+            "twitch_id": request_data.twitch_id,
+            "twitch_status": "subscriber", # Ставим подписку по умолчанию
+            "last_twitch_sync": datetime.now(timezone.utc).isoformat()
+        }
+    )
+    return {"message": f"Twitch успешно привязан к пользователю {request_data.user_id}."}
+
 @app.post("/api/v1/admin/grants/log")
 async def get_admin_grant_log(
     request_data: InitDataRequest,
@@ -9099,30 +9128,71 @@ async def delete_twitch_reward_purchase(
     request_data: TwitchPurchaseDeleteRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Удаляет одну покупку. Пишет логи только при ошибках."""
+    """(Админ) Удаляет покупку. Если это был выигрыш в рулетке (отклонение из-за условий) — возвращает приз на склад."""
     
     # Проверка прав
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    purchase_id = request_data.purchase_id
+
     try:
-        # Просто отправляем запрос
+        # 1. Сначала получаем данные о покупке, чтобы узнать, что удаляем
+        purchase_resp = await supabase.get(
+            "/twitch_reward_purchases",
+            params={"id": f"eq.{purchase_id}", "select": "user_input"}
+        )
+        purchase_data = purchase_resp.json()
+
+        if purchase_data:
+            user_input = purchase_data[0].get("user_input", "")
+            
+            # 2. Проверяем, похоже ли это на выигрыш в рулетке
+            # Формат записи: "Выигрыш: AWP | Asiimov | Сообщение: ..."
+            # Если админ удаляет такую запись (например, "Условие не выполнено!"), мы должны вернуть скин.
+            if user_input and user_input.startswith("Выигрыш:"):
+                # Извлекаем название скина через регулярное выражение
+                # Берем все между "Выигрыш: " и " | Сообщение" (если есть) или до конца строки
+                match = re.search(r"Выигрыш:\s*(.*?)(?:\s*\|\s*Сообщение:|$)", user_input)
+                if match:
+                    skin_name = match.group(1).strip()
+                    
+                    logging.info(f"♻️ Возврат скина на склад: '{skin_name}' (Удаление покупки {purchase_id})")
+                    
+                    # 3. Ищем этот приз в таблице призов
+                    prize_resp = await supabase.get(
+                        "/roulette_prizes",
+                        params={"skin_name": f"eq.{skin_name}", "select": "id, quantity"}
+                    )
+                    prize_data = prize_resp.json()
+                    
+                    if prize_data:
+                        # 4. Если нашли — увеличиваем количество на 1 (возврат)
+                        prize_id = prize_data[0]['id']
+                        current_qty = prize_data[0].get('quantity', 0)
+                        
+                        await supabase.patch(
+                            "/roulette_prizes",
+                            params={"id": f"eq.{prize_id}"},
+                            json={"quantity": current_qty + 1}
+                        )
+                    else:
+                        logging.warning(f"⚠️ Не удалось вернуть скин '{skin_name}': приз не найден в базе.")
+
+        # 5. Теперь удаляем саму запись покупки
         response = await supabase.delete(
             "/twitch_reward_purchases",
-            params={"id": f"eq.{request_data.purchase_id}"}
+            params={"id": f"eq.{purchase_id}"}
         )
         
-        # Если статус не 2xx — это ошибка, её надо записать
         if response.status_code not in range(200, 300):
-            logging.error(f"❌ Ошибка удаления ID {request_data.purchase_id}: {response.status_code} - {response.text}")
+            logging.error(f"❌ Ошибка удаления ID {purchase_id}: {response.text}")
             raise HTTPException(status_code=response.status_code, detail=f"DB Error: {response.text}")
 
-        # При успехе — тишина и покой 🤫
-        return {"message": "Покупка успешно удалена."}
+        return {"message": "Покупка удалена (приз возвращен на склад, если это была рулетка)."}
 
     except Exception as e:
-        # Критические ошибки (падение кода) записываем
         logging.error(f"🔥 Критическая ошибка при удалении: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
