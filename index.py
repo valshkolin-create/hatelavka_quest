@@ -4072,6 +4072,50 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
         admin_settings_cache["settings"] = None
         admin_settings_cache["last_checked"] = 0
         return AdminSettings()
+
+# --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (GATEKEEPER) ---
+@app.post("/api/v1/user/check_subscription")
+async def check_channel_subscription(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Проверяет подписку пользователя на обязательный канал.
+    Возвращает { "is_subscribed": bool }
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        # Если данные невалидны, не пускаем
+        return {"is_subscribed": False}
+
+    user_id = user_info["id"]
+    
+    # ID канала: https://t.me/hatelove_ttv
+    # В вашем коде ранее использовался этот ID для этого канала
+    REQUIRED_CHANNEL_ID = -1002144676097 
+
+    # Используем глобальный объект bot (aiogram), объявленный в начале файла
+    try:
+        chat_member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
+        
+        # Статусы, которые считаются "подписан"
+        if chat_member.status in ['member', 'administrator', 'creator', 'restricted']:
+            return {"is_subscribed": True}
+        else:
+            # status: left, kicked
+            return {"is_subscribed": False}
+
+    except TelegramForbiddenError:
+        logging.error(f"Gatekeeper: Бот не является администратором канала {REQUIRED_CHANNEL_ID}")
+        # Если бот не админ, мы не можем проверить. 
+        # В целях безопасности лучше вернуть False или True (зависит от того, хотите ли вы блокировать людей при ошибке)
+        # Вернем False, чтобы админ заметил проблему.
+        return {"is_subscribed": False, "error": "bot_not_admin"}
+        
+    except Exception as e:
+        logging.error(f"Gatekeeper error for user {user_id}: {e}")
+        # При ошибке API (например, таймаут) лучше вернуть False и попросить проверить снова
+        return {"is_subscribed": False}
     
 # --- ПРАВИЛЬНО ---
 @app.post("/api/v1/user/me")
