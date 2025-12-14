@@ -388,40 +388,26 @@
 
     /* --- СТИЛИ ДЛЯ СЛАЙДЕРА НА ГЛАВНОЙ (ФИНАЛЬНАЯ ВЕРСИЯ) --- */
     .slider-container {
-    position: relative;
-    width: 100%;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 15px;
-    
-    /* 👇 ФИКС 1: Минимальная высота и фон-скелетон */
-    min-height: 180px; 
-    background-color: rgba(255, 255, 255, 0.05); /* Легкий фон, пока нет картинки */
-    display: flex; /* Чтобы слайды растягивались */
-}
+        position: relative;
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
     .slider-wrapper {
-    display: flex;
-    transition: transform 0.5s ease-in-out;
-    width: 100%; /* Гарантируем ширину */
-}
+        display: flex;
+        transition: transform 0.5s ease-in-out;
+    }
     .slide {
-    min-width: 100%;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-    
-    /* 👇 ФИКС 2: Слайд должен занимать место */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.slide img {
-    width: 100%;
-    display: block;
-    /* 👇 ФИКС 3: Защита от битых картинок */
-    min-height: 100px; 
-    object-fit: cover;
-}
+        min-width: 100%;
+        box-sizing: border-box;
+        /* ИЗМЕНЕНИЕ: Убираем фиолетовое выделение при нажатии на мобильных */
+        -webkit-tap-highlight-color: transparent;
+    }
+    .slide img {
+        width: 100%;
+        display: block;
+    }
     /* ИЗМЕНЕНИЕ: Убираем стандартную рамку фокуса при клике на слайд */
     .slide:focus, .slide:focus-visible {
         outline: none;
