@@ -210,6 +210,13 @@ function generateOptionsHtml(options, selectedValue) {
         settingQuestScheduleOverride: document.getElementById('setting-quest-schedule-override'),
         settingQuestScheduleWrapper: document.getElementById('setting-quest-schedule-type-wrapper'),
         settingQuestScheduleType: document.getElementById('setting-quest-schedule-type'),
+        // --- 👇👇👇 Элементы для ручной привязки Twitch 👇👇👇 ---
+        manualTwitchLinkBtn: document.getElementById('btn-manual-twitch-link'),
+        manualTwitchLinkModal: document.getElementById('manual-twitch-link-modal'),
+        manualTwitchLinkForm: document.getElementById('manual-twitch-link-form'),
+        mtlUserDisplay: document.getElementById('mtl-user-display'),
+        mtlLoginInput: document.getElementById('mtl-login-input'),
+        mtlFindIdBtn: document.getElementById('mtl-find-id-btn'),
         // --- 🔽 ВОТ СЮДА ДОБАВЬ НОВУЮ СТРОКУ 🔽 ---
         saveScheduleBtn: document.getElementById('save-schedule-btn')
         // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
@@ -4375,6 +4382,72 @@ if (dom.settingQuestScheduleOverride) {
                 // Показываем модальное окно
                 if (dom.adminCreateGoalModal) {
                     dom.adminCreateGoalModal.classList.remove('hidden');
+                }
+            });
+        }
+            
+            // 👇👇👇 ВСТАВЛЯЕМ СЮДА 👇👇👇
+
+        // 1. ЭТАП 1: Клик по кнопке -> Поиск пользователя
+        if (dom.manualTwitchLinkBtn) {
+            dom.manualTwitchLinkBtn.addEventListener('click', () => {
+                openAdminUserSearchModal('Привязать Twitch пользователю', (user) => {
+                    // ЭТАП 2: Открытие формы
+                    dom.manualTwitchLinkForm.reset();
+                    dom.manualTwitchLinkForm.elements['user_id'].value = user.id;
+                    dom.mtlUserDisplay.textContent = `${user.name} (ID: ${user.id})`;
+                    dom.mtlFindIdBtn.href = "#"; // Сброс ссылки
+                    
+                    dom.manualTwitchLinkModal.classList.remove('hidden');
+                    dom.mtlLoginInput.focus();
+                });
+            });
+        }
+
+        // 2. ЭТАП 3: Логика кнопки поиска ID
+        if (dom.mtlFindIdBtn && dom.mtlLoginInput) {
+            dom.mtlFindIdBtn.addEventListener('click', (e) => {
+                const login = dom.mtlLoginInput.value.trim();
+                if (!login) {
+                    e.preventDefault();
+                    tg.showAlert('Сначала введите никнейм!');
+                    return;
+                }
+                navigator.clipboard.writeText(login).then(() => {
+                    tg.showPopup({message: `Ник "${login}" скопирован!`});
+                }).catch(() => {});
+
+                // Ссылка на StreamWeasels
+                const url = `https://www.streamweasels.com/tools/convert-twitch-username-to-user-id/`; 
+                e.currentTarget.href = url;
+            });
+        }
+
+        // 3. ФИНАЛ: Отправка формы
+        if (dom.manualTwitchLinkForm) {
+            dom.manualTwitchLinkForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userId = parseInt(form.elements['user_id'].value);
+                const login = form.elements['twitch_login'].value.trim();
+                const twitchId = form.elements['twitch_id'].value.trim();
+
+                if (!userId || !login || !twitchId) {
+                    tg.showAlert('Заполните все поля!');
+                    return;
+                }
+
+                try {
+                    await makeApiRequest('/api/v1/admin/users/link_twitch_manual', {
+                        user_id: userId,
+                        twitch_login: login,
+                        twitch_id: twitchId
+                    });
+                    
+                    tg.showAlert('Twitch успешно привязан!');
+                    dom.manualTwitchLinkModal.classList.add('hidden');
+                } catch (err) {
+                    tg.showAlert(`Ошибка: ${err.message}`);
                 }
             });
         }
