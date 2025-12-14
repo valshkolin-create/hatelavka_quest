@@ -597,12 +597,7 @@ function renderPage(eventData, leaderboardData = {}) {
             <div class="locked-level-container completed-level-container">
                 <i class="fa-solid fa-circle-check lock-icon-large" style="color: var(--primary-color);"></i>
                 <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #fff;">Уровень пройден!</div>
-                <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5; color: var(--text-color-muted);">
-                    Все награды этого этапа уже разыграны или перенесены в следующий этап.
-                </div>
-                <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px;">
-                    <i class="fa-solid fa-arrow-up"></i> Смотри актуальные награды на текущем уровне!
-                </div>
+                <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5; color: var(--text-color-muted);">            
             </div>
         `;
         return;
