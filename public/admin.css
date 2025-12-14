@@ -1063,3 +1063,120 @@ input[type="datetime-local"] {
     /* Замени .date-row-container на класс твоего блока с датами, если он есть */
     flex-wrap: wrap; 
 }
+/* --- Компактная таблица участников (Котел) --- */
+.compact-header, .compact-row {
+    display: flex !important; /* Переопределяем grid */
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px; /* Меньше отступы */
+    font-size: 12px; /* Меньше шрифт */
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.compact-header {
+    background-color: rgba(255,255,255,0.05);
+    font-weight: 600;
+    color: var(--text-color-muted);
+    padding: 8px;
+    border-radius: 6px 6px 0 0;
+}
+
+/* Строка, где награда выдана (немного затемняем) */
+.row-sent {
+    opacity: 0.6;
+    background-color: rgba(52, 199, 89, 0.05);
+}
+
+.dist-place {
+    width: 30px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--text-color-muted);
+}
+
+.dist-name-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.dist-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+.dist-twitch {
+    font-size: 10px;
+    color: #9146FF;
+}
+
+.dist-amount {
+    width: 60px;
+    text-align: center;
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.dist-prize.compact {
+    flex: 1.5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+}
+.dist-prize.compact img {
+    width: 24px; /* Маленькая картинка */
+    height: 24px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.dist-prize.compact span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+}
+
+.dist-link-wrapper {
+    width: 40px;
+    text-align: center;
+}
+.compact-link {
+    color: var(--action-color);
+    padding: 4px;
+}
+.compact-no-link {
+    color: var(--danger-color);
+    opacity: 0.5;
+}
+
+/* Кнопка статуса (Галочка) */
+.dist-status-wrapper {
+    width: 40px;
+    text-align: center;
+}
+.status-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.status-toggle-btn.pending {
+    color: var(--text-color-muted);
+    background-color: rgba(255,255,255,0.1);
+}
+.status-toggle-btn.sent {
+    color: white;
+    background-color: var(--primary-color);
+}
+.status-toggle-btn:hover {
+    transform: scale(1.1);
+}
