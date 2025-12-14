@@ -222,8 +222,15 @@ try {
                 if (isSwiping) e.preventDefault();
             };
         });
+        // Проверяем, не вышел ли текущий индекс за пределы (на случай, если слайды изменились)
+        if (currentSlideIndex >= visibleSlides.length) {
+            currentSlideIndex = 0;
+        }
+        
+        // Используем ТЕКУЩИЙ индекс вместо 0, чтобы позиция не сбрасывалась при обновлении
+        showSlide(currentSlideIndex); 
+        // --- ИСПРАВЛЕНИЕ КОНЕЦ ---
 
-        showSlide(0);
         resetSlideInterval();
     }
     
@@ -916,7 +923,13 @@ function renderChallenge(challengeData, isGuest) {
         if (taskType === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
         else if (taskType === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
         else if (taskType === 'auction_bid') iconClass = 'fa-solid fa-gavel';
-        else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-hat-wizard';
+        else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-gift';
+        // --- НОВЫЕ ИКОНКИ ДЛЯ СООБЩЕНИЙ ---
+        else if (taskType.includes('twitch_messages')) iconClass = 'fa-solid fa-comment-dots'; // 💬 Сообщения Twitch
+        else if (taskType.includes('telegram_messages')) iconClass = 'fa-brands fa-telegram';  // ✈️ Telegram
+        else if (taskType.includes('uptime')) iconClass = 'fa-regular fa-clock';               // ⏱ Время просмотра (на всякий случай)
+        
+        // Общая иконка для остальной статистики, если не подошло выше
         else if (taskType.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
 
         // 1. Формируем Примечание (Description)
