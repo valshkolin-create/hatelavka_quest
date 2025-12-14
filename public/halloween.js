@@ -1092,12 +1092,6 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.rulesButton.classList.add('highlight');
         dom.tutorialOverlay.classList.remove('hidden');
     }
-
-    const rulesViewed = localStorage.getItem('cauldronRulesViewed');
-    if (!rulesViewed) {
-        dom.rulesButton.classList.add('highlight');
-        dom.tutorialOverlay.classList.remove('hidden');
-    }
     // [НОВОЕ] Обработчик клика по наградам в модалке (Зум)
     if (dom.rewardsListContent) {
         dom.rewardsListContent.addEventListener('click', (e) => {
