@@ -4231,8 +4231,7 @@ async def get_current_user_data(
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
 
-        # --- ЛОГИКА ОПРЕДЕЛЕНИЯ VIP (НОВАЯ) ---
-        # Мы проверяем реальное время истечения подписки
+        # --- ЛОГИКА ОПРЕДЕЛЕНИЯ VIP (ИСПРАВЛЕНА ОБРАБОТКА ДАТЫ) ---
         
         db_sub_until = final_response.get('grind_sub_until')       # Дата "до какого" из базы
         ref_activated_at = final_response.get('referral_activated_at') # Дата активации реферала
@@ -4241,37 +4240,38 @@ async def get_current_user_data(
         grind_sub_until_iso = None
         now_utc = datetime.now(timezone.utc)
 
-        # 1. ПРИОРИТЕТ: Если в базе (Supabase) уже задана точная дата окончания
-        if db_sub_until:
+        # Функция для безопасного парсинга даты с кривым часовым поясом (+03 вместо +03:00)
+        def parse_date_safe(date_str):
+            if not date_str: return None
             try:
-                # Приводим дату к UTC
-                if db_sub_until.endswith('Z'): db_sub_until = db_sub_until[:-1] + '+00:00'
-                dt_until = datetime.fromisoformat(db_sub_until)
-                if dt_until.tzinfo is None: dt_until = dt_until.replace(tzinfo=timezone.utc)
+                # Если дата заканчивается на +XX или -XX (нет минут), добавляем :00
+                if len(date_str) >= 3 and date_str[-3] in ['+', '-'] and date_str[-2:].isdigit():
+                    date_str += ":00"
+                if date_str.endswith('Z'): 
+                    date_str = date_str[:-1] + '+00:00'
                 
-                # Проверяем: время еще не вышло?
-                if dt_until > now_utc:
-                    has_grind_sub = True
-                    grind_sub_until_iso = dt_until.isoformat()
-            except Exception as e:
-                logging.error(f"Error parsing grind_sub_until: {e}")
+                dt = datetime.fromisoformat(date_str)
+                if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except Exception:
+                return None
 
-        # 2. РЕЗЕРВ (BACKUP): Если даты окончания нет, но есть активация реферала (для старых пользователей)
-        # Если вы хотите полностью отключить это и верить только Supabase -> удалите блок elif
+        # 1. Если есть прямая подписка
+        if db_sub_until:
+            dt_until = parse_date_safe(db_sub_until)
+            if dt_until and dt_until > now_utc:
+                has_grind_sub = True
+                grind_sub_until_iso = dt_until.isoformat()
+
+        # 2. Если нет прямой подписки, но есть реферальная (и она еще не прошла)
         elif ref_activated_at and not has_grind_sub:
-            try:
-                if ref_activated_at.endswith('Z'): ref_activated_at = ref_activated_at[:-1] + '+00:00'
-                dt_activated = datetime.fromisoformat(ref_activated_at)
-                if dt_activated.tzinfo is None: dt_activated = dt_activated.replace(tzinfo=timezone.utc)
-                
+            dt_activated = parse_date_safe(ref_activated_at)
+            if dt_activated:
                 # Считаем +7 дней от активации
                 dt_expires = dt_activated + timedelta(days=7)
-                
                 if dt_expires > now_utc:
                     has_grind_sub = True
                     grind_sub_until_iso = dt_expires.isoformat()
-            except Exception as e:
-                logging.error(f"Error parsing referral_activated_at: {e}")
 
         final_response['has_grind_sub'] = has_grind_sub
         final_response['grind_sub_until'] = grind_sub_until_iso
