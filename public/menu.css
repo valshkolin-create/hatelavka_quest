@@ -1160,6 +1160,112 @@
     box-sizing: border-box;
 }
 
+/* --- СТИЛИ ДЛЯ БАННЕРА И БЕЙДЖА --- */
+.weekly-banner-wrapper {
+    position: relative;
+    margin-top: 15px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+}
+.weekly-banner-wrapper:active {
+    transform: scale(0.98);
+}
+.weekly-banner-wrapper img {
+    width: 100%;
+    display: block;
+    border-radius: 12px;
+}
+
+/* Яркий бейдж "ЗАДАНИЕ ВЫПОЛНЕНО" */
+.weekly-reward-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    
+    background: linear-gradient(90deg, #ffcc00, #ff9500); /* Золотой градиент */
+    color: #000;
+    font-weight: 800;
+    font-size: 11px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.6);
+    border: 2px solid #fff;
+    z-index: 5;
+    animation: badgePulse 2s infinite;
+}
+
+@keyframes badgePulse {
+    0% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.7); }
+    70% { transform: translateX(-50%) scale(1.05); box-shadow: 0 0 0 10px rgba(255, 204, 0, 0); }
+    100% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0); }
+}
+
+/* --- СТИЛИ ДЛЯ НОВОГО МОДАЛЬНОГО ОКНА --- */
+.weekly-modal-content {
+    background-color: #1c1c1e; /* Темный фон iOS */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px 20px 0 0; /* Закругление только сверху для шторки */
+    width: 100%;
+    max-width: 500px; /* Чтобы на планшетах не было гигантским */
+    max-height: 85vh; /* Не на весь экран */
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -5px 25px rgba(0,0,0,0.5);
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Анимация выезда снизу */
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+/* Если хотите по центру (не шторкой), уберите border-radius выше и поставьте border-radius: 20px; */
+
+.weekly-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px 20px 0 0;
+}
+
+.weekly-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.weekly-goals-scroll-area {
+    padding: 15px;
+    overflow-y: auto;
+    /* Стили скроллбара */
+    scrollbar-width: thin;
+    scrollbar-color: #555 transparent;
+}
+
+/* Обновляем старые стили контейнера, чтобы внутри модалки они выглядели хорошо */
+.weekly-goals-container {
+    background: transparent !important; /* Убираем фон, так как модалка уже имеет фон */
+    padding: 0 !important;
+    border: none !important;
+    margin-top: 0 !important;
+}
+.weekly-goals-header {
+    display: none; /* Скрываем старый хедер внутри списка, так как у нас есть хедер модалки */
+}
+
 .twitch-link-btn:hover {
     background-color: #772ce8;
 }
