@@ -965,10 +965,15 @@
 
                         // 15.12 < 19.12 -> Должно сработать!
                         if (now < expireDate) {
-                            let dateStr = expireDate.toLocaleDateString('ru-RU', {
+                            // Добавляем часы и минуты (hour, minute)
+                            let dateStr = expireDate.toLocaleString('ru-RU', {
                                 day: 'numeric', 
-                                month: 'long'
+                                month: 'numeric', // или 'short' для "дек."
+                                hour: '2-digit',
+                                minute: '2-digit'
                             });
+                            // dateStr будет выглядеть как "19.12, 14:30"
+                            
                             dateHtml = `<div style="font-size: 10px; opacity: 0.7; font-weight: 400; margin-top: 2px;">до ${dateStr}</div>`;
                         } else {
                              console.log("Срок истек:", expireDate);
