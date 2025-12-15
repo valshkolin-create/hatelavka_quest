@@ -118,6 +118,32 @@
                     <label>URL картинки</label>
                     <input type="text" id="auction-image-input" placeholder="https://...">
 
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label>Редкость (Цвет)</label>
+                            <select id="auction-rarity-input" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: var(--text-primary); margin-top: 5px;">
+                                <option value="">-- Обычное --</option>
+                                <option value="common">Ширпотреб (Синий)</option>
+                                <option value="uncommon">Промышленное (Голубой)</option>
+                                <option value="rare">Армейское (Синий)</option>
+                                <option value="mythical">Запрещенное (Фиолетовый)</option>
+                                <option value="legendary">Засекреченное (Розовый)</option>
+                                <option value="ancient">Тайное (Красный)</option>
+                                <option value="immortal">Нож/Золотое (Золотой)</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Качество</label>
+                            <select id="auction-wear-input" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: var(--text-primary); margin-top: 5px;">
+                                <option value="">-- Нет --</option>
+                                <option value="Factory New">Прямо с завода</option>
+                                <option value="Minimal Wear">Немного поношенное</option>
+                                <option value="Field-Tested">После полевых</option>
+                                <option value="Well-Worn">Поношенное</option>
+                                <option value="Battle-Scarred">Закаленное в боях</option>
+                            </select>
+                        </div>
+                    </div>
                     <label>Минимальный баланс (билеты)</label>
                     <input type="number" id="auction-min-tickets-input" value="1" min="1" required>
                     
