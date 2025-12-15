@@ -921,40 +921,59 @@
         dom.ticketsDisplay.textContent = userState.tickets;
         dom.streakDayDisplay.textContent = userState.streakDays;
         
-        // --- РАСЧЕТ ДАТЫ ГРИНДА (VIP) ---
-        if (dom.userStatus) {
-            // 1. Всегда пишем VIP
-            let statusText = 'VIP';
+        // --- ЛОГИКА VIP И ДАТЫ (БРОНЕБОЙНАЯ ВЕРСИЯ) ---
+        const statusEl = document.getElementById('user-status');
+        
+        if (statusEl) {
+            let statusText = 'VIP'; // Всегда пишем VIP
             let dateHtml = '';
 
-            // 2. Проверяем дату активации реферала
-            if (userState.referral_activated_at) {
-                // Превращаем строку даты из базы в объект JS
-                // JS умный, он поймет формат "2025-12-12..."
-                let activatedDate = new Date(userState.referral_activated_at);
-                
-                // Если дата валидная
-                if (!isNaN(activatedDate.getTime())) {
-                    // 3. Прибавляем 7 дней (7 * 24 часа * 60 мин * 60 сек * 1000 мс)
-                    let expireDate = new Date(activatedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
-                    
-                    let now = new Date();
+            // Берем сырую строку даты: "2025-12-12 12:11:08.876338+03"
+            let rawDate = userState.referral_activated_at;
 
-                    // Если срок (7 дней) еще не истек
-                    if (now < expireDate) {
-                        // Форматируем дату (например: "19 декабря")
-                        let dateStr = expireDate.toLocaleDateString('ru-RU', {
-                            day: 'numeric', 
-                            month: 'long'
-                        });
-                        dateHtml = `<div style="font-size: 10px; opacity: 0.7; font-weight: 400; margin-top: 2px;">до ${dateStr}</div>`;
+            if (rawDate) {
+                try {
+                    // 1. ЗАМЕНА ПРОБЕЛА НА "T" (Критично для iPhone/Safari)
+                    // Было: "2025-12-12 12:11..." -> Стало: "2025-12-12T12:11..."
+                    let safeDate = rawDate.replace(' ', 'T');
+
+                    // 2. ИСПРАВЛЕНИЕ ЧАСОВОГО ПОЯСА
+                    // Если в конце "+03", делаем "+03:00"
+                    if (safeDate.match(/[+-]\d\d$/)) {
+                        safeDate += ":00";
                     }
+
+                    // 3. Создаем дату
+                    let activatedDate = new Date(safeDate);
+                    
+                    // Проверяем валидность
+                    if (!isNaN(activatedDate.getTime())) {
+                        // Добавляем 7 дней
+                        let expireDate = new Date(activatedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
+                        let now = new Date(); // Сейчас (15.12)
+
+                        // 15.12 < 19.12 -> Должно сработать!
+                        if (now < expireDate) {
+                            let dateStr = expireDate.toLocaleDateString('ru-RU', {
+                                day: 'numeric', 
+                                month: 'long'
+                            });
+                            dateHtml = `<div style="font-size: 10px; opacity: 0.7; font-weight: 400; margin-top: 2px;">до ${dateStr}</div>`;
+                        } else {
+                             console.log("Срок истек:", expireDate);
+                        }
+                    } else {
+                        console.error("Не удалось прочитать дату:", safeDate);
+                    }
+                } catch (e) {
+                    console.error("Ошибка обработки даты:", e);
                 }
             }
             
-            dom.userStatus.innerHTML = `<div style="line-height:1.1;">${statusText}</div>${dateHtml}`;
+            // Выводим в HTML
+            statusEl.innerHTML = `<div style="line-height:1.1;">${statusText}</div>${dateHtml}`;
         }
-        // ---------------------------------
+        // ------------------------------------------
 
         const { totalBonus, boostsHTML, baseReward } = calculateBoosts();
         const totalReward = (baseReward + totalBonus).toFixed(1); 
