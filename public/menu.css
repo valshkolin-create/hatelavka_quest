@@ -1227,43 +1227,57 @@
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
 }
-
-/* Если хотите по центру (не шторкой), уберите border-radius выше и поставьте border-radius: 20px; */
-
 /* --- СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА --- */
 
-/* 1. Оверлей: поднимаем окно выше навигации (padding-bottom) */
+/* 1. Оверлей: Фон страницы размывается, окно поднимается выше */
 #weekly-modal-overlay {
-    padding-bottom: 85px; /* Отступ снизу, чтобы не перекрывалось меню */
+    /* Поднимаем еще выше (было 85px, стало 110px), чтобы суперприз точно не перекрывался */
+    padding-bottom: 110px; 
     align-items: flex-end; /* Окно выезжает снизу */
+    
+    /* Эффект размытия заднего фона (страницы) */
+    background: rgba(0, 0, 0, 0.4); /* Затенение */
+    backdrop-filter: blur(5px);      /* Размытие страницы */
+    -webkit-backdrop-filter: blur(5px); /* Для iPhone */
+    z-index: 10001; /* Поверх всего */
 }
 
-/* 2. Контейнер окна: блокируем передачу скролла фону (overscroll-behavior) */
+/* 2. Контент окна: Эффект матового стекла и блокировка скролла */
 .weekly-modal-content {
-    background-color: #1c1c1e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px; /* Закругляем все углы */
+    /* Полупрозрачный фон для эффекта стекла */
+    background-color: rgba(28, 28, 30, 0.85); 
+    
+    /* Размытие того, что под окном (стекло) */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    
+    border: 1px solid rgba(255, 255, 255, 0.15); /* Чуть ярче рамка */
+    border-radius: 20px; 
+    
     width: 100%;
     max-width: 500px;
-    max-height: 70vh; /* Ограничиваем высоту (70% от экрана) */
+    max-height: 75vh; /* Чуть увеличили высоту */
+    
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.8);
     
-    /* ВАЖНО: это помогает остановить прокрутку фона */
-    overscroll-behavior: contain; 
+    /* Красивая тень для объема */
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    
+    /* Блокируем скролл фона */
+    overscroll-behavior: contain;
     
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Ваш код хедера (без изменений, подходит идеально) */
+/* Хедер окна */
 .weekly-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 15px 20px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.05); /* Легкая подсветка сверху */
     border-radius: 20px 20px 0 0;
 }
 
@@ -1272,24 +1286,23 @@
     font-size: 18px;
     font-weight: 700;
     color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3); /* Тень текста для читаемости */
 }
 
-/* Область прокрутки: добавили отступ снизу и плавность для iOS */
+/* Область скролла */
 .weekly-goals-scroll-area {
     padding: 15px;
     overflow-y: auto;
     
-    /* Добавляем отступ, чтобы последний элемент не прилипал к краю */
-    padding-bottom: 30px; 
-    
-    /* Плавный скролл на айфонах */
-    -webkit-overflow-scrolling: touch; 
+    /* Увеличили отступ снизу внутри скролла, чтобы Суперприз не обрезался */
+    padding-bottom: 50px; 
     
     scrollbar-width: thin;
     scrollbar-color: #555 transparent;
+    -webkit-overflow-scrolling: touch;
 }
 
-/* Стили контейнера внутри (без изменений) */
+/* Сброс стилей контейнера внутри */
 .weekly-goals-container {
     background: transparent !important;
     padding: 0 !important;
