@@ -57,7 +57,14 @@ try {
         tutorialSkipBtn: document.getElementById('tutorial-skip-btn'),
         startTutorialBtn: document.getElementById('start-tutorial-btn'),
         weeklyGoalsContainer: document.getElementById('weekly-goals-container-placeholder'), // (Отступ 8 пробелов)
-        weeklyGoalsAccordion: document.getElementById('weekly-goals-accordion') // <-- 🔽 ДОБАВЬ ЭТУ СТРОКУ
+        // УДАЛИТЬ или ЗАМЕНИТЬ строки про weeklyGoalsAccordion
+        weeklyGoalsTrigger: document.getElementById('weekly-goals-trigger'),
+        weeklyGoalsBadge: document.getElementById('weekly-goals-badge'),    
+        // Элементы модалки
+        weeklyModalOverlay: document.getElementById('weekly-modal-overlay'),
+        weeklyModalCloseBtn: document.getElementById('weekly-modal-close-btn'),
+        weeklyGoalsListContainer: document.getElementById('weekly-goals-list-container'),
+        weeklyModalCounter: document.getElementById('weekly-modal-counter')
     };
 
     let currentQuestId = null;
@@ -869,112 +876,129 @@ function renderChallenge(challengeData, isGuest) {
     }
     // --- КОНЕЦ ОБНОВЛЕННОЙ ВЕРСИИ ---
     function renderWeeklyGoals(data) {
-    const container = dom.weeklyGoalsContainer;
-    if (!container) return;
+        // Используем новые элементы из объекта dom (убедитесь, что вы добавили их в dom = {...})
+        const listContainer = dom.weeklyGoalsListContainer;
+        const triggerContainer = dom.weeklyGoalsTrigger;
+        const badgeElement = dom.weeklyGoalsBadge;
+        const counterElement = dom.weeklyModalCounter;
 
-    // --- (v3) Проверка на админа ---
-    const isAdmin = userData && userData.is_admin;
-    
-    // Показываем блок, если:
-    // 1. Система включена (для всех)
-    // 2. Пользователь - админ (видит, даже если выключено)
-    const shouldShow = data && data.system_enabled;
-    
-    const accordionElement = dom.weeklyGoalsAccordion; 
-    if (!accordionElement) {
-        console.error("renderWeeklyGoals: Элемент <details> 'weekly-goals-accordion' не найден!");
-        return; 
-    }
+        // --- Проверка прав и доступности ---
+        const isAdmin = userData && userData.is_admin;
+        const shouldShow = data && data.system_enabled;
 
-    // Если нет данных ИЛИ (система выключена И пользователь НЕ админ) ИЛИ нет задач
-    if (!data || (!shouldShow && !isAdmin) || !data.goals || data.goals.length === 0) {
-        container.innerHTML = ''; // Очищаем содержимое
-        accordionElement.classList.add('hidden'); // ПРЯЧЕМ ВЕСЬ АККОРДЕОН
-        return;
-    }
-    
-    // Если мы дошли сюда, мы должны ПОКАЗАТЬ аккордеон
-    accordionElement.classList.remove('hidden'); // ПОКАЗЫВАЕМ ВЕСЬ АККОРДЕОН
-    
-    // 1. Рендерим Задачи
-    const goalsHtml = data.goals.map(goal => {
-        const progress = goal.current_progress || 0;
-        const target = goal.target_value || 1;
-        const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
-        // --- 🎯 ИСПРАВЛЕНИЕ ДЛЯ ГОЛА 3 (Проценты) ---
-        const percentText = `${Math.floor(percent)}%`;
-        // --- ------------------------------------ ---
-        const isCompleted = goal.is_complete || false;
+        // Если данных нет, или система выключена (и юзер не админ), или нет целей -> скрываем баннер
+        if (!data || (!shouldShow && !isAdmin) || !data.goals || data.goals.length === 0) {
+            if (triggerContainer) triggerContainer.classList.add('hidden');
+            return;
+        }
 
-        let buttonHtml = '';
-        if (goal.reward_type === 'tickets' && goal.reward_value > 0) {
-            if (goal.small_reward_claimed) {
-                buttonHtml = `<button class="weekly-goal-reward-btn claimed" disabled>Получено</button>`;
-            } else if (isCompleted) {
-                buttonHtml = `<button class="weekly-goal-reward-btn claim-task-reward-btn" data-goal-id="${goal.id}">Забрать (+${goal.reward_value})</button>`;
+        // Если все ок -> показываем баннер
+        if (triggerContainer) triggerContainer.classList.remove('hidden');
+
+        // Обновляем счетчик в заголовке модалки (X / Y)
+        if (counterElement) {
+            counterElement.textContent = `${data.completed_goals} / ${data.total_goals}`;
+        }
+
+        // --- ЛОГИКА ДЛЯ БЕЙДЖА (УВЕДОМЛЕНИЯ) ---
+        let hasUnclaimedReward = false;
+
+        // 1. Проверяем обычные задачи: выполнена, награда - билеты, но еще не забрана
+        if (data.goals.some(g => g.is_complete && g.reward_type === 'tickets' && !g.small_reward_claimed)) {
+            hasUnclaimedReward = true;
+        }
+
+        // 2. Проверяем Суперприз: готов к получению, но не получен
+        if (data.super_prize_ready_to_claim && !data.super_prize_claimed) {
+            hasUnclaimedReward = true;
+        }
+
+        // Управляем видимостью бейджа на картинке
+        if (badgeElement) {
+            if (hasUnclaimedReward) {
+                badgeElement.classList.remove('hidden');
             } else {
-                buttonHtml = `<button class="weekly-goal-reward-btn" disabled>+${goal.reward_value} 🎟️</button>`;
+                badgeElement.classList.add('hidden');
             }
         }
 
-        // (v3) Иконка в зависимости от типа задачи
-        let iconClass = 'fa-solid fa-star'; // По умолчанию
-        const taskType = goal.task_type || ''; 
-        if (taskType === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
-        else if (taskType === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
-        else if (taskType === 'auction_bid') iconClass = 'fa-solid fa-gavel';
-        else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-gift';
-        // --- НОВЫЕ ИКОНКИ ДЛЯ СООБЩЕНИЙ ---
-        else if (taskType.includes('twitch_messages')) iconClass = 'fa-solid fa-comment-dots'; // 💬 Сообщения Twitch
-        else if (taskType.includes('telegram_messages')) iconClass = 'fa-brands fa-telegram';  // ✈️ Telegram
-        else if (taskType.includes('uptime')) iconClass = 'fa-regular fa-clock';               // ⏱ Время просмотра (на всякий случай)
-        
-        // Общая иконка для остальной статистики, если не подошло выше
-        else if (taskType.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
+        // --- РЕНДЕРИНГ ЗАДАЧ ---
+        // Если контейнер для списка (в модальном окне) не найден - выходим, чтобы не было ошибок
+        if (!listContainer) return;
 
-        // 1. Формируем Примечание (Description)
-        let descriptionHtml = '';
-        if (goal.description) {
-            descriptionHtml = `<p class="weekly-goal-description">${escapeHTML(goal.description)}</p>`;
-        }
+        const goalsHtml = data.goals.map(goal => {
+            const progress = goal.current_progress || 0;
+            const target = goal.target_value || 1;
+            const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
+            const percentText = `${Math.floor(percent)}%`;
+            const isCompleted = goal.is_complete || false;
 
-        // --- 🎯 ИСПРАВЛЕНИЕ ДЛЯ ГОЛА 1 (Кнопки) И ФИКС СИНТАКСИСА ---
-        let navLinkHtml = '';
+            // --- Логика кнопки награды ---
+            let buttonHtml = '';
+            if (goal.reward_type === 'tickets' && goal.reward_value > 0) {
+                if (goal.small_reward_claimed) {
+                    buttonHtml = `<button class="weekly-goal-reward-btn claimed" disabled>Получено</button>`;
+                } else if (isCompleted) {
+                    buttonHtml = `<button class="weekly-goal-reward-btn claim-task-reward-btn" data-goal-id="${goal.id}">Забрать (+${goal.reward_value})</button>`;
+                } else {
+                    buttonHtml = `<button class="weekly-goal-reward-btn" disabled>+${goal.reward_value} 🎟️</button>`;
+                }
+            }
+
+            // --- Выбор иконки ---
+            let iconClass = 'fa-solid fa-star'; // По умолчанию
+            const taskType = goal.task_type || '';
+
+            if (taskType === 'manual_quest_complete') iconClass = 'fa-solid fa-user-check';
+            else if (taskType === 'twitch_purchase') iconClass = 'fa-brands fa-twitch';
+            else if (taskType === 'auction_bid') iconClass = 'fa-solid fa-gavel';
+            else if (taskType === 'cauldron_contribution') iconClass = 'fa-solid fa-gift';
+            else if (taskType.includes('twitch_messages')) iconClass = 'fa-solid fa-comment-dots';
+            else if (taskType.includes('telegram_messages')) iconClass = 'fa-brands fa-telegram';
+            else if (taskType.includes('uptime')) iconClass = 'fa-regular fa-clock';
+            else if (taskType.startsWith('stat_')) iconClass = 'fa-solid fa-chart-line';
+
+            // --- Примечание (Description) ---
+            let descriptionHtml = '';
+            if (goal.description) {
+                descriptionHtml = `<p class="weekly-goal-description">${escapeHTML(goal.description)}</p>`;
+            }
+
+            // --- Логика ссылок и навигации ---
+            let navLinkHtml = '';
             const taskInfoMap = {
                 'manual_quest_complete': { text: 'Перейти к заполнению ручного задания', nav: 'view-quests' },
                 'twitch_purchase': { text: 'Награда Twitch', nav: 'https://www.twitch.tv/hatelove_ttv' },
                 'auction_bid': { text: 'Перейти в аукцион', nav: '/auction' },
                 'cauldron_contribution': { text: 'Перейти в ивент', nav: '/halloween' },
                 'wizebot_challenge_complete': { text: 'Wizebot Челлендж (в профиле)', nav: null },
-                
-                // --- 🎯 ИЗМЕНЕНИЯ ЗДЕСЬ ---
                 'stat_twitch_messages_week': { text: 'Перейти на канал', nav: 'https://www.twitch.tv/hatelove_ttv' },
                 'stat_twitch_uptime_week': { text: 'Перейти на канал', nav: 'https://www.twitch.tv/hatelove_ttv' },
                 'stat_telegram_messages_week': { text: 'Перейти на канал', nav: 'https://t.me/hatelovettv' }
-                // --- -------------------- ---
             };
 
-        const info = taskInfoMap[taskType];
-        
-        if (info) {
-            if (info.nav) {
-                // Это КНОПКА-ССЫЛКА
-                const isExternal = info.nav.startsWith('http');
-                const icon = isExternal ? '<i class="fa-solid fa-arrow-up-right-from-square"></i>' : '';
-                const highlightId = (taskType === 'manual_quest_complete' && goal.target_entity_id) 
-                                    ? `data-highlight-quest-id="${goal.target_entity_id}"` 
-                                    : '';
-                
-                navLinkHtml = `<a href="#" class="weekly-goal-nav-link" data-nav="${info.nav}" ${highlightId}>${info.text} ${icon}</a>`;
-            
-            } else if (!descriptionHtml) {
-                // Это просто ТЕКСТ (если нет описания)
-                navLinkHtml = `<span class="weekly-goal-nav-link text-only">${info.text}</span>`;
-            }
-        }
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            const info = taskInfoMap[taskType];
 
-        return `
+            if (info) {
+                if (info.nav) {
+                    // Это кнопка-ссылка
+                    const isExternal = info.nav.startsWith('http');
+                    const icon = isExternal ? '<i class="fa-solid fa-arrow-up-right-from-square"></i>' : '';
+                    // Добавляем подсветку для квестов, если нужно
+                    const highlightId = (taskType === 'manual_quest_complete' && goal.target_entity_id)
+                        ? `data-highlight-quest-id="${goal.target_entity_id}"`
+                        : '';
+
+                    navLinkHtml = `<a href="#" class="weekly-goal-nav-link" data-nav="${info.nav}" ${highlightId}>${info.text} ${icon}</a>`;
+
+                } else if (!descriptionHtml) {
+                    // Это просто текст (если нет описания)
+                    navLinkHtml = `<span class="weekly-goal-nav-link text-only">${info.text}</span>`;
+                }
+            }
+
+            // --- Сборка HTML элемента задачи ---
+            return `
                 <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}">
                     <div class="weekly-goal-icon">
                         <i class="${iconClass}"></i>
@@ -989,54 +1013,52 @@ function renderChallenge(challengeData, isGuest) {
                                     <span class="weekly-goal-progress-text">${percentText}</span>
                                 </div>
                             </div>
-                            ${buttonHtml} </div>
+                            ${buttonHtml}
+                        </div>
                         ${descriptionHtml} ${navLinkHtml}
                     </div>
-                    </div>
+                </div>
             `;
         }).join('');
-    
-    // 2. Рендерим Суперприз (без изменений)
-    let superPrizeHtml = '';
-    if (data.total_goals > 0) {
-        const prizeInfo = data.super_prize_info;
-        let prizeText = '...';
-        if (prizeInfo.super_prize_type === 'tickets') {
-            prizeText = `${prizeInfo.super_prize_value} 🎟️`;
-        } else if (prizeInfo.super_prize_type === 'promocode_batch') {
-            prizeText = `Промокод на ${prizeInfo.super_prize_value} ⭐`;
-        }
-        
-        let prizeButtonHtml = '';
-        if (data.super_prize_claimed) {
-            prizeButtonHtml = `<button class="claim-reward-button" disabled>Суперприз получен!</button>`;
-        } else if (data.super_prize_ready_to_claim) {
-            prizeButtonHtml = `<button id="claim-super-prize-btn" class="claim-reward-button">Забрать Суперприз!</button>`;
-        } else {
-            prizeButtonHtml = `<button class="claim-reward-button" disabled>Выполните все задания</button>`;
+
+        // --- РЕНДЕРИНГ СУПЕРПРИЗА ---
+        let superPrizeHtml = '';
+        if (data.total_goals > 0) {
+            const prizeInfo = data.super_prize_info;
+            let prizeText = '...';
+            
+            if (prizeInfo.super_prize_type === 'tickets') {
+                prizeText = `${prizeInfo.super_prize_value} 🎟️`;
+            } else if (prizeInfo.super_prize_type === 'promocode_batch') {
+                prizeText = `Промокод на ${prizeInfo.super_prize_value} ⭐`;
+            }
+
+            let prizeButtonHtml = '';
+            if (data.super_prize_claimed) {
+                prizeButtonHtml = `<button class="claim-reward-button" disabled>Суперприз получен!</button>`;
+            } else if (data.super_prize_ready_to_claim) {
+                prizeButtonHtml = `<button id="claim-super-prize-btn" class="claim-reward-button">Забрать Суперприз!</button>`;
+            } else {
+                prizeButtonHtml = `<button class="claim-reward-button" disabled>Выполните все задания</button>`;
+            }
+
+            superPrizeHtml = `
+                <div class="weekly-super-prize-card">
+                    <h2 class="quest-title">${escapeHTML(prizeInfo.super_prize_description || 'Главный приз')}</h2>
+                    <p class="quest-subtitle">Награда: ${prizeText}</p>
+                    ${prizeButtonHtml}
+                </div>
+            `;
         }
 
-        superPrizeHtml = `
-            <div class="weekly-super-prize-card">
-                <h2 class="quest-title">${escapeHTML(prizeInfo.super_prize_description || 'Главный приз')}</h2>
-                <p class="quest-subtitle">Награда: ${prizeText}</p>
-                ${prizeButtonHtml}
+        // --- Вставка итогового HTML в список ---
+        listContainer.innerHTML = `
+            <div class="weekly-goals-container">
+                ${goalsHtml}
+                ${superPrizeHtml}
             </div>
         `;
     }
-
-    // 3. Собираем всё вместе (без изменений)
-    container.innerHTML = `
-        <div class="weekly-goals-container">
-            <div class="weekly-goals-header">
-                <h2>Недельные испытания</h2>
-                <span class="weekly-goals-progress-text">${data.completed_goals} / ${data.total_goals}</span>
-            </div>
-            ${goalsHtml}
-            ${superPrizeHtml}
-        </div>
-    `;
-}
     
     async function refreshDataSilently() {
         try {
@@ -1711,6 +1733,32 @@ function setupEventListeners() {
         }, 100);
     });
     // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
+    // 👇 ВСТАВЬТЕ ВАШ КОД СЮДА 👇
+
+    // Открытие модалки при клике на баннер
+    if (dom.weeklyGoalsTrigger) {
+        dom.weeklyGoalsTrigger.addEventListener('click', () => {
+            dom.weeklyModalOverlay.classList.remove('hidden');
+        });
+    }
+
+    // Закрытие модалки по крестику
+    if (dom.weeklyModalCloseBtn) {
+        dom.weeklyModalCloseBtn.addEventListener('click', () => {
+            dom.weeklyModalOverlay.classList.add('hidden');
+        });
+    }
+
+    // Закрытие по клику вне контента (по темному фону)
+    if (dom.weeklyModalOverlay) {
+        dom.weeklyModalOverlay.addEventListener('click', (e) => {
+            if (e.target === dom.weeklyModalOverlay) {
+                dom.weeklyModalOverlay.classList.add('hidden');
+            }
+        });
+    }
+
+    // 👆 КОНЕЦ ВАШЕГО КОДА 👆
     // Обработчик кнопки "Позже" в приветственном попапе
     const laterBtn = document.getElementById('later-btn');
     if (laterBtn) {
