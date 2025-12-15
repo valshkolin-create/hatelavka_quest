@@ -1240,85 +1240,106 @@
     100% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0); }
 }
 
-/* --- СТИЛИ ДЛЯ НОВОГО МОДАЛЬНОГО ОКНА --- */
-.weekly-modal-content {
-    /* 👇 Растягиваем на 100% доступной высоты (с учетом отступа сверху, который мы задали выше) */
-    height: 100%;
-    max-height: 100%; 
-    
-    background-color: rgba(28, 28, 30, 0.95); /* Сделал чуть плотнее фон */
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    
-    /* 👇 Закругление только сверху */
-    border-radius: 20px 20px 0 0; 
-    
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
+
 /* Анимация выезда снизу */
 @keyframes slideUp {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
 }
 /* --- СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА --- */
-/* 1. Оверлей на весь экран */
+
+/* 1. Оверлей: Фон страницы размывается, окно поднимается выше */
 #weekly-modal-overlay {
-    padding-bottom: 0 !important;
-    padding-top: calc(10px + env(safe-area-inset-top)) !important; /* Отступ под челку */
-    height: 100% !important;
-    align-items: flex-end !important;
-    z-index: 10001 !important;
+    /* 👇 Убираем отступ снизу, чтобы окно начиналось от края экрана */
+    padding-bottom: 0; 
+    
+    /* 👇 Задаем отступ СВЕРХУ. 
+       env(safe-area-inset-top) — это учет "челки" айфона + 10px воздуха */
+    padding-top: calc(10px + env(safe-area-inset-top)); 
+    
+    align-items: flex-end; /* Прижимаем низ окна к низу экрана */
+    
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 10001; 
+    
+    /* Важно: говорим контейнеру занять всю высоту */
+    height: 100%;
+    box-sizing: border-box; /* Чтобы padding не ломал высоту */
 }
 
-/* 2. Контент на всю высоту */
+/* 2. Контент окна: Эффект матового стекла и блокировка скролла */
 .weekly-modal-content {
-    height: 100% !important;     /* Принудительно на всю высоту */
-    max-height: 100% !important; /* Убираем ограничение 75vh */
-    width: 100% !important;
-    max-width: 500px !important; /* Чтобы на планшетах не было слишком широко */
+    /* Полупрозрачный фон для эффекта стекла */
+    background-color: rgba(28, 28, 30, 0.85); 
     
-    border-radius: 20px 20px 0 0 !important; /* Закругление только сверху */
-    background-color: rgba(28, 28, 30, 0.95) !important;
-    display: flex !important;
-    flex-direction: column !important;
+    /* Размытие того, что под окном (стекло) */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    
+    border: 1px solid rgba(255, 255, 255, 0.15); /* Чуть ярче рамка */
+    border-radius: 20px; 
+    
+    width: 100%;
+    max-width: 500px;
+    max-height: 75vh; /* Чуть увеличили высоту */
+    
+    display: flex;
+    flex-direction: column;
+    
+    /* Красивая тень для объема */
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    
+    /* Блокируем скролл фона */
+    overscroll-behavior: contain;
+    
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* 3. Красивая кнопка закрытия */
-.weekly-modal-close {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important; /* Чтобы не сжималась */
+/* Хедер окна */
+.weekly-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05); /* Легкая подсветка сверху */
+    border-radius: 20px 20px 0 0;
+}
+
+.weekly-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3); /* Тень текста для читаемости */
+}
+
+/* Область скролла */
+.weekly-goals-scroll-area {
+    padding: 15px;
+    overflow-y: auto;
     
-    border-radius: 50% !important;
-    background: rgba(255, 255, 255, 0.1) !important;
+    /* Увеличили отступ снизу внутри скролла, чтобы Суперприз не обрезался */
+    padding-bottom: 50px; 
+    
+    scrollbar-width: thin;
+    scrollbar-color: #555 transparent;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Сброс стилей контейнера внутри */
+.weekly-goals-container {
+    background: transparent !important;
+    padding: 0 !important;
     border: none !important;
-    color: #fff !important;
-    
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    
-    font-size: 22px !important;
-    padding: 0 !important; /* Убираем отступы */
-    margin: 0 !important;
-    line-height: 1 !important;
-    cursor: pointer !important;
-    
-    /* Убираем лишние стили от старых классов */
-    opacity: 1 !important;
+    margin-top: 0 !important;
 }
 
-.weekly-modal-close:active {
-    background: rgba(255, 255, 255, 0.3) !important;
-    transform: scale(0.95);
+.weekly-goals-header {
+    display: none;
 }
-
 
 .twitch-link-btn:hover {
     background-color: #772ce8;
