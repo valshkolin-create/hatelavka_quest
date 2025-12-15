@@ -933,63 +933,67 @@
         dom.streakDayDisplay.textContent = userState.streakDays;
         
         // --- ЛОГИКА VIP И ДАТЫ (БРОНЕБОЙНАЯ ВЕРСИЯ) ---
+        // --- ОБНОВЛЕННАЯ ЛОГИКА СТАТУСОВ (Twitch или VIP) ---
         const statusEl = document.getElementById('user-status');
-        
-        if (statusEl) {
-            let statusText = 'VIP'; // Всегда пишем VIP
-            let dateHtml = '';
+        // Находим родительскую карточку, чтобы скрыть её целиком, если статуса нет
+        const statusCard = statusEl ? statusEl.closest('.glass-card') : null;
 
-            // Берем сырую строку даты: "2025-12-12 12:11:08.876338+03"
-            let rawDate = userState.referral_activated_at;
+        if (statusEl && statusCard) {
+            let hasStatus = false;
 
-            if (rawDate) {
-                try {
-                    // 1. ЗАМЕНА ПРОБЕЛА НА "T" (Критично для iPhone/Safari)
-                    // Было: "2025-12-12 12:11..." -> Стало: "2025-12-12T12:11..."
-                    let safeDate = rawDate.replace(' ', 'T');
-
-                    // 2. ИСПРАВЛЕНИЕ ЧАСОВОГО ПОЯСА
-                    // Если в конце "+03", делаем "+03:00"
-                    if (safeDate.match(/[+-]\d\d$/)) {
-                        safeDate += ":00";
-                    }
-
-                    // 3. Создаем дату
-                    let activatedDate = new Date(safeDate);
-                    
-                    // Проверяем валидность
-                    if (!isNaN(activatedDate.getTime())) {
-                        // Добавляем 7 дней
-                        let expireDate = new Date(activatedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
-                        let now = new Date(); // Сейчас (15.12)
-
-                        // 15.12 < 19.12 -> Должно сработать!
-                        if (now < expireDate) {
-                            // Добавляем часы и минуты (hour, minute)
-                            let dateStr = expireDate.toLocaleString('ru-RU', {
-                                day: 'numeric', 
-                                month: 'numeric', // или 'short' для "дек."
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            });
-                            // dateStr будет выглядеть как "19.12, 14:30"
-                            
-                            dateHtml = `<div style="font-size: 10px; opacity: 0.7; font-weight: 400; margin-top: 2px;">до ${dateStr}</div>`;
-                        } else {
-                             console.log("Срок истек:", expireDate);
-                        }
-                    } else {
-                        console.error("Не удалось прочитать дату:", safeDate);
-                    }
-                } catch (e) {
-                    console.error("Ошибка обработки даты:", e);
-                }
+            // 1. ПРОВЕРКА TWITCH (Приоритет 1)
+            // Если юзер подписчик или VIP на твиче
+            if (userState.twitch_status === 'subscriber') {
+                statusEl.innerHTML = `<div style="line-height:1.1; color: #a970ff;">Подписчик Twitch</div>`;
+                hasStatus = true;
+            } 
+            else if (userState.twitch_status === 'vip') {
+                statusEl.innerHTML = `<div style="line-height:1.1; color: #a970ff;">VIP Twitch</div>`;
+                hasStatus = true;
             }
             
-            // Выводим в HTML
-            statusEl.innerHTML = `<div style="line-height:1.1;">${statusText}</div>${dateHtml}`;
+            // 2. ПРОВЕРКА ОБЫЧНОГО VIP БОНУСА (Приоритет 2)
+            // Если нет твича, но есть активный бонус за приглашение
+            else if (isVipActive()) { 
+                let rawDate = userState.referral_activated_at;
+                let dateHtml = '';
+
+                if (rawDate) {
+                    try {
+                        let safeDate = rawDate.replace(' ', 'T');
+                        if (safeDate.match(/[+-]\d\d$/)) safeDate += ":00";
+                        
+                        let activatedDate = new Date(safeDate);
+                        if (!isNaN(activatedDate.getTime())) {
+                            // Добавляем 7 дней
+                            let expireDate = new Date(activatedDate.getTime() + (7 * 24 * 60 * 60 * 1000));
+                            let now = new Date();
+
+                            if (now < expireDate) {
+                                // Формат: 19.12, 14:30
+                                let dateStr = expireDate.toLocaleString('ru-RU', {
+                                    day: 'numeric', month: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                });
+                                dateHtml = `<div style="font-size: 10px; opacity: 0.7; font-weight: 400; margin-top: 2px;">до ${dateStr}</div>`;
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                }
+
+                // Показываем статус "VIP Бонус" + дату
+                statusEl.innerHTML = `<div style="line-height:1.1; color: var(--accent-primary);">VIP Бонус</div>${dateHtml}`;
+                hasStatus = true;
+            }
+
+            // 3. СКРЫВАЕМ ИЛИ ПОКАЗЫВАЕМ КАРТОЧКУ
+            if (hasStatus) {
+                statusCard.style.display = 'flex';
+            } else {
+                statusCard.style.display = 'none';
+            }
         }
-        // ------------------------------------------
+        // ----------------------------------------------------
 
         const { totalBonus, boostsHTML, baseReward } = calculateBoosts();
         const totalReward = (baseReward + totalBonus).toFixed(1); 
