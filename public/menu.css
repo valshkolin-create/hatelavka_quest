@@ -1230,6 +1230,33 @@
 
 /* Если хотите по центру (не шторкой), уберите border-radius выше и поставьте border-radius: 20px; */
 
+/* --- СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА --- */
+
+/* 1. Оверлей: поднимаем окно выше навигации (padding-bottom) */
+#weekly-modal-overlay {
+    padding-bottom: 85px; /* Отступ снизу, чтобы не перекрывалось меню */
+    align-items: flex-end; /* Окно выезжает снизу */
+}
+
+/* 2. Контейнер окна: блокируем передачу скролла фону (overscroll-behavior) */
+.weekly-modal-content {
+    background-color: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px; /* Закругляем все углы */
+    width: 100%;
+    max-width: 500px;
+    max-height: 70vh; /* Ограничиваем высоту (70% от экрана) */
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.8);
+    
+    /* ВАЖНО: это помогает остановить прокрутку фона */
+    overscroll-behavior: contain; 
+    
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Ваш код хедера (без изменений, подходит идеально) */
 .weekly-modal-header {
     display: flex;
     align-items: center;
@@ -1247,23 +1274,31 @@
     color: #fff;
 }
 
+/* Область прокрутки: добавили отступ снизу и плавность для iOS */
 .weekly-goals-scroll-area {
     padding: 15px;
     overflow-y: auto;
-    /* Стили скроллбара */
+    
+    /* Добавляем отступ, чтобы последний элемент не прилипал к краю */
+    padding-bottom: 30px; 
+    
+    /* Плавный скролл на айфонах */
+    -webkit-overflow-scrolling: touch; 
+    
     scrollbar-width: thin;
     scrollbar-color: #555 transparent;
 }
 
-/* Обновляем старые стили контейнера, чтобы внутри модалки они выглядели хорошо */
+/* Стили контейнера внутри (без изменений) */
 .weekly-goals-container {
-    background: transparent !important; /* Убираем фон, так как модалка уже имеет фон */
+    background: transparent !important;
     padding: 0 !important;
     border: none !important;
     margin-top: 0 !important;
 }
+
 .weekly-goals-header {
-    display: none; /* Скрываем старый хедер внутри списка, так как у нас есть хедер модалки */
+    display: none;
 }
 
 .twitch-link-btn:hover {
