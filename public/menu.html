@@ -76,12 +76,14 @@
                 <div class="slider-dots"></div>
         </div>
 
-        <details class="image-accordion" id="weekly-goals-accordion"> 
-            <summary class="image-accordion-summary">
-                <img id="weekly-goals-banner-img" src="https://i.postimg.cc/PxJWPNC9/1200-324-(1).png" alt="Недельные испытания" />
-            </summary>
-            <div id="weekly-goals-container-placeholder"></div>
-        </details>
+        <div id="weekly-goals-trigger" class="weekly-banner-wrapper">
+    <img id="weekly-goals-banner-img" src="https://i.postimg.cc/PxJWPNC9/1200-324-(1).png" alt="Недельные испытания" />
+    
+    <div id="weekly-goals-badge" class="weekly-reward-badge hidden">
+        <i class="fa-solid fa-gift fa-shake"></i>
+        <span>ЗАДАНИЕ ВЫПОЛНЕНО!</span>
+    </div>
+</div>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px;">
 
@@ -339,6 +341,19 @@
         </div>
     </div>
   </div>
+
+  <div id="weekly-modal-overlay" class="prompt-overlay hidden" style="align-items: flex-end;"> <div class="weekly-modal-content">
+        <div class="weekly-modal-header">
+            <h3 id="weekly-modal-title">Недельные испытания</h3>
+            <span id="weekly-modal-counter" class="weekly-goals-progress-text">0 / 0</span>
+            <button id="weekly-modal-close-btn" class="promo-notification-close" style="background: rgba(255,255,255,0.1);">&times;</button>
+        </div>
+        
+        <div id="weekly-goals-list-container" class="weekly-goals-scroll-area">
+            <div class="spinner"></div>
+        </div>
+    </div>
+</div>
 
   <script src="/public/menu.js"></script>
 </body>
