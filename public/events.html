@@ -795,7 +795,8 @@
         grindBtnText: document.getElementById('grind-btn-text'),
         freeTicketContainer: document.getElementById('free-ticket-container'),
         ticketSubtitle: document.getElementById('ticket-subtitle'),
-        shopContainer: document.getElementById('shop-container')
+        shopContainer: document.getElementById('shop-container'),
+      userStatus: document.querySelector('.user-status') || document.querySelector('.status-badge'),
     };
 
     // --- ОСНОВНАЯ ЛОГИКА ---
@@ -901,7 +902,7 @@
         
         if (isVipActive()) {
             totalBonus += 0.2;
-            boostsHTML += `<div class="boost-row"><span class="boost-vip">⚡ Новичок:</span><span class="boost-vip">+0.2</span></div>`;
+            boostsHTML += `<div class="boost-row"><span class="boost-vip">⚡ VIP:</span><span class="boost-vip">+0.2</span></div>`;
         }
       
         if (isTwitchBoostActive()) {
@@ -920,6 +921,7 @@
         dom.ticketsDisplay.textContent = userState.tickets;
         dom.streakDayDisplay.textContent = userState.streakDays;
         
+        // --- Расчет бонусов ---
         const { totalBonus, boostsHTML, baseReward } = calculateBoosts();
         const totalReward = (baseReward + totalBonus).toFixed(1); 
         
@@ -938,7 +940,28 @@
             dom.boostContainer.style.display = 'none';
         }
 
-        // Таймер кнопки гринда
+        // --- ЛОГИКА СТАТУСА (ВСЕГДА VIP + ДАТА) ---
+        if (dom.userStatus) {
+            // 1. Статус всегда "VIP"
+            const statusName = 'VIP'; 
+            
+            // 2. Если есть подписка и дата, добавляем дату окончания
+            let dateHtml = '';
+            if (userState.has_grind_sub && userState.grind_sub_until) {
+                const dateObj = new Date(userState.grind_sub_until);
+                const dateStr = dateObj.toLocaleDateString('ru-RU', {
+                    day: 'numeric', 
+                    month: 'long' 
+                });
+                // Дата мелким шрифтом под статусом
+                dateHtml = `<div style="font-size: 10px; opacity: 0.7; font-weight: 400; margin-top: 2px;">до ${dateStr}</div>`;
+            }
+
+            // 3. Выводим результат
+            dom.userStatus.innerHTML = `<div style="line-height:1.1;">${statusName}</div>${dateHtml}`;
+        }
+
+        // --- ТАЙМЕРЫ ---
         const now = new Date().getTime();
         const last = userState.lastGrindTime ? new Date(userState.lastGrindTime).getTime() : 0;
         const diff = now - last;
@@ -954,7 +977,6 @@
             dom.grindBtnText.textContent = "ЗАБРАТЬ БОНУС";
         }
         
-        // Таймер тикета
         renderFreeTicketBtn();
     }
   
