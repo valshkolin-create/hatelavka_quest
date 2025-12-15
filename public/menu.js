@@ -1739,6 +1739,8 @@ function setupEventListeners() {
     if (dom.weeklyGoalsTrigger) {
         dom.weeklyGoalsTrigger.addEventListener('click', () => {
             dom.weeklyModalOverlay.classList.remove('hidden');
+            // Блокируем прокрутку основной страницы
+            document.body.style.overflow = 'hidden';
         });
     }
 
@@ -1746,6 +1748,8 @@ function setupEventListeners() {
     if (dom.weeklyModalCloseBtn) {
         dom.weeklyModalCloseBtn.addEventListener('click', () => {
             dom.weeklyModalOverlay.classList.add('hidden');
+            // Разблокируем прокрутку
+            document.body.style.overflow = '';
         });
     }
 
@@ -1754,6 +1758,8 @@ function setupEventListeners() {
         dom.weeklyModalOverlay.addEventListener('click', (e) => {
             if (e.target === dom.weeklyModalOverlay) {
                 dom.weeklyModalOverlay.classList.add('hidden');
+                // Разблокируем прокрутку
+                document.body.style.overflow = '';
             }
         });
     }
