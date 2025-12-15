@@ -4231,38 +4231,52 @@ async def get_current_user_data(
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
 
-        # --- 👇 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 👇 ---
-        # --- FIX: Вычисление подписки (VIP) на основе реферала ---
-        ref_activated_at = final_response.get('referral_activated_at')
-        grind_sub_until = None
-        has_grind_sub = False
+        # --- ЛОГИКА ОПРЕДЕЛЕНИЯ VIP (НОВАЯ) ---
+        # Мы проверяем реальное время истечения подписки
         
-        if ref_activated_at:
+        db_sub_until = final_response.get('grind_sub_until')       # Дата "до какого" из базы
+        ref_activated_at = final_response.get('referral_activated_at') # Дата активации реферала
+        
+        has_grind_sub = False
+        grind_sub_until_iso = None
+        now_utc = datetime.now(timezone.utc)
+
+        # 1. ПРИОРИТЕТ: Если в базе (Supabase) уже задана точная дата окончания
+        if db_sub_until:
             try:
-                # Обработка формата даты
-                if ref_activated_at.endswith('Z'):
-                    ref_activated_at = ref_activated_at[:-1] + '+00:00'
+                # Приводим дату к UTC
+                if db_sub_until.endswith('Z'): db_sub_until = db_sub_until[:-1] + '+00:00'
+                dt_until = datetime.fromisoformat(db_sub_until)
+                if dt_until.tzinfo is None: dt_until = dt_until.replace(tzinfo=timezone.utc)
                 
+                # Проверяем: время еще не вышло?
+                if dt_until > now_utc:
+                    has_grind_sub = True
+                    grind_sub_until_iso = dt_until.isoformat()
+            except Exception as e:
+                logging.error(f"Error parsing grind_sub_until: {e}")
+
+        # 2. РЕЗЕРВ (BACKUP): Если даты окончания нет, но есть активация реферала (для старых пользователей)
+        # Если вы хотите полностью отключить это и верить только Supabase -> удалите блок elif
+        elif ref_activated_at and not has_grind_sub:
+            try:
+                if ref_activated_at.endswith('Z'): ref_activated_at = ref_activated_at[:-1] + '+00:00'
                 dt_activated = datetime.fromisoformat(ref_activated_at)
-                if dt_activated.tzinfo is None:
-                    dt_activated = dt_activated.replace(tzinfo=timezone.utc)
+                if dt_activated.tzinfo is None: dt_activated = dt_activated.replace(tzinfo=timezone.utc)
                 
-                # Длительность: 7 дней
+                # Считаем +7 дней от активации
                 dt_expires = dt_activated + timedelta(days=7)
                 
-                # Проверяем, активна ли сейчас
-                now_utc = datetime.now(timezone.utc)
                 if dt_expires > now_utc:
                     has_grind_sub = True
-                    grind_sub_until = dt_expires.isoformat()
+                    grind_sub_until_iso = dt_expires.isoformat()
             except Exception as e:
-                logging.error(f"Date parsing error: {e}")
+                logging.error(f"Error parsing referral_activated_at: {e}")
 
         final_response['has_grind_sub'] = has_grind_sub
-        final_response['grind_sub_until'] = grind_sub_until
+        final_response['grind_sub_until'] = grind_sub_until_iso
         final_response['is_telegram_subscribed'] = True if ref_activated_at else False
         # --------------------------------------------------------
-        # -------------------------------------
 
         return JSONResponse(content=final_response)
 
