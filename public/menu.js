@@ -927,6 +927,9 @@ function renderChallenge(challengeData, isGuest) {
         if (!listContainer) return;
 
         const goalsHtml = data.goals.map(goal => {
+            // 👇 НОВОЕ: Если награда уже забрана — не рендерим этот блок вообще
+            if (goal.small_reward_claimed) return ''; 
+            // 👆 КОНЕЦ НОВОГО
             const progress = goal.current_progress || 0;
             const target = goal.target_value || 1;
             const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
@@ -1900,24 +1903,40 @@ function setupEventListeners() {
                     const result = await makeApiRequest('/api/v1/user/weekly_goals/claim_task', {
                         goal_id: claimTaskBtn.dataset.goalId
                     });
-                    // tg.showPopup({ message: result.message }); // <--- УБИРАЕМ СТАРОЕ УВЕДОМЛЕНИЕ
-                    showTicketsClaimedModal(); // <--- ВСТАВЛЯЕМ ВЫЗОВ МОДАЛКИ
+                    
+                    showTicketsClaimedModal();
                     
                     // Обновляем баланс
                     if (result.new_ticket_balance !== undefined) {
                         document.getElementById('ticketStats').textContent = result.new_ticket_balance;
                     }
-                    // Меняем кнопку на "Получено"
-                    claimTaskBtn.textContent = 'Получено';
-                    claimTaskBtn.classList.add('claimed');
+
+                    // 👇 НОВАЯ ЛОГИКА: Скрываем строку с заданием 👇
+                    const goalItem = claimTaskBtn.closest('.weekly-goal-item');
+                    if (goalItem) {
+                        // Добавляем класс анимации
+                        goalItem.classList.add('fade-out-remove');
+                        
+                        // Полностью удаляем из HTML через 500мс (время анимации)
+                        setTimeout(() => {
+                            goalItem.remove();
+                            
+                            // (Опционально) Если заданий больше нет, можно показать заглушку
+                            const container = document.querySelector('.weekly-goals-container');
+                            if (container && !container.querySelector('.weekly-goal-item')) {
+                                // container.innerHTML += '<p style="text-align:center; padding:10px; color:#666;">Все задания выполнены!</p>';
+                            }
+                        }, 500);
+                    }
+                    // 👆 КОНЕЦ НОВОЙ ЛОГИКИ
+
                 } catch (e) {
-                    tg.showAlert(`Ошибка: ${e.message}`);
+                    Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
                     claimTaskBtn.disabled = false;
                     claimTaskBtn.innerHTML = `Забрать (+${claimTaskBtn.dataset.rewardValue || '...'})`;
                 }
                 return; // Останавливаем выполнение
             }
-
             if (claimSuperBtn) {
                 claimSuperBtn.disabled = true;
                 claimSuperBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
