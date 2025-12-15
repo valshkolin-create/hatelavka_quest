@@ -428,7 +428,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-display-area">
                     <div class="event-image-container">
                         ${restrictionsHtml} 
+                        
                         <div style="position:absolute; bottom:0; left:0; width:100%; height:3px; background:${rarityColor}; z-index:5; opacity:0.8;"></div>
+                        
                         <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
                     </div>
                 </div>
