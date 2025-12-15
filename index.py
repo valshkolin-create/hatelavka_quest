@@ -5272,30 +5272,30 @@ async def admin_get_auctions(
 @app.post("/api/v1/admin/auctions/create")
 async def admin_create_auction(
     request_data: AuctionCreateRequest,
-    background_tasks: BackgroundTasks, # <--- ВАЖНО: background_tasks добавлен в аргументы
+    background_tasks: BackgroundTasks, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    # Use request_data, not request
     duration_hours = request_data.bid_cooldown_hours
-    end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
-
+    
+    # Corrected payload using request_data
     payload = {
-        "title": request.title,
-        "image_url": request.image_url,
-        "bid_cooldown_hours": request.bid_cooldown_hours,
-        "snipe_guard_minutes": request.snipe_guard_minutes,
-        "is_active": request.is_active,
-        "is_visible": request.is_visible,
-        "min_required_tickets": request.min_required_tickets,
-        "max_allowed_tickets": request.max_allowed_tickets,
+        "title": request_data.title,
+        "image_url": request_data.image_url,
+        "bid_cooldown_hours": request_data.bid_cooldown_hours,
+        "snipe_guard_minutes": request_data.snipe_guard_minutes,
+        "is_active": request_data.is_active,
+        "is_visible": request_data.is_visible,
+        "min_required_tickets": request_data.min_required_tickets,
+        "max_allowed_tickets": request_data.max_allowed_tickets,
 
-        # === [ВСТАВИТЬ ЭТО] ===
-        "rarity": request.rarity,
-        "wear": request.wear,
-        # ======================
+        # New fields
+        "rarity": request_data.rarity,
+        "wear": request_data.wear,
 
         "current_highest_bid": 0,
         "current_highest_bidder_id": None,
@@ -5305,11 +5305,11 @@ async def admin_create_auction(
     }
 
     try:
-        # 1. Создаем лот в базе
+        # 1. Create lot in DB
         response = await supabase.post("/auctions", json=payload)
         response.raise_for_status()
         
-        # 2. ЗАПУСКАЕМ МАССОВУЮ РАССЫЛКУ (если лот активен и виден)
+        # 2. Launch mass notification (if active and visible)
         if request_data.is_active and request_data.is_visible:
             msg = (
                 f"📢 <b>Новый аукцион!</b>\n\n"
@@ -5318,8 +5318,7 @@ async def admin_create_auction(
                 f"Делайте ваши ставки в приложении!"
             )
             
-            # Запускаем фоновую задачу рассылки
-            # Она найдет всех, у кого включено 'notify_auction_start' и is_bot_active=True
+            # Launch background task
             background_tasks.add_task(broadcast_notification_task, msg, "notify_auction_start")
             
     except httpx.HTTPStatusError as e:
