@@ -153,9 +153,13 @@ class AuctionCreateRequest(BaseModel):
     snipe_guard_minutes: int = 5
     is_active: Optional[bool] = False
     is_visible: Optional[bool] = False
-    # ⬇️ ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ ⬇️
-    min_required_tickets: Optional[int] = 1 # Допустим, по умолчанию 1
-    max_allowed_tickets: Optional[int] = None # По умолчанию - нет ограничения
+    min_required_tickets: Optional[int] = 1 
+    max_allowed_tickets: Optional[int] = None 
+    
+    # === [ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ] ===
+    rarity: Optional[str] = None
+    wear: Optional[str] = None
+    # =================================
 
 class AuctionUpdateRequest(BaseModel):
     initData: str
@@ -166,9 +170,13 @@ class AuctionUpdateRequest(BaseModel):
     snipe_guard_minutes: Optional[int] = None
     is_active: Optional[bool] = None
     is_visible: Optional[bool] = None
-    # ⬇️ ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ ⬇️
     min_required_tickets: Optional[int] = None
     max_allowed_tickets: Optional[int] = None
+
+    # === [ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ] ===
+    rarity: Optional[str] = None
+    wear: Optional[str] = None
+    # =================================
 
 class AuctionDeleteRequest(BaseModel):
     initData: str
