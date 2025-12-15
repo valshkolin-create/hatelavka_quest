@@ -4119,6 +4119,7 @@ async def check_channel_subscription(
     
 # --- ПРАВИЛЬНО ---
 @app.post("/api/v1/user/me")
+@app.post("/api/v1/user/me")
 async def get_current_user_data(
     request_data: InitDataRequest,
     background_tasks: BackgroundTasks,
@@ -4231,52 +4232,9 @@ async def get_current_user_data(
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
 
-        # --- ЛОГИКА ОПРЕДЕЛЕНИЯ VIP (ИСПРАВЛЕНА ОБРАБОТКА ДАТЫ) ---
-        
-        db_sub_until = final_response.get('grind_sub_until')       # Дата "до какого" из базы
-        ref_activated_at = final_response.get('referral_activated_at') # Дата активации реферала
-        
-        has_grind_sub = False
-        grind_sub_until_iso = None
-        now_utc = datetime.now(timezone.utc)
-
-        # Функция для безопасного парсинга даты с кривым часовым поясом (+03 вместо +03:00)
-        def parse_date_safe(date_str):
-            if not date_str: return None
-            try:
-                # Если дата заканчивается на +XX или -XX (нет минут), добавляем :00
-                if len(date_str) >= 3 and date_str[-3] in ['+', '-'] and date_str[-2:].isdigit():
-                    date_str += ":00"
-                if date_str.endswith('Z'): 
-                    date_str = date_str[:-1] + '+00:00'
-                
-                dt = datetime.fromisoformat(date_str)
-                if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
-                return dt
-            except Exception:
-                return None
-
-        # 1. Если есть прямая подписка
-        if db_sub_until:
-            dt_until = parse_date_safe(db_sub_until)
-            if dt_until and dt_until > now_utc:
-                has_grind_sub = True
-                grind_sub_until_iso = dt_until.isoformat()
-
-        # 2. Если нет прямой подписки, но есть реферальная (и она еще не прошла)
-        elif ref_activated_at and not has_grind_sub:
-            dt_activated = parse_date_safe(ref_activated_at)
-            if dt_activated:
-                # Считаем +7 дней от активации
-                dt_expires = dt_activated + timedelta(days=7)
-                if dt_expires > now_utc:
-                    has_grind_sub = True
-                    grind_sub_until_iso = dt_expires.isoformat()
-
-        final_response['has_grind_sub'] = has_grind_sub
-        final_response['grind_sub_until'] = grind_sub_until_iso
-        final_response['is_telegram_subscribed'] = True if ref_activated_at else False
-        # --------------------------------------------------------
+        # --- 👇 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 👇 ---
+        final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
+        # -------------------------------------
 
         return JSONResponse(content=final_response)
 
