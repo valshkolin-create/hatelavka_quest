@@ -1905,37 +1905,48 @@ function setupEventListeners() {
                     });
                     
                     showTicketsClaimedModal();
+
+                    // --- 👇 НАЧАЛО: ОБНОВЛЕНИЕ СЧЕТЧИКА В ШАПКЕ 👇 ---
+                    const counterEl = document.getElementById('weekly-modal-counter');
+                    if (counterEl) {
+                        // Берем текущий текст, например "1 / 6"
+                        const parts = counterEl.textContent.split('/');
+                        if (parts.length === 2) {
+                            // Превращаем текст в числа
+                            let done = parseInt(parts[0].trim(), 10);
+                            const total = parseInt(parts[1].trim(), 10);
+                            
+                            // Увеличиваем "выполненное" на 1 (или оставляем total, если так задумано)
+                            // Если логика "забрано / всего":
+                            if (!isNaN(done)) {
+                                done += 1;
+                                // Если вдруг done стало больше total (редкий баг), ограничиваем
+                                if (done > total) done = total; 
+                                counterEl.textContent = `${done} / ${total}`;
+                            }
+                        }
+                    }
+                    // --- 👆 КОНЕЦ: ОБНОВЛЕНИЕ СЧЕТЧИКА 👆 ---
                     
-                    // Обновляем баланс
+                    // Обновляем баланс билетов
                     if (result.new_ticket_balance !== undefined) {
                         document.getElementById('ticketStats').textContent = result.new_ticket_balance;
                     }
 
-                    // 👇 НОВАЯ ЛОГИКА: Скрываем строку с заданием 👇
+                    // Логика скрытия задания (которую мы добавили ранее)
                     const goalItem = claimTaskBtn.closest('.weekly-goal-item');
                     if (goalItem) {
-                        // Добавляем класс анимации
                         goalItem.classList.add('fade-out-remove');
-                        
-                        // Полностью удаляем из HTML через 500мс (время анимации)
-                        setTimeout(() => {
-                            goalItem.remove();
-                            
-                            // (Опционально) Если заданий больше нет, можно показать заглушку
-                            const container = document.querySelector('.weekly-goals-container');
-                            if (container && !container.querySelector('.weekly-goal-item')) {
-                                // container.innerHTML += '<p style="text-align:center; padding:10px; color:#666;">Все задания выполнены!</p>';
-                            }
-                        }, 500);
+                        setTimeout(() => { goalItem.remove(); }, 500);
                     }
-                    // 👆 КОНЕЦ НОВОЙ ЛОГИКИ
 
                 } catch (e) {
+                    // Обработка ошибок...
                     Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
                     claimTaskBtn.disabled = false;
                     claimTaskBtn.innerHTML = `Забрать (+${claimTaskBtn.dataset.rewardValue || '...'})`;
                 }
-                return; // Останавливаем выполнение
+                return; 
             }
             if (claimSuperBtn) {
                 claimSuperBtn.disabled = true;
