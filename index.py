@@ -5291,7 +5291,11 @@ async def admin_create_auction(
         "is_active": request_data.is_active,
         "is_visible": request_data.is_visible,
         "min_required_tickets": request_data.min_required_tickets,
-        "max_allowed_tickets": request_data.max_allowed_tickets if request_data.max_allowed_tickets and request_data.max_allowed_tickets > 0 else None
+        "max_allowed_tickets": request_data.max_allowed_tickets if request_data.max_allowed_tickets and request_data.max_allowed_tickets > 0 else None,
+        # === [ВСТАВИТЬ ЭТО] ===
+        "rarity": request.rarity,
+        "wear": request.wear
+        # ======================
     }
 
     try:
@@ -5333,7 +5337,8 @@ async def admin_update_auction(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # Собираем все, что пришло от админа (например, title, image_url, is_active...)
+    # Благодаря exclude_unset=True, поля rarity и wear попадут сюда АВТОМАТИЧЕСКИ,
+    # если они были переданы с фронтенда.
     update_data = request_data.dict(exclude={'initData', 'id'}, exclude_unset=True)
 
     # ⬇️ ИСПРАВЛЕННАЯ ЛОГИКА ⬇️
@@ -5343,7 +5348,7 @@ async def admin_update_auction(
         update_data['max_allowed_tickets'] = max_val if max_val and max_val > 0 else None
     # ⬆️ КОНЕЦ ИСПРАВЛЕНИЯ ⬆️
 
-    # (!!!) ВОТ ПРАВИЛЬНАЯ ЛОГИКА (!!!)
+    # (!!!) ЛОГИКА ТАЙМЕРА (!!!)
     # Если админ поменял длительность в ЧАСАХ...
     if 'bid_cooldown_hours' in update_data:
         # ...мы берем эти часы
@@ -5354,7 +5359,7 @@ async def admin_update_auction(
         
         # ...обновляя ТОЛЬКО bid_cooldown_ends_at.
         update_data['bid_cooldown_ends_at'] = end_time.isoformat()
-    # (!!!) КОНЕЦ ИСПРАВЛЕНИЯ (!!!)
+    # (!!!) КОНЕЦ ЛОГИКИ ТАЙМЕРА (!!!)
 
     await supabase.patch(
         "/auctions",
