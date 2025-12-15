@@ -5283,19 +5283,25 @@ async def admin_create_auction(
     end_time = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
 
     payload = {
-        "title": request_data.title,
-        "image_url": request_data.image_url,
-        "bid_cooldown_hours": duration_hours,
-        "snipe_guard_minutes": request_data.snipe_guard_minutes,
-        "bid_cooldown_ends_at": end_time.isoformat(),
-        "is_active": request_data.is_active,
-        "is_visible": request_data.is_visible,
-        "min_required_tickets": request_data.min_required_tickets,
-        "max_allowed_tickets": request_data.max_allowed_tickets if request_data.max_allowed_tickets and request_data.max_allowed_tickets > 0 else None,
+        "title": request.title,
+        "image_url": request.image_url,
+        "bid_cooldown_hours": request.bid_cooldown_hours,
+        "snipe_guard_minutes": request.snipe_guard_minutes,
+        "is_active": request.is_active,
+        "is_visible": request.is_visible,
+        "min_required_tickets": request.min_required_tickets,
+        "max_allowed_tickets": request.max_allowed_tickets,
+
         # === [ВСТАВИТЬ ЭТО] ===
         "rarity": request.rarity,
-        "wear": request.wear
+        "wear": request.wear,
         # ======================
+
+        "current_highest_bid": 0,
+        "current_highest_bidder_id": None,
+        "current_highest_bidder_name": None,
+        "created_at": "now()", 
+        "ended_at": None
     }
 
     try:
