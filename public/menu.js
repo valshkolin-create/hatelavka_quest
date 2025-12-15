@@ -245,54 +245,76 @@ try {
         {
             element: '.user-profile',
             title: 'Ваш Профиль и Билеты',
-            text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch, указать трейд-ссылку и посмотреть все полученные промокоды. <br><br>Справа — <b>Ваши билеты</b>, которые вы зарабатываете за задания и используете в "Гонке за скинами".',
+            text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch и посмотреть промокоды. <br><br>Справа — <b>Ваши билеты</b> для участия в розыгрышах.',
             view: 'view-dashboard'
         },
         {
             element: '#main-slider-container',
             title: 'Актуальные События',
-            text: 'В этом слайдере мы публикуем самые важные мероприятия, ивенты и новости. Информация здесь постоянно обновляется — листайте, чтобы всегда быть в курсе!',
+            text: 'В этом слайдере находятся различные мероприятия. Они постоянно актуальные и всегда обновляются — листайте, чтобы быть в курсе!',
             view: 'view-dashboard'
         },
         {
             element: '#challenge-container',
             title: 'Ежедневный Челлендж',
-            text: 'Челленджи переехали сюда! Выполняйте случайные задания (во время стрима или в Telegram) и получайте награды. Если задание сложное, дождитесь кулдауна и обновите его.',
-            view: 'view-quests' // <-- Слайд сам переключит вкладку на "Задания"
+            text: 'Челленджи переехали во вкладку <b>Задания</b>! <br>Заходите сюда каждый день, выполняйте задания и получайте награды.',
+            view: 'view-quests',
+            forceTop: true // 🔥 Показываем подсказку СВЕРХУ, чтобы не уезжала вниз
         },
         {
-            element: '#nav-grind', // ⚠️ ВАЖНО: Убедись, что у иконки гринда в HTML есть id="nav-grind"
-            title: 'Гринд (Ежедневная награда)',
-            text: 'Нажимайте сюда каждый день, чтобы забрать <b>Монеты</b> (Coin).<br>Их можно обменять на билеты для розыгрышей или накопить на крутые промокоды в магазине!',
-            view: 'view-dashboard' // Переключаем обратно, чтобы было видно футер
+            element: '#nav-leaderboard', 
+            title: 'Лидерборд',
+            text: 'Здесь можно посмотреть список лучших игроков и ваше место в рейтинге. Соревнуйтесь по количеству билетов и активности!',
+            view: 'view-dashboard', // Переключаем на главную, чтобы было видно футер
+            forceTop: true // Для футера подсказка всегда должна быть сверху
+        },
+        {
+            element: '#nav-shop', 
+            title: 'Магазин Скинов',
+            text: 'А здесь находится <b>Магазин</b> (Shop). <br>Обменивайте заработанные монеты и звезды на уникальные скины CS2 и полезные предметы!',
+            view: 'view-dashboard',
+            forceTop: true
         }
     ];
     let currentTutorialStep = 0;
 
-    function positionTutorialModal(element) {
+    function positionTutorialModal(element, forceTop = false) {
         const rect = element.getBoundingClientRect();
         const modal = dom.tutorialModal;
-        const margin = 15;
-        modal.style.visibility = 'hidden';
+        const margin = 15; // Отступ от элемента
+        
+        // Сброс стилей
         modal.style.display = 'block';
-        const modalHeight = modal.offsetHeight;
-        modal.style.display = '';
-        modal.style.visibility = '';
+        modal.style.top = '';
+        modal.style.bottom = '';
+        modal.style.transform = '';
         modal.style.left = '5%';
-        modal.style.right = '5%';
         modal.style.width = '90%';
-        modal.style.bottom = 'auto';
+
+        const modalHeight = modal.offsetHeight;
+        const spaceAbove = rect.top;
         const spaceBelow = window.innerHeight - rect.bottom;
-        if (spaceBelow >= (modalHeight + margin)) {
+
+        // 1. Если включено forceTop (для футера/челленджей) -> ставим СВЕРХУ
+        if (forceTop && spaceAbove >= (modalHeight + margin)) {
+            modal.style.top = `${rect.top - modalHeight - margin}px`;
+            return;
+        }
+
+        // 2. Стандартная логика: если есть место снизу -> ставим СНИЗУ
+        if (!forceTop && spaceBelow >= (modalHeight + margin)) {
             modal.style.top = `${rect.bottom + margin}px`;
             return;
         }
-        const spaceAbove = rect.top;
+
+        // 3. Иначе пытаемся поставить сверху
         if (spaceAbove >= (modalHeight + margin)) {
             modal.style.top = `${rect.top - modalHeight - margin}px`;
             return;
         }
-        modal.style.top = `${margin}px`;
+
+        // 4. Если места совсем нет -> прибиваем к верху экрана
+        modal.style.top = '20px';
     }
 
     function showTutorialStep(stepIndex) {
@@ -301,58 +323,68 @@ try {
             tutorialCountdownInterval = null;
         }
         const footer = document.querySelector('.app-footer');
+        // Убираем подсветку футера, если она была
         footer.classList.remove('tutorial-footer-active');
         document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+        
         if (stepIndex >= tutorialSteps.length) {
             endTutorial(true);
             return;
         }
+        
         let step = { ...tutorialSteps[stepIndex] };
-        if (step.element === '#quest-choose-wrapper') {
-            const activeQuestContainer = document.getElementById('active-automatic-quest-container');
-            if (activeQuestContainer && activeQuestContainer.innerHTML.trim() !== '') {
-                step.element = '#active-automatic-quest-container';
-                step.text = 'Здесь отображается ваше активное испытание. Когда вы его выполните, сможете забрать награду и выбрать новое.';
-            }
-        }
+
+        // Если нужно сменить вкладку (например, на Quests для челленджа)
         if (step.view && document.getElementById(step.view).classList.contains('hidden')) {
             switchView(step.view);
         }
-        const element = document.querySelector(step.element);
-        if (element) {
-            if (element.closest('.app-footer')) {
-                footer.classList.add('tutorial-footer-active');
-            }
-            element.classList.add('tutorial-highlight');
-            dom.tutorialTitle.textContent = step.title;
-            dom.tutorialText.innerHTML = step.text;
-            dom.tutorialStepCounter.textContent = `Шаг ${stepIndex + 1} из ${tutorialSteps.length}`;
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => positionTutorialModal(element), 400);
-            const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
-            dom.tutorialNextBtn.textContent = originalButtonText;
-            const nextBtn = dom.tutorialNextBtn;
-            nextBtn.disabled = true;
-            let countdown = 5;
-            nextBtn.textContent = `${originalButtonText} (${countdown})`;
-            tutorialCountdownInterval = setInterval(() => {
-                countdown--;
-                if (countdown > 0) {
-                    nextBtn.textContent = `${originalButtonText} (${countdown})`;
-                } else {
-                    clearInterval(tutorialCountdownInterval);
-                    tutorialCountdownInterval = null;
-                    nextBtn.disabled = false;
-                    nextBtn.textContent = originalButtonText;
+        
+        // Небольшая задержка, чтобы интерфейс успел перерисоваться
+        setTimeout(() => {
+            const element = document.querySelector(step.element);
+            
+            if (element) {
+                // Если элемент внутри футера — подсвечиваем весь футер
+                if (element.closest('.app-footer')) {
+                    footer.classList.add('tutorial-footer-active');
                 }
-            }, 1000);
-        } else {
-            console.warn(`Tutorial element not found: ${step.element}. Trying next step.`);
-            setTimeout(() => {
+                
+                element.classList.add('tutorial-highlight');
+                dom.tutorialTitle.textContent = step.title;
+                dom.tutorialText.innerHTML = step.text;
+                dom.tutorialStepCounter.textContent = `Шаг ${stepIndex + 1} из ${tutorialSteps.length}`;
+                
+                // Прокручиваем к элементу
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // 🔥 Вызываем позиционирование с учетом флага forceTop
+                setTimeout(() => positionTutorialModal(element, step.forceTop), 350);
+
+                // Логика кнопки "Далее" с таймером
+                const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
+                dom.tutorialNextBtn.textContent = originalButtonText;
+                const nextBtn = dom.tutorialNextBtn;
+                nextBtn.disabled = true;
+                let countdown = 3; 
+                nextBtn.textContent = `${originalButtonText} (${countdown})`;
+                
+                tutorialCountdownInterval = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        nextBtn.textContent = `${originalButtonText} (${countdown})`;
+                    } else {
+                        clearInterval(tutorialCountdownInterval);
+                        tutorialCountdownInterval = null;
+                        nextBtn.disabled = false;
+                        nextBtn.textContent = originalButtonText;
+                    }
+                }, 1000);
+            } else {
+                console.warn(`Tutorial element not found: ${step.element}. Skipping.`);
                 currentTutorialStep++;
                 showTutorialStep(currentTutorialStep);
-            }, 100);
-        }
+            }
+        }, 150); 
     }
 
     function startTutorial() {
@@ -374,11 +406,12 @@ try {
             dom.tutorialText.innerHTML = 'Теперь вы знаете всё необходимое. <br><br><b>Важно:</b> все задания и розыгрыши в этом боте абсолютно бесплатны. Удачи!';
             dom.tutorialStepCounter.textContent = '';
             
-            // --- 👇 НОВЫЙ БЛОК: ЦЕНТРИРОВАНИЕ ПОСЛЕДНЕГО СЛАЙДА 👇 ---
+            // --- 👇 ЦЕНТРИРОВАНИЕ ФИНАЛЬНОГО ОКНА 👇 ---
             dom.tutorialModal.style.top = '50%';
-            dom.tutorialModal.style.bottom = 'auto';
+            dom.tutorialModal.style.left = '5%';
+            dom.tutorialModal.style.width = '90%';
             dom.tutorialModal.style.transform = 'translateY(-50%)';
-            // --------------------------------------------------------
+            // -------------------------------------------
 
             dom.tutorialSkipBtn.classList.add('hidden');
             dom.tutorialNextBtn.textContent = 'Отлично!';
@@ -387,7 +420,7 @@ try {
             dom.tutorialNextBtn.onclick = () => {
                 dom.tutorialOverlay.classList.add('hidden');
                 
-                // Сбрасываем стили обратно (чтобы при следующем запуске не сломалось)
+                // Сбрасываем стили, чтобы при следующем запуске не сломалось
                 dom.tutorialModal.style.top = ''; 
                 dom.tutorialModal.style.transform = '';
                 
@@ -396,7 +429,7 @@ try {
             };
         } else {
              dom.tutorialOverlay.classList.add('hidden');
-             // Сбрасываем стили при пропуске
+             // Сброс стилей при пропуске
              dom.tutorialModal.style.top = ''; 
              dom.tutorialModal.style.transform = '';
         }
