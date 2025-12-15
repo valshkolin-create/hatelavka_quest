@@ -4232,7 +4232,36 @@ async def get_current_user_data(
         final_response['is_stream_online'] = is_online
 
         # --- 👇 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 👇 ---
-        final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
+        # --- FIX: Вычисление подписки (VIP) на основе реферала ---
+        ref_activated_at = final_response.get('referral_activated_at')
+        grind_sub_until = None
+        has_grind_sub = False
+        
+        if ref_activated_at:
+            try:
+                # Обработка формата даты
+                if ref_activated_at.endswith('Z'):
+                    ref_activated_at = ref_activated_at[:-1] + '+00:00'
+                
+                dt_activated = datetime.fromisoformat(ref_activated_at)
+                if dt_activated.tzinfo is None:
+                    dt_activated = dt_activated.replace(tzinfo=timezone.utc)
+                
+                # Длительность: 7 дней
+                dt_expires = dt_activated + timedelta(days=7)
+                
+                # Проверяем, активна ли сейчас
+                now_utc = datetime.now(timezone.utc)
+                if dt_expires > now_utc:
+                    has_grind_sub = True
+                    grind_sub_until = dt_expires.isoformat()
+            except Exception as e:
+                logging.error(f"Date parsing error: {e}")
+
+        final_response['has_grind_sub'] = has_grind_sub
+        final_response['grind_sub_until'] = grind_sub_until
+        final_response['is_telegram_subscribed'] = True if ref_activated_at else False
+        # --------------------------------------------------------
         # -------------------------------------
 
         return JSONResponse(content=final_response)
@@ -4240,7 +4269,7 @@ async def get_current_user_data(
     except Exception as e:
         logging.error(f"Error in /user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Profile error")
-
+        
 @app.post("/api/v1/user/heartbeat")
 async def user_heartbeat(
     request_data: InitDataRequest,
