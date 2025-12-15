@@ -13,6 +13,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let userData = {};
     let currentAuctions = [];
     let isEditMode = false;
+    // === ВСТАВИТЬ СЮДА ===
+    const RARITY_COLORS = {
+        common: '#b0c3d9',      // Ширпотреб
+        uncommon: '#5e98d9',    // Промышленное
+        rare: '#4b69ff',        // Армейское
+        mythical: '#8847ff',    // Запрещенное
+        legendary: '#d32ce6',   // Засекреченное
+        ancient: '#eb4b4b',     // Тайное
+        immortal: '#e4ae39'     // Нож
+    };
+
+    const WEAR_NAMES = {
+        'Factory New': 'Прямо с завода',
+        'Minimal Wear': 'Немного поношенное',
+        'Field-Tested': 'После полевых',
+        'Well-Worn': 'Поношенное',
+        'Battle-Scarred': 'Закаленное в боях'
+    };
+    // =====================
 
     // Переменные для автообновления
     let autoRefreshInterval = null;
@@ -60,6 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
         editAuctionId: document.getElementById('auction-id-input'),
         editAuctionTitle: document.getElementById('auction-title-input'),
         editAuctionImage: document.getElementById('auction-image-input'),
+        // === ВСТАВИТЬ СЮДА ===
+        editAuctionRarity: document.getElementById('auction-rarity-input'),
+        editAuctionWear: document.getElementById('auction-wear-input'),
+        // =====================
         editAuctionCooldown: document.getElementById('auction-cooldown-input'),
         editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'),
         editAuctionActive: document.getElementById('auction-active-input'),
@@ -280,6 +303,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const isDisabled = isEnded ? 'disabled' : '';
 
             let adminOverlay = '';
+            // === ВСТАВИТЬ ЛОГИКУ ЦВЕТОВ ===
+            const rarityKey = auction.rarity;
+            const rarityColor = RARITY_COLORS[rarityKey] || 'var(--text-primary)';
+            const titleStyle = rarityKey ? `style="color: ${rarityColor}; text-shadow: 0 0 10px ${rarityColor}40;"` : '';
+            
+            const wearKey = auction.wear;
+            const wearText = WEAR_NAMES[wearKey] || '';
+            // ==============================
             if (isEditMode) {
                 const isAlreadyFinished = !!auction.ended_at;
                 adminOverlay = `
@@ -397,12 +428,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-display-area">
                     <div class="event-image-container">
                         ${restrictionsHtml} 
+                        <div style="position:absolute; bottom:0; left:0; width:100%; height:3px; background:${rarityColor}; z-index:5; opacity:0.8;"></div>
                         <img src="${escapeHTML(auction.image_url || 'https://i.postimg.cc/d0r554hc/1200-600.png?v=2')}" alt="${escapeHTML(auction.title)}" class="event-image">
                     </div>
                 </div>
                 
                 <div class="card-info-area">
-                    <h3 class="event-title">${escapeHTML(auction.title)}</h3>
+                    <h3 class="event-title" ${titleStyle}>${escapeHTML(auction.title)}</h3>
+                    
+                    ${wearText ? `<div class="auction-wear-text">${wearText}</div>` : ''}
                     
                     <div class="auction-stats">
                         <div class="stat-item">
@@ -571,6 +605,10 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.editAuctionId.value = auction.id;
             dom.editAuctionTitle.value = auction.title;
             dom.editAuctionImage.value = auction.image_url;
+            // === ВСТАВИТЬ ЗАПОЛНЕНИЕ ===
+            dom.editAuctionRarity.value = auction.rarity || '';
+            dom.editAuctionWear.value = auction.wear || '';
+            // ===========================
             dom.editAuctionCooldown.value = auction.bid_cooldown_hours;
             dom.editAuctionSnipeMinutes.value = auction.snipe_guard_minutes || 5;
 
@@ -583,6 +621,10 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.editModalTitle.textContent = 'Создать лот';
             dom.editModalForm.reset(); 
             dom.editAuctionId.value = '';
+            // === ВСТАВИТЬ СБРОС ===
+            dom.editAuctionRarity.value = '';
+            dom.editAuctionWear.value = '';
+            // ======================
             dom.editAuctionCooldown.value = 24; 
             dom.editAuctionSnipeMinutes.value = 5;
             dom.editAuctionMinTickets.value = 1;
@@ -868,6 +910,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: auctionId,
                 title: dom.editAuctionTitle.value,
                 image_url: dom.editAuctionImage.value,
+                // === ВСТАВИТЬ НОВЫЕ ПОЛЯ ===
+                rarity: dom.editAuctionRarity.value,
+                wear: dom.editAuctionWear.value,
+                // ===========================
                 bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
                 snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
                 is_active: dom.editAuctionActive.checked,
