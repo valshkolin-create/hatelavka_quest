@@ -10,7 +10,18 @@
     <style>
         /* ================= ТЕМЫ И ПЕРЕМЕННЫЕ ================= */
         :root {
-            /* --- HALLOWEEN (DEFAULT) --- */
+            /* --- ДЕЛАЕМ НОВЫЙ ГОД ДЕФОЛТНЫМ (ЧТОБЫ НЕ МИГАЛО В OBS) --- */
+            --bg-gradient: linear-gradient(135deg, rgba(30, 60, 90, 0.9), rgba(20, 40, 60, 0.95));
+            --border-color: #b3e5fc;       
+            --accent-color-1: #ffca28;     
+            --accent-color-2: #4fc3f7;     
+            --text-color: #ffffff;
+            --glow-color: rgba(179, 229, 252, 0.6);
+            --font-shadow: 0 0 15px rgba(179, 229, 252, 0.8);
+        }
+
+        /* --- HALLOWEEN THEME (ТЕПЕРЬ ЭТО ОПЦИЯ) --- */
+        body[data-theme="halloween"] {
             --bg-gradient: linear-gradient(45deg, #1a0229, #3d1902);
             --border-color: #ff9500;
             --accent-color-1: #bf5af2;
@@ -20,32 +31,27 @@
             --font-shadow: 0 0 15px var(--glow-color);
         }
 
-        /* --- NEW YEAR THEME --- */
-        body[data-theme="new_year"] {
-            --bg-gradient: linear-gradient(135deg, rgba(30, 60, 90, 0.9), rgba(20, 40, 60, 0.95));
-            --border-color: #b3e5fc;       /* Ледяной голубой */
-            --accent-color-1: #ffca28;     /* Золото */
-            --accent-color-2: #4fc3f7;     /* Яркий голубой */
-            --text-color: #ffffff;
-            --glow-color: rgba(179, 229, 252, 0.6);
-            --font-shadow: 0 0 15px rgba(179, 229, 252, 0.8);
-        }
-
         body {
             background-color: transparent;
             font-family: 'Montserrat', sans-serif;
             overflow: hidden;
             margin: 0;
-            /* Плавный переход цветов при смене темы */
             transition: --bg-gradient 0.5s, --border-color 0.5s; 
         }
 
+        /* КОНТЕЙНЕР СКРЫТ ПО УМОЛЧАНИЮ (OPACITY 0), ЧТОБЫ НЕ БЫЛО РЫВКОВ */
         #overlay-container {
             position: absolute;
             bottom: 10px;
             left: 40px;
             width: 450px;
-            animation: fadeIn 1s ease-out;
+            opacity: 0; /* Скрыто при старте */
+            transition: opacity 0.5s ease-out; /* Плавное появление */
+        }
+        
+        /* Класс, который мы добавим JS-ом, когда все загрузится */
+        #overlay-container.loaded {
+            opacity: 1;
         }
 
         #widget-container {
@@ -53,6 +59,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            /* Фиксируем выравнивание по низу, чтобы не прыгало */
+            justify-content: flex-end; 
         }
 
         #promo-group {
@@ -67,7 +75,6 @@
             pointer-events: none;
         }
 
-        /* АНИМАЦИЯ ПЕРСОНАЖА (ПРИВИДЕНИЕ) */
         #ghost-animation {
             position: absolute;
             bottom: 75px;
@@ -79,7 +86,6 @@
             transition: filter 0.5s ease-out, transform 0.5s ease-out, opacity 0.5s;
         }
         
-        /* Скрываем привидение в новогодней теме (или можно заменить картинку в JS) */
         body[data-theme="new_year"] #ghost-animation {
             display: none; 
         }
@@ -119,13 +125,26 @@
         .subtitle { display: block; font-size: 13px; font-weight: 600; color: #ddd; margin-top: 4px; }
         .prize-name { color: var(--accent-color-1); text-transform: uppercase; }
 
-        #cauldron-image {
+        /* --- ФИКС ДЕРГАНИЯ КАРТИНКИ --- */
+        .cauldron-wrapper {
             width: 210px;
-            height: auto;
-            animation: float 4s ease-in-out infinite;
-            margin-bottom: -30px;
+            /* Задаем фиксированную высоту контейнера картинки */
+            height: 220px; 
+            display: flex;
+            align-items: flex-end; /* Картинка стоит на дне контейнера */
+            justify-content: center;
+            margin-bottom: -30px; /* Сохраняем твой отступ */
             z-index: 2;
+            position: relative;
+        }
+
+        #cauldron-image {
+            width: 100%;
+            height: auto;
+            max-height: 100%; /* Чтобы не вылезала */
+            animation: float 4s ease-in-out infinite;
             transition: filter 0.5s ease-out, transform 0.5s ease-out;
+            object-fit: contain;
         }
         #cauldron-image.pulse { animation: float 4s ease-in-out infinite, cauldron-pulse 0.7s ease-out; }
         
@@ -141,7 +160,7 @@
             backdrop-filter: blur(5px);
         }
 
-        /* Специфичный стиль для НГ - убираем рамки, добавляем стекло */
+        /* Стили New Year (уже дефолтные, но оставляем для специфики) */
         body[data-theme="new_year"] #info-widget,
         body[data-theme="new_year"] #promo-text,
         body[data-theme="new_year"] #prize-image-container {
@@ -197,15 +216,17 @@
             opacity: 1;
         }
         #contributor-name {
-            font-size: 48px;
+            font-size: 40px; /* Чуть уменьшил, чтобы длинные ники влезали */
             font-weight: 800;
             color: #fff;
             text-shadow: var(--font-shadow), 0 2px 5px #000;
+            word-break: break-word; /* Чтобы длинный ник переносился, а не ломал все */
         }
         #contributor-name span {
             display: block;
             font-size: 24px;
             color: var(--accent-color-1);
+            margin-top: 5px;
         }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -263,7 +284,10 @@
             
             <img id="ghost-animation" src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDd2azc1aXVvcmE3eG81a3FxZDlya2M4c3NmNDZweHFnOW8za3d2eiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/GqegZvkq9kgxuk1kTC/giphy.gif" alt="Ghost">
             
-            <img id="cauldron-image" src="" alt="Cauldron">
+            <div class="cauldron-wrapper">
+                <img id="cauldron-image" src="" alt="Cauldron">
+            </div>
+
             <div id="info-widget">
                 <h1 id="event-title">...</h1>
                 <div id="progress-text">0 / 0</div>
@@ -279,6 +303,7 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
         const dom = {
+            overlayContainer: document.getElementById('overlay-container'), // Добавил
             title: document.getElementById('event-title'),
             progressBar: document.getElementById('progress-bar-fill'),
             progressText: document.getElementById('progress-text'),
@@ -293,15 +318,14 @@
             contributorName: document.getElementById('contributor-name')
         };
 
-        // Ассеты для разных тем
         const THEME_ASSETS = {
             halloween: {
-                projectile: 'https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif', // Колба
+                projectile: 'https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif', 
                 fallbackCauldron: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'
             },
             new_year: {
-                projectile: 'https://img.icons8.com/?size=100&id=wuSvVpkmKrXV&format=png', // Подарок/Коробка
-                fallbackCauldron: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png' // Сюда можно поставить картинку мешка, если есть URL
+                projectile: 'https://img.icons8.com/?size=100&id=wuSvVpkmKrXV&format=png', 
+                fallbackCauldron: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'
             },
             classic: {
                 projectile: 'https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif',
@@ -315,6 +339,7 @@
 
         function getCurrentLevel(eventData) {
             const { goals = {}, current_progress = 0 } = eventData;
+            if (goals.level_3 && current_progress >= goals.level_3) return 4;
             if (goals.level_2 && current_progress >= goals.level_2) return 3;
             if (goals.level_1 && current_progress >= goals.level_1) return 2;
             return 1;
@@ -325,14 +350,15 @@
             currentEventData = eventData;
             
             // 1. СИНХРОНИЗАЦИЯ ТЕМЫ
-            const activeTheme = eventData.current_theme || 'halloween';
+            // Если в базе нет темы, считаем New Year дефолтом, чтобы совпадало с CSS
+            const activeTheme = eventData.current_theme || 'new_year'; 
             document.body.dataset.theme = activeTheme;
 
             // 2. Обновление заголовка и котла
             const currentLevel = getCurrentLevel(eventData);
             dom.title.textContent = eventData.title || (activeTheme === 'new_year' ? "МЕШОК ЧУДЕС" : "Ведьминский Котел");
 
-            const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.halloween;
+            const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.new_year;
             
             // Если в БД задана картинка - используем её, иначе фоллбек
             const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] || eventData.cauldron_image_url || assets.fallbackCauldron;
@@ -341,15 +367,25 @@
 
             // 3. Обновление прогресса
             const { goals = {}, current_progress = 0 } = eventData;
-            let currentGoal = 1;
-            if (currentLevel === 1) { currentGoal = goals.level_1 || 1; }
-            else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; }
-            else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; }
             
-            const percentage = (currentGoal > 0) ? Math.min((current_progress / currentGoal) * 100, 100) : 0;
+            let currentGoal = 1, prevGoal = 0;
+            if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
+            else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
+            else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
+            else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
+
+            // Исправленный расчет прогресса внутри уровня
+            const progressInLevel = Math.max(0, current_progress - prevGoal);
+            const goalForLevel = currentGoal - prevGoal;
+            
+            const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
             
             dom.progressBar.style.width = `${percentage}%`;
             dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
+
+            // --- ПЛАВНОЕ ПОЯВЛЕНИЕ ПОСЛЕ ЗАГРУЗКИ ---
+            // Как только данные обновились, показываем контейнер
+            dom.overlayContainer.classList.add('loaded');
         }
         
         function triggerAnimation(payload) {
@@ -359,27 +395,27 @@
             
             updateDisplay(event_data);
             
-            // Определяем тему для выбора летящего предмета
-            const activeTheme = event_data.current_theme || 'halloween';
-            const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.halloween;
+            const activeTheme = event_data.current_theme || 'new_year';
+            const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.new_year;
             
-            // Меняем картинку летящего предмета
             dom.flyingFlask.src = assets.projectile;
             
-            // Показываем ник донатера
-            if (last_contributor && last_contributor.name) {
-                dom.contributorName.innerHTML = `${last_contributor.name} <span>+${last_contributor.amount}</span>`;
+            if (last_contributor) {
+                // === ИСПРАВЛЕНИЕ: ПРОВЕРКА TWITCH НИКА ===
+                // Пытаемся взять twitch_login, если нет - берем name, если нет - "Аноним"
+                let displayName = last_contributor.twitch_login || last_contributor.name || 'Аноним';
+                
+                dom.contributorName.innerHTML = `${displayName} <span>+${last_contributor.amount}</span>`;
                 dom.contributorOverlay.classList.add('show');
                 dom.infoWidget.classList.add('blur-effect');
                 dom.ghostAnimation.classList.add('blur-effect');
             }
             
-            // Запуск CSS анимаций
             dom.flyingFlask.classList.add('animate');
             dom.cauldronImage.classList.add('pulse');
 
             setTimeout(() => {
-                if (last_contributor && last_contributor.name) {
+                if (last_contributor) {
                     dom.contributorOverlay.classList.remove('show');
                     dom.infoWidget.classList.remove('blur-effect');
                     dom.ghostAnimation.classList.remove('blur-effect');
