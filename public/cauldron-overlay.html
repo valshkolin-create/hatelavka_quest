@@ -427,31 +427,37 @@
             const activeTheme = event_data.current_theme || 'new_year';
             const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.new_year;
             
-            // === НОВАЯ ЛОГИКА ВЫБОРА КАРТИНКИ ===
-            let projectileUrl = assets.projectile; // Стандартная иконка
+            // --- ШАГ 1: ВЫЧИСЛЯЕМ ПРАВИЛЬНУЮ КАРТИНКУ ---
+            let finalUrl = assets.projectile; // По умолчанию - стандартная
             let isSkin = false;
 
-            // Если Новый год (или можно включить для всех), пробуем найти случайное оружие
+            // Если Новый год, пробуем найти случайное оружие
             if (activeTheme === 'new_year') {
                  const allRewards = getAllRewardImages(event_data);
                  if (allRewards.length > 0) {
                      // Берем случайную картинку из наград
-                     projectileUrl = allRewards[Math.floor(Math.random() * allRewards.length)];
+                     finalUrl = allRewards[Math.floor(Math.random() * allRewards.length)];
                      isSkin = true;
                  }
             }
 
-            dom.flyingFlask.src = projectileUrl;
-            
-            // Если это скин, делаем его чуть шире и красивее
+            // --- ШАГ 2: НАЗНАЧАЕМ РАЗМЕРЫ (ПОКА СКРЫТО) ---
             if (isSkin) {
                 dom.flyingFlask.style.width = '70px';
                 dom.flyingFlask.style.objectFit = 'contain';
             } else {
-                dom.flyingFlask.style.width = '60px'; // Стандарт для коробки
+                dom.flyingFlask.style.width = '60px'; // Стандарт для коробки/колбы
+                dom.flyingFlask.style.objectFit = 'contain';
             }
-            // =====================================
 
+            // --- ШАГ 3: НАЗНАЧАЕМ КАРТИНКУ ОДИН РАЗ ---
+            // Сбрасываем анимацию, если вдруг она зависла
+            dom.flyingFlask.classList.remove('animate');
+            
+            // Назначаем новый источник
+            dom.flyingFlask.src = finalUrl;
+
+            // --- ШАГ 4: ТЕКСТ ДОНАТЕРА ---
             if (last_contributor) {
                 let displayName = last_contributor.twitch_login || last_contributor.name || 'Аноним';
                 dom.contributorName.innerHTML = `${displayName} <span>+${last_contributor.amount}</span>`;
@@ -459,6 +465,10 @@
                 dom.infoWidget.classList.add('blur-effect');
                 dom.ghostAnimation.classList.add('blur-effect');
             }
+            
+            // --- ШАГ 5: ЗАПУСК АНИМАЦИИ ---
+            // Небольшой трюк (void), чтобы браузер "осознал" смену картинки перед запуском анимации
+            void dom.flyingFlask.offsetWidth; 
             
             dom.flyingFlask.classList.add('animate');
             dom.cauldronImage.classList.add('pulse');
