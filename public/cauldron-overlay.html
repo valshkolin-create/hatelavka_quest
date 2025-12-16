@@ -8,16 +8,36 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
+        /* ================= ТЕМЫ И ПЕРЕМЕННЫЕ ================= */
         :root {
-            --glow-color: rgba(255, 149, 0, 0.7);
+            /* --- HALLOWEEN (DEFAULT) --- */
+            --bg-gradient: linear-gradient(45deg, #1a0229, #3d1902);
+            --border-color: #ff9500;
             --accent-color-1: #bf5af2;
             --accent-color-2: #ff9500;
+            --text-color: #ffffff;
+            --glow-color: rgba(255, 149, 0, 0.7);
+            --font-shadow: 0 0 15px var(--glow-color);
         }
+
+        /* --- NEW YEAR THEME --- */
+        body[data-theme="new_year"] {
+            --bg-gradient: linear-gradient(135deg, rgba(30, 60, 90, 0.9), rgba(20, 40, 60, 0.95));
+            --border-color: #b3e5fc;       /* Ледяной голубой */
+            --accent-color-1: #ffca28;     /* Золото */
+            --accent-color-2: #4fc3f7;     /* Яркий голубой */
+            --text-color: #ffffff;
+            --glow-color: rgba(179, 229, 252, 0.6);
+            --font-shadow: 0 0 15px rgba(179, 229, 252, 0.8);
+        }
+
         body {
             background-color: transparent;
             font-family: 'Montserrat', sans-serif;
             overflow: hidden;
             margin: 0;
+            /* Плавный переход цветов при смене темы */
+            transition: --bg-gradient 0.5s, --border-color 0.5s; 
         }
 
         #overlay-container {
@@ -47,6 +67,7 @@
             pointer-events: none;
         }
 
+        /* АНИМАЦИЯ ПЕРСОНАЖА (ПРИВИДЕНИЕ) */
         #ghost-animation {
             position: absolute;
             bottom: 75px;
@@ -55,42 +76,48 @@
             height: auto;
             z-index: 3;
             animation: ghost-walk 20s linear infinite;
-            transition: filter 0.5s ease-out, transform 0.5s ease-out;
+            transition: filter 0.5s ease-out, transform 0.5s ease-out, opacity 0.5s;
+        }
+        
+        /* Скрываем привидение в новогодней теме (или можно заменить картинку в JS) */
+        body[data-theme="new_year"] #ghost-animation {
+            display: none; 
         }
 
         #prize-image-container {
             width: 160px; height: 110px;
-            background: linear-gradient(45deg, #1a0229, #3d1902);
-            border: 2px solid var(--accent-color-2);
+            background: var(--bg-gradient);
+            border: 2px solid var(--border-color);
             border-radius: 12px;
             box-shadow: 0 0 20px var(--glow-color);
             opacity: 0;
             display: flex; justify-content: center; align-items: center;
             margin-bottom: 15px;
         }
-        /* ИЗМЕНЕНИЕ: Длительность анимации 30 секунд */
         #prize-image-container.animate { animation: prize-image-animation 30s forwards; }
+        
         #prize-image {
             max-width: 90%;
             max-height: 90%;
             object-fit: contain;
-            filter: brightness(1.5) contrast(1.2);
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
         }
 
         #promo-text {
             padding: 10px 20px;
-            background: linear-gradient(45deg, #1a0229, #3d1902);
-            border: 2px solid var(--accent-color-2);
-            color: white; border-radius: 12px;
+            background: var(--bg-gradient);
+            border: 2px solid var(--border-color);
+            color: var(--text-color); 
+            border-radius: 12px;
             font-size: 18px; font-weight: 800;
             text-align: center;
             box-shadow: 0 5px 30px rgba(0,0,0,0.7);
             opacity: 0;
         }
-        /* ИЗМЕНЕНИЕ: Длительность анимации 30 секунд */
         #promo-text.animate { animation: promo-text-animation 30s forwards; }
+        
         .subtitle { display: block; font-size: 13px; font-weight: 600; color: #ddd; margin-top: 4px; }
-        .prize-name { color: var(--accent-color-2); }
+        .prize-name { color: var(--accent-color-1); text-transform: uppercase; }
 
         #cauldron-image {
             width: 210px;
@@ -104,13 +131,22 @@
         
         #info-widget {
             width: 100%;
-            background: linear-gradient(45deg, #1a0229, #3d1902);
-            border: 2px solid var(--accent-color-2);
+            background: var(--bg-gradient);
+            border: 2px solid var(--border-color);
             border-radius: 16px;
             padding: 40px 20px 15px 20px;
             box-shadow: 0 5px 30px rgba(0,0,0,0.7);
-            color: white; 
+            color: var(--text-color); 
             transition: filter 0.5s ease-out, transform 0.5s ease-out;
+            backdrop-filter: blur(5px);
+        }
+
+        /* Специфичный стиль для НГ - убираем рамки, добавляем стекло */
+        body[data-theme="new_year"] #info-widget,
+        body[data-theme="new_year"] #promo-text,
+        body[data-theme="new_year"] #prize-image-container {
+            border: 1px solid rgba(255,255,255,0.3);
+            background: linear-gradient(135deg, rgba(30, 60, 90, 0.8), rgba(20, 40, 60, 0.9));
         }
 
         .blur-effect {
@@ -124,6 +160,8 @@
             text-align: center; 
             font-weight: 700; 
             color: var(--accent-color-2); 
+            text-transform: uppercase;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
         #progress-text { 
             font-size: 12px; 
@@ -133,8 +171,8 @@
             margin-bottom: 5px; 
         }
 
-        .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.4); border-radius: 8px; height: 8px; overflow: hidden; position: relative; }
-        #progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-color-1), var(--accent-color-2)); border-radius: 8px; transition: width 0.5s ease-out; }
+        .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.4); border-radius: 8px; height: 8px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+        #progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-color-1), var(--accent-color-2)); border-radius: 8px; transition: width 0.5s ease-out; box-shadow: 0 0 10px var(--glow-color); }
         
         #flying-flask { position: fixed; width: 60px; height: auto; z-index: 10; pointer-events: none; opacity: 0; top: 20%; left: -100px; }
         #flying-flask.animate { animation: fly-in 1.2s cubic-bezier(0.5, -0.5, 1, 1); }
@@ -162,17 +200,17 @@
             font-size: 48px;
             font-weight: 800;
             color: #fff;
-            text-shadow: 0 0 15px var(--glow-color), 0 0 25px var(--glow-color), 0 2px 5px #000;
+            text-shadow: var(--font-shadow), 0 2px 5px #000;
         }
         #contributor-name span {
             display: block;
             font-size: 24px;
-            color: var(--accent-color-2);
+            color: var(--accent-color-1);
         }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-        @keyframes cauldron-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--accent-color-2)); } }
+        @keyframes cauldron-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); filter: brightness(1.7) drop-shadow(0 0 25px var(--glow-color)); } }
         
         @keyframes fly-in { 
             0% { 
@@ -185,12 +223,11 @@
             } 
         }
         
-        /* ИЗМЕНЕНИЕ: Ключевые кадры для 30-секундной анимации */
         @keyframes promo-text-animation {
             0%   { opacity: 0; transform: translateY(20px); }
-            3%   { opacity: 1; transform: translateY(0); }   /* Появление за ~1 сек */
-            97%  { opacity: 1; transform: translateY(0); }   /* Отображение ~28 сек */
-            100% { opacity: 0; transform: translateY(-20px); }/* Исчезание за ~1 сек */
+            3%   { opacity: 1; transform: translateY(0); }
+            97%  { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
         }
         @keyframes prize-image-animation {
             0%   { opacity: 0; transform: translateY(10px) scale(0.95); }
@@ -256,6 +293,22 @@
             contributorName: document.getElementById('contributor-name')
         };
 
+        // Ассеты для разных тем
+        const THEME_ASSETS = {
+            halloween: {
+                projectile: 'https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif', // Колба
+                fallbackCauldron: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'
+            },
+            new_year: {
+                projectile: 'https://img.icons8.com/?size=100&id=wuSvVpkmKrXV&format=png', // Подарок/Коробка
+                fallbackCauldron: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png' // Сюда можно поставить картинку мешка, если есть URL
+            },
+            classic: {
+                projectile: 'https://i.postimg.cc/XYxLQYTF/giphy-flusk.gif',
+                fallbackCauldron: 'https://i.postimg.cc/d1G5DRk1/magic-pot.png'
+            }
+        };
+
         let isAnimating = false;
         let currentEventData = {};
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -271,12 +324,22 @@
             if (!eventData) return;
             currentEventData = eventData;
             
-            const currentLevel = getCurrentLevel(eventData);
-            dom.title.textContent = eventData.title || "Ведьминский Котел";
+            // 1. СИНХРОНИЗАЦИЯ ТЕМЫ
+            const activeTheme = eventData.current_theme || 'halloween';
+            document.body.dataset.theme = activeTheme;
 
-            const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] || eventData.cauldron_image_url || 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
+            // 2. Обновление заголовка и котла
+            const currentLevel = getCurrentLevel(eventData);
+            dom.title.textContent = eventData.title || (activeTheme === 'new_year' ? "МЕШОК ЧУДЕС" : "Ведьминский Котел");
+
+            const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.halloween;
+            
+            // Если в БД задана картинка - используем её, иначе фоллбек
+            const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] || eventData.cauldron_image_url || assets.fallbackCauldron;
+            
             if (dom.cauldronImage.src !== cauldronUrl) dom.cauldronImage.src = cauldronUrl;
 
+            // 3. Обновление прогресса
             const { goals = {}, current_progress = 0 } = eventData;
             let currentGoal = 1;
             if (currentLevel === 1) { currentGoal = goals.level_1 || 1; }
@@ -296,6 +359,14 @@
             
             updateDisplay(event_data);
             
+            // Определяем тему для выбора летящего предмета
+            const activeTheme = event_data.current_theme || 'halloween';
+            const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.halloween;
+            
+            // Меняем картинку летящего предмета
+            dom.flyingFlask.src = assets.projectile;
+            
+            // Показываем ник донатера
             if (last_contributor && last_contributor.name) {
                 dom.contributorName.innerHTML = `${last_contributor.name} <span>+${last_contributor.amount}</span>`;
                 dom.contributorOverlay.classList.add('show');
@@ -303,6 +374,7 @@
                 dom.ghostAnimation.classList.add('blur-effect');
             }
             
+            // Запуск CSS анимаций
             dom.flyingFlask.classList.add('animate');
             dom.cauldronImage.classList.add('pulse');
 
@@ -352,7 +424,6 @@
             dom.promoText.classList.add('animate');
             dom.prizeImageContainer.classList.add('animate');
 
-            // ИЗМЕНЕНИЕ: Таймер на 30 секунд
             setTimeout(() => {
                 dom.promoText.classList.remove('animate');
                 dom.prizeImageContainer.classList.remove('animate');
@@ -371,7 +442,6 @@
                 });
         } catch (error) { console.error("Failed to connect to Supabase:", error); }
 
-        // ИЗМЕНЕНИЕ: Интервал ~3 минуты (180 секунд + 2 секунды буфер)
         setInterval(showPromoAnimation, 182000);
         
     </script>
