@@ -10,7 +10,7 @@
     <style>
         /* ================= ТЕМЫ И ПЕРЕМЕННЫЕ ================= */
         :root {
-            /* --- ДЕЛАЕМ НОВЫЙ ГОД ДЕФОЛТНЫМ (ЧТОБЫ НЕ МИГАЛО В OBS) --- */
+            /* --- ДЕЛАЕМ НОВЫЙ ГОД ДЕФОЛТНЫМ --- */
             --bg-gradient: linear-gradient(135deg, rgba(30, 60, 90, 0.9), rgba(20, 40, 60, 0.95));
             --border-color: #b3e5fc;       
             --accent-color-1: #ffca28;     
@@ -20,7 +20,7 @@
             --font-shadow: 0 0 15px rgba(179, 229, 252, 0.8);
         }
 
-        /* --- HALLOWEEN THEME (ТЕПЕРЬ ЭТО ОПЦИЯ) --- */
+        /* --- HALLOWEEN THEME --- */
         body[data-theme="halloween"] {
             --bg-gradient: linear-gradient(45deg, #1a0229, #3d1902);
             --border-color: #ff9500;
@@ -39,17 +39,16 @@
             transition: --bg-gradient 0.5s, --border-color 0.5s; 
         }
 
-        /* КОНТЕЙНЕР СКРЫТ ПО УМОЛЧАНИЮ (OPACITY 0), ЧТОБЫ НЕ БЫЛО РЫВКОВ */
+        /* СКРЫВАЕМ ПРИ ЗАГРУЗКЕ */
         #overlay-container {
             position: absolute;
             bottom: 10px;
             left: 40px;
             width: 450px;
-            opacity: 0; /* Скрыто при старте */
-            transition: opacity 0.5s ease-out; /* Плавное появление */
+            opacity: 0; 
+            transition: opacity 0.5s ease-out;
         }
         
-        /* Класс, который мы добавим JS-ом, когда все загрузится */
         #overlay-container.loaded {
             opacity: 1;
         }
@@ -59,7 +58,6 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* Фиксируем выравнивание по низу, чтобы не прыгало */
             justify-content: flex-end; 
         }
 
@@ -125,15 +123,14 @@
         .subtitle { display: block; font-size: 13px; font-weight: 600; color: #ddd; margin-top: 4px; }
         .prize-name { color: var(--accent-color-1); text-transform: uppercase; }
 
-        /* --- ФИКС ДЕРГАНИЯ КАРТИНКИ --- */
+        /* ФИКС ДЕРГАНИЯ КАРТИНКИ */
         .cauldron-wrapper {
             width: 210px;
-            /* Задаем фиксированную высоту контейнера картинки */
             height: 220px; 
             display: flex;
-            align-items: flex-end; /* Картинка стоит на дне контейнера */
+            align-items: flex-end;
             justify-content: center;
-            margin-bottom: -30px; /* Сохраняем твой отступ */
+            margin-bottom: -30px;
             z-index: 2;
             position: relative;
         }
@@ -141,7 +138,7 @@
         #cauldron-image {
             width: 100%;
             height: auto;
-            max-height: 100%; /* Чтобы не вылезала */
+            max-height: 100%;
             animation: float 4s ease-in-out infinite;
             transition: filter 0.5s ease-out, transform 0.5s ease-out;
             object-fit: contain;
@@ -160,7 +157,6 @@
             backdrop-filter: blur(5px);
         }
 
-        /* Стили New Year (уже дефолтные, но оставляем для специфики) */
         body[data-theme="new_year"] #info-widget,
         body[data-theme="new_year"] #promo-text,
         body[data-theme="new_year"] #prize-image-container {
@@ -193,7 +189,18 @@
         .progress-bar-container { width: 100%; background-color: rgba(0,0,0,0.4); border-radius: 8px; height: 8px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); }
         #progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-color-1), var(--accent-color-2)); border-radius: 8px; transition: width 0.5s ease-out; box-shadow: 0 0 10px var(--glow-color); }
         
-        #flying-flask { position: fixed; width: 60px; height: auto; z-index: 10; pointer-events: none; opacity: 0; top: 20%; left: -100px; }
+        /* Стили для летящего предмета */
+        #flying-flask { 
+            position: fixed; 
+            width: 60px; /* Базовый размер */
+            height: auto; 
+            z-index: 10; 
+            pointer-events: none; 
+            opacity: 0; 
+            top: 20%; 
+            left: -100px; 
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); /* Тень для лучшей видимости скинов */
+        }
         #flying-flask.animate { animation: fly-in 1.2s cubic-bezier(0.5, -0.5, 1, 1); }
 
         #contributor-overlay {
@@ -216,11 +223,11 @@
             opacity: 1;
         }
         #contributor-name {
-            font-size: 40px; /* Чуть уменьшил, чтобы длинные ники влезали */
+            font-size: 40px; 
             font-weight: 800;
             color: #fff;
             text-shadow: var(--font-shadow), 0 2px 5px #000;
-            word-break: break-word; /* Чтобы длинный ник переносился, а не ломал все */
+            word-break: break-word; 
         }
         #contributor-name span {
             display: block;
@@ -303,7 +310,7 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
 
         const dom = {
-            overlayContainer: document.getElementById('overlay-container'), // Добавил
+            overlayContainer: document.getElementById('overlay-container'),
             title: document.getElementById('event-title'),
             progressBar: document.getElementById('progress-bar-fill'),
             progressText: document.getElementById('progress-text'),
@@ -337,6 +344,35 @@
         let currentEventData = {};
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // --- НОВАЯ ФУНКЦИЯ: Сбор картинок (как в Halloween.js) ---
+        function getAllRewardImages(eventData) {
+            const images = [];
+            if (!eventData || !eventData.levels) return [];
+
+            for (let i = 1; i <= 4; i++) {
+                const level = eventData.levels[`level_${i}`];
+                if (!level) continue;
+
+                // 1. Топ-20
+                if (level.top_places && Array.isArray(level.top_places)) {
+                    level.top_places.forEach(r => {
+                        if (r.image_url) images.push(r.image_url);
+                    });
+                }
+                // 2. Тиры
+                if (level.tiers) {
+                    Object.values(level.tiers).forEach(t => {
+                        if (t.image_url) images.push(t.image_url);
+                    });
+                }
+                // 3. Дефолтная награда
+                if (level.default_reward && level.default_reward.image_url) {
+                    images.push(level.default_reward.image_url);
+                }
+            }
+            return images;
+        }
+
         function getCurrentLevel(eventData) {
             const { goals = {}, current_progress = 0 } = eventData;
             if (goals.level_3 && current_progress >= goals.level_3) return 4;
@@ -349,42 +385,35 @@
             if (!eventData) return;
             currentEventData = eventData;
             
-            // 1. СИНХРОНИЗАЦИЯ ТЕМЫ
-            // Если в базе нет темы, считаем New Year дефолтом, чтобы совпадало с CSS
+            // 1. Тема (New Year по умолчанию, если в базе пусто)
             const activeTheme = eventData.current_theme || 'new_year'; 
             document.body.dataset.theme = activeTheme;
 
-            // 2. Обновление заголовка и котла
+            // 2. Заголовок и картинка котла
             const currentLevel = getCurrentLevel(eventData);
             dom.title.textContent = eventData.title || (activeTheme === 'new_year' ? "МЕШОК ЧУДЕС" : "Ведьминский Котел");
 
             const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.new_year;
-            
-            // Если в БД задана картинка - используем её, иначе фоллбек
             const cauldronUrl = eventData[`cauldron_image_url_${currentLevel}`] || eventData.cauldron_image_url || assets.fallbackCauldron;
             
             if (dom.cauldronImage.src !== cauldronUrl) dom.cauldronImage.src = cauldronUrl;
 
-            // 3. Обновление прогресса
+            // 3. Прогресс
             const { goals = {}, current_progress = 0 } = eventData;
-            
             let currentGoal = 1, prevGoal = 0;
             if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
             else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
             else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
             else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
 
-            // Исправленный расчет прогресса внутри уровня
             const progressInLevel = Math.max(0, current_progress - prevGoal);
             const goalForLevel = currentGoal - prevGoal;
-            
             const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
             
             dom.progressBar.style.width = `${percentage}%`;
             dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
 
-            // --- ПЛАВНОЕ ПОЯВЛЕНИЕ ПОСЛЕ ЗАГРУЗКИ ---
-            // Как только данные обновились, показываем контейнер
+            // Показываем виджет
             dom.overlayContainer.classList.add('loaded');
         }
         
@@ -398,13 +427,33 @@
             const activeTheme = event_data.current_theme || 'new_year';
             const assets = THEME_ASSETS[activeTheme] || THEME_ASSETS.new_year;
             
-            dom.flyingFlask.src = assets.projectile;
+            // === НОВАЯ ЛОГИКА ВЫБОРА КАРТИНКИ ===
+            let projectileUrl = assets.projectile; // Стандартная иконка
+            let isSkin = false;
+
+            // Если Новый год (или можно включить для всех), пробуем найти случайное оружие
+            if (activeTheme === 'new_year') {
+                 const allRewards = getAllRewardImages(event_data);
+                 if (allRewards.length > 0) {
+                     // Берем случайную картинку из наград
+                     projectileUrl = allRewards[Math.floor(Math.random() * allRewards.length)];
+                     isSkin = true;
+                 }
+            }
+
+            dom.flyingFlask.src = projectileUrl;
             
+            // Если это скин, делаем его чуть шире и красивее
+            if (isSkin) {
+                dom.flyingFlask.style.width = '70px';
+                dom.flyingFlask.style.objectFit = 'contain';
+            } else {
+                dom.flyingFlask.style.width = '60px'; // Стандарт для коробки
+            }
+            // =====================================
+
             if (last_contributor) {
-                // === ИСПРАВЛЕНИЕ: ПРОВЕРКА TWITCH НИКА ===
-                // Пытаемся взять twitch_login, если нет - берем name, если нет - "Аноним"
                 let displayName = last_contributor.twitch_login || last_contributor.name || 'Аноним';
-                
                 dom.contributorName.innerHTML = `${displayName} <span>+${last_contributor.amount}</span>`;
                 dom.contributorOverlay.classList.add('show');
                 dom.infoWidget.classList.add('blur-effect');
