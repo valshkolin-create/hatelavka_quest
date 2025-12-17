@@ -9391,33 +9391,89 @@ async def claim_grind_reward_endpoint(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Пользователь забирает ежедневную награду (монеты)."""
+    """
+    Пользователь забирает ежедневную награду (монеты).
+    FIX: Теперь корректно начисляет бонусы за VIP и Twitch, которые не учитываются в SQL-функции.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    telegram_id = user_info["id"]
+
     try:
-        # Вызываем RPC
-        response = await supabase.post(
-            "/rpc/claim_grind_reward",
-            json={"p_user_id": user_info["id"]}
+        # 1. Параллельно запрашиваем данные юзера и настройки для расчета бонусов
+        task_user = supabase.get(
+            "/users", 
+            params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, referral_activated_at"}
         )
-        response.raise_for_status()
-        return response.json()
+        task_settings = get_grind_settings_async_global()
+        
+        # Ждем данные...
+        user_resp, settings = await asyncio.gather(task_user, task_settings)
+        user_data = user_resp.json()[0] if user_resp.json() else {}
+
+        # 2. Вызываем основной RPC (Он начисляет Базу + Реферальные)
+        # Если квест недоступен (кулдаун), RPC выбросит ошибку, и мы уйдем в except
+        rpc_resp = await supabase.post(
+            "/rpc/claim_grind_reward",
+            json={"p_user_id": telegram_id}
+        )
+        rpc_resp.raise_for_status()
+        result = rpc_resp.json()
+
+        # 3. Рассчитываем НЕДОСТАЮЩИЕ бонусы (VIP и Twitch)
+        extra_bonus = 0.0
+        
+        # --- A. Бонус за VIP (7 дней после приглашения) ---
+        ref_date_str = user_data.get('referral_activated_at')
+        if ref_date_str:
+            try:
+                # Приводим дату к UTC
+                ref_dt = datetime.fromisoformat(ref_date_str.replace('Z', '+00:00'))
+                # Если прошло меньше 7 дней
+                if (datetime.now(timezone.utc) - ref_dt) < timedelta(days=7):
+                    extra_bonus += 0.2
+            except ValueError:
+                logging.error(f"Ошибка парсинга даты referral_activated_at: {ref_date_str}")
+
+        # --- B. Бонус за Twitch (Subscriber / VIP) ---
+        t_status = user_data.get('twitch_status')
+        if t_status in ['vip', 'subscriber']:
+            extra_bonus += settings.twitch_status_boost_coins
+
+        # 4. Если нашли неучтенные бонусы — начисляем их вручную
+        if extra_bonus > 0:
+            logging.info(f"💰 Добавляем доп. бонус +{extra_bonus} (VIP/Twitch) для {telegram_id}")
+            
+            # Берем текущий баланс, который вернул RPC, и добавляем бонус
+            current_coins_after_rpc = float(result.get('new_coins', 0))
+            final_coins = current_coins_after_rpc + extra_bonus
+            
+            # Обновляем баланс в базе
+            await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{telegram_id}"},
+                json={"coins": final_coins}
+            )
+            
+            # Обновляем ответ, чтобы фронтенд показал правильную сумму
+            result['new_coins'] = final_coins
+            # reward_claimed может быть строкой или числом, приводим к флоату
+            result['reward_claimed'] = float(result.get('reward_claimed', 0)) + extra_bonus
+
+        return result
 
     except httpx.HTTPStatusError as e:
-        # Обработка ошибок от RPC (например, кулдаун)
-        error_msg = e.response.json().get("message", e.response.text)
+        # Обработка ошибок от RPC (например, "Награда уже получена")
+        try:
+            error_msg = e.response.json().get("message", e.response.text)
+        except:
+            error_msg = e.response.text
         raise HTTPException(status_code=400, detail=error_msg)
     except Exception as e:
-        logging.error(f"Grind claim error: {e}")
+        logging.error(f"Grind claim error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
-
-class ExchangeRequest(BaseModel):
-    initData: str
-    cost: float
-    tickets_reward: int
 
 @app.post("/api/v1/user/grind/exchange")
 async def exchange_coins_endpoint(
