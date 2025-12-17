@@ -718,8 +718,8 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 # -----------------------------------------
 # 2. 🔥 САМОЕ ВАЖНОЕ: Глушим логи сервера о входящих запросах
 # Это уберет строки вида: "POST /api/v1/user/me HTTP/1.1" 200 OK
-# logging.getLogger("uvicorn").setLevel(logging.WARNING)
-# logging.getLogger("uvicorn.access").setLevel(logging.WARNING) # <--- Вот эта строка убивает /user/me 200 OK
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING) # <--- Вот эта строка убивает /user/me 200 OK
 
 # --- ЗАГРУЖАЕМ ВСЕ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
