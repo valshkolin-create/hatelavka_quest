@@ -97,6 +97,15 @@ async def get_background_client():
 class InitDataRequest(BaseModel):
     initData: str
 
+class ExchangeRequest(BaseModel):
+    initData: str
+    cost: float
+    tickets_reward: int
+
+class BuyItemRequest(BaseModel):
+    initData: str
+    reward_value: int
+
 class SleepModeRequest(BaseModel):
     initData: str
     minutes: Optional[int] = None # Сколько минут спать
