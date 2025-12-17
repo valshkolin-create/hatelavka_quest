@@ -9400,147 +9400,81 @@ async def claim_grind_reward_endpoint(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    print("--- [DEBUG] START CLAIM GRIND ---") # ЛОГ 1
-    
-    try:
-        user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-        if not user_info or "id" not in user_info:
-            print("--- [DEBUG] AUTH FAILED ---")
-            raise HTTPException(status_code=401, detail="Unauthorized")
-        
-        telegram_id = user_info["id"]
-        print(f"--- [DEBUG] User: {telegram_id} ---")
+    """
+    Пользователь забирает ежедневную награду.
+    ИСПРАВЛЕНО: Убрано двойное ожидание задач (double await fix).
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
-        # 1. Создаем задачи (но не запускаем await)
-        task_rpc = supabase.post(
-            "/rpc/claim_grind_reward",
-            json={"p_user_id": telegram_id}
-        )
-        
-        task_user = supabase.get(
-            "/users", 
-            params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, referral_activated_at"}
-        )
-        
+    telegram_id = user_info["id"]
+
+    try:
+        # 1. ЗАПУСКАЕМ ЗАДАЧИ (но НЕ ждем их тут!)
+        task_rpc = supabase.post("/rpc/claim_grind_reward", json={"p_user_id": telegram_id})
+        task_user = supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, referral_activated_at"})
         task_settings = get_grind_settings_async_global()
 
-        print("--- [DEBUG] Tasks created, starting gather... ---")
+        # 2. Ждем ВСЕ результаты ОДИН РАЗ в одной точке
+        rpc_resp, user_resp, settings = await asyncio.gather(task_rpc, task_user, task_settings)
 
-        # 2. ЗАПУСК С return_exceptions=True
-        # Это предотвратит падение всего скрипта, если упадет одна задача,
-        # и позволит нам увидеть реальную ошибку в переменной.
-        results = await asyncio.gather(task_rpc, task_user, task_settings, return_exceptions=True)
-        
-        rpc_result, user_result, settings_result = results
-
-        # --- АНАЛИЗ ОШИБОК (ЧТОБЫ УВИДЕТЬ СКРЫТЫЕ) ---
-        
-        # Проверяем RPC
-        if isinstance(rpc_result, Exception):
-            print(f"!!! [ERROR] RPC FAILED: {rpc_result} !!!")
-            raise rpc_result # Пробрасываем ошибку дальше
-        
-        # Проверяем User Info
-        if isinstance(user_result, Exception):
-            print(f"!!! [ERROR] USER GET FAILED: {user_result} !!!")
-            raise user_result
-
-        # Проверяем Settings
-        if isinstance(settings_result, Exception):
-            print(f"!!! [ERROR] SETTINGS FAILED: {settings_result} !!!")
-            # Если настройки упали, можно попробовать продолжить с дефолтными, 
-            # но пока лучше увидеть ошибку.
-            raise settings_result 
-
-        print("--- [DEBUG] Gather success. Checking status codes... ---")
-
-        # Теперь мы знаем, что это ответы, а не ошибки Python
-        rpc_resp = rpc_result
-        user_resp = user_result
-        settings = settings_result
-
-        # Логируем сырые ответы, если что-то пойдет не так
-        if rpc_resp.status_code != 200:
-            print(f"--- [DEBUG] RPC HTTP ERROR: {rpc_resp.text} ---")
+        # 3. Проверяем ошибки
         rpc_resp.raise_for_status()
-        
-        result = rpc_resp.json()
-        print(f"--- [DEBUG] RPC JSON: {result} ---")
+        user_resp.raise_for_status() # Важно проверить и это!
 
-        # Безопасный разбор пользователя
-        user_data = {}
-        try:
-            if user_resp.status_code == 200:
-                json_data = user_resp.json()
-                if isinstance(json_data, list) and len(json_data) > 0:
-                    user_data = json_data[0]
-                else:
-                    print(f"--- [DEBUG] User list empty or not list: {json_data} ---")
-            else:
-                print(f"--- [DEBUG] User request failed code: {user_resp.status_code} ---")
-        except Exception as e:
-            print(f"!!! [ERROR] Parsing user json failed: {e} !!!")
+        result = rpc_resp.json()
+        
+        # Берем данные пользователя
+        user_data_list = user_resp.json()
+        user_data = user_data_list[0] if user_data_list else {}
 
         extra_bonus = 0.0
 
-        # Расчет VIP
+        # --- A. Бонус за VIP ---
         ref_date_str = user_data.get('referral_activated_at')
         if ref_date_str:
             try:
                 ref_dt = datetime.fromisoformat(ref_date_str.replace('Z', '+00:00'))
                 if (datetime.now(timezone.utc) - ref_dt) < timedelta(days=7):
                     extra_bonus += 0.2
-            except Exception as e:
-                print(f"--- [DEBUG] Date parsing error: {e} ---")
+            except ValueError:
+                pass
 
-        # Расчет Twitch
-        try:
-            # Проверяем, что settings это объект, а не мусор
-            boost_coins = getattr(settings, 'twitch_status_boost_coins', 0)
-            t_status = user_data.get('twitch_status')
-            if t_status in ['vip', 'subscriber']:
-                extra_bonus += boost_coins
-        except Exception as e:
-            print(f"!!! [ERROR] Settings attribute access failed: {e} !!!")
+        # --- B. Бонус за Twitch ---
+        t_status = user_data.get('twitch_status')
+        if t_status in ['vip', 'subscriber']:
+            extra_bonus += settings.twitch_status_boost_coins
 
-        print(f"--- [DEBUG] Extra Bonus calculated: {extra_bonus} ---")
-
+        # 4. Доначисляем бонус
         if extra_bonus > 0:
+            logging.info(f"💰 Доп. бонус +{extra_bonus} для {telegram_id}")
             current_coins = float(result.get('new_coins', 0))
             final_coins = round(current_coins + extra_bonus, 4)
-            
-            print(f"--- [DEBUG] Patching coins to: {final_coins} ---")
-            
-            # PATCH запрос
-            patch_resp = await supabase.patch(
+
+            # Обновляем базу
+            await supabase.patch(
                 "/users",
                 params={"telegram_id": f"eq.{telegram_id}"},
                 json={"coins": final_coins}
             )
-            # Проверим, прошел ли патч
-            if patch_resp.status_code not in [200, 204]:
-                print(f"!!! [ERROR] Patch failed: {patch_resp.text} !!!")
 
+            # Обновляем ответ
             result['new_coins'] = final_coins
             result['reward_claimed'] = round(float(result.get('reward_claimed', 0)) + extra_bonus, 4)
 
-        print("--- [DEBUG] DONE. Returning result. ---")
         return result
 
     except httpx.HTTPStatusError as e:
-        print(f"--- [DEBUG] HTTP Status Error caught: {e} ---")
         try:
             error_msg = e.response.json().get("message", e.response.text)
         except:
             error_msg = e.response.text
         raise HTTPException(status_code=400, detail=error_msg)
-        
     except Exception as e:
-        print(f"!!! [CRITICAL ERROR] UNHANDLED: {e} !!!")
-        import traceback
-        traceback.print_exc() # ЭТО ВЫВЕДЕТ ПОЛНЫЙ ПУТЬ К ОШИБКЕ В КОНСОЛЬ
-        raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
-
+        logging.error(f"Grind claim error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+        
 @app.post("/api/v1/user/grind/exchange")
 async def exchange_coins_endpoint(
     request_data: ExchangeRequest,
