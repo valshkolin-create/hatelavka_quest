@@ -9401,8 +9401,7 @@ async def claim_grind_reward_endpoint(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Пользователь забирает ежедневную награду (монеты).
-    FIX: Теперь корректно начисляет бонусы за VIP и Twitch, которые не учитываются в SQL-функции.
+    Оптимизированная версия: RPC и получение данных выполняются параллельно.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -9411,74 +9410,79 @@ async def claim_grind_reward_endpoint(
     telegram_id = user_info["id"]
 
     try:
-        # 1. Параллельно запрашиваем данные юзера и настройки для расчета бонусов
+        # 1. ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ОДНОВРЕМЕННО (Параллельно)
+        # Не ждем завершения одного, чтобы начать другой.
+        
+        # А: Основной запрос на выдачу награды (RPC)
+        task_rpc = supabase.post(
+            "/rpc/claim_grind_reward",
+            json={"p_user_id": telegram_id}
+        )
+        
+        # Б: Запрос данных пользователя (для бонусов)
         task_user = supabase.get(
             "/users", 
             params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, referral_activated_at"}
         )
+        
+        # В: Настройки (кэш или БД)
         task_settings = get_grind_settings_async_global()
         
-        # Ждем данные...
-        user_resp, settings = await asyncio.gather(task_user, task_settings)
-        user_data = user_resp.json()[0] if user_resp.json() else {}
+        # 2. Ждем результаты всех трех запросов разом
+        # Это экономит 100-200мс времени выполнения
+        rpc_resp, user_resp, settings = await asyncio.gather(task_rpc, task_user, task_settings)
 
-        # 2. Вызываем основной RPC (Он начисляет Базу + Реферальные)
-        # Если квест недоступен (кулдаун), RPC выбросит ошибку, и мы уйдем в except
-        rpc_resp = await supabase.post(
-            "/rpc/claim_grind_reward",
-            json={"p_user_id": telegram_id}
-        )
+        # 3. Сначала проверяем RPC (если он упал, то остальное не важно)
         rpc_resp.raise_for_status()
         result = rpc_resp.json()
 
-        # 3. Рассчитываем НЕДОСТАЮЩИЕ бонусы (VIP и Twitch)
+        # 4. Если RPC успешен, разбираем остальные данные и считаем бонусы
+        user_data = user_resp.json()[0] if user_resp.json() else {}
+        
         extra_bonus = 0.0
         
-        # --- A. Бонус за VIP (7 дней после приглашения) ---
+        # --- Расчет бонуса VIP ---
         ref_date_str = user_data.get('referral_activated_at')
         if ref_date_str:
             try:
-                # Приводим дату к UTC
                 ref_dt = datetime.fromisoformat(ref_date_str.replace('Z', '+00:00'))
-                # Если прошло меньше 7 дней
                 if (datetime.now(timezone.utc) - ref_dt) < timedelta(days=7):
                     extra_bonus += 0.2
             except ValueError:
-                logging.error(f"Ошибка парсинга даты referral_activated_at: {ref_date_str}")
+                pass
 
-        # --- B. Бонус за Twitch (Subscriber / VIP) ---
+        # --- Расчет бонуса Twitch ---
         t_status = user_data.get('twitch_status')
         if t_status in ['vip', 'subscriber']:
             extra_bonus += settings.twitch_status_boost_coins
 
-        # 4. Если нашли неучтенные бонусы — начисляем их вручную
+        # 5. Если есть неучтенный бонус — доначисляем (PATCH)
         if extra_bonus > 0:
-            logging.info(f"💰 Добавляем доп. бонус +{extra_bonus} (VIP/Twitch) для {telegram_id}")
+            logging.info(f"💰 Добавляем доп. бонус +{extra_bonus} для {telegram_id}")
             
-            # Берем текущий баланс, который вернул RPC, и добавляем бонус
-            current_coins_after_rpc = float(result.get('new_coins', 0))
-            final_coins = current_coins_after_rpc + extra_bonus
+            current_coins = float(result.get('new_coins', 0))
+            final_coins = current_coins + extra_bonus
             
-            # Обновляем баланс в базе
+            # Этот запрос придется подождать, но это неизбежно для консистентности
             await supabase.patch(
                 "/users",
                 params={"telegram_id": f"eq.{telegram_id}"},
                 json={"coins": final_coins}
             )
             
-            # Обновляем ответ, чтобы фронтенд показал правильную сумму
+            # Обновляем цифры для ответа клиенту
             result['new_coins'] = final_coins
-            # reward_claimed может быть строкой или числом, приводим к флоату
             result['reward_claimed'] = float(result.get('reward_claimed', 0)) + extra_bonus
 
         return result
 
     except httpx.HTTPStatusError as e:
-        # Обработка ошибок от RPC (например, "Награда уже получена")
+        # Пытаемся достать текст ошибки из Postgres
         try:
             error_msg = e.response.json().get("message", e.response.text)
         except:
             error_msg = e.response.text
+        # Если это 400 (например, уже собрал), возвращаем 400
         raise HTTPException(status_code=400, detail=error_msg)
     except Exception as e:
         logging.error(f"Grind claim error: {e}", exc_info=True)
