@@ -9401,7 +9401,9 @@ async def claim_grind_reward_endpoint(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Оптимизированная версия: RPC и получение данных выполняются параллельно.
+    Пользователь забирает ежедневную награду (монеты).
+    FIX: Исправлена ошибка 'reuse already awaited coroutine'.
+    Оптимизация: RPC, запрос данных юзера и настройки выполняются параллельно.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -9411,7 +9413,7 @@ async def claim_grind_reward_endpoint(
 
     try:
         # 1. ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ОДНОВРЕМЕННО (Параллельно)
-        # Не ждем завершения одного, чтобы начать другой.
+        # Важно: здесь мы только СОЗДАЕМ задачи, но не ставим await
         
         # А: Основной запрос на выдачу награды (RPC)
         task_rpc = supabase.post(
@@ -9427,31 +9429,41 @@ async def claim_grind_reward_endpoint(
         
         # В: Настройки (кэш или БД)
         task_settings = get_grind_settings_async_global()
-        
+
         # 2. Ждем результаты всех трех запросов разом
-        # Это экономит 100-200мс времени выполнения
+        # Это единственное место, где мы делаем await для этих задач
         rpc_resp, user_resp, settings = await asyncio.gather(task_rpc, task_user, task_settings)
 
         # 3. Сначала проверяем RPC (если он упал, то остальное не важно)
         rpc_resp.raise_for_status()
+        
+        # Проверяем, что запрос данных пользователя тоже прошел успешно
+        # (иначе .json() ниже может упасть или вернуть ошибку вместо списка)
+        user_resp.raise_for_status()
+
         result = rpc_resp.json()
 
-        # 4. Если RPC успешен, разбираем остальные данные и считаем бонусы
-        user_data = user_resp.json()[0] if user_resp.json() else {}
+        # 4. Разбираем данные пользователя
+        # Supabase возвращает список [{...}], если запись найдена
+        user_data_list = user_resp.json()
+        user_data = user_data_list[0] if user_data_list and isinstance(user_data_list, list) else {}
         
         extra_bonus = 0.0
-        
-        # --- Расчет бонуса VIP ---
+
+        # --- A. Бонус за VIP (7 дней после приглашения) ---
         ref_date_str = user_data.get('referral_activated_at')
         if ref_date_str:
             try:
+                # Приводим дату к UTC и парсим
                 ref_dt = datetime.fromisoformat(ref_date_str.replace('Z', '+00:00'))
                 if (datetime.now(timezone.utc) - ref_dt) < timedelta(days=7):
                     extra_bonus += 0.2
-            except ValueError:
+            except (ValueError, TypeError):
+                # Логируем, но не ломаем выдачу награды
+                logging.warning(f"Error parsing referral_activated_at for user {telegram_id}: {ref_date_str}")
                 pass
 
-        # --- Расчет бонуса Twitch ---
+        # --- B. Бонус за Twitch (Subscriber / VIP) ---
         t_status = user_data.get('twitch_status')
         if t_status in ['vip', 'subscriber']:
             extra_bonus += settings.twitch_status_boost_coins
@@ -9459,33 +9471,41 @@ async def claim_grind_reward_endpoint(
         # 5. Если есть неучтенный бонус — доначисляем (PATCH)
         if extra_bonus > 0:
             logging.info(f"💰 Добавляем доп. бонус +{extra_bonus} для {telegram_id}")
-            
+
+            # Берем текущий баланс из ответа RPC
             current_coins = float(result.get('new_coins', 0))
-            final_coins = current_coins + extra_bonus
             
-            # Этот запрос придется подождать, но это неизбежно для консистентности
+            # Округляем до 2-4 знаков, чтобы избежать float мусора (типа 100.200000001)
+            final_coins = round(current_coins + extra_bonus, 4)
+
+            # Обновляем баланс в базе
+            # Ждем выполнения, чтобы гарантировать консистентность перед ответом клиенту
             await supabase.patch(
                 "/users",
                 params={"telegram_id": f"eq.{telegram_id}"},
                 json={"coins": final_coins}
             )
-            
+
             # Обновляем цифры для ответа клиенту
             result['new_coins'] = final_coins
-            result['reward_claimed'] = float(result.get('reward_claimed', 0)) + extra_bonus
+            result['reward_claimed'] = round(float(result.get('reward_claimed', 0)) + extra_bonus, 4)
 
         return result
 
     except httpx.HTTPStatusError as e:
-        # Пытаемся достать текст ошибки из Postgres
+        # Обработка ошибок от RPC (например, "Награда уже получена")
         try:
             error_msg = e.response.json().get("message", e.response.text)
-        except:
+        except Exception:
             error_msg = e.response.text
-        # Если это 400 (например, уже собрал), возвращаем 400
+        
+        # Логируем ошибку, чтобы видеть в консоли, что происходит
+        logging.warning(f"Grind claim HTTP error {e.response.status_code}: {error_msg}")
+        
         raise HTTPException(status_code=400, detail=error_msg)
+        
     except Exception as e:
-        logging.error(f"Grind claim error: {e}", exc_info=True)
+        logging.error(f"Grind claim critical error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.post("/api/v1/user/grind/exchange")
