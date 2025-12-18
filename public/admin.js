@@ -1,6 +1,5 @@
 // admin.js
 
-try {
     const WEAR_OPTIONS = [
     { val: '', text: 'Качество не указано' },
     { val: 'Factory New', text: 'Прямо с завода (FN)' },
