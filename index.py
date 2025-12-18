@@ -10663,6 +10663,33 @@ async def list_advent_days(req: InitDataRequest, supabase: httpx.AsyncClient = D
     r = await supabase.get("/advent_calendar_days", params={"order": "day_id.asc"})
     return r.json()
 
+@app.post("/api/v1/admin/advent/pending_list")
+async def get_advent_pending_list(req: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    
+    # Получаем список из manual_rewards с типом 'advent'
+    response = await supabase.get("/manual_rewards", params={
+        "status": "eq.pending",
+        "source_type": "eq.advent",
+        "select": "*, users(full_name, username, trade_link)" # Подтягиваем данные юзера
+    })
+    
+    data = response.json()
+    # Форматируем под функцию renderCheckpointPrizes в JS
+    formatted = []
+    for item in data:
+        user = item.get('users', {}) or {}
+        formatted.append({
+            "id": item['id'],
+            "source_description": item.get('source_description', 'Адвент'),
+            "reward_details": item.get('reward_details', 'Награда'),
+            "user_full_name": user.get('full_name', 'Неизвестный'),
+            "user_trade_link": user.get('trade_link'),
+            "created_at": item['created_at']
+        })
+    return formatted
+
 
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
