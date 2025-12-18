@@ -5325,15 +5325,13 @@ async function main() {
         }
     };
 
-} catch (e) {
-    console.error("Admin init error:", e);
-}
-    
+    // Инициализация приложения
     document.addEventListener("DOMContentLoaded", () => {
         tg.ready();
         setupEventListeners();
         main();
     });
+
 } catch (e) {
     console.error(`Критическая ошибка на старте: ${e.message}`);
     alert(`Критическая ошибка: ${e.message}`);
