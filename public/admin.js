@@ -5327,12 +5327,8 @@ async function main() {
 
     // Инициализация приложения
     document.addEventListener("DOMContentLoaded", () => {
+        console.log("Admin Init Started");
         tg.ready();
         setupEventListeners();
         main();
     });
-
-} catch (e) {
-    console.error(`Критическая ошибка на старте: ${e.message}`);
-    alert(`Критическая ошибка: ${e.message}`);
-}
