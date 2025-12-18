@@ -8,254 +8,290 @@
     <link rel="stylesheet" href="fontawesome/css/all.min.css">
     <style>
         :root {
-            --bg-color: #0f0f13;
-            --card-bg: #1e1e24;
-            --primary: #ffd700; /* Золотой */
-            --accent: #ff4757; /* Красный (сгорел) */
-            --success: #2ed573; /* Зеленый (получено) */
+            --bg-color: #000000;
+            --card-bg: #1c1c1e;
+            --primary: #ffd700; /* Золото */
+            --accent: #ff453a; /* Красный */
+            --success: #32d74b; /* Зеленый */
             --text-color: #ffffff;
-            --text-muted: #aaaaaa;
+            --text-muted: #8e8e93;
+            --surface-glass: rgba(28, 28, 30, 0.85);
         }
 
         body {
             background-color: var(--bg-color);
+            background-image: radial-gradient(circle at top center, #1a1a1a 0%, #000000 70%);
             color: var(--text-color);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
             padding: 0;
+            padding-bottom: 90px; /* Отступ под футер */
             user-select: none;
             -webkit-tap-highlight-color: transparent;
-            padding-bottom: 40px;
         }
 
         /* --- Header --- */
         .advent-header {
-            text-align: center;
             padding: 20px;
-            background: radial-gradient(circle at center, rgba(255, 215, 0, 0.15) 0%, transparent 70%);
-            margin-bottom: 10px;
+            text-align: center;
+            background: linear-gradient(180deg, rgba(255, 215, 0, 0.1) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
         .advent-header h1 {
             margin: 0;
-            font-size: 26px;
-            background: linear-gradient(45deg, #ffd700, #ffa500);
+            font-size: 28px;
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-weight: 800;
+            letter-spacing: -0.5px;
         }
 
         .advent-header p {
             font-size: 13px;
             color: var(--text-muted);
-            margin-top: 5px;
+            margin-top: 6px;
         }
 
         /* --- Grid --- */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr); /* 5 дней в ряд */
-            gap: 10px;
+        .calendar-container {
             padding: 15px;
             max-width: 600px;
             margin: 0 auto;
         }
 
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 колонки */
+            gap: 12px;
+        }
+
         .day-card {
             aspect-ratio: 1;
             background: var(--card-bg);
-            border-radius: 12px;
+            border-radius: 16px;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.08);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.05);
             transition: transform 0.1s, border-color 0.2s;
+            overflow: hidden;
         }
 
-        .day-card:active { transform: scale(0.95); }
+        .day-card:active { transform: scale(0.96); }
 
         .day-number {
-            font-size: 18px;
-            font-weight: bold;
+            font-size: 20px;
+            font-weight: 700;
             z-index: 2;
         }
 
-        .day-icon {
-            font-size: 14px;
+        .day-status-icon {
+            font-size: 12px;
             margin-top: 4px;
             z-index: 2;
         }
 
-        /* --- States --- */
-        .day-card.locked { opacity: 0.4; cursor: default; }
-        .day-card.locked .day-icon { color: #555; }
+        /* Статусы */
+        .day-card.locked { opacity: 0.5; background: #151515; }
+        .day-card.locked .day-number { color: #555; }
+        .day-card.locked .day-status-icon { display: none; }
 
-        .day-card.burned {
-            background: rgba(255, 71, 87, 0.1);
-            border-color: var(--accent);
-            color: var(--accent);
+        .day-card.burned { 
+            background: rgba(255, 69, 58, 0.1); 
+            border-color: rgba(255, 69, 58, 0.3);
+        }
+        .day-card.burned .day-number { color: var(--accent); text-decoration: line-through; opacity: 0.7; }
+        .day-card.burned::after {
+            content: "💀";
+            position: absolute;
+            font-size: 40px;
+            opacity: 0.2;
         }
 
         .day-card.active {
+            background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
             border-color: #555;
-            background: linear-gradient(135deg, #1e1e24 0%, #2a2a30 100%);
         }
 
         .day-card.ready {
             border: 1px solid var(--primary);
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.15);
+            animation: pulse-border 2s infinite;
         }
         .day-card.ready .day-number { color: var(--primary); }
-        .day-card.ready .day-icon { color: var(--primary); }
+        .day-card.ready::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%);
+        }
 
         .day-card.claimed {
-            background: rgba(46, 213, 115, 0.1);
+            background: rgba(50, 215, 75, 0.1);
             border-color: var(--success);
-            color: var(--success);
+        }
+        .day-card.claimed .day-number { color: var(--success); }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.1); }
+            50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+            100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.1); }
         }
 
         /* --- Modal --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
             z-index: 1000;
             display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.3s;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
         }
         .modal-overlay.visible { opacity: 1; pointer-events: auto; }
 
-        .modal-content {
-            background: #1a1a1d;
-            width: 85%;
-            max-width: 320px;
-            border-radius: 20px;
-            padding: 25px;
+        .modal-card {
+            background: #1c1c1e;
+            width: 85%; max-width: 340px;
+            border-radius: 24px;
+            padding: 30px 20px;
             text-align: center;
-            border: 1px solid #333;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
             transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
         }
-        .modal-overlay.visible .modal-content { transform: scale(1); }
+        .modal-overlay.visible .modal-card { transform: scale(1); }
 
-        .modal-header h2 { margin: 0; font-size: 22px; color: var(--text-color); }
-        .modal-header p { font-size: 14px; color: var(--text-muted); margin: 5px 0 0; }
+        .modal-title { font-size: 24px; font-weight: 800; margin-bottom: 10px; color: #fff; }
+        .modal-desc { font-size: 14px; color: var(--text-muted); margin-bottom: 25px; line-height: 1.5; }
 
-        .task-box {
-            background: #25252b;
-            padding: 15px;
-            border-radius: 12px;
-            margin: 20px 0;
-            border: 1px solid rgba(255,255,255,0.05);
+        .task-progress {
+            background: #2c2c2e;
+            height: 8px; border-radius: 4px;
+            margin: 15px 0; overflow: hidden;
+            position: relative;
         }
-
-        .progress-container {
-            height: 6px; background: #333; border-radius: 3px;
-            margin-top: 10px; overflow: hidden;
-        }
-        .progress-bar {
+        .task-progress-bar {
             height: 100%; background: var(--success); width: 0%;
             transition: width 0.5s ease;
         }
-        .progress-text { font-size: 11px; color: #888; margin-top: 5px; display: block; }
-
-        .claim-btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
         
-        .btn-ready {
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            color: #000;
-            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+        .action-btn {
+            width: 100%; padding: 14px;
+            border-radius: 14px; border: none;
+            font-size: 16px; font-weight: 700;
+            cursor: pointer; margin-top: 10px;
+            background: var(--primary); color: #000;
+            transition: transform 0.1s;
         }
-        .btn-ready:active { transform: scale(0.98); }
+        .action-btn:active { transform: scale(0.98); }
+        .action-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
 
-        .btn-locked { background: #333; color: #777; cursor: not-allowed; }
-        
-        .close-btn {
+        .close-icon {
             position: absolute; top: 15px; right: 15px;
-            font-size: 24px; color: #666; cursor: pointer;
-        }
-
-        /* --- Reward Animation --- */
-        .reward-reveal { display: none; margin-top: 15px; animation: popIn 0.5s; }
-        .reward-img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 10px; }
-        .reward-name { color: var(--primary); font-weight: bold; font-size: 18px; }
-
-        /* --- Back Button --- */
-        .back-btn {
-            position: fixed; top: 15px; left: 15px;
+            width: 30px; height: 30px;
             background: rgba(255,255,255,0.1);
-            color: white; border: none; padding: 8px 15px;
-            border-radius: 20px; font-size: 14px;
-            cursor: pointer; backdrop-filter: blur(4px);
-            z-index: 10;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #fff;
         }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.1); }
-            50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
-            100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.1); }
+        /* --- Reveal Animation --- */
+        .reward-container { display: none; margin-top: 20px; }
+        .reward-img { 
+            width: 120px; height: 120px; 
+            object-fit: contain; 
+            filter: drop-shadow(0 0 20px rgba(255,215,0,0.3));
+            animation: popIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
-        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .reward-name { font-size: 18px; font-weight: 700; color: var(--primary); margin-top: 10px; }
+
+        @keyframes popIn { from { transform: scale(0) rotate(-10deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+
+        /* --- Footer (1 в 1 как в Shop) --- */
+        .app-footer {
+            display: flex; justify-content: space-around; align-items: center;
+            background-color: var(--surface-glass);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            z-index: 999;
+            padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            box-sizing: border-box; height: auto;
+        }
+        .footer-item {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 4px; color: #8E8E93; text-decoration: none;
+            flex: 1; background: none; border: none; padding: 0; cursor: pointer;
+            font-size: 10px; font-weight: 500;
+        }
+        .footer-item.active { color: #ffffff; }
+        .footer-item .icon-wrapper { font-size: 22px; }
+
     </style>
 </head>
 <body>
 
-    <button class="back-btn" onclick="window.location.href='menu.html'">
-        <i class="fa-solid fa-arrow-left"></i> Меню
-    </button>
-
     <div class="advent-header">
-        <h1>🎄 Advent</h1>
-        <p>Выполняй задания каждый день и получай призы!</p>
+        <h1>🎄 Advent Event</h1>
+        <p>Заходи каждый день и забирай подарки!</p>
     </div>
 
-    <div class="calendar-grid" id="grid">
-        <div style="color: #666; grid-column: 1/-1; text-align: center; padding: 20px;">Загрузка...</div>
+    <div class="calendar-container">
+        <div class="calendar-grid" id="grid">
+            <div style="grid-column:1/-1; text-align:center; color:#555; padding:40px;">Загрузка...</div>
+        </div>
     </div>
 
     <div class="modal-overlay" id="modal">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closeModal()">&times;</span>
+        <div class="modal-card">
+            <div class="close-icon" onclick="closeModal()"><i class="fa-solid fa-times"></i></div>
             
-            <div class="modal-header">
-                <h2 id="modal-title">День 1</h2>
-                <p id="modal-desc">Описание задания...</p>
-            </div>
+            <h2 class="modal-title" id="m-title">День 1</h2>
+            <p class="modal-desc" id="m-desc">Задание...</p>
 
-            <div class="task-box">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 5px;">
-                    <i id="task-icon" class="fa-solid fa-star" style="color: var(--primary);"></i>
-                    <span id="task-target-text" style="font-weight: 500;">Напиши 100 сообщений</span>
+            <div id="task-block">
+                <div class="task-progress">
+                    <div class="task-progress-bar" id="m-progress"></div>
                 </div>
-                
-                <div class="progress-container">
-                    <div class="progress-bar" id="progress-bar"></div>
+                <div style="font-size:12px; color:#aaa; display:flex; justify-content:space-between;">
+                    <span>Прогресс</span>
+                    <span id="m-progress-text">0 / 1</span>
                 </div>
-                <span class="progress-text" id="progress-text">0 / 100</span>
+                <button id="m-btn" class="action-btn">Выполнить</button>
             </div>
 
-            <div id="reward-reveal" class="reward-reveal">
-                <div style="font-size: 40px;">🎁</div>
-                <div class="reward-name" id="reward-name">???</div>
-                <p style="font-size: 12px; color: #888;">Заявка на выдачу создана</p>
+            <div id="reward-block" class="reward-container">
+                <img src="" id="reward-img" class="reward-img" onerror="this.src='https://placehold.co/150?text=Gift'">
+                <div class="reward-name" id="reward-name">Награда</div>
+                <p style="font-size:12px; color:#aaa; margin-top:5px;">Заявка создана!</p>
             </div>
-
-            <button id="action-btn" class="claim-btn btn-locked">Загрузка...</button>
         </div>
+    </div>
+
+    <div class="app-footer">
+        <button class="footer-item" onclick="window.location.href='/'">
+            <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
+            <span>Главная</span>
+        </button>
+        <button class="footer-item" onclick="window.location.href='/shop'">
+            <div class="icon-wrapper"><i class="fa-solid fa-shop"></i></div>
+            <span>Магазин</span>
+        </button>
+        <button class="footer-item active" onclick="window.location.href='/advent'">
+            <div class="icon-wrapper"><i class="fa-solid fa-calendar-star"></i></div>
+            <span>Адвент</span>
+        </button>
+        <button class="footer-item" onclick="window.location.href='/profile'">
+            <div class="icon-wrapper"><i class="fa-regular fa-user"></i></div>
+            <span>Профиль</span>
+        </button>
     </div>
 
     <script>
@@ -268,22 +304,19 @@
 
         async function loadCalendar() {
             const grid = document.getElementById('grid');
-            
             try {
-                // Если ты тестируешь в браузере, используй user_id заглушку
-                const userId = tg.initDataUnsafe?.user?.id || 796460006; 
+                // Если ты в браузере
+                const userId = tg.initDataUnsafe?.user?.id; 
                 
                 const response = await fetch(`/api/v1/advent/state?telegram_id=${userId}`, {
                     headers: { 'Authorization': tg.initData }
                 });
-
-                if (!response.ok) throw new Error('Ошибка сети');
+                
                 const data = await response.json();
-
                 renderGrid(data.calendar, data.current_day);
 
             } catch (e) {
-                grid.innerHTML = `<div style="color:var(--accent); grid-column: 1/-1; text-align:center;">Ошибка: ${e.message}</div>`;
+                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:red;">Ошибка загрузки</div>`;
             }
         }
 
@@ -292,132 +325,132 @@
             grid.innerHTML = '';
 
             days.forEach(day => {
-                const card = document.createElement('div');
-                card.className = `day-card ${day.status}`;
+                const el = document.createElement('div');
+                el.className = `day-card ${day.status}`;
                 
-                let iconClass = 'fa-solid fa-lock'; // locked
-                if (day.status === 'burned') iconClass = 'fa-solid fa-fire';
-                else if (day.status === 'claimed') iconClass = 'fa-solid fa-check';
-                else if (day.status === 'ready') iconClass = 'fa-solid fa-gift';
-                else if (day.status === 'active') iconClass = 'fa-regular fa-clock';
-
-                card.innerHTML = `
+                // Иконка статуса
+                let icon = '';
+                if (day.status === 'locked') icon = '<i class="fa-solid fa-lock"></i>';
+                else if (day.status === 'burned') icon = '<i class="fa-solid fa-ban"></i>';
+                else if (day.status === 'claimed') icon = '<i class="fa-solid fa-check"></i>';
+                else if (day.status === 'ready') icon = '<i class="fa-solid fa-gift"></i>';
+                
+                el.innerHTML = `
                     <div class="day-number">${day.day}</div>
-                    <i class="day-icon ${iconClass}"></i>
+                    <div class="day-status-icon">${icon}</div>
                 `;
 
-                card.onclick = () => openModal(day);
-                grid.appendChild(card);
+                el.onclick = () => openModal(day);
+                grid.appendChild(el);
             });
         }
 
         function openModal(day) {
             currentDayData = day;
             const modal = document.getElementById('modal');
-            const title = document.getElementById('modal-title');
-            const desc = document.getElementById('modal-desc');
-            const taskText = document.getElementById('task-target-text');
-            const btn = document.getElementById('action-btn');
-            const pBar = document.getElementById('progress-bar');
-            const pText = document.getElementById('progress-text');
-            const rewardBox = document.getElementById('reward-reveal');
-            const taskBox = document.querySelector('.task-box');
-
+            const title = document.getElementById('m-title');
+            const desc = document.getElementById('m-desc');
+            const btn = document.getElementById('m-btn');
+            const taskBlock = document.getElementById('task-block');
+            const rewardBlock = document.getElementById('reward-block');
+            
             title.innerText = `День ${day.day}`;
-            desc.innerText = day.description || "Выполни задание дня!";
-            
-            // Настройка задачи
-            const target = day.target || 1;
-            const progress = day.progress || 0;
-            const percent = Math.min(100, Math.max(0, (progress / target) * 100));
-            
-            pBar.style.width = `${percent}%`;
-            pText.innerText = `${progress} / ${target}`;
-            
-            // Формирование текста задания
-            let typeText = "Задание";
-            // day.config может отсутствовать, если статус locked/burned, берем из корня
-            const taskType = day.config ? day.config.task_type : (day.task_type || 'unknown');
-            
-            if (taskType === 'messages') typeText = `Напиши ${target} сообщений`;
-            else if (taskType === 'uptime') typeText = `Смотри стрим ${target} мин.`;
-            else if (taskType === 'challenge') typeText = `Выполни 1 челлендж`;
-            
-            taskText.innerText = typeText;
+            rewardBlock.style.display = 'none';
+            taskBlock.style.display = 'block';
 
-            // Сброс состояния награды
-            rewardBox.style.display = 'none';
-            taskBox.style.display = 'block';
-
-            // Настройка кнопки
-            btn.className = "claim-btn btn-locked";
-            btn.onclick = null;
-
+            // Настраиваем контент в зависимости от статуса
             if (day.status === 'locked') {
+                desc.innerText = "Этот день еще не наступил.";
                 btn.innerText = "Рано";
-            } else if (day.status === 'burned') {
-                btn.innerText = "День сгорел 🔥";
-            } else if (day.status === 'claimed') {
-                btn.innerText = "Уже получено ✅";
-                btn.className = "claim-btn btn-locked"; // Просто стиль
-                rewardBox.style.display = 'block';
-                document.getElementById('reward-name').innerText = day.reward_received || "Награда";
-                taskBox.style.display = 'none'; // Прячем прогресс, если уже забрал
-            } else if (day.status === 'ready') {
-                btn.innerText = "ЗАБРАТЬ НАГРАДУ";
-                btn.className = "claim-btn btn-ready";
-                btn.onclick = () => claimReward(day.day);
-            } else {
-                // Active
-                btn.innerText = "В процессе...";
+                btn.disabled = true;
+                setProgressBar(0);
+            } 
+            else if (day.status === 'burned') {
+                desc.innerText = "Вы пропустили этот день. Награда сгорела 🔥";
+                btn.innerText = "Упущено";
+                btn.disabled = true;
+                setProgressBar(0);
+            }
+            else if (day.status === 'claimed') {
+                desc.innerText = "Награда уже получена!";
+                taskBlock.style.display = 'none';
+                showReward(day.reward_received || "Скин", true); // true = без анимации
+            }
+            else {
+                // Active или Ready
+                desc.innerText = day.description;
+                const prog = day.progress || 0;
+                const target = day.target || 1;
+                setProgressBar(prog, target);
+
+                if (day.status === 'ready') {
+                    btn.innerText = "ОТКРЫТЬ ПОДАРОК";
+                    btn.disabled = false;
+                    btn.style.background = "var(--primary)";
+                    btn.onclick = () => claimReward(day.day);
+                } else {
+                    btn.innerText = "В процессе...";
+                    btn.disabled = true;
+                    btn.style.background = "#333";
+                }
             }
 
             modal.classList.add('visible');
         }
 
-        function closeModal() {
-            document.getElementById('modal').classList.remove('visible');
+        function setProgressBar(val, max=100) {
+            const pct = Math.min(100, Math.max(0, (val / max) * 100));
+            document.getElementById('m-progress').style.width = `${pct}%`;
+            document.getElementById('m-progress-text').innerText = `${val} / ${max}`;
         }
 
         async function claimReward(dayId) {
-            const btn = document.getElementById('action-btn');
-            btn.innerText = "Открываем...";
+            const btn = document.getElementById('m-btn');
             btn.disabled = true;
+            btn.innerText = "Открываем...";
 
             try {
-                const response = await fetch('/api/v1/advent/claim', {
+                const res = await fetch('/api/v1/advent/claim', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        initData: tg.initData,
-                        day_id: dayId
-                    })
+                    body: JSON.stringify({ initData: tg.initData, day_id: dayId })
                 });
+                const data = await res.json();
 
-                const res = await response.json();
-
-                if (response.ok) {
-                    // Успех
-                    document.querySelector('.task-box').style.display = 'none';
-                    const rewardBox = document.getElementById('reward-reveal');
-                    rewardBox.style.display = 'block';
-                    document.getElementById('reward-name').innerText = res.reward;
-                    
-                    btn.innerText = "ГОТОВО!";
-                    btn.className = "claim-btn btn-locked";
-                    
-                    // Обновляем фон
-                    loadCalendar();
+                if (res.ok) {
+                    document.getElementById('task-block').style.display = 'none';
+                    // Тут можно подставить картинку скина, если бэкенд ее вернет (нужно допилить бэк)
+                    // Пока используем заглушку или имя
+                    showReward(data.reward);
+                    loadCalendar(); // Обновить фон
                 } else {
-                    tg.showAlert(res.detail || "Ошибка");
+                    alert(data.detail);
                     btn.innerText = "Ошибка";
-                    btn.disabled = false;
                 }
             } catch (e) {
-                tg.showAlert("Ошибка соединения");
-                btn.innerText = "Повторить";
+                alert("Ошибка сети");
                 btn.disabled = false;
             }
+        }
+
+        function showReward(name, skipAnim = false) {
+            const block = document.getElementById('reward-block');
+            const img = document.getElementById('reward-img');
+            const nameEl = document.getElementById('reward-name');
+            
+            block.style.display = 'block';
+            nameEl.innerText = name;
+            // Для примера - случайная картинка подарка, если нет URL
+            img.src = 'https://cdn-icons-png.flaticon.com/512/4213/4213650.png'; 
+            
+            if (!skipAnim) {
+                // Эффект конфетти (вибрация)
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('visible');
         }
     </script>
 </body>
