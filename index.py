@@ -327,6 +327,7 @@ class AdminSettings(BaseModel):
     weekly_goals_enabled: bool = False # (Отступ 8 пробелов)
     quest_schedule_override_enabled: bool = False # (Отступ 8 пробелов)
     quest_schedule_active_type: str = 'twitch' # (Отступ 8 пробелов) 'twitch' или 'telegram'
+    advent_start_date: Optional[str] = None # <-- ДОБАВИТЬ ЭТО (Формат "YYYY-MM-DD")
     
     
 class AdminSettingsUpdateRequest(BaseModel):
@@ -10533,16 +10534,31 @@ STAT_MAPPING = {
 
 @app.get("/api/v1/advent/state")
 async def get_advent_state(telegram_id: int, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # 1. Текущий день
-    now = datetime.now(timezone(timedelta(hours=3)))
-    current_day_num = now.day 
+    # 1. Получаем настройки (чтобы узнать дату старта)
+    settings = await get_admin_settings_async_global()
     
+    # Определяем "текущий день ивента"
+    now = datetime.now(timezone(timedelta(hours=3)))
+    
+    if settings.advent_start_date:
+        try:
+            start_dt = datetime.strptime(settings.advent_start_date, "%Y-%m-%d").replace(tzinfo=timezone(timedelta(hours=3)))
+            # Разница в днях + 1 (если старт сегодня, то это День 1)
+            current_event_day = (now.date() - start_dt.date()).days + 1
+        except ValueError:
+            current_event_day = now.day # Фолбек на календарный день
+    else:
+        current_event_day = now.day # По умолчанию - число месяца
+
+    # Если ивент еще не начался
+    if current_event_day < 1:
+        current_event_day = 0 
+
     # 2. Получаем конфиг дней и прогресс
     days_resp = await supabase.get("/advent_calendar_days", params={"order": "day_id.asc"})
     progress_resp = await supabase.get("/user_advent_progress", params={"user_id": f"eq.{telegram_id}"})
     
-    # 3. Получаем ВСЮ статистику юзера (select="*") или перечисляем нужные поля
-    # Лучше запросить всё, чтобы не упустить нужное поле
+    # 3. Статистика юзера
     user_stats_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}"})
     
     days_config = days_resp.json() if days_resp.status_code == 200 else []
@@ -10556,54 +10572,61 @@ async def get_advent_state(telegram_id: int, supabase: httpx.AsyncClient = Depen
         status = "locked"
         progress_val = 0
         target = day['task_target']
-        t_type = day['task_type'] # Например: 'twitch_messages_weekly'
+        t_type = day['task_type']
         
-        # --- ЛОГИКА ПРОГРЕССА ---
-        # Если тип есть в нашем словаре, берем значение из соответствующей колонки
-        if t_type in STAT_MAPPING:
-            column_name = STAT_MAPPING[t_type]
-            # Получаем значение, по умолчанию 0
-            # Важно: некоторые поля могут быть float (аптайм), приводим к int для красоты
-            val = int(user_stats.get(column_name, 0))
-            progress_val = min(val, target)
-            is_completed = val >= target
-        
-        # Специальная логика для "Выполни 1 челлендж сегодня"
-        elif t_type == 'challenge_daily':
-            last_comp = user_stats.get('last_challenge_completed_at')
-            is_completed = False
-            if last_comp:
-                last_date = datetime.fromisoformat(last_comp.replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=3))).date()
-                if last_date == now.date():
-                    is_completed = True
-            progress_val = 1 if is_completed else 0
-        
-        else:
-            # Неизвестный тип или ручной
-            progress_val = 0
-            is_completed = False
+        # Скрываем описание награды, если день не активен и не забран
+        description = day['description']
+        is_secret = True 
 
         # --- ЛОГИКА СТАТУСОВ ---
-        if d_id < current_day_num:
-            status = "claimed" if d_id in claimed_days else "burned"
-        elif d_id == current_day_num:
+        if d_id < current_event_day:
+            if d_id in claimed_days:
+                status = "claimed"
+                is_secret = False # Уже забрал - видит
+            else:
+                status = "burned"
+                # Сгорело - остается секретом!
+        
+        elif d_id == current_event_day:
+            is_secret = False # Текущий день - видим задание
             if d_id in claimed_days:
                 status = "claimed"
             else:
-                status = "ready" if is_completed else "active"
+                # Проверка выполнения (копируем логику из прошлого ответа)
+                col = STAT_MAPPING.get(t_type)
+                if col:
+                    val = int(user_stats.get(col, 0))
+                    progress_val = min(val, target)
+                    status = "ready" if val >= target else "active"
+                elif t_type == 'challenge_daily':
+                    # Логика челленджа...
+                    last_comp = user_stats.get('last_challenge_completed_at')
+                    is_done = False
+                    if last_comp:
+                        ld = datetime.fromisoformat(last_comp.replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=3))).date()
+                        if ld == now.date(): is_done = True
+                    progress_val = 1 if is_done else 0
+                    status = "ready" if is_done else "active"
+                else:
+                    status = "active"
+        
         else:
-            status = "locked"
+            status = "locked" # Будущее - секрет
+
+        # Если секрет - не отдаем описание задания (интрига)
+        final_desc = "Секретное задание" if (is_secret and status != 'claimed') else description
 
         calendar.append({
             "day": d_id,
             "status": status,
-            "description": day['description'],
+            "description": final_desc,
             "progress": progress_val,
             "target": target,
-            "task_type": t_type # Передаем на фронт, чтобы иконку рисовать
+            "task_type": t_type,
+            "is_secret": is_secret
         })
         
-    return {"calendar": calendar, "current_day": current_day_num}
+    return {"calendar": calendar, "current_day": current_event_day}
 
 @app.post("/api/v1/advent/claim")
 async def claim_advent_day(
