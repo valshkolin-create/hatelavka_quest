@@ -821,6 +821,10 @@ const showLoader = () => {
                     await loadShopPurchases();
                     break;
                 }
+                case 'view-admin-advent': {
+                    await loadAdventSettings();
+                    break;
+                }
                 case 'view-admin-cauldron': {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
@@ -3025,6 +3029,26 @@ if (dom.weeklyGoalsList) {
                 }
             });
         }
+        // Обработчик добавления предмета в Адвент
+        const addAdventItemForm = document.getElementById('add-advent-item-form');
+        if (addAdventItemForm) {
+            addAdventItemForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                try {
+                    await makeApiRequest('/api/v1/admin/advent/items/add', {
+                        name: formData.get('name'),
+                        image_url: formData.get('image_url'),
+                        chance_weight: parseInt(formData.get('chance_weight'))
+                    });
+                    e.target.reset();
+                    tg.showAlert('Предмет добавлен!');
+                    await loadAdventSettings(); // Перезагружаем список
+                } catch (err) {
+                    tg.showAlert(`Ошибка: ${err.message}`);
+                }
+            });
+        }
 
         const cauldronTriggersContainer = document.getElementById('cauldron-triggers-container');
         if(cauldronTriggersContainer) {
@@ -5168,6 +5192,89 @@ async function main() {
             hideLoader();
         }
     }
+    // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
+
+    async function loadAdventSettings() {
+        // 1. Загружаем награды (Лутбокс)
+        const items = await makeApiRequest('/api/v1/admin/advent/items/list', {}, 'POST', true);
+        const itemsContainer = document.getElementById('advent-items-list');
+        
+        if (items && items.length > 0) {
+            itemsContainer.innerHTML = items.map(item => `
+                <div class="quest-card" style="display:flex; align-items:center; gap:10px; padding:10px;">
+                    <img src="${item.image_url}" style="width:40px; height:40px; border-radius:5px; object-fit:contain; background:#000;">
+                    <div style="flex:1;">
+                        <div style="font-weight:bold; font-size:14px;">${escapeHTML(item.name)}</div>
+                        <div style="font-size:12px; color:#aaa;">Шанс (вес): ${item.chance_weight}</div>
+                    </div>
+                    <button onclick="deleteAdventItem(${item.id})" class="admin-action-btn reject" style="padding:5px 10px; width:auto;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        } else {
+            itemsContainer.innerHTML = '<p style="text-align:center; color:#555;">Пусто</p>';
+        }
+
+        // 2. Загружаем дни (31 день)
+        const days = await makeApiRequest('/api/v1/admin/advent/days/list', {}, 'POST', true);
+        const daysContainer = document.getElementById('advent-days-list');
+        
+        if (days) {
+            daysContainer.innerHTML = days.map(day => `
+                <div class="quest-card" style="padding:10px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                        <strong style="color:var(--primary-color);">День ${day.day_id}</strong>
+                        <button onclick="saveAdventDay(${day.day_id})" class="admin-action-btn" style="padding:4px 12px; font-size:12px; width:auto; background-color:var(--action-color);">Сохранить</button>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px;">
+                        <div>
+                            <label style="font-size:10px; color:#aaa;">Тип задания</label>
+                            <select id="adv-type-${day.day_id}" style="width:100%; background:#333; color:white; border:1px solid #444; padding:5px; border-radius:4px;">
+                                <option value="messages" ${day.task_type === 'messages' ? 'selected' : ''}>Сообщения (TG)</option>
+                                <option value="uptime" ${day.task_type === 'uptime' ? 'selected' : ''}>Аптайм (мин)</option>
+                                <option value="challenge" ${day.task_type === 'challenge' ? 'selected' : ''}>Челлендж (Любой)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:10px; color:#aaa;">Цель (кол-во)</label>
+                            <input id="adv-target-${day.day_id}" type="number" value="${day.task_target}" style="width:100%; background:#333; color:white; border:1px solid #444; padding:5px; border-radius:4px;">
+                        </div>
+                    </div>
+                    <label style="font-size:10px; color:#aaa;">Описание для игрока</label>
+                    <input id="adv-desc-${day.day_id}" type="text" value="${escapeHTML(day.description)}" style="width:100%; background:#333; color:white; border:1px solid #444; padding:5px; border-radius:4px;" placeholder="Например: Напиши 100 сообщений">
+                </div>
+            `).join('');
+        }
+    }
+
+    // Делаем функции глобальными, чтобы onclick="..." в HTML их видел
+    window.deleteAdventItem = async (id) => {
+        tg.showConfirm('Удалить этот предмет из лутбокса?', async (ok) => {
+            if (ok) {
+                try {
+                    await makeApiRequest('/api/v1/admin/advent/items/delete', { item_id: id });
+                    loadAdventSettings();
+                } catch (e) {
+                    tg.showAlert(e.message);
+                }
+            }
+        });
+    };
+
+    window.saveAdventDay = async (id) => {
+        try {
+            await makeApiRequest('/api/v1/admin/advent/days/update', {
+                day_id: id,
+                task_type: document.getElementById(`adv-type-${id}`).value,
+                task_target: parseInt(document.getElementById(`adv-target-${id}`).value),
+                description: document.getElementById(`adv-desc-${id}`).value
+            });
+            tg.showPopup({ message: `День ${id} сохранен!` });
+        } catch (e) {
+            tg.showAlert(`Ошибка: ${e.message}`);
+        }
+    };
     
     document.addEventListener("DOMContentLoaded", () => {
         tg.ready();
