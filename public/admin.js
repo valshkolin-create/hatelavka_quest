@@ -4982,7 +4982,6 @@ if(dom.createRoulettePrizeForm) {
                 }
             });
         }
-    }
 
     function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
