@@ -1103,6 +1103,13 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
                 // Запрашиваем ПОЛНЫЙ список призов чекпоинта для модалки
                  detailedData = await makeApiRequest('/api/v1/admin/checkpoint_rewards/details'); // <-- НУЖЕН НОВЫЙ БЭКЕНД ЭНДПОИНТ!
                 renderFunction = renderCheckpointPrizes; // Используем существующую
+                // 👇👇👇 ВСТАВИТЬ ЭТОТ БЛОК 👇👇👇
+            } else if (type === 'advent_prizes') {
+                // Используем тот же эндпоинт, что и для ручных наград (или создадим новый)
+                // Важно: renderCheckpointPrizes отлично подходит для отображения (там есть имя, награда, трейд-ссылка)
+                detailedData = await makeApiRequest('/api/v1/admin/advent/pending_list', {}, 'POST', true);
+                renderFunction = renderCheckpointPrizes; 
+            // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
             } else {
                 throw new Error(`Неизвестный тип элемента: ${type}`);
             }
