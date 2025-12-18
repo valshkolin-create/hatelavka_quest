@@ -1434,10 +1434,17 @@
 </div>
       <div id="view-admin-advent" class="view hidden">
             <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Адвент Календарь</h1>
-                <div style="width: 60px;"></div>
-            </div>
+                <button class="back-button" data-view="view-admin-main">
+                    <i class="fa-solid fa-arrow-left"></i> Назад
+                </button>
+                
+                <h1 class="page-header-title">Адвент</h1>
+                
+                <button onclick="window.open('/advent', '_blank')" class="admin-action-btn" 
+                        style="width: auto; padding: 8px 12px; font-size: 13px; display: flex; gap: 6px; align-items: center; background-color: rgba(255, 215, 0, 0.1); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3);">
+                    <i class="fa-solid fa-eye"></i> <span style="font-weight: 600;">Открыть</span>
+                </button>
+                </div>
 
             <section class="admin-section" style="padding: 0 15px;">
                 <div class="quest-card" style="margin-bottom: 20px;">
