@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Адвент Календарь</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
         :root {
             --bg-color: #000000;
@@ -15,7 +15,6 @@
             --success: #32d74b; /* Зеленый */
             --text-color: #ffffff;
             --text-muted: #8e8e93;
-            --surface-glass: rgba(28, 28, 30, 0.85);
         }
 
         body {
@@ -214,25 +213,65 @@
 
         @keyframes popIn { from { transform: scale(0) rotate(-10deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
 
-        /* --- Footer (1 в 1 как в Shop) --- */
+        /* --- ФУТЕР (1В1 КАК В SHOP.HTML) --- */
         .app-footer {
-            display: flex; justify-content: space-around; align-items: center;
-            background-color: var(--surface-glass);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background-color: rgba(28, 28, 30, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            z-index: 999;
-            padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
-            box-sizing: border-box; height: auto;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 9999;
+            padding-top: 8px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            box-sizing: border-box;
+            height: auto;
+            touch-action: none;
         }
+
         .footer-item {
-            display: flex; flex-direction: column; align-items: center;
-            gap: 4px; color: #8E8E93; text-decoration: none;
-            flex: 1; background: none; border: none; padding: 0; cursor: pointer;
-            font-size: 10px; font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #8E8E93;
+            text-decoration: none;
+            flex: 1;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            line-height: 1;
+            font-weight: 500;
+            transition: color 0.1s ease;
         }
-        .footer-item.active { color: #ffffff; }
-        .footer-item .icon-wrapper { font-size: 22px; }
+
+        .footer-item .icon-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 24px;
+            height: 24px;
+            font-size: 22px;
+            position: relative;
+        }
+
+        .footer-item:active { color: #ffffff; }
+
+        .footer-item.active { color: #FFFFFF; }
+        .footer-item.active .icon-wrapper {
+            color: #34c759;
+            text-shadow: 0 0 10px rgba(52, 199, 89, 0.4);
+        }
 
     </style>
 </head>
@@ -275,24 +314,28 @@
         </div>
     </div>
 
-    <div class="app-footer">
-        <button class="footer-item" onclick="window.location.href='/'">
+    <footer class="app-footer">
+        <a href="/leaderboard" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+            <span>Лидерборд</span>
+        </a>
+        <a href="/menu#quests" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
+            <span>Задания</span>
+        </a>
+        <a href="/menu" class="footer-item">
             <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
             <span>Главная</span>
-        </button>
-        <button class="footer-item" onclick="window.location.href='/shop'">
-            <div class="icon-wrapper"><i class="fa-solid fa-shop"></i></div>
-            <span>Магазин</span>
-        </button>
-        <button class="footer-item active" onclick="window.location.href='/advent'">
-            <div class="icon-wrapper"><i class="fa-solid fa-calendar-star"></i></div>
-            <span>Адвент</span>
-        </button>
-        <button class="footer-item" onclick="window.location.href='/profile'">
-            <div class="icon-wrapper"><i class="fa-regular fa-user"></i></div>
-            <span>Профиль</span>
-        </button>
-    </div>
+        </a>
+        <a href="/events" class="footer-item active">
+            <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
+            <span>Гринд</span>
+        </a>
+        <a href="/auction" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
+            <span>Аукцион</span>
+        </a>
+    </footer>
 
     <script>
         const tg = window.Telegram.WebApp;
