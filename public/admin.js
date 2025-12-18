@@ -5325,7 +5325,6 @@ async function main() {
         }
     };
 
-}); // Закрываем DOMContentLoaded (если он был открыт выше)
 } catch (e) {
     console.error("Admin init error:", e);
 }
