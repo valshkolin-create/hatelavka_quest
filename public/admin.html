@@ -100,6 +100,10 @@
                         <div class="icon-wrapper" style="color: #ff9500;"><i class="fa-solid fa-hat-wizard"></i></div>
                         <span>Ивент "Котел"</span>
                     </div>
+                  <div class="admin-icon-button" data-view="view-admin-advent">
+                        <div class="icon-wrapper" style="color: #ff4757;"><i class="fa-solid fa-calendar-days"></i></div>
+                        <span>Адвент</span>
+                    </div>
                   <div class="admin-icon-button" data-view="view-admin-auctions">
                     <div class="icon-wrapper" style="color: #AC87C5;"><i class="fa-solid fa-gavel"></i></div>
                     <span>Аукционы</span>
@@ -1428,6 +1432,49 @@
         </div>
     </div>
 </div>
+      <div id="view-admin-advent" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Адвент Календарь</h1>
+                <div style="width: 60px;"></div>
+            </div>
+
+            <section class="admin-section" style="padding: 0 15px;">
+                <div class="quest-card" style="margin-bottom: 20px;">
+                    <h3>🎁 Пул Наград (Лутбокс)</h3>
+                    <p style="font-size:13px; color: var(--text-color-muted); margin-bottom:15px;">
+                        Эти предметы выпадают случайно при открытии любой ячейки.
+                    </p>
+                    
+                    <form id="add-advent-item-form" class="admin-form" style="margin-bottom: 20px; border-bottom: 1px solid var(--divider-glass-color); padding-bottom: 20px;">
+                        <label>Название скина</label>
+                        <input type="text" name="name" placeholder="Напр. AWP | Asiimov" required>
+                        
+                        <label>Ссылка на картинку</label>
+                        <input type="text" name="image_url" placeholder="https://..." required>
+                        
+                        <label>Вес шанса (10 = стандарт)</label>
+                        <input type="number" name="chance_weight" value="10" required>
+                        
+                        <button type="submit" class="admin-action-btn confirm" style="margin-top: 10px;">Добавить в пул</button>
+                    </form>
+                    
+                    <div id="advent-items-list" class="items-grid" style="display: flex; flex-direction: column; gap: 10px;">
+                        <p style="text-align:center; color:#777;">Загрузка...</p>
+                    </div>
+                </div>
+
+                <div class="quest-card">
+                    <h3>📅 Задания по дням</h3>
+                    <p style="font-size:13px; color: var(--text-color-muted); margin-bottom:15px;">
+                        Настрой условия открытия ячеек.
+                    </p>
+                    <div id="advent-days-list" style="display: flex; flex-direction: column; gap: 15px;">
+                        <p style="text-align:center; color:#777;">Загрузка...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
         </main>
   
     <div id="weekly-goal-entity-select-modal" class="modal-overlay hidden">
