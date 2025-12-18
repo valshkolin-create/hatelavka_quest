@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Адвент Календарь</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="fontawesome/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0f0f13;
+            --card-bg: #1e1e24;
+            --primary: #ffd700; /* Золотой */
+            --accent: #ff4757; /* Красный (сгорел) */
+            --success: #2ed573; /* Зеленый (получено) */
+            --text-color: #ffffff;
+            --text-muted: #aaaaaa;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 40px;
+        }
+
+        /* --- Header --- */
+        .advent-header {
+            text-align: center;
+            padding: 20px;
+            background: radial-gradient(circle at center, rgba(255, 215, 0, 0.15) 0%, transparent 70%);
+            margin-bottom: 10px;
+        }
+
+        .advent-header h1 {
+            margin: 0;
+            font-size: 26px;
+            background: linear-gradient(45deg, #ffd700, #ffa500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .advent-header p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        /* --- Grid --- */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5 дней в ряд */
+            gap: 10px;
+            padding: 15px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .day-card {
+            aspect-ratio: 1;
+            background: var(--card-bg);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.1s, border-color 0.2s;
+        }
+
+        .day-card:active { transform: scale(0.95); }
+
+        .day-number {
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 2;
+        }
+
+        .day-icon {
+            font-size: 14px;
+            margin-top: 4px;
+            z-index: 2;
+        }
+
+        /* --- States --- */
+        .day-card.locked { opacity: 0.4; cursor: default; }
+        .day-card.locked .day-icon { color: #555; }
+
+        .day-card.burned {
+            background: rgba(255, 71, 87, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .day-card.active {
+            border-color: #555;
+            background: linear-gradient(135deg, #1e1e24 0%, #2a2a30 100%);
+        }
+
+        .day-card.ready {
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+            animation: pulse 2s infinite;
+        }
+        .day-card.ready .day-number { color: var(--primary); }
+        .day-card.ready .day-icon { color: var(--primary); }
+
+        .day-card.claimed {
+            background: rgba(46, 213, 115, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+
+        .modal-content {
+            background: #1a1a1d;
+            width: 85%;
+            max-width: 320px;
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid #333;
+            transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+
+        .modal-header h2 { margin: 0; font-size: 22px; color: var(--text-color); }
+        .modal-header p { font-size: 14px; color: var(--text-muted); margin: 5px 0 0; }
+
+        .task-box {
+            background: #25252b;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .progress-container {
+            height: 6px; background: #333; border-radius: 3px;
+            margin-top: 10px; overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%; background: var(--success); width: 0%;
+            transition: width 0.5s ease;
+        }
+        .progress-text { font-size: 11px; color: #888; margin-top: 5px; display: block; }
+
+        .claim-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-ready {
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            color: #000;
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+        }
+        .btn-ready:active { transform: scale(0.98); }
+
+        .btn-locked { background: #333; color: #777; cursor: not-allowed; }
+        
+        .close-btn {
+            position: absolute; top: 15px; right: 15px;
+            font-size: 24px; color: #666; cursor: pointer;
+        }
+
+        /* --- Reward Animation --- */
+        .reward-reveal { display: none; margin-top: 15px; animation: popIn 0.5s; }
+        .reward-img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 10px; }
+        .reward-name { color: var(--primary); font-weight: bold; font-size: 18px; }
+
+        /* --- Back Button --- */
+        .back-btn {
+            position: fixed; top: 15px; left: 15px;
+            background: rgba(255,255,255,0.1);
+            color: white; border: none; padding: 8px 15px;
+            border-radius: 20px; font-size: 14px;
+            cursor: pointer; backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.1); }
+            50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+            100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.1); }
+        }
+        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <button class="back-btn" onclick="window.location.href='index.html'">
+        <i class="fa-solid fa-arrow-left"></i> Меню
+    </button>
+
+    <div class="advent-header">
+        <h1>🎄 Advent</h1>
+        <p>Выполняй задания каждый день и получай призы!</p>
+    </div>
+
+    <div class="calendar-grid" id="grid">
+        <div style="color: #666; grid-column: 1/-1; text-align: center; padding: 20px;">Загрузка...</div>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            
+            <div class="modal-header">
+                <h2 id="modal-title">День 1</h2>
+                <p id="modal-desc">Описание задания...</p>
+            </div>
+
+            <div class="task-box">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 5px;">
+                    <i id="task-icon" class="fa-solid fa-star" style="color: var(--primary);"></i>
+                    <span id="task-target-text" style="font-weight: 500;">Напиши 100 сообщений</span>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <span class="progress-text" id="progress-text">0 / 100</span>
+            </div>
+
+            <div id="reward-reveal" class="reward-reveal">
+                <div style="font-size: 40px;">🎁</div>
+                <div class="reward-name" id="reward-name">???</div>
+                <p style="font-size: 12px; color: #888;">Заявка на выдачу создана</p>
+            </div>
+
+            <button id="action-btn" class="claim-btn btn-locked">Загрузка...</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let currentDayData = null;
+
+        document.addEventListener('DOMContentLoaded', loadCalendar);
+
+        async function loadCalendar() {
+            const grid = document.getElementById('grid');
+            
+            try {
+                // Если ты тестируешь в браузере, используй user_id заглушку
+                const userId = tg.initDataUnsafe?.user?.id || 796460006; 
+                
+                const response = await fetch(`/api/v1/advent/state?telegram_id=${userId}`, {
+                    headers: { 'Authorization': tg.initData }
+                });
+
+                if (!response.ok) throw new Error('Ошибка сети');
+                const data = await response.json();
+
+                renderGrid(data.calendar, data.current_day);
+
+            } catch (e) {
+                grid.innerHTML = `<div style="color:var(--accent); grid-column: 1/-1; text-align:center;">Ошибка: ${e.message}</div>`;
+            }
+        }
+
+        function renderGrid(days, currentDay) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            days.forEach(day => {
+                const card = document.createElement('div');
+                card.className = `day-card ${day.status}`;
+                
+                let iconClass = 'fa-solid fa-lock'; // locked
+                if (day.status === 'burned') iconClass = 'fa-solid fa-fire';
+                else if (day.status === 'claimed') iconClass = 'fa-solid fa-check';
+                else if (day.status === 'ready') iconClass = 'fa-solid fa-gift';
+                else if (day.status === 'active') iconClass = 'fa-regular fa-clock';
+
+                card.innerHTML = `
+                    <div class="day-number">${day.day}</div>
+                    <i class="day-icon ${iconClass}"></i>
+                `;
+
+                card.onclick = () => openModal(day);
+                grid.appendChild(card);
+            });
+        }
+
+        function openModal(day) {
+            currentDayData = day;
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+            const taskText = document.getElementById('task-target-text');
+            const btn = document.getElementById('action-btn');
+            const pBar = document.getElementById('progress-bar');
+            const pText = document.getElementById('progress-text');
+            const rewardBox = document.getElementById('reward-reveal');
+            const taskBox = document.querySelector('.task-box');
+
+            title.innerText = `День ${day.day}`;
+            desc.innerText = day.description || "Выполни задание дня!";
+            
+            // Настройка задачи
+            const target = day.target || 1;
+            const progress = day.progress || 0;
+            const percent = Math.min(100, Math.max(0, (progress / target) * 100));
+            
+            pBar.style.width = `${percent}%`;
+            pText.innerText = `${progress} / ${target}`;
+            
+            // Формирование текста задания
+            let typeText = "Задание";
+            // day.config может отсутствовать, если статус locked/burned, берем из корня
+            const taskType = day.config ? day.config.task_type : (day.task_type || 'unknown');
+            
+            if (taskType === 'messages') typeText = `Напиши ${target} сообщений`;
+            else if (taskType === 'uptime') typeText = `Смотри стрим ${target} мин.`;
+            else if (taskType === 'challenge') typeText = `Выполни 1 челлендж`;
+            
+            taskText.innerText = typeText;
+
+            // Сброс состояния награды
+            rewardBox.style.display = 'none';
+            taskBox.style.display = 'block';
+
+            // Настройка кнопки
+            btn.className = "claim-btn btn-locked";
+            btn.onclick = null;
+
+            if (day.status === 'locked') {
+                btn.innerText = "Рано";
+            } else if (day.status === 'burned') {
+                btn.innerText = "День сгорел 🔥";
+            } else if (day.status === 'claimed') {
+                btn.innerText = "Уже получено ✅";
+                btn.className = "claim-btn btn-locked"; // Просто стиль
+                rewardBox.style.display = 'block';
+                document.getElementById('reward-name').innerText = day.reward_received || "Награда";
+                taskBox.style.display = 'none'; // Прячем прогресс, если уже забрал
+            } else if (day.status === 'ready') {
+                btn.innerText = "ЗАБРАТЬ НАГРАДУ";
+                btn.className = "claim-btn btn-ready";
+                btn.onclick = () => claimReward(day.day);
+            } else {
+                // Active
+                btn.innerText = "В процессе...";
+            }
+
+            modal.classList.add('visible');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('visible');
+        }
+
+        async function claimReward(dayId) {
+            const btn = document.getElementById('action-btn');
+            btn.innerText = "Открываем...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/v1/advent/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        day_id: dayId
+                    })
+                });
+
+                const res = await response.json();
+
+                if (response.ok) {
+                    // Успех
+                    document.querySelector('.task-box').style.display = 'none';
+                    const rewardBox = document.getElementById('reward-reveal');
+                    rewardBox.style.display = 'block';
+                    document.getElementById('reward-name').innerText = res.reward;
+                    
+                    btn.innerText = "ГОТОВО!";
+                    btn.className = "claim-btn btn-locked";
+                    
+                    // Обновляем фон
+                    loadCalendar();
+                } else {
+                    tg.showAlert(res.detail || "Ошибка");
+                    btn.innerText = "Ошибка";
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                tg.showAlert("Ошибка соединения");
+                btn.innerText = "Повторить";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
