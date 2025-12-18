@@ -1434,6 +1434,19 @@
 </div>
       <div id="view-admin-advent" class="view hidden">
             <div class="page-header">
+              <div class="quest-card" style="margin: 15px 15px 20px 15px;">
+                <h3>⚙️ Настройки старта</h3>
+                <p style="font-size:13px; color: var(--text-color-muted); margin-bottom:10px;">
+                    Если дата не указана, День 1 = 1-е число месяца.
+                </p>
+                <div style="display:flex; gap:10px; align-items:flex-end;">
+                    <div style="flex:1;">
+                        <label style="font-size:12px; color:#aaa;">Дата начала (День 1)</label>
+                        <input type="date" id="advent-start-date-input" style="width:100%; background:#333; color:white; border:1px solid #444; padding:8px; border-radius:8px;">
+                    </div>
+                    <button onclick="saveAdventStartDate()" class="admin-action-btn" style="width:auto; height:38px;">Сохранить дату</button>
+                </div>
+            </div>
                 <button class="back-button" data-view="view-admin-main">
                     <i class="fa-solid fa-arrow-left"></i> Назад
                 </button>
