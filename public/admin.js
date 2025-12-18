@@ -5238,9 +5238,25 @@ async function main() {
                         <div>
                             <label style="font-size:10px; color:#aaa;">Тип задания</label>
                             <select id="adv-type-${day.day_id}" style="width:100%; background:#333; color:white; border:1px solid #444; padding:5px; border-radius:4px;">
-                                <option value="messages" ${day.task_type === 'messages' ? 'selected' : ''}>Сообщения (TG)</option>
-                                <option value="uptime" ${day.task_type === 'uptime' ? 'selected' : ''}>Аптайм (мин)</option>
-                                <option value="challenge" ${day.task_type === 'challenge' ? 'selected' : ''}>Челлендж (Любой)</option>
+                                <optgroup label="Twitch: Сообщения">
+                                    <option value="twitch_messages_daily" ${day.task_type === 'twitch_messages_daily' ? 'selected' : ''}>Дневные</option>
+                                    <option value="twitch_messages_weekly" ${day.task_type === 'twitch_messages_weekly' ? 'selected' : ''}>Недельные</option>
+                                    <option value="twitch_messages_monthly" ${day.task_type === 'twitch_messages_monthly' ? 'selected' : ''}>Месячные</option>
+                                </optgroup>
+                                <optgroup label="Twitch: Аптайм (минуты)">
+                                    <option value="twitch_uptime_daily" ${day.task_type === 'twitch_uptime_daily' ? 'selected' : ''}>Дневной</option>
+                                    <option value="twitch_uptime_weekly" ${day.task_type === 'twitch_uptime_weekly' ? 'selected' : ''}>Недельный</option>
+                                    <option value="twitch_uptime_monthly" ${day.task_type === 'twitch_uptime_monthly' ? 'selected' : ''}>Месячный</option>
+                                </optgroup>
+                                <optgroup label="Telegram: Сообщения">
+                                    <option value="tg_messages_daily" ${day.task_type === 'tg_messages_daily' ? 'selected' : ''}>Дневные</option>
+                                    <option value="tg_messages_weekly" ${day.task_type === 'tg_messages_weekly' ? 'selected' : ''}>Недельные</option>
+                                    <option value="tg_messages_monthly" ${day.task_type === 'tg_messages_monthly' ? 'selected' : ''}>Месячные</option>
+                                </optgroup>
+                                <optgroup label="Разное">
+                                    <option value="challenge_daily" ${day.task_type === 'challenge_daily' ? 'selected' : ''}>Челлендж (сегодня)</option>
+                                    <option value="challenges_total" ${day.task_type === 'challenges_total' ? 'selected' : ''}>Всего челленджей</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div>
@@ -5253,22 +5269,33 @@ async function main() {
                 </div>
             `).join('');
         }
-    }
 
-    // Делаем функции глобальными, чтобы onclick="..." в HTML их видел
-    window.deleteAdventItem = async (id) => {
-        tg.showConfirm('Удалить этот предмет из лутбокса?', async (ok) => {
-            if (ok) {
-                try {
-                    await makeApiRequest('/api/v1/admin/advent/items/delete', { item_id: id });
-                    loadAdventSettings();
-                } catch (e) {
-                    tg.showAlert(e.message);
-                }
+        // 3. Загружаем дату старта
+        try {
+            const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+            const input = document.getElementById('advent-start-date-input');
+            if (input) {
+                input.value = settings.advent_start_date || '';
             }
-        });
+        } catch (e) {
+            console.error("Ошибка загрузки даты адвента:", e);
+        }
+
+        // --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ АДВЕНТА ---
+
+    // 1. Удаление предмета из лутбокса
+    window.deleteAdventItem = async (id) => {
+        if(confirm('Удалить этот предмет?')) {
+            try {
+                await makeApiRequest('/api/v1/admin/advent/items/delete', { item_id: id });
+                loadAdventSettings(); // Обновляем список
+            } catch (e) {
+                tg.showAlert(e.message);
+            }
+        }
     };
 
+    // 2. Сохранение настроек одного дня
     window.saveAdventDay = async (id) => {
         try {
             await makeApiRequest('/api/v1/admin/advent/days/update', {
@@ -5277,7 +5304,22 @@ async function main() {
                 task_target: parseInt(document.getElementById(`adv-target-${id}`).value),
                 description: document.getElementById(`adv-desc-${id}`).value
             });
-            tg.showPopup({ message: `День ${id} сохранен!` });
+            tg.showAlert(`День ${id} сохранен!`);
+        } catch (e) {
+            tg.showAlert(`Ошибка: ${e.message}`);
+        }
+    };
+
+    // 3. Сохранение даты старта (то, что мы обсуждали)
+    window.saveAdventStartDate = async () => {
+        const dateInput = document.getElementById('advent-start-date-input');
+        const newDate = dateInput.value; 
+
+        try {
+            const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+            currentSettings.advent_start_date = newDate || null;
+            await makeApiRequest('/api/v1/admin/settings/update', { settings: currentSettings });
+            tg.showAlert('Дата старта сохранена!');
         } catch (e) {
             tg.showAlert(`Ошибка: ${e.message}`);
         }
