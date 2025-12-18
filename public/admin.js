@@ -5280,22 +5280,23 @@ async function main() {
         } catch (e) {
             console.error("Ошибка загрузки даты адвента:", e);
         }
+    }
 
-        // --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ АДВЕНТА ---
+    // --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ АДВЕНТА ---
 
-    // 1. Удаление предмета из лутбокса
+    // 1. Удаление предмета
     window.deleteAdventItem = async (id) => {
         if(confirm('Удалить этот предмет?')) {
             try {
                 await makeApiRequest('/api/v1/admin/advent/items/delete', { item_id: id });
-                loadAdventSettings(); // Обновляем список
+                loadAdventSettings();
             } catch (e) {
                 tg.showAlert(e.message);
             }
         }
     };
 
-    // 2. Сохранение настроек одного дня
+    // 2. Сохранение дня
     window.saveAdventDay = async (id) => {
         try {
             await makeApiRequest('/api/v1/admin/advent/days/update', {
@@ -5310,7 +5311,7 @@ async function main() {
         }
     };
 
-    // 3. Сохранение даты старта (то, что мы обсуждали)
+    // 3. Сохранение даты старта
     window.saveAdventStartDate = async () => {
         const dateInput = document.getElementById('advent-start-date-input');
         const newDate = dateInput.value; 
@@ -5324,6 +5325,11 @@ async function main() {
             tg.showAlert(`Ошибка: ${e.message}`);
         }
     };
+
+}); // Закрываем DOMContentLoaded (если он был открыт выше)
+} catch (e) {
+    console.error("Admin init error:", e);
+}
     
     document.addEventListener("DOMContentLoaded", () => {
         tg.ready();
