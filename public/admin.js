@@ -4981,6 +4981,7 @@ if(dom.createRoulettePrizeForm) {
                 }
             });
         }
+    } // <--- 🟢 ДОБАВЬ ВОТ ЭТУ СКОБКУ 🟢
 
     function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
