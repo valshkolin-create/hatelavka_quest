@@ -629,6 +629,27 @@ class CauldronRewardStatusRequest(BaseModel):
     user_id: int
     is_sent: bool
 
+class AdventDayUpdate(BaseModel):
+    initData: str
+    day_id: int
+    task_type: str
+    task_target: int
+    description: str
+
+class AdventLootItemCreate(BaseModel):
+    initData: str
+    name: str
+    image_url: str
+    chance_weight: int
+
+class AdventLootItemDelete(BaseModel):
+    initData: str
+    item_id: int
+
+class AdventClaimRequest(BaseModel):
+    initData: str
+    day_id: int
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -10484,6 +10505,163 @@ async def send_test_notification_api(
     background_tasks.add_task(safe_send_message, telegram_id, msg)
     
     return {"status": "sent"}
+
+# --- ADVENT CALENDAR ENDPOINTS ---
+
+@app.get("/api/v1/advent/state")
+async def get_advent_state(telegram_id: int, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Возвращает состояние календаря для юзера."""
+    # 1. Текущий день (можно добавить смещение, если ивент в другом месяце)
+    now = datetime.now(timezone(timedelta(hours=3))) # МСК время
+    # Если сейчас не Декабрь, можно для тестов использовать now.day
+    current_day_num = now.day 
+    
+    # 2. Получаем конфиг дней и прогресс
+    days_resp = await supabase.get("/advent_calendar_days", params={"order": "day_id.asc"})
+    progress_resp = await supabase.get("/user_advent_progress", params={"user_id": f"eq.{telegram_id}"})
+    
+    # 3. Получаем статистику юзера за СЕГОДНЯ
+    user_stats_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "daily_message_count, daily_uptime_minutes, last_challenge_completed_at"})
+    
+    days_config = days_resp.json() if days_resp.status_code == 200 else []
+    claimed_days = {item['day_id'] for item in (progress_resp.json() if progress_resp.status_code == 200 else [])}
+    user_stats = user_stats_resp.json()[0] if user_stats_resp.json() else {}
+
+    calendar = []
+    
+    for day in days_config:
+        d_id = day['day_id']
+        status = "locked"
+        progress_val = 0
+        target = day['task_target']
+        
+        # Логика статусов
+        if d_id < current_day_num:
+            status = "claimed" if d_id in claimed_days else "burned"
+        elif d_id == current_day_num:
+            if d_id in claimed_days:
+                status = "claimed"
+            else:
+                # Проверка выполнения задания
+                t_type = day['task_type']
+                if t_type == 'messages':
+                    val = user_stats.get('daily_message_count', 0)
+                    progress_val = min(val, target)
+                    status = "ready" if val >= target else "active"
+                elif t_type == 'uptime':
+                    val = user_stats.get('daily_uptime_minutes', 0)
+                    progress_val = min(val, target)
+                    status = "ready" if val >= target else "active"
+                elif t_type == 'challenge':
+                    # Проверяем, был ли челлендж сегодня
+                    last_comp = user_stats.get('last_challenge_completed_at')
+                    is_today = False
+                    if last_comp:
+                        last_date = datetime.fromisoformat(last_comp.replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=3))).date()
+                        if last_date == now.date():
+                            is_today = True
+                    progress_val = 1 if is_today else 0
+                    status = "ready" if is_today else "active"
+        else:
+            status = "locked"
+
+        calendar.append({
+            "day": d_id,
+            "status": status,
+            "description": day['description'],
+            "progress": progress_val,
+            "target": target
+        })
+        
+    return {"calendar": calendar, "current_day": current_day_num}
+
+@app.post("/api/v1/advent/claim")
+async def claim_advent_day(
+    request_data: AdventClaimRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    telegram_id = user_info['id']
+    day_id = request_data.day_id
+    
+    # 1. Проверки (день, повтор)
+    now = datetime.now(timezone(timedelta(hours=3)))
+    if day_id != now.day:
+        raise HTTPException(status_code=400, detail="Этот день нельзя открыть сегодня.")
+        
+    check_dup = await supabase.get("/user_advent_progress", params={"user_id": f"eq.{telegram_id}", "day_id": f"eq.{day_id}"})
+    if check_dup.json():
+        raise HTTPException(status_code=400, detail="Уже получено.")
+
+    # 2. Розыгрыш приза (Лутбокс)
+    loot_resp = await supabase.get("/advent_loot_items", params={"is_active": "eq.true"})
+    items = loot_resp.json()
+    
+    if not items:
+        reward_name = "Секретный приз (обратитесь к админу)"
+    else:
+        # Взвешенный рандом
+        weights = [item['chance_weight'] for item in items]
+        winner_item = random.choices(items, weights=weights, k=1)[0]
+        reward_name = winner_item['name']
+
+    # 3. Сохранение
+    # А) В прогресс (чтобы закрыть день)
+    await supabase.post("/user_advent_progress", json={
+        "user_id": telegram_id, "day_id": day_id, "reward_received": reward_name
+    })
+    
+    # Б) В админку на выдачу (manual_rewards)
+    # Используем source_type='advent', чтобы отловить в админке
+    await supabase.post("/manual_rewards", json={
+        "user_id": telegram_id,
+        "status": "pending",
+        "reward_details": reward_name,
+        "source_type": "advent", 
+        "source_description": f"Адвент: День {day_id}"
+    })
+    
+    return {"message": "Награда получена!", "reward": reward_name}
+
+# --- Админские ручки ---
+
+@app.post("/api/v1/admin/advent/items/add")
+async def add_advent_item(req: AdventLootItemCreate, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    await supabase.post("/advent_loot_items", json=req.dict(exclude={'initData'}))
+    return {"success": True}
+
+@app.post("/api/v1/admin/advent/items/delete")
+async def delete_advent_item(req: AdventLootItemDelete, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    await supabase.delete("/advent_loot_items", params={"id": f"eq.{req.item_id}"})
+    return {"success": True}
+
+@app.post("/api/v1/admin/advent/days/update")
+async def update_advent_day(req: AdventDayUpdate, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    await supabase.patch("/advent_calendar_days", params={"day_id": f"eq.{req.day_id}"}, json={
+        "task_type": req.task_type, "task_target": req.task_target, "description": req.description
+    })
+    return {"success": True}
+    
+@app.post("/api/v1/admin/advent/items/list")
+async def list_advent_items(req: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    r = await supabase.get("/advent_loot_items", params={"order": "id.desc"})
+    return r.json()
+    
+@app.post("/api/v1/admin/advent/days/list")
+async def list_advent_days(req: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    r = await supabase.get("/advent_calendar_days", params={"order": "day_id.asc"})
+    return r.json()
 
 
 
