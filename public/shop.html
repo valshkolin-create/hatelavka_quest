@@ -846,6 +846,42 @@
         </div>
     </div>
 
+    <div class="shop-actions" style="padding: 0 16px; margin-bottom: 15px;">
+    <button onclick="openP2PModal()" class="action-btn" style="width:100%; background: linear-gradient(45deg, #6a11cb, #2575fc); border:none;">
+        <i class="fa-solid fa-briefcase"></i> Обменять кейсы на монеты
+    </button>
+</div>
+
+<div id="p2p-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Продажа кейсов</h3>
+            <button onclick="closeP2PModal()" class="close-modal"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <label>Выберите кейс:</label>
+            <select id="p2p-case-select" onchange="calculateP2P()" style="width:100%; padding:10px; background:#333; color:#fff; border-radius:8px; margin-bottom:10px;">
+                <option value="">Загрузка...</option>
+            </select>
+            
+            <label>Количество:</label>
+            <input type="number" id="p2p-quantity" value="1" min="1" oninput="calculateP2P()" style="width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px; margin-bottom:10px;">
+            
+            <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                <p>Цена за шт: <span id="p2p-price-per-item" style="color:#ffcc00">0</span></p>
+                <p><strong>Итого получите: <span id="p2p-total" style="color:#ffcc00; font-size:18px;">0</span> монет</strong></p>
+            </div>
+
+            <button onclick="createP2PTrade()" class="action-btn btn-buy" style="width:100%">Создать заявку</button>
+            
+            <hr style="border: 1px solid #444; margin: 20px 0;">
+            
+            <h4>Мои активные сделки</h4>
+            <div id="my-p2p-trades"></div>
+        </div>
+    </div>
+</div>
+
     <script>
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
