@@ -824,6 +824,10 @@ const showLoader = () => {
                     await loadAdventSettings();
                     break;
                 }
+                case 'view-admin-p2p': {
+                    await loadP2PTrades();
+                    break;
+                }
                 case 'view-admin-cauldron': {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
@@ -5442,3 +5446,96 @@ async function deleteCase(id) {
     await makeApiRequest('/api/v1/admin/p2p/case/delete', { case_id: id });
     loadP2PSettingsList();
 }
+// --- P2P TRADES FUNCTIONS (Список заявок) ---
+
+async function loadP2PTrades() {
+    // Проверяем, существует ли контейнер
+    const container = document.getElementById('p2p-list');
+    if (!container) return; 
+    
+    container.innerHTML = '<p style="text-align:center;">Загрузка заявок...</p>';
+    
+    try {
+        const list = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+        
+        container.innerHTML = '';
+        
+        if (!list || list.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных заявок</div>';
+            return;
+        }
+
+        list.forEach(trade => {
+            let actionBtn = '';
+            
+            // Логика кнопок в зависимости от статуса
+            if (trade.status === 'pending') {
+                actionBtn = `<button onclick="approveP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px;">Принять и дать ссылку</button>`;
+            } else if (trade.status === 'review') {
+                actionBtn = `<button onclick="completeP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px;">Подтвердить получение</button>`;
+            } else {
+                actionBtn = `<div style="margin-top:10px; text-align:center;"><span class="status-badge ${trade.status}">${trade.status}</span></div>`;
+            }
+
+            const html = `
+                <div class="quest-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="font-weight:bold; font-size:16px;">${escapeHTML(trade.user.full_name)}</div>
+                        <div style="background:rgba(255,204,0,0.1); color:#ffcc00; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:bold;">
+                            ${trade.total_coins} 🟡
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex; gap:12px; margin-bottom:12px;">
+                        <img src="${escapeHTML(trade.case.image_url)}" style="width:60px; height:60px; object-fit:contain; background:#1c1c1e; border-radius:8px; border:1px solid #333;">
+                        <div style="display:flex; flex-direction:column; justify-content:center;">
+                            <div style="color:#fff; font-weight:500;">${escapeHTML(trade.case.case_name)}</div>
+                            <div style="color:#888; font-size:13px;">Количество: <span style="color:#fff;">x${trade.quantity}</span></div>
+                        </div>
+                    </div>
+
+                    <div style="background:#1c1c1e; padding:8px; border-radius:8px; font-size:12px; margin-bottom:10px;">
+                        <div style="color:#888; margin-bottom:4px;">Трейд ссылка пользователя:</div>
+                        <a href="${escapeHTML(trade.user.trade_link)}" target="_blank" style="color:#2575fc; word-break:break-all; text-decoration:none;">
+                            ${escapeHTML(trade.user.trade_link)} <i class="fa-solid fa-external-link-alt" style="font-size:10px;"></i>
+                        </a>
+                    </div>
+
+                    ${actionBtn}
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    } catch (e) {
+        console.error("Ошибка загрузки P2P:", e);
+        container.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
+    }
+}
+
+// Глобальные функции для кнопок (должны быть доступны из HTML onclick)
+window.approveP2P = async function(id) {
+    const link = prompt("Введите вашу трейд-ссылку для приема кейсов:");
+    if (link) {
+        try {
+            await makeApiRequest('/api/v1/admin/p2p/approve', { trade_id: id, trade_link: link });
+            tg.showAlert("Трейд запущен! Пользователь уведомлен.");
+            loadP2PTrades();
+        } catch (e) {
+            tg.showAlert("Ошибка: " + e.message);
+        }
+    }
+};
+
+window.completeP2P = async function(id) {
+    tg.showConfirm("Вы точно получили кейсы? Монеты будут начислены пользователю.", async (ok) => {
+        if (ok) {
+            try {
+                const res = await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: id });
+                tg.showAlert(res.message);
+                loadP2PTrades();
+            } catch (e) {
+                tg.showAlert("Ошибка: " + e.message);
+            }
+        }
+    });
+};
