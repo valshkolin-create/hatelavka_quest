@@ -5332,3 +5332,113 @@ async function main() {
         setupEventListeners();
         main();
     });
+
+// --- P2P LOGIC ---
+
+// 1. Уведомления (Бейджик)
+async function updateP2PBadge() {
+    try {
+        const list = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+        // Считаем заявки "pending"
+        const count = list.filter(t => t.status === 'pending').length;
+        
+        const badge = document.getElementById('p2p-badge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.classList.add('show');
+            } else {
+                badge.classList.remove('show');
+            }
+        }
+    } catch (e) { console.error(e); }
+}
+
+// Запускаем проверку каждые 10 секунд
+setInterval(updateP2PBadge, 10000);
+setTimeout(updateP2PBadge, 1000); // И сразу при старте
+
+
+// 2. Пароль
+function askP2PPassword() {
+    document.getElementById('p2p-password-modal').classList.remove('hidden');
+    document.getElementById('p2p-pass-input').value = '';
+    document.getElementById('p2p-pass-input').focus();
+}
+
+function closeP2PPass() {
+    document.getElementById('p2p-password-modal').classList.add('hidden');
+}
+
+function checkP2PPass() {
+    const pass = document.getElementById('p2p-pass-input').value;
+    
+    // !!! ПАРОЛЬ ТУТ (поменяй '1111' на свой) !!!
+    if (pass === '1111') { 
+        closeP2PPass();
+        switchView('view-admin-p2p-settings');
+        loadP2PSettingsList();
+    } else {
+        alert("Неверный пароль!");
+    }
+}
+
+
+// 3. Загрузка списка настроек
+async function loadP2PSettingsList() {
+    const container = document.getElementById('p2p-settings-list');
+    container.innerHTML = 'Загрузка...';
+    
+    const cases = await fetch('/api/v1/p2p/cases').then(r => r.json());
+    container.innerHTML = '';
+
+    cases.forEach(c => {
+        container.insertAdjacentHTML('beforeend', `
+            <div class="quest-card" style="margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="${c.image_url}" style="width:40px; height:40px; border-radius:5px; object-fit:cover;">
+                    <b style="flex-grow:1">${c.case_name}</b>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+                    <input type="number" id="price-${c.id}" value="${c.price_in_coins}" style="width:80px; padding:8px; background:#222; border:1px solid #444; color:white; border-radius:5px;">
+                    <button onclick="savePrice(${c.id})" class="admin-action-btn approve" style="padding:8px 15px; font-size:12px; height:auto;">Сохр.</button>
+                    <button onclick="deleteCase(${c.id})" class="admin-action-btn reject" style="padding:8px 15px; font-size:12px; margin-left:auto; height:auto;">Удалить</button>
+                </div>
+            </div>
+        `);
+    });
+}
+
+
+// 4. API Действия
+async function addNewCase() {
+    const name = document.getElementById('new-case-name').value;
+    const img = document.getElementById('new-case-img').value;
+    const price = document.getElementById('new-case-price').value;
+
+    if(!name || !price) return alert("Заполни название и цену!");
+
+    await makeApiRequest('/api/v1/admin/p2p/case/add', {
+        case_name: name, image_url: img || '', price_in_coins: parseInt(price)
+    });
+    
+    alert("Кейс добавлен!");
+    // Чистим поля
+    document.getElementById('new-case-name').value = '';
+    document.getElementById('new-case-price').value = '';
+    loadP2PSettingsList();
+}
+
+async function savePrice(id) {
+    const newPrice = document.getElementById(`price-${id}`).value;
+    await makeApiRequest('/api/v1/admin/p2p/case/update', {
+        case_id: id, price_in_coins: parseInt(newPrice)
+    });
+    alert("Цена обновлена");
+}
+
+async function deleteCase(id) {
+    if(!confirm("Удалить этот кейс?")) return;
+    await makeApiRequest('/api/v1/admin/p2p/case/delete', { case_id: id });
+    loadP2PSettingsList();
+}
