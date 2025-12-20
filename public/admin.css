@@ -1199,3 +1199,77 @@ input[type="datetime-local"] {
     display: none; /* Скрыт по умолчанию */
 }
 .badge-notify.show { display: flex; }
+/* --- ИСПРАВЛЕНИЕ БЕЙДЖЕЙ (УВЕДОМЛЕНИЙ) --- */
+/* Делаем позиционирование относительно иконки, а не всей кнопки */
+.admin-icon-button .icon-wrapper {
+    position: relative;
+    overflow: visible; /* Чтобы бейдж мог вылезать за пределы */
+}
+
+.notification-badge {
+    position: absolute;
+    top: -5px !important;    /* Поднимаем выше */
+    right: -5px !important;  /* Сдвигаем правее */
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    border-radius: 50%;
+    background-color: var(--danger-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px var(--surface-glass-bg); /* Обводка под цвет фона */
+    z-index: 10;
+}
+
+/* Скрываем, если класс hidden */
+.notification-badge.hidden {
+    display: none !important;
+}
+
+/* --- ИСПРАВЛЕНИЕ ОКНА ПАРОЛЯ P2P --- */
+/* Используем те же стили, что и для других модалок, если классы отличаются */
+.password-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 2000; /* Поверх всего */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.password-box {
+    background-color: #1c1c1e; /* Темный фон как у iOS */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 14px;
+    width: 80%;
+    max-width: 300px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.password-input {
+    width: 100%;
+    padding: 12px;
+    margin: 15px 0;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background-color: #333;
+    color: white;
+    font-size: 24px;
+    text-align: center;
+    letter-spacing: 5px;
+    box-sizing: border-box;
+}
+
+/* Прячем */
+.password-overlay.hidden {
+    display: none !important;
+}
