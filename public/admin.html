@@ -62,8 +62,8 @@
                         <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
                         <span>Промокоды</span>
                     </div>
-                  <div class="admin-icon-button" data-view="view-admin-p2p">
-                        <div class="icon-wrapper" style="color: #2575fc; position: relative;">
+                 <div class="admin-icon-button" data-view="view-admin-p2p">
+                        <div class="icon-wrapper" style="color: #2575fc;">
                             <i class="fa-solid fa-briefcase"></i>
                             <span id="p2p-badge" class="notification-badge hidden">0</span>
                         </div>
@@ -129,6 +129,7 @@
                 ⚙️ Настройки Кейсов
             </button>
         </div>
+    </div>
 
         <div id="p2p-list" class="quests-container"></div>
     </div>
@@ -1876,9 +1877,11 @@
     </div>
   <div id="p2p-password-modal" class="password-overlay hidden">
         <div class="password-box">
-            <h3>Вход в настройки</h3>
-            <p style="color:#888; font-size:12px;">Введите секретный код</p>
-            <input type="password" id="p2p-pass-input" class="password-input" placeholder="••••">
+            <h3 style="margin-top:0;">🔐 Вход в настройки</h3>
+            <p style="color:#888; font-size:13px; margin-bottom: 15px;">Введите код доступа к кейсам</p>
+            
+            <input type="password" id="p2p-pass-input" class="password-input" placeholder="••••" maxlength="4" inputmode="numeric">
+            
             <div style="display:flex; gap:10px; justify-content: center;">
                 <button onclick="closeP2PPass()" class="admin-action-btn" style="background:#444; width: auto; padding: 0 20px;">Отмена</button>
                 <button onclick="checkP2PPass()" class="admin-action-btn approve" style="width: auto; padding: 0 20px;">Войти</button>
