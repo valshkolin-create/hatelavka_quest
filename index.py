@@ -661,6 +661,23 @@ class P2PActionRequest(BaseModel):
     trade_id: int
     trade_link: Optional[str] = None # Только для админа (approve)
 
+# --- P2P SETTINGS MODELS ---
+class P2PCaseAddRequest(BaseModel):
+    initData: str
+    case_name: str
+    image_url: str
+    price_in_coins: int
+
+class P2PCaseEditRequest(BaseModel):
+    initData: str
+    case_id: int
+    price_in_coins: int
+    is_active: bool
+
+class P2PCaseDeleteRequest(BaseModel):
+    initData: str
+    case_id: int
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2550,6 +2567,51 @@ async def p2p_confirm_sent(
 
 # --- ADMIN P2P ---
 
+# 1. Добавить новый кейс
+@app.post("/api/v1/admin/p2p/case/add")
+async def admin_p2p_case_add(
+    request_data: P2PCaseAddRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    payload = {
+        "case_name": request_data.case_name,
+        "image_url": request_data.image_url,
+        "price_in_coins": request_data.price_in_coins,
+        "is_active": True
+    }
+    await supabase.post("/case_prices", json=payload)
+    return {"message": "Кейс добавлен"}
+
+# 2. Обновить кейс (цену или статус)
+@app.post("/api/v1/admin/p2p/case/update")
+async def admin_p2p_case_update(
+    request_data: P2PCaseEditRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    await supabase.patch(
+        "/case_prices", 
+        params={"id": f"eq.{request_data.case_id}"},
+        json={"price_in_coins": request_data.price_in_coins, "is_active": request_data.is_active}
+    )
+    return {"message": "Кейс обновлен"}
+
+# 3. Удалить кейс
+@app.post("/api/v1/admin/p2p/case/delete")
+async def admin_p2p_case_delete(
+    request_data: P2PCaseDeleteRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+
+    await supabase.delete("/case_prices", params={"id": f"eq.{request_data.case_id}"})
+    return {"message": "Кейс удален"}
 # 4. Админ: Список заявок
 @app.post("/api/v1/admin/p2p/list")
 async def admin_p2p_list(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
