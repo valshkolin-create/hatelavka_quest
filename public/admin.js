@@ -5473,9 +5473,21 @@ async function loadP2PTrades() {
         // 4. Проверяем, есть ли данные
         if (!list || list.length === 0) {
             container.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: #8E8E93; text-align: center;">
-                    <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.5;"></i>
-                    <p style="margin: 0;">Активных заявок нет</p>
+                <div style="
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: center; 
+                    justify-content: center; 
+                    padding: 60px 20px; 
+                    color: rgba(255,255,255,0.5); 
+                    text-align: center;
+                    border: 2px dashed rgba(255,255,255,0.1);
+                    border-radius: 12px;
+                    margin-top: 20px;
+                ">
+                    <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.7;"></i>
+                    <h3 style="margin: 0 0 5px; color: white;">Заявок пока нет</h3>
+                    <p style="margin: 0; font-size: 13px;">Как только пользователи создадут заявки на обмен, они появятся здесь.</p>
                 </div>`;
             return;
         }
