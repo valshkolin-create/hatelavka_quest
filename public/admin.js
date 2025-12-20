@@ -5449,55 +5449,77 @@ async function deleteCase(id) {
 // --- P2P TRADES FUNCTIONS (Список заявок) ---
 
 async function loadP2PTrades() {
-    // Проверяем, существует ли контейнер
-    const container = document.getElementById('p2p-list');
-    if (!container) return; 
+    console.log("[P2P] Запуск функции loadP2PTrades...");
     
-    container.innerHTML = '<p style="text-align:center;">Загрузка заявок...</p>';
+    // 1. Ищем контейнер
+    const container = document.getElementById('p2p-list');
+    if (!container) {
+        console.error("[P2P] Ошибка: Контейнер с id='p2p-list' не найден в HTML!");
+        tg.showAlert("Ошибка: В HTML не найден блок id='p2p-list'");
+        return;
+    }
+    
+    // 2. Показываем индикатор загрузки
+    container.innerHTML = '<div style="text-align:center; padding: 20px; color: #8E8E93;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка заявок...</div>';
     
     try {
+        // 3. Запрашиваем данные
+        console.log("[P2P] Отправка запроса к API...");
         const list = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+        console.log("[P2P] Ответ API:", list);
         
-        container.innerHTML = '';
+        container.innerHTML = ''; // Очищаем загрузку
         
+        // 4. Проверяем, есть ли данные
         if (!list || list.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных заявок</div>';
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: #8E8E93; text-align: center;">
+                    <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <p style="margin: 0;">Активных заявок нет</p>
+                </div>`;
             return;
         }
 
+        // 5. Рисуем карточки
         list.forEach(trade => {
             let actionBtn = '';
             
-            // Логика кнопок в зависимости от статуса
+            // Логика кнопок
             if (trade.status === 'pending') {
-                actionBtn = `<button onclick="approveP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px;">Принять и дать ссылку</button>`;
+                actionBtn = `<button onclick="approveP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px; background-color: #34c759;">Принять и дать ссылку</button>`;
             } else if (trade.status === 'review') {
-                actionBtn = `<button onclick="completeP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px;">Подтвердить получение</button>`;
+                actionBtn = `<button onclick="completeP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px; background-color: #007aff;">Подтвердить получение</button>`;
             } else {
-                actionBtn = `<div style="margin-top:10px; text-align:center;"><span class="status-badge ${trade.status}">${trade.status}</span></div>`;
+                actionBtn = `<div style="margin-top:10px; text-align:center;"><span class="status-badge ${trade.status}" style="padding: 4px 8px; border-radius: 4px; background: #333;">${trade.status}</span></div>`;
             }
 
+            // Безопасное получение данных (чтобы не было undefined)
+            const userName = escapeHTML(trade.user?.full_name || 'Неизвестный');
+            const tradeLink = escapeHTML(trade.user?.trade_link || '#');
+            const caseName = escapeHTML(trade.case?.case_name || 'Кейс');
+            const caseImg = trade.case?.image_url || '';
+
             const html = `
-                <div class="quest-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <div style="font-weight:bold; font-size:16px;">${escapeHTML(trade.user.full_name)}</div>
-                        <div style="background:rgba(255,204,0,0.1); color:#ffcc00; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:bold;">
-                            ${trade.total_coins} 🟡
+                <div class="quest-card" style="background: #1c1c1e; padding: 15px; margin-bottom: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-weight:bold; font-size:16px; color: white;">${userName}</div>
+                        <div style="background:rgba(255,204,0,0.15); color:#ffcc00; padding:4px 8px; border-radius:8px; font-size:13px; font-weight:bold;">
+                            +${trade.total_coins} 🟡
                         </div>
                     </div>
                     
-                    <div style="display:flex; gap:12px; margin-bottom:12px;">
-                        <img src="${escapeHTML(trade.case.image_url)}" style="width:60px; height:60px; object-fit:contain; background:#1c1c1e; border-radius:8px; border:1px solid #333;">
-                        <div style="display:flex; flex-direction:column; justify-content:center;">
-                            <div style="color:#fff; font-weight:500;">${escapeHTML(trade.case.case_name)}</div>
-                            <div style="color:#888; font-size:13px;">Количество: <span style="color:#fff;">x${trade.quantity}</span></div>
+                    <div style="display:flex; gap:12px; margin-bottom:12px; align-items: center;">
+                        <img src="${caseImg}" style="width:50px; height:50px; object-fit:contain; background:#2c2c2e; border-radius:8px; border: 1px solid #3a3a3c;">
+                        <div style="display:flex; flex-direction:column;">
+                            <div style="color:#fff; font-weight:500; font-size: 14px;">${caseName}</div>
+                            <div style="color:#8E8E93; font-size:12px;">Количество: <span style="color:#fff;">x${trade.quantity}</span></div>
                         </div>
                     </div>
 
-                    <div style="background:#1c1c1e; padding:8px; border-radius:8px; font-size:12px; margin-bottom:10px;">
-                        <div style="color:#888; margin-bottom:4px;">Трейд ссылка пользователя:</div>
-                        <a href="${escapeHTML(trade.user.trade_link)}" target="_blank" style="color:#2575fc; word-break:break-all; text-decoration:none;">
-                            ${escapeHTML(trade.user.trade_link)} <i class="fa-solid fa-external-link-alt" style="font-size:10px;"></i>
+                    <div style="background:#2c2c2e; padding:10px; border-radius:8px; font-size:12px; margin-bottom:5px;">
+                        <div style="color:#8E8E93; margin-bottom:4px;">Трейд ссылка:</div>
+                        <a href="${tradeLink}" target="_blank" style="color:#0a84ff; text-decoration:none; word-break: break-all; display: block;">
+                            ${tradeLink.substring(0, 40)}... <i class="fa-solid fa-external-link-alt"></i>
                         </a>
                     </div>
 
@@ -5506,13 +5528,14 @@ async function loadP2PTrades() {
             `;
             container.insertAdjacentHTML('beforeend', html);
         });
+        
     } catch (e) {
-        console.error("Ошибка загрузки P2P:", e);
-        container.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
+        console.error("[P2P] Ошибка загрузки:", e);
+        container.innerHTML = `<div style="text-align: center; color: #ff3b30; padding: 20px;">Ошибка загрузки: ${e.message}</div>`;
     }
 }
 
-// Глобальные функции для кнопок (должны быть доступны из HTML onclick)
+// Глобальные функции действий
 window.approveP2P = async function(id) {
     const link = prompt("Введите вашу трейд-ссылку для приема кейсов:");
     if (link) {
