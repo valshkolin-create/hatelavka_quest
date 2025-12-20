@@ -651,6 +651,16 @@ class AdventClaimRequest(BaseModel):
     initData: str
     day_id: int
 
+class P2PCreateRequest(BaseModel):
+    initData: str
+    case_id: int
+    quantity: int
+
+class P2PActionRequest(BaseModel):
+    initData: str
+    trade_id: int
+    trade_link: Optional[str] = None # Только для админа (approve)
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2478,6 +2488,154 @@ async def make_auction_bid(
             
         logging.warning(f"Ошибка ставки: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
+
+# --- P2P SYSTEM ---
+
+# 1. Получение списка кейсов и цен (Для магазина и Админки)
+@app.get("/api/v1/p2p/cases")
+async def get_p2p_cases(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    resp = await supabase.get("/case_prices", params={"is_active": "eq.true", "order": "price_in_coins.desc"})
+    return resp.json()
+
+# 2. Создание заявки пользователем
+@app.post("/api/v1/p2p/create")
+async def create_p2p_trade(
+    request_data: P2PCreateRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    
+    # Получаем цену кейса
+    case_resp = await supabase.get("/case_prices", params={"id": f"eq.{request_data.case_id}"})
+    cases = case_resp.json()
+    if not cases: raise HTTPException(status_code=400, detail="Кейс не найден")
+    
+    price = cases[0]['price_in_coins']
+    total_coins = price * request_data.quantity
+    
+    # Создаем сделку (таймер 30 мин ставится при одобрении админом, или сразу - зависит от логики. 
+    # По твоему ТЗ таймер дается "чтоб я подтвердил", значит ставим expires_at сразу)
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
+    
+    payload = {
+        "user_id": user_info['id'],
+        "case_id": request_data.case_id,
+        "quantity": request_data.quantity,
+        "total_coins": total_coins,
+        "status": "pending",
+        "expires_at": expires_at
+    }
+    
+    await supabase.post("/p2p_trades", json=payload)
+    return {"message": "Заявка создана! Ждите подтверждения админа."}
+
+# 3. Пользователь нажал "Я передал кейсы"
+@app.post("/api/v1/p2p/confirm_sent")
+async def p2p_confirm_sent(
+    request_data: P2PActionRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    
+    # Меняем статус на review
+    await supabase.patch(
+        "/p2p_trades", 
+        params={"id": f"eq.{request_data.trade_id}", "user_id": f"eq.{user_info['id']}"},
+        json={"status": "review"}
+    )
+    # Тут можно отправить уведомление админу в телеграм
+    return {"message": "Статус обновлен. Ожидайте проверки."}
+
+# --- ADMIN P2P ---
+
+# 4. Админ: Список заявок
+@app.post("/api/v1/admin/p2p/list")
+async def admin_p2p_list(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+    
+    # Получаем сделки вместе с данными юзера и кейса
+    resp = await supabase.get(
+        "/p2p_trades", 
+        params={
+            "select": "*, user:users(full_name, username, trade_link), case:case_prices(case_name, image_url)",
+            "order": "created_at.desc"
+        }
+    )
+    return resp.json()
+
+# 5. Админ: Подтвердить (начать трейд) и выдать ссылку
+@app.post("/api/v1/admin/p2p/approve")
+async def admin_p2p_approve(
+    request_data: P2PActionRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+    
+    # Обновляем таймер (сбрасываем на 30 мин с момента одобрения)
+    new_expires = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
+    
+    await supabase.patch(
+        "/p2p_trades",
+        params={"id": f"eq.{request_data.trade_id}"},
+        json={
+            "status": "active", 
+            "trade_url_given": request_data.trade_link,
+            "expires_at": new_expires
+        }
+    )
+    return {"message": "Трейд запущен"}
+
+# 6. Админ: Завершить (выдать монеты)
+@app.post("/api/v1/admin/p2p/complete")
+async def admin_p2p_complete(
+    request_data: P2PActionRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+    
+    # Получаем инфо о сделке
+    trade_resp = await supabase.get("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
+    trade = trade_resp.json()[0]
+    
+    if trade['status'] == 'completed': return {"message": "Уже выполнено"}
+    
+    # Начисляем монеты пользователю (получаем текущий баланс и плюсуем)
+    # Лучше сделать через RPC функцию в Supabase для атомарности, но можно и так:
+    user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{trade['user_id']}"})
+    current_coins = user_resp.json()[0]['coins']
+    new_coins = current_coins + trade['total_coins']
+    
+    await supabase.patch("/users", params={"telegram_id": f"eq.{trade['user_id']}"}, json={"coins": new_coins})
+    
+    # Закрываем сделку
+    await supabase.patch("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"}, json={"status": "completed"})
+    
+    return {"message": f"Выдано {trade['total_coins']} монет"}
+
+# 7. Получить список МОИХ сделок (для пользователя)
+@app.post("/api/v1/p2p/my_trades")
+async def get_my_p2p_trades(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    
+    # Запрашиваем сделки конкретного юзера
+    resp = await supabase.get(
+        "/p2p_trades", 
+        params={
+            "user_id": f"eq.{user_info['id']}",
+            "select": "*, case:case_prices(case_name)",
+            "order": "created_at.desc"
+        }
+    )
+    return resp.json()
         
 @app.get("/api/v1/auctions/history/{auction_id}")
 async def get_auction_history(
