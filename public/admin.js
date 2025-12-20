@@ -704,254 +704,240 @@ const showLoader = () => {
     };
 
     const switchView = async (targetViewId) => {
-    console.log(`[switchView] Начинаем для targetViewId = ${targetViewId}`);
+        console.log(`[switchView] Начинаем для targetViewId = ${targetViewId}`); // Лог входа
 
-    // --- Логика скрытия кнопок сохранения при смене вида ---
-    if (typeof orderChanged !== 'undefined' && orderChanged) {
-        console.log("[switchView] Обнаружены несохраненные изменения порядка квестов.");
-    }
-    if (dom.saveOrderButton) {
-        dom.saveOrderButton.classList.add('hidden');
-    } else {
-        // console.warn("[switchView] Элемент dom.saveOrderButton не найден!");
-    }
-    if (typeof orderChanged !== 'undefined') orderChanged = false;
-
-    console.log("[switchView] Начинаем скрывать все view...");
-    try {
-        dom.views.forEach((view, index) => {
-            if (view && view.classList) {
-                view.classList.add('hidden');
-            } else {
-                console.error(`[switchView] ОШИБКА: Не удалось скрыть view #${index}.`, view);
-            }
-        });
-    } catch (e) {
-        console.error("[switchView] ИСКЛЮЧЕНИЕ при скрытии views:", e);
-    }
-    console.log("[switchView] Все views скрыты.");
-
-    const targetView = document.getElementById(targetViewId);
-    console.log(`[switchView] Найден элемент для ID ${targetViewId}:`, targetView ? 'Да' : 'Нет');
-
-    if (targetView && targetView.classList) {
-        console.log(`[switchView] Показываем view ${targetViewId}...`);
-        targetView.classList.remove('hidden');
-        console.log(`[switchView] View ${targetViewId} показан.`);
-    } else {
-        console.error(`[switchView] ОШИБКА: Элемент targetView не найден для ID ${targetViewId}!`);
-        return; // Не можем продолжать, если нет вьюхи
-    }
-
-    // --- Безопасная проверка для sleepModeToggle ---
-    console.log("[switchView] Проверяем dom.sleepModeToggle...");
-    if (dom.sleepModeToggle) {
-        const isAdmin = document.body.dataset.isAdmin === 'true';
-        if (dom.sleepModeToggle.classList) {
-            dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
+        // --- Логика скрытия кнопок сохранения при смене вида ---
+        if (orderChanged) {
+             console.log("[switchView] Обнаружены несохраненные изменения порядка квестов.");
         }
-    }
-
-    console.log("[switchView] Показываем loader...");
-    showLoader();
-
-    try {
-        console.log(`[switchView] Входим в switch-блок для ${targetViewId}...`);
-
-        // --- Блок switch ---
-        switch (targetViewId) {
-            case 'view-admin-quests': {
-                const allQuests = await makeApiRequest('/api/v1/admin/quests/all', {}, 'POST', true);
-                await fetchAndCacheCategories(true);
-                renderQuests(allQuests, categoriesCache);
-                break;
-            }
-            case 'view-admin-pending-actions': {
-                await loadPendingActions();
-                break;
-            }
-            case 'view-admin-challenges': {
-                renderChallenges(await makeApiRequest('/api/v1/admin/challenges', {}, 'POST', true));
-                break;
-            }
-            case 'view-admin-categories': {
-                await fetchAndCacheCategories(true);
-                renderCategoriesList();
-                break;
-            }
-            case 'view-admin-settings': {
-                await loadAndRenderSettings();
-                break;
-            }
-            case 'view-admin-statistics': {
-                await loadStatistics();
-                break;
-            }
-            case 'view-admin-twitch-rewards': {
-                await loadTwitchRewards();
-                break;
-            }
-            case 'view-admin-roulette': {
-                const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
-                renderRoulettePrizes(prizes);
-                break;
-            }
-            case 'view-admin-create': {
-                await fetchAndCacheCategories(true);
-                populateCategorySelects();
-                dom.createQuestForm.reset();
-                updateQuestFormUI(dom.createQuestForm);
-                break;
-            }
-            case 'view-admin-shop': {
-                await loadShopPurchases();
-                break;
-            }
-            case 'view-admin-advent': {
-                await loadAdventSettings();
-                break;
-            }
-
-            // --- ВАШИ НОВЫЕ БЛОКИ (P2P) ---
-            case 'view-admin-p2p': {
-                if (typeof renderP2PList === 'function') {
-                    await renderP2PList();
+        if (dom.saveOrderButton) {
+            dom.saveOrderButton.classList.add('hidden');
+        } else {
+             console.warn("[switchView] Элемент dom.saveOrderButton не найден!");
+        }
+        orderChanged = false; 
+        
+        console.log("[switchView] Начинаем скрывать все view...");
+        try {
+            dom.views.forEach((view, index) => {
+                if (view && view.classList) { // Проверка перед доступом
+                    // console.log(`[switchView] Скрываем view #${index}, ID: ${view.id}`); // Раскомментируй для детального лога
+                    view.classList.add('hidden');
+                } else {
+                    // Эта ошибка критична, если произойдет
+                    console.error(`[switchView] ОШИБКА: Не удалось скрыть view #${index}. Элемент или classList отсутствует. View:`, view);
                 }
-                break;
-            }
+            });
+        } catch(e) {
+             console.error("[switchView] ИСКЛЮЧЕНИЕ при скрытии views:", e); // Ловим возможные исключения
+        }
+        console.log("[switchView] Все views скрыты.");
 
-            case 'view-admin-p2p-settings': {
-                if (typeof renderP2PSettingsList === 'function') {
-                    await renderP2PSettingsList();
+
+        const targetView = document.getElementById(targetViewId);
+        console.log(`[switchView] Найден элемент для ID ${targetViewId}:`, targetView ? 'Да' : 'Нет'); // Лог найден ли элемент
+
+        if (targetView && targetView.classList) { // Проверка перед доступом
+            console.log(`[switchView] Показываем view ${targetViewId}...`);
+            targetView.classList.remove('hidden');
+            console.log(`[switchView] View ${targetViewId} показан.`);
+        } else {
+             // Эта ошибка критична
+             console.error(`[switchView] ОШИБКА: Элемент targetView не найден или не имеет classList для ID ${targetViewId}!`);
+             // Можно добавить return или throw, если без этого элемента продолжать нельзя
+        }
+
+        // --- Безопасная проверка для sleepModeToggle ---
+        console.log("[switchView] Проверяем dom.sleepModeToggle...");
+        if (dom.sleepModeToggle) {
+            console.log("[switchView] dom.sleepModeToggle найден.");
+            const isAdmin = document.body.dataset.isAdmin === 'true';
+            if (dom.sleepModeToggle.classList) {
+                 console.log("[switchView] dom.sleepModeToggle имеет classList, переключаем видимость...");
+                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
+                 console.log("[switchView] Видимость dom.sleepModeToggle переключена.");
+            } else {
+                console.warn("[switchView] dom.sleepModeToggle найден, но classList отсутствует?");
+            }
+        } else {
+             console.warn("[switchView] Элемент dom.sleepModeToggle не найден при переключении видимости!");
+        }
+        // --- Конец проверки ---
+
+        console.log("[switchView] Показываем loader...");
+        showLoader(); // Уже безопасно
+        console.log("[switchView] Loader показан.");
+
+        try {
+            console.log(`[switchView] Входим в switch-блок для ${targetViewId}...`);
+            // --- Блок switch ---
+            switch (targetViewId) {
+                case 'view-admin-quests': {
+                    const allQuests = await makeApiRequest('/api/v1/admin/quests/all', {}, 'POST', true);
+                    await fetchAndCacheCategories(true);
+                    renderQuests(allQuests, categoriesCache);
+                    break;
                 }
-                break;
-            }
-
-            // --- БЛОК CAULDRON (ПОЛНЫЙ) ---
-            case 'view-admin-cauldron': {
-                currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
-
-                // Проверяем, существует ли форма, чтобы избежать ошибок
-                if (dom.cauldronSettingsForm) {
+                case 'view-admin-pending-actions': {
+                    // Просто вызываем нашу новую функцию
+                    await loadPendingActions();
+                    break;
+                }
+                case 'view-admin-challenges': {
+                    renderChallenges(await makeApiRequest('/api/v1/admin/challenges', {}, 'POST', true));
+                    break;
+                }
+                case 'view-admin-categories': {
+                    await fetchAndCacheCategories(true);
+                    renderCategoriesList();
+                    break;
+                }
+                case 'view-admin-settings': {
+                    await loadAndRenderSettings();
+                    break;
+                }
+                case 'view-admin-statistics': {
+                    await loadStatistics();
+                    break;
+                }
+                case 'view-admin-twitch-rewards': {
+                    await loadTwitchRewards();
+                    break;
+                }
+                case 'view-admin-roulette': {
+                    const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                    renderRoulettePrizes(prizes);
+                    break;
+                }
+                case 'view-admin-create': {
+                    await fetchAndCacheCategories(true);
+                    populateCategorySelects();
+                    dom.createQuestForm.reset();
+                    updateQuestFormUI(dom.createQuestForm);
+                    break;
+                }
+                case 'view-admin-shop': {
+                    await loadShopPurchases();
+                    break;
+                }
+                case 'view-admin-advent': {
+                    await loadAdventSettings();
+                    break;
+                }
+                case 'view-admin-p2p': {
+                    await loadP2PTrades();
+                    break;
+                }
+                case 'view-admin-cauldron': {
+                    currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
 
-                    // Вспомогательная функция (объявляем внутри)
+                    // --- [ВАЖНО] Вспомогательная функция для заполнения полей ---
+                    // Она нужна, чтобы безопасно заполнять инпуты, даже если они в другой вкладке
                     const setVal = (name, val) => {
                         const el = form.elements[name] || document.querySelector(`[name="${name}"]`);
                         if (el) el.value = val || '';
                     };
+                    // ------------------------------------------------------------
 
-                    // Заполняем основные поля, если данные пришли
-                    if (currentCauldronData) {
-                        // Если данные пришли обернутые в settings или напрямую
-                        const s = currentCauldronData.settings || currentCauldronData;
+                    // Заполнение основных настроек
+                    form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
+                    setVal('title', currentCauldronData.title);
+                    setVal('start_date', formatDateToInput(currentCauldronData.start_date));
+                    setVal('end_date', formatDateToInput(currentCauldronData.end_date));
+                    
+                    setVal('banner_image_url', currentCauldronData.banner_image_url);
+                    setVal('cauldron_image_url_1', currentCauldronData.cauldron_image_url_1);
+                    setVal('cauldron_image_url_2', currentCauldronData.cauldron_image_url_2);
+                    setVal('cauldron_image_url_3', currentCauldronData.cauldron_image_url_3);
+                    setVal('cauldron_image_url_4', currentCauldronData.cauldron_image_url_4);
 
-                        if (form.elements['is_visible_to_users']) {
-                            form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
+                    const goals = currentCauldronData.goals || {};
+                    setVal('goal_level_1', goals.level_1);
+                    setVal('goal_level_2', goals.level_2);
+                    setVal('goal_level_3', goals.level_3);
+                    setVal('goal_level_4', goals.level_4);
+
+                    // Заполняем награды для каждого уровня
+                    const levels = currentCauldronData.levels || {};
+                    [1, 2, 3, 4].forEach(level => {
+                        const levelData = levels[`level_${level}`] || {};
+                        const topPlaces = levelData.top_places || [];
+                        const tiers = levelData.tiers || { "41+": levelData.default_reward || {} };
+
+                        // 1. Заполнение Топ-20
+                        const container = document.getElementById(`top-rewards-container-${level}`);
+                        if (container) { 
+                           container.innerHTML = ''; 
+                           topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+                               // В createTopRewardRow передаем уже готовый объект reward (с полями wear/rarity)
+                               container.appendChild(createTopRewardRow(reward));
+                           });
                         }
 
-                        setVal('title', s.title);
-                        setVal('start_date', formatDateToInput(s.start_date));
-                        setVal('end_date', formatDateToInput(s.end_date));
-
-                        setVal('banner_image_url', s.banner_image_url);
-                        setVal('cauldron_image_url_1', s.cauldron_image_url_1);
-                        setVal('cauldron_image_url_2', s.cauldron_image_url_2);
-                        setVal('cauldron_image_url_3', s.cauldron_image_url_3);
-                        setVal('cauldron_image_url_4', s.cauldron_image_url_4);
-
-                        const goals = s.goals || {};
-                        setVal('goal_level_1', goals.level_1);
-                        setVal('goal_level_2', goals.level_2);
-                        setVal('goal_level_3', goals.level_3);
-                        setVal('goal_level_4', goals.level_4);
-
-                        // Заполняем награды для каждого уровня
-                        const levels = s.levels || {};
-                        [1, 2, 3, 4].forEach(level => {
-                            const levelData = levels[`level_${level}`] || {};
-                            const topPlaces = levelData.top_places || [];
-                            const tiers = levelData.tiers || { "41+": levelData.default_reward || {} };
-
-                            // 1. Заполнение Топ-20
-                            const container = document.getElementById(`top-rewards-container-${level}`);
-                            if (container && typeof createTopRewardRow === 'function') {
-                                container.innerHTML = '';
-                                topPlaces.sort((a, b) => a.place - b.place).forEach(reward => {
-                                    container.appendChild(createTopRewardRow(reward));
-                                });
-                            }
-
-                            // 2. Заполнение Тиров (21-30, 31-40, 41+)
-                            ["21-30", "31-40", "41+"].forEach(tierKey => {
-                                const tierData = tiers[tierKey] || {};
-                                const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
-
-                                setVal(`${prefix}_name_${level}`, tierData.name);
-                                setVal(`${prefix}_image_url_${level}`, tierData.image_url);
-                                setVal(`${prefix}_wear_${level}`, tierData.wear);
-                                setVal(`${prefix}_rarity_${level}`, tierData.rarity);
-                            });
+                        // 2. Заполнение Тиров (21-30, 31-40, 41+)
+                        ["21-30", "31-40", "41+"].forEach(tierKey => {
+                            const tierData = tiers[tierKey] || {};
+                            // Формируем префикс имени поля (например: tier_21_30)
+                            const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
+                            
+                            // Используем setVal для безопасного заполнения
+                            setVal(`${prefix}_name_${level}`, tierData.name);
+                            setVal(`${prefix}_image_url_${level}`, tierData.image_url);
+                            setVal(`${prefix}_wear_${level}`, tierData.wear);     // Грузим износ
+                            setVal(`${prefix}_rarity_${level}`, tierData.rarity); // Грузим редкость
                         });
-                    }
+                    });
+                    break;
                 }
-
-                if (typeof updateCauldronUI === 'function') {
-                    updateCauldronUI(currentCauldronData);
+                case 'view-admin-main': {
+                   console.log("[switchView] Выполнен case 'view-admin-main'.");
+                   break;
                 }
-                break;
-            }
-
-            // --- ОСТАЛЬНЫЕ КЕЙСЫ (КОТОРЫЕ БЫЛИ ПОТЕРЯНЫ) ---
-            case 'view-admin-main': {
-                console.log("[switchView] Выполнен case 'view-admin-main'.");
-                break;
-            }
-            case 'view-admin-user-management': {
-                console.log("[switchView] Выполнен case 'view-admin-user-management'.");
-                // Сбрасываем видимость скрытых форм при переходе
-                [
-                    dom.grantCheckpointStarsForm, dom.grantTicketsForm,
-                    dom.freezeCheckpointStarsForm, dom.freezeTicketsForm,
-                    dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm,
-                    dom.adminResetUserWeeklyProgressForm
-                ].forEach(form => form?.classList.add('hidden'));
-                selectedAdminUser = null;
-                if (typeof loadAdminGrantLog === 'function') loadAdminGrantLog();
-                break;
-            }
-            case 'view-admin-auctions': {
-                await loadAdminAuctions();
-                break;
-            }
-            case 'view-admin-weekly-goals': {
-                await loadWeeklyGoalsData();
-                break;
-            }
-            case 'view-admin-schedule': {
-                await loadScheduleSettings();
-                break;
-            }
-            default: {
-                console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
-                break;
-            }
-        } // Конец switch (ВСЕ КЕЙСЫ ТЕПЕРЬ ВНУТРИ)
-
-        console.log(`[switchView] Выход из switch-блока для ${targetViewId}.`);
-
-    } catch (e) {
-        console.error(`[switchView] ИСКЛЮЧЕНИЕ внутри switch-блока для ${targetViewId}:`, e);
-        hideLoader();
-        throw e;
-    } finally {
-        console.log("[switchView] Входим в finally, скрываем loader...");
-        hideLoader();
-        console.log("[switchView] Loader скрыт в finally.");
-    }
-    console.log(`[switchView] Завершаем для targetViewId = ${targetViewId}`);
-};
-
+                case 'view-admin-user-management': {
+                    console.log("[switchView] Выполнен case 'view-admin-user-management'.");
+                    // Сбрасываем видимость скрытых форм при переходе
+                    [
+                        dom.grantCheckpointStarsForm, dom.grantTicketsForm,
+                        dom.freezeCheckpointStarsForm, dom.freezeTicketsForm,
+                        dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm,
+                        dom.adminResetUserWeeklyProgressForm
+                    ].forEach(form => form?.classList.add('hidden'));
+                    selectedAdminUser = null; 
+                    
+                    loadAdminGrantLog(); 
+                    break;
+                }
+                case 'view-admin-auctions': {
+                    await loadAdminAuctions();
+                    break;
+                }
+                case 'view-admin-weekly-goals': {
+                    await loadWeeklyGoalsData(); 
+                    break;
+                }
+                case 'view-admin-schedule': {
+                    await loadScheduleSettings();
+                    break;
+                }
+                default: {
+                    console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
+                    break;
+                }
+            } // Конец switch
+            console.log(`[switchView] Выход из switch-блока для ${targetViewId}.`);
+        } catch (e) {
+            console.error(`[switchView] ИСКЛЮЧЕНИЕ внутри switch-блока для ${targetViewId}:`, e);
+             // Убедимся, что loader скрывается даже при ошибке в switch
+             hideLoader(); // Уже безопасно
+             throw e; // Перебрасываем ошибку дальше, чтобы увидеть ее в main()
+        } finally {
+            console.log("[switchView] Входим в finally, скрываем loader...");
+            hideLoader(); // Уже безопасно
+            console.log("[switchView] Loader скрыт в finally.");
+        }
+        console.log(`[switchView] Завершаем для targetViewId = ${targetViewId}`); // Лог выхода
+    };
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) showLoader();
 
@@ -5353,117 +5339,238 @@ async function main() {
 
 // --- P2P LOGIC ---
 
-// 1. Загрузка заявок пользователей (Вкладка "Заявки P2P")
-async function renderP2PList() {
-    const container = document.getElementById('p2p-list');
-    if (!container) return;
-    
-    container.innerHTML = '<div class="spinner"></div>';
-
+// 1. Уведомления (Бейджик)
+async function updateP2PBadge() {
     try {
-        // Запрос к API за заявками (pending)
-        const response = await apiRequest('/api/v1/admin/p2p/list', 'POST', { 
-            status: 'pending' 
-        });
-
-        if (!response || !response.success || !response.items || response.items.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#777;">Нет новых заявок.</p>';
-            return;
+        const list = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+        // Считаем заявки "pending"
+        const count = list.filter(t => t.status === 'pending').length;
+        
+        const badge = document.getElementById('p2p-badge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.classList.add('show');
+            } else {
+                badge.classList.remove('show');
+            }
         }
+    } catch (e) { console.error(e); }
+}
 
-        container.innerHTML = ''; // Очищаем
+// Запускаем проверку каждые 10 секунд
+setInterval(updateP2PBadge, 10000);
+setTimeout(updateP2PBadge, 1000); // И сразу при старте
 
-        response.items.forEach(item => {
-            // Создаем карточку заявки
-            const card = document.createElement('div');
-            card.className = 'quest-card';
-            card.style.borderLeft = '4px solid #f1c40f'; // Желтая полоска (ожидание)
-            
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div>
-                        <h4 style="margin:0;">${item.item_name}</h4>
-                        <p style="margin:5px 0; font-size:12px; color:#aaa;">Игрок: <b>${item.user_name || 'ID ' + item.user_id}</b></p>
-                        <p style="margin:5px 0;">Цена: ${item.price} монет</p>
-                    </div>
-                    <div style="text-align:right;">
-                         <span style="background:#444; padding:2px 6px; borderRadius:4px; font-size:11px;">${item.status}</span>
-                    </div>
-                </div>
-                <div style="margin-top:10px; display:flex; gap:10px;">
-                    <button onclick="processP2P(${item.id}, 'approve')" class="admin-action-btn approve" style="font-size:12px;">Одобрить</button>
-                    <button onclick="processP2P(${item.id}, 'reject')" class="admin-action-btn reject" style="font-size:12px;">Отклонить</button>
-                </div>
-            `;
-            container.appendChild(card);
-        });
 
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки заявок</p>';
+// 2. Пароль
+function askP2PPassword() {
+    document.getElementById('p2p-password-modal').classList.remove('hidden');
+    document.getElementById('p2p-pass-input').value = '';
+    document.getElementById('p2p-pass-input').focus();
+}
+
+function closeP2PPass() {
+    document.getElementById('p2p-password-modal').classList.add('hidden');
+}
+
+function checkP2PPass() {
+    const pass = document.getElementById('p2p-pass-input').value;
+    
+    // !!! ПАРОЛЬ ТУТ (поменяй '1111' на свой) !!!
+    if (pass === '1111') { 
+        closeP2PPass();
+        switchView('view-admin-p2p-settings');
+        loadP2PSettingsList();
+    } else {
+        alert("Неверный пароль!");
     }
 }
 
-// 2. Загрузка списка кейсов/товаров (Вкладка "P2P Настройки")
-async function renderP2PSettingsList() {
+
+// 3. Загрузка списка настроек
+async function loadP2PSettingsList() {
     const container = document.getElementById('p2p-settings-list');
-    if (!container) return;
+    container.innerHTML = 'Загрузка...';
+    
+    const cases = await fetch('/api/v1/p2p/cases').then(r => r.json());
+    container.innerHTML = '';
 
-    container.innerHTML = '<div class="spinner"></div>';
+    cases.forEach(c => {
+        container.insertAdjacentHTML('beforeend', `
+            <div class="quest-card" style="margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="${c.image_url}" style="width:40px; height:40px; border-radius:5px; object-fit:cover;">
+                    <b style="flex-grow:1">${c.case_name}</b>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+                    <input type="number" id="price-${c.id}" value="${c.price_in_coins}" style="width:80px; padding:8px; background:#222; border:1px solid #444; color:white; border-radius:5px;">
+                    <button onclick="savePrice(${c.id})" class="admin-action-btn approve" style="padding:8px 15px; font-size:12px; height:auto;">Сохр.</button>
+                    <button onclick="deleteCase(${c.id})" class="admin-action-btn reject" style="padding:8px 15px; font-size:12px; margin-left:auto; height:auto;">Удалить</button>
+                </div>
+            </div>
+        `);
+    });
+}
 
+
+// 4. API Действия
+async function addNewCase() {
+    const name = document.getElementById('new-case-name').value;
+    const img = document.getElementById('new-case-img').value;
+    const price = document.getElementById('new-case-price').value;
+
+    if(!name || !price) return alert("Заполни название и цену!");
+
+    await makeApiRequest('/api/v1/admin/p2p/case/add', {
+        case_name: name, image_url: img || '', price_in_coins: parseInt(price)
+    });
+    
+    alert("Кейс добавлен!");
+    // Чистим поля
+    document.getElementById('new-case-name').value = '';
+    document.getElementById('new-case-price').value = '';
+    loadP2PSettingsList();
+}
+
+async function savePrice(id) {
+    const newPrice = document.getElementById(`price-${id}`).value;
+    await makeApiRequest('/api/v1/admin/p2p/case/update', {
+        case_id: id, price_in_coins: parseInt(newPrice)
+    });
+    alert("Цена обновлена");
+}
+
+async function deleteCase(id) {
+    if(!confirm("Удалить этот кейс?")) return;
+    await makeApiRequest('/api/v1/admin/p2p/case/delete', { case_id: id });
+    loadP2PSettingsList();
+}
+// --- P2P TRADES FUNCTIONS (Список заявок) ---
+
+async function loadP2PTrades() {
+    console.log("[P2P] Запуск функции loadP2PTrades...");
+    
+    // 1. Ищем контейнер
+    const container = document.getElementById('p2p-list');
+    if (!container) {
+        console.error("[P2P] Ошибка: Контейнер с id='p2p-list' не найден в HTML!");
+        tg.showAlert("Ошибка: В HTML не найден блок id='p2p-list'");
+        return;
+    }
+    
+    // 2. Показываем индикатор загрузки
+    container.innerHTML = '<div style="text-align:center; padding: 20px; color: #8E8E93;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка заявок...</div>';
+    
     try {
-        // Запрос к API за списком всех кейсов (нужен соответствующий эндпоинт на бэкенде)
-        // Если у вас на бэкенде нет отдельного списка "всех кейсов", используем тот же /list, но без фильтра pending
-        // Или /api/v1/p2p/market (публичный список)
-        const response = await apiRequest('/api/v1/p2p/market', 'GET'); 
-
-        if (!response || !response.success || !response.items || response.items.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#777;">Кейсов пока нет. Создайте первый!</p>';
+        // 3. Запрашиваем данные
+        console.log("[P2P] Отправка запроса к API...");
+        const list = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+        console.log("[P2P] Ответ API:", list);
+        
+        container.innerHTML = ''; // Очищаем загрузку
+        
+        // 4. Проверяем, есть ли данные
+        if (!list || list.length === 0) {
+            container.innerHTML = `
+                <div style="
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: center; 
+                    justify-content: center; 
+                    padding: 60px 20px; 
+                    color: rgba(255,255,255,0.5); 
+                    text-align: center;
+                    border: 2px dashed rgba(255,255,255,0.1);
+                    border-radius: 12px;
+                    margin-top: 20px;
+                ">
+                    <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.7;"></i>
+                    <h3 style="margin: 0 0 5px; color: white;">Заявок пока нет</h3>
+                    <p style="margin: 0; font-size: 13px;">Как только пользователи создадут заявки на обмен, они появятся здесь.</p>
+                </div>`;
             return;
         }
 
-        container.innerHTML = '';
-
-        response.items.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'quest-card';
-            card.style.marginBottom = '10px';
+        // 5. Рисуем карточки
+        list.forEach(trade => {
+            let actionBtn = '';
             
-            card.innerHTML = `
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <img src="${item.image_url}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;">
-                    <div style="flex-grow:1;">
-                        <h4 style="margin:0;">${item.name}</h4>
-                        <p style="margin:0; font-size:12px; color:#aaa;">Цена: ${item.price}</p>
+            // Логика кнопок
+            if (trade.status === 'pending') {
+                actionBtn = `<button onclick="approveP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px; background-color: #34c759;">Принять и дать ссылку</button>`;
+            } else if (trade.status === 'review') {
+                actionBtn = `<button onclick="completeP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px; background-color: #007aff;">Подтвердить получение</button>`;
+            } else {
+                actionBtn = `<div style="margin-top:10px; text-align:center;"><span class="status-badge ${trade.status}" style="padding: 4px 8px; border-radius: 4px; background: #333;">${trade.status}</span></div>`;
+            }
+
+            // Безопасное получение данных (чтобы не было undefined)
+            const userName = escapeHTML(trade.user?.full_name || 'Неизвестный');
+            const tradeLink = escapeHTML(trade.user?.trade_link || '#');
+            const caseName = escapeHTML(trade.case?.case_name || 'Кейс');
+            const caseImg = trade.case?.image_url || '';
+
+            const html = `
+                <div class="quest-card" style="background: #1c1c1e; padding: 15px; margin-bottom: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-weight:bold; font-size:16px; color: white;">${userName}</div>
+                        <div style="background:rgba(255,204,0,0.15); color:#ffcc00; padding:4px 8px; border-radius:8px; font-size:13px; font-weight:bold;">
+                            +${trade.total_coins} 🟡
+                        </div>
                     </div>
-                    <button onclick="deleteCase(${item.id})" class="admin-action-btn reject" style="width:auto; padding:5px 10px;">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
+                    
+                    <div style="display:flex; gap:12px; margin-bottom:12px; align-items: center;">
+                        <img src="${caseImg}" style="width:50px; height:50px; object-fit:contain; background:#2c2c2e; border-radius:8px; border: 1px solid #3a3a3c;">
+                        <div style="display:flex; flex-direction:column;">
+                            <div style="color:#fff; font-weight:500; font-size: 14px;">${caseName}</div>
+                            <div style="color:#8E8E93; font-size:12px;">Количество: <span style="color:#fff;">x${trade.quantity}</span></div>
+                        </div>
+                    </div>
+
+                    <div style="background:#2c2c2e; padding:10px; border-radius:8px; font-size:12px; margin-bottom:5px;">
+                        <div style="color:#8E8E93; margin-bottom:4px;">Трейд ссылка:</div>
+                        <a href="${tradeLink}" target="_blank" style="color:#0a84ff; text-decoration:none; word-break: break-all; display: block;">
+                            ${tradeLink.substring(0, 40)}... <i class="fa-solid fa-external-link-alt"></i>
+                        </a>
+                    </div>
+
+                    ${actionBtn}
                 </div>
             `;
-            container.appendChild(card);
+            container.insertAdjacentHTML('beforeend', html);
         });
-
+        
     } catch (e) {
-        console.error(e);
-        container.innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки списка кейсов</p>';
+        console.error("[P2P] Ошибка загрузки:", e);
+        container.innerHTML = `<div style="text-align: center; color: #ff3b30; padding: 20px;">Ошибка загрузки: ${e.message}</div>`;
     }
 }
 
-// 3. Функция удаления кейса (для настроек)
-async function deleteCase(caseId) {
-    if(!confirm('Удалить этот кейс?')) return;
-    
-    try {
-        const res = await apiRequest('/api/v1/admin/p2p/delete_case', 'POST', { case_id: caseId });
-        if(res && res.success) {
-            alert('Удалено!');
-            renderP2PSettingsList(); // Обновляем список
-        } else {
-            alert('Ошибка удаления');
+// Глобальные функции действий
+window.approveP2P = async function(id) {
+    const link = prompt("Введите вашу трейд-ссылку для приема кейсов:");
+    if (link) {
+        try {
+            await makeApiRequest('/api/v1/admin/p2p/approve', { trade_id: id, trade_link: link });
+            tg.showAlert("Трейд запущен! Пользователь уведомлен.");
+            loadP2PTrades();
+        } catch (e) {
+            tg.showAlert("Ошибка: " + e.message);
         }
-    } catch(e) {
-        console.error(e);
-        alert('Ошибка сети');
     }
-}
+};
+
+window.completeP2P = async function(id) {
+    tg.showConfirm("Вы точно получили кейсы? Монеты будут начислены пользователю.", async (ok) => {
+        if (ok) {
+            try {
+                const res = await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: id });
+                tg.showAlert(res.message);
+                loadP2PTrades();
+            } catch (e) {
+                tg.showAlert("Ошибка: " + e.message);
+            }
+        }
+    });
+};
