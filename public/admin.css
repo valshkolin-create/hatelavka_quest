@@ -1180,3 +1180,22 @@ input[type="datetime-local"] {
 .status-toggle-btn:hover {
     transform: scale(1.1);
 }
+/* Красный кружок уведомления */
+.badge-notify {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ff3b30;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 2px solid #1c1c1e;
+    display: none; /* Скрыт по умолчанию */
+}
+.badge-notify.show { display: flex; }
