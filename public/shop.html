@@ -729,6 +729,82 @@
 }
 .btn-cancel { background: rgba(255, 255, 255, 0.1); color: #fff; }
 .btn-confirm { background: linear-gradient(45deg, #ffcc00, #ff9500); color: #000; } /* Заменил переменную на градиент для примера */
+        /* --- СТИЛИ ДЛЯ P2P СИСТЕМЫ --- */
+        .modal {
+            position: fixed;
+            top: 0; 
+            left: 0;
+            width: 100%; 
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 10002; /* Выше чем футер и другие модалки */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.hidden {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .modal-content {
+            background: #1c1c1e;
+            width: 90%;
+            max-width: 350px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            padding: 20px;
+            position: relative;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 10px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #fff;
+            font-size: 18px;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: #8E8E93;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .modal-body label {
+            display: block;
+            color: #8E8E93;
+            font-size: 12px;
+            margin-bottom: 5px;
+            margin-top: 10px;
+        }
+
+        /* Стили для истории сделок внутри модалки */
+        #my-p2p-trades {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -771,6 +847,7 @@
                 </div>
             </a>
             
+            
             <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
                 <div class="partner-icon">
                     <img src="https://i.postimg.cc/gJXWJccF/0x0.png" loading="eager" alt="Xplay" class="partner-logo-img">
@@ -782,6 +859,12 @@
             </a>
         </div>
     </div>
+
+    <div class="shop-actions" style="padding: 0 16px; margin-bottom: 15px;">
+    <button onclick="openP2PModal()" class="action-btn" style="width:100%; background: linear-gradient(45deg, #6a11cb, #2575fc); border:none;">
+        <i class="fa-solid fa-briefcase"></i> Обменять кейсы на монеты
+    </button>
+</div>
 
     <div id="shop-grid" class="shop-grid"></div>
 
@@ -845,12 +928,6 @@
             </div>
         </div>
     </div>
-
-    <div class="shop-actions" style="padding: 0 16px; margin-bottom: 15px;">
-    <button onclick="openP2PModal()" class="action-btn" style="width:100%; background: linear-gradient(45deg, #6a11cb, #2575fc); border:none;">
-        <i class="fa-solid fa-briefcase"></i> Обменять кейсы на монеты
-    </button>
-</div>
 
 <div id="p2p-modal" class="modal hidden">
     <div class="modal-content">
