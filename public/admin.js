@@ -769,99 +769,123 @@ const showLoader = () => {
         console.log("[switchView] Loader показан.");
 
         try {
-            console.log(`[switchView] Входим в switch-блок для ${targetViewId}...`);
-            // --- Блок switch ---
-            switch (targetViewId) {
-                case 'view-admin-quests': {
-                    const allQuests = await makeApiRequest('/api/v1/admin/quests/all', {}, 'POST', true);
-                    await fetchAndCacheCategories(true);
-                    renderQuests(allQuests, categoriesCache);
-                    break;
+        console.log(`[switchView] Входим в switch-блок для ${targetViewId}...`);
+        
+        // --- Блок switch ---
+        switch (targetViewId) {
+            case 'view-admin-quests': {
+                const allQuests = await makeApiRequest('/api/v1/admin/quests/all', {}, 'POST', true);
+                await fetchAndCacheCategories(true);
+                renderQuests(allQuests, categoriesCache);
+                break;
+            }
+            case 'view-admin-pending-actions': {
+                await loadPendingActions();
+                break;
+            }
+            case 'view-admin-challenges': {
+                renderChallenges(await makeApiRequest('/api/v1/admin/challenges', {}, 'POST', true));
+                break;
+            }
+            case 'view-admin-categories': {
+                await fetchAndCacheCategories(true);
+                renderCategoriesList();
+                break;
+            }
+            case 'view-admin-settings': {
+                await loadAndRenderSettings();
+                break;
+            }
+            case 'view-admin-statistics': {
+                await loadStatistics();
+                break;
+            }
+            case 'view-admin-twitch-rewards': {
+                await loadTwitchRewards();
+                break;
+            }
+            case 'view-admin-roulette': {
+                const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                renderRoulettePrizes(prizes);
+                break;
+            }
+            case 'view-admin-create': {
+                await fetchAndCacheCategories(true);
+                populateCategorySelects();
+                dom.createQuestForm.reset();
+                updateQuestFormUI(dom.createQuestForm);
+                break;
+            }
+            case 'view-admin-shop': {
+                await loadShopPurchases();
+                break;
+            }
+            case 'view-admin-advent': {
+                await loadAdventSettings();
+                break;
+            }
+
+            // --- ВАШИ НОВЫЕ БЛОКИ (P2P) ---
+            case 'view-admin-p2p': {
+                if (typeof renderP2PList === 'function') {
+                    await renderP2PList();
                 }
-                case 'view-admin-pending-actions': {
-                    // Просто вызываем нашу новую функцию
-                    await loadPendingActions();
-                    break;
+                break;
+            }
+
+            case 'view-admin-p2p-settings': {
+                if (typeof renderP2PSettingsList === 'function') {
+                    await renderP2PSettingsList();
                 }
-                case 'view-admin-challenges': {
-                    renderChallenges(await makeApiRequest('/api/v1/admin/challenges', {}, 'POST', true));
-                    break;
-                }
-                case 'view-admin-categories': {
-                    await fetchAndCacheCategories(true);
-                    renderCategoriesList();
-                    break;
-                }
-                case 'view-admin-settings': {
-                    await loadAndRenderSettings();
-                    break;
-                }
-                case 'view-admin-statistics': {
-                    await loadStatistics();
-                    break;
-                }
-                case 'view-admin-twitch-rewards': {
-                    await loadTwitchRewards();
-                    break;
-                }
-                case 'view-admin-roulette': {
-                    const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
-                    renderRoulettePrizes(prizes);
-                    break;
-                }
-                case 'view-admin-create': {
-                    await fetchAndCacheCategories(true);
-                    populateCategorySelects();
-                    dom.createQuestForm.reset();
-                    updateQuestFormUI(dom.createQuestForm);
-                    break;
-                }
-                case 'view-admin-shop': {
-                    await loadShopPurchases();
-                    break;
-                }
-                case 'view-admin-advent': {
-                    await loadAdventSettings();
-                    break;
-                }
+                break;
+            }
+
+            // --- БЛОК CAULDRON (ПОЛНЫЙ И ЗАКРЫТЫЙ) ---
+            case 'view-admin-cauldron': {
+                currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                 
-                // --- ВАШИ НОВЫЕ БЛОКИ ---
-                case 'view-admin-p2p': {
-                    if (typeof renderP2PList === 'function') {
-                        await renderP2PList();
-                    }
-                    break;
-                }
-
-                case 'view-admin-p2p-settings': {
-                    if (typeof renderP2PSettingsList === 'function') {
-                        await renderP2PSettingsList();
-                    }
-                    break;
-                }
-
-                case 'view-admin-cauldron': {
-                    currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
+                // Проверяем, существует ли форма, чтобы избежать ошибок
+                if (dom.cauldronSettingsForm) {
                     const form = dom.cauldronSettingsForm;
-
-                    // --- [ВАЖНО] Вспомогательная функция для заполнения полей ---
-                    // Она нужна, чтобы безопасно заполнять инпуты, даже если они в другой вкладке
+                    
+                    // Вспомогательная функция (объявляем внутри)
                     const setVal = (name, val) => {
                         const el = form.elements[name] || document.querySelector(`[name="${name}"]`);
                         if (el) el.value = val || '';
                     };
-                    // ------------------------------------------------------------
-                    
-                    // Если у вас тут был код обновления интерфейса, он должен быть здесь
-                    // Не забудьте break; в конце кейса cauldron, если его там нет!
-                    break; 
+
+                    // Заполняем основные поля, если данные пришли
+                    if (currentCauldronData && currentCauldronData.settings) {
+                        const s = currentCauldronData.settings;
+                        setVal('title', s.title);
+                        setVal('start_date', s.start_date ? s.start_date.slice(0,16) : '');
+                        setVal('end_date', s.end_date ? s.end_date.slice(0,16) : '');
+                        setVal('goal_level_1', s.goal_level_1);
+                        setVal('goal_level_2', s.goal_level_2);
+                        setVal('goal_level_3', s.goal_level_3);
+                        setVal('goal_level_4', s.goal_level_4);
+                        // ... остальные поля по аналогии, если нужно
+                    }
                 }
                 
-                // Добавляем default на всякий случай
-                default:
-                    console.warn(`[switchView] Неизвестный targetViewId: ${targetViewId}`);
-                    break;
+                // Обновляем UI котла, если функция существует
+                if (typeof updateCauldronUI === 'function') {
+                    updateCauldronUI(currentCauldronData);
+                }
+                break; // <--- ВАЖНО: Закрываем case
             }
+            
+            // --- ЛЮБЫЕ ДРУГИЕ CASE МОГУТ БЫТЬ ЗДЕСЬ ---
+
+            default:
+                console.warn(`[switchView] Неизвестный targetViewId: ${targetViewId}`);
+                break;
+        } // <--- ВАЖНО: Закрываем switch
+
+    } catch (e) { // <--- ВАЖНО: Закрываем try и обрабатываем ошибки
+        console.error(`[switchView] Ошибка при загрузке ${targetViewId}:`, e);
+        alert(`Ошибка загрузки раздела: ${e.message}`);
+    }
 
                     // Заполнение основных настроек
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
@@ -961,6 +985,7 @@ const showLoader = () => {
         }
         console.log(`[switchView] Завершаем для targetViewId = ${targetViewId}`); // Лог выхода
     };
+
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) showLoader();
 
