@@ -824,16 +824,22 @@ const showLoader = () => {
                     await loadAdventSettings();
                     break;
                 }
-                case 'view-admin-p2p':
-            // Загружаем список заявок от пользователей
-            await renderP2PList(); 
-            break;
-
-        case 'view-admin-p2p-settings':
-            // Загружаем список созданных кейсов (товаров)
-            await renderP2PSettingsList();
-            break;
+                
+                // --- ВАШИ НОВЫЕ БЛОКИ ---
+                case 'view-admin-p2p': {
+                    if (typeof renderP2PList === 'function') {
+                        await renderP2PList();
+                    }
+                    break;
                 }
+
+                case 'view-admin-p2p-settings': {
+                    if (typeof renderP2PSettingsList === 'function') {
+                        await renderP2PSettingsList();
+                    }
+                    break;
+                }
+
                 case 'view-admin-cauldron': {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     const form = dom.cauldronSettingsForm;
@@ -845,6 +851,17 @@ const showLoader = () => {
                         if (el) el.value = val || '';
                     };
                     // ------------------------------------------------------------
+                    
+                    // Если у вас тут был код обновления интерфейса, он должен быть здесь
+                    // Не забудьте break; в конце кейса cauldron, если его там нет!
+                    break; 
+                }
+                
+                // Добавляем default на всякий случай
+                default:
+                    console.warn(`[switchView] Неизвестный targetViewId: ${targetViewId}`);
+                    break;
+            }
 
                     // Заполнение основных настроек
                     form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
