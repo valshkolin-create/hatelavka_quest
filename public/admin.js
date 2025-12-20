@@ -824,9 +824,15 @@ const showLoader = () => {
                     await loadAdventSettings();
                     break;
                 }
-                case 'view-admin-p2p': {
-                    await loadP2PTrades();
-                    break;
+                case 'view-admin-p2p':
+            // Загружаем список заявок от пользователей
+            await renderP2PList(); 
+            break;
+
+        case 'view-admin-p2p-settings':
+            // Загружаем список созданных кейсов (товаров)
+            await renderP2PSettingsList();
+            break;
                 }
                 case 'view-admin-cauldron': {
                     currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
@@ -5339,238 +5345,117 @@ async function main() {
 
 // --- P2P LOGIC ---
 
-// 1. Уведомления (Бейджик)
-async function updateP2PBadge() {
-    try {
-        const list = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
-        // Считаем заявки "pending"
-        const count = list.filter(t => t.status === 'pending').length;
-        
-        const badge = document.getElementById('p2p-badge');
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = count;
-                badge.classList.add('show');
-            } else {
-                badge.classList.remove('show');
-            }
-        }
-    } catch (e) { console.error(e); }
-}
-
-// Запускаем проверку каждые 10 секунд
-setInterval(updateP2PBadge, 10000);
-setTimeout(updateP2PBadge, 1000); // И сразу при старте
-
-
-// 2. Пароль
-function askP2PPassword() {
-    document.getElementById('p2p-password-modal').classList.remove('hidden');
-    document.getElementById('p2p-pass-input').value = '';
-    document.getElementById('p2p-pass-input').focus();
-}
-
-function closeP2PPass() {
-    document.getElementById('p2p-password-modal').classList.add('hidden');
-}
-
-function checkP2PPass() {
-    const pass = document.getElementById('p2p-pass-input').value;
-    
-    // !!! ПАРОЛЬ ТУТ (поменяй '1111' на свой) !!!
-    if (pass === '1111') { 
-        closeP2PPass();
-        switchView('view-admin-p2p-settings');
-        loadP2PSettingsList();
-    } else {
-        alert("Неверный пароль!");
-    }
-}
-
-
-// 3. Загрузка списка настроек
-async function loadP2PSettingsList() {
-    const container = document.getElementById('p2p-settings-list');
-    container.innerHTML = 'Загрузка...';
-    
-    const cases = await fetch('/api/v1/p2p/cases').then(r => r.json());
-    container.innerHTML = '';
-
-    cases.forEach(c => {
-        container.insertAdjacentHTML('beforeend', `
-            <div class="quest-card" style="margin-bottom:10px;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <img src="${c.image_url}" style="width:40px; height:40px; border-radius:5px; object-fit:cover;">
-                    <b style="flex-grow:1">${c.case_name}</b>
-                </div>
-                <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
-                    <input type="number" id="price-${c.id}" value="${c.price_in_coins}" style="width:80px; padding:8px; background:#222; border:1px solid #444; color:white; border-radius:5px;">
-                    <button onclick="savePrice(${c.id})" class="admin-action-btn approve" style="padding:8px 15px; font-size:12px; height:auto;">Сохр.</button>
-                    <button onclick="deleteCase(${c.id})" class="admin-action-btn reject" style="padding:8px 15px; font-size:12px; margin-left:auto; height:auto;">Удалить</button>
-                </div>
-            </div>
-        `);
-    });
-}
-
-
-// 4. API Действия
-async function addNewCase() {
-    const name = document.getElementById('new-case-name').value;
-    const img = document.getElementById('new-case-img').value;
-    const price = document.getElementById('new-case-price').value;
-
-    if(!name || !price) return alert("Заполни название и цену!");
-
-    await makeApiRequest('/api/v1/admin/p2p/case/add', {
-        case_name: name, image_url: img || '', price_in_coins: parseInt(price)
-    });
-    
-    alert("Кейс добавлен!");
-    // Чистим поля
-    document.getElementById('new-case-name').value = '';
-    document.getElementById('new-case-price').value = '';
-    loadP2PSettingsList();
-}
-
-async function savePrice(id) {
-    const newPrice = document.getElementById(`price-${id}`).value;
-    await makeApiRequest('/api/v1/admin/p2p/case/update', {
-        case_id: id, price_in_coins: parseInt(newPrice)
-    });
-    alert("Цена обновлена");
-}
-
-async function deleteCase(id) {
-    if(!confirm("Удалить этот кейс?")) return;
-    await makeApiRequest('/api/v1/admin/p2p/case/delete', { case_id: id });
-    loadP2PSettingsList();
-}
-// --- P2P TRADES FUNCTIONS (Список заявок) ---
-
-async function loadP2PTrades() {
-    console.log("[P2P] Запуск функции loadP2PTrades...");
-    
-    // 1. Ищем контейнер
+// 1. Загрузка заявок пользователей (Вкладка "Заявки P2P")
+async function renderP2PList() {
     const container = document.getElementById('p2p-list');
-    if (!container) {
-        console.error("[P2P] Ошибка: Контейнер с id='p2p-list' не найден в HTML!");
-        tg.showAlert("Ошибка: В HTML не найден блок id='p2p-list'");
-        return;
-    }
+    if (!container) return;
     
-    // 2. Показываем индикатор загрузки
-    container.innerHTML = '<div style="text-align:center; padding: 20px; color: #8E8E93;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка заявок...</div>';
-    
+    container.innerHTML = '<div class="spinner"></div>';
+
     try {
-        // 3. Запрашиваем данные
-        console.log("[P2P] Отправка запроса к API...");
-        const list = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
-        console.log("[P2P] Ответ API:", list);
-        
-        container.innerHTML = ''; // Очищаем загрузку
-        
-        // 4. Проверяем, есть ли данные
-        if (!list || list.length === 0) {
-            container.innerHTML = `
-                <div style="
-                    display: flex; 
-                    flex-direction: column; 
-                    align-items: center; 
-                    justify-content: center; 
-                    padding: 60px 20px; 
-                    color: rgba(255,255,255,0.5); 
-                    text-align: center;
-                    border: 2px dashed rgba(255,255,255,0.1);
-                    border-radius: 12px;
-                    margin-top: 20px;
-                ">
-                    <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.7;"></i>
-                    <h3 style="margin: 0 0 5px; color: white;">Заявок пока нет</h3>
-                    <p style="margin: 0; font-size: 13px;">Как только пользователи создадут заявки на обмен, они появятся здесь.</p>
-                </div>`;
+        // Запрос к API за заявками (pending)
+        const response = await apiRequest('/api/v1/admin/p2p/list', 'POST', { 
+            status: 'pending' 
+        });
+
+        if (!response || !response.success || !response.items || response.items.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#777;">Нет новых заявок.</p>';
             return;
         }
 
-        // 5. Рисуем карточки
-        list.forEach(trade => {
-            let actionBtn = '';
+        container.innerHTML = ''; // Очищаем
+
+        response.items.forEach(item => {
+            // Создаем карточку заявки
+            const card = document.createElement('div');
+            card.className = 'quest-card';
+            card.style.borderLeft = '4px solid #f1c40f'; // Желтая полоска (ожидание)
             
-            // Логика кнопок
-            if (trade.status === 'pending') {
-                actionBtn = `<button onclick="approveP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px; background-color: #34c759;">Принять и дать ссылку</button>`;
-            } else if (trade.status === 'review') {
-                actionBtn = `<button onclick="completeP2P(${trade.id})" class="admin-action-btn approve" style="width:100%; margin-top:10px; background-color: #007aff;">Подтвердить получение</button>`;
-            } else {
-                actionBtn = `<div style="margin-top:10px; text-align:center;"><span class="status-badge ${trade.status}" style="padding: 4px 8px; border-radius: 4px; background: #333;">${trade.status}</span></div>`;
-            }
-
-            // Безопасное получение данных (чтобы не было undefined)
-            const userName = escapeHTML(trade.user?.full_name || 'Неизвестный');
-            const tradeLink = escapeHTML(trade.user?.trade_link || '#');
-            const caseName = escapeHTML(trade.case?.case_name || 'Кейс');
-            const caseImg = trade.case?.image_url || '';
-
-            const html = `
-                <div class="quest-card" style="background: #1c1c1e; padding: 15px; margin-bottom: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <div style="font-weight:bold; font-size:16px; color: white;">${userName}</div>
-                        <div style="background:rgba(255,204,0,0.15); color:#ffcc00; padding:4px 8px; border-radius:8px; font-size:13px; font-weight:bold;">
-                            +${trade.total_coins} 🟡
-                        </div>
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <h4 style="margin:0;">${item.item_name}</h4>
+                        <p style="margin:5px 0; font-size:12px; color:#aaa;">Игрок: <b>${item.user_name || 'ID ' + item.user_id}</b></p>
+                        <p style="margin:5px 0;">Цена: ${item.price} монет</p>
                     </div>
-                    
-                    <div style="display:flex; gap:12px; margin-bottom:12px; align-items: center;">
-                        <img src="${caseImg}" style="width:50px; height:50px; object-fit:contain; background:#2c2c2e; border-radius:8px; border: 1px solid #3a3a3c;">
-                        <div style="display:flex; flex-direction:column;">
-                            <div style="color:#fff; font-weight:500; font-size: 14px;">${caseName}</div>
-                            <div style="color:#8E8E93; font-size:12px;">Количество: <span style="color:#fff;">x${trade.quantity}</span></div>
-                        </div>
+                    <div style="text-align:right;">
+                         <span style="background:#444; padding:2px 6px; borderRadius:4px; font-size:11px;">${item.status}</span>
                     </div>
-
-                    <div style="background:#2c2c2e; padding:10px; border-radius:8px; font-size:12px; margin-bottom:5px;">
-                        <div style="color:#8E8E93; margin-bottom:4px;">Трейд ссылка:</div>
-                        <a href="${tradeLink}" target="_blank" style="color:#0a84ff; text-decoration:none; word-break: break-all; display: block;">
-                            ${tradeLink.substring(0, 40)}... <i class="fa-solid fa-external-link-alt"></i>
-                        </a>
-                    </div>
-
-                    ${actionBtn}
+                </div>
+                <div style="margin-top:10px; display:flex; gap:10px;">
+                    <button onclick="processP2P(${item.id}, 'approve')" class="admin-action-btn approve" style="font-size:12px;">Одобрить</button>
+                    <button onclick="processP2P(${item.id}, 'reject')" class="admin-action-btn reject" style="font-size:12px;">Отклонить</button>
                 </div>
             `;
-            container.insertAdjacentHTML('beforeend', html);
+            container.appendChild(card);
         });
-        
+
     } catch (e) {
-        console.error("[P2P] Ошибка загрузки:", e);
-        container.innerHTML = `<div style="text-align: center; color: #ff3b30; padding: 20px;">Ошибка загрузки: ${e.message}</div>`;
+        console.error(e);
+        container.innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки заявок</p>';
     }
 }
 
-// Глобальные функции действий
-window.approveP2P = async function(id) {
-    const link = prompt("Введите вашу трейд-ссылку для приема кейсов:");
-    if (link) {
-        try {
-            await makeApiRequest('/api/v1/admin/p2p/approve', { trade_id: id, trade_link: link });
-            tg.showAlert("Трейд запущен! Пользователь уведомлен.");
-            loadP2PTrades();
-        } catch (e) {
-            tg.showAlert("Ошибка: " + e.message);
-        }
-    }
-};
+// 2. Загрузка списка кейсов/товаров (Вкладка "P2P Настройки")
+async function renderP2PSettingsList() {
+    const container = document.getElementById('p2p-settings-list');
+    if (!container) return;
 
-window.completeP2P = async function(id) {
-    tg.showConfirm("Вы точно получили кейсы? Монеты будут начислены пользователю.", async (ok) => {
-        if (ok) {
-            try {
-                const res = await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: id });
-                tg.showAlert(res.message);
-                loadP2PTrades();
-            } catch (e) {
-                tg.showAlert("Ошибка: " + e.message);
-            }
+    container.innerHTML = '<div class="spinner"></div>';
+
+    try {
+        // Запрос к API за списком всех кейсов (нужен соответствующий эндпоинт на бэкенде)
+        // Если у вас на бэкенде нет отдельного списка "всех кейсов", используем тот же /list, но без фильтра pending
+        // Или /api/v1/p2p/market (публичный список)
+        const response = await apiRequest('/api/v1/p2p/market', 'GET'); 
+
+        if (!response || !response.success || !response.items || response.items.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#777;">Кейсов пока нет. Создайте первый!</p>';
+            return;
         }
-    });
-};
+
+        container.innerHTML = '';
+
+        response.items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'quest-card';
+            card.style.marginBottom = '10px';
+            
+            card.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="${item.image_url}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;">
+                    <div style="flex-grow:1;">
+                        <h4 style="margin:0;">${item.name}</h4>
+                        <p style="margin:0; font-size:12px; color:#aaa;">Цена: ${item.price}</p>
+                    </div>
+                    <button onclick="deleteCase(${item.id})" class="admin-action-btn reject" style="width:auto; padding:5px 10px;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки списка кейсов</p>';
+    }
+}
+
+// 3. Функция удаления кейса (для настроек)
+async function deleteCase(caseId) {
+    if(!confirm('Удалить этот кейс?')) return;
+    
+    try {
+        const res = await apiRequest('/api/v1/admin/p2p/delete_case', 'POST', { case_id: caseId });
+        if(res && res.success) {
+            alert('Удалено!');
+            renderP2PSettingsList(); // Обновляем список
+        } else {
+            alert('Ошибка удаления');
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Ошибка сети');
+    }
+}
