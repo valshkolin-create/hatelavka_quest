@@ -111,10 +111,6 @@
                         <div class="icon-wrapper" style="color: #ff4757;"><i class="fa-solid fa-calendar-days"></i></div>
                         <span>Адвент</span>
                     </div>
-                  <div class="admin-icon-button" onclick="askP2PPassword()">
-                        <div class="icon-wrapper" style="color: #2575fc;"><i class="fa-solid fa-briefcase"></i></div>
-                        <span>P2P Настройки</span>
-                  </div>
                   <div class="admin-icon-button" data-view="view-admin-weekly-goals">
                         <div class="icon-wrapper" style="color: #FFC107;"><i class="fa-solid fa-calendar-week"></i></div>
                         <span>Недельные испытания</span>
@@ -124,12 +120,13 @@
                     <span>Расписание</span>
                 </div>
                 
-        <div style="padding: 0 16px; margin-bottom: 15px;">
-            <button onclick="askP2PPassword()" class="admin-action-btn" style="width:100%; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-weight: 600;">
-                ⚙️ Настройки Кейсов
-            </button>
-        </div>
-    </div>
+                <div style="padding: 0 16px; margin-bottom: 15px;">
+                    <button onclick="switchView('view-admin-p2p')" class="admin-action-btn" style="width:100%; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-weight: 600;">
+                        ⚙️ Настройки Кейсов
+                    </button>
+                </div>
+            </div>
+            </div>
 
         <div id="p2p-list" class="quests-container"></div>
     </div>
@@ -1534,36 +1531,20 @@
         </div>
      <div id="view-admin-p2p" class="view hidden">
             <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Заявки P2P</h1>
-            </div>
-            
-            <div style="padding: 0 16px; margin-bottom: 15px;">
-                <button onclick="askP2PPassword()" class="admin-action-btn" style="width:100%; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-weight: 600;">
-                    ⚙️ Настройки Кейсов
-                </button>
+                <button onclick="switchView('view-admin-main')" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">P2P Market</h1>
+                <div style="width: 80px;"></div>
             </div>
 
-            <div id="p2p-list" class="quests-container" style="padding-bottom: 50px;"></div>
-        </div>
-
-        <div id="view-admin-p2p-settings" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Меню</button>
-                <h1 class="page-header-title">Управление Кейсами</h1>
-            </div>
-
-            <div class="quests-container">
-                <div class="quest-card">
-                    <h3>➕ Добавить кейс</h3>
-                    <input type="text" id="new-case-name" placeholder="Название" style="width:100%; padding:10px; margin:5px 0; background:#333; border:1px solid #444; color:white; border-radius:8px; box-sizing: border-box;">
-                    <input type="text" id="new-case-img" placeholder="Ссылка на картинку" style="width:100%; padding:10px; margin:5px 0; background:#333; border:1px solid #444; color:white; border-radius:8px; box-sizing: border-box;">
-                    <input type="number" id="new-case-price" placeholder="Цена (монеты)" style="width:100%; padding:10px; margin:5px 0; background:#333; border:1px solid #444; color:white; border-radius:8px; box-sizing: border-box;">
-                    <button onclick="addNewCase()" class="admin-action-btn approve" style="width:100%; margin-top:10px;">Добавить</button>
+            <div class="content-container">
+                <div style="margin-bottom: 20px;">
+                    <button onclick="openAddP2PModal()" class="admin-action-btn approve">
+                        <i class="fa-solid fa-plus"></i> Создать P2P Трейд
+                    </button>
                 </div>
                 
-                <h4 style="margin: 20px 16px 5px; color:#888;">Список кейсов:</h4>
-                <div id="p2p-settings-list" style="padding-bottom: 50px;"></div>
+                <div id="p2p-list" class="quests-container">
+                    </div>
             </div>
         </div>
         </main>
