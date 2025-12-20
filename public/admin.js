@@ -704,73 +704,60 @@ const showLoader = () => {
     };
 
     const switchView = async (targetViewId) => {
-        console.log(`[switchView] Начинаем для targetViewId = ${targetViewId}`); // Лог входа
+    console.log(`[switchView] Начинаем для targetViewId = ${targetViewId}`);
 
-        // --- Логика скрытия кнопок сохранения при смене вида ---
-        if (orderChanged) {
-             console.log("[switchView] Обнаружены несохраненные изменения порядка квестов.");
-        }
-        if (dom.saveOrderButton) {
-            dom.saveOrderButton.classList.add('hidden');
-        } else {
-             console.warn("[switchView] Элемент dom.saveOrderButton не найден!");
-        }
-        orderChanged = false; 
-        
-        console.log("[switchView] Начинаем скрывать все view...");
-        try {
-            dom.views.forEach((view, index) => {
-                if (view && view.classList) { // Проверка перед доступом
-                    // console.log(`[switchView] Скрываем view #${index}, ID: ${view.id}`); // Раскомментируй для детального лога
-                    view.classList.add('hidden');
-                } else {
-                    // Эта ошибка критична, если произойдет
-                    console.error(`[switchView] ОШИБКА: Не удалось скрыть view #${index}. Элемент или classList отсутствует. View:`, view);
-                }
-            });
-        } catch(e) {
-             console.error("[switchView] ИСКЛЮЧЕНИЕ при скрытии views:", e); // Ловим возможные исключения
-        }
-        console.log("[switchView] Все views скрыты.");
+    // --- Логика скрытия кнопок сохранения при смене вида ---
+    if (typeof orderChanged !== 'undefined' && orderChanged) {
+        console.log("[switchView] Обнаружены несохраненные изменения порядка квестов.");
+    }
+    if (dom.saveOrderButton) {
+        dom.saveOrderButton.classList.add('hidden');
+    } else {
+        // console.warn("[switchView] Элемент dom.saveOrderButton не найден!");
+    }
+    if (typeof orderChanged !== 'undefined') orderChanged = false;
 
-
-        const targetView = document.getElementById(targetViewId);
-        console.log(`[switchView] Найден элемент для ID ${targetViewId}:`, targetView ? 'Да' : 'Нет'); // Лог найден ли элемент
-
-        if (targetView && targetView.classList) { // Проверка перед доступом
-            console.log(`[switchView] Показываем view ${targetViewId}...`);
-            targetView.classList.remove('hidden');
-            console.log(`[switchView] View ${targetViewId} показан.`);
-        } else {
-             // Эта ошибка критична
-             console.error(`[switchView] ОШИБКА: Элемент targetView не найден или не имеет classList для ID ${targetViewId}!`);
-             // Можно добавить return или throw, если без этого элемента продолжать нельзя
-        }
-
-        // --- Безопасная проверка для sleepModeToggle ---
-        console.log("[switchView] Проверяем dom.sleepModeToggle...");
-        if (dom.sleepModeToggle) {
-            console.log("[switchView] dom.sleepModeToggle найден.");
-            const isAdmin = document.body.dataset.isAdmin === 'true';
-            if (dom.sleepModeToggle.classList) {
-                 console.log("[switchView] dom.sleepModeToggle имеет classList, переключаем видимость...");
-                 dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
-                 console.log("[switchView] Видимость dom.sleepModeToggle переключена.");
+    console.log("[switchView] Начинаем скрывать все view...");
+    try {
+        dom.views.forEach((view, index) => {
+            if (view && view.classList) {
+                view.classList.add('hidden');
             } else {
-                console.warn("[switchView] dom.sleepModeToggle найден, но classList отсутствует?");
+                console.error(`[switchView] ОШИБКА: Не удалось скрыть view #${index}.`, view);
             }
-        } else {
-             console.warn("[switchView] Элемент dom.sleepModeToggle не найден при переключении видимости!");
+        });
+    } catch (e) {
+        console.error("[switchView] ИСКЛЮЧЕНИЕ при скрытии views:", e);
+    }
+    console.log("[switchView] Все views скрыты.");
+
+    const targetView = document.getElementById(targetViewId);
+    console.log(`[switchView] Найден элемент для ID ${targetViewId}:`, targetView ? 'Да' : 'Нет');
+
+    if (targetView && targetView.classList) {
+        console.log(`[switchView] Показываем view ${targetViewId}...`);
+        targetView.classList.remove('hidden');
+        console.log(`[switchView] View ${targetViewId} показан.`);
+    } else {
+        console.error(`[switchView] ОШИБКА: Элемент targetView не найден для ID ${targetViewId}!`);
+        return; // Не можем продолжать, если нет вьюхи
+    }
+
+    // --- Безопасная проверка для sleepModeToggle ---
+    console.log("[switchView] Проверяем dom.sleepModeToggle...");
+    if (dom.sleepModeToggle) {
+        const isAdmin = document.body.dataset.isAdmin === 'true';
+        if (dom.sleepModeToggle.classList) {
+            dom.sleepModeToggle.classList.toggle('hidden', targetViewId !== 'view-admin-main' || !isAdmin);
         }
-        // --- Конец проверки ---
+    }
 
-        console.log("[switchView] Показываем loader...");
-        showLoader(); // Уже безопасно
-        console.log("[switchView] Loader показан.");
+    console.log("[switchView] Показываем loader...");
+    showLoader();
 
-        try {
+    try {
         console.log(`[switchView] Входим в switch-блок для ${targetViewId}...`);
-        
+
         // --- Блок switch ---
         switch (targetViewId) {
             case 'view-admin-quests': {
@@ -840,14 +827,14 @@ const showLoader = () => {
                 break;
             }
 
-            // --- БЛОК CAULDRON (ПОЛНЫЙ И ЗАКРЫТЫЙ) ---
+            // --- БЛОК CAULDRON (ПОЛНЫЙ) ---
             case 'view-admin-cauldron': {
                 currentCauldronData = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
-                
+
                 // Проверяем, существует ли форма, чтобы избежать ошибок
                 if (dom.cauldronSettingsForm) {
                     const form = dom.cauldronSettingsForm;
-                    
+
                     // Вспомогательная функция (объявляем внутри)
                     const setVal = (name, val) => {
                         const el = form.elements[name] || document.querySelector(`[name="${name}"]`);
@@ -855,136 +842,115 @@ const showLoader = () => {
                     };
 
                     // Заполняем основные поля, если данные пришли
-                    if (currentCauldronData && currentCauldronData.settings) {
-                        const s = currentCauldronData.settings;
+                    if (currentCauldronData) {
+                        // Если данные пришли обернутые в settings или напрямую
+                        const s = currentCauldronData.settings || currentCauldronData;
+
+                        if (form.elements['is_visible_to_users']) {
+                            form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
+                        }
+
                         setVal('title', s.title);
-                        setVal('start_date', s.start_date ? s.start_date.slice(0,16) : '');
-                        setVal('end_date', s.end_date ? s.end_date.slice(0,16) : '');
-                        setVal('goal_level_1', s.goal_level_1);
-                        setVal('goal_level_2', s.goal_level_2);
-                        setVal('goal_level_3', s.goal_level_3);
-                        setVal('goal_level_4', s.goal_level_4);
-                        // ... остальные поля по аналогии, если нужно
+                        setVal('start_date', formatDateToInput(s.start_date));
+                        setVal('end_date', formatDateToInput(s.end_date));
+
+                        setVal('banner_image_url', s.banner_image_url);
+                        setVal('cauldron_image_url_1', s.cauldron_image_url_1);
+                        setVal('cauldron_image_url_2', s.cauldron_image_url_2);
+                        setVal('cauldron_image_url_3', s.cauldron_image_url_3);
+                        setVal('cauldron_image_url_4', s.cauldron_image_url_4);
+
+                        const goals = s.goals || {};
+                        setVal('goal_level_1', goals.level_1);
+                        setVal('goal_level_2', goals.level_2);
+                        setVal('goal_level_3', goals.level_3);
+                        setVal('goal_level_4', goals.level_4);
+
+                        // Заполняем награды для каждого уровня
+                        const levels = s.levels || {};
+                        [1, 2, 3, 4].forEach(level => {
+                            const levelData = levels[`level_${level}`] || {};
+                            const topPlaces = levelData.top_places || [];
+                            const tiers = levelData.tiers || { "41+": levelData.default_reward || {} };
+
+                            // 1. Заполнение Топ-20
+                            const container = document.getElementById(`top-rewards-container-${level}`);
+                            if (container && typeof createTopRewardRow === 'function') {
+                                container.innerHTML = '';
+                                topPlaces.sort((a, b) => a.place - b.place).forEach(reward => {
+                                    container.appendChild(createTopRewardRow(reward));
+                                });
+                            }
+
+                            // 2. Заполнение Тиров (21-30, 31-40, 41+)
+                            ["21-30", "31-40", "41+"].forEach(tierKey => {
+                                const tierData = tiers[tierKey] || {};
+                                const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
+
+                                setVal(`${prefix}_name_${level}`, tierData.name);
+                                setVal(`${prefix}_image_url_${level}`, tierData.image_url);
+                                setVal(`${prefix}_wear_${level}`, tierData.wear);
+                                setVal(`${prefix}_rarity_${level}`, tierData.rarity);
+                            });
+                        });
                     }
                 }
-                
-                // Обновляем UI котла, если функция существует
+
                 if (typeof updateCauldronUI === 'function') {
                     updateCauldronUI(currentCauldronData);
                 }
-                break; // <--- ВАЖНО: Закрываем case
-            }
-            
-            // --- ЛЮБЫЕ ДРУГИЕ CASE МОГУТ БЫТЬ ЗДЕСЬ ---
-
-            default:
-                console.warn(`[switchView] Неизвестный targetViewId: ${targetViewId}`);
                 break;
-        } // <--- ВАЖНО: Закрываем switch
+            }
 
-    } catch (e) { // <--- ВАЖНО: Закрываем try и обрабатываем ошибки
-        console.error(`[switchView] Ошибка при загрузке ${targetViewId}:`, e);
-        alert(`Ошибка загрузки раздела: ${e.message}`);
+            // --- ОСТАЛЬНЫЕ КЕЙСЫ (КОТОРЫЕ БЫЛИ ПОТЕРЯНЫ) ---
+            case 'view-admin-main': {
+                console.log("[switchView] Выполнен case 'view-admin-main'.");
+                break;
+            }
+            case 'view-admin-user-management': {
+                console.log("[switchView] Выполнен case 'view-admin-user-management'.");
+                // Сбрасываем видимость скрытых форм при переходе
+                [
+                    dom.grantCheckpointStarsForm, dom.grantTicketsForm,
+                    dom.freezeCheckpointStarsForm, dom.freezeTicketsForm,
+                    dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm,
+                    dom.adminResetUserWeeklyProgressForm
+                ].forEach(form => form?.classList.add('hidden'));
+                selectedAdminUser = null;
+                if (typeof loadAdminGrantLog === 'function') loadAdminGrantLog();
+                break;
+            }
+            case 'view-admin-auctions': {
+                await loadAdminAuctions();
+                break;
+            }
+            case 'view-admin-weekly-goals': {
+                await loadWeeklyGoalsData();
+                break;
+            }
+            case 'view-admin-schedule': {
+                await loadScheduleSettings();
+                break;
+            }
+            default: {
+                console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
+                break;
+            }
+        } // Конец switch (ВСЕ КЕЙСЫ ТЕПЕРЬ ВНУТРИ)
+
+        console.log(`[switchView] Выход из switch-блока для ${targetViewId}.`);
+
+    } catch (e) {
+        console.error(`[switchView] ИСКЛЮЧЕНИЕ внутри switch-блока для ${targetViewId}:`, e);
+        hideLoader();
+        throw e;
+    } finally {
+        console.log("[switchView] Входим в finally, скрываем loader...");
+        hideLoader();
+        console.log("[switchView] Loader скрыт в finally.");
     }
-
-                    // Заполнение основных настроек
-                    form.elements['is_visible_to_users'].checked = currentCauldronData.is_visible_to_users || false;
-                    setVal('title', currentCauldronData.title);
-                    setVal('start_date', formatDateToInput(currentCauldronData.start_date));
-                    setVal('end_date', formatDateToInput(currentCauldronData.end_date));
-                    
-                    setVal('banner_image_url', currentCauldronData.banner_image_url);
-                    setVal('cauldron_image_url_1', currentCauldronData.cauldron_image_url_1);
-                    setVal('cauldron_image_url_2', currentCauldronData.cauldron_image_url_2);
-                    setVal('cauldron_image_url_3', currentCauldronData.cauldron_image_url_3);
-                    setVal('cauldron_image_url_4', currentCauldronData.cauldron_image_url_4);
-
-                    const goals = currentCauldronData.goals || {};
-                    setVal('goal_level_1', goals.level_1);
-                    setVal('goal_level_2', goals.level_2);
-                    setVal('goal_level_3', goals.level_3);
-                    setVal('goal_level_4', goals.level_4);
-
-                    // Заполняем награды для каждого уровня
-                    const levels = currentCauldronData.levels || {};
-                    [1, 2, 3, 4].forEach(level => {
-                        const levelData = levels[`level_${level}`] || {};
-                        const topPlaces = levelData.top_places || [];
-                        const tiers = levelData.tiers || { "41+": levelData.default_reward || {} };
-
-                        // 1. Заполнение Топ-20
-                        const container = document.getElementById(`top-rewards-container-${level}`);
-                        if (container) { 
-                           container.innerHTML = ''; 
-                           topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
-                               // В createTopRewardRow передаем уже готовый объект reward (с полями wear/rarity)
-                               container.appendChild(createTopRewardRow(reward));
-                           });
-                        }
-
-                        // 2. Заполнение Тиров (21-30, 31-40, 41+)
-                        ["21-30", "31-40", "41+"].forEach(tierKey => {
-                            const tierData = tiers[tierKey] || {};
-                            // Формируем префикс имени поля (например: tier_21_30)
-                            const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
-                            
-                            // Используем setVal для безопасного заполнения
-                            setVal(`${prefix}_name_${level}`, tierData.name);
-                            setVal(`${prefix}_image_url_${level}`, tierData.image_url);
-                            setVal(`${prefix}_wear_${level}`, tierData.wear);     // Грузим износ
-                            setVal(`${prefix}_rarity_${level}`, tierData.rarity); // Грузим редкость
-                        });
-                    });
-                    break;
-                }
-                case 'view-admin-main': {
-                   console.log("[switchView] Выполнен case 'view-admin-main'.");
-                   break;
-                }
-                case 'view-admin-user-management': {
-                    console.log("[switchView] Выполнен case 'view-admin-user-management'.");
-                    // Сбрасываем видимость скрытых форм при переходе
-                    [
-                        dom.grantCheckpointStarsForm, dom.grantTicketsForm,
-                        dom.freezeCheckpointStarsForm, dom.freezeTicketsForm,
-                        dom.resetCheckpointProgressForm, dom.clearCheckpointStarsForm,
-                        dom.adminResetUserWeeklyProgressForm
-                    ].forEach(form => form?.classList.add('hidden'));
-                    selectedAdminUser = null; 
-                    
-                    loadAdminGrantLog(); 
-                    break;
-                }
-                case 'view-admin-auctions': {
-                    await loadAdminAuctions();
-                    break;
-                }
-                case 'view-admin-weekly-goals': {
-                    await loadWeeklyGoalsData(); 
-                    break;
-                }
-                case 'view-admin-schedule': {
-                    await loadScheduleSettings();
-                    break;
-                }
-                default: {
-                    console.warn(`[switchView] Неизвестный targetViewId в switch-блоке: ${targetViewId}`);
-                    break;
-                }
-            } // Конец switch
-            console.log(`[switchView] Выход из switch-блока для ${targetViewId}.`);
-        } catch (e) {
-            console.error(`[switchView] ИСКЛЮЧЕНИЕ внутри switch-блока для ${targetViewId}:`, e);
-             // Убедимся, что loader скрывается даже при ошибке в switch
-             hideLoader(); // Уже безопасно
-             throw e; // Перебрасываем ошибку дальше, чтобы увидеть ее в main()
-        } finally {
-            console.log("[switchView] Входим в finally, скрываем loader...");
-            hideLoader(); // Уже безопасно
-            console.log("[switchView] Loader скрыт в finally.");
-        }
-        console.log(`[switchView] Завершаем для targetViewId = ${targetViewId}`); // Лог выхода
-    };
+    console.log(`[switchView] Завершаем для targetViewId = ${targetViewId}`);
+};
 
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent) showLoader();
