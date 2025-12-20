@@ -858,10 +858,154 @@
         let currentCategoryId = 0;
         let itemsCache = {}; 
         let hasTradeLink = false;
+        let p2pCases = [];
 
         Telegram.WebApp.BackButton.onClick(() => {
             goBack();
         });
+
+        // Открытие модалки
+async function openP2PModal() {
+    document.getElementById('p2p-modal').classList.remove('hidden');
+    
+    // 1. Загружаем кейсы
+    const res = await fetch('/api/v1/p2p/cases');
+    p2pCases = await res.json();
+    
+    const select = document.getElementById('p2p-case-select');
+    // Добавим проверку, есть ли кейсы
+    if (p2pCases.length > 0) {
+        select.innerHTML = p2pCases.map(c => `<option value="${c.id}" data-price="${c.price_in_coins}">${c.case_name}</option>`).join('');
+        calculateP2P();
+    } else {
+        select.innerHTML = '<option>Нет доступных кейсов</option>';
+    }
+
+    // 2. Загружаем историю сделок
+    loadMyP2PTrades(); 
+}
+
+function closeP2PModal() {
+    document.getElementById('p2p-modal').classList.add('hidden');
+}
+
+function calculateP2P() {
+    const select = document.getElementById('p2p-case-select');
+    const quantity = document.getElementById('p2p-quantity').value;
+    const price = select.options[select.selectedIndex]?.dataset.price || 0;
+    
+    document.getElementById('p2p-price-per-item').textContent = price;
+    document.getElementById('p2p-total').textContent = (price * quantity).toFixed(0);
+}
+
+// Создание заявки
+async function createP2PTrade() {
+    const caseId = document.getElementById('p2p-case-select').value;
+    const quantity = document.getElementById('p2p-quantity').value;
+    
+    if (!caseId) return Telegram.WebApp.showAlert("Выберите кейс");
+
+    try {
+        const res = await fetch('/api/v1/p2p/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData, case_id: caseId, quantity: quantity })
+        });
+        const data = await res.json();
+        
+        if(res.ok) {
+            Telegram.WebApp.showAlert(data.message);
+            loadMyP2PTrades(); // Обновляем список
+        } else {
+            Telegram.WebApp.showAlert(data.detail || "Ошибка");
+        }
+    } catch(e) {
+        Telegram.WebApp.showAlert("Ошибка соединения");
+    }
+}
+
+// Загрузка и отображение списка сделок
+async function loadMyP2PTrades() {
+    const container = document.getElementById('my-p2p-trades');
+    container.innerHTML = '<p>Загрузка...</p>';
+
+    try {
+        const res = await fetch('/api/v1/p2p/my_trades', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData })
+        });
+        const trades = await res.json();
+        
+        container.innerHTML = '';
+        if (trades.length === 0) {
+            container.innerHTML = '<p style="color:#888; text-align:center;">Пока нет сделок</p>';
+            return;
+        }
+
+        trades.forEach(trade => {
+            let statusBadge = '';
+            let actionHtml = '';
+
+            // Логика отображения статусов
+            if (trade.status === 'pending') {
+                statusBadge = '<span style="color:orange">⏳ Ожидает админа</span>';
+            } else if (trade.status === 'active') {
+                statusBadge = '<span style="color:#00ff00">⚡ Трейд активен!</span>';
+                // Показываем ссылку на трейд и кнопку "Я отправил"
+                actionHtml = `
+                    <div style="margin-top:5px; background:rgba(0,255,0,0.1); padding:8px; border-radius:4px;">
+                        <p style="font-size:12px; margin-bottom:5px;">Админ подтвердил! Отправьте кейсы сюда:</p>
+                        <a href="${trade.trade_url_given}" target="_blank" style="color:#00ffff; text-decoration:underline; font-size:14px;">Ссылка на обмен Steam</a>
+                        <button onclick="confirmSent(${trade.id})" style="width:100%; margin-top:8px; background:#00aa00; border:none; padding:5px; border-radius:4px; color:white;">✅ Я передал кейсы</button>
+                    </div>
+                `;
+            } else if (trade.status === 'review') {
+                statusBadge = '<span style="color:#aaa">🔍 Проверка админом</span>';
+            } else if (trade.status === 'completed') {
+                statusBadge = '<span style="color:#ffd700">💰 Выполнено</span>';
+            } else {
+                statusBadge = `<span style="color:red">${trade.status}</span>`;
+            }
+
+            const itemHtml = `
+                <div style="background:#222; padding:10px; margin-bottom:8px; border-radius:6px; border:1px solid #444;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <strong>${trade.case?.case_name || 'Case'} (x${trade.quantity})</strong>
+                        <span style="color:#ffd700">+${trade.total_coins}</span>
+                    </div>
+                    <div style="font-size:12px; margin-top:4px;">
+                        ${statusBadge}
+                    </div>
+                    ${actionHtml}
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', itemHtml);
+        });
+
+    } catch(e) {
+        console.error(e);
+        container.innerHTML = '<p style="color:red">Ошибка загрузки истории</p>';
+    }
+}
+
+// Кнопка "Я передал"
+async function confirmSent(tradeId) {
+    if(!confirm("Нажимайте это только ПОСЛЕ того, как отправили трейд в Steam. Продолжить?")) return;
+    
+    try {
+        const res = await fetch('/api/v1/p2p/confirm_sent', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData, trade_id: tradeId })
+        });
+        if(res.ok) {
+            loadMyP2PTrades(); // Обновляем статус на "review"
+        }
+    } catch(e) {
+        Telegram.WebApp.showAlert("Ошибка");
+    }
+}
 
         // --- ОПТИМИЗИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ ПАРТНЕРОВ (CSS ANIMATION) ---
         function initPartnersScroll() {
