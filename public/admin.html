@@ -64,10 +64,10 @@
                     </div>
                  <div class="admin-icon-button" data-view="view-admin-p2p">
                         <div class="icon-wrapper" style="color: #2575fc;">
-                            <i class="fa-solid fa-briefcase"></i>
+                            <i class="fa-solid fa-file-invoice-dollar"></i>
                             <span id="p2p-badge" class="notification-badge hidden">0</span>
                         </div>
-                        <span>P2P Market</span>
+                        <span>Заявки P2P</span>
                     </div>
                 </div> </div> <div id="tab-content-admin" class="tab-content hidden">
                 <div class="admin-icon-menu">
@@ -111,6 +111,10 @@
                         <div class="icon-wrapper" style="color: #ff4757;"><i class="fa-solid fa-calendar-days"></i></div>
                         <span>Адвент</span>
                     </div>
+                  <div class="admin-icon-button" data-view="view-admin-p2p-settings">
+                        <div class="icon-wrapper" style="color: #00d2d3;"><i class="fa-solid fa-boxes-packing"></i></div>
+                        <span>P2P Настройки</span>
+                    </div>
                   <div class="admin-icon-button" data-view="view-admin-weekly-goals">
                         <div class="icon-wrapper" style="color: #FFC107;"><i class="fa-solid fa-calendar-week"></i></div>
                         <span>Недельные испытания</span>
@@ -119,10 +123,6 @@
                     <div class="icon-wrapper" style="color: #A065F7;"><i class="fa-solid fa-calendar-alt"></i></div>
                     <span>Расписание</span>
                 </div>
-                
-                <p style="font-size: 14px; color: var(--text-color-muted); margin:0;">
-                    Панель для администратирования канала HATElove.ttv.
-                </p>
             </div>
         </div> 
       
@@ -1509,20 +1509,16 @@
                 <h1 class="page-header-title">Заявки P2P</h1>
                 <div style="width: 60px;"></div>
             </div>
-            
-            <div style="padding: 0 16px; margin-bottom: 15px;">
-                <button onclick="askP2PPassword()" class="admin-action-btn" style="width:100%; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-weight: 600;">
-                    ⚙️ Настройки Кейсов
-                </button>
-            </div>
 
-            <div id="p2p-list" class="quests-container" style="padding-bottom: 50px;"></div>
+            <div id="p2p-list" class="quests-container" style="padding-bottom: 50px;">
+                <p style="text-align:center; color:#777; margin-top:20px;">Загрузка заявок...</p>
+            </div>
         </div>
 
         <div id="view-admin-p2p-settings" class="view hidden">
             <div class="page-header">
-                <button class="back-button" data-view="view-admin-p2p"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Управление Кейсами</h1>
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Меню</button>
+                <h1 class="page-header-title">Настройки Кейсов</h1>
                 <div style="width: 60px;"></div>
             </div>
 
@@ -1535,7 +1531,7 @@
                     <button onclick="addNewCase()" class="admin-action-btn approve" style="width:100%; margin-top:10px;">Добавить</button>
                 </div>
                 
-                <h4 style="margin: 20px 16px 5px; color:#888;">Текущие кейсы:</h4>
+                <h4 style="margin: 20px 16px 5px; color:#888;">Текущие кейсы в магазине:</h4>
                 <div id="p2p-settings-list" style="padding-bottom: 50px;"></div>
             </div>
         </div>
