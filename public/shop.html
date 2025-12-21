@@ -1154,6 +1154,97 @@
     transform: translateY(0);
 }
 
+/* --- PREMIUM P2P BUTTON --- */
+.premium-exchange-btn {
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 16px;
+    /* Твой любимый фиолетовый градиент, но с большей глубиной */
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 8px 20px rgba(37, 117, 252, 0.3); /* Цветная тень (glow) */
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    text-align: left;
+}
+
+.premium-exchange-btn:active {
+    transform: scale(0.98);
+    box-shadow: 0 4px 10px rgba(37, 117, 252, 0.2);
+}
+
+/* Эффект блика (Shine) */
+.premium-exchange-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transform: skewX(-20deg);
+    animation: shine 4s infinite; /* Блик пробегает каждые 4 секунды */
+}
+
+@keyframes shine {
+    0% { left: -100%; }
+    20% { left: 200%; } /* Быстрый пролет */
+    100% { left: 200%; } /* Пауза */
+}
+
+/* Левая часть (Иконка) */
+.p2p-icon-box {
+    width: 42px;
+    height: 42px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(5px);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #fff;
+    margin-right: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Центр (Текст) */
+.p2p-text-box {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 2; /* Чтобы текст был над бликом */
+}
+
+.p2p-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.p2p-subtitle {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+/* Правая часть (Стрелка) */
+.p2p-arrow {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    margin-left: 10px;
+}
+
 /* Список внутри истории */
 .history-scroll-area {
     flex-grow: 1;
@@ -1216,9 +1307,20 @@
         </div>
     </div>
 
-    <div class="shop-actions" style="padding: 0 16px; margin-bottom: 15px;">
-    <button onclick="openP2PModal()" class="action-btn" style="width:100%; background: linear-gradient(45deg, #6a11cb, #2575fc); border:none;">
-        <i class="fa-solid fa-briefcase"></i> Обменять кейсы на монеты
+    <div class="shop-actions" style="padding: 0 16px;">
+    <button onclick="openP2PModal()" class="premium-exchange-btn" id="open-p2p-modal-btn">
+        <div class="p2p-icon-box">
+            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+        </div>
+        
+        <div class="p2p-text-box">
+            <span class="p2p-title">Trade-In</span>
+            <span class="p2p-subtitle">Обмен кейсов на 🟡</span>
+        </div>
+
+        <div class="p2p-arrow">
+            <i class="fa-solid fa-chevron-right"></i>
+        </div>
     </button>
 </div>
 
