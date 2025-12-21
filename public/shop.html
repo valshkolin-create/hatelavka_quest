@@ -1315,7 +1315,8 @@ async function loadP2PHistoryInModal() {
     container.innerHTML = '<p style="text-align:center; font-size:12px; color:#666;">Обновление...</p>';
 
     try {
-        const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'GET');
+        // 👇 БЫЛО 'GET', СТАЛО 'POST' 👇
+        const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'POST'); 
         
         if (!trades || trades.length === 0) {
             container.innerHTML = '<p style="text-align:center; font-size:12px; color:#666;">Нет активных сделок</p>';
@@ -1379,7 +1380,7 @@ async function loadP2PHistoryInModal() {
         container.innerHTML = `<p style="color:red; font-size:12px;">Ошибка: ${e.message}</p>`;
     }
 }
-
+        
 // 6. ОТКРЫТЬ БОТА
 function connectTelegramBot() {
     Telegram.WebApp.openTelegramLink("https://t.me/quest_hatelavka_bot?start=start");
@@ -1388,17 +1389,19 @@ function connectTelegramBot() {
 // 7. ФОНОВАЯ ПРОВЕРКА (ДЛЯ ГЛАВНОЙ КНОПКИ СНАРУЖИ)
 async function checkActiveTradesBackground() {
     try {
-        const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'GET');
+        // 👇 БЫЛО 'GET', СТАЛО 'POST' 👇
+        const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'POST');
+        
         const hasActive = trades.some(t => ['pending', 'active', 'review'].includes(t.status));
-        const btn = document.getElementById('open-p2p-modal-btn'); // ID кнопки, открывающей это окно
+        const btn = document.getElementById('open-p2p-modal-btn'); 
         
         if (btn) {
             if (hasActive) {
-                btn.classList.add('has-active-trade'); // Твой класс пульсации
+                btn.classList.add('has-active-trade'); 
                 btn.innerHTML = `<i class="fa-solid fa-fire"></i> АКТИВНЫЙ ТРЕЙД`;
             } else {
                 btn.classList.remove('has-active-trade');
-                btn.innerHTML = `Обмен P2P`;
+                btn.innerHTML = `<i class="fa-solid fa-briefcase"></i> Обменять кейсы на монеты`; // Вернул иконку чемодана
             }
         }
     } catch(e) {}
