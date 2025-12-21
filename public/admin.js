@@ -5233,9 +5233,10 @@ async function main() {
         }
     }
     // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
-// ⬇️⬇️⬇️ ВСТАВИТЬ НОВЫЕ ФУНКЦИИ ⬇️⬇️⬇️
-
 // --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
+
+// Кэш для твоей трейд-ссылки (чтобы не грузить её каждый клик)
+let adminP2PTradeLinkCache = '';
 
 async function loadP2PTrades() {
     dom.p2pTradesList.innerHTML = '<p style="text-align:center;">Загрузка...</p>';
@@ -5259,31 +5260,54 @@ async function loadP2PTrades() {
             let actionsHtml = '';
             let statusText = '';
 
+            // --- НОВАЯ ЛОГИКА СТАТУСОВ ---
             switch(trade.status) {
                 case 'pending':
-                    statusBadge = '<span class="p2p-status-badge p2p-status-pending">Ждем юзера</span>';
-                    statusText = 'Пользователь еще не нажал "Я передал".';
-                    break;
-                case 'review':
-                    statusBadge = '<span class="p2p-status-badge p2p-status-review">ПРОВЕРКА</span>';
-                    statusText = 'Юзер сообщил о передаче. Проверь трейд!';
+                    // ЭТАП 1: Новая заявка. Админ должен принять и скинуть ссылку.
+                    statusBadge = '<span class="p2p-status-badge p2p-status-pending">НОВАЯ</span>';
+                    statusText = 'Пользователь хочет обменять кейс. Нажми "Принять", чтобы отправить ему трейд-ссылку.';
                     actionsHtml = `
                         <button onclick="approveP2PTrade(${trade.id})" class="admin-action-btn approve" style="font-size:13px; padding:8px;">
-                            <i class="fa-solid fa-check"></i> Принять (Дать ссылку)
+                            <i class="fa-solid fa-check"></i> Принять (Отправить ссылку)
+                        </button>
+                        <button onclick="cancelP2PTrade(${trade.id})" class="admin-action-btn reject" style="font-size:13px; padding:8px;">
+                            <i class="fa-solid fa-xmark"></i> Отказать
                         </button>
                     `;
                     break;
+
                 case 'active':
-                    statusBadge = '<span class="p2p-status-badge p2p-status-active">АКТИВНА</span>';
-                    statusText = `Ссылка выдана. Ждем завершения.<br><small style="color:#aaa;">Ссылка: ${trade.trade_url_given || '...'}</small>`;
+                    // ЭТАП 2: Ссылка отправлена. Ждем пока юзер скинет скин и нажмет кнопку.
+                    statusBadge = '<span class="p2p-status-badge p2p-status-active">ЖДЕМ СКИН</span>';
+                    statusText = `<i class="fa-solid fa-spinner fa-spin"></i> Ссылка отправлена юзеру.<br>Ждем, пока он передаст предмет и нажмет "Я передал".`;
+                    // Тут кнопок подтверждения нет, ждем действия юзера.
+                    actionsHtml = `
+                         <button onclick="cancelP2PTrade(${trade.id})" class="admin-action-btn reject" style="font-size:13px; padding:8px; opacity: 0.7;">
+                            Отменить сделку
+                        </button>
+                    `;
+                    break;
+
+                case 'review':
+                    // ЭТАП 3: Юзер сказал "Я передал". Админ проверяет и платит.
+                    statusBadge = '<span class="p2p-status-badge p2p-status-review">ПРОВЕРКА</span>';
+                    statusText = `<b style="color:var(--success-color);">Юзер подтвердил передачу!</b><br>Проверь трейды в Steam. Если скин пришел — жми "Завершить".`;
                     actionsHtml = `
                         <button onclick="completeP2PTrade(${trade.id}, ${trade.total_coins})" class="admin-action-btn confirm" style="font-size:13px; padding:8px;">
                             <i class="fa-solid fa-coins"></i> Завершить (Выдать ${trade.total_coins})
                         </button>
+                         <button onclick="cancelP2PTrade(${trade.id})" class="admin-action-btn reject" style="font-size:13px; padding:8px;">
+                            Не пришло / Обман
+                        </button>
                     `;
                     break;
+
                 case 'completed':
                     statusBadge = '<span class="p2p-status-badge p2p-status-completed">ВЫПОЛНЕНО</span>';
+                    break;
+                
+                case 'canceled':
+                    statusBadge = '<span class="p2p-status-badge" style="background:#555;">ОТМЕНЕНО</span>';
                     break;
             }
 
@@ -5319,18 +5343,34 @@ async function loadP2PTrades() {
     }
 }
 
-// Действие: Админ принимает трейд (нужно ввести ссылку на трейд)
-window.approveP2PTrade = function(tradeId) {
-    showGenericPrompt(
-        "Введите Трейд-ссылку", 
-        "", // пустое значение по умолчанию
-        null // ID не нужен для prompt-logic, используем коллбэк ниже
-    );
+// --- ФУНКЦИИ ДЕЙСТВИЙ (ГЛОБАЛЬНЫЕ) ---
 
-    // Переопределяем поведение кнопки "Сохранить" в модалке
+// 1. Принять сделку (Отправить ссылку)
+window.approveP2PTrade = async function(tradeId) {
+    // Пытаемся получить ссылку из кэша или настроек, если пусто
+    if (!adminP2PTradeLinkCache) {
+        try {
+            const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+            adminP2PTradeLinkCache = settings.p2p_admin_trade_link || '';
+        } catch (e) { console.error(e); }
+    }
+
+    // Показываем окно, где ссылка уже подставлена
+    showGenericPrompt(
+        "Отправить трейд-ссылку", 
+        adminP2PTradeLinkCache, 
+        null 
+    );
+    // Меняем подсказку в модалке для ясности
+    dom.genericPromptTitle.innerHTML = 'Проверь ссылку перед отправкой юзеру:';
+
+    // Переопределяем кнопку "Подтвердить" в модалке
     dom.genericPromptConfirm.onclick = async () => {
         const tradeLink = dom.genericPromptInput.value.trim();
         if (!tradeLink) return tg.showAlert("Введите ссылку!");
+
+        // Обновляем кэш, если ты поменял её в модалке
+        adminP2PTradeLinkCache = tradeLink; 
 
         try {
             await makeApiRequest('/api/v1/admin/p2p/approve', {
@@ -5338,7 +5378,7 @@ window.approveP2PTrade = function(tradeId) {
                 trade_link: tradeLink
             });
             hideGenericPrompt();
-            tg.showAlert("Трейд принят! Ссылка отправлена.");
+            tg.showAlert("Заявка принята! Ссылка отправлена.");
             loadP2PTrades(); // Обновляем список
         } catch (e) {
             tg.showAlert(e.message);
@@ -5346,28 +5386,84 @@ window.approveP2PTrade = function(tradeId) {
     };
 };
 
-// Действие: Админ завершает трейд (выдает монеты)
+// 2. Завершить сделку (Выдать монеты)
 window.completeP2PTrade = async function(tradeId, coins) {
-    if(!confirm(`Выдать пользователю ${coins} монет и закрыть сделку?`)) return;
-    
-    try {
-        await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: tradeId });
-        tg.showAlert(`Выдано ${coins} монет!`);
-        loadP2PTrades();
-    } catch (e) {
-        tg.showAlert(e.message);
-    }
+    tg.showConfirm(`Скин получен? Выдать ${coins} монет пользователю?`, async (ok) => {
+        if(ok) {
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: tradeId });
+                tg.showAlert(`Выдано ${coins} монет! Сделка закрыта.`);
+                loadP2PTrades();
+            } catch (e) {
+                tg.showAlert(e.message);
+            }
+        }
+    });
+};
+
+// 3. Отмена сделки
+window.cancelP2PTrade = async function(tradeId) {
+    tg.showConfirm(`Отменить эту сделку?`, async (ok) => {
+        if(ok) {
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: tradeId });
+                tg.showAlert(`Сделка отменена.`);
+                loadP2PTrades();
+            } catch (e) {
+                tg.showAlert(e.message);
+            }
+        }
+    });
 };
 
 
-// --- ЛОГИКА НАСТРОЙКИ КЕЙСОВ (ADMIN) ---
+// --- ЛОГИКА НАСТРОЙКИ КЕЙСОВ И ССЫЛКИ (ADMIN) ---
+
+// Функция для загрузки и Кейсов, и Настроек (ссылки)
+// Вызывай её вместо loadP2PCases() при переключении на вкладку настроек
+async function loadP2PSettingsAndCases() {
+    // 1. Грузим список кейсов
+    await loadP2PCases();
+
+    // 2. Грузим ссылку админа в инпут (если ты добавил input с id="p2p-admin-trade-link")
+    try {
+        const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+        const linkInput = document.getElementById('p2p-admin-trade-link');
+        
+        if (settings.p2p_admin_trade_link) {
+            adminP2PTradeLinkCache = settings.p2p_admin_trade_link; // Сохраняем в кэш
+            if (linkInput) linkInput.value = settings.p2p_admin_trade_link;
+        }
+    } catch (e) {
+        console.error("Ошибка загрузки P2P настроек", e);
+    }
+}
+
+// Функция сохранения ссылки (повесь на кнопку onclick="saveP2PAdminLink()")
+window.saveP2PAdminLink = async function() {
+     const linkInput = document.getElementById('p2p-admin-trade-link');
+     if (!linkInput) return;
+     const linkVal = linkInput.value.trim();
+     if(!linkVal) return tg.showAlert("Ссылка пустая!");
+
+     try {
+         // 1. Получаем текущие настройки
+         const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+         // 2. Обновляем поле
+         currentSettings.p2p_admin_trade_link = linkVal;
+         // 3. Сохраняем
+         await makeApiRequest('/api/v1/admin/settings/update', { settings: currentSettings });
+         
+         adminP2PTradeLinkCache = linkVal;
+         tg.showAlert('Ссылка сохранена!');
+     } catch (e) {
+         tg.showAlert(e.message);
+     }
+}
 
 async function loadP2PCases() {
     dom.p2pCasesList.innerHTML = '<p style="text-align:center;">Загрузка...</p>';
     try {
-        // Используем публичный эндпоинт для получения списка, но нам нужны все поля
-        // Если публичный не возвращает ID, нужно добавить админский эндпоинт. 
-        // В index.py есть /api/v1/p2p/cases, он возвращает id, price_in_coins, case_name, image_url.
         const cases = await makeApiRequest('/api/v1/p2p/cases', {}, 'GET', true);
         
         dom.p2pCasesList.innerHTML = '';
