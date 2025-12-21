@@ -1343,11 +1343,8 @@
                 <span id="smart-btn-text">История сделок</span>
                 <div class="btn-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
             </button>
-            </div>
-        </div>
-    </div>
-</div>
-</div> <div id="history-modal-window" class="history-modal">
+            
+        </div> </div> </div> <div id="history-modal-window" class="history-modal">
     <div class="history-modal-content">
         <div class="modal-header">
             <h3>Мои сделки</h3>
@@ -1410,6 +1407,7 @@ async function makeApiRequest(url, method = 'GET', body = null) {
         
         // Открытие модалки
 // 1. ОТКРЫТИЕ МОДАЛКИ (Вызывай это при клике на кнопку "Обмен P2P")
+// 1. ОТКРЫТИЕ МОДАЛКИ
 async function openP2PModal() {
     const modal = document.getElementById('p2p-modal');
     modal.classList.remove('hidden');
@@ -1420,7 +1418,9 @@ async function openP2PModal() {
     
     // Загрузка данных
     await loadP2PCasesForSelect();
-    await loadP2PHistoryInModal();
+    
+    // ВАЖНО: Тут было старое название, меняем на новое:
+    await loadP2PHistoryData(); 
 }
 
 function closeP2PModal() {
@@ -1686,8 +1686,8 @@ function confirmP2PSent(tradeId) {
             
             Telegram.WebApp.showAlert("Отлично! Админ проверит поступление и начислит монеты.");
             
-            // Обновляем список, чтобы статус сменился на "Проверка"
-            await loadP2PHistoryInModal();
+            // ВАЖНО: Тут тоже меняем на новое название:
+            await loadP2PHistoryData();
             checkActiveTradesBackground();
 
         } catch (e) {
