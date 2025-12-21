@@ -822,7 +822,7 @@
     background: #1c1c1e;
     width: 90%;
     max-width: 360px;
-    border-radius: 24px; /* Более скругленные углы */
+    border-radius: 24px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 20px 50px rgba(0,0,0,0.7);
     padding: 24px;
@@ -832,6 +832,11 @@
     gap: 16px;
     transform: scale(1);
     transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    /* 👇👇👇 ДОБАВЛЕНО ДЛЯ СКРОЛЛА 👇👇👇 */
+    max-height: 85vh;       /* Ограничиваем высоту 85% от экрана */
+    overflow-y: auto;       /* Включаем скролл, если контент не влезает */
+    -webkit-overflow-scrolling: touch; /* Плавный скролл на iPhone */
 }
 
 .modal.hidden .modal-content {
@@ -1260,8 +1265,8 @@
         let currentCategoryId = 0;
         let itemsCache = {}; 
         let hasTradeLink = false;
-        let p2pCases = [];
-
+        let cachedP2PCases = []; // СТАЛО: cachedP2PCases
+        
         Telegram.WebApp.BackButton.onClick(() => {
             goBack();
         });
@@ -1320,7 +1325,7 @@ async function loadP2PCasesForSelect() {
     
     try {
         const cases = await makeApiRequest('/api/v1/p2p/cases', 'GET');
-        const cachedP2PCases = cases || [];
+        cachedP2PCases = cases || []; // СТАЛО: без const (пишем в глобальную)
         
         select.innerHTML = '<option value="">-- Нажми, чтобы выбрать кейс --</option>';
         
