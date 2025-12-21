@@ -1513,6 +1513,27 @@ function connectTelegramBot() {
     Telegram.WebApp.openTelegramLink("https://t.me/quest_hatelavka_bot?start=start");
 }
 
+function confirmP2PSent(tradeId) {
+    Telegram.WebApp.showConfirm("Вы точно передали предмет в Steam?", async (ok) => {
+        if (!ok) return;
+
+        try {
+            await makeApiRequest('/api/v1/p2p/confirm_sent', 'POST', {
+                trade_id: parseInt(tradeId)
+            });
+            
+            Telegram.WebApp.showAlert("Отлично! Админ проверит поступление и начислит монеты.");
+            
+            // Обновляем список, чтобы статус сменился на "Проверка"
+            await loadP2PHistoryInModal();
+            checkActiveTradesBackground();
+
+        } catch (e) {
+            Telegram.WebApp.showAlert(e.message || "Ошибка подтверждения");
+        }
+    });
+}
+
 // 7. ФОНОВАЯ ПРОВЕРКА (ДЛЯ ГЛАВНОЙ КНОПКИ СНАРУЖИ)
 async function checkActiveTradesBackground() {
     try {
