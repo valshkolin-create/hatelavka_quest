@@ -5364,6 +5364,23 @@ window.approveP2PTrade = async function(tradeId) {
     }
 };
 
+window.completeP2PTrade = async function(tradeId, coins) {
+    tg.showConfirm(`Скин пришел? Выдать ${coins} монет пользователю?`, async (ok) => {
+        if(ok) {
+            showLoader();
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: parseInt(tradeId) });
+                tg.showAlert(`Выдано ${coins} монет! Сделка закрыта.`);
+                loadP2PTrades();
+            } catch (e) {
+                tg.showAlert("Ошибка: " + e.message);
+            } finally {
+                hideLoader();
+            }
+        }
+    });
+};
+
 // Issue 3: Исправленная кнопка отказа
 window.cancelP2PTrade = async function(tradeId) {
     tg.showConfirm(`Отменить сделку #${tradeId}?`, async (ok) => {
