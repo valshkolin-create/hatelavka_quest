@@ -1065,6 +1065,102 @@
     transform: rotate(45deg);
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
+/* --- СТИЛИ ДЛЯ КНОПКИ ИСТОРИИ И ВТОРОГО ОКНА --- */
+
+/* Кнопка-статус (умная кнопка) */
+.history-status-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: #8E8E93;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+/* Состояние: АКТИВНЫЙ ТРЕЙД (Пульсация) */
+.history-status-btn.active-trade {
+    background: linear-gradient(135deg, #ffcc00 0%, #ff9500 100%);
+    color: #000;
+    border: none;
+    box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+    animation: statusPulse 2s infinite;
+}
+
+.history-status-btn.active-trade .btn-icon {
+    background: rgba(0,0,0,0.2);
+    color: #fff;
+}
+
+@keyframes statusPulse {
+    0% { transform: scale(1); box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3); }
+    50% { transform: scale(1.02); box-shadow: 0 4px 25px rgba(255, 204, 0, 0.6); }
+    100% { transform: scale(1); box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3); }
+}
+
+/* Иконка внутри кнопки */
+.btn-icon {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+/* --- ВТОРОЕ МОДАЛЬНОЕ ОКНО (Z-INDEX ВЫШЕ) --- */
+.history-modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8); /* Темнее фон */
+    backdrop-filter: blur(5px);
+    z-index: 10005; /* ВАЖНО: Выше чем обычная модалка */
+    display: flex;
+    align-items: flex-end; /* Выезжает снизу или центр */
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.history-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.history-modal-content {
+    background: #1c1c1e;
+    width: 100%;
+    height: 80vh; /* На весь экран почти */
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+}
+
+.history-modal.active .history-modal-content {
+    transform: translateY(0);
+}
+
+/* Список внутри истории */
+.history-scroll-area {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-top: 15px;
+    padding-bottom: 30px;
+}
     </style>
 </head>
 <body>
@@ -1243,15 +1339,28 @@
                 Создать заявку
             </button>
             
-            <div class="history-section">
-                <div class="history-title">Мои активные сделки</div>
-                <div id="my-p2p-trades" class="history-list">
-                    <p style="text-align: center; color: #777; font-size: 12px;">История пуста</p>
-                </div>
+            <button id="smart-history-btn" class="history-status-btn" onclick="openHistoryModal()">
+                <span id="smart-btn-text">История сделок</span>
+                <div class="btn-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            </button>
             </div>
         </div>
     </div>
 </div>
+</div> <div id="history-modal-window" class="history-modal">
+    <div class="history-modal-content">
+        <div class="modal-header">
+            <h3>Мои сделки</h3>
+            <button onclick="closeHistoryModal()" class="close-modal">
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+        </div>
+        
+        <div id="full-history-list" class="history-scroll-area">
+            </div>
+    </div>
+</div>
+    
     
     <script>
         Telegram.WebApp.ready();
@@ -1430,83 +1539,136 @@ async function createP2PTrade() {
 }        
 
 // 5. ИСТОРИЯ ВНУТРИ МОДАЛКИ (Самое важное!)
-async function loadP2PHistoryInModal() {
-    const container = document.getElementById('my-p2p-trades');
-    container.innerHTML = '<p style="text-align:center; font-size:12px; color:#666;">Обновление...</p>';
+// --- ЛОГИКА ИСТОРИИ И СТАТУСОВ ---
 
-    try {
-        const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'POST'); 
-        
-        if (!trades || trades.length === 0) {
-            container.innerHTML = '<p style="text-align:center; font-size:12px; color:#666;">Нет активных сделок</p>';
-            return;
+        function openHistoryModal() {
+            document.getElementById('history-modal-window').classList.add('active');
+            // Принудительно обновляем список при открытии
+            loadP2PHistoryData(); 
         }
 
-        // Сортировка
-        const priority = { 'active': 1, 'review': 2, 'pending': 3, 'completed': 4, 'canceled': 5 };
-        trades.sort((a, b) => priority[a.status] - priority[b.status]);
+        function closeHistoryModal() {
+            document.getElementById('history-modal-window').classList.remove('active');
+        }
 
-        container.innerHTML = trades.map(t => {
-            // 🔥 ФИКС: Ищем имя кейса в кэше, если его нет в сделке
-            let caseName = t.case_name;
-            if (!caseName && t.case_id) {
-                const found = cachedP2PCases.find(c => c.id == t.case_id);
-                if (found) caseName = found.case_name;
+        // Главная функция: Грузит данные, строит список И обновляет кнопку
+        async function loadP2PHistoryData() {
+            const listContainer = document.getElementById('full-history-list');
+            const smartBtn = document.getElementById('smart-history-btn');
+            const smartBtnText = document.getElementById('smart-btn-text');
+            const smartBtnIcon = smartBtn.querySelector('.btn-icon');
+
+            // Лоадер в списке (если открыто окно)
+            if (document.getElementById('history-modal-window').classList.contains('active')) {
+                listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#666;"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
             }
-            if (!caseName) caseName = "Неизвестный кейс";
 
-            let statusBadge = '';
-            let actionHtml = '';
-            let activeClass = '';
+            try {
+                // Запрос к API
+                const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'POST');
 
-            switch(t.status) {
-                case 'pending':
-                    statusBadge = '<span style="color:#aaa;">⏳ Ждем админа</span>';
-                    break;
-                case 'active':
-                    activeClass = 'active-action'; 
-                    statusBadge = '<span style="color:#ffd700; font-weight:bold;">🔥 ТРЕБУЕТ ДЕЙСТВИЯ</span>';
-                    actionHtml = `
-                        <div class="trade-action-box">
-                            <div style="font-size:11px; color:#ccc; margin-bottom:5px;">
-                                1. Отправь трейд сюда: <a href="${t.trade_url_given}" target="_blank" style="color:#2AABEE;">Трейд-ссылка</a>
+                // Сортировка (Активные сверху)
+                const priority = { 'active': 1, 'review': 2, 'pending': 3, 'completed': 4, 'canceled': 5 };
+                trades.sort((a, b) => priority[a.status] - priority[b.status]);
+
+                // --- ЛОГИКА УМНОЙ КНОПКИ ---
+                // Ищем самую важную активную сделку
+                const activeTrade = trades.find(t => ['active', 'review', 'pending'].includes(t.status));
+
+                if (activeTrade) {
+                    smartBtn.classList.add('active-trade');
+                    
+                    if (activeTrade.status === 'active') {
+                        smartBtnText.innerText = `🔥 ТРЕБУЕТ ДЕЙСТВИЯ`;
+                        smartBtnIcon.innerHTML = '<i class="fa-solid fa-fire"></i>';
+                    } else if (activeTrade.status === 'review') {
+                        smartBtnText.innerText = `👀 ПРОВЕРКА АДМИНОМ`;
+                        smartBtnIcon.innerHTML = '<i class="fa-solid fa-hourglass-half"></i>';
+                    } else {
+                        smartBtnText.innerText = `⏳ ОЖИДАНИЕ ЗАЯВКИ`;
+                        smartBtnIcon.innerHTML = '<i class="fa-regular fa-clock"></i>';
+                    }
+                } else {
+                    // Если всё тихо
+                    smartBtn.classList.remove('active-trade');
+                    smartBtnText.innerText = 'История сделок';
+                    smartBtnIcon.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i>';
+                }
+
+                // --- РЕНДЕР СПИСКА (для нового окна) ---
+                if (!trades || trades.length === 0) {
+                    listContainer.innerHTML = '<div style="text-align:center; margin-top:50px; color:#666;">История пуста</div>';
+                    return;
+                }
+
+                listContainer.innerHTML = trades.map(t => {
+                    // Ищем имя кейса
+                    let caseName = t.case_name;
+                    if (!caseName && t.case_id) {
+                        const found = cachedP2PCases.find(c => c.id == t.case_id);
+                        if (found) caseName = found.case_name;
+                    }
+                    if (!caseName) caseName = "Кейс #" + t.case_id;
+
+                    // HTML для карточки
+                    let statusBadge = '';
+                    let actionHtml = '';
+                    
+                    // Стилизация статусов
+                    switch(t.status) {
+                        case 'pending':
+                            statusBadge = '<span style="color:#aaa; background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:10px;">⏳ Ожидание</span>';
+                            break;
+                        case 'active':
+                            statusBadge = '<span style="color:#000; background:#ffcc00; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">🔥 Действуй</span>';
+                            // Кнопка действия прямо в карточке
+                            actionHtml = `
+                                <div style="margin-top:10px; background:rgba(255,204,0,0.1); padding:10px; border-radius:8px; border:1px dashed #ffcc00;">
+                                    <div style="font-size:11px; color:#ccc; margin-bottom:8px;">
+                                        1. Отправь трейд: <a href="${t.trade_url_given}" target="_blank" style="color:#2AABEE; font-weight:bold;">Открыть Steam</a>
+                                    </div>
+                                    <button onclick="confirmP2PSent(${t.id})" class="action-btn" style="width:100%; height:36px; font-size:12px; background:#ffcc00; color:#000; border-radius:8px;">
+                                        ✅ Я передал скин
+                                    </button>
+                                </div>
+                            `;
+                            break;
+                        case 'review':
+                            statusBadge = '<span style="color:#fff; background:#2AABEE; padding:2px 8px; border-radius:4px; font-size:10px;">👀 Проверка</span>';
+                            break;
+                        case 'completed':
+                            statusBadge = '<span style="color:#fff; background:#34c759; padding:2px 8px; border-radius:4px; font-size:10px;">✅ Готово</span>';
+                            break;
+                        case 'canceled':
+                            statusBadge = '<span style="color:#fff; background:#ff3b30; padding:2px 8px; border-radius:4px; font-size:10px;">❌ Отмена</span>';
+                            break;
+                    }
+
+                    return `
+                        <div style="background:#2c2c2e; border-radius:14px; padding:12px; border:1px solid rgba(255,255,255,0.05);">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
+                                <div>
+                                    <div style="font-weight:700; font-size:14px; color:#fff;">${caseName}</div>
+                                    <div style="font-size:11px; color:#8E8E93;">Кол-во: ${t.quantity} шт.</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="color:#ffcc00; font-weight:700; font-size:14px;">+${t.total_coins}</div>
+                                    <div style="font-size:10px; color:#666;">#${t.id}</div>
+                                </div>
                             </div>
-                            <button onclick="confirmP2PSent(${t.id})" class="action-btn" style="width:100%; font-size:12px; padding:6px; background:#ffd700; color:#000;">
-                                ✅ Я передал скин
-                            </button>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                                ${statusBadge}
+                                <div style="font-size:10px; color:#666;">${new Date(t.created_at || Date.now()).toLocaleDateString()}</div>
+                            </div>
+                            ${actionHtml}
                         </div>
                     `;
-                    break;
-                case 'review':
-                    statusBadge = '<span style="color:#2AABEE;">👀 Проверка</span>';
-                    break;
-                case 'completed':
-                    statusBadge = '<span style="color:#34c759;">✅ Выполнено</span>';
-                    break;
-                case 'canceled':
-                    statusBadge = '<span style="color:#ff3b30;">❌ Отмена</span>';
-                    break;
+                }).join('');
+
+            } catch (e) {
+                listContainer.innerHTML = `<div style="color:red; text-align:center;">Ошибка: ${e.message}</div>`;
             }
-
-            return `
-                <div class="p2p-trade-item ${activeClass}">
-                    <div class="trade-header">
-                        <span>${caseName} (x${t.quantity})</span>
-                        <span style="color:#ffd700;">+${t.total_coins}</span>
-                    </div>
-                    <div class="trade-meta">
-                        <span>#${t.id}</span>
-                        ${statusBadge}
-                    </div>
-                    ${actionHtml}
-                </div>
-            `;
-        }).join('');
-
-    } catch (e) {
-        container.innerHTML = `<p style="color:red; font-size:12px;">Ошибка: ${e.message}</p>`;
-    }
-}
+        }
         
 // 6. ОТКРЫТЬ БОТА
 function connectTelegramBot() {
