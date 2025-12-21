@@ -678,6 +678,16 @@ class P2PCaseDeleteRequest(BaseModel):
     initData: str
     case_id: int
 
+# --- Модели для P2P ---
+class P2PApproveRequest(BaseModel):
+    initData: str
+    trade_id: int
+    trade_link: str
+
+class P2PActionRequest(BaseModel):
+    initData: str
+    trade_id: int
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2562,7 +2572,13 @@ async def p2p_confirm_sent(
         params={"id": f"eq.{request_data.trade_id}", "user_id": f"eq.{user_info['id']}"},
         json={"status": "review"}
     )
-    # Тут можно отправить уведомление админу в телеграм
+    
+    # === ВСТАВКА: Уведомление ВСЕМ админам ===
+    msg = f"⚠️ <b>P2P #{request_data.trade_id}: Юзер подтвердил отправку!</b>\nПроверьте Steam и завершите сделку."
+    for admin_id in ADMIN_IDS:
+        await try_send_message(admin_id, msg)
+    # === КОНЕЦ ВСТАВКИ ===
+
     return {"message": "Статус обновлен. Ожидайте проверки."}
 
 # --- ADMIN P2P ---
@@ -2631,13 +2647,13 @@ async def admin_p2p_list(request_data: InitDataRequest, supabase: httpx.AsyncCli
 # 5. Админ: Подтвердить (начать трейд) и выдать ссылку
 @app.post("/api/v1/admin/p2p/approve")
 async def admin_p2p_approve(
-    request_data: P2PActionRequest, 
+    request_data: P2PApproveRequest, # Обрати внимание, я поменял модель на P2PApproveRequest чтобы там был trade_link
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
     
-    # Обновляем таймер (сбрасываем на 30 мин с момента одобрения)
+    # Обновляем таймер
     new_expires = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
     
     await supabase.patch(
@@ -2649,6 +2665,18 @@ async def admin_p2p_approve(
             "expires_at": new_expires
         }
     )
+
+    # === ВСТАВКА: Уведомление юзеру ===
+    # Нам нужно получить user_id из сделки, чтобы отправить сообщение
+    trade_res = await supabase.get("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
+    if trade_res.json():
+        trade = trade_res.json()[0]
+        msg = (f"✅ <b>Заявка P2P #{request_data.trade_id} принята!</b>\n\n"
+               f"Ссылка для обмена:\n{request_data.trade_link}\n\n"
+               f"Отправьте скин и нажмите кнопку <b>'Я передал скин'</b>.")
+        await try_send_message(trade['user_id'], msg)
+    # === КОНЕЦ ВСТАВКИ ===
+
     return {"message": "Трейд запущен"}
 
 # 6. Админ: Завершить (выдать монеты)
@@ -2666,8 +2694,7 @@ async def admin_p2p_complete(
     
     if trade['status'] == 'completed': return {"message": "Уже выполнено"}
     
-    # Начисляем монеты пользователю (получаем текущий баланс и плюсуем)
-    # Лучше сделать через RPC функцию в Supabase для атомарности, но можно и так:
+    # Начисляем монеты пользователю
     user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{trade['user_id']}"})
     current_coins = user_resp.json()[0]['coins']
     new_coins = current_coins + trade['total_coins']
@@ -2677,8 +2704,13 @@ async def admin_p2p_complete(
     # Закрываем сделку
     await supabase.patch("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"}, json={"status": "completed"})
     
-    return {"message": f"Выдано {trade['total_coins']} монет"}
+    # === ВСТАВКА: Уведомление юзеру ===
+    msg = f"💰 <b>P2P Сделка #{request_data.trade_id} завершена!</b>\nВам начислено {trade['total_coins']} монет."
+    await try_send_message(trade['user_id'], msg)
+    # === КОНЕЦ ВСТАВКИ ===
 
+    return {"message": f"Выдано {trade['total_coins']} монет"}
+    
 # 7. Получить список МОИХ сделок (для пользователя)
 @app.post("/api/v1/p2p/my_trades")
 async def get_my_p2p_trades(
@@ -8913,22 +8945,85 @@ async def get_manual_rewards(
     resp.raise_for_status()
     return resp.json()
 
+# --- Функция отправки сообщений (если еще нет) ---
+async def send_telegram_message(chat_id: int, text: str):
+    try:
+        # bot - это экземпляр aiogram Bot, который у тебя должен быть глобально
+        await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+    except Exception as e:
+        print(f"Ошибка отправки сообщения {chat_id}: {e}")
+
 @app.post("/api/v1/admin/manual_rewards/complete")
 async def complete_manual_reward(
     request_data: ManualRewardCompleteRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Помечает ручную награду как выданную."""
+    """Помечает ручную награду как выданную + Выдает ПРОМОКОД."""
+    # 1. Проверка админа
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    # 2. Получаем данные о самой покупке, чтобы узнать user_id и название
+    res = await supabase.get("/manual_rewards", params={"id": f"eq.{request_data.reward_id}"})
+    purchase = res.json()[0] if res.json() else None
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Награда не найдена")
+
+    user_tg_id = purchase.get("user_id") # или telegram_id, проверь как в базе
+    title = purchase.get("title", "").lower()
+    
+    issued_code_text = None
+    update_data = {
+        "status": "completed", 
+        "completed_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    # 3. ЛОГИКА ПРОМОКОДОВ
+    # Если в названии есть "промокод" или "код" (или добавь проверку по типу)
+    if "промокод" in title or "билет" in title or "код" in title:
+        # Ищем свободный код
+        # limit=1, is_used=false
+        code_res = await supabase.get("/promocodes", params={"is_used": "is.false", "limit": "1"})
+        available_codes = code_res.json()
+        
+        if not available_codes:
+             # Если кодов нет, но это товар-промокод — ошибка
+             raise HTTPException(status_code=400, detail="В базе закончились свободные промокоды!")
+        
+        free_code = available_codes[0]
+        issued_code_text = free_code['code']
+
+        # 3.1. Помечаем код как использованный
+        await supabase.patch(
+            "/promocodes",
+            params={"id": f"eq.{free_code['id']}"},
+            json={
+                "is_used": True,
+                "telegram_id": user_tg_id,
+                "claimed_at": datetime.now(timezone.utc).isoformat(),
+                "description": f"Reward: {purchase.get('title')}"
+            }
+        )
+
+        # 3.2. Добавляем код в поле user_input (или note), чтобы сохранить историю
+        update_data["user_input"] = f"Выдан код: {issued_code_text}"
+
+    # 4. Обновляем статус награды
     await supabase.patch(
         "/manual_rewards",
         params={"id": f"eq.{request_data.reward_id}"},
-        json={"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}
+        json=update_data
     )
-    return {"message": "Награда помечена как выданная."}
+
+    # 5. Уведомляем пользователя
+    msg = f"✅ <b>Ваша заявка одобрена!</b>\nТовар: {purchase.get('title')}"
+    if issued_code_text:
+        msg += f"\n\n🎁 <b>Ваш код:</b> <code>{issued_code_text}</code>"
+    
+    await send_telegram_message(user_tg_id, msg)
+
+    return {"message": "Награда выдана", "code": issued_code_text}
 
 # Модель для запроса отмены
 class ManualRewardRejectRequest(BaseModel):
