@@ -328,6 +328,7 @@ class AdminSettings(BaseModel):
     quest_schedule_override_enabled: bool = False # (Отступ 8 пробелов)
     quest_schedule_active_type: str = 'twitch' # (Отступ 8 пробелов) 'twitch' или 'telegram'
     advent_start_date: Optional[str] = None # <-- ДОБАВИТЬ ЭТО (Формат "YYYY-MM-DD")
+    p2p_admin_trade_link: Optional[str] = ""
     
     
 class AdminSettingsUpdateRequest(BaseModel):
@@ -682,11 +683,15 @@ class P2PCaseDeleteRequest(BaseModel):
 class P2PApproveRequest(BaseModel):
     initData: str
     trade_id: int
-    trade_link: str
+    trade_link: Optional[str] = None
 
 class P2PActionRequest(BaseModel):
     initData: str
     trade_id: int
+
+class SettingsUpdateModel(BaseModel):
+    initData: str
+    settings: Dict[str, Any]
 
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -2647,13 +2652,28 @@ async def admin_p2p_list(request_data: InitDataRequest, supabase: httpx.AsyncCli
 # 5. Админ: Подтвердить (начать трейд) и выдать ссылку
 @app.post("/api/v1/admin/p2p/approve")
 async def admin_p2p_approve(
-    request_data: P2PApproveRequest, # Обрати внимание, я поменял модель на P2PApproveRequest чтобы там был trade_link
+    request_data: P2PApproveRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403)
     
-    # Обновляем таймер
+    # 1. Сначала ищем ссылку в настройках (ключ admin_controls)
+    settings_res = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
+    settings_data = settings_res.json()
+    
+    saved_link = ""
+    if settings_data and settings_data[0].get('value'):
+        saved_link = settings_data[0]['value'].get('p2p_admin_trade_link', '')
+
+    # Если фронт прислал ссылку (вдруг ты руками ввел) - берем её, иначе берем из базы
+    link_to_use = request_data.trade_link if request_data.trade_link else saved_link
+
+    if not link_to_use:
+        raise HTTPException(status_code=400, detail="Трейд-ссылка не настроена! Зайдите в настройки P2P и сохраните её.")
+
+    # 2. Обновляем статус
     new_expires = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
     
     await supabase.patch(
@@ -2661,24 +2681,22 @@ async def admin_p2p_approve(
         params={"id": f"eq.{request_data.trade_id}"},
         json={
             "status": "active", 
-            "trade_url_given": request_data.trade_link,
+            "trade_url_given": link_to_use,
             "expires_at": new_expires
         }
     )
 
-    # === ВСТАВКА: Уведомление юзеру ===
-    # Нам нужно получить user_id из сделки, чтобы отправить сообщение
+    # 3. Уведомление (используем безопасную отправку)
     trade_res = await supabase.get("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
     if trade_res.json():
         trade = trade_res.json()[0]
         msg = (f"✅ <b>Заявка P2P #{request_data.trade_id} принята!</b>\n\n"
-               f"Ссылка для обмена:\n{request_data.trade_link}\n\n"
+               f"Ссылка для обмена:\n{link_to_use}\n\n"
                f"Отправьте скин и нажмите кнопку <b>'Я передал скин'</b>.")
         await try_send_message(trade['user_id'], msg)
-    # === КОНЕЦ ВСТАВКИ ===
 
     return {"message": "Трейд запущен"}
-
+    
 # 6. Админ: Завершить (выдать монеты)
 @app.post("/api/v1/admin/p2p/complete")
 async def admin_p2p_complete(
@@ -8252,7 +8270,8 @@ async def get_admin_settings(
                 
                 # --- 🔽 ВОТ ЭТИ СТРОКИ БЫЛИ ПРОПУЩЕНЫ В ЭТОЙ ФУНКЦИИ 🔽 ---
                 quest_schedule_override_enabled=settings_data.get('quest_schedule_override_enabled', False),
-                quest_schedule_active_type=settings_data.get('quest_schedule_active_type', 'twitch')
+                quest_schedule_active_type=settings_data.get('quest_schedule_active_type', 'twitch'),
+                p2p_admin_trade_link=settings_data.get('p2p_admin_trade_link', '')
                 # --- 🔼 ТЕПЕРЬ ОНИ ТУТ ЕСТЬ 🔼 ---
             )
         
