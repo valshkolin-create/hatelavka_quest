@@ -5250,10 +5250,6 @@ async function main() {
     }
     // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
 // --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
-
-// Кэш для твоей трейд-ссылки (чтобы не грузить её каждый клик)
-let adminP2PTradeLinkCache = '';
-
 async function loadP2PTrades() {
     dom.p2pTradesList.innerHTML = '<p style="text-align:center;">Загрузка...</p>';
     try {
