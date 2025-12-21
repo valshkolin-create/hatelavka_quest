@@ -910,6 +910,91 @@
     flex-direction: column;
     gap: 8px;
 }
+/* --- ПРЕМИУМ УВЕДОМЛЕНИЕ О БОТЕ --- */
+.bot-connect-banner {
+    background: rgba(255, 204, 0, 0.15);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    transition: transform 0.2s;
+    box-shadow: 0 4px 15px rgba(255, 204, 0, 0.05);
+}
+
+.bot-connect-banner:active {
+    transform: scale(0.98);
+}
+
+.bot-icon-box {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #0088cc, #005f8f); /* Telegram Blue */
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    box-shadow: 0 4px 10px rgba(0, 136, 204, 0.3);
+}
+
+.bot-text-box h4 {
+    margin: 0;
+    font-size: 14px;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.bot-text-box p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* --- ПУЛЬСИРУЮЩАЯ КНОПКА АКТИВНОГО ТРЕЙДА --- */
+.p2p-history-btn.has-active-trade {
+    background: linear-gradient(135deg, #ff3b30, #ff9500);
+    border: none;
+    color: white;
+    font-weight: 800;
+    animation: premiumPulse 2s infinite;
+    box-shadow: 0 0 20px rgba(255, 59, 48, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+@keyframes premiumPulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); transform: scale(1); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); transform: scale(1.02); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); transform: scale(1); }
+}
+
+/* --- КАРТОЧКА АКТИВНОГО ТРЕЙДА В ИСТОРИИ --- */
+.active-trade-card {
+    border: 1px solid #ffcc00 !important;
+    background: rgba(255, 204, 0, 0.05) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.active-trade-card::before {
+    content: "REQUIRE ACTION";
+    position: absolute;
+    top: 10px;
+    right: -30px;
+    background: #ffcc00;
+    color: #000;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 4px 30px;
+    transform: rotate(45deg);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
     </style>
 </head>
 <body>
@@ -1034,50 +1119,50 @@
         </div>
     </div>
 
-<div id="p2p-modal" class="modal hidden">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Обмен Кейсов</h3>
-            <button onclick="closeP2PModal()" class="close-modal">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+<div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+    
+    <div class="bot-connect-banner" onclick="connectTelegramBot()" style="margin-bottom: 5px;">
+        <div class="bot-icon-box"><i class="fa-brands fa-telegram"></i></div>
+        <div class="bot-text-box">
+            <h4>Включить уведомления</h4>
+            <p>Нажми, чтобы бот присылал статус сделки</p>
         </div>
+        <div style="margin-left: auto; color: #fff;"><i class="fa-solid fa-chevron-right"></i></div>
+    </div>
 
-        <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
-            
-            <div class="form-group">
-                <label class="form-label">Выберите кейс</label>
-                <div class="select-wrapper">
-                    <select id="p2p-case-select" onchange="calculateP2P()" class="p2p-select">
-                        <option value="">Загрузка...</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Количество</label>
-                <input type="number" id="p2p-quantity" value="1" min="1" oninput="calculateP2P()" class="p2p-input" placeholder="0">
-            </div>
-            
-            <div class="summary-card">
-                <div class="summary-row">
-                    <span>Цена за 1 шт:</span>
-                    <span class="mono-num"><span id="p2p-price-per-item">0</span> 🟡</span>
-                </div>
-                <div class="summary-row total">
-                    <span>Вы получите:</span>
-                    <span class="mono-num" style="font-size: 18px;"><span id="p2p-total">0</span> 🟡</span>
-                </div>
-            </div>
+    <div class="form-group">
+        <label class="form-label">Выберите кейс</label>
+        <div class="select-wrapper">
+            <select id="p2p-case-select" onchange="calculateP2P()" class="p2p-select">
+                <option value="">Загрузка...</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label class="form-label">Количество</label>
+        <input type="number" id="p2p-quantity" value="1" min="1" oninput="calculateP2P()" class="p2p-input" placeholder="0">
+    </div>
+    
+    <div class="summary-card">
+        <div class="summary-row">
+            <span>Цена за 1 шт:</span>
+            <span class="mono-num"><span id="p2p-price-per-item">0</span> 🟡</span>
+        </div>
+        <div class="summary-row total">
+            <span>Вы получите:</span>
+            <span class="mono-num" style="font-size: 18px;"><span id="p2p-total">0</span> 🟡</span>
+        </div>
+    </div>
 
-            <button onclick="createP2PTrade()" class="action-btn btn-buy" style="height: 48px; font-size: 16px; border-radius: 14px;">
-                Создать заявку
-            </button>
-            
-            <div class="history-section">
-                <div class="history-title">Мои активные сделки</div>
-                <div id="my-p2p-trades" class="history-list"></div>
-            </div>
+    <button onclick="createP2PTrade()" class="action-btn btn-buy" style="height: 48px; font-size: 16px; border-radius: 14px; width: 100%;">
+        Создать заявку
+    </button>
+    
+    <div class="history-section">
+        <div class="history-title">Мои активные сделки</div>
+        <div id="my-p2p-trades" class="history-list">
+            <p style="text-align: center; color: #777; font-size: 12px;">История пуста</p>
         </div>
     </div>
 </div>
@@ -1101,146 +1186,182 @@
         });
 
         // Открытие модалки
+// 1. ОТКРЫТИЕ МОДАЛКИ (Вызывай это при клике на кнопку "Обмен P2P")
 async function openP2PModal() {
-    document.getElementById('p2p-modal').classList.remove('hidden');
+    const modal = document.getElementById('p2p-modal');
+    modal.classList.remove('hidden');
     
-    // 1. Загружаем кейсы
-    const res = await fetch('/api/v1/p2p/cases');
-    p2pCases = await res.json();
+    // Сброс полей
+    document.getElementById('p2p-quantity').value = 1;
+    document.getElementById('p2p-total').innerText = '0';
     
-    const select = document.getElementById('p2p-case-select');
-    // Добавим проверку, есть ли кейсы
-    if (p2pCases.length > 0) {
-        select.innerHTML = p2pCases.map(c => `<option value="${c.id}" data-price="${c.price_in_coins}">${c.case_name}</option>`).join('');
-        calculateP2P();
-    } else {
-        select.innerHTML = '<option>Нет доступных кейсов</option>';
-    }
-
-    // 2. Загружаем историю сделок
-    loadMyP2PTrades(); 
+    // Загрузка данных
+    await loadP2PCasesForSelect();
+    await loadP2PHistoryInModal();
 }
 
 function closeP2PModal() {
     document.getElementById('p2p-modal').classList.add('hidden');
 }
 
-function calculateP2P() {
+// 2. ЗАГРУЗКА СПИСКА КЕЙСОВ
+async function loadP2PCasesForSelect() {
     const select = document.getElementById('p2p-case-select');
-    const quantity = document.getElementById('p2p-quantity').value;
-    const price = select.options[select.selectedIndex]?.dataset.price || 0;
+    select.innerHTML = '<option value="">Загрузка...</option>';
     
-    document.getElementById('p2p-price-per-item').textContent = price;
-    document.getElementById('p2p-total').textContent = (price * quantity).toFixed(0);
-}
-
-// Создание заявки
-async function createP2PTrade() {
-    const caseId = document.getElementById('p2p-case-select').value;
-    const quantity = document.getElementById('p2p-quantity').value;
-    
-    if (!caseId) return Telegram.WebApp.showAlert("Выберите кейс");
-
     try {
-        const res = await fetch('/api/v1/p2p/create', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ initData: Telegram.WebApp.initData, case_id: caseId, quantity: quantity })
-        });
-        const data = await res.json();
+        const cases = await makeApiRequest('/api/v1/p2p/cases', 'GET');
+        cachedP2PCases = cases || [];
         
-        if(res.ok) {
-            Telegram.WebApp.showAlert(data.message);
-            loadMyP2PTrades(); // Обновляем список
-        } else {
-            Telegram.WebApp.showAlert(data.detail || "Ошибка");
-        }
-    } catch(e) {
-        Telegram.WebApp.showAlert("Ошибка соединения");
+        select.innerHTML = '<option value="">-- Выберите кейс --</option>';
+        cachedP2PCases.forEach(item => {
+            // Сохраняем цену в data-price
+            select.insertAdjacentHTML('beforeend', 
+                `<option value="${item.id}" data-price="${item.price_in_coins}">
+                    ${item.case_name} (${item.price_in_coins} 🟡)
+                </option>`
+            );
+        });
+    } catch (e) {
+        select.innerHTML = '<option value="">Ошибка загрузки</option>';
     }
 }
 
-// Загрузка и отображение списка сделок
-async function loadMyP2PTrades() {
-    const container = document.getElementById('my-p2p-trades');
-    container.innerHTML = '<p>Загрузка...</p>';
+// 3. КАЛЬКУЛЯТОР
+function calculateP2P() {
+    const select = document.getElementById('p2p-case-select');
+    const quantityInput = document.getElementById('p2p-quantity');
+    const priceDisplay = document.getElementById('p2p-price-per-item');
+    const totalDisplay = document.getElementById('p2p-total');
+
+    const selectedOption = select.options[select.selectedIndex];
+    const price = selectedOption.dataset.price ? parseInt(selectedOption.dataset.price) : 0;
+    const quantity = parseInt(quantityInput.value) || 0;
+
+    priceDisplay.innerText = price;
+    totalDisplay.innerText = price * quantity;
+}
+
+// 4. СОЗДАНИЕ СДЕЛКИ
+async function createP2PTrade() {
+    const select = document.getElementById('p2p-case-select');
+    const quantity = parseInt(document.getElementById('p2p-quantity').value);
+    const caseId = select.value;
+
+    if (!caseId || quantity <= 0) return Telegram.WebApp.showAlert("Выберите кейс и количество!");
 
     try {
-        const res = await fetch('/api/v1/p2p/my_trades', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ initData: Telegram.WebApp.initData })
+        await makeApiRequest('/api/v1/p2p/create', {
+            case_id: parseInt(caseId),
+            quantity: quantity
         });
-        const trades = await res.json();
+        Telegram.WebApp.showAlert("✅ Заявка создана! Ждите подтверждения админа.");
         
-        container.innerHTML = '';
-        if (trades.length === 0) {
-            container.innerHTML = '<p style="color:#888; text-align:center;">Пока нет сделок</p>';
+        // Сброс и обновление
+        select.value = "";
+        document.getElementById('p2p-quantity').value = 1;
+        calculateP2P();
+        await loadP2PHistoryInModal(); // Обновляем список внизу
+        checkActiveTradesBackground(); // Обновляем пульсацию внешней кнопки
+
+    } catch (e) {
+        Telegram.WebApp.showAlert(e.message);
+    }
+}
+
+// 5. ИСТОРИЯ ВНУТРИ МОДАЛКИ (Самое важное!)
+async function loadP2PHistoryInModal() {
+    const container = document.getElementById('my-p2p-trades');
+    container.innerHTML = '<p style="text-align:center; font-size:12px; color:#666;">Обновление...</p>';
+
+    try {
+        const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'GET');
+        
+        if (!trades || trades.length === 0) {
+            container.innerHTML = '<p style="text-align:center; font-size:12px; color:#666;">Нет активных сделок</p>';
             return;
         }
 
-        trades.forEach(trade => {
+        // Сортировка: Активные наверх
+        const priority = { 'active': 1, 'review': 2, 'pending': 3, 'completed': 4, 'canceled': 5 };
+        trades.sort((a, b) => priority[a.status] - priority[b.status]);
+
+        container.innerHTML = trades.map(t => {
             let statusBadge = '';
             let actionHtml = '';
+            let activeClass = '';
 
-            // Логика отображения статусов
-            if (trade.status === 'pending') {
-                statusBadge = '<span style="color:orange">⏳ Ожидает админа</span>';
-            } else if (trade.status === 'active') {
-                statusBadge = '<span style="color:#00ff00">⚡ Трейд активен!</span>';
-                // Показываем ссылку на трейд и кнопку "Я отправил"
-                actionHtml = `
-                    <div style="margin-top:5px; background:rgba(0,255,0,0.1); padding:8px; border-radius:4px;">
-                        <p style="font-size:12px; margin-bottom:5px;">Админ подтвердил! Отправьте кейсы сюда:</p>
-                        <a href="${trade.trade_url_given}" target="_blank" style="color:#00ffff; text-decoration:underline; font-size:14px;">Ссылка на обмен Steam</a>
-                        <button onclick="confirmSent(${trade.id})" style="width:100%; margin-top:8px; background:#00aa00; border:none; padding:5px; border-radius:4px; color:white;">✅ Я передал кейсы</button>
-                    </div>
-                `;
-            } else if (trade.status === 'review') {
-                statusBadge = '<span style="color:#aaa">🔍 Проверка админом</span>';
-            } else if (trade.status === 'completed') {
-                statusBadge = '<span style="color:#ffd700">💰 Выполнено</span>';
-            } else {
-                statusBadge = `<span style="color:red">${trade.status}</span>`;
+            switch(t.status) {
+                case 'pending':
+                    statusBadge = '<span style="color:#aaa;">⏳ Ждем админа</span>';
+                    break;
+                case 'active':
+                    activeClass = 'active-action'; // Желтая рамка
+                    statusBadge = '<span style="color:#ffd700; font-weight:bold;">🔥 ТРЕБУЕТ ДЕЙСТВИЯ</span>';
+                    actionHtml = `
+                        <div class="trade-action-box">
+                            <div style="font-size:11px; color:#ccc; margin-bottom:5px;">
+                                1. Отправь трейд сюда: <a href="${t.trade_url_given}" target="_blank" style="color:#2AABEE;">Трейд-ссылка</a>
+                            </div>
+                            <button onclick="confirmP2PSent(${t.id})" class="action-btn" style="width:100%; font-size:12px; padding:6px; background:#ffd700; color:#000;">
+                                ✅ Я передал скин
+                            </button>
+                        </div>
+                    `;
+                    break;
+                case 'review':
+                    statusBadge = '<span style="color:#2AABEE;">👀 Проверка</span>';
+                    break;
+                case 'completed':
+                    statusBadge = '<span style="color:#34c759;">✅ Выполнено</span>';
+                    break;
+                case 'canceled':
+                    statusBadge = '<span style="color:#ff3b30;">❌ Отмена</span>';
+                    break;
             }
 
-            const itemHtml = `
-                <div style="background:#222; padding:10px; margin-bottom:8px; border-radius:6px; border:1px solid #444;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <strong>${trade.case?.case_name || 'Case'} (x${trade.quantity})</strong>
-                        <span style="color:#ffd700">+${trade.total_coins}</span>
+            return `
+                <div class="p2p-trade-item ${activeClass}">
+                    <div class="trade-header">
+                        <span>${t.case_name} (x${t.quantity})</span>
+                        <span style="color:#ffd700;">+${t.total_coins}</span>
                     </div>
-                    <div style="font-size:12px; margin-top:4px;">
+                    <div class="trade-meta">
+                        <span>#${t.id}</span>
                         ${statusBadge}
                     </div>
                     ${actionHtml}
                 </div>
             `;
-            container.insertAdjacentHTML('beforeend', itemHtml);
-        });
+        }).join('');
 
-    } catch(e) {
-        console.error(e);
-        container.innerHTML = '<p style="color:red">Ошибка загрузки истории</p>';
+    } catch (e) {
+        container.innerHTML = `<p style="color:red; font-size:12px;">Ошибка: ${e.message}</p>`;
     }
 }
 
-// Кнопка "Я передал"
-async function confirmSent(tradeId) {
-    if(!confirm("Нажимайте это только ПОСЛЕ того, как отправили трейд в Steam. Продолжить?")) return;
-    
+// 6. ОТКРЫТЬ БОТА
+function connectTelegramBot() {
+    Telegram.WebApp.openTelegramLink("https://t.me/quest_hatelavka_bot?start=start");
+}
+
+// 7. ФОНОВАЯ ПРОВЕРКА (ДЛЯ ГЛАВНОЙ КНОПКИ СНАРУЖИ)
+async function checkActiveTradesBackground() {
     try {
-        const res = await fetch('/api/v1/p2p/confirm_sent', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ initData: Telegram.WebApp.initData, trade_id: tradeId })
-        });
-        if(res.ok) {
-            loadMyP2PTrades(); // Обновляем статус на "review"
+        const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'GET');
+        const hasActive = trades.some(t => ['pending', 'active', 'review'].includes(t.status));
+        const btn = document.getElementById('open-p2p-modal-btn'); // ID кнопки, открывающей это окно
+        
+        if (btn) {
+            if (hasActive) {
+                btn.classList.add('has-active-trade'); // Твой класс пульсации
+                btn.innerHTML = `<i class="fa-solid fa-fire"></i> АКТИВНЫЙ ТРЕЙД`;
+            } else {
+                btn.classList.remove('has-active-trade');
+                btn.innerHTML = `Обмен P2P`;
+            }
         }
-    } catch(e) {
-        Telegram.WebApp.showAlert("Ошибка");
-    }
+    } catch(e) {}
 }
 
         // --- ОПТИМИЗИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ ПАРТНЕРОВ (CSS ANIMATION) ---
