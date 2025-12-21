@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Premium Shop</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
     <style>
         :root {
             --primary-color: #ffcc00;
@@ -1119,54 +1119,65 @@
         </div>
     </div>
 
-<div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
-    
-    <div class="bot-connect-banner" onclick="connectTelegramBot()" style="margin-bottom: 5px;">
-        <div class="bot-icon-box"><i class="fa-brands fa-telegram"></i></div>
-        <div class="bot-text-box">
-            <h4>Включить уведомления</h4>
-            <p>Нажми, чтобы бот присылал статус сделки</p>
+<div id="p2p-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Обмен Кейсов</h3>
+            <button onclick="closeP2PModal()" class="close-modal">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
-        <div style="margin-left: auto; color: #fff;"><i class="fa-solid fa-chevron-right"></i></div>
-    </div>
 
-    <div class="form-group">
-        <label class="form-label">Выберите кейс</label>
-        <div class="select-wrapper">
-            <select id="p2p-case-select" onchange="calculateP2P()" class="p2p-select">
-                <option value="">Загрузка...</option>
-            </select>
-        </div>
-    </div>
-    
-    <div class="form-group">
-        <label class="form-label">Количество</label>
-        <input type="number" id="p2p-quantity" value="1" min="1" oninput="calculateP2P()" class="p2p-input" placeholder="0">
-    </div>
-    
-    <div class="summary-card">
-        <div class="summary-row">
-            <span>Цена за 1 шт:</span>
-            <span class="mono-num"><span id="p2p-price-per-item">0</span> 🟡</span>
-        </div>
-        <div class="summary-row total">
-            <span>Вы получите:</span>
-            <span class="mono-num" style="font-size: 18px;"><span id="p2p-total">0</span> 🟡</span>
-        </div>
-    </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+            
+            <div class="bot-connect-banner" onclick="connectTelegramBot()" style="margin-bottom: 5px;">
+                <div class="bot-icon-box"><i class="fa-brands fa-telegram"></i></div>
+                <div class="bot-text-box">
+                    <h4>Включить уведомления</h4>
+                    <p>Нажми, чтобы бот присылал статус сделки</p>
+                </div>
+                <div style="margin-left: auto; color: #fff;"><i class="fa-solid fa-chevron-right"></i></div>
+            </div>
 
-    <button onclick="createP2PTrade()" class="action-btn btn-buy" style="height: 48px; font-size: 16px; border-radius: 14px; width: 100%;">
-        Создать заявку
-    </button>
-    
-    <div class="history-section">
-        <div class="history-title">Мои активные сделки</div>
-        <div id="my-p2p-trades" class="history-list">
-            <p style="text-align: center; color: #777; font-size: 12px;">История пуста</p>
+            <div class="form-group">
+                <label class="form-label">Выберите кейс</label>
+                <div class="select-wrapper">
+                    <select id="p2p-case-select" onchange="calculateP2P()" class="p2p-select">
+                        <option value="">Загрузка...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Количество</label>
+                <input type="number" id="p2p-quantity" value="1" min="1" oninput="calculateP2P()" class="p2p-input" placeholder="0">
+            </div>
+            
+            <div class="summary-card">
+                <div class="summary-row">
+                    <span>Цена за 1 шт:</span>
+                    <span class="mono-num"><span id="p2p-price-per-item">0</span> 🟡</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Вы получите:</span>
+                    <span class="mono-num" style="font-size: 18px;"><span id="p2p-total">0</span> 🟡</span>
+                </div>
+            </div>
+
+            <button onclick="createP2PTrade()" class="action-btn btn-buy" style="height: 48px; font-size: 16px; border-radius: 14px; width: 100%;">
+                Создать заявку
+            </button>
+            
+            <div class="history-section">
+                <div class="history-title">Мои активные сделки</div>
+                <div id="my-p2p-trades" class="history-list">
+                    <p style="text-align: center; color: #777; font-size: 12px;">История пуста</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
+    
     <script>
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
