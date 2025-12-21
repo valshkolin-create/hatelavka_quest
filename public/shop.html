@@ -1196,6 +1196,34 @@
             goBack();
         });
 
+// --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ЗАПРОСОВ ---
+async function makeApiRequest(url, method = 'GET', body = null) {
+    let fetchUrl = url;
+    const options = {
+        method: method,
+        headers: { 'Content-Type': 'application/json' }
+    };
+
+    if (method.toUpperCase() !== 'GET') {
+        const payload = body || {};
+        // Автоматически добавляем initData для авторизации
+        if (!payload.initData) payload.initData = Telegram.WebApp.initData;
+        options.body = JSON.stringify(payload);
+    } else {
+        // Для GET запросов добавляем initData в URL
+        const separator = fetchUrl.includes('?') ? '&' : '?';
+        fetchUrl += `${separator}initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
+    }
+
+    const response = await fetch(fetchUrl, options);
+    const data = await response.json();
+    
+    if (!response.ok) {
+        throw new Error(data.detail || data.message || 'Ошибка запроса');
+    }
+    
+    return data;
+}        
         // Открытие модалки
 // 1. ОТКРЫТИЕ МОДАЛКИ (Вызывай это при клике на кнопку "Обмен P2P")
 async function openP2PModal() {
