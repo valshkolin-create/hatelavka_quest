@@ -2737,8 +2737,40 @@ async def admin_p2p_cancel(
     await try_send_message(trade['user_id'], msg)
 
     return {"message": "Сделка отменена"}
+
+# 1. Получение списка P2P (Исправленная версия)
+@app.get("/api/v1/admin/p2p/trades")
+async def admin_get_p2p_trades(
+    request: Request, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # check_admin_auth(request) # Раскомментируйте, если нужно
     
-# 6. Админ: Завершить (выдать промокод вместо прямого начисления)
+    # Получаем сделки
+    trades_resp = await supabase.get("/p2p_trades", params={"order": "created_at.desc"})
+    trades = trades_resp.json() if trades_resp.json() else []
+    
+    # Считаем остатки (через .get, а не .table)
+    # Ищем: telegram_id is null И is_used is false
+    stock_resp = await supabase.get("/promocodes", params={
+        "select": "reward_value",
+        "telegram_id": "is.null",
+        "is_used": "is.false"
+    })
+        
+    stock_counts = {}
+    data = stock_resp.json()
+    if data:
+        for p in data:
+            val = int(p['reward_value'])
+            stock_counts[val] = stock_counts.get(val, 0) + 1
+
+    return {
+        "trades": trades, 
+        "stock": stock_counts 
+    }
+
+# 2. Завершение сделки (Исправленная версия)
 @app.post("/api/v1/admin/p2p/complete")
 async def admin_p2p_complete(
     request_data: P2PActionRequest, 
@@ -2748,7 +2780,7 @@ async def admin_p2p_complete(
     if not user_info or user_info['id'] not in ADMIN_IDS: 
         raise HTTPException(status_code=403)
     
-    # 1. Получаем инфо о сделке
+    # Получаем сделку
     trade_resp = await supabase.get("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
     if not trade_resp.json():
         raise HTTPException(status_code=404, detail="Сделка не найдена")
@@ -2757,45 +2789,43 @@ async def admin_p2p_complete(
     if trade['status'] == 'completed': 
         return {"message": "Уже выполнено"}
     
-    amount = trade['total_coins']
+    amount = int(trade['total_coins'])
     user_id = trade['user_id']
 
-    # 2. ИЩЕМ СВОБОДНЫЙ КОД В БАЗЕ
-    # Условие: сумма совпадает И telegram_id пустой (значит код ничей)
-    # Также проверяем is_used=false на всякий случай
-    promo_res = await supabase.table("promocodes") \
-        .select("*") \
-        .eq("reward_value", amount) \
-        .is_("telegram_id", "null") \
-        .eq("is_used", False) \
-        .limit(1) \
-        .execute()
-        
-    if not promo_res.data:
-        # Если список пуст — значит коды кончились
-        raise HTTPException(status_code=400, detail=f"ОШИБКА: Нет свободных промокодов на {amount} монет!")
+    # ИЩЕМ СВОБОДНЫЙ КОД (через .get)
+    # Параметры: награда=сумме, владелец=null, использован=false
+    promo_resp = await supabase.get("/promocodes", params={
+        "reward_value": f"eq.{amount}",
+        "telegram_id": "is.null",
+        "is_used": "is.false",
+        "limit": "1"
+    })
+    
+    promo_data = promo_resp.json()
+    
+    if not promo_data:
+        raise HTTPException(status_code=400, detail=f"ОШИБКА: Нет свободных кодов на {amount} монет!")
 
-    promo = promo_res.data[0]
+    promo = promo_data[0]
     promo_id = promo['id']
     code_text = promo['code']
 
-    # 3. ВЫДАЕМ КОД ЮЗЕРУ
-    # Мы просто обновляем telegram_id в существующей строке.
-    # Теперь код отобразится у юзера в профиле.
-    await supabase.table("promocodes").update({
+    # ПРИВЯЗЫВАЕМ КОД К ЮЗЕРУ (через .patch)
+    current_time = datetime.now(timezone.utc).isoformat()
+    await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={
         "telegram_id": user_id,
-        "claimed_at": datetime.now(timezone.utc).isoformat(),
+        "claimed_at": current_time,
         "description": f"Покупка P2P #{request_data.trade_id}"
-    }).eq("id", promo_id).execute()
+    })
     
-    # 4. Закрываем сделку
+    # ЗАКРЫВАЕМ СДЕЛКУ
     await supabase.patch(
         "/p2p_trades", 
         params={"id": f"eq.{request_data.trade_id}"}, 
         json={"status": "completed"}
     )
     
-    # 5. Пишем юзеру в личку
+    # ОТПРАВЛЯЕМ СООБЩЕНИЕ
     msg = (
         f"✅ <b>P2P Сделка #{request_data.trade_id} завершена!</b>\n\n"
         f"Ваш код на {amount} монет:\n"
@@ -2804,7 +2834,7 @@ async def admin_p2p_complete(
     )
     await try_send_message(user_id, msg)
 
-    return {"message": f"Успешно! Выдан код: {code_text}"}
+    return {"message": "Успешно"}
     
 # 7. Получить список МОИХ сделок (для пользователя)
 @app.post("/api/v1/p2p/my_trades")
