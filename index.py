@@ -2738,37 +2738,66 @@ async def admin_p2p_cancel(
 
     return {"message": "Сделка отменена"}
     
-# 6. Админ: Завершить (выдать монеты)
+# 6. Админ: Завершить (выдать промокод вместо прямого начисления)
 @app.post("/api/v1/admin/p2p/complete")
 async def admin_p2p_complete(
     request_data: P2PActionRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(status_code=403)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403)
     
-    # Получаем инфо о сделке
+    # 1. Получаем инфо о сделке
     trade_resp = await supabase.get("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
+    if not trade_resp.json():
+        raise HTTPException(status_code=404, detail="Сделка не найдена")
+        
     trade = trade_resp.json()[0]
     
-    if trade['status'] == 'completed': return {"message": "Уже выполнено"}
+    if trade['status'] == 'completed': 
+        return {"message": "Уже выполнено"}
     
-    # Начисляем монеты пользователю
-    user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{trade['user_id']}"})
-    current_coins = user_resp.json()[0]['coins']
-    new_coins = current_coins + trade['total_coins']
-    
-    await supabase.patch("/users", params={"telegram_id": f"eq.{trade['user_id']}"}, json={"coins": new_coins})
-    
-    # Закрываем сделку
-    await supabase.patch("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"}, json={"status": "completed"})
-    
-    # === ВСТАВКА: Уведомление юзеру ===
-    msg = f"💰 <b>P2P Сделка #{request_data.trade_id} завершена!</b>\nВам начислено {trade['total_coins']} монет."
-    await try_send_message(trade['user_id'], msg)
-    # === КОНЕЦ ВСТАВКИ ===
+    amount = trade['total_coins']
+    user_id = trade['user_id']
 
-    return {"message": f"Выдано {trade['total_coins']} монет"}
+    # 2. Генерируем уникальный промокод
+    # Формат: P2P-XXXX-XXXX
+    unique_suffix = uuid.uuid4().hex[:8].upper()
+    code = f"P2P-{unique_suffix}"
+
+    # 3. Создаем промокод в таблице и привязываем к юзеру
+    # telegram_id=user_id означает, что код будет виден в профиле (My Rewards)
+    promo_payload = {
+        "code": code,
+        "reward_value": amount,
+        "description": f"P2P Сделка #{request_data.trade_id}",
+        "telegram_id": user_id,  # <-- ВАЖНО: Привязка к профилю
+        "is_active": True,
+        # Ставим дату, чтобы он был сверху списка в профиле
+        "claimed_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Вставляем в базу
+    await supabase.post("/promocodes", json=promo_payload)
+    
+    # 4. Закрываем сделку
+    await supabase.patch(
+        "/p2p_trades", 
+        params={"id": f"eq.{request_data.trade_id}"}, 
+        json={"status": "completed"}
+    )
+    
+    # 5. Уведомляем пользователя и скидываем код
+    msg = (
+        f"✅ <b>P2P Сделка #{request_data.trade_id} успешна!</b>\n\n"
+        f"💰 Ваш промокод на <b>{amount} монет</b>:\n"
+        f"<code>{code}</code>\n\n"
+        f"<i>Код сохранен в вашем профиле.</i>"
+    )
+    await try_send_message(user_id, msg)
+
+    return {"message": f"Сделка завершена. Промокод {code} выдан."}
     
 # 7. Получить список МОИХ сделок (для пользователя)
 @app.post("/api/v1/p2p/my_trades")
