@@ -831,7 +831,7 @@ const showLoader = () => {
                     break;
                 }
                 case 'view-admin-p2p-settings': {
-                    await loadP2PCases();
+                    await loadP2PSettingsAndCases(); // <-- Грузит кейсы И твою ссылку в инпут
                     break;
                 }
                 // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
