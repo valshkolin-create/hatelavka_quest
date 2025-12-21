@@ -1180,96 +1180,19 @@ input[type="datetime-local"] {
 .status-toggle-btn:hover {
     transform: scale(1.1);
 }
-/* Красный кружок уведомления */
-.badge-notify {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background-color: #ff3b30;
-    color: white;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    border: 2px solid #1c1c1e;
-    display: none; /* Скрыт по умолчанию */
-}
-.badge-notify.show { display: flex; }
-/* --- ИСПРАВЛЕНИЕ БЕЙДЖЕЙ (УВЕДОМЛЕНИЙ) --- */
-/* Делаем позиционирование относительно иконки, а не всей кнопки */
-.admin-icon-button .icon-wrapper {
-    position: relative;
-    overflow: visible; /* Чтобы бейдж мог вылезать за пределы */
-}
+/* ⬇️⬇️⬇️ ВСТАВИТЬ В КОНЕЦ ФАЙЛА public/admin.css ⬇️⬇️⬇️ */
 
-.notification-badge {
-    position: absolute;
-    top: -5px !important;    /* Поднимаем выше */
-    right: -5px !important;  /* Сдвигаем правее */
-    width: 20px;
-    height: 20px;
-    font-size: 11px;
-    border-radius: 50%;
-    background-color: var(--danger-color);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 0 2px var(--surface-glass-bg); /* Обводка под цвет фона */
-    z-index: 10;
-}
+/* Стили для P2P */
+.p2p-status-badge { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; color: white; display: inline-block; }
+.p2p-status-pending { background-color: var(--text-color-muted); } /* Ожидание отправки юзером */
+.p2p-status-review { background-color: var(--warning-color); color: black; } /* Юзер отправил, ждет админа */
+.p2p-status-active { background-color: var(--action-color); } /* Админ дал трейд, ждем завершения */
+.p2p-status-completed { background-color: var(--status-approved-color); } /* Выполнено */
+.p2p-status-cancelled { background-color: var(--danger-color); } /* Отменено */
 
-/* Скрываем, если класс hidden */
-.notification-badge.hidden {
-    display: none !important;
-}
+.p2p-case-card { display: flex; align-items: center; gap: 15px; }
+.p2p-case-img { width: 50px; height: 50px; object-fit: contain; border-radius: 8px; background-color: rgba(255,255,255,0.05); }
+.p2p-trade-info { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.p2p-trade-actions { display: flex; gap: 8px; margin-top: 10px; }
 
-/* --- ИСПРАВЛЕНИЕ ОКНА ПАРОЛЯ P2P --- */
-/* Используем те же стили, что и для других модалок, если классы отличаются */
-.password-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 2000; /* Поверх всего */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(5px);
-}
-
-.password-box {
-    background-color: #1c1c1e; /* Темный фон как у iOS */
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 20px;
-    border-radius: 14px;
-    width: 80%;
-    max-width: 300px;
-    text-align: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
-
-.password-input {
-    width: 100%;
-    padding: 12px;
-    margin: 15px 0;
-    border-radius: 8px;
-    border: 1px solid #444;
-    background-color: #333;
-    color: white;
-    font-size: 24px;
-    text-align: center;
-    letter-spacing: 5px;
-    box-sizing: border-box;
-}
-
-/* Прячем */
-.password-overlay.hidden {
-    display: none !important;
-}
+/* ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️ */
