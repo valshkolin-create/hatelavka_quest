@@ -1519,27 +1519,36 @@
         </div>
 
         <div id="view-admin-p2p-settings" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">P2P Keys Config</h1>
-                <div style="width: 60px;"></div>
-            </div>
-            
-            <div class="quest-card">
-                <h3 style="margin-top: 0;">Добавить Кейс</h3>
-                <form id="create-p2p-case-form" class="admin-form">
-                    <label>Название кейса</label>
-                    <input type="text" name="case_name" required placeholder="Например: Revolver Case">
-                    <label>Картинка (URL)</label>
-                    <input type="text" name="image_url" required placeholder="https://...">
-                    <label>Цена (в коинах)</label>
-                    <input type="number" name="price_in_coins" required placeholder="100">
-                    <button type="submit">Добавить</button>
-                </form>
-            </div>
+    <div class="content-header">
+        <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+        <h2>Настройки P2P</h2>
+    </div>
 
-            <div id="p2p-cases-list" class="quests-container" style="margin-top: 20px;"></div>
+    <div class="admin-section">
+        <h3>🔗 Твоя Trade URL (Steam)</h3>
+        <p style="font-size:12px; color:#aaa; margin-bottom:10px;">Эту ссылку бот будет автоматически отправлять юзеру, когда ты принимаешь сделку.</p>
+        
+        <div class="input-group">
+            <input type="text" id="p2p-admin-trade-link" placeholder="Вставь сюда свою трейд-ссылку..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2c2c2e; color:white;">
         </div>
+        <button class="main-btn" onclick="saveP2PAdminLink()" style="margin-top:10px;">Сохранить ссылку</button>
+    </div>
+
+    <hr style="border-color:rgba(255,255,255,0.1); margin: 20px 0;">
+
+    <div class="admin-section">
+        <h3>📦 Управление Кейсами</h3>
+        <form id="create-p2p-case-form" class="admin-form">
+            <input type="text" name="case_name" placeholder="Название кейса" required>
+            <input type="url" name="image_url" placeholder="URL картинки" required>
+            <input type="number" name="price_in_coins" placeholder="Цена (монет)" required>
+            <button type="submit" class="main-btn">Добавить Кейс</button>
+        </form>
+
+        <div id="p2p-cases-list" class="quests-list">
+            </div>
+    </div>
+</div>
       
         </main>
   
