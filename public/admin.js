@@ -216,6 +216,11 @@ function generateOptionsHtml(options, selectedValue) {
         mtlUserDisplay: document.getElementById('mtl-user-display'),
         mtlLoginInput: document.getElementById('mtl-login-input'),
         mtlFindIdBtn: document.getElementById('mtl-find-id-btn'),
+        // ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА ⬇️⬇️⬇️
+        p2pTradesList: document.getElementById('p2p-trades-list'),
+        p2pCasesList: document.getElementById('p2p-cases-list'),
+        createP2PCaseForm: document.getElementById('create-p2p-case-form'),
+        // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
         // --- 🔽 ВОТ СЮДА ДОБАВЬ НОВУЮ СТРОКУ 🔽 ---
         saveScheduleBtn: document.getElementById('save-schedule-btn')
         // --- 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 ---
@@ -820,6 +825,16 @@ const showLoader = () => {
                     await loadShopPurchases();
                     break;
                 }
+                // ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА ⬇️⬇️⬇️
+                case 'view-admin-p2p-trades': {
+                    await loadP2PTrades();
+                    break;
+                }
+                case 'view-admin-p2p-settings': {
+                    await loadP2PCases();
+                    break;
+                }
+                // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
                 case 'view-admin-advent': {
                     await loadAdventSettings();
                     break;
@@ -3055,7 +3070,6 @@ if (dom.weeklyGoalsList) {
                 }
             });
         }
-
         const cauldronTriggersContainer = document.getElementById('cauldron-triggers-container');
         if(cauldronTriggersContainer) {
             cauldronTriggersContainer.addEventListener('click', (e) => {
@@ -3085,6 +3099,26 @@ if (dom.weeklyGoalsList) {
             });
         }
         // --- КОНЕЦ НОВОГО КОДА ---
+        // ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА ⬇️⬇️⬇️
+        if (dom.createP2PCaseForm) {
+            dom.createP2PCaseForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                try {
+                    await makeApiRequest('/api/v1/admin/p2p/case/add', {
+                        case_name: formData.get('case_name'),
+                        image_url: formData.get('image_url'),
+                        price_in_coins: parseInt(formData.get('price_in_coins'))
+                    });
+                    tg.showAlert('Кейс добавлен!');
+                    e.target.reset();
+                    loadP2PCases(); // Обновляем список
+                } catch (err) {
+                    tg.showAlert(err.message);
+                }
+            });
+        }
+        // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
         if(document.getElementById('twitch-purchases-body')) {
             document.getElementById('twitch-purchases-body').addEventListener('click', async (e) => {
                 // Ищем клик по ссылке или по изображению внутри ссылки
@@ -5199,6 +5233,181 @@ async function main() {
         }
     }
     // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
+// ⬇️⬇️⬇️ ВСТАВИТЬ НОВЫЕ ФУНКЦИИ ⬇️⬇️⬇️
+
+// --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
+
+async function loadP2PTrades() {
+    dom.p2pTradesList.innerHTML = '<p style="text-align:center;">Загрузка...</p>';
+    try {
+        // Запрашиваем список сделок
+        const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+        
+        dom.p2pTradesList.innerHTML = '';
+        if (!trades || trades.length === 0) {
+            dom.p2pTradesList.innerHTML = '<p style="text-align:center; color:#777;">Нет активных сделок.</p>';
+            return;
+        }
+
+        // Рендерим
+        trades.forEach(trade => {
+            const user = trade.user || {};
+            const caseItem = trade.case || {};
+            
+            // Определяем статус и действия
+            let statusBadge = '';
+            let actionsHtml = '';
+            let statusText = '';
+
+            switch(trade.status) {
+                case 'pending':
+                    statusBadge = '<span class="p2p-status-badge p2p-status-pending">Ждем юзера</span>';
+                    statusText = 'Пользователь еще не нажал "Я передал".';
+                    break;
+                case 'review':
+                    statusBadge = '<span class="p2p-status-badge p2p-status-review">ПРОВЕРКА</span>';
+                    statusText = 'Юзер сообщил о передаче. Проверь трейд!';
+                    actionsHtml = `
+                        <button onclick="approveP2PTrade(${trade.id})" class="admin-action-btn approve" style="font-size:13px; padding:8px;">
+                            <i class="fa-solid fa-check"></i> Принять (Дать ссылку)
+                        </button>
+                    `;
+                    break;
+                case 'active':
+                    statusBadge = '<span class="p2p-status-badge p2p-status-active">АКТИВНА</span>';
+                    statusText = `Ссылка выдана. Ждем завершения.<br><small style="color:#aaa;">Ссылка: ${trade.trade_url_given || '...'}</small>`;
+                    actionsHtml = `
+                        <button onclick="completeP2PTrade(${trade.id}, ${trade.total_coins})" class="admin-action-btn confirm" style="font-size:13px; padding:8px;">
+                            <i class="fa-solid fa-coins"></i> Завершить (Выдать ${trade.total_coins})
+                        </button>
+                    `;
+                    break;
+                case 'completed':
+                    statusBadge = '<span class="p2p-status-badge p2p-status-completed">ВЫПОЛНЕНО</span>';
+                    break;
+            }
+
+            const html = `
+                <div class="quest-card">
+                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
+                        <span style="font-weight:bold; font-size:14px;">#${trade.id} &bull; ${escapeHTML(user.full_name || 'User')}</span>
+                        ${statusBadge}
+                    </div>
+                    
+                    <div class="p2p-case-card" style="margin-bottom:10px;">
+                        <img src="${escapeHTML(caseItem.image_url)}" class="p2p-case-img">
+                        <div class="p2p-trade-info">
+                            <strong>${escapeHTML(caseItem.case_name || 'Unknown Case')}</strong>
+                            <span>Кол-во: <b>${trade.quantity}</b> шт.</span>
+                            <span>Сумма: <b style="color:#ffd700;">${trade.total_coins} 💰</b></span>
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:6px; font-size:12px; margin-bottom:5px;">
+                        <i class="fa-brands fa-steam"></i> <a href="${escapeHTML(user.trade_link)}" target="_blank" style="color:var(--action-color);">Трейд-ссылка юзера</a>
+                        <div style="margin-top:4px;">${statusText}</div>
+                    </div>
+
+                    ${actionsHtml ? `<div class="p2p-trade-actions">${actionsHtml}</div>` : ''}
+                </div>
+            `;
+            dom.p2pTradesList.insertAdjacentHTML('beforeend', html);
+        });
+
+    } catch (e) {
+        dom.p2pTradesList.innerHTML = `<p class="error-message">${e.message}</p>`;
+    }
+}
+
+// Действие: Админ принимает трейд (нужно ввести ссылку на трейд)
+window.approveP2PTrade = function(tradeId) {
+    showGenericPrompt(
+        "Введите Трейд-ссылку", 
+        "", // пустое значение по умолчанию
+        null // ID не нужен для prompt-logic, используем коллбэк ниже
+    );
+
+    // Переопределяем поведение кнопки "Сохранить" в модалке
+    dom.genericPromptConfirm.onclick = async () => {
+        const tradeLink = dom.genericPromptInput.value.trim();
+        if (!tradeLink) return tg.showAlert("Введите ссылку!");
+
+        try {
+            await makeApiRequest('/api/v1/admin/p2p/approve', {
+                trade_id: tradeId,
+                trade_link: tradeLink
+            });
+            hideGenericPrompt();
+            tg.showAlert("Трейд принят! Ссылка отправлена.");
+            loadP2PTrades(); // Обновляем список
+        } catch (e) {
+            tg.showAlert(e.message);
+        }
+    };
+};
+
+// Действие: Админ завершает трейд (выдает монеты)
+window.completeP2PTrade = async function(tradeId, coins) {
+    if(!confirm(`Выдать пользователю ${coins} монет и закрыть сделку?`)) return;
+    
+    try {
+        await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: tradeId });
+        tg.showAlert(`Выдано ${coins} монет!`);
+        loadP2PTrades();
+    } catch (e) {
+        tg.showAlert(e.message);
+    }
+};
+
+
+// --- ЛОГИКА НАСТРОЙКИ КЕЙСОВ (ADMIN) ---
+
+async function loadP2PCases() {
+    dom.p2pCasesList.innerHTML = '<p style="text-align:center;">Загрузка...</p>';
+    try {
+        // Используем публичный эндпоинт для получения списка, но нам нужны все поля
+        // Если публичный не возвращает ID, нужно добавить админский эндпоинт. 
+        // В index.py есть /api/v1/p2p/cases, он возвращает id, price_in_coins, case_name, image_url.
+        const cases = await makeApiRequest('/api/v1/p2p/cases', {}, 'GET', true);
+        
+        dom.p2pCasesList.innerHTML = '';
+        if (!cases || cases.length === 0) {
+            dom.p2pCasesList.innerHTML = '<p style="text-align:center;">Список пуст.</p>';
+            return;
+        }
+
+        cases.forEach(item => {
+            const html = `
+                <div class="quest-card p2p-case-card">
+                    <img src="${escapeHTML(item.image_url)}" class="p2p-case-img">
+                    <div style="flex-grow:1;">
+                        <div style="font-weight:bold;">${escapeHTML(item.case_name)}</div>
+                        <div style="font-size:13px; color:#ffd700;">${item.price_in_coins} монет</div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:5px;">
+                        <button onclick="deleteP2PCase(${item.id})" class="admin-delete-quest-btn">Удалить</button>
+                        </div>
+                </div>
+            `;
+            dom.p2pCasesList.insertAdjacentHTML('beforeend', html);
+        });
+
+    } catch (e) {
+        dom.p2pCasesList.innerHTML = `<p class="error-message">${e.message}</p>`;
+    }
+}
+
+window.deleteP2PCase = async function(caseId) {
+    if(!confirm("Удалить этот кейс?")) return;
+    try {
+        await makeApiRequest('/api/v1/admin/p2p/case/delete', { case_id: caseId });
+        loadP2PCases();
+    } catch(e) {
+        tg.showAlert(e.message);
+    }
+};
+
+// ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
     async function loadAdventSettings() {
         // 1. Загружаем награды (Лутбокс)
