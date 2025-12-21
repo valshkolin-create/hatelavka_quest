@@ -1129,6 +1129,15 @@ async def check_active_and_reply(message: types.Message):
         pass
         
 # ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
+# --- Вспомогательная функция (вставь в начало index.py) ---
+async def try_send_message(chat_id: int, text: str):
+    """Безопасная отправка сообщения, чтобы не ломать API при ошибке телеграма"""
+    try:
+        if bot and chat_id:
+            await bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
+    except Exception as e:
+        print(f"Ошибка отправки уведомления {chat_id}: {e}")
+        
 
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message):
@@ -2693,7 +2702,7 @@ async def admin_p2p_approve(
         msg = (f"✅ <b>Заявка P2P #{request_data.trade_id} принята!</b>\n\n"
                f"Ссылка для обмена:\n{link_to_use}\n\n"
                f"Отправьте скин и нажмите кнопку <b>'Я передал скин'</b>.")
-        await try_send_message(trade['user_id'], msg)
+        await safe_send_message(trade['user_id'], msg)
 
     return {"message": "Трейд запущен"}
     
