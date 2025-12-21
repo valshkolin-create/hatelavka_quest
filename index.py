@@ -2705,6 +2705,38 @@ async def admin_p2p_approve(
         await safe_send_message(trade['user_id'], msg)
 
     return {"message": "Трейд запущен"}
+
+# --- ДОБАВИТЬ В index.py ---
+
+@app.post("/api/v1/admin/p2p/cancel")
+async def admin_p2p_cancel(
+    request_data: P2PActionRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверка админа
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. Получаем сделку (чтобы узнать ID юзера для уведомления)
+    trade_resp = await supabase.get("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
+    if not trade_resp.json():
+        raise HTTPException(status_code=404, detail="Сделка не найдена")
+    
+    trade = trade_resp.json()[0]
+
+    # 3. Меняем статус на canceled
+    await supabase.patch(
+        "/p2p_trades",
+        params={"id": f"eq.{request_data.trade_id}"},
+        json={"status": "canceled"}
+    )
+
+    # 4. Уведомляем пользователя
+    msg = f"❌ <b>P2P Сделка #{request_data.trade_id} отменена администратором.</b>"
+    await try_send_message(trade['user_id'], msg)
+
+    return {"message": "Сделка отменена"}
     
 # 6. Админ: Завершить (выдать монеты)
 @app.post("/api/v1/admin/p2p/complete")
