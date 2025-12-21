@@ -511,6 +511,70 @@
             transition: color 0.1s ease; /* Убрали трансформации для скорости */
         }
 
+        /* --- ПРЕВЬЮ ВЫБРАННОГО КЕЙСА --- */
+.case-preview-card {
+    background: linear-gradient(145deg, #252525, #1a1a1a);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 15px;
+    position: relative;
+    overflow: hidden;
+    /* Анимация появления */
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    display: none; /* Скрыто по умолчанию */
+}
+
+.case-preview-card.visible {
+    display: flex;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Эффект свечения сзади */
+.case-preview-card::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(255, 204, 0, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.preview-image {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
+    z-index: 2;
+}
+
+.preview-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 5px;
+    z-index: 2;
+}
+
+.preview-price {
+    font-size: 14px;
+    color: #ffd700;
+    font-weight: 600;
+    background: rgba(255, 204, 0, 0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+    z-index: 2;
+}
+
         .footer-item .icon-wrapper {
             display: flex;
             justify-content: center;
@@ -1148,7 +1212,12 @@
                     </select>
                 </div>
             </div>
-            
+
+            <div id="case-preview" class="case-preview-card">
+                <img id="preview-img" src="" class="preview-image">
+                <div id="preview-name" class="preview-title">Название кейса</div>
+                <div class="preview-price">Цена: <span id="preview-price-text">0</span> 🟡</div>
+            </div>
             <div class="form-group">
                 <label class="form-label">Количество</label>
                 <input type="number" id="p2p-quantity" value="1" min="1" oninput="calculateP2P()" class="p2p-input" placeholder="0">
@@ -1244,21 +1313,28 @@ function closeP2PModal() {
     document.getElementById('p2p-modal').classList.add('hidden');
 }
 
-// 2. ЗАГРУЗКА СПИСКА КЕЙСОВ
+// 2. ЗАГРУЗКА СПИСКА КЕЙСОВ (Обновленная)
 async function loadP2PCasesForSelect() {
     const select = document.getElementById('p2p-case-select');
     select.innerHTML = '<option value="">Загрузка...</option>';
     
     try {
         const cases = await makeApiRequest('/api/v1/p2p/cases', 'GET');
-        cachedP2PCases = cases || [];
+        const cachedP2PCases = cases || [];
         
-        select.innerHTML = '<option value="">-- Выберите кейс --</option>';
+        select.innerHTML = '<option value="">-- Нажми, чтобы выбрать кейс --</option>';
+        
         cachedP2PCases.forEach(item => {
-            // Сохраняем цену в data-price
+            // ВАЖНО: Добавили data-image="${item.image_url}"
+            // Экранируем название, чтобы не сломать HTML кавычками
+            const safeName = item.case_name.replace(/"/g, '&quot;');
+            
             select.insertAdjacentHTML('beforeend', 
-                `<option value="${item.id}" data-price="${item.price_in_coins}">
-                    ${item.case_name} (${item.price_in_coins} 🟡)
+                `<option value="${item.id}" 
+                         data-price="${item.price_in_coins}" 
+                         data-image="${item.image_url}"
+                         data-name="${safeName}">
+                    ${item.case_name}
                 </option>`
             );
         });
@@ -1267,46 +1343,54 @@ async function loadP2PCasesForSelect() {
     }
 }
 
-// 3. КАЛЬКУЛЯТОР
+// 3. КАЛЬКУЛЯТОР + ВИЗУАЛИЗАЦИЯ (Обновленная)
 function calculateP2P() {
     const select = document.getElementById('p2p-case-select');
     const quantityInput = document.getElementById('p2p-quantity');
     const priceDisplay = document.getElementById('p2p-price-per-item');
     const totalDisplay = document.getElementById('p2p-total');
+    
+    // Элементы превью
+    const previewCard = document.getElementById('case-preview');
+    const previewImg = document.getElementById('preview-img');
+    const previewName = document.getElementById('preview-name');
+    const previewPriceText = document.getElementById('preview-price-text');
 
+    // Получаем данные выбранной опции
     const selectedOption = select.options[select.selectedIndex];
+    
+    // Если ничего не выбрано (значение пустое)
+    if (!select.value) {
+        previewCard.classList.remove('visible'); // Скрываем карточку
+        setTimeout(() => { 
+            if(!previewCard.classList.contains('visible')) previewCard.style.display = 'none'; 
+        }, 300); // Ждем конца анимации
+        
+        priceDisplay.innerText = 0;
+        totalDisplay.innerText = 0;
+        return;
+    }
+
+    // Если кейс выбран
     const price = selectedOption.dataset.price ? parseInt(selectedOption.dataset.price) : 0;
+    const imageUrl = selectedOption.dataset.image || '';
+    const name = selectedOption.dataset.name || '';
     const quantity = parseInt(quantityInput.value) || 0;
 
+    // 1. Обновляем цифры внизу
     priceDisplay.innerText = price;
     totalDisplay.innerText = price * quantity;
-}
 
-// 4. СОЗДАНИЕ СДЕЛКИ
-async function createP2PTrade() {
-    const select = document.getElementById('p2p-case-select');
-    const quantity = parseInt(document.getElementById('p2p-quantity').value);
-    const caseId = select.value;
+    // 2. Обновляем и показываем КАРТОЧКУ
+    previewCard.style.display = 'flex'; // Сначала делаем flex, чтобы анимация сработала
+    // Небольшая задержка, чтобы браузер отрисовал display:flex перед добавлением класса opacity
+    requestAnimationFrame(() => {
+        previewCard.classList.add('visible');
+    });
 
-    if (!caseId || quantity <= 0) return Telegram.WebApp.showAlert("Выберите кейс и количество!");
-
-    try {
-        await makeApiRequest('/api/v1/p2p/create', {
-            case_id: parseInt(caseId),
-            quantity: quantity
-        });
-        Telegram.WebApp.showAlert("✅ Заявка создана! Ждите подтверждения админа.");
-        
-        // Сброс и обновление
-        select.value = "";
-        document.getElementById('p2p-quantity').value = 1;
-        calculateP2P();
-        await loadP2PHistoryInModal(); // Обновляем список внизу
-        checkActiveTradesBackground(); // Обновляем пульсацию внешней кнопки
-
-    } catch (e) {
-        Telegram.WebApp.showAlert(e.message);
-    }
+    previewImg.src = imageUrl;
+    previewName.innerText = name;
+    previewPriceText.innerText = price;
 }
 
 // 5. ИСТОРИЯ ВНУТРИ МОДАЛКИ (Самое важное!)
