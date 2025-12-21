@@ -1530,7 +1530,7 @@ async function createP2PTrade() {
         calculateP2P(); // Сбросит превью
         
         // Обновляем историю и кнопку
-        await loadP2PHistoryInModal(); 
+        await loadP2PHistoryData(); 
         checkActiveTradesBackground();
 
     } catch (e) {
