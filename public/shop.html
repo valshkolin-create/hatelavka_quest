@@ -1393,13 +1393,43 @@ function calculateP2P() {
     previewPriceText.innerText = price;
 }
 
+// 4. СОЗДАНИЕ СДЕЛКИ (Этой функции не хватало!)
+async function createP2PTrade() {
+    const select = document.getElementById('p2p-case-select');
+    const quantity = parseInt(document.getElementById('p2p-quantity').value);
+    const caseId = select.value;
+
+    if (!caseId || quantity <= 0) return Telegram.WebApp.showAlert("Выберите кейс и количество!");
+
+    try {
+        // Отправляем запрос на создание
+        await makeApiRequest('/api/v1/p2p/create', 'POST', {
+            case_id: parseInt(caseId),
+            quantity: quantity
+        });
+        
+        Telegram.WebApp.showAlert("✅ Заявка создана! Ждите подтверждения админа.");
+        
+        // Сброс и обновление интерфейса
+        select.value = "";
+        document.getElementById('p2p-quantity').value = 1;
+        calculateP2P(); // Сбросит превью
+        
+        // Обновляем историю и кнопку
+        await loadP2PHistoryInModal(); 
+        checkActiveTradesBackground();
+
+    } catch (e) {
+        Telegram.WebApp.showAlert(e.message || "Ошибка создания заявки");
+    }
+}        
+
 // 5. ИСТОРИЯ ВНУТРИ МОДАЛКИ (Самое важное!)
 async function loadP2PHistoryInModal() {
     const container = document.getElementById('my-p2p-trades');
     container.innerHTML = '<p style="text-align:center; font-size:12px; color:#666;">Обновление...</p>';
 
     try {
-        // 👇 БЫЛО 'GET', СТАЛО 'POST' 👇
         const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'POST'); 
         
         if (!trades || trades.length === 0) {
@@ -1407,11 +1437,19 @@ async function loadP2PHistoryInModal() {
             return;
         }
 
-        // Сортировка: Активные наверх
+        // Сортировка
         const priority = { 'active': 1, 'review': 2, 'pending': 3, 'completed': 4, 'canceled': 5 };
         trades.sort((a, b) => priority[a.status] - priority[b.status]);
 
         container.innerHTML = trades.map(t => {
+            // 🔥 ФИКС: Ищем имя кейса в кэше, если его нет в сделке
+            let caseName = t.case_name;
+            if (!caseName && t.case_id) {
+                const found = cachedP2PCases.find(c => c.id == t.case_id);
+                if (found) caseName = found.case_name;
+            }
+            if (!caseName) caseName = "Неизвестный кейс";
+
             let statusBadge = '';
             let actionHtml = '';
             let activeClass = '';
@@ -1421,7 +1459,7 @@ async function loadP2PHistoryInModal() {
                     statusBadge = '<span style="color:#aaa;">⏳ Ждем админа</span>';
                     break;
                 case 'active':
-                    activeClass = 'active-action'; // Желтая рамка
+                    activeClass = 'active-action'; 
                     statusBadge = '<span style="color:#ffd700; font-weight:bold;">🔥 ТРЕБУЕТ ДЕЙСТВИЯ</span>';
                     actionHtml = `
                         <div class="trade-action-box">
@@ -1448,7 +1486,7 @@ async function loadP2PHistoryInModal() {
             return `
                 <div class="p2p-trade-item ${activeClass}">
                     <div class="trade-header">
-                        <span>${t.case_name} (x${t.quantity})</span>
+                        <span>${caseName} (x${t.quantity})</span>
                         <span style="color:#ffd700;">+${t.total_coins}</span>
                     </div>
                     <div class="trade-meta">
