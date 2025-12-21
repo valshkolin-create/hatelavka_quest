@@ -235,6 +235,7 @@ function generateOptionsHtml(options, selectedValue) {
     const ADMIN_PASSWORD = '6971'; // Пароль для админ-функций
     let currentCauldronData = {};
     // --- 🔽 ДОБАВЬТЕ ЭТОТ ОБЪЕКТ 🔽 ---
+    let adminP2PTradeLinkCache = ''; // Кэш для трейд-ссылки
     const CONDITION_TO_COLUMN = {
         // Twitch
         "twitch_messages_session": "daily_message_count",
@@ -1510,8 +1511,15 @@ function renderSubmissions(submissions, targetElement) { // Добавлен в�
              dom.settingWeeklyGoalsEnabled.checked = settings.weekly_goals_enabled;
              dom.settingMenuBannerUrl.value = settings.menu_banner_url || '';
              dom.settingCheckpointBannerUrl.value = settings.checkpoint_banner_url || '';
-            dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
+             dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
              dom.settingWeeklyGoalsBannerUrl.value = settings.weekly_goals_banner_url || ''; // <-- 🔽 ДОБАВИТЬ ЭТУ СТРОКУ
+            // --- 👇👇👇 ВСТАВИТЬ ЭТО 👇👇👇 ---
+            const p2pLinkInput = document.getElementById('p2p-admin-trade-link');
+            if (p2pLinkInput) {
+                p2pLinkInput.value = settings.p2p_admin_trade_link || '';
+                adminP2PTradeLinkCache = settings.p2p_admin_trade_link || ''; // Сохраняем в кэш
+            }
+            // --- 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆 ---
              dom.settingAuctionBannerUrl.value = settings.auction_banner_url || ''; // <-- ВОТ ЭТА СТРОКА ПРОПУЩЕНА
 
              // --- НОВЫЙ КОД ДЛЯ УПРАВЛЕНИЯ СЛАЙДАМИ (v2 - БОЛЕЕ НАДЕЖНЫЙ) ---
@@ -3705,6 +3713,14 @@ if (dom.settingQuestScheduleOverride) {
             payload.auction_banner_url = dom.settingAuctionBannerUrl.value.trim();
             payload.weekly_goals_banner_url = dom.settingWeeklyGoalsBannerUrl.value.trim();
             payload.weekly_goals_enabled = dom.settingWeeklyGoalsEnabled.checked;
+            
+            // --- 👇👇👇 ВСТАВИТЬ ЭТО 👇👇👇 ---
+                    const p2pLinkInput = document.getElementById('p2p-admin-trade-link');
+                    if (p2pLinkInput) {
+                        payload.p2p_admin_trade_link = p2pLinkInput.value.trim();
+                        adminP2PTradeLinkCache = payload.p2p_admin_trade_link; // Обновляем кэш
+                    }
+                    // --- 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆 ---
 
             // 4. ОТПРАВЛЯЕМ обновленный payload
             await makeApiRequest('/api/v1/admin/settings/update', { settings: payload });
@@ -5393,27 +5409,34 @@ async function loadP2PSettingsAndCases() {
     }
 }
 
-// Функция сохранения ссылки (повесь на кнопку onclick="saveP2PAdminLink()")
-window.saveP2PAdminLink = async function() {
-     const linkInput = document.getElementById('p2p-admin-trade-link');
-     if (!linkInput) return;
-     const linkVal = linkInput.value.trim();
-     if(!linkVal) return tg.showAlert("Ссылка пустая!");
+// --- ФУНКЦИЯ ДЛЯ СОХРАНЕНИЯ ТОЛЬКО ССЫЛКИ (ДЛЯ КНОПКИ В P2P) ---
+    window.saveP2PAdminLink = async function() {
+        const linkInput = document.getElementById('p2p-admin-trade-link');
+        if (!linkInput) return;
+        
+        const linkVal = linkInput.value.trim();
+        if (!linkVal) return tg.showAlert("Введи ссылку!");
 
-     try {
-         // 1. Получаем текущие настройки
-         const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
-         // 2. Обновляем поле
-         currentSettings.p2p_admin_trade_link = linkVal;
-         // 3. Сохраняем
-         await makeApiRequest('/api/v1/admin/settings/update', { settings: currentSettings });
-         
-         adminP2PTradeLinkCache = linkVal;
-         tg.showAlert('Ссылка сохранена!');
-     } catch (e) {
-         tg.showAlert(e.message);
-     }
-}
+        showLoader();
+        try {
+            // 1. Загружаем все настройки
+            const currentSettings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+            
+            // 2. Меняем только ссылку
+            currentSettings.p2p_admin_trade_link = linkVal;
+
+            // 3. Сохраняем
+            await makeApiRequest('/api/v1/admin/settings/update', { settings: currentSettings });
+            
+            adminP2PTradeLinkCache = linkVal;
+            tg.showAlert('Ссылка сохранена!');
+        } catch (e) {
+            console.error(e);
+            tg.showAlert("Ошибка: " + e.message);
+        } finally {
+            hideLoader();
+        }
+    };
 
 async function loadP2PCases() {
     dom.p2pCasesList.innerHTML = '<p style="text-align:center;">Загрузка...</p>';
