@@ -1321,3 +1321,52 @@ input[type="datetime-local"] {
         border-radius: 10px;
     }
 }
+
+/* === НОВЫЙ ДИЗАЙН ИНПУТОВ === */
+.styled-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: #1c1c1e; /* Темный приятный фон */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Тонкая рамка */
+    border-radius: 16px; /* Сильное закругление */
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+    box-sizing: border-box;
+}
+
+.styled-input:focus {
+    border-color: #007aff; /* Синяя подсветка при клике */
+    background: #252528;   /* Чуть светлее фон */
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15); /* Красивое свечение */
+}
+
+.styled-input::placeholder {
+    color: #555; /* Цвет подсказки */
+}
+
+/* === ИСПРАВЛЕНИЕ КНОПКИ ДАЛЕЕ === */
+.wizard-btn-next {
+    background-color: #007aff !important; /* Принудительно синий цвет */
+    color: white !important;              /* Белый текст */
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.1s, background-color 0.2s;
+}
+
+.wizard-btn-next:hover {
+    background-color: #0062cc !important;
+}
+
+.wizard-btn-next:active {
+    transform: scale(0.96); /* Эффект нажатия */
+}
