@@ -3087,6 +3087,14 @@ if (dom.weeklyGoalsList) {
                 }
             });
         }
+        // --- ОБРАБОТЧИК КНОПКИ ОБНОВЛЕНИЯ В P2P МОДАЛКЕ ---
+        const refreshP2PBtn = document.getElementById('btn-refresh-p2p-details');
+        if (refreshP2PBtn) {
+            refreshP2PBtn.addEventListener('click', (e) => {
+                e.preventDefault(); // На всякий случай
+                refreshCurrentP2PTradeDetails();
+            });
+        }
         // --- 👇👇👇 ДОБАВЬТЕ ЭТОТ БЛОК 👇👇👇 ---
         const reloadPendingBtn = document.getElementById('reload-pending-actions-btn');
         if (reloadPendingBtn) {
@@ -6016,6 +6024,40 @@ async function adminForceConfirmSent(tradeId) {
         'Да, скин у меня',
         '#007aff'
     );
+}
+/* === НОВАЯ ФУНКЦИЯ: ОБНОВЛЕНИЕ ОТКРЫТОЙ СДЕЛКИ === */
+async function refreshCurrentP2PTradeDetails() {
+    if (!currentP2PTradeId) return;
+
+    const btn = document.getElementById('btn-refresh-p2p-details');
+    const icon = btn ? btn.querySelector('i') : null;
+
+    // Анимация вращения
+    if (icon) icon.classList.add('fa-spin');
+
+    try {
+        // 1. Запрашиваем свежий список
+        const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+        
+        // 2. Ищем текущую сделку
+        const trade = trades.find(t => t.id === currentP2PTradeId);
+
+        if (trade) {
+            // 3. Перерисовываем модалку свежими данными
+            openP2PDetailsModal(trade);
+            tg.showPopup({message: 'Данные обновлены'});
+        } else {
+            // Если сделка пропала (например, удалена)
+            tg.showAlert('Сделка не найдена (возможно, удалена)');
+            closeModal('p2pTradeDetailsModal');
+            loadP2PTrades(); // Обновляем список на фоне
+        }
+    } catch (e) {
+        tg.showAlert('Ошибка обновления: ' + e.message);
+    } finally {
+        // Убираем анимацию
+        if (icon) icon.classList.remove('fa-spin');
+    }
 }
 
     // Инициализация приложения
