@@ -5250,86 +5250,193 @@ async function main() {
     }
     // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
 // --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
+/* === 1. ЗАГРУЗКА СПИСКА (СЕТКА 2 КОЛОНКИ) === */
 async function loadP2PTrades() {
-    dom.p2pTradesList.innerHTML = '<p style="text-align:center;">Загрузка...</p>';
+    // Используем getElementById для надежности, или твой dom.p2pTradesList
+    const container = document.getElementById('p2p-trades-list'); 
+    if (!container) return;
+
+    // Включаем сетку
+    container.className = 'p2p-trades-grid'; 
+    container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Загрузка...</p>';
+
     try {
+        // Твой эндпоинт из примера
         const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
-        dom.p2pTradesList.innerHTML = '';
         
+        container.innerHTML = '';
+        updateP2PBadge(trades); // Обновляем счетчик
+
         if (!trades || trades.length === 0) {
-            dom.p2pTradesList.innerHTML = '<p style="text-align:center; color:#777;">Нет активных сделок.</p>';
+            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #777;">Нет активных сделок.</p>';
             return;
         }
 
         trades.forEach(trade => {
             const user = trade.user || {};
             const caseItem = trade.case || {};
-            let statusBadge = '', actionsHtml = '', statusText = '';
+            
+            // Цвет статуса
+            let statusClass = 'status-pending';
+            if (trade.status === 'review') statusClass = 'status-review';
+            if (trade.status === 'active') statusClass = 'status-review'; // Ждем скин тоже синим
+            if (trade.status === 'completed') statusClass = 'status-completed';
+            if (trade.status === 'canceled') statusClass = 'status-canceled';
 
-            switch(trade.status) {
-                case 'pending':
-                    statusBadge = '<span class="p2p-status-badge p2p-status-pending">НОВАЯ</span>';
-                    statusText = 'Нажми "Принять", чтобы отправить ссылку автоматически.';
-                    actionsHtml = `
-                        <button onclick="approveP2PTrade(${trade.id})" class="admin-action-btn approve" style="font-size:13px; padding:8px;">
-                            <i class="fa-solid fa-bolt"></i> Принять (Авто-ссылка)
-                        </button>
-                        <button onclick="cancelP2PTrade(${trade.id})" class="admin-action-btn reject" style="font-size:13px; padding:8px;">
-                            <i class="fa-solid fa-xmark"></i> Отказать
-                        </button>
-                    `;
-                    break;
-                case 'active':
-                    statusBadge = '<span class="p2p-status-badge p2p-status-active">ЖДЕМ СКИН</span>';
-                    statusText = 'Ссылка отправлена. Ждем подтверждения от юзера.';
-                    actionsHtml = `
-                         <button onclick="cancelP2PTrade(${trade.id})" class="admin-action-btn reject" style="font-size:13px; padding:8px; opacity: 0.7;">
-                            Отменить
-                        </button>
-                    `;
-                    break;
-                case 'review':
-                    statusBadge = '<span class="p2p-status-badge p2p-status-review">ПРОВЕРКА</span>';
-                    statusText = '<b style="color:var(--success-color);">Юзер подтвердил!</b> Проверь Steam.';
-                    actionsHtml = `
-                        <button onclick="completeP2PTrade(${trade.id}, ${trade.total_coins})" class="admin-action-btn confirm" style="font-size:13px; padding:8px;">
-                            <i class="fa-solid fa-coins"></i> Завершить
-                        </button>
-                         <button onclick="cancelP2PTrade(${trade.id})" class="admin-action-btn reject" style="font-size:13px; padding:8px;">
-                            Обман / Отмена
-                        </button>
-                    `;
-                    break;
-                default:
-                    statusBadge = `<span class="p2p-status-badge">${trade.status}</span>`;
-            }
+            // Имя кейса и картинка
+            const caseName = caseItem.case_name || ('Case #' + trade.case_id);
+            const caseImg = caseItem.image_url || 'https://via.placeholder.com/60';
+            const userName = user.full_name || user.username || ('User ' + trade.user_id);
 
-            // Рендер карточки (тот же HTML, что и был, только кнопки обновлены)
             const html = `
-                <div class="quest-card">
-                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
-                        <span style="font-weight:bold; font-size:14px;">#${trade.id} &bull; ${escapeHTML(user.full_name || 'User')}</span>
-                        ${statusBadge}
-                    </div>
-                    <div class="p2p-case-card" style="margin-bottom:10px;">
-                        <img src="${escapeHTML(caseItem.image_url)}" class="p2p-case-img">
-                        <div class="p2p-trade-info">
-                            <strong>${escapeHTML(caseItem.case_name)}</strong>
-                            <span>Кол-во: <b>${trade.quantity}</b> | Сумма: <b style="color:#ffd700;">${trade.total_coins}</b></span>
-                        </div>
-                    </div>
-                    ${actionsHtml ? `<div class="p2p-trade-actions">${actionsHtml}</div>` : ''}
-                    <div style="font-size:11px; color:#777; margin-top:5px;">${statusText}</div>
+                <div class="p2p-trade-card">
+                    <div class="p2p-status-dot ${statusClass}"></div>
+                    <img src="${escapeHTML(caseImg)}" onerror="this.src='https://placehold.co/60'">
+                    <div class="p2p-user-name">${escapeHTML(userName)}</div>
+                    <div class="p2p-case-name">${escapeHTML(caseName)}</div>
+                    
+                    <button class="btn-details-p2p" onclick='openP2PDetailsModal(${JSON.stringify(trade).replace(/'/g, "&#39;")})'>
+                        Подробнее
+                    </button>
                 </div>
             `;
-            dom.p2pTradesList.insertAdjacentHTML('beforeend', html);
+            container.insertAdjacentHTML('beforeend', html);
         });
+
     } catch (e) {
-        dom.p2pTradesList.innerHTML = `<p class="error-message">${e.message}</p>`;
+        console.error(e);
+        container.innerHTML = `<p class="error-message" style="grid-column: 1/-1;">Ошибка: ${e.message}</p>`;
     }
 }
 
 // --- ФУНКЦИИ ДЕЙСТВИЙ ---
+
+/* === 2. СЧЕТЧИК УВЕДОМЛЕНИЙ === */
+function updateP2PBadge(trades) {
+    if (!trades) return;
+    // Считаем активные (pending, active, review)
+    const activeCount = trades.filter(t => ['pending', 'active', 'review'].includes(t.status)).length;
+    
+    const badge = document.getElementById('p2p-badge-main'); // Убедись, что ID в HTML совпадает
+    if (badge) {
+        badge.innerText = activeCount;
+        if (activeCount > 0) {
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+}
+
+/* === 3. ОТКРЫТИЕ МОДАЛКИ С ДЕТАЛЯМИ === */
+function openP2PDetailsModal(trade) {
+    currentP2PTradeId = trade.id;
+    const user = trade.user || {};
+    const caseItem = trade.case || {};
+
+    // Заполняем инфо
+    document.getElementById('modal-p2p-id').innerText = trade.id;
+    document.getElementById('modal-p2p-img').src = caseItem.image_url || '';
+    document.getElementById('modal-p2p-case').innerText = caseItem.case_name || 'Неизвестный кейс';
+    document.getElementById('modal-p2p-price').innerText = (trade.total_coins || 0) + ' монет';
+    
+    const userStr = `${user.full_name || user.username || 'User'} (ID: ${trade.user_id})`;
+    document.getElementById('modal-p2p-user').value = userStr;
+    
+    // Статус и Кнопки действий
+    const statusEl = document.getElementById('modal-p2p-status-text');
+    const actionsDiv = document.getElementById('modal-p2p-actions');
+    actionsDiv.innerHTML = ''; // Сброс кнопок
+
+    let statusText = trade.status;
+    let statusColor = '#fff';
+
+    // Логика кнопок как в твоей старой функции
+    if (trade.status === 'pending') {
+        statusText = '🆕 Новая заявка';
+        statusColor = '#ff9500';
+        // Кнопка: Принять
+        actionsDiv.innerHTML = `
+            <button onclick="approveP2PTrade(${trade.id})" class="admin-action-btn approve" style="width:100%">
+                <i class="fa-solid fa-bolt"></i> Принять (Авто-ссылка)
+            </button>
+        `;
+    } 
+    else if (trade.status === 'active') {
+        statusText = '⏳ Ждем скин от юзера';
+        statusColor = '#007aff';
+        // Кнопка: Отменить (если долго висит)
+        actionsDiv.innerHTML = `
+            <p style="font-size:12px; color:#777; text-align:center;">Ссылка отправлена. Ждем...</p>
+        `;
+    }
+    else if (trade.status === 'review') {
+        statusText = '👀 Юзер отправил! Проверь Steam';
+        statusColor = '#007aff';
+        // Кнопка: Завершить
+        actionsDiv.innerHTML = `
+            <button onclick="completeP2PTrade(${trade.id}, ${trade.total_coins})" class="admin-action-btn confirm" style="width:100%">
+                <i class="fa-solid fa-coins"></i> Подтвердить и выдать монеты
+            </button>
+        `;
+    }
+    else if (trade.status === 'completed') { statusText = '✅ Завершено'; statusColor = '#32d74b'; }
+    else if (trade.status === 'canceled') { statusText = '❌ Отменено'; statusColor = '#ff453a'; }
+
+    statusEl.innerText = statusText;
+    statusEl.style.color = statusColor;
+    
+    // Показываем окно
+    document.getElementById('p2pTradeDetailsModal').classList.remove('hidden');
+}
+
+/* === 4. ФУНКЦИИ ДЕЙСТВИЙ (Вызывают твои старые функции или новые API) === */
+
+// Принять (отправить ссылку)
+async function approveP2PTrade(tradeId) {
+    if(!confirm(`Принять заявку #${tradeId}? Бот отправит трейд-ссылку юзеру.`)) return;
+    // Логика принятия (если у тебя был отдельный эндпоинт, вставь его. 
+    // Если нет, и это меняет статус на active - используй патч)
+    // Предполагаю эндпоинт из логики:
+    try {
+        await makeApiRequest('/api/v1/admin/p2p/approve', { trade_id: tradeId }, 'POST');
+        tg.showPopup({message: 'Заявка принята!'});
+        closeModal('p2pTradeDetailsModal');
+        loadP2PTrades();
+    } catch (e) {
+        tg.showAlert(e.message);
+    }
+}
+
+// Завершить (выдать монеты)
+async function completeP2PTrade(tradeId, amount) {
+    if(!confirm(`Вы получили скин? Выдать ${amount} монет юзеру?`)) return;
+    try {
+        await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: tradeId, initData: tg.initData });
+        tg.showPopup({message: 'Сделка завершена!'});
+        closeModal('p2pTradeDetailsModal');
+        loadP2PTrades();
+    } catch (e) {
+        tg.showAlert(e.message);
+    }
+}
+
+// Удалить / Отменить
+async function deleteCurrentP2PTrade() {
+    if(!currentP2PTradeId) return;
+    if(!confirm('Удалить/Отменить эту сделку?')) return;
+    
+    try {
+        await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: currentP2PTradeId, initData: tg.initData });
+        tg.showPopup({message: 'Сделка отменена'});
+        closeModal('p2pTradeDetailsModal');
+        loadP2PTrades();
+    } catch (e) {
+        tg.showAlert(e.message);
+    }
+}
+
+/* === 4. ФУНКЦИИ ДЕЙСТВИЙ (Вызывают твои старые функции или новые API) === */
 
 // Issue 4: МГНОВЕННОЕ принятие (без ввода ссылки вручную)
 window.approveP2PTrade = async function(tradeId) {
