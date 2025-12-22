@@ -5493,6 +5493,169 @@ window.deleteP2PCase = async function(caseId) {
     }
 };
 
+/* ================================================= */
+/* === НОВАЯ ЛОГИКА P2P SETTINGS (v2.0) === */
+/* ================================================= */
+
+// 1. Открытие модалки Trade URL
+function openTradeModal() {
+    // Берем ссылку из кэша (если была загружена ранее)
+    const storedLink = adminP2PTradeLinkCache || ''; 
+    const input = document.getElementById('p2p-admin-trade-link-modal');
+    
+    if (input) input.value = storedLink;
+    document.getElementById('tradeModal').classList.remove('hidden');
+}
+
+// 2. Сохранение ссылки из модального окна
+async function saveTradeUrlFromModal() {
+    const input = document.getElementById('p2p-admin-trade-link-modal');
+    if (!input) return;
+    
+    const val = input.value.trim();
+    if (!val) return tg.showAlert('Введите ссылку!');
+
+    showLoader();
+    try {
+        // Сначала получаем текущие настройки, чтобы не перезатереть другие
+        const settings = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true);
+        settings.p2p_admin_trade_link = val;
+        
+        // Сохраняем обновленные настройки
+        await makeApiRequest('/api/v1/admin/settings/update', { settings: settings });
+        
+        adminP2PTradeLinkCache = val; // Обновляем локальный кэш
+        tg.showPopup({message: 'Ссылка сохранена!'});
+        closeModal('tradeModal');
+    } catch (e) {
+        tg.showAlert('Ошибка: ' + e.message);
+    } finally {
+        hideLoader();
+    }
+}
+
+// 3. WIZARD: Открытие окна добавления кейса
+function openAddCaseModal() {
+    // Очищаем поля
+    document.getElementById('wiz-case-name').value = '';
+    document.getElementById('wiz-case-img').value = '';
+    document.getElementById('wiz-case-price').value = '';
+    
+    // Сбрасываем превью
+    document.getElementById('wiz-img-preview').style.display = 'none';
+    document.getElementById('wiz-img-placeholder').style.display = 'inline';
+    
+    // Переходим на 1 шаг
+    wizardNext(1);
+    
+    document.getElementById('addCaseModal').classList.remove('hidden');
+}
+
+// Переключение шагов визарда
+function wizardNext(step) {
+    // Скрываем все шаги
+    document.getElementById('wiz-step-1').classList.add('hidden');
+    document.getElementById('wiz-step-2').classList.add('hidden');
+    document.getElementById('wiz-step-3').classList.add('hidden');
+    
+    // Показываем нужный
+    document.getElementById('wiz-step-' + step).classList.remove('hidden');
+    
+    // Авто-фокус на поле ввода
+    if(step === 1) setTimeout(() => document.getElementById('wiz-case-name').focus(), 100);
+    if(step === 2) setTimeout(() => document.getElementById('wiz-case-img').focus(), 100);
+    if(step === 3) setTimeout(() => document.getElementById('wiz-case-price').focus(), 100);
+}
+
+// Предпросмотр картинки
+function previewCaseImage() {
+    const url = document.getElementById('wiz-case-img').value;
+    const img = document.getElementById('wiz-img-preview');
+    const placeholder = document.getElementById('wiz-img-placeholder');
+    
+    if (url && url.length > 10) {
+        img.src = url;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        placeholder.style.display = 'inline';
+    }
+}
+
+// 4. Финиш: Отправка данных кейса на сервер
+async function finishAddCase() {
+    const name = document.getElementById('wiz-case-name').value;
+    const img = document.getElementById('wiz-case-img').value;
+    const price = parseInt(document.getElementById('wiz-case-price').value);
+
+    if (!name || !img || !price) return tg.showAlert('Заполните все поля!');
+
+    showLoader();
+    try {
+        await makeApiRequest('/api/v1/admin/p2p/case/add', {
+            case_name: name,
+            image_url: img,
+            price_in_coins: price
+        });
+        
+        tg.showPopup({message: 'Кейс создан!'});
+        closeModal('addCaseModal');
+        
+        // Обновляем сетку кейсов
+        await loadP2PCases(); 
+    } catch (e) {
+        tg.showAlert(e.message);
+    } finally {
+        hideLoader();
+    }
+}
+
+// 5. Вспомогательная функция закрытия
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+}
+
+// 6. Загрузка списка кейсов (Отрисовка Grid)
+async function loadP2PCases() {
+    const container = document.getElementById('p2p-cases-list');
+    if(!container) return;
+    
+    container.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Загрузка...</p>';
+    
+    try {
+        const cases = await makeApiRequest('/api/v1/p2p/cases', {}, 'GET', true);
+        container.innerHTML = '';
+
+        if (!cases || cases.length === 0) {
+            container.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#777;">Кейсов нет. Создайте первый!</p>';
+            return;
+        }
+
+        cases.forEach(item => {
+            // Экранирование для безопасности
+            const safeName = escapeHTML(item.case_name);
+            const safeImg = escapeHTML(item.image_url);
+            
+            const html = `
+                <div class="p2p-case-card-grid">
+                    <img src="${safeImg}" onerror="this.src='https://placehold.co/80?text=No+Img'">
+                    <div class="case-grid-title">${safeName}</div>
+                    <div class="case-grid-price">${item.price_in_coins} монет</div>
+                    
+                    <button onclick="deleteP2PCase(${item.id})" class="admin-delete-quest-btn" style="width:100%; margin-top:auto; font-size:12px;">
+                        <i class="fa-solid fa-trash"></i> Удалить
+                    </button>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+
+    } catch (e) {
+        container.innerHTML = `<p class="error-message" style="grid-column: 1/-1;">${e.message}</p>`;
+    }
+}
+
 // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
     async function loadAdventSettings() {
