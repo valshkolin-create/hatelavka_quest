@@ -5361,6 +5361,7 @@ function openP2PDetailsModal(trade) {
 }
 
 /* === ОТРИСОВКА СТАТУСА ВНУТРИ МОДАЛКИ === */
+/* === ОТРИСОВКА СТАТУСА И КНОПОК ВНУТРИ МОДАЛКИ === */
 function renderP2PModalStatus(status, tradeId, amount) {
     const statusEl = document.getElementById('modal-p2p-status-text');
     const actionsDiv = document.getElementById('modal-p2p-actions');
@@ -5369,34 +5370,54 @@ function renderP2PModalStatus(status, tradeId, amount) {
     let statusText = status;
     let statusColor = '#fff';
 
+    // 1. НОВАЯ ЗАЯВКА
     if (status === 'pending') {
         statusText = '🆕 Новая заявка';
         statusColor = '#ff9500'; // Оранжевый
         actionsDiv.innerHTML = `
-            <button onclick="approveP2PTrade(${tradeId})" class="admin-action-btn approve" style="width:100%">
-                <i class="fa-solid fa-bolt"></i> Принять (Отправить ссылку)
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
+                    <i class="fa-solid fa-xmark"></i> Отказать
+                </button>
+                <button onclick="approveP2PTrade(${tradeId})" class="admin-action-btn approve" style="flex: 2;">
+                    <i class="fa-solid fa-bolt"></i> Принять
+                </button>
+            </div>
+            <p style="font-size: 11px; color: #777; text-align: center; margin-top: 5px;">
+                "Принять" отправит юзеру трейд-ссылку.
+            </p>
         `;
     } 
+    // 2. ОЖИДАНИЕ ПЕРЕДАЧИ
     else if (status === 'active') {
         statusText = '⏳ Ссылка отправлена. Ждем юзера...';
         statusColor = '#007aff'; // Синий
         actionsDiv.innerHTML = `
-            <div style="padding: 10px; background: rgba(0,122,255,0.1); border-radius: 8px; text-align: center; color: #ccc; font-size: 13px;">
+            <div style="padding: 10px; background: rgba(0,122,255,0.1); border-radius: 8px; text-align: center; color: #ccc; font-size: 13px; margin-bottom: 10px;">
                 Ожидаем, пока пользователь нажмет «Я передал»
             </div>
+            <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%; font-size: 13px; padding: 8px;">
+                Отменить (если долго не кидает)
+            </button>
         `;
     }
+    // 3. ПРОВЕРКА (Юзер нажал "Отправил")
     else if (status === 'review') {
         statusText = '👀 Юзер подтвердил отправку!';
         statusColor = '#007aff';
         actionsDiv.innerHTML = `
             <div style="margin-bottom: 10px; color: #aaa; font-size: 12px; text-align: center;">Проверьте трейды в Steam</div>
-            <button onclick="completeP2PTrade(${tradeId}, ${amount})" class="admin-action-btn confirm" style="width:100%; font-weight: bold;">
-                <i class="fa-solid fa-coins"></i> Подтвердить получение
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
+                    Обман
+                </button>
+                <button onclick="completeP2PTrade(${tradeId}, ${amount})" class="admin-action-btn confirm" style="flex: 2; font-weight: bold;">
+                    <i class="fa-solid fa-coins"></i> Подтвердить
+                </button>
+            </div>
         `;
     }
+    // 4. КОНЕЧНЫЕ СТАТУСЫ
     else if (status === 'completed') { 
         statusText = '✅ Сделка завершена'; 
         statusColor = '#32d74b'; 
@@ -5439,22 +5460,47 @@ async function completeP2PTrade(tradeId, amount) {
     }
 }
 
-/* === ДЕЙСТВИЕ: УДАЛИТЬ (С ЗАКРЫТИЕМ) === */
+/* === ДЕЙСТВИЕ: УДАЛИТЬ (ПОЛНОЕ УДАЛЕНИЕ) === */
 async function deleteCurrentP2PTrade() {
     if(!currentP2PTradeId) return;
-    if(!confirm('Вы точно хотите удалить эту сделку? Вернуть её будет нельзя.')) return;
+
+    // Предупреждение
+    if(!confirm('🗑️ Вы точно хотите УДАЛИТЬ эту запись из базы?\n\nОна исчезнет навсегда. Если сделка не была завершена, пользователь останется в неведении.')) return;
     
     try {
-        await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: currentP2PTradeId, initData: tg.initData });
-        tg.showPopup({message: 'Сделка удалена.'});
-        closeModal('p2pTradeDetailsModal'); // Тут закрываем, так как сделки больше нет
-        loadP2PTrades();
+        // Вызываем НОВЫЙ метод удаления (DELETE)
+        await makeApiRequest('/api/v1/admin/p2p/delete', { 
+            trade_id: currentP2PTradeId, 
+            initData: tg.initData 
+        });
+        
+        tg.showPopup({message: 'Сделка удалена из базы.'});
+        
+        // Закрываем окно и обновляем список
+        closeModal('p2pTradeDetailsModal');
+        loadP2PTrades(); 
     } catch (e) {
-        tg.showAlert(e.message);
+        tg.showAlert('Ошибка: ' + e.message);
     }
 }
 /* === 4. ФУНКЦИИ ДЕЙСТВИЙ (Вызывают твои старые функции или новые API) === */
-
+/* === ДЕЙСТВИЕ: ОТМЕНИТЬ / ОТКАЗАТЬ (Мягкая отмена) === */
+async function rejectP2PTrade(tradeId) {
+    if(!confirm('Отменить эту сделку? Пользователь получит уведомление об отмене.')) return;
+    
+    try {
+        // Вызываем эндпоинт отмены (меняет статус на canceled)
+        await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: tradeId, initData: tg.initData });
+        
+        tg.showPopup({message: 'Статус изменен на "Отменено"'});
+        
+        // Обновляем окно, чтобы показать статус "Отменено"
+        renderP2PModalStatus('canceled', tradeId, 0);
+        loadP2PTrades(); // Обновляем список на фоне
+    } catch (e) {
+        tg.showAlert('Ошибка: ' + e.message);
+    }
+}
 // Issue 4: МГНОВЕННОЕ принятие (без ввода ссылки вручную)
 window.approveP2PTrade = async function(tradeId) {
     showLoader();
