@@ -2648,6 +2648,35 @@ async def admin_p2p_delete(
 
     return {"message": "Сделка удалена безвозвратно"}
 
+@app.post("/api/v1/admin/p2p/force_confirm_sent")
+async def admin_p2p_force_confirm_sent(
+    request_data: P2PActionRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверка админа
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. Получаем сделку, чтобы узнать ID юзера
+    trade_resp = await supabase.get("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
+    if not trade_resp.json():
+        raise HTTPException(status_code=404, detail="Сделка не найдена")
+    trade = trade_resp.json()[0]
+
+    # 3. Меняем статус на 'review' (как будто юзер нажал кнопку)
+    await supabase.patch(
+        "/p2p_trades",
+        params={"id": f"eq.{request_data.trade_id}"},
+        json={"status": "review"}
+    )
+
+    # 4. Уведомляем пользователя (опционально, чтобы он не пугался)
+    msg = f"⚠️ <b>P2P #{request_data.trade_id}</b>\nАдминистратор подтвердил получение скина вручную. Ожидайте начисления монет."
+    await try_send_message(trade['user_id'], msg)
+
+    return {"message": "Статус успешно изменен на 'Проверка'"}
+
 # 2. Обновить кейс (цену или статус)
 @app.post("/api/v1/admin/p2p/case/update")
 async def admin_p2p_case_update(
