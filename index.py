@@ -2599,9 +2599,10 @@ async def p2p_confirm_sent(
     )
     
     # === ВСТАВКА: Уведомление ВСЕМ админам ===
-    msg = f"⚠️ <b>P2P #{request_data.trade_id}: Юзер подтвердил отправку!</b>\nПроверьте Steam и завершите сделку."
-    for admin_id in ADMIN_IDS:
-        await try_send_message(admin_id, msg)
+    msg = f"⚠️ <b>P2P #{request_data.trade_id}: Юзер подтвердил отправку!</b>\nПроверьте Steam и завершите сделку." 
+    # Отправка в общий чат (если задан)
+    if ADMIN_NOTIFY_CHAT_ID:
+        await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), msg)
     # === КОНЕЦ ВСТАВКИ ===
 
     return {"message": "Статус обновлен. Ожидайте проверки."}
@@ -2653,6 +2654,7 @@ async def admin_p2p_case_delete(
 
     await supabase.delete("/case_prices", params={"id": f"eq.{request_data.case_id}"})
     return {"message": "Кейс удален"}
+
 # 4. Админ: Список заявок
 @app.post("/api/v1/admin/p2p/list")
 async def admin_p2p_list(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -2668,6 +2670,7 @@ async def admin_p2p_list(request_data: InitDataRequest, supabase: httpx.AsyncCli
         }
     )
     return resp.json()
+
 
 # 5. Админ: Подтвердить (начать трейд) и выдать ссылку
 @app.post("/api/v1/admin/p2p/approve")
@@ -2747,6 +2750,14 @@ async def admin_p2p_cancel(
     msg = f"❌ <b>P2P Сделка #{request_data.trade_id} отменена администратором.</b>"
     await try_send_message(trade['user_id'], msg)
 
+    # 5. Уведомляем админ-чат (Исправлены отступы)
+    if ADMIN_NOTIFY_CHAT_ID:
+        try:
+            log_msg = f"❌ <b>P2P #{request_data.trade_id} ОТМЕНЕНА</b> администратором."
+            await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), log_msg)
+        except Exception as e:
+            print(f"Ошибка логирования в чат: {e}")
+
     return {"message": "Сделка отменена"}
 
 # 1. Получение списка P2P (Исправленная версия)
@@ -2803,8 +2814,7 @@ async def admin_p2p_complete(
     amount = int(trade['total_coins'])
     user_id = trade['user_id']
 
-    # ИЩЕМ СВОБОДНЫЙ КОД (через .get)
-    # Параметры: награда=сумме, владелец=null, использован=false
+    # ИЩЕМ СВОБОДНЫЙ КОД
     promo_resp = await supabase.get("/promocodes", params={
         "reward_value": f"eq.{amount}",
         "telegram_id": "is.null",
@@ -2821,7 +2831,7 @@ async def admin_p2p_complete(
     promo_id = promo['id']
     code_text = promo['code']
 
-    # ПРИВЯЗЫВАЕМ КОД К ЮЗЕРУ (через .patch)
+    # ПРИВЯЗЫВАЕМ КОД К ЮЗЕРУ
     current_time = datetime.now(timezone.utc).isoformat()
     await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={
         "telegram_id": user_id,
@@ -2836,7 +2846,7 @@ async def admin_p2p_complete(
         json={"status": "completed"}
     )
     
-    # ОТПРАВЛЯЕМ СООБЩЕНИЕ
+    # ОТПРАВЛЯЕМ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЮ
     msg = (
         f"✅ <b>P2P Сделка #{request_data.trade_id} завершена!</b>\n\n"
         f"Ваш код на {amount} монет:\n"
@@ -2844,6 +2854,14 @@ async def admin_p2p_complete(
         f"<i>Код добавлен в ваш профиль.</i>"
     )
     await try_send_message(user_id, msg)
+
+    # УВЕДОМЛЕНИЕ В ТЕХ. ЧАТ АДМИНОВ
+    if ADMIN_NOTIFY_CHAT_ID:
+        try:
+            log_msg = f"✅ <b>P2P #{request_data.trade_id} ЗАВЕРШЕНА</b>\nВыдан код на {amount} монет пользователю {user_id}."
+            await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), log_msg)
+        except Exception as e:
+            print(f"Ошибка уведомления админа: {e}")
 
     return {"message": "Успешно"}
     
