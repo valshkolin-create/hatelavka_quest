@@ -1797,50 +1797,70 @@ async function checkActiveTradesBackground() {
     try {
         const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'POST');
         
-        // Фильтруем только активные статусы
         const activeTrades = trades.filter(t => ['pending', 'active', 'review'].includes(t.status));
-        
-        // Сортируем по важности: active (срочно) -> review -> pending
         const priority = { 'active': 1, 'review': 2, 'pending': 3 };
         activeTrades.sort((a, b) => priority[a.status] - priority[b.status]);
 
         const btn = document.getElementById('open-p2p-modal-btn'); 
         if (!btn) return;
 
-        // Находим элементы внутри кнопки, чтобы менять только текст, а не ломать верстку
-        const titleEl = btn.querySelector('.p2p-title');
-        const subEl = btn.querySelector('.p2p-subtitle');
-        const iconBox = btn.querySelector('.p2p-icon-box');
-
+        // Сохраняем результат в память, чтобы в следующий раз показать его мгновенно
         if (activeTrades.length > 0) {
-            const topTrade = activeTrades[0]; // Самый важный трейд
-            
-            btn.classList.add('has-active-trade'); // Включаем красный пульс
-            
-            // Меняем текст и иконку в зависимости от статуса
-            if (topTrade.status === 'active') {
-                titleEl.innerText = "ТРЕБУЕТСЯ ДЕЙСТВИЕ";
-                subEl.innerText = "Передайте скин в Steam";
-                iconBox.innerHTML = '<i class="fa-solid fa-fire"></i>';
-            } else if (topTrade.status === 'review') {
-                titleEl.innerText = "ПРОВЕРКА АДМИНОМ";
-                subEl.innerText = "Ожидайте начисления монет";
-                iconBox.innerHTML = '<i class="fa-solid fa-hourglass-half"></i>';
-            } else {
-                titleEl.innerText = "ЗАЯВКА СОЗДАНА";
-                subEl.innerText = "Ожидание принятия...";
-                iconBox.innerHTML = '<i class="fa-regular fa-clock"></i>';
-            }
-            
+            localStorage.setItem('p2p_last_state', JSON.stringify(activeTrades[0]));
         } else {
-            // Если активных нет — возвращаем стандартный вид
-            btn.classList.remove('has-active-trade');
-            titleEl.innerText = "Trade-In";
-            subEl.innerText = "Обмен кейсов на 🟡";
-            iconBox.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>';
+            localStorage.removeItem('p2p_last_state');
         }
+
+        // Применяем визуализацию (вынесли в отдельную функцию, чтобы не дублировать код)
+        renderP2PButton(activeTrades.length > 0 ? activeTrades[0] : null);
+
     } catch(e) {
         console.error("Ошибка проверки трейдов:", e);
+    }
+}
+// Вспомогательная функция отрисовки кнопки
+function renderP2PButton(tradeData) {
+    const btn = document.getElementById('open-p2p-modal-btn'); 
+    if (!btn) return;
+
+    const titleEl = btn.querySelector('.p2p-title');
+    const subEl = btn.querySelector('.p2p-subtitle');
+    const iconBox = btn.querySelector('.p2p-icon-box');
+
+    if (tradeData) {
+        btn.classList.add('has-active-trade');
+        
+        if (tradeData.status === 'active') {
+            titleEl.innerText = "ТРЕБУЕТСЯ ДЕЙСТВИЕ";
+            subEl.innerText = "Передайте скин в Steam";
+            iconBox.innerHTML = '<i class="fa-solid fa-fire"></i>';
+        } else if (tradeData.status === 'review') {
+            titleEl.innerText = "ПРОВЕРКА АДМИНОМ";
+            subEl.innerText = "Ожидайте начисления монет";
+            iconBox.innerHTML = '<i class="fa-solid fa-hourglass-half"></i>';
+        } else {
+            titleEl.innerText = "ЗАЯВКА СОЗДАНА";
+            subEl.innerText = "Ожидание принятия...";
+            iconBox.innerHTML = '<i class="fa-regular fa-clock"></i>';
+        }
+    } else {
+        btn.classList.remove('has-active-trade');
+        titleEl.innerText = "Trade-In";
+        subEl.innerText = "Обмен кейсов на 🟡";
+        iconBox.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>';
+    }
+}
+
+// МГНОВЕННАЯ ЗАГРУЗКА ИЗ ПАМЯТИ (Убирает мигание)
+function preloadP2PState() {
+    try {
+        const cached = localStorage.getItem('p2p_last_state');
+        if (cached) {
+            const trade = JSON.parse(cached);
+            renderP2PButton(trade);
+        }
+    } catch (e) {
+        console.log('Cache error', e);
     }
 }
 
