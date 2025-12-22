@@ -1016,15 +1016,20 @@
 }
 
 /* --- ПУЛЬСИРУЮЩАЯ КНОПКА АКТИВНОГО ТРЕЙДА --- */
-.p2p-history-btn.has-active-trade {
+/* Добавляем класс .premium-exchange-btn через запятую */
+.p2p-history-btn.has-active-trade,
+.premium-exchange-btn.has-active-trade {
     background: linear-gradient(135deg, #ff3b30, #ff9500);
-    border: none;
+    /* border: none; Убираем, чтобы не ломать границы, если они есть */
     color: white;
-    font-weight: 800;
+    /* font-weight: 800; Убираем, чтобы не менять жирность шрифтов внутри */
     animation: premiumPulse 2s infinite;
     box-shadow: 0 0 20px rgba(255, 59, 48, 0.4);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+}
+
+/* При активном трейде меняем цвет текстов внутри на белый */
+.premium-exchange-btn.has-active-trade .p2p-subtitle {
+    color: rgba(255, 255, 255, 0.9);
 }
 
 @keyframes premiumPulse {
@@ -1790,22 +1795,53 @@ function confirmP2PSent(tradeId) {
 // 7. ФОНОВАЯ ПРОВЕРКА (ДЛЯ ГЛАВНОЙ КНОПКИ СНАРУЖИ)
 async function checkActiveTradesBackground() {
     try {
-        // 👇 БЫЛО 'GET', СТАЛО 'POST' 👇
         const trades = await makeApiRequest('/api/v1/p2p/my_trades', 'POST');
         
-        const hasActive = trades.some(t => ['pending', 'active', 'review'].includes(t.status));
-        const btn = document.getElementById('open-p2p-modal-btn'); 
+        // Фильтруем только активные статусы
+        const activeTrades = trades.filter(t => ['pending', 'active', 'review'].includes(t.status));
         
-        if (btn) {
-            if (hasActive) {
-                btn.classList.add('has-active-trade'); 
-                btn.innerHTML = `<i class="fa-solid fa-fire"></i> АКТИВНЫЙ ТРЕЙД`;
+        // Сортируем по важности: active (срочно) -> review -> pending
+        const priority = { 'active': 1, 'review': 2, 'pending': 3 };
+        activeTrades.sort((a, b) => priority[a.status] - priority[b.status]);
+
+        const btn = document.getElementById('open-p2p-modal-btn'); 
+        if (!btn) return;
+
+        // Находим элементы внутри кнопки, чтобы менять только текст, а не ломать верстку
+        const titleEl = btn.querySelector('.p2p-title');
+        const subEl = btn.querySelector('.p2p-subtitle');
+        const iconBox = btn.querySelector('.p2p-icon-box');
+
+        if (activeTrades.length > 0) {
+            const topTrade = activeTrades[0]; // Самый важный трейд
+            
+            btn.classList.add('has-active-trade'); // Включаем красный пульс
+            
+            // Меняем текст и иконку в зависимости от статуса
+            if (topTrade.status === 'active') {
+                titleEl.innerText = "ТРЕБУЕТСЯ ДЕЙСТВИЕ";
+                subEl.innerText = "Передайте скин в Steam";
+                iconBox.innerHTML = '<i class="fa-solid fa-fire"></i>';
+            } else if (topTrade.status === 'review') {
+                titleEl.innerText = "ПРОВЕРКА АДМИНОМ";
+                subEl.innerText = "Ожидайте начисления монет";
+                iconBox.innerHTML = '<i class="fa-solid fa-hourglass-half"></i>';
             } else {
-                btn.classList.remove('has-active-trade');
-                btn.innerHTML = `<i class="fa-solid fa-briefcase"></i> Обменять кейсы на монеты`; // Вернул иконку чемодана
+                titleEl.innerText = "ЗАЯВКА СОЗДАНА";
+                subEl.innerText = "Ожидание принятия...";
+                iconBox.innerHTML = '<i class="fa-regular fa-clock"></i>';
             }
+            
+        } else {
+            // Если активных нет — возвращаем стандартный вид
+            btn.classList.remove('has-active-trade');
+            titleEl.innerText = "Trade-In";
+            subEl.innerText = "Обмен кейсов на 🟡";
+            iconBox.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i>';
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error("Ошибка проверки трейдов:", e);
+    }
 }
 
         // --- ОПТИМИЗИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ ПАРТНЕРОВ (CSS ANIMATION) ---
@@ -1893,6 +1929,10 @@ async function checkActiveTradesBackground() {
             loadCategory(0); 
 
             checkBalance(false);
+            
+            // --- ДОБАВЛЕНО: Проверяем статус трейда сразу при загрузке ---
+            checkActiveTradesBackground(); 
+            // -------------------------------------------------------------
 
             setTimeout(() => {
                 isBalanceLoading = false; 
