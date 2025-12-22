@@ -5960,3 +5960,29 @@ async function loadP2PCases() {
         setupEventListeners();
         main();
     });
+
+/* Кнопка удаления на карточке (левый верхний угол) */
+.p2p-card-delete-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255, 69, 58, 0.2);
+    color: #ff453a;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+    z-index: 5; /* Поверх всего */
+}
+
+.p2p-card-delete-btn:hover {
+    background: #ff453a;
+    color: white;
+    transform: scale(1.1);
+}
