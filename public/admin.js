@@ -5309,21 +5309,26 @@ async function loadP2PTrades() {
 }
 
 /* === НОВАЯ ФУНКЦИЯ: БЫСТРОЕ УДАЛЕНИЕ С КАРТОЧКИ === */
-async function deleteP2PTradeFromCard(event, tradeId) {
+function deleteP2PTradeFromCard(event, tradeId) {
     event.stopPropagation(); // Чтобы не открывалось окно "Подробнее"
     
-    if(!confirm('🗑️ Удалить сделку НАВСЕГДА?\n(Она исчезнет из базы, статус не изменится)')) return;
-    
-    try {
-        await makeApiRequest('/api/v1/admin/p2p/delete', { 
-            trade_id: tradeId, 
-            initData: tg.initData 
-        });
-        tg.showPopup({message: 'Удалено'});
-        loadP2PTrades(); // Обновляем сетку
-    } catch (e) {
-        tg.showAlert('Ошибка: ' + e.message);
-    }
+    showCustomConfirmHTML(
+        '🗑️ Удалить сделку НАВСЕГДА?<br><span style="font-size:13px; color:#aaa">Она исчезнет из базы, статус не изменится.</span>',
+        async () => {
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/delete', { 
+                    trade_id: tradeId, 
+                    initData: tg.initData 
+                });
+                tg.showPopup({message: 'Удалено'});
+                loadP2PTrades(); // Обновляем сетку
+            } catch (e) {
+                tg.showAlert('Ошибка: ' + e.message);
+            }
+        },
+        'Удалить',
+        '#ff3b30'
+    );
 }
 
 /* === 2. СЧЕТЧИК УВЕДОМЛЕНИЙ === */
@@ -5449,60 +5454,70 @@ async function approveP2PTrade(tradeId) {
 }
 
 /* === ДЕЙСТВИЕ: ЗАВЕРШИТЬ (ОБНОВЛЕНИЕ БЕЗ ЗАКРЫТИЯ) === */
-async function completeP2PTrade(tradeId, amount) {
-    if(!confirm(`Выдать ${amount} монет пользователю?`)) return;
-    try {
-        await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: tradeId, initData: tg.initData });
-        tg.showPopup({message: 'Успешно! Монеты выданы.'});
-        
-        // ВМЕСТО ЗАКРЫТИЯ -> ОБНОВЛЯЕМ СТАТУС
-        renderP2PModalStatus('completed', tradeId, amount);
-        loadP2PTrades(); // Обновляем список на фоне
-    } catch (e) {
-        tg.showAlert(e.message);
-    }
+function completeP2PTrade(tradeId, amount) {
+    showCustomConfirmHTML(
+        `✅ Подтвердить получение скина?<br>Выдать <b>${amount} монет</b> пользователю?`,
+        async () => {
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: tradeId, initData: tg.initData });
+                tg.showPopup({message: 'Успешно! Монеты выданы.'});
+                
+                // Обновляем статус в модалке без закрытия
+                renderP2PModalStatus('completed', tradeId, amount);
+                loadP2PTrades(); 
+            } catch (e) {
+                tg.showAlert(e.message);
+            }
+        },
+        'Подтвердить',
+        '#32d74b' // Зеленый цвет кнопки
+    );
 }
 
-/* === ДЕЙСТВИЕ: УДАЛИТЬ (ПОЛНОЕ УДАЛЕНИЕ) === */
-async function deleteCurrentP2PTrade() {
+/* === ДЕЙСТВИЕ: УДАЛИТЬ ИЗ ДЕТАЛЕЙ (КРАСИВОЕ ОКНО) === */
+function deleteCurrentP2PTrade() {
     if(!currentP2PTradeId) return;
 
-    // Предупреждение
-    if(!confirm('🗑️ Вы точно хотите УДАЛИТЬ эту запись из базы?\n\nОна исчезнет навсегда. Если сделка не была завершена, пользователь останется в неведении.')) return;
-    
-    try {
-        // Вызываем НОВЫЙ метод удаления (DELETE)
-        await makeApiRequest('/api/v1/admin/p2p/delete', { 
-            trade_id: currentP2PTradeId, 
-            initData: tg.initData 
-        });
-        
-        tg.showPopup({message: 'Сделка удалена из базы.'});
-        
-        // Закрываем окно и обновляем список
-        closeModal('p2pTradeDetailsModal');
-        loadP2PTrades(); 
-    } catch (e) {
-        tg.showAlert('Ошибка: ' + e.message);
-    }
+    showCustomConfirmHTML(
+        '🗑️ Удалить запись из базы?<br><span style="font-size:13px; color:#aaa">Никто не получит уведомлений, сделка просто исчезнет.</span>',
+        async () => {
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/delete', { 
+                    trade_id: currentP2PTradeId, 
+                    initData: tg.initData 
+                });
+                
+                tg.showPopup({message: 'Сделка удалена.'});
+                closeModal('p2pTradeDetailsModal');
+                loadP2PTrades(); 
+            } catch (e) {
+                tg.showAlert('Ошибка: ' + e.message);
+            }
+        },
+        'Удалить навсегда',
+        '#ff3b30'
+    );
 }
-/* === 4. ФУНКЦИИ ДЕЙСТВИЙ (Вызывают твои старые функции или новые API) === */
-/* === ДЕЙСТВИЕ: ОТМЕНИТЬ / ОТКАЗАТЬ (Мягкая отмена) === */
-async function rejectP2PTrade(tradeId) {
-    if(!confirm('Отменить эту сделку? Пользователь получит уведомление об отмене.')) return;
-    
-    try {
-        // Вызываем эндпоинт отмены (меняет статус на canceled)
-        await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: tradeId, initData: tg.initData });
-        
-        tg.showPopup({message: 'Статус изменен на "Отменено"'});
-        
-        // Обновляем окно, чтобы показать статус "Отменено"
-        renderP2PModalStatus('canceled', tradeId, 0);
-        loadP2PTrades(); // Обновляем список на фоне
-    } catch (e) {
-        tg.showAlert('Ошибка: ' + e.message);
-    }
+/* === ДЕЙСТВИЕ: ОТМЕНИТЬ / ОТКАЗАТЬ (КРАСИВОЕ ОКНО) === */
+function rejectP2PTrade(tradeId) {
+    showCustomConfirmHTML(
+        '⛔ Отменить эту сделку?<br><span style="font-size:13px; color:#aaa">Пользователь получит уведомление об отмене.</span>',
+        async () => {
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: tradeId, initData: tg.initData });
+                
+                tg.showPopup({message: 'Статус изменен на "Отменено"'});
+                
+                // Обновляем окно
+                renderP2PModalStatus('canceled', tradeId, 0);
+                loadP2PTrades(); 
+            } catch (e) {
+                tg.showAlert('Ошибка: ' + e.message);
+            }
+        },
+        'Отменить сделку',
+        '#ff3b30'
+    );
 }
 // Issue 4: МГНОВЕННОЕ принятие (без ввода ссылки вручную)
 window.approveP2PTrade = async function(tradeId) {
