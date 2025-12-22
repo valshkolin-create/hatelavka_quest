@@ -1246,10 +1246,41 @@
     margin-top: 15px;
     padding-bottom: 30px;
 }
+        /* --- ГЛОБАЛЬНЫЙ ЛОАДЕР --- */
+.global-loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-color); /* Цвет фона страницы */
+    z-index: 9998; /* Чуть ниже админских модалок, но выше контента */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.global-loader-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.spinner-container {
+    font-size: 40px;
+    color: var(--primary-color);
+    filter: drop-shadow(0 0 10px rgba(255, 204, 0, 0.4));
+}
     </style>
 </head>
 <body>
 
+    <div id="global-loader" class="global-loader-overlay">
+    <div class="spinner-container">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+    </div>
+</div>
     <div class="shop-header">
         <button class="back-btn" onclick="goBack()">
             <i class="fa-solid fa-chevron-left"></i> <span id="nav-title">Назад</span>
@@ -1889,95 +1920,92 @@ function preloadP2PState() {
         // Добавили аргумент updateUI (по умолчанию true)
         // Если false -> запрос идет, сервер обновляется, но цифры на экране не скачут
         function checkBalance(updateUI = true) {
-            if (isBalanceLoading) return;
-            isBalanceLoading = true;
-            
-            // Запускаем анимацию кручения
-            const icon = document.getElementById('refresh-icon');
-            if (icon) icon.classList.add('spinning');
+    // 1. ВАЖНО: Возвращаем промис, если загрузка уже идет, чтобы initShop не завис
+    if (isBalanceLoading) return Promise.resolve();
+    
+    isBalanceLoading = true;
+    
+    // Запускаем анимацию кручения
+    const icon = document.getElementById('refresh-icon');
+    if (icon) icon.classList.add('spinning');
 
-            // Вызываем наш "Умный эндпоинт"
-            fetch('/api/v1/shop/smart_balance', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData })
-            })
-            .then(r => r.json())
-            .then(data => {
-                // Обновляем интерфейс ТОЛЬКО если updateUI === true
-                if (updateUI) {
-                    // Сервер вернул {"balance": 12345} (в копейках)
-                    let coins = data.balance || 0; 
-                    let displayBalance = (coins / 100).toFixed(0); // Переводим в рубли/целые
-                    
-                    const balanceEl = document.getElementById('user-balance');
-                    if (balanceEl) {
-                        // Эффект обновления цифры
-                        balanceEl.style.opacity = '0.5';
-                        setTimeout(() => {
-                            balanceEl.textContent = displayBalance;
-                            balanceEl.style.opacity = '1';
-                        }, 150);
-                    }
-                }
-            })
-            .catch(err => {
-                console.warn("Ошибка обновления баланса:", err);
-            })
-            .finally(() => {
-                // Останавливаем анимацию через 500мс (для красоты)
+    // 2. ВАЖНО: Добавили return перед fetch, чтобы initShop ждал этот запрос
+    return fetch('/api/v1/shop/smart_balance', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ initData: Telegram.WebApp.initData })
+    })
+    .then(r => r.json())
+    .then(data => {
+        // Обновляем интерфейс ТОЛЬКО если updateUI === true
+        if (updateUI) {
+            // Сервер вернул {"balance": 12345} (в копейках)
+            let coins = data.balance || 0; 
+            let displayBalance = (coins / 100).toFixed(0); // Переводим в рубли/целые
+            
+            const balanceEl = document.getElementById('user-balance');
+            if (balanceEl) {
+                // Эффект обновления цифры (ТВОЙ КОД ОСТАЛСЯ)
+                balanceEl.style.opacity = '0.5';
                 setTimeout(() => {
-                    isBalanceLoading = false;
-                    if (icon) icon.classList.remove('spinning');
-                }, 500);
-            });
-        }
-        
-        // Эта функция вызывается при клике на плашку баланса
-        window.refreshBalance = function() {
-            // Вибрация (тактильный отклик)
-            if(Telegram.WebApp.HapticFeedback) {
-                Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                    balanceEl.textContent = displayBalance;
+                    balanceEl.style.opacity = '1';
+                }, 150);
             }
-            // При ручном клике всегда обновляем UI (true)
-            checkBalance(true);
         }
+    })
+    .catch(err => {
+        console.warn("Ошибка обновления баланса:", err);
+    })
+    .finally(() => {
+        // Останавливаем анимацию через 500мс (для красоты)
+        setTimeout(() => {
+            isBalanceLoading = false;
+            if (icon) icon.classList.remove('spinning');
+        }, 500);
+    });
+}
 
         async function initShop() {
-            updateNavState();
-            initPartnersScroll();
-            loadCategory(0); 
+    // 1. Сначала статика
+    updateNavState();
+    initPartnersScroll();
+    
+    // 2. Создаем массив промисов (задач), которые должны выполниться
+    const tasks = [];
 
-            checkBalance(false);
-            
-            // --- ДОБАВЛЕНО: Проверяем статус трейда сразу при загрузке ---
-            checkActiveTradesBackground(); 
-            // -------------------------------------------------------------
+    // Задача 1: Загрузка товаров
+    tasks.push(loadCategory(0)); 
 
-            setTimeout(() => {
-                isBalanceLoading = false; 
-                checkBalance(true);       
-            }, 700);
+    // Задача 2: Загрузка баланса
+    tasks.push(checkBalance(true));
 
-            // --- ОБНОВЛЕННАЯ ЛОГИКА ЗАГРУЗКИ ПРОФИЛЯ ---
-            try {
-                const userData = await fetch('/api/v1/user/me', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
-                }).then(r => r.json());
+    // Задача 3: Статус P2P трейдов
+    tasks.push(checkActiveTradesBackground());
 
-                if (userData && userData.trade_link) hasTradeLink = true;
-
-                // 🔥 ПОКАЗЫВАЕМ ПЛАВАЮЩЕЕ МЕНЮ ТОЛЬКО АДМИНУ 🔥
-                if (userData && userData.is_admin) {
-                    document.getElementById('admin-fab').style.display = 'flex';
-                }
-
-            } catch (e) {
-                console.log("Error loading profile:", e);
-            }
+    // Задача 4: Профиль пользователя (трейд-ссылка и админка)
+    const profileTask = fetch('/api/v1/user/me', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ initData: Telegram.WebApp.initData })
+    }).then(r => r.json()).then(userData => {
+        if (userData && userData.trade_link) hasTradeLink = true;
+        if (userData && userData.is_admin) {
+            document.getElementById('admin-fab').style.display = 'flex';
         }
+    }).catch(e => console.log("Profile load error", e));
+    
+    tasks.push(profileTask);
+
+    // 3. Ждем выполнения ВСЕХ задач (Promise.allSettled ждет даже если где-то ошибка)
+    await Promise.allSettled(tasks);
+
+    // 4. Когда всё загрузилось — плавно убираем лоадер
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        loader.classList.add('hidden');
+    }
+}
 
         // --- ЛОГИКА АДМИН МЕНЮ ---
         
