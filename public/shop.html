@@ -1253,8 +1253,8 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: var(--bg-color); /* Цвет фона страницы */
-    z-index: 9998; /* Чуть ниже админских модалок, но выше контента */
+    background-color: var(--bg-color);
+    z-index: 9998;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1271,6 +1271,20 @@
     font-size: 40px;
     color: var(--primary-color);
     filter: drop-shadow(0 0 10px rgba(255, 204, 0, 0.4));
+    /* ВАЖНО: Добавляем flex, чтобы иконка центрировалась внутри */
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+}
+
+/* 🔥 ПРИНУДИТЕЛЬНАЯ АНИМАЦИЯ 🔥 */
+.spinner-container i {
+    animation: global-spin 1s linear infinite;
+}
+
+@keyframes global-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
     </style>
 </head>
