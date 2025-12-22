@@ -1964,23 +1964,26 @@
                 </div>
 
                 <div class="admin-form">
-                    <label>Пользователь (ID / Ник)</label>
+                    <label>Пользователь</label>
                     <input type="text" id="modal-p2p-user" class="styled-input" readonly>
 
-                    <label>Текущий статус</label>
-                    <div id="modal-p2p-status-text" style="margin-bottom: 15px; font-weight: bold; padding-left: 5px;">...</div>
-                    
                     <label>Время создания</label>
-                    <input type="text" id="modal-p2p-date" class="styled-input" readonly style="color: #888;">
+                    <input type="text" id="modal-p2p-date" class="styled-input" readonly style="color: #aaa; font-size: 13px;">
 
-                    <div id="modal-p2p-actions" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                    <label>Текущий статус</label>
+                    <div id="modal-p2p-status-text" style="margin-bottom: 20px; font-weight: bold; font-size: 16px; padding-left: 5px;">...</div>
+
+                    <div id="modal-p2p-actions" style="display: flex; flex-direction: column; gap: 10px;">
                         </div>
 
-                    <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+                    <hr style="border-color: rgba(255,255,255,0.1); margin: 25px 0;">
 
-                    <button class="admin-action-btn reject" onclick="deleteCurrentP2PTrade()" style="width: 100%;">
+                    <button class="admin-action-btn reject" onclick="deleteCurrentP2PTrade()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                         <i class="fa-solid fa-trash"></i> Удалить сделку
                     </button>
+                    <p style="text-align: center; font-size: 11px; color: #555; margin-top: 8px;">
+                        Удаляет сделку из базы и отменяет её статус.
+                    </p>
                 </div>
 
             </div>
