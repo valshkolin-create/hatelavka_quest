@@ -5434,49 +5434,6 @@ function renderP2PModalStatus(status, tradeId, amount) {
     statusEl.innerText = statusText;
     statusEl.style.color = statusColor;
 }
-    // 2. ОЖИДАНИЕ ПЕРЕДАЧИ
-    else if (status === 'active') {
-        statusText = '⏳ Ссылка отправлена. Ждем юзера...';
-        statusColor = '#007aff'; // Синий
-        actionsDiv.innerHTML = `
-            <div style="padding: 10px; background: rgba(0,122,255,0.1); border-radius: 8px; text-align: center; color: #ccc; font-size: 13px; margin-bottom: 10px;">
-                Ожидаем, пока пользователь нажмет «Я передал»
-            </div>
-            <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%; font-size: 13px; padding: 8px;">
-                Отменить (если долго не кидает)
-            </button>
-        `;
-    }
-    // 3. ПРОВЕРКА (Юзер нажал "Отправил")
-    else if (status === 'review') {
-        statusText = '👀 Юзер подтвердил отправку!';
-        statusColor = '#007aff';
-        actionsDiv.innerHTML = `
-            <div style="margin-bottom: 10px; color: #aaa; font-size: 12px; text-align: center;">Проверьте трейды в Steam</div>
-            <div style="display: flex; gap: 10px;">
-                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
-                    Обман
-                </button>
-                <button onclick="completeP2PTrade(${tradeId}, ${amount})" class="admin-action-btn confirm" style="flex: 2; font-weight: bold;">
-                    <i class="fa-solid fa-coins"></i> Подтвердить
-                </button>
-            </div>
-        `;
-    }
-    // 4. КОНЕЧНЫЕ СТАТУСЫ
-    else if (status === 'completed') { 
-        statusText = '✅ Сделка завершена'; 
-        statusColor = '#32d74b'; 
-    }
-    else if (status === 'canceled') { 
-        statusText = '❌ Отменено'; 
-        statusColor = '#ff453a'; 
-    }
-
-    statusEl.innerText = statusText;
-    statusEl.style.color = statusColor;
-}
-
 /* === ДЕЙСТВИЕ: ПРИНЯТЬ (ОБНОВЛЕНИЕ БЕЗ ЗАКРЫТИЯ) === */
 async function approveP2PTrade(tradeId) {
     try {
