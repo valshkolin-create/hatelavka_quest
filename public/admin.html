@@ -123,10 +123,12 @@
                     <div class="icon-wrapper" style="color: #A065F7;"><i class="fa-solid fa-calendar-alt"></i></div>
                     <span>Расписание</span>
                 </div>
-                  <div class="admin-icon-button" data-view="view-admin-p2p-settings">
-                        <div class="icon-wrapper" style="color: #e91e63;"><i class="fa-solid fa-key"></i></div>
-                        <span>P2P KEYS</span>
-                    </div>
+                  <div id="view-admin-p2p-settings" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Настройки P2P</h1>
+                <div style="width: 60px;"></div>
+            </div>
                   
                 </div> </div> <div class="quest-card" style="margin-top: 20px; text-align: center;">
                 <p style="font-size: 14px; color: var(--text-color-muted); margin:0;">
@@ -1524,31 +1526,39 @@
         <h2>Настройки P2P</h2>
     </div>
 
-    <div class="admin-section">
-        <h3>🔗 Твоя Trade URL (Steam)</h3>
-        <p style="font-size:12px; color:#aaa; margin-bottom:10px;">Эту ссылку бот будет автоматически отправлять юзеру, когда ты принимаешь сделку.</p>
-        
-        <div class="input-group">
-            <input type="text" id="p2p-admin-trade-link" placeholder="Вставь сюда свою трейд-ссылку..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2c2c2e; color:white;">
-        </div>
-        <button class="main-btn" onclick="saveP2PAdminLink()" style="margin-top:10px;">Сохранить ссылку</button>
-    </div>
+    <div class="quest-card p2p-controls-panel">
+                <div class="control-item">
+                    <div class="icon-box" style="background: rgba(0, 122, 255, 0.15); color: #007aff;">
+                        <i class="fa-solid fa-link"></i>
+                    </div>
+                    <div class="control-info">
+                        <h3>Trade Link</h3>
+                        <p>Ссылка для обменов</p>
+                    </div>
+                    <button class="admin-menu-button" onclick="openTradeModal()">Настроить</button>
+                </div>
 
-    <hr style="border-color:rgba(255,255,255,0.1); margin: 20px 0;">
+                <div class="divider-vertical"></div>
 
-    <div class="admin-section">
-        <h3>📦 Управление Кейсами</h3>
-        <form id="create-p2p-case-form" class="admin-form">
-            <input type="text" name="case_name" placeholder="Название кейса" required>
-            <input type="url" name="image_url" placeholder="URL картинки" required>
-            <input type="number" name="price_in_coins" placeholder="Цена (монет)" required>
-            <button type="submit" class="main-btn">Добавить Кейс</button>
-        </form>
-
-        <div id="p2p-cases-list" class="quests-list">
+                <div class="control-item">
+                    <div class="icon-box" style="background: rgba(40, 167, 69, 0.15); color: #28a745;">
+                        <i class="fa-solid fa-box-open"></i>
+                    </div>
+                    <div class="control-info">
+                        <h3>Новый Кейс</h3>
+                        <p>Добавить товар</p>
+                    </div>
+                    <button class="admin-menu-button" onclick="openAddCaseModal()" style="background-color: var(--action-color);">+ Создать</button>
+                </div>
             </div>
-    </div>
-</div>
+
+            <hr style="border-color: rgba(255,255,255,0.05); margin: 25px 0 15px;">
+
+            <h3 style="margin-left: 5px; margin-bottom: 15px;">📦 Активные кейсы</h3>
+
+            <div id="p2p-cases-list" class="cases-grid">
+                </div>
+        </div>
       
         </main>
   
@@ -1856,6 +1866,69 @@
                         <button type="submit" class="confirm-btn">Привязать</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+  <div id="tradeModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Trade URL (Steam)</h2>
+                <button class="modal-close-btn" onclick="closeModal('tradeModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: #aaa; font-size: 13px; margin-bottom: 15px;">
+                    Эту ссылку бот отправляет пользователю, когда вы принимаете заявку.
+                </p>
+                <input type="text" id="p2p-admin-trade-link-modal" class="admin-form" placeholder="https://steamcommunity.com/tradeoffer/new/..." style="width: 100%;">
+                <button class="admin-action-btn approve" onclick="saveTradeUrlFromModal()" style="width: 100%; margin-top: 15px;">Сохранить ссылку</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addCaseModal" class="modal-overlay hidden">
+        <div class="modal-content wizard-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Добавление Кейса</h2>
+                <button class="modal-close-btn" onclick="closeModal('addCaseModal')">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="wizard-step" id="wiz-step-1">
+                    <div class="step-indicator">Шаг 1 из 3</div>
+                    <h3>Как называется кейс?</h3>
+                    <input type="text" id="wiz-case-name" class="admin-form" placeholder="Например: Fracture Case" style="margin-top: 10px;">
+                    <div class="wizard-buttons">
+                        <button class="admin-menu-button" disabled style="opacity: 0;">Назад</button>
+                        <button class="admin-action-btn" onclick="wizardNext(2)">Далее <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <div class="wizard-step hidden" id="wiz-step-2">
+                    <div class="step-indicator">Шаг 2 из 3</div>
+                    <h3>Картинка кейса</h3>
+                    <input type="text" id="wiz-case-img" class="admin-form" placeholder="https://..." oninput="previewCaseImage()" style="margin-top: 10px;">
+                    
+                    <div class="img-preview-box" style="margin-top: 15px; text-align: center; min-height: 80px; background: rgba(0,0,0,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <img id="wiz-img-preview" src="" alt="Preview" style="display:none; max-height: 70px; max-width: 100%;">
+                        <span id="wiz-img-placeholder" style="color: #555; font-size: 12px;">Предпросмотр</span>
+                    </div>
+
+                    <div class="wizard-buttons">
+                        <button class="admin-menu-button" onclick="wizardNext(1)">Назад</button>
+                        <button class="admin-action-btn" onclick="wizardNext(3)">Далее <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <div class="wizard-step hidden" id="wiz-step-3">
+                    <div class="step-indicator">Шаг 3 из 3</div>
+                    <h3>Цена (в монетах)</h3>
+                    <input type="number" id="wiz-case-price" class="admin-form" placeholder="5000" style="margin-top: 10px;">
+                    <div class="wizard-buttons">
+                        <button class="admin-menu-button" onclick="wizardNext(2)">Назад</button>
+                        <button class="admin-action-btn approve" onclick="finishAddCase()">✅ Создать кейс</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
