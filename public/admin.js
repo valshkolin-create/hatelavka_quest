@@ -5250,22 +5250,19 @@ async function main() {
     }
     // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
 // --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
-/* === 1. ЗАГРУЗКА СПИСКА (СЕТКА 2 КОЛОНКИ) === */
+/* === 1. ЗАГРУЗКА СПИСКА (С КНОПКОЙ УДАЛЕНИЯ) === */
 async function loadP2PTrades() {
-    // Используем getElementById для надежности, или твой dom.p2pTradesList
     const container = document.getElementById('p2p-trades-list'); 
     if (!container) return;
 
-    // Включаем сетку
     container.className = 'p2p-trades-grid'; 
     container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Загрузка...</p>';
 
     try {
-        // Твой эндпоинт из примера
         const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
         
         container.innerHTML = '';
-        updateP2PBadge(trades); // Обновляем счетчик
+        updateP2PBadge(trades);
 
         if (!trades || trades.length === 0) {
             container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #777;">Нет активных сделок.</p>';
@@ -5276,20 +5273,22 @@ async function loadP2PTrades() {
             const user = trade.user || {};
             const caseItem = trade.case || {};
             
-            // Цвет статуса
             let statusClass = 'status-pending';
-            if (trade.status === 'review') statusClass = 'status-review';
-            if (trade.status === 'active') statusClass = 'status-review'; // Ждем скин тоже синим
+            if (trade.status === 'review' || trade.status === 'active') statusClass = 'status-review';
             if (trade.status === 'completed') statusClass = 'status-completed';
             if (trade.status === 'canceled') statusClass = 'status-canceled';
 
-            // Имя кейса и картинка
             const caseName = caseItem.case_name || ('Case #' + trade.case_id);
             const caseImg = caseItem.image_url || 'https://via.placeholder.com/60';
             const userName = user.full_name || user.username || ('User ' + trade.user_id);
 
+            // КНОПКА УДАЛЕНИЯ ДОБАВЛЕНА СЮДА (onclick с stopPropagation)
             const html = `
                 <div class="p2p-trade-card">
+                    <button class="p2p-card-delete-btn" onclick="deleteP2PTradeFromCard(event, ${trade.id})" title="Удалить навсегда">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+
                     <div class="p2p-status-dot ${statusClass}"></div>
                     <img src="${escapeHTML(caseImg)}" onerror="this.src='https://placehold.co/60'">
                     <div class="p2p-user-name">${escapeHTML(userName)}</div>
@@ -5309,7 +5308,23 @@ async function loadP2PTrades() {
     }
 }
 
-// --- ФУНКЦИИ ДЕЙСТВИЙ ---
+/* === НОВАЯ ФУНКЦИЯ: БЫСТРОЕ УДАЛЕНИЕ С КАРТОЧКИ === */
+async function deleteP2PTradeFromCard(event, tradeId) {
+    event.stopPropagation(); // Чтобы не открывалось окно "Подробнее"
+    
+    if(!confirm('🗑️ Удалить сделку НАВСЕГДА?\n(Она исчезнет из базы, статус не изменится)')) return;
+    
+    try {
+        await makeApiRequest('/api/v1/admin/p2p/delete', { 
+            trade_id: tradeId, 
+            initData: tg.initData 
+        });
+        tg.showPopup({message: 'Удалено'});
+        loadP2PTrades(); // Обновляем сетку
+    } catch (e) {
+        tg.showAlert('Ошибка: ' + e.message);
+    }
+}
 
 /* === 2. СЧЕТЧИК УВЕДОМЛЕНИЙ === */
 function updateP2PBadge(trades) {
@@ -5360,20 +5375,19 @@ function openP2PDetailsModal(trade) {
     document.getElementById('p2pTradeDetailsModal').classList.remove('hidden');
 }
 
-/* === ОТРИСОВКА СТАТУСА ВНУТРИ МОДАЛКИ === */
 /* === ОТРИСОВКА СТАТУСА И КНОПОК ВНУТРИ МОДАЛКИ === */
 function renderP2PModalStatus(status, tradeId, amount) {
     const statusEl = document.getElementById('modal-p2p-status-text');
     const actionsDiv = document.getElementById('modal-p2p-actions');
-    actionsDiv.innerHTML = ''; // Очищаем старые кнопки
+    actionsDiv.innerHTML = ''; 
 
     let statusText = status;
     let statusColor = '#fff';
 
-    // 1. НОВАЯ ЗАЯВКА
+    // 1. Активные статусы (Кнопки ЕСТЬ)
     if (status === 'pending') {
         statusText = '🆕 Новая заявка';
-        statusColor = '#ff9500'; // Оранжевый
+        statusColor = '#ff9500';
         actionsDiv.innerHTML = `
             <div style="display: flex; gap: 10px;">
                 <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
@@ -5382,12 +5396,44 @@ function renderP2PModalStatus(status, tradeId, amount) {
                 <button onclick="approveP2PTrade(${tradeId})" class="admin-action-btn approve" style="flex: 2;">
                     <i class="fa-solid fa-bolt"></i> Принять
                 </button>
-            </div>
-            <p style="font-size: 11px; color: #777; text-align: center; margin-top: 5px;">
-                "Принять" отправит юзеру трейд-ссылку.
-            </p>
-        `;
+            </div>`;
     } 
+    else if (status === 'active') {
+        statusText = '⏳ Ссылка отправлена. Ждем...';
+        statusColor = '#007aff';
+        actionsDiv.innerHTML = `
+            <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%;">
+                Отменить (если долго висит)
+            </button>`;
+    }
+    else if (status === 'review') {
+        statusText = '👀 Юзер отправил! Проверка';
+        statusColor = '#007aff';
+        actionsDiv.innerHTML = `
+            <div style="display: flex; gap: 10px;">
+                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
+                    Обман
+                </button>
+                <button onclick="completeP2PTrade(${tradeId}, ${amount})" class="admin-action-btn confirm" style="flex: 2;">
+                    <i class="fa-solid fa-coins"></i> Подтвердить
+                </button>
+            </div>`;
+    }
+    // 2. Финальные статусы (Кнопок НЕТ / Неактивны)
+    else if (status === 'completed') { 
+        statusText = '✅ Сделка завершена'; 
+        statusColor = '#32d74b';
+        actionsDiv.innerHTML = `<button class="admin-action-btn" disabled style="opacity:0.5; background:#333; cursor:default;">Действия недоступны</button>`;
+    }
+    else if (status === 'canceled') { 
+        statusText = '❌ Отменено'; 
+        statusColor = '#ff453a'; 
+        actionsDiv.innerHTML = `<button class="admin-action-btn" disabled style="opacity:0.5; background:#333; cursor:default;">Действия недоступны</button>`;
+    }
+
+    statusEl.innerText = statusText;
+    statusEl.style.color = statusColor;
+}
     // 2. ОЖИДАНИЕ ПЕРЕДАЧИ
     else if (status === 'active') {
         statusText = '⏳ Ссылка отправлена. Ждем юзера...';
