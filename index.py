@@ -2627,6 +2627,26 @@ async def admin_p2p_case_add(
     await supabase.post("/case_prices", json=payload)
     return {"message": "Кейс добавлен"}
 
+@app.post("/api/v1/admin/p2p/delete")
+async def admin_p2p_delete(
+    request_data: P2PActionRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверка админа
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. УДАЛЕНИЕ ЗАПИСИ (DELETE запрос к Supabase)
+    # Это полностью удалит строку из таблицы p2p_trades
+    response = await supabase.delete("/p2p_trades", params={"id": f"eq.{request_data.trade_id}"})
+    
+    # Проверка на ошибки (опционально, Supabase обычно возвращает 204 при успехе)
+    if response.status_code >= 400:
+        raise HTTPException(status_code=400, detail="Не удалось удалить сделку")
+
+    return {"message": "Сделка удалена навсегда"}
+
 # 2. Обновить кейс (цену или статус)
 @app.post("/api/v1/admin/p2p/case/update")
 async def admin_p2p_case_update(
