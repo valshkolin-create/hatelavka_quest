@@ -1949,6 +1949,43 @@
             </div>
         </div>
     </div>
+  <div id="p2pTradeDetailsModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Сделка #<span id="modal-p2p-id">...</span></h2>
+                <button class="modal-close-btn" onclick="closeModal('p2pTradeDetailsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                
+                <div style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <img id="modal-p2p-img" src="" style="width: 120px; height: auto; display: block; margin: 0 auto 10px;">
+                    <h3 id="modal-p2p-case" style="margin: 0; color: white;">Название кейса</h3>
+                    <p id="modal-p2p-price" style="color: #ffd700; font-weight: bold; margin-top: 5px;">0 монет</p>
+                </div>
+
+                <div class="admin-form">
+                    <label>Пользователь (ID / Ник)</label>
+                    <input type="text" id="modal-p2p-user" class="styled-input" readonly>
+
+                    <label>Текущий статус</label>
+                    <div id="modal-p2p-status-text" style="margin-bottom: 15px; font-weight: bold; padding-left: 5px;">...</div>
+                    
+                    <label>Время создания</label>
+                    <input type="text" id="modal-p2p-date" class="styled-input" readonly style="color: #888;">
+
+                    <div id="modal-p2p-actions" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                        </div>
+
+                    <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+
+                    <button class="admin-action-btn reject" onclick="deleteCurrentP2PTrade()" style="width: 100%;">
+                        <i class="fa-solid fa-trash"></i> Удалить сделку
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
   
 
     <script src="admin.js?v=1.1" defer></script>
