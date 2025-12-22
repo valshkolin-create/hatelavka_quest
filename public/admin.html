@@ -1931,11 +1931,18 @@
                     <h3 style="margin-bottom: 5px;">Цена (в монетах)</h3>
                     <input type="number" id="wiz-case-price" class="styled-input" placeholder="5000" autocomplete="off">
                     
-                    <div class="wizard-buttons">
-                        <button class="admin-menu-button" onclick="wizardNext(2)">Назад</button>
-                        <button class="wizard-btn-next" onclick="finishAddCase()" style="background-color: #28a745 !important;">
+                    <div class="wizard-buttons" style="display: flex; align-items: stretch; gap: 12px; margin-top: 25px;">
+                        
+                        <button class="admin-menu-button" onclick="wizardNext(2)" 
+                                style="flex: 1; padding: 0; font-size: 14px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1);">
+                            Назад
+                        </button>
+
+                        <button class="wizard-btn-next" onclick="finishAddCase()" 
+                                style="flex: 3; background-color: #28a745 !important; padding: 16px; font-size: 17px; font-weight: 700; justify-content: center;">
                             ✅ Создать
                         </button>
+
                     </div>
                 </div>
 
