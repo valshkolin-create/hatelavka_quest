@@ -1951,18 +1951,24 @@
     </div>
   <div id="p2pTradeDetailsModal" class="modal-overlay hidden">
         <div class="modal-content">
-            <div class="modal-header">
+            
+            <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
                 <h2 class="modal-title">Сделка #<span id="modal-p2p-id">...</span></h2>
-                <button class="modal-close-btn" onclick="closeModal('p2pTradeDetailsModal')">&times;</button>
+                
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button id="btn-refresh-p2p-details" style="background: transparent; border: none; color: #007aff; font-size: 20px; cursor: pointer; transition: transform 0.3s;" title="Обновить статус">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                    
+                    <button class="modal-close-btn" onclick="closeModal('p2pTradeDetailsModal')">&times;</button>
+                </div>
             </div>
             <div class="modal-body">
-                
                 <div style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <img id="modal-p2p-img" src="" style="width: 120px; height: auto; display: block; margin: 0 auto 10px;">
                     <h3 id="modal-p2p-case" style="margin: 0; color: white;">Название кейса</h3>
                     <p id="modal-p2p-price" style="color: #ffd700; font-weight: bold; margin-top: 5px;">0 монет</p>
                 </div>
-
                 <div class="admin-form">
                     <label>Пользователь</label>
                     <input type="text" id="modal-p2p-user" class="styled-input" readonly>
@@ -1973,10 +1979,8 @@
                     <label>Текущий статус</label>
                     <div id="modal-p2p-status-text" style="margin-bottom: 20px; font-weight: bold; font-size: 16px; padding-left: 5px;">...</div>
 
-                    <div id="modal-p2p-actions" style="display: flex; flex-direction: column; gap: 10px;">
-                       </div>                    
+                    <div id="modal-p2p-actions" style="display: flex; flex-direction: column; gap: 10px;"></div>
                 </div>
-
             </div>
         </div>
     </div>
