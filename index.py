@@ -2569,6 +2569,17 @@ async def create_p2p_trade(
     }
     
     await supabase.post("/p2p_trades", json=payload)
+    # === ДОБАВИТЬ: Уведомление в технический чат ===
+    if ADMIN_NOTIFY_CHAT_ID:
+        admin_msg = (
+            f"📦 <b>Новая заявка P2P!</b>\n\n"
+            f"Пользователь: ID {user_info['id']}\n"
+            f"Кейс ID: {request_data.case_id}\n"
+            f"Кол-во: {request_data.quantity}\n"
+            f"Сумма: <b>{total_coins} монет</b>"
+        )
+        await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), admin_msg)
+    # ===============================================
     return {"message": "Заявка создана! Ждите подтверждения админа."}
 
 # 3. Пользователь нажал "Я передал кейсы"
