@@ -5404,12 +5404,21 @@ function renderP2PModalStatus(status, tradeId, amount) {
             </div>`;
     } 
     else if (status === 'active') {
-        statusText = '⏳ Ссылка отправлена. Ждем...';
-        statusColor = '#007aff';
+        statusText = '⏳ Ссылка отправлена. Ждем юзера...';
+        statusColor = '#007aff'; // Синий
         actionsDiv.innerHTML = `
-            <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%;">
-                Отменить (если долго висит)
-            </button>`;
+            <div style="padding: 10px; background: rgba(0,122,255,0.1); border-radius: 8px; text-align: center; color: #ccc; font-size: 13px; margin-bottom: 10px;">
+                Ожидаем, пока пользователь нажмет «Я передал»
+            </div>
+            
+            <button onclick="adminForceConfirmSent(${tradeId})" class="admin-action-btn confirm" style="width: 100%; margin-bottom: 8px; background-color: #007aff;">
+                <i class="fa-solid fa-eye"></i> Я уже вижу скин (Подтвердить)
+            </button>
+
+            <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%; font-size: 13px; padding: 8px;">
+                Отменить (если долго не кидает)
+            </button>
+        `;
     }
     else if (status === 'review') {
         statusText = '👀 Юзер отправил! Проверка';
@@ -5970,6 +5979,44 @@ async function loadP2PCases() {
             tg.showAlert(`Ошибка: ${e.message}`);
         }
     };
+
+/* === ДЕЙСТВИЕ: ПРИНУДИТЕЛЬНОЕ ПОДТВЕРЖДЕНИЕ ОТПРАВКИ === */
+async function adminForceConfirmSent(tradeId) {
+    showCustomConfirmHTML(
+        '👀 Вы видите скин в трейдах Steam?<br><span style="font-size:13px; color:#aaa">Это переведет сделку в статус "Проверка", как будто пользователь сам нажал кнопку.</span>',
+        async () => {
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/force_confirm_sent', { 
+                    trade_id: tradeId, 
+                    initData: tg.initData 
+                });
+                
+                tg.showPopup({message: 'Статус обновлен вручную!'});
+                
+                // Получаем актуальные данные сделки, чтобы узнать сумму (amount)
+                // Для обновления интерфейса. Если amount неизвестен, ставим 0, но лучше передать.
+                // В данном случае мы просто обновим статус на 'review', amount подтянется при следующем открытии или действии
+                renderP2PModalStatus('review', tradeId, 0); // 0, так как сумма здесь только для кнопки подтверждения, она перерисуется
+                
+                // Перезагружаем список, чтобы подтянуть точные данные
+                loadP2PTrades(); 
+                
+                // Закрываем и открываем модалку заново (или просто обновляем), 
+                // чтобы кнопка "Завершить" получила правильную сумму
+                // Самый простой способ обновить сумму в кнопке:
+                const trade = (await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true)).find(t => t.id === tradeId);
+                if (trade) {
+                    renderP2PModalStatus('review', tradeId, trade.total_coins);
+                }
+
+            } catch (e) {
+                tg.showAlert('Ошибка: ' + e.message);
+            }
+        },
+        'Да, скин у меня',
+        '#007aff'
+    );
+}
 
     // Инициализация приложения
     document.addEventListener("DOMContentLoaded", () => {
