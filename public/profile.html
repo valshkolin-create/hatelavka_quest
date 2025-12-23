@@ -574,10 +574,10 @@
             
             <div class="popup-actions" style="margin-top:15px; display: flex; flex-direction: column; gap: 10px;">
                 
-                <a href="https://t.me/HATElavka_bot" class="popup-btn primary" 
+                <button id="send-promo-cmd" class="popup-btn primary" 
                    style="width: 100%; box-sizing: border-box; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0;">
                     <i class="fa-brands fa-telegram"></i> Открыть HATElavka
-                </a>
+                </button>
                 
                 <button id="how-to-use-close" class="popup-btn secondary" 
                         style="width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; margin: 0;">
@@ -1143,6 +1143,27 @@ try {
     document.getElementById('how-to-use-close').onclick = () => document.getElementById('how-to-use-popup').classList.remove('visible');
     document.getElementById('twitch-trust-close').onclick = () => document.getElementById('twitch-trust-popup').classList.remove('visible');
     document.getElementById('steam-trust-close').onclick = () => document.getElementById('steam-trust-popup').classList.remove('visible');
+
+    // Логика кнопки "Активировать промокод"
+    // --- Логика отправки команды "Активировать промокод" ---
+    const sendPromoBtn = document.getElementById('send-promo-cmd');
+    if (sendPromoBtn) {
+        sendPromoBtn.onclick = function() {
+            try {
+                // Пытаемся отправить данные и закрыть окно
+                // Эта команда отправит текст в чат от лица пользователя
+                tg.sendData("❤️Активировать промокод"); 
+            } catch (e) {
+                // Если sendData недоступен (например, открыто через Menu Button),
+                // просто открываем бота обычным способом как запасной вариант
+                console.log('sendData не сработал, открываем ссылку:', e);
+                tg.openTelegramLink("https://t.me/HATElavka_bot");
+                
+                // P.S. Если вы хотите, чтобы ссылка тоже работала как триггер,
+                // настройте в боте Deep Link (например: https://t.me/HATElavka_bot?start=promo)
+            }
+        };
+    }
     
     dom.deleteAllRewardsBtn.onclick = () => {
         showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
