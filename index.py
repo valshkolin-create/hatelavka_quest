@@ -4549,84 +4549,99 @@ async def check_channel_subscription(
     
 # --- ПРАВИЛЬНО ---
 @app.post("/api/v1/user/me")
-@app.post("/api/v1/user/me")
 async def get_current_user_data(
     request_data: InitDataRequest,
     background_tasks: BackgroundTasks,
-    # 👇 1. Добавляем зависимость для быстрого клиента (как в bootstrap)
+    # 👇 Используем быстрый HTTP-клиент (внедрение зависимости)
     supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ): 
+    """
+    Получение профиля пользователя.
+    ОПТИМИЗАЦИЯ: Все запросы к БД выполняются параллельно для скорости.
+    """
+    
+    # 1. Проверка авторизации Telegram
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         return JSONResponse(content={"is_guest": True})
 
     telegram_id = user_info["id"]
 
-    # Запуск обновления Twitch в фоне
+    # 2. Фоновые задачи (не тормозят ответ пользователю)
+    # Обновляем инфу о Twitch-подписке тихо в фоне
     background_tasks.add_task(silent_update_twitch_user, telegram_id)
 
     try:
-        # 👇 2. ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ПАРАЛЛЕЛЬНО (asyncio.gather)
-        # Это сократит время выполнения с ~600мс до ~150-200мс
+        # 3. 🚀 ТУРБО-РЕЖИМ: ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ОДНОВРЕМЕННО
+        # Мы не ждем каждый ответ по очереди. Мы запускаем их "пачкой".
+        # Это снижает время загрузки с 600мс до ~150мс.
         results = await asyncio.gather(
-            # A. Основные данные (RPC)
+            
+            # A. Основные данные профиля (RPC-функция в базе)
             supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
             
-            # B. Статус Twitch
+            # B. Статус привязки Twitch
             supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"}),
             
-            # C. Настройки гринда (функция уже асинхронная, но добавим ее в общий поток)
+            # C. Настройки игры (Гринд) - берем из кэша или быстро из БД
             get_grind_settings_async_global(),
             
-            # D. Количество рефералов (Count)
+            # D. Количество активных рефералов (Считаем через заголовок count)
             supabase.get(
                 "/users", 
                 params={
                     "referrer_id": f"eq.{telegram_id}", 
                     "referral_activated_at": "not.is.null",
                     "select": "telegram_id",
-                    "limit": "1"
+                    "limit": "1" # Нам не нужны данные, только кол-во
                 },
                 headers={"Prefer": "count=exact"}
             ),
             
-            # E. Настройки админа
+            # E. Настройки Админа (Глобальные флаги)
             get_admin_settings_async_global(),
             
-            # F. Статус стрима
+            # F. Статус стрима (Онлайн/Оффлайн)
             supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
             
-            return_exceptions=True # Чтобы одна ошибка не положила всё
+            # Если один из второстепенных запросов упадет — не ломаем весь профиль
+            return_exceptions=True 
         )
 
-        # 👇 3. РАСПАКОВЫВАЕМ РЕЗУЛЬТАТЫ
+        # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен!)
         (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp) = results
 
-        # --- Обработка основных данных (RPC) ---
+        # --- [A] Обработка Профиля ---
         data = None
+        # Проверяем, что запрос прошел успешно и не вернул ошибку
         if not isinstance(rpc_resp, Exception) and rpc_resp.status_code == 200:
             data = rpc_resp.json()
 
-        # Если юзера нет — создаем (редкий кейс, можно оставить await)
+        # Если профиля нет — создаем нового пользователя (Авто-регистрация)
         if not data or not data.get('profile'):
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
-            # Используем httpx клиент для вставки
+            
+            # Создаем запись в БД
             await supabase.post("/users", json={
-                 "telegram_id": telegram_id, "username": user_info.get("username"), "full_name": full_name_tg
+                 "telegram_id": telegram_id, 
+                 "username": user_info.get("username"), 
+                 "full_name": full_name_tg
             }, headers={"Prefer": "resolution=merge-duplicates"})
             
-            # Повторный запрос данных
+            # Пробуем получить данные еще раз (теперь точно должны быть)
             retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
             data = retry_resp.json()
 
-        if not data: raise HTTPException(status_code=500, detail="Profile error")
+        if not data: 
+            raise HTTPException(status_code=500, detail="Не удалось загрузить профиль")
 
+        # Формируем базовый ответ
         final_response = data.get('profile', {})
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
         final_response['is_admin'] = telegram_id in ADMIN_IDS
 
-        # --- Обработка Twitch Status ---
+        # --- [B] Обработка Twitch ---
         twitch_status = None
         if not isinstance(twitch_resp, Exception) and twitch_resp.status_code == 200:
             tw_data = twitch_resp.json()
@@ -4634,13 +4649,14 @@ async def get_current_user_data(
                 twitch_status = tw_data[0].get('twitch_status')
         final_response['twitch_status'] = twitch_status
 
-        # --- Обработка Grind Settings ---
-        # grind_settings уже объект Pydantic или дефолтный
+        # --- [C] Обработка Настроек Гринда ---
+        # Превращаем объект настроек в словарь
         final_response['grind_settings'] = grind_settings.dict() if hasattr(grind_settings, 'dict') else {}
 
-        # --- Обработка Рефералов ---
+        # --- [D] Обработка Рефералов ---
         ref_count = 0
         if not isinstance(ref_resp, Exception):
+            # Supabase возвращает количество в заголовке Content-Range
             content_range = ref_resp.headers.get("Content-Range")
             if content_range:
                 try:
@@ -4649,12 +4665,11 @@ async def get_current_user_data(
                 except: pass
         final_response['active_referrals_count'] = ref_count
 
-        # --- Обработка Настроек Админа ---
-        # admin_settings уже объект Pydantic
+        # --- [E] Обработка Настроек Админа ---
         final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
         final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
 
-        # --- Обработка Статуса Стрима ---
+        # --- [F] Обработка Статуса Стрима ---
         is_online = False
         if not isinstance(stream_resp, Exception) and stream_resp.status_code == 200:
             s_data = stream_resp.json()
@@ -4662,15 +4677,17 @@ async def get_current_user_data(
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
 
-        # --- 👇 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 👇 ---
+        # --- Дополнительные вычисляемые поля ---
+        # Если есть дата активации рефералки — значит подписан
         final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
-        # -------------------------------------
 
+        # Отправляем готовый JSON
         return JSONResponse(content=final_response)
 
     except Exception as e:
-        logging.error(f"Error in /user/me: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Profile error")
+        # Логируем ошибку, но стараемся не пугать пользователя
+        logging.error(f"Ошибка в /user/me: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка загрузки профиля")
         
 @app.post("/api/v1/user/heartbeat")
 async def user_heartbeat(
