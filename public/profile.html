@@ -1098,7 +1098,7 @@ try {
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
 
-        // 1. Старые проверки
+        // --- Старые проверки (копирование, трейд-ссылка и т.д.) ---
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
         if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); return; }
         
@@ -1124,33 +1124,27 @@ try {
         if (target.closest('#twitch-trust-btn')) { document.getElementById('twitch-trust-popup').classList.add('visible'); return; }
         if (target.closest('#steam-trust-btn')) { document.getElementById('steam-trust-popup').classList.add('visible'); return; }
 
-        // 2. НОВАЯ ВСТАВКА (ТЕПЕРЬ ВНУТРИ ФУНКЦИИ)
-        // -----------------------------------------------------------
+        // --- ЛОГИКА КНОПКИ "ОТКРЫТЬ HATELAVKA" ---
         const promoBtn = target.closest('#send-promo-cmd');
         if (promoBtn) {
-            // ЛОГ: Проверка нажатия
-            tg.showAlert("Debug: Кнопка нажата. Отправляю...");
-
+            // 1. Пытаемся отправить текст (сработает ТОЛЬКО если открыто через кнопку меню клавиатуры)
             try {
-                // Попытка 1: sendData (Для меню)
                 tg.sendData("❤️Активировать промокод");
             } catch (e) {
-                console.error("sendData error:", e);
+                console.log("sendData не сработал (это нормально для inline-режима)");
             }
 
-            // Попытка 2: Ссылка (Резерв для ПК/Inline)
+            // 2. ЗАПАСНОЙ ВАРИАНТ (Гарантированно работает)
+            // Мы открываем бота с параметром start=promo.
+            // Бот получит сообщение: "/start promo"
             setTimeout(() => {
-                tg.openTelegramLink("https://t.me/HATElavka_bot");
-            }, 100);
+                tg.openTelegramLink("https://t.me/HATElavka_bot?start=promo");
+            }, 50);
             
             return; 
         }
-        // -----------------------------------------------------------
-
-    }); // <--- ВОТ ЗДЕСЬ ЗАКРЫВАЕТСЯ СЛУШАТЕЛЬ
-
-    
-
+    });
+  
     // Обработчики закрытия и сохранения
     dom.popupCancelBtn.onclick = () => dom.customPopupOverlay.classList.remove('visible');
     dom.popupSaveBtn.onclick = async () => {
