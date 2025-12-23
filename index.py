@@ -1073,22 +1073,26 @@ async def try_send_message(chat_id: int, text: str):
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message):
     """
-    Единственное место, где мы считаем сообщения.
-    Жесткая фильтрация: считает ТОЛЬКО в чате ALLOWED_CHAT_ID.
+    Твоя функция с оптимизацией.
+    Считает сообщения в ALLOWED_CHAT_ID, но игнорирует слишком короткие.
     """
-    
-    # --- ЛОГИКА ФИЛЬТРАЦИИ ---
     
     # 1. Если ALLOWED_CHAT_ID задан (не 0) И текущий чат не равен ему — игнорируем
     if ALLOWED_CHAT_ID != 0 and message.chat.id != ALLOWED_CHAT_ID:
         return
 
-    # 2. Дополнительная защита: на всякий случай игнорируем ЛС 
-    # (хотя проверка выше уже это отсечет, но оставим для надежности)
+    # 2. Игнорируем ЛС (чтобы не было ошибок и лишних запросов)
     if message.chat.type == 'private':
         return
 
+    # 3. НОВАЯ ПРОВЕРКА: Экономим ресурсы на коротких сообщениях
+    # Если текст есть, но он короче 2 символов (1 символ) — выходим.
+    # База данных не дергается, деньги Vercel не тратятся.
+    if message.text and len(message.text) < 2:
+        return
+
     # -------------------------
+    # Дальше твой код без изменений
 
     user = message.from_user
     full_name = f"{user.first_name} {user.last_name or ''}".strip()
@@ -1105,7 +1109,7 @@ async def track_message(message: types.Message):
             }
         )
     except Exception as e:
-        # Логируем warning, чтобы не засорять консоль, если БД на секунду отвалилась
+        # Логируем warning, чтобы не засорять консоль
         logging.warning(f"Не удалось записать сообщение от {user.id}: {e}")
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
