@@ -4,9 +4,30 @@
   <meta charset="UTF-8" />
   <title>Меню</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <script>
+    // Если скрипт Telegram не загрузился (блокировщик/интернет), создаем заглушку
+    if (typeof Telegram === 'undefined') {
+      window.Telegram = {
+        WebApp: {
+          initData: '',
+          initDataUnsafe: {},
+          ready: function() { console.log('Telegram Mock Ready'); },
+          expand: function() { console.log('Telegram Mock Expand'); },
+          close: function() {},
+          showAlert: function(msg) { alert(msg); },
+          showConfirm: function(msg, cb) { if(cb) cb(confirm(msg)); },
+          openLink: function(url) { window.open(url, '_blank'); },
+          openTelegramLink: function(url) { window.open(url, '_blank'); },
+          HapticFeedback: { notificationOccurred: function() {} }
+        }
+      };
+    }
+  </script>
   <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
-  <link rel="stylesheet" href="/menu.css" />
+  <link rel="stylesheet" href="/menu.css?v=2" />
 </head>
 <body>
   <div id="loader-overlay" class="loader-overlay">
