@@ -5223,6 +5223,15 @@ async function main() {
                     shopBadge.classList.toggle('hidden', shopCount === 0);
                 }
                 // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+                // 👇👇👇 ДОБАВИТЬ ЭТОТ БЛОК НИЖЕ 👇👇👇
+                // --- P2P БЕЙДЖ (Загружаем список, чтобы посчитать активные) ---
+                try {
+                    const p2pTrades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+                    updateP2PBadge(p2pTrades); // Используем существующую функцию для обновления бейджа
+                } catch (p2pErr) {
+                    console.error("Ошибка загрузки P2P бейджа при старте:", p2pErr);
+                }
+                // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
 
             } catch (countError) {
                 console.error("Не удалось загрузить счетчики:", countError);
