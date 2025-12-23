@@ -8198,19 +8198,55 @@ async def claim_free_ticket(
     telegram_id = user_info["id"]
 
     try:
-        # Вызываем RPC-функцию для атомарного получения билета
+        # 1. Сначала пытаемся забрать ОБЫЧНЫЙ билет (это проверит кулдаун)
+        # Если кулдаун не прошел, эта строка выбросит ошибку и мы остановимся.
         response = await supabase.post("/rpc/claim_daily_ticket", json={"p_user_id": telegram_id})
         response.raise_for_status()
+        
+        # Мы получили 1 билет и обновили таймер. 
+        # Теперь проверим, положен ли БОНУС сверху.
+        
+        # 2. Получаем статус пользователя и настройки (параллельно)
+        user_task = supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
+        settings_task = get_grind_settings_async_global()
+        
+        user_resp, grind_settings = await asyncio.gather(user_task, settings_task)
+        
+        bonus_tickets = 0
+        twitch_status = "none"
+        
+        # Проверяем статус
+        if user_resp.status_code == 200 and user_resp.json():
+            twitch_status = user_resp.json()[0].get("twitch_status", "none")
+            
+        # 3. Если VIP или Подписчик — начисляем бонус
+        if twitch_status in ['subscriber', 'vip']:
+            bonus_tickets = grind_settings.twitch_status_free_tickets # Обычно 5
+            
+            if bonus_tickets > 0:
+                logging.info(f"💎 [FreeTicket] User {telegram_id} is {twitch_status}! Adding bonus +{bonus_tickets} tickets.")
+                await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": bonus_tickets})
 
-        new_balance = response.json()
+        # 4. Получаем актуальный баланс для красивого отображения
+        # (claim_daily_ticket вернул баланс до бонуса, поэтому лучше пересчитать или сложить)
+        base_balance = response.json()
+        final_balance = base_balance + bonus_tickets # Примерный подсчет для UI
+
+        msg = "✅ Бесплатный билет получен!"
+        if bonus_tickets > 0:
+            msg += f"\n🎁 Бонус за статус ({twitch_status}): +{bonus_tickets} шт."
+
         return {
-            "message": "✅ Бесплатный билет успешно получен!",
-            "new_ticket_balance": new_balance
+            "message": msg,
+            "new_ticket_balance": final_balance
         }
+
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Не удалось получить билет.")
-        logging.error(f"Ошибка RPC при получении билета для user {telegram_id}: {error_details}")
+        # Если ошибка кулдауна, Supabase вернет ее здесь
+        logging.warning(f"Ошибка получения билета {telegram_id}: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
+        
     except Exception as e:
         logging.error(f"Критическая ошибка при получении билета для user {telegram_id}: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
