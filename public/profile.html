@@ -1097,6 +1097,8 @@ try {
     // --- Global Listeners ---
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
+
+        // 1. Старые проверки
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
         if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); return; }
         
@@ -1115,12 +1117,39 @@ try {
                 () => makeApiRequest('/api/v1/user/grants/delete', {id:parseInt(card.dataset.id)});
             showCustomConfirmHTML("Удалить награду?", async (c)=>{ await action(); card.remove(); c(); }); return;
         }
+
         const howToBtn = target.closest('.reward-how-to-use-btn');
         if (howToBtn) { document.getElementById('how-to-use-gif').src = howToBtn.dataset.gif; document.getElementById('how-to-use-popup').classList.add('visible'); return; }
         
         if (target.closest('#twitch-trust-btn')) { document.getElementById('twitch-trust-popup').classList.add('visible'); return; }
         if (target.closest('#steam-trust-btn')) { document.getElementById('steam-trust-popup').classList.add('visible'); return; }
-    });
+
+        // 2. НОВАЯ ВСТАВКА (ТЕПЕРЬ ВНУТРИ ФУНКЦИИ)
+        // -----------------------------------------------------------
+        const promoBtn = target.closest('#send-promo-cmd');
+        if (promoBtn) {
+            // ЛОГ: Проверка нажатия
+            tg.showAlert("Debug: Кнопка нажата. Отправляю...");
+
+            try {
+                // Попытка 1: sendData (Для меню)
+                tg.sendData("❤️Активировать промокод");
+            } catch (e) {
+                console.error("sendData error:", e);
+            }
+
+            // Попытка 2: Ссылка (Резерв для ПК/Inline)
+            setTimeout(() => {
+                tg.openTelegramLink("https://t.me/HATElavka_bot");
+            }, 100);
+            
+            return; 
+        }
+        // -----------------------------------------------------------
+
+    }); // <--- ВОТ ЗДЕСЬ ЗАКРЫВАЕТСЯ СЛУШАТЕЛЬ
+
+    
 
     // Обработчики закрытия и сохранения
     dom.popupCancelBtn.onclick = () => dom.customPopupOverlay.classList.remove('visible');
@@ -1144,27 +1173,7 @@ try {
     document.getElementById('twitch-trust-close').onclick = () => document.getElementById('twitch-trust-popup').classList.remove('visible');
     document.getElementById('steam-trust-close').onclick = () => document.getElementById('steam-trust-popup').classList.remove('visible');
 
-    // Логика кнопки "Активировать промокод"
-    // --- Логика отправки команды "Активировать промокод" ---
-    const sendPromoBtn = document.getElementById('send-promo-cmd');
-    if (sendPromoBtn) {
-        sendPromoBtn.onclick = function() {
-            try {
-                // Пытаемся отправить данные и закрыть окно
-                // Эта команда отправит текст в чат от лица пользователя
-                tg.sendData("❤️Активировать промокод"); 
-            } catch (e) {
-                // Если sendData недоступен (например, открыто через Menu Button),
-                // просто открываем бота обычным способом как запасной вариант
-                console.log('sendData не сработал, открываем ссылку:', e);
-                tg.openTelegramLink("https://t.me/HATElavka_bot");
-                
-                // P.S. Если вы хотите, чтобы ссылка тоже работала как триггер,
-                // настройте в боте Deep Link (например: https://t.me/HATElavka_bot?start=promo)
-            }
-        };
-    }
-    
+    // Логика кнопки "Активировать промокод"    
     dom.deleteAllRewardsBtn.onclick = () => {
         showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
              await makeApiRequest('/api/v1/user/promocodes/delete-all');
