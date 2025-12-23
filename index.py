@@ -6209,27 +6209,50 @@ async def sync_leaderboard_to_supabase(
     return {"message": "Leaderboard sync completed."}
 
 async def background_challenge_bonuses(user_id: int):
-    """Начисляет бонусы (звезды, билеты, таймер) в фоне."""
+    """
+    Начисляет бонусы (звезды, билеты, таймер) в фоне.
+    🔥 ИСПРАВЛЕНО: Теперь учитывает VIP и SUB статус!
+    """
     try:
-        # Используем того же быстрого клиента, что и для Twitch
+        # Используем того же быстрого клиента
         client = await get_background_client()
+        
+        # 1. Получаем статус пользователя и настройки (ПАРАЛЛЕЛЬНО для скорости)
+        user_task = client.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_status"})
+        settings_task = get_grind_settings_async_global()
+        
+        user_resp, grind_settings = await asyncio.gather(user_task, settings_task)
+        
+        twitch_status = "none"
+        if user_resp.status_code == 200 and user_resp.json():
+            twitch_status = user_resp.json()[0].get("twitch_status", "none")
 
-        # 1. Начисляем звезду Чекпоинта
+        # 2. Начисляем звезду Чекпоинта (Всегда +1)
         await client.post("/rpc/increment_checkpoint_stars", json={"p_user_id": user_id, "p_amount": 1})
-
-        # 2. Начисляем билеты (получаем кол-во и начисляем)
-        # (Логика get_ticket_reward_amount_global на httpx)
+        
+        # 3. Начисляем билеты
+        # Сначала берем базу (обычно 1)
         rules_resp = await client.get("/reward_rules", params={"action_type": "eq.challenge_completion", "select": "ticket_amount"})
         rules_data = rules_resp.json()
-        ticket_amount = rules_data[0]['ticket_amount'] if rules_data else 1
+        base_tickets = rules_data[0]['ticket_amount'] if rules_data else 1
         
-        if ticket_amount > 0:
-            await client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": ticket_amount})
+        final_tickets = base_tickets
+        
+        # --- 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ: БОНУС ЗА СТАТУС 🔥 ---
+        if twitch_status in ['subscriber', 'vip']:
+            # Берем размер бонуса из настроек (обычно 5)
+            bonus = grind_settings.twitch_status_free_tickets
+            final_tickets += bonus
+            logging.info(f"💎 [Grind] User {user_id} is {twitch_status}! Added bonus: +{bonus} tickets. Total: {final_tickets}")
+        # --------------------------------------------------
 
-        # 3. Обновляем таймер
+        if final_tickets > 0:
+            await client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": final_tickets})
+            
+        # 4. Обновляем таймер (чтобы запустить кулдаун)
         await client.post("/rpc/update_last_challenge_time", json={"p_user_id": user_id})
         
-        logging.info(f"✅ [BG] Бонусы челленджа начислены для {user_id}")
+        logging.info(f"✅ [BG] Бонусы челленджа начислены для {user_id} (Билетов: {final_tickets})")
 
     except Exception as e:
         logging.error(f"❌ [BG] Ошибка начисления бонусов челленджа: {e}")
