@@ -1058,43 +1058,57 @@
         const diff = now - lastClaim;
         
         const isBoosted = isVipActive() || isTwitchBoostActive();
-        let ticketsReward = 1;
         
-        if (isVipActive()) ticketsReward = 2; 
-        else if (isTwitchBoostActive()) ticketsReward = grindSettings.twitch_status_free_tickets;
+        // --- 👇 ИСПРАВЛЕННАЯ ЛОГИКА ПОДСЧЕТА 👇 ---
+        let ticketsReward = 1; // База (1 билет)
+        
+        // 1. Если активен бонус новичка (Referral < 7 days) -> SQL добавляет +1
+        if (isVipActive()) {
+            ticketsReward += 1;
+        }
+
+        // 2. Если активен Twitch статус (VIP/Sub) -> Python добавляет +X (из настроек)
+        if (isTwitchBoostActive()) {
+            // Берем значение из твоих настроек (у тебя там 1)
+            ticketsReward += grindSettings.twitch_status_free_tickets;
+        }
+        // -------------------------------------------
 
         if (diff > GRIND_COOLDOWN) {
-            const btnText = isBoosted ? `+${ticketsReward} БИЛЕТА (VIP)` : "ПОЛУЧИТЬ";
+            // Формируем текст кнопки: "ЗАБРАТЬ +2 (VIP)"
+            const btnText = isBoosted ? `ЗАБРАТЬ +${ticketsReward} (VIP)` : "ПОЛУЧИТЬ +1";
             const btnColor = isBoosted ? "#FFD700" : "#fff";
+            const btnBg = isBoosted ? "rgba(255, 215, 0, 0.15)" : "transparent"; // Чуть подсветим фон для VIP
             
-            dom.freeTicketContainer.innerHTML = `<button class="mini-btn" style="border-color:${btnColor}; color:${btnColor}; width:100%;" onclick="claimFreeTicket()">${btnText}</button>`;
+            // Вставляем кнопку
+            dom.freeTicketContainer.innerHTML = `
+                <button class="mini-btn" 
+                        style="border-color:${btnColor}; color:${btnColor}; background:${btnBg}; width:100%; font-weight:700;" 
+                        onclick="claimFreeTicket()">
+                    ${btnText}
+                </button>`;
             
-            // Текст над кнопкой
+            // Текст над кнопкой (подсказка)
             if(isBoosted) {
-                 dom.ticketSubtitle.textContent = `VIP/Sub: Доступно ${ticketsReward} билета!`;
-                 dom.ticketSubtitle.style.color = "#FFD700";
+                 dom.ticketSubtitle.innerHTML = `VIP Бонус доступен! <span style="color:#FFD700">Всего: ${ticketsReward} шт.</span>`;
+                 dom.ticketSubtitle.style.color = "#fff";
             } else {
                  dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
                  dom.ticketSubtitle.style.color = "#AAAAAA";
             }
 
         } else {
+            // ТАЙМЕР (Если уже забрал)
             const remaining = GRIND_COOLDOWN - diff;
             const h = Math.floor(remaining / 3600000);
             const m = Math.floor((remaining % 3600000) / 60000);
-            dom.freeTicketContainer.innerHTML = `<span style="font-size:11px; color:#ffffff; font-weight: 600;">${h}ч ${m}м</span>`;
+            dom.freeTicketContainer.innerHTML = `<span style="font-size:11px; color:#ffffff; font-weight: 600;">⏳ ${h}ч ${m}м</span>`;
             
-            // Текст над таймером
-            if(isBoosted) {
-                 dom.ticketSubtitle.textContent = `VIP: следующая награда через...`;
-                 dom.ticketSubtitle.style.color = "#FFD700";
-            } else {
-                 dom.ticketSubtitle.textContent = "Бесплатно раз в 24ч";
-                 dom.ticketSubtitle.style.color = "#AAAAAA";
-            }
+            dom.ticketSubtitle.textContent = "Следующая награда через...";
+            dom.ticketSubtitle.style.color = "#AAAAAA";
         }
     }
-
+  
     // --- МАГАЗИН И ФУНКЦИИ ОКНА УСПЕХА ---
     function showSuccess(message, promoCode = null) {
         closeShopModal();
