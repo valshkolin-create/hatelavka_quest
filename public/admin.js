@@ -5377,23 +5377,37 @@ function openP2PDetailsModal(trade) {
     document.getElementById('modal-p2p-case').innerText = caseItem.case_name || 'Неизвестный кейс';
     document.getElementById('modal-p2p-price').innerText = (trade.total_coins || 0) + ' монет';
     
-    // Пользователь
-    const userStr = `${user.full_name || user.username || 'User'} (ID: ${trade.user_id})`;
-    document.getElementById('modal-p2p-user').value = userStr;
+    // --- ОБНОВЛЕННЫЙ БЛОК ПОЛЬЗОВАТЕЛЯ ---
+    const userFullName = user.full_name || 'User';
+    const userUsername = user.username || '';
+    const userDisplayField = document.getElementById('modal-p2p-user');
+    
+    // Записываем Имя + Юзернейм для визуализации
+    userDisplayField.value = `${userFullName} ${userUsername ? '(@' + userUsername + ')' : ''} (ID: ${trade.user_id})`;
+    
+    // Добавляем обработчик клика для копирования (как в ручных заданиях)
+    userDisplayField.style.cursor = 'pointer';
+    userDisplayField.title = 'Нажмите, чтобы скопировать логин/ID';
+    userDisplayField.onclick = async () => {
+        let textToCopy = userUsername ? `@${userUsername}` : trade.user_id.toString();
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            tg.showPopup({ message: `${textToCopy} скопирован!` });
+        } catch (e) {
+            tg.showAlert('Ошибка копирования');
+        }
+    };
+    // --- КОНЕЦ ОБНОВЛЕНИЯ ---
 
-    // 2. Время создания (форматируем красиво)
+    // 2. Время создания
     if (trade.created_at) {
         const dateObj = new Date(trade.created_at);
-        // Пример: 22.12.2025, 14:30
         document.getElementById('modal-p2p-date').value = dateObj.toLocaleString('ru-RU');
     } else {
         document.getElementById('modal-p2p-date').value = 'Неизвестно';
     }
     
-    // 3. Рисуем статус и кнопки (вынесли в отдельную функцию, чтобы переиспользовать)
     renderP2PModalStatus(trade.status, trade.id, trade.total_coins);
-
-    // Показываем окно
     document.getElementById('p2pTradeDetailsModal').classList.remove('hidden');
 }
 
