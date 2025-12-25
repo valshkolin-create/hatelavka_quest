@@ -1759,7 +1759,6 @@ function setupEventListeners() {
         // Заставляем магазин занимать 2 строки в высоту (напротив Челленджа и Квеста)
         shopShortcut.style.gridRow = 'span 2'; 
         shopShortcut.style.height = '100%';
-    }
         shopShortcut.addEventListener('click', () => {
             window.location.href = '/shop';
         });
