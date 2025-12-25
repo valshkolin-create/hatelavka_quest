@@ -491,10 +491,19 @@ try {
     function switchView(targetViewId) {
         dom.viewDashboard.classList.add('hidden');
         dom.viewQuests.classList.add('hidden');
-        document.getElementById(targetViewId)?.classList.remove('hidden');
+        
+        // Было: document.getElementById(targetViewId)?.classList...
+        // Стало:
+        var targetEl = document.getElementById(targetViewId);
+        if (targetEl) targetEl.classList.remove('hidden');
+        
         dom.footerItems.forEach(item => item.classList.remove('active'));
-        const navId = `nav-${targetViewId.split('-')[1]}`;
-        document.getElementById(navId)?.classList.add('active');
+        
+        var navId = 'nav-' + targetViewId.split('-')[1];
+        // Было: document.getElementById(navId)?.classList...
+        // Стало:
+        var navEl = document.getElementById(navId);
+        if (navEl) navEl.classList.add('active');
     }
     
     async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
@@ -567,10 +576,14 @@ try {
                     const cardElement = currentTimerElement.closest('.quest-card');
                     if (cardElement) {
                        cardElement.classList.add('expired');
+                       // Исправлено:
+                       const titleEl = cardElement.querySelector('.quest-title');
+                       const titleText = titleEl ? titleEl.textContent : 'Челлендж';
+                       
                        cardElement.innerHTML = `
                            <div class="quest-content-wrapper">
                                <div class="quest-icon"><i class="fa-solid fa-star"></i></div>
-                               <h2 class="quest-title">${cardElement.querySelector('.quest-title')?.textContent || 'Челлендж'}</h2>
+                               <h2 class="quest-title">${titleText}</h2>
                            </div>
                            <div class="expired-overlay">
                                <div class="expired-overlay-text">Время истекло</div>
@@ -580,7 +593,7 @@ try {
                            </div>
                        `;
                     }
-                } 
+                }
                 else if (intervalKey.startsWith('quest_')) {
                      const cardElement = currentTimerElement.closest('.quest-card');
                      if (cardElement) {
@@ -1388,7 +1401,11 @@ async function buyItem(itemId, price, name) {
 
 // Функция проверки: нужно ли показывать попап и кнопку
 async function checkReferralAndWelcome(userData) {
-    const startParam = Telegram.WebApp.initDataUnsafe?.start_param;
+    // Исправлено: безопасная проверка без ?.
+    const startParam = (Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param) 
+        ? Telegram.WebApp.initDataUnsafe.start_param 
+        : null;
+        
     const bonusBtn = document.getElementById('open-bonus-btn');
 
     // --- ОПТИМИЗАЦИЯ: Мгновенный показ кнопки (если есть ссылка r_) ---
@@ -1727,63 +1744,56 @@ function openWelcomePopup(userData) {
 function setupEventListeners() {
     // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
     // Логика кнопки "В главное меню" в новом окне успеха
+   // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ (БЕЗОПАСНАЯ ВЕРСИЯ) ---
     const successCloseBtn = document.getElementById('success-close-btn');
     if (successCloseBtn) {
         successCloseBtn.addEventListener('click', () => {
-            // Показываем лоадер для визуального отклика
             document.getElementById('loader-overlay').classList.remove('hidden');
-            
-            // Принудительно перезагружаем страницу
-            // Это скроет все окна и обновит статус бонуса (кнопка пропадет, так как бонус уже получен)
             window.location.reload();
         });
     }
     
-    // 1. Магазин -> shop.html
-    document.getElementById('shortcut-shop')?.addEventListener('click', () => {
-        window.location.href = '/shop';
-    });
+    // 1. Магазин
+    const shopShortcut = document.getElementById('shortcut-shop');
+    if (shopShortcut) {
+        shopShortcut.addEventListener('click', () => {
+            window.location.href = '/shop';
+        });
+    }
 
-    // 2. Челленджи -> Вкладка Задания + Скролл
-    // 2. Челлендж -> Вкладка Задания + Скролл (БЫСТРАЯ ВЕРСИЯ)
-    document.getElementById('shortcut-challenge')?.addEventListener('click', () => {
-        // 1. Моментально переключаем вкладку (без ожидания сети)
-        switchView('view-quests');
-        
-        // 2. Сразу скроллим к блоку
-        setTimeout(() => {
-            const el = document.getElementById('challenge-container');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 50); // Маленькая задержка для плавности отрисовки
+    // 2. Челлендж
+    const chalShortcut = document.getElementById('shortcut-challenge');
+    if (chalShortcut) {
+        chalShortcut.addEventListener('click', () => {
+            switchView('view-quests');
+            setTimeout(() => {
+                const el = document.getElementById('challenge-container');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
+            openQuestsTab(true).catch(console.error);
+            refreshDataSilently().catch(console.error);
+        });
+    }
 
-        // 3. Запускаем обновление данных в фоне (не блокируя интерфейс)
-        openQuestsTab(true).catch(console.error); // true = тихо, без спиннера
-        refreshDataSilently().catch(console.error);
-    });
-
-    // 3. Испытания -> Вкладка Задания + Скролл (БЫСТРАЯ ВЕРСИЯ)
-    document.getElementById('shortcut-quests')?.addEventListener('click', () => {
-        // 1. Моментально переключаем
-        switchView('view-quests');
-
-        // 2. Сразу скроллим
-        setTimeout(() => {
-            const activeEl = document.getElementById('active-automatic-quest-container');
-            const startBtn = document.getElementById('quest-choose-btn');
-            
-            // Если есть активный квест (в памяти), скроллим к нему
-            if (activeEl && activeEl.innerHTML.trim() !== "") {
-                 activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } else if (startBtn) {
-                 // Иначе к кнопке выбора
-                 startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }, 50);
-
-        // 3. Обновляем в фоне
-        openQuestsTab(true).catch(console.error);
-        refreshDataSilently().catch(console.error);
-    });
+    // 3. Испытания
+    const questShortcut = document.getElementById('shortcut-quests');
+    if (questShortcut) {
+        questShortcut.addEventListener('click', () => {
+            switchView('view-quests');
+            setTimeout(() => {
+                const activeEl = document.getElementById('active-automatic-quest-container');
+                const startBtn = document.getElementById('quest-choose-btn');
+                
+                if (activeEl && activeEl.innerHTML.trim() !== "") {
+                     activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else if (startBtn) {
+                     startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 50);
+            openQuestsTab(true).catch(console.error);
+            refreshDataSilently().catch(console.error);
+        });
+    }
     // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
     // 👇 ВСТАВЬТЕ ВАШ КОД СЮДА 👇
 
@@ -2232,18 +2242,17 @@ async function openQuestsTab(isSilent = false) {
     // Запускаем сразу
     syncReferralOnLoad();
     
-// Функция обновления статусов на ярлыках (Новая Metro версия)
+// Функция обновления статусов на ярлыках (Версия: Оффлайн текст + Маленькая кнопка)
     function updateShortcutStatuses(userData, allQuests) {
         
         // Вспомогательная функция для центровки контента внутри плитки
         const makeTileCentered = (el) => {
             if (!el) return;
-            // Применяем Flexbox для полного центрирования
             el.style.display = 'flex';
             el.style.flexDirection = 'column';
-            el.style.alignItems = 'center';     // Горизонтально по центру
-            el.style.justifyContent = 'center'; // Вертикально по центру
-            el.style.textAlign = 'center';      // Текст по центру
+            el.style.alignItems = 'center';     
+            el.style.justifyContent = 'center'; 
+            el.style.textAlign = 'center';      
         };
 
         // 1. Обновляем Челлендж (shortcut-challenge)
@@ -2252,46 +2261,59 @@ async function openQuestsTab(isSilent = false) {
         const shortcutChal = document.getElementById('shortcut-challenge');
         
         if (chalStatus && chalFill && shortcutChal) {
-            makeTileCentered(shortcutChal); // <--- Центруем плитку
+            makeTileCentered(shortcutChal); 
 
-            // Удаляем старую кнопку (если была)
+            // Удаляем старые элементы (кнопку и текст оффлайн), если они есть
             const oldBtn = document.getElementById('mini-schedule-btn');
             if (oldBtn) oldBtn.remove();
+            const oldOfflineText = document.getElementById('offline-text-msg');
+            if (oldOfflineText) oldOfflineText.remove();
             
-            // Возвращаем видимость элементам (сброс)
+            // Сброс видимости (для онлайн режима)
             chalStatus.style.display = '';
-            chalStatus.style.marginBottom = '5px'; // Отступ до полоски
-            if (chalFill.parentElement) chalFill.parentElement.style.display = ''; // Показываем трек прогресса
+            chalStatus.style.marginBottom = '5px'; 
+            if (chalFill.parentElement) chalFill.parentElement.style.display = ''; 
 
             const isOnline = userData.is_stream_online === true;
 
             if (!isOnline) {
                 // --- СТРИМ ОФФЛАЙН ---
-                // 1. Скрываем статус и полоску прогресса
+                
+                // 1. Скрываем стандартный статус и прогресс-бар
                 chalStatus.style.display = 'none';
                 if (chalFill.parentElement) chalFill.parentElement.style.display = 'none';
 
-                // 2. Создаем кнопку "Расписание" по центру
+                // 2. Добавляем надпись "Стрим оффлайн"
+                const offlineText = document.createElement('div');
+                offlineText.id = 'offline-text-msg';
+                offlineText.textContent = 'Стрим оффлайн';
+                Object.assign(offlineText.style, {
+                    color: '#ff453a', // Красный цвет
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    marginBottom: '6px' // Отступ до кнопки
+                });
+                shortcutChal.appendChild(offlineText);
+
+                // 3. Добавляем МАЛЕНЬКУЮ кнопку "Расписание"
                 const btn = document.createElement('div');
                 btn.id = 'mini-schedule-btn';
                 btn.innerHTML = '<i class="fa-regular fa-calendar-days"></i> Расписание';
                 
-                // Стиль кнопки (Красивая, по центру)
+                // Стили для маленькой кнопки
                 Object.assign(btn.style, {
-                    marginTop: '5px',
                     background: 'rgba(255, 255, 255, 0.15)',
                     border: '1px solid rgba(255, 255, 255, 0.3)',
                     color: '#fff',
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    fontWeight: '600',
+                    padding: '4px 8px',      // Уменьшили отступы
+                    borderRadius: '6px',     // Чуть меньше скругление
+                    fontSize: '10px',        // Шрифт меньше
+                    fontWeight: '500',
                     cursor: 'pointer',
                     backdropFilter: 'blur(4px)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                    gap: '4px'
                 });
 
                 btn.onclick = (e) => {
@@ -2303,7 +2325,7 @@ async function openQuestsTab(isSilent = false) {
                 shortcutChal.appendChild(btn);
 
             } else {
-                // --- СТРИМ ОНЛАЙН ---
+                // --- СТРИМ ОНЛАЙН (Восстанавливаем вид) ---
                 chalStatus.style.color = ""; 
                 
                 if (userData.challenge) {
@@ -2341,8 +2363,8 @@ async function openQuestsTab(isSilent = false) {
         const questFill = document.getElementById('metro-quest-fill');
 
         if (shortcutQuest && questStatus && questFill) {
-            makeTileCentered(shortcutQuest); // <--- Центруем плитку
-            questStatus.style.marginBottom = '5px'; // Отступ
+            makeTileCentered(shortcutQuest);
+            questStatus.style.marginBottom = '5px';
 
             const activeId = userData.active_quest_id;
             if (!activeId) {
@@ -2433,10 +2455,14 @@ function extractImageUrls(data) {
         if (data.menu.checkpoint_banner_url) urls.push(data.menu.checkpoint_banner_url);
         if (data.menu.auction_banner_url) urls.push(data.menu.auction_banner_url);
         if (data.menu.weekly_goals_banner_url) urls.push(data.menu.weekly_goals_banner_url);
-        if (data.menu.auction_slide_data?.image_url) urls.push(data.menu.auction_slide_data.image_url);
+        
+        // Исправлено для старых телефонов (убрали ?.)
+        if (data.menu.auction_slide_data && data.menu.auction_slide_data.image_url) {
+            urls.push(data.menu.auction_slide_data.image_url);
+        }
     }
     // Котёл
-    if (data.cauldron?.banner_image_url) urls.push(data.cauldron.banner_image_url);
+    if (data.cauldron && data.cauldron.banner_image_url) urls.push(data.cauldron.banner_image_url);
     // Квесты (иконки)
     if (data.quests) {
         data.quests.forEach(q => {
@@ -2517,7 +2543,12 @@ async function renderFullInterface(bootstrapData) {
         };
 
         setupSlide('skin_race', menuContent.skin_race_enabled, menuContent.menu_banner_url);
-        setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || menuContent.auction_slide_data?.image_url, '/auction');
+        // Проверяем наличие auction_slide_data перед доступом к image_url
+var auctionImg = menuContent.auction_banner_url;
+if (!auctionImg && menuContent.auction_slide_data && menuContent.auction_slide_data.image_url) {
+    auctionImg = menuContent.auction_slide_data.image_url;
+}
+setupSlide('auction', menuContent.auction_enabled, auctionImg, '/auction');
         setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
 
 // Кнопка Twitch/Telegram испытаний
