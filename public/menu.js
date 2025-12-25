@@ -2611,4 +2611,22 @@ async function renderFullInterface(bootstrapData) {
                 dom.loaderOverlay.classList.add('hidden');
             }, 300); // Даем пользователю увидеть 100%
         }
-    }
+            
+// --- ЗАПУСК ПРИЛОЖЕНИЯ (Этого не хватало) ---
+    setupEventListeners();
+    main();
+    setInterval(refreshDataSilently, 7000);
+
+} catch (e) {
+    // --- БЛОК ОБРАБОТКИ ОШИБОК (Этого не хватало) ---
+    console.error("Critical Error in Global Scope:", e);
+    if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    
+    // Показываем ошибку на экране, чтобы вы видели, что случилось
+    document.body.innerHTML = `
+        <div style="text-align:center; padding:20px; color: #fff; background: #000; height: 100vh; display: flex; flex-direction: column; justify-content: center;">
+            <h1 style="color: #ff3b30; margin-bottom: 10px;">Ошибка запуска</h1>
+            <p style="font-family: monospace; background: #333; padding: 10px; border-radius: 8px;">${e.name}: ${e.message}</p>
+            <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; border-radius: 8px; border: none; background: #007aff; color: white; font-weight: bold;">Повторить</button>
+        </div>`;
+}
