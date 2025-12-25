@@ -1745,33 +1745,44 @@ function setupEventListeners() {
     });
 
     // 2. Челленджи -> Вкладка Задания + Скролл
-    document.getElementById('shortcut-challenge')?.addEventListener('click', async () => {
-        await openQuestsTab(false); // Открываем вкладку
-        await refreshDataSilently(); // 🔥 ПРИНУДИТЕЛЬНО ПОДГРУЖАЕМ ДАННЫЕ
+    // 2. Челлендж -> Вкладка Задания + Скролл (БЫСТРАЯ ВЕРСИЯ)
+    document.getElementById('shortcut-challenge')?.addEventListener('click', () => {
+        // 1. Моментально переключаем вкладку (без ожидания сети)
+        switchView('view-quests');
         
-        // Небольшая задержка, чтобы данные успели отрисоваться
+        // 2. Сразу скроллим к блоку
         setTimeout(() => {
             const el = document.getElementById('challenge-container');
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+        }, 50); // Маленькая задержка для плавности отрисовки
+
+        // 3. Запускаем обновление данных в фоне (не блокируя интерфейс)
+        openQuestsTab(true).catch(console.error); // true = тихо, без спиннера
+        refreshDataSilently().catch(console.error);
     });
 
-    // 3. Испытания -> Вкладка Задания + Скролл
-    document.getElementById('shortcut-quests')?.addEventListener('click', async () => {
-        await openQuestsTab(false);
-        await refreshDataSilently(); // 🔥 ПРИНУДИТЕЛЬНО ПОДГРУЖАЕМ ДАННЫЕ
-        
+    // 3. Испытания -> Вкладка Задания + Скролл (БЫСТРАЯ ВЕРСИЯ)
+    document.getElementById('shortcut-quests')?.addEventListener('click', () => {
+        // 1. Моментально переключаем
+        switchView('view-quests');
+
+        // 2. Сразу скроллим
         setTimeout(() => {
             const activeEl = document.getElementById('active-automatic-quest-container');
             const startBtn = document.getElementById('quest-choose-btn');
             
-            // Если есть активный квест, скроллим к нему, иначе к кнопке старт
+            // Если есть активный квест (в памяти), скроллим к нему
             if (activeEl && activeEl.innerHTML.trim() !== "") {
                  activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else if (startBtn) {
+                 // Иначе к кнопке выбора
                  startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-        }, 100);
+        }, 50);
+
+        // 3. Обновляем в фоне
+        openQuestsTab(true).catch(console.error);
+        refreshDataSilently().catch(console.error);
     });
     // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
     // 👇 ВСТАВЬТЕ ВАШ КОД СЮДА 👇
@@ -2500,118 +2511,120 @@ async function renderFullInterface(bootstrapData) {
     updateShortcutStatuses(userData, allQuests);
 }
 
-    async function main() {
-        console.log("--- 1. main() ЗАПУЩЕНА (Progress Mode) ---");
-        
-        // Старт: 5%
-        updateLoading(5);
-        setTimeout(() => window.scrollTo(0, 0), 0);
+    // Отдельная функция для тихого обновления (без лоадера)
+    async function updateBootstrapSilently() {
+        try {
+            const data = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); // isSilent=true
+            if (data) {
+                // Предзагружаем картинки (чтобы они не моргали при подмене), но без прогресс-бара
+                const imgs = extractImageUrls(data);
+                await preloadImages(imgs); // Ждем загрузки картинок в памяти
+                
+                // Рендерим и сохраняем
+                await renderFullInterface(data);
+                localStorage.setItem('app_bootstrap_cache', JSON.stringify(data));
+                console.log("Тихое обновление завершено.");
+            }
+        } catch (e) {
+            console.error("Ошибка тихого обновления:", e);
+        }
+    }
 
-        // БЛОК 1: Возврат в приложение (оставляем как было)
+    async function main() {
+        console.log("--- main() ЗАПУЩЕНА ---");
+
+        // 1. Проверка Telegram (если не в приложении - редирект)
         if (window.Telegram && !Telegram.WebApp.initData) {
-            // ... ваш код для редиректа ...
+            // ... тут ваш код редиректа или заглушки ...
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
         }
 
-        // БЛОК 2: Основная логика
-        updateLoading(10); // Инициализация прошла
+        // Проверяем: показано ли уже меню?
+        const isAppVisible = dom.mainContent.classList.contains('visible');
 
-        // 1. Проверяем КЭШ
-        let hasCache = false;
-        try {
-            const cachedJson = localStorage.getItem('app_bootstrap_cache');
-            if (cachedJson) {
-                const cachedData = JSON.parse(cachedJson);
-                console.log("Отображаем интерфейс из КЭША...");
-                updateLoading(90); // Кэш есть - сразу почти готово
-                await renderFullInterface(cachedData);
-                
-                updateLoading(100);
-                setTimeout(() => {
-                    dom.mainContent.classList.add('visible');
-                    dom.loaderOverlay.classList.add('hidden');
-                }, 200); // Небольшая задержка для красоты
-                hasCache = true;
-            }
-        } catch (e) {
-            console.warn("Ошибка чтения кэша:", e);
-        }
-
-        if (!hasCache) {
+        // ============================================================
+        // СЦЕНАРИЙ 1: ПЕРВАЯ ЗАГРУЗКА (Показываем прогресс-бар)
+        // ============================================================
+        if (!isAppVisible) {
             dom.loaderOverlay.classList.remove('hidden');
-            updateLoading(15); // Начинаем запрос к серверу
-        }
+            updateLoading(1);
 
-        try {
-            // 2. Загружаем данные с сервера
-            // Чтобы прогресс не стоял на месте во время запроса, можно запустить фейковый таймер
-            let fakeProgress = 15;
-            const fakeTimer = setInterval(() => {
-                if (fakeProgress < 40) { // До 40% доходим сами пока ждем
-                    fakeProgress++;
-                    if (!hasCache) updateLoading(fakeProgress);
+            let bootstrapData = null;
+            let usedCache = false;
+
+            // А. Пробуем достать КЭШ
+            try {
+                const cachedJson = localStorage.getItem('app_bootstrap_cache');
+                if (cachedJson) {
+                    bootstrapData = JSON.parse(cachedJson);
+                    usedCache = true;
+                    console.log("Первый старт: Нашли кэш.");
                 }
-            }, 200);
+            } catch (e) { console.warn(e); }
 
-            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', hasCache);
-            clearInterval(fakeTimer); // Останавливаем фейковый таймер
+            // Б. Если кэша нет - грузим из сети (с анимацией прогресса)
+            if (!bootstrapData) {
+                // Запускаем фейковый прогресс (до 30%), чтобы не было скучно ждать
+                let fakeP = 1;
+                const timer = setInterval(() => { if(fakeP<30) updateLoading(++fakeP); }, 50);
+                
+                try {
+                    // Важно: isSilent=true, потому что мы сами управляем лоадером здесь
+                    bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
+                } catch (e) {
+                    clearInterval(timer);
+                    throw e; // Выбрасываем ошибку в catch блок ниже
+                }
+                clearInterval(timer);
+            }
 
-            if (!bootstrapData) throw new Error("Bootstrap failed");
+            if (!bootstrapData) throw new Error("Нет данных для запуска");
 
-            // Данные получены — прыгаем на 45%
-            if (!hasCache) updateLoading(45);
-
-            // 3. Предзагрузка картинок (от 45% до 90%)
+            // В. Строгая загрузка картинок (30% -> 100%)
+            // Если взяли из кэша, начинаем с 5% (быстро), если из сети — с 35%
+            const startP = usedCache ? 5 : 35;
+            updateLoading(startP);
+            
             const imageUrls = extractImageUrls(bootstrapData);
-            
             if (imageUrls.length > 0) {
-                if (!hasCache) {
-                    await preloadImages(imageUrls, (percentOfImages) => {
-                        // Математика: преобразуем 0-100% картинок в диапазон 45-95% общей загрузки
-                        const totalProgress = 45 + Math.floor(percentOfImages * 0.5); 
-                        updateLoading(totalProgress);
-                    });
-                } else {
-                    preloadImages(imageUrls); // Если кэш, грузим фоном
-                }
+                await preloadImages(imageUrls, (p) => {
+                    // Масштабируем прогресс картинок (0-100) в остаток шкалы (startP-100)
+                    const range = 100 - startP;
+                    const val = startP + Math.floor((p * range) / 100);
+                    updateLoading(val);
+                });
+            } else {
+                updateLoading(95);
             }
 
-            // 4. Рендерим
-            if (!hasCache) updateLoading(95);
-            console.log("Обновляем интерфейс СВЕЖИМИ данными...");
+            // Г. Рендерим интерфейс
             await renderFullInterface(bootstrapData);
-
-            // Сохраняем кэш
-            localStorage.setItem('app_bootstrap_cache', JSON.stringify(bootstrapData));
-
-            // Проверки (туториал и т.д.)
-            if (!localStorage.getItem('tutorialCompleted')) startTutorial();
-            if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
-
-            if (window.location.hash === '#quests') {
-                await openQuestsTab(true);
-                history.replaceState(null, null, window.location.pathname + window.location.search);
-            }
-        
-        } catch (e) {
-            console.error("Критическая ошибка main:", e);
-            localStorage.removeItem('app_bootstrap_cache');
-            
-            if (!hasCache) {
-                dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки: ${e.message}</p>`;
-                dom.loadingText.textContent = "Ошибка";
-                dom.loadingText.style.color = "#ff453a";
-            }
-        } finally {
-            // 5. Финиш
             updateLoading(100);
+
+            // Д. Показываем меню пользователю
             setTimeout(() => {
-                dom.mainContent.classList.add('visible');
                 dom.loaderOverlay.classList.add('hidden');
-            }, 300); // Даем пользователю увидеть 100%
+                dom.mainContent.classList.add('visible');
+                
+                // Е. Если мы показали КЭШ, то теперь (когда меню уже видно)
+                // запускаем тихое обновление данных с сервера
+                if (usedCache) {
+                    console.log("Кэш показан. Запускаем тихое обновление в фоне...");
+                    updateBootstrapSilently(); 
+                }
+            }, 300); // Небольшая задержка, чтобы глаз заметил 100%
+            
+        } 
+        // ============================================================
+        // СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ (Мгновенно / Тихо)
+        // ============================================================
+        else {
+            console.log("Повторный вызов main: Тихое обновление.");
+            // Просто обновляем данные, не показывая никаких окон загрузки
+            await updateBootstrapSilently();
         }
-     }
+    }
             
 // --- ЗАПУСК ПРИЛОЖЕНИЯ (Этого не хватало) ---
     setupEventListeners();
