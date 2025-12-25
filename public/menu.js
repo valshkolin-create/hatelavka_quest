@@ -1742,61 +1742,63 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
-    // --- 1. ИДЕАЛЬНАЯ СЕТКА ДЛЯ ГЛАВНОГО МЕНЮ ---
+    // --- 1. ИДЕАЛЬНАЯ СЕТКА (МАГАЗИН СЛЕВА) ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
-    // ПЕРЕИМЕНОВАЛИ shopBtn -> shortcutShop, чтобы исправить ошибку конфликта имен
     const shortcutShop = document.getElementById('shortcut-shop');
 
     if (challengeBtn && questsBtn && shortcutShop) {
         const container = challengeBtn.parentElement;
         if (container) {
-            // Настраиваем родительский контейнер (Сетка 2 колонки)
+            // Настраиваем родительский контейнер (Сетка)
             Object.assign(container.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr', // Две абсолютно равные колонки
-                gridTemplateRows: 'auto auto',  // Высота рядов подстраивается под контент
-                gap: '8px',                     // Отступ между плитками
-                alignItems: 'stretch'           // Растягиваем элементы на всю высоту ячейки
+                gridTemplateColumns: '1fr 1fr', // Две РАВНЫЕ колонки (50% на 50%)
+                gridTemplateRows: 'auto auto',  // Высота авто
+                gap: '8px',                     // Отступ
+                alignItems: 'stretch',          // Растянуть на всю высоту
+                width: '100%',                  // Строго по ширине экрана
+                boxSizing: 'border-box'         // Учитывать отступы
             });
 
-            // 1. Челлендж (Слева, Верх)
-            Object.assign(challengeBtn.style, {
-                gridColumn: '1',
-                gridRow: '1',
-                width: '100%',
-                margin: '0'
-            });
-
-            // 2. Испытания (Слева, Низ)
-            Object.assign(questsBtn.style, {
-                gridColumn: '1',
-                gridRow: '2',
-                width: '100%',
-                margin: '0'
-            });
-
-            // 3. Магазин (Справа, Высота 2 блока)
+            // 1. Магазин (СЛЕВА, Высота 2 блока)
             Object.assign(shortcutShop.style, {
-                gridColumn: '2',
-                gridRow: '1 / span 2', // Занимает 1-й ряд и растягивается на 2 ряда
+                gridColumn: '1',        // Первая колонка (слева)
+                gridRow: '1 / span 2',  // С 1-й строки, на 2 строки вниз
                 width: '100%',
-                height: 'auto',        // Высота авто (растянется grid-ом)
+                height: 'auto',
                 margin: '0',
-                display: 'flex',       // Чтобы контент внутри (картинка/текст) центровался
+                display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center'
             });
 
-            // Добавляем клик на магазин (Переход работает здесь)
+            // 2. Челлендж (СПРАВА, Верх)
+            Object.assign(challengeBtn.style, {
+                gridColumn: '2',        // Вторая колонка (справа)
+                gridRow: '1',           // Первая строка
+                width: '100%',
+                margin: '0'
+            });
+
+            // 3. Испытания (СПРАВА, Низ)
+            Object.assign(questsBtn.style, {
+                gridColumn: '2',        // Вторая колонка (справа)
+                gridRow: '2',           // Вторая строка
+                width: '100%',
+                margin: '0'
+            });
+
+            // Клик на магазин
             shortcutShop.addEventListener('click', () => {
                 window.location.href = '/shop';
             });
         }
     }
 
-    // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
+    // --- ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ---
+    
     // Логика кнопки "В главное меню" в новом окне успеха
     const successCloseBtn = document.getElementById('success-close-btn');
     if (successCloseBtn) {
@@ -1805,9 +1807,6 @@ function setupEventListeners() {
             window.location.reload();
         });
     }
-
-    // Блок "// 1. Магазин" здесь удален намеренно, так как его код перенесен наверх в shortcutShop, 
-    // чтобы стили применялись правильно и не было дублей.
 
     // 2. Челлендж (Логика клика)
     const chalShortcut = document.getElementById('shortcut-challenge');
