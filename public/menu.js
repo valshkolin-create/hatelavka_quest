@@ -1742,7 +1742,7 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
-    // --- 1. ГЕОМЕТРИЯ: 3 ФИГУРЫ (Магазин слева, остальные справа, не касаются) ---
+    // --- 1. ГЕОМЕТРИЯ: РАВНЫЕ БЛОКИ И АДАПТАЦИЯ КОНТЕНТА ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
     const shortcutShop = document.getElementById('shortcut-shop');
@@ -1753,55 +1753,69 @@ function setupEventListeners() {
             // НАСТРОЙКА КОНТЕЙНЕРА
             Object.assign(container.style, {
                 display: 'grid',
-                // 0.85fr (слева) и 1.15fr (справа) — магазин чуть уже, челленджи чуть шире
+                // Левая колонка (Магазин) - 0.85 долей, Правая - 1.15
                 gridTemplateColumns: '0.85fr 1.15fr', 
-                gridTemplateRows: 'auto auto',  // Высота строк авто
                 
-                // ВАЖНО: Отступ посередине (линия несоприкосновения)
-                gap: '10px',
+                // ВАЖНО: 1fr 1fr делает верхний и нижний ряды СТРОГО РАВНЫМИ
+                gridTemplateRows: '1fr 1fr',  
                 
-                // ВАЖНО: Отступы от краев экрана (слева и справа одинаковые)
-                padding: '0 12px', 
-                
-                // ВАЖНО: Чтобы не вылезало за границы экрана
+                gap: '10px',            // Отступ между блоками
+                padding: '0 12px',      // Отступы от краев экрана
                 width: '100%',
                 boxSizing: 'border-box',
-                alignItems: 'stretch'
+                alignItems: 'stretch'   // Растягиваем блоки на всю ячейку
             });
 
             // 1. МАГАЗИН (СЛЕВА)
             Object.assign(shortcutShop.style, {
-                gridColumn: '1',        // Первая колонка
-                gridRow: '1 / span 2',  // Растянут на 2 строки вниз
-                
-                width: '100%',          // Занимает всю ширину СВОЕЙ колонки
-                height: 'auto',         // Высота подтянется под правые блоки
+                gridColumn: '1',
+                gridRow: '1 / span 2',  // Занимает обе строки
+                width: '100%',
+                height: '100%',         // Растягиваем на всю доступную высоту
                 margin: '0',
                 
+                // Центровка и обрезка лишнего
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                overflow: 'hidden',      // Обрезаем, если внутри что-то торчит
+                overflow: 'hidden',     // Контент не растянет блок
                 boxSizing: 'border-box'
             });
 
             // 2. ЧЕЛЛЕНДЖ (СПРАВА, ВЕРХ)
             Object.assign(challengeBtn.style, {
-                gridColumn: '2',        // Вторая колонка
-                gridRow: '1',           // Первая строка
+                gridColumn: '2',
+                gridRow: '1',
                 width: '100%',
+                height: '100%',         // Строго высота ячейки (1fr)
                 margin: '0',
-                boxSizing: 'border-box'
+                
+                // Центровка и адаптация контента
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center', // Центруем по вертикали
+                alignItems: 'center',     // Центруем по горизонтали
+                overflow: 'hidden',       // Обрезаем лишнее
+                boxSizing: 'border-box',
+                minHeight: '80px'         // Минимальная высота для красоты
             });
 
             // 3. ИСПЫТАНИЯ (СПРАВА, НИЗ)
             Object.assign(questsBtn.style, {
-                gridColumn: '2',        // Вторая колонка
-                gridRow: '2',           // Вторая строка
+                gridColumn: '2',
+                gridRow: '2',
                 width: '100%',
+                height: '100%',         // Строго высота ячейки (1fr)
                 margin: '0',
-                boxSizing: 'border-box'
+                
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
+                minHeight: '80px'
             });
 
             // Обработчик клика на Магазин
