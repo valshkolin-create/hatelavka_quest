@@ -52,6 +52,9 @@ const dom = {
         weeklyModalCounter: document.getElementById('weekly-modal-counter')
     };
 
+    let lastShopStatus = null; // <--- ДОБАВИТЬ ЭТУ ПЕРЕМЕННУЮ ДЛЯ ЗАПОМИНАНИЯ
+    let originalShopHTML = null;
+
 try {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
@@ -83,8 +86,6 @@ try {
     // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЛАЙДЕРА V2 (С ЛОГАМИ) ---
     let currentSlideIndex = 0;
     let slideInterval;
-    let lastShopStatus = null; // <--- ДОБАВИТЬ ЭТУ ПЕРЕМЕННУЮ ДЛЯ ЗАПОМИНАНИЯ
-    let originalShopHTML = null;
     const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
 
     function setupSlider() {
