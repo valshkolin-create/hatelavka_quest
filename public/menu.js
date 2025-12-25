@@ -1742,7 +1742,7 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
-    // --- 1. ИДЕАЛЬНАЯ СЕТКА (МАГАЗИН СЛЕВА) ---
+    // --- 1. НАСТРОЙКА СЕТКИ (Магазин СЛЕВА, остальные СПРАВА) ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
     const shortcutShop = document.getElementById('shortcut-shop');
@@ -1750,47 +1750,48 @@ function setupEventListeners() {
     if (challengeBtn && questsBtn && shortcutShop) {
         const container = challengeBtn.parentElement;
         if (container) {
-            // Настраиваем родительский контейнер (Сетка)
+            // Настраиваем родительский контейнер
             Object.assign(container.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr', // Две РАВНЫЕ колонки (50% на 50%)
+                gridTemplateColumns: '1fr 1fr', // Две РАВНЫЕ колонки (50% / 50%)
                 gridTemplateRows: 'auto auto',  // Высота авто
-                gap: '8px',                     // Отступ
-                alignItems: 'stretch',          // Растянуть на всю высоту
-                width: '100%',                  // Строго по ширине экрана
-                boxSizing: 'border-box'         // Учитывать отступы
+                gap: '8px',                     // Отступ между плитками
+                alignItems: 'stretch',          // Растягиваем на всю высоту
+                width: '100%',                  // Ширина ровно по экрану
+                padding: '0',                   // Убираем внутренние отступы контейнера, если были
+                boxSizing: 'border-box'
             });
 
-            // 1. Магазин (СЛЕВА, Высота 2 блока)
+            // 1. МАГАЗИН -> СЛЕВА (Колонка 1), во всю высоту (2 строки)
             Object.assign(shortcutShop.style, {
-                gridColumn: '1',        // Первая колонка (слева)
-                gridRow: '1 / span 2',  // С 1-й строки, на 2 строки вниз
-                width: '100%',
-                height: 'auto',
-                margin: '0',
+                gridColumn: '1',        // Первая колонка (Левая)
+                gridRow: '1 / span 2',  // Занимает 1-ю и 2-ю строки
+                width: '100%',          // Растягиваем на всю ширину колонки
+                height: 'auto',         // Высота подстроится под соседей
+                margin: '0',            // Убираем отступы, чтобы прижать к краю
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center'
             });
 
-            // 2. Челлендж (СПРАВА, Верх)
+            // 2. ЧЕЛЛЕНДЖ -> СПРАВА (Колонка 2), Верх
             Object.assign(challengeBtn.style, {
-                gridColumn: '2',        // Вторая колонка (справа)
+                gridColumn: '2',        // Вторая колонка (Правая)
                 gridRow: '1',           // Первая строка
                 width: '100%',
                 margin: '0'
             });
 
-            // 3. Испытания (СПРАВА, Низ)
+            // 3. ИСПЫТАНИЯ -> СПРАВА (Колонка 2), Низ
             Object.assign(questsBtn.style, {
-                gridColumn: '2',        // Вторая колонка (справа)
+                gridColumn: '2',        // Вторая колонка (Правая)
                 gridRow: '2',           // Вторая строка
                 width: '100%',
                 margin: '0'
             });
 
-            // Клик на магазин
+            // Обработчик клика на Магазин
             shortcutShop.addEventListener('click', () => {
                 window.location.href = '/shop';
             });
