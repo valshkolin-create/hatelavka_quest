@@ -1251,11 +1251,11 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 @app.post("/api/v1/bootstrap")
 async def bootstrap_app(
     request_data: InitDataRequest, 
-    background_tasks: BackgroundTasks, # <--- 1. ДОБАВЬ ЭТО (Запятая в конце обязательна)
+    background_tasks: BackgroundTasks, # <--- 1. ОСТАВИЛИ КАК ЕСТЬ
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    🚀 OPTIMIZED: Загружает ВСЕ данные.
+    🚀 OPTIMIZED: Загружает ВСЕ данные + Статус P2P трейда.
     Автоматически регистрирует пользователя, если его нет в базе.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -1264,13 +1264,13 @@ async def bootstrap_app(
 
     telegram_id = user_info["id"]
     
-    # --- 🔥 2. ВСТАВЬ ЭТОТ БЛОК ЗДЕСЬ 🔥 ---
+    # --- 🔥 2. ОСТАВИЛИ ВАШ БЛОК ЗДЕСЬ 🔥 ---
     # Запускаем проверку Twitch (ник, подписка) в фоне при каждом запуске приложения
     background_tasks.add_task(silent_update_twitch_user, telegram_id)
     # --------------------------------------
     
     try:
-        # 1. Запускаем все запросы ПАРАЛЛЕЛЬНО (Все 8 задач на месте)
+        # 1. Запускаем все запросы ПАРАЛЛЕЛЬНО (Добавили Task I)
         results = await asyncio.gather(
             # A. Настройки админа
             get_admin_settings_async_global(),
@@ -1297,14 +1297,25 @@ async def bootstrap_app(
                 headers={"Prefer": "count=exact"} 
             ),
 
-            # H. Статус стрима (из предыдущего фикса)
+            # H. Статус стрима
             supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
+
+            # I. 🔥 НОВОЕ: Статус P2P трейда (для мгновенного обновления плитки)
+            supabase.get(
+                "/p2p_trades",
+                params={
+                    "user_id": f"eq.{telegram_id}",
+                    "status": "in.(pending,active,review)",
+                    "order": "created_at.desc",
+                    "limit": 1
+                }
+            ),
             
             return_exceptions=True
         )
         
-        # Распаковка результатов (все переменные сохранены)
-        (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res, stream_res) = results
+        # Распаковка результатов (добавили trade_res в конец)
+        (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res, stream_res, trade_res) = results
 
         # --- 1. Обработка Настроек ---
         if isinstance(settings_res, Exception):
@@ -1317,18 +1328,15 @@ async def bootstrap_app(
         user_data = {}
         rpc_data = None
         
-        # Проверяем ответ от базы
         if not isinstance(user_res, Exception) and user_res.status_code == 200:
             rpc_data = user_res.json()
 
-        # 🔥 ЕСЛИ ЮЗЕРА НЕТ — СОЗДАЕМ ЕГО 🔥
+        # 🔥 ЕСЛИ ЮЗЕРА НЕТ — СОЗДАЕМ ЕГО
         if not rpc_data or not rpc_data.get('profile'):
             logging.info(f"🆕 Новый пользователь {telegram_id}...")
             
             raw_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-            # 🔥 Очищаем имя перед записью в базу
             full_name_tg = clean_user_name_text(raw_full_name) 
-            
             username_tg = user_info.get("username")
             
             await supabase.post(
@@ -1336,12 +1344,11 @@ async def bootstrap_app(
                 json={
                     "telegram_id": telegram_id,
                     "username": username_tg,
-                    "full_name": full_name_tg # Запишется чистое имя
+                    "full_name": full_name_tg
                 },
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
             
-            # Создаем объект данных вручную, чтобы не делать лишний запрос
             user_data = {
                 "telegram_id": telegram_id,
                 "full_name": full_name_tg,
@@ -1353,7 +1360,6 @@ async def bootstrap_app(
                 "event_participations": {},
             }
         else:
-            # Юзер есть — берем данные как обычно
             user_data = rpc_data.get('profile', {}) or {}
             user_data['challenge'] = rpc_data.get('challenge')
             user_data['event_participations'] = rpc_data.get('event_participations', {})
@@ -1370,10 +1376,8 @@ async def bootstrap_app(
             if s_data:
                 user_data['is_stream_online'] = s_data[0].get('value', False)
 
-        # --- 👇 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 👇 ---
-        # Считаем, что подписан, если бонус уже был активирован ранее
+        # Подписка
         user_data['is_telegram_subscribed'] = True if user_data.get('referral_activated_at') else False
-        # -------------------------------------
 
         # Реферальные данные (Task F)
         if not isinstance(user_extra_res, Exception) and user_extra_res.status_code == 200:
@@ -1390,6 +1394,25 @@ async def bootstrap_app(
                     count_val = content_range.split('/')[-1]
                     user_data['active_referrals_count'] = int(count_val) if count_val != '*' else 0
                 except: pass
+
+        # 🔥 ОБРАБОТКА P2P ТРЕЙДА (Task I) 🔥
+        active_trade_status = "none"
+        if not isinstance(trade_res, Exception) and trade_res.status_code == 200:
+            tr_data = trade_res.json()
+            if tr_data:
+                trade = tr_data[0]
+                db_status = trade.get("status")
+                
+                # Маппинг статусов P2P
+                if db_status == "pending":
+                    active_trade_status = "creating"
+                elif db_status == "active":
+                    active_trade_status = "confirming"
+                elif db_status == "review":
+                    active_trade_status = "sending"
+        
+        # Кладем статус в user_data, чтобы фронт его увидел сразу
+        user_data['active_trade_status'] = active_trade_status
 
         # --- 3. Обработка Квестов (Task C) ---
         quests_list = []
