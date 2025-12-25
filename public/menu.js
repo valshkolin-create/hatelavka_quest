@@ -2611,6 +2611,7 @@ async function renderFullInterface(bootstrapData) {
                 dom.loaderOverlay.classList.add('hidden');
             }, 300); // Даем пользователю увидеть 100%
         }
+     }
             
 // --- ЗАПУСК ПРИЛОЖЕНИЯ (Этого не хватало) ---
     setupEventListeners();
