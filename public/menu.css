@@ -1416,3 +1416,147 @@ button, .popup-btn {
     font-size: 12px; /* Чуть меньше шрифт */
     word-wrap: break-word; /* Переносить длинные слова */
 }
+/* --- METRO UI СТИЛИ (WINDOWS PHONE) --- */
+
+.metro-shortcuts-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Две равные колонки */
+    grid-template-rows: 1fr 1fr;    /* Два равных ряда */
+    gap: 10px;
+    padding: 0 10px;
+    margin-bottom: 20px;
+    /* Делаем так, чтобы левая колонка задавала высоту */
+}
+
+.metro-tile {
+    position: relative;
+    border-radius: 14px; /* Мягкий квадрат, как в iOS/Metro */
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.1s, filter 0.2s;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.metro-tile:active {
+    transform: scale(0.96);
+    filter: brightness(0.8);
+}
+
+/* -- БОЛЬШАЯ ПЛИТКА (МАГАЗИН) -- */
+.metro-tile-large {
+    grid-column: 1;
+    grid-row: 1 / 3; /* Занимает 2 строки */
+    aspect-ratio: 1 / 1; /* Квадрат */
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 15px;
+}
+
+/* Огромная иконка на фоне */
+.metro-tile-bg-icon {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    font-size: 80px;
+    color: rgba(255, 215, 0, 0.1);
+    transform: rotate(-15deg);
+    pointer-events: none;
+}
+
+.metro-content {
+    position: relative;
+    z-index: 2;
+}
+
+.metro-icon-main {
+    font-size: 32px;
+    color: #FFD700;
+    margin-bottom: 10px;
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+}
+
+.metro-label {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.metro-sublabel {
+    display: block;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
+}
+
+/* -- МАЛЕНЬКИЕ ПЛИТКИ (СПРАВА) -- */
+.metro-tile-small {
+    background: rgba(44, 44, 46, 0.6);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Челлендж (Синий оттенок) */
+#shortcut-challenge {
+    background: linear-gradient(135deg, rgba(0, 122, 255, 0.2), rgba(0, 122, 255, 0.05));
+    border-color: rgba(0, 122, 255, 0.3);
+}
+
+/* Квест (Красный/Оранжевый оттенок) */
+#shortcut-quests {
+    background: linear-gradient(135deg, rgba(255, 59, 48, 0.2), rgba(255, 59, 48, 0.05));
+    border-color: rgba(255, 59, 48, 0.3);
+}
+
+.metro-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metro-info {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 4px 0;
+}
+
+.metro-progress-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.metro-progress-fill {
+    height: 100%;
+    background: #fff;
+    width: 0%;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* Цвета прогресс баров */
+#metro-challenge-fill { background: #007aff; box-shadow: 0 0 8px rgba(0, 122, 255, 0.6); }
+#metro-quest-fill { background: #ff3b30; box-shadow: 0 0 8px rgba(255, 59, 48, 0.6); }
+
+/* Статус "Выполнено" */
+.metro-status-done { color: #34c759 !important; }
+.metro-fill-done { background: #34c759 !important; box-shadow: 0 0 8px rgba(52, 199, 89, 0.6) !important; }
