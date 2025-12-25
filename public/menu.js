@@ -435,7 +435,7 @@ try {
         }
         localStorage.setItem('tutorialCompleted', 'true');
     }
-    const tutorialNextHandler = () => {
+    function tutorialNextHandler() {
         currentTutorialStep++;
         showTutorialStep(currentTutorialStep);
     };
