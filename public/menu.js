@@ -1742,7 +1742,7 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
-    // --- 1. НАСТРОЙКА СЕТКИ (Магазин СЛЕВА, остальные СПРАВА) ---
+    // --- 1. ГЕОМЕТРИЯ: 3 ФИГУРЫ (Магазин слева, остальные справа, не касаются) ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
     const shortcutShop = document.getElementById('shortcut-shop');
@@ -1750,45 +1750,58 @@ function setupEventListeners() {
     if (challengeBtn && questsBtn && shortcutShop) {
         const container = challengeBtn.parentElement;
         if (container) {
-            // Настраиваем родительский контейнер
+            // НАСТРОЙКА КОНТЕЙНЕРА
             Object.assign(container.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr', // Две РАВНЫЕ колонки (50% / 50%)
-                gridTemplateRows: 'auto auto',  // Высота авто
-                gap: '8px',                     // Отступ между плитками
-                alignItems: 'stretch',          // Растягиваем на всю высоту
-                width: '100%',                  // Ширина ровно по экрану
-                padding: '0',                   // Убираем внутренние отступы контейнера, если были
-                boxSizing: 'border-box'
+                // 0.85fr (слева) и 1.15fr (справа) — магазин чуть уже, челленджи чуть шире
+                gridTemplateColumns: '0.85fr 1.15fr', 
+                gridTemplateRows: 'auto auto',  // Высота строк авто
+                
+                // ВАЖНО: Отступ посередине (линия несоприкосновения)
+                gap: '10px',
+                
+                // ВАЖНО: Отступы от краев экрана (слева и справа одинаковые)
+                padding: '0 12px', 
+                
+                // ВАЖНО: Чтобы не вылезало за границы экрана
+                width: '100%',
+                boxSizing: 'border-box',
+                alignItems: 'stretch'
             });
 
-            // 1. МАГАЗИН -> СЛЕВА (Колонка 1), во всю высоту (2 строки)
+            // 1. МАГАЗИН (СЛЕВА)
             Object.assign(shortcutShop.style, {
-                gridColumn: '1',        // Первая колонка (Левая)
-                gridRow: '1 / span 2',  // Занимает 1-ю и 2-ю строки
-                width: '100%',          // Растягиваем на всю ширину колонки
-                height: 'auto',         // Высота подстроится под соседей
-                margin: '0',            // Убираем отступы, чтобы прижать к краю
+                gridColumn: '1',        // Первая колонка
+                gridRow: '1 / span 2',  // Растянут на 2 строки вниз
+                
+                width: '100%',          // Занимает всю ширину СВОЕЙ колонки
+                height: 'auto',         // Высота подтянется под правые блоки
+                margin: '0',
+                
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                overflow: 'hidden',      // Обрезаем, если внутри что-то торчит
+                boxSizing: 'border-box'
             });
 
-            // 2. ЧЕЛЛЕНДЖ -> СПРАВА (Колонка 2), Верх
+            // 2. ЧЕЛЛЕНДЖ (СПРАВА, ВЕРХ)
             Object.assign(challengeBtn.style, {
-                gridColumn: '2',        // Вторая колонка (Правая)
+                gridColumn: '2',        // Вторая колонка
                 gridRow: '1',           // Первая строка
                 width: '100%',
-                margin: '0'
+                margin: '0',
+                boxSizing: 'border-box'
             });
 
-            // 3. ИСПЫТАНИЯ -> СПРАВА (Колонка 2), Низ
+            // 3. ИСПЫТАНИЯ (СПРАВА, НИЗ)
             Object.assign(questsBtn.style, {
-                gridColumn: '2',        // Вторая колонка (Правая)
+                gridColumn: '2',        // Вторая колонка
                 gridRow: '2',           // Вторая строка
                 width: '100%',
-                margin: '0'
+                margin: '0',
+                boxSizing: 'border-box'
             });
 
             // Обработчик клика на Магазин
@@ -1797,7 +1810,6 @@ function setupEventListeners() {
             });
         }
     }
-
     // --- ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ---
     
     // Логика кнопки "В главное меню" в новом окне успеха
