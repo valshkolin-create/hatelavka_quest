@@ -1750,36 +1750,30 @@ function setupEventListeners() {
     if (challengeBtn && questsBtn && shortcutShop) {
         const container = challengeBtn.parentElement;
         if (container) {
-            // НАСТРОЙКА КОНТЕЙНЕРА
+            // НАСТРОЙКА КОНТЕЙНЕРА (Оставляем как настроили идеально)
             Object.assign(container.style, {
                 display: 'grid',
-                // Левая колонка (Магазин) - 0.85 долей, Правая - 1.15
                 gridTemplateColumns: '0.85fr 1.15fr', 
-                
-                // ВАЖНО: 1fr 1fr делает верхний и нижний ряды СТРОГО РАВНЫМИ
                 gridTemplateRows: '1fr 1fr',  
-                
-                gap: '10px',            // Отступ между блоками
-                padding: '0 12px',      // Отступы от краев экрана
+                gap: '10px',
+                padding: '0 12px',
                 width: '100%',
                 boxSizing: 'border-box',
-                alignItems: 'stretch'   // Растягиваем блоки на всю ячейку
+                alignItems: 'stretch'
             });
 
             // 1. МАГАЗИН (СЛЕВА)
             Object.assign(shortcutShop.style, {
                 gridColumn: '1',
-                gridRow: '1 / span 2',  // Занимает обе строки
+                gridRow: '1 / span 2',
                 width: '100%',
-                height: '100%',         // Растягиваем на всю доступную высоту
+                height: '100%',
                 margin: '0',
-                
-                // Центровка и обрезка лишнего
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                overflow: 'hidden',     // Контент не растянет блок
+                overflow: 'hidden',
                 boxSizing: 'border-box'
             });
 
@@ -1788,27 +1782,8 @@ function setupEventListeners() {
                 gridColumn: '2',
                 gridRow: '1',
                 width: '100%',
-                height: '100%',         // Строго высота ячейки (1fr)
+                height: '100%',
                 margin: '0',
-                
-                // Центровка и адаптация контента
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center', // Центруем по вертикали
-                alignItems: 'center',     // Центруем по горизонтали
-                overflow: 'hidden',       // Обрезаем лишнее
-                boxSizing: 'border-box',
-                minHeight: '80px'         // Минимальная высота для красоты
-            });
-
-            // 3. ИСПЫТАНИЯ (СПРАВА, НИЗ)
-            Object.assign(questsBtn.style, {
-                gridColumn: '2',
-                gridRow: '2',
-                width: '100%',
-                height: '100%',         // Строго высота ячейки (1fr)
-                margin: '0',
-                
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -1818,15 +1793,30 @@ function setupEventListeners() {
                 minHeight: '80px'
             });
 
-            // Обработчик клика на Магазин
-            shortcutShop.addEventListener('click', () => {
-                window.location.href = '/shop';
+            // 3. ИСПЫТАНИЯ (СПРАВА, НИЗ)
+            Object.assign(questsBtn.style, {
+                gridColumn: '2',
+                gridRow: '2',
+                width: '100%',
+                height: '100%',
+                margin: '0',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
+                minHeight: '80px'
             });
+
+            // Клик на Магазин
+            shortcutShop.onclick = () => { window.location.href = '/shop'; };
         }
     }
+
     // --- ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ---
-    
-    // Логика кнопки "В главное меню" в новом окне успеха
+
+    // Кнопка "В главное меню"
     const successCloseBtn = document.getElementById('success-close-btn');
     if (successCloseBtn) {
         successCloseBtn.addEventListener('click', () => {
@@ -1835,7 +1825,7 @@ function setupEventListeners() {
         });
     }
 
-    // 2. Челлендж (Логика клика)
+    // Клик на Челлендж
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
         chalShortcut.addEventListener('click', () => {
@@ -1849,7 +1839,7 @@ function setupEventListeners() {
         });
     }
 
-    // 3. Испытания (Логика клика)
+    // Клик на Испытания
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.addEventListener('click', () => {
@@ -1868,6 +1858,27 @@ function setupEventListeners() {
             refreshDataSilently().catch(console.error);
         });
     }
+
+    // --- ИСПРАВЛЕНИЕ: ЕЖЕНЕДЕЛЬНЫЕ ЦЕЛИ (Делегирование) ---
+    // Используем document.addEventListener, так как кнопка появляется позже
+    document.addEventListener('click', (e) => {
+        // Проверяем, был ли клик по weekly-goals-trigger или внутри него
+        const trigger = e.target.closest('#weekly-goals-trigger');
+        if (trigger) {
+             const modal = document.getElementById('weekly-modal-overlay');
+             if(modal) modal.classList.remove('hidden');
+        }
+    });
+    
+    // Закрытие модалки еженедельных целей
+    const weeklyClose = document.getElementById('weekly-modal-close-btn');
+    if(weeklyClose) {
+        weeklyClose.addEventListener('click', () => {
+             const modal = document.getElementById('weekly-modal-overlay');
+             if(modal) modal.classList.add('hidden');
+        });
+    }
+}
 
     // 👆 КОНЕЦ ВАШЕГО КОДА 👆
     // Обработчик кнопки "Позже" в приветственном попапе
