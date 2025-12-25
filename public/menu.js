@@ -1151,7 +1151,7 @@ function renderChallenge(challengeData, isGuest) {
                             const claimBtn = activeQuestContainer.querySelector('.claim-reward-button');
 
                             if (fill && textSpan) {
-                                // Формируем текст с иконками, если нужно
+                                // Формируем текст с иконками
                                 let prefix = "";
                                 if (activeQuest.quest_type && activeQuest.quest_type.includes('twitch_messages')) prefix = "💬 ";
                                 else if (activeQuest.quest_type && activeQuest.quest_type.includes('telegram_messages')) prefix = "✉️ ";
@@ -1190,7 +1190,7 @@ function renderChallenge(challengeData, isGuest) {
                             const progress = hbData.challenge_progress;
                             const target = hbData.challenge_target;
                             
-                            // Определяем префикс по текущему тексту (простой способ)
+                            // Определяем префикс по текущему тексту
                             let prefix = "";
                             const currentText = textSpan.textContent;
                             if (currentText.includes("💬")) prefix = "💬 ";
@@ -1210,13 +1210,93 @@ function renderChallenge(challengeData, isGuest) {
                     }
                 }
 
-                // 5. 🔥 ВАЖНО: Обновляем ярлыки на ГЛАВНОЙ странице
+                // 5. Обновляем ярлыки на ГЛАВНОЙ странице
                 updateShortcutStatuses(userData, allQuests);
+
+                // 6. 🔥 ВАЖНО: Обновляем статус кнопки МАГАЗИНА (Trade-It) 🔥
+                // Передаем статус трейда (creating, sending, confirming...)
+                updateShopButtonState(hbData.active_trade_status);
             }
         } catch (e) {
             console.error("Ошибка фонового обновления:", e);
         }
     }
+// --- ФУНКЦИЯ: ОБНОВЛЕНИЕ ВИДА КНОПКИ МАГАЗИНА (TRADE-IT ЭТАПЫ) ---
+    function updateShopButtonState(tradeStatus) {
+        const shopBtn = document.getElementById('shortcut-shop');
+        if (!shopBtn) return;
+
+        // Если статуса нет или трейд завершен — возвращаем обычный вид Магазина
+        if (!tradeStatus || tradeStatus === 'none' || tradeStatus === 'completed' || tradeStatus === 'canceled') {
+            // Сбрасываем кастомные стили (возвращаем дефолтный CSS)
+            shopBtn.style.background = ''; 
+            shopBtn.style.border = '';
+            
+            // Стандартный контент
+            shopBtn.innerHTML = `
+                <div style="font-size: 24px; margin-bottom: 5px;"><i class="fa-solid fa-store"></i></div>
+                <div style="font-size: 13px; font-weight: 600;">Магазин</div>
+            `;
+            return;
+        }
+
+        // --- ЛОГИКА ЭТАПОВ (COLORS & STATES) ---
+        // Здесь мы задаем цвета и тексты под каждый этап Trade-It
+        
+        let color = '';
+        let text = '';
+        let icon = '';
+        let borderColor = 'transparent';
+
+        switch (tradeStatus) {
+            case 'creating': // 1. Создание трейда
+                color = 'linear-gradient(135deg, #FF9500 0%, #FFCC00 100%)'; // Оранжевый
+                text = 'Создаем трейд...';
+                icon = 'fa-solid fa-circle-notch fa-spin';
+                break;
+                
+            case 'sending': // 2. Бот отправляет
+                color = 'linear-gradient(135deg, #007AFF 0%, #00B4FF 100%)'; // Синий
+                text = 'Отправка...';
+                icon = 'fa-solid fa-paper-plane';
+                break;
+                
+            case 'confirming': // 3. Ждем подтверждения от юзера (ВАЖНО!)
+                color = 'linear-gradient(135deg, #34C759 0%, #30D158 100%)'; // Зеленый
+                text = 'ПРИМИТЕ ТРЕЙД!'; // Капсом, чтобы заметил
+                icon = 'fa-solid fa-check-double';
+                borderColor = '#fff'; // Добавим рамку для внимания
+                break;
+                
+            case 'failed': // Ошибка
+                color = 'linear-gradient(135deg, #FF3B30 0%, #FF453A 100%)'; // Красный
+                text = 'Ошибка трейда';
+                icon = 'fa-solid fa-triangle-exclamation';
+                break;
+                
+            default: // Неизвестный статус (на всякий случай)
+                color = 'var(--surface-color)';
+                text = 'Загрузка...';
+                icon = 'fa-solid fa-spinner fa-spin';
+                break;
+        }
+
+        // Применяем стили
+        shopBtn.style.background = color;
+        shopBtn.style.border = borderColor !== 'transparent' ? `2px solid ${borderColor}` : 'none';
+        
+        // Обновляем контент (сохраняя центровку flex)
+        shopBtn.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 5px; color: #fff;">
+                <i class="${icon}"></i>
+            </div>
+            <div style="font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase; text-align: center; line-height: 1.2;">
+                ${text}
+            </div>
+        `;
+    }
+
+
     
     async function startChallengeRoulette() {
         const getChallengeBtn = document.getElementById('get-challenge-btn');
