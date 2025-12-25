@@ -1756,6 +1756,10 @@ function setupEventListeners() {
     // 1. Магазин
     const shopShortcut = document.getElementById('shortcut-shop');
     if (shopShortcut) {
+        // Заставляем магазин занимать 2 строки в высоту (напротив Челленджа и Квеста)
+        shopShortcut.style.gridRow = 'span 2'; 
+        shopShortcut.style.height = '100%';
+    }
         shopShortcut.addEventListener('click', () => {
             window.location.href = '/shop';
         });
@@ -2245,7 +2249,7 @@ async function openQuestsTab(isSilent = false) {
 // Функция обновления статусов на ярлыках (Версия: Оффлайн текст + Маленькая кнопка)
     function updateShortcutStatuses(userData, allQuests) {
         
-        // Вспомогательная функция для центровки контента внутри плитки
+        // Вспомогательная функция для центровки самой плитки
         const makeTileCentered = (el) => {
             if (!el) return;
             el.style.display = 'flex';
@@ -2263,13 +2267,11 @@ async function openQuestsTab(isSilent = false) {
         if (chalStatus && chalFill && shortcutChal) {
             makeTileCentered(shortcutChal); 
 
-            // Удаляем старые элементы (кнопку и текст оффлайн), если они есть
-            const oldBtn = document.getElementById('mini-schedule-btn');
-            if (oldBtn) oldBtn.remove();
-            const oldOfflineText = document.getElementById('offline-text-msg');
-            if (oldOfflineText) oldOfflineText.remove();
+            // Удаляем старые элементы, чтобы не дублировались
+            const oldWrapper = document.getElementById('offline-wrapper');
+            if (oldWrapper) oldWrapper.remove();
             
-            // Сброс видимости (для онлайн режима)
+            // Сброс видимости для онлайн-режима
             chalStatus.style.display = '';
             chalStatus.style.marginBottom = '5px'; 
             if (chalFill.parentElement) chalFill.parentElement.style.display = ''; 
@@ -2279,41 +2281,48 @@ async function openQuestsTab(isSilent = false) {
             if (!isOnline) {
                 // --- СТРИМ ОФФЛАЙН ---
                 
-                // 1. Скрываем стандартный статус и прогресс-бар
+                // Скрываем стандартные элементы
                 chalStatus.style.display = 'none';
                 if (chalFill.parentElement) chalFill.parentElement.style.display = 'none';
 
-                // 2. Добавляем надпись "Стрим оффлайн"
+                // Создаем контейнер-обертку, чтобы всё было идеально по центру
+                const wrapper = document.createElement('div');
+                wrapper.id = 'offline-wrapper';
+                Object.assign(wrapper.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px' // Расстояние между текстом и кнопкой
+                });
+
+                // Текст "Стрим оффлайн"
                 const offlineText = document.createElement('div');
-                offlineText.id = 'offline-text-msg';
                 offlineText.textContent = 'Стрим оффлайн';
                 Object.assign(offlineText.style, {
-                    color: '#ff453a', // Красный цвет
+                    color: '#ff453a',
                     fontSize: '12px',
                     fontWeight: '600',
-                    marginBottom: '6px' // Отступ до кнопки
+                    lineHeight: '1.2'
                 });
-                shortcutChal.appendChild(offlineText);
 
-                // 3. Добавляем МАЛЕНЬКУЮ кнопку "Расписание"
+                // Маленькая кнопка "Расписание"
                 const btn = document.createElement('div');
-                btn.id = 'mini-schedule-btn';
                 btn.innerHTML = '<i class="fa-regular fa-calendar-days"></i> Расписание';
                 
-                // Стили для маленькой кнопки
                 Object.assign(btn.style, {
                     background: 'rgba(255, 255, 255, 0.15)',
                     border: '1px solid rgba(255, 255, 255, 0.3)',
                     color: '#fff',
-                    padding: '4px 8px',      // Уменьшили отступы
-                    borderRadius: '6px',     // Чуть меньше скругление
-                    fontSize: '10px',        // Шрифт меньше
+                    padding: '5px 10px',     // Компактный размер
+                    borderRadius: '8px',
+                    fontSize: '10px',
                     fontWeight: '500',
                     cursor: 'pointer',
                     backdropFilter: 'blur(4px)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px'
+                    gap: '5px'
                 });
 
                 btn.onclick = (e) => {
@@ -2322,7 +2331,10 @@ async function openQuestsTab(isSilent = false) {
                     if (modal) modal.classList.remove('hidden');
                 };
 
-                shortcutChal.appendChild(btn);
+                // Собираем всё вместе
+                wrapper.appendChild(offlineText);
+                wrapper.appendChild(btn);
+                shortcutChal.appendChild(wrapper);
 
             } else {
                 // --- СТРИМ ОНЛАЙН (Восстанавливаем вид) ---
