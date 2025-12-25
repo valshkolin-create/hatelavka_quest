@@ -1745,9 +1745,10 @@ function setupEventListeners() {
     // --- 1. ИДЕАЛЬНАЯ СЕТКА ДЛЯ ГЛАВНОГО МЕНЮ ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
-    const shopBtn = document.getElementById('shortcut-shop');
+    // ПЕРЕИМЕНОВАЛИ shopBtn -> shortcutShop, чтобы исправить ошибку конфликта имен
+    const shortcutShop = document.getElementById('shortcut-shop');
 
-    if (challengeBtn && questsBtn && shopBtn) {
+    if (challengeBtn && questsBtn && shortcutShop) {
         const container = challengeBtn.parentElement;
         if (container) {
             // Настраиваем родительский контейнер (Сетка 2 колонки)
@@ -1764,7 +1765,7 @@ function setupEventListeners() {
                 gridColumn: '1',
                 gridRow: '1',
                 width: '100%',
-                margin: '0' // Убираем внешние отступы
+                margin: '0'
             });
 
             // 2. Испытания (Слева, Низ)
@@ -1776,27 +1777,27 @@ function setupEventListeners() {
             });
 
             // 3. Магазин (Справа, Высота 2 блока)
-            Object.assign(shopBtn.style, {
+            Object.assign(shortcutShop.style, {
                 gridColumn: '2',
                 gridRow: '1 / span 2', // Занимает 1-й ряд и растягивается на 2 ряда
                 width: '100%',
                 height: 'auto',        // Высота авто (растянется grid-ом)
                 margin: '0',
-                display: 'flex',       // Чтобы контент внутри центровался
+                display: 'flex',       // Чтобы контент внутри (картинка/текст) центровался
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center'
             });
 
-            // Добавляем клик на магазин (Здесь, чтобы не сбивать стили)
-            shopBtn.addEventListener('click', () => {
+            // Добавляем клик на магазин (Переход работает здесь)
+            shortcutShop.addEventListener('click', () => {
                 window.location.href = '/shop';
             });
         }
     }
 
-    // --- ДРУГИЕ ОБРАБОТЧИКИ ---
-    
+    // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
+    // Логика кнопки "В главное меню" в новом окне успеха
     const successCloseBtn = document.getElementById('success-close-btn');
     if (successCloseBtn) {
         successCloseBtn.addEventListener('click', () => {
@@ -1804,8 +1805,9 @@ function setupEventListeners() {
             window.location.reload();
         });
     }
-    
-    // БЛОК "1. Магазин" ЗДЕСЬ УДАЛЕН, ТАК КАК ОН ЛОМАЛ СТИЛИ
+
+    // Блок "// 1. Магазин" здесь удален намеренно, так как его код перенесен наверх в shortcutShop, 
+    // чтобы стили применялись правильно и не было дублей.
 
     // 2. Челлендж (Логика клика)
     const chalShortcut = document.getElementById('shortcut-challenge');
@@ -1838,37 +1840,6 @@ function setupEventListeners() {
             }, 50);
             openQuestsTab(true).catch(console.error);
             refreshDataSilently().catch(console.error);
-        });
-    }
-    // --- КОНЕЦ БЛОКА ЯРЛЫКОВ ---
-    // 👇 ВСТАВЬТЕ ВАШ КОД СЮДА 👇
-
-    // Открытие модалки при клике на баннер
-    if (dom.weeklyGoalsTrigger) {
-        dom.weeklyGoalsTrigger.addEventListener('click', () => {
-            dom.weeklyModalOverlay.classList.remove('hidden');
-            // Блокируем прокрутку основной страницы
-            document.body.style.overflow = 'hidden';
-        });
-    }
-
-    // Закрытие модалки по крестику
-    if (dom.weeklyModalCloseBtn) {
-        dom.weeklyModalCloseBtn.addEventListener('click', () => {
-            dom.weeklyModalOverlay.classList.add('hidden');
-            // Разблокируем прокрутку
-            document.body.style.overflow = '';
-        });
-    }
-
-    // Закрытие по клику вне контента (по темному фону)
-    if (dom.weeklyModalOverlay) {
-        dom.weeklyModalOverlay.addEventListener('click', (e) => {
-            if (e.target === dom.weeklyModalOverlay) {
-                dom.weeklyModalOverlay.classList.add('hidden');
-                // Разблокируем прокрутку
-                document.body.style.overflow = '';
-            }
         });
     }
 
