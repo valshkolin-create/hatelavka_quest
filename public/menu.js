@@ -2232,7 +2232,7 @@ async function openQuestsTab(isSilent = false) {
     // Запускаем сразу
     syncReferralOnLoad();
     
-    // Функция обновления статусов на ярлыках (Новая Metro версия)
+// Функция обновления статусов на ярлыках (Новая Metro версия)
     function updateShortcutStatuses(userData, allQuests) {
         
         // Вспомогательная функция для центровки контента внутри плитки
@@ -2378,45 +2378,6 @@ async function openQuestsTab(isSilent = false) {
         }
     }
 
-        // 2. Обновляем Испытание (shortcut-quests) - без изменений
-        const questStatus = document.getElementById('metro-quest-status');
-        const questFill = document.getElementById('metro-quest-fill');
-
-        if (questStatus && questFill) {
-            const activeId = userData.active_quest_id;
-            if (!activeId) {
-                questStatus.textContent = "Нажмите для выбора";
-                questStatus.style.fontSize = "11px";
-                questFill.style.width = '0%';
-                questStatus.classList.remove('metro-status-done');
-            } else {
-                const quest = allQuests.find(q => q.id === activeId);
-                if (quest) {
-                    const prog = userData.active_quest_progress || 0;
-                    const target = quest.target_value || 1;
-                    const percent = Math.min(100, (prog / target) * 100);
-                    
-                    if (prog >= target) {
-                        questStatus.textContent = "ГОТОВО";
-                        questStatus.classList.add('metro-status-done');
-                        questFill.style.width = '100%';
-                        questFill.classList.add('metro-fill-done');
-                    } else {
-                        let suffix = "";
-                        if(quest.quest_type && quest.quest_type.includes('uptime')) suffix = " мин.";
-                        
-                        questStatus.textContent = `${prog} / ${target}${suffix}`;
-                        questStatus.classList.remove('metro-status-done');
-                        questFill.style.width = `${percent}%`;
-                        questFill.classList.remove('metro-fill-done');
-                    }
-                } else {
-                    questStatus.textContent = "...";
-                }
-            }
-        }
-    }
-    // --- ОПТИМИЗАЦИЯ: Предзагрузка изображений ---
 function preloadImages(urls, onProgress) {
     if (!urls || urls.length === 0) {
         if (onProgress) onProgress(100);
