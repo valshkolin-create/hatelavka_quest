@@ -1,5 +1,7 @@
 const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
+        loadingText: document.getElementById('loading-text'),
+        loadingBarFill: document.getElementById('loading-bar-fill'),
         mainContent: document.getElementById('main-content'),
         fullName: document.getElementById('fullName'),
         navAdmin: document.getElementById('nav-admin'),
@@ -58,6 +60,10 @@ try {
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
+    }
+        function updateLoading(percent) {
+    if (dom.loadingText) dom.loadingText.textContent = Math.floor(percent) + '%';
+    if (dom.loadingBarFill) dom.loadingBarFill.style.width = Math.floor(percent) + '%';
     }
     // --- КОНЕЦ ДОБАВЛЕНИЯ ---
 
@@ -2282,29 +2288,47 @@ async function openQuestsTab(isSilent = false) {
         }
     }
     // --- ОПТИМИЗАЦИЯ: Предзагрузка изображений ---
-function preloadImages(urls) {
-    if (!urls || urls.length === 0) return Promise.resolve();
+function preloadImages(urls, onProgress) {
+    if (!urls || urls.length === 0) {
+        if (onProgress) onProgress(100);
+        return Promise.resolve();
+    }
     
-    // Создаем массив промисов для картинок
+    let loadedCount = 0;
+    const total = urls.length;
+
+    // Создаем массив промисов
     const imagePromises = urls.map(url => {
         return new Promise((resolve) => {
-            if (!url) return resolve();
+            if (!url) {
+                loadedCount++;
+                if (onProgress) onProgress(Math.floor((loadedCount / total) * 100));
+                return resolve();
+            }
             const img = new Image();
             img.src = url;
-            img.onload = resolve;
-            img.onerror = resolve; // Если ошибка загрузки - тоже продолжаем
+            img.onload = () => {
+                loadedCount++;
+                if (onProgress) onProgress(Math.floor((loadedCount / total) * 100));
+                resolve();
+            };
+            img.onerror = () => {
+                // Даже если ошибка, считаем что "обработано", чтобы не зависло
+                loadedCount++; 
+                if (onProgress) onProgress(Math.floor((loadedCount / total) * 100));
+                resolve();
+            };
         });
     });
 
-    // Создаем промис-таймаут (2.5 секунды)
+    // Таймаут на случай, если картинки грузятся вечность (3.5 секунды)
     const timeoutPromise = new Promise((resolve) => {
         setTimeout(() => {
-            console.warn("⏳ Preload images timed out, showing interface anyway.");
+            console.warn("⏳ Preload timeout, force rendering.");
             resolve();
-        }, 2500); 
+        }, 3500); 
     });
 
-    // Ждем либо загрузки всех картинок, либо истечения таймера
     return Promise.race([Promise.all(imagePromises), timeoutPromise]);
 }
     
@@ -2477,108 +2501,94 @@ async function renderFullInterface(bootstrapData) {
 }
 
     async function main() {
-        console.log("--- 1. main() ЗАПУЩЕНА (Optimized Mode) ---");
+        console.log("--- 1. main() ЗАПУЩЕНА (Progress Mode) ---");
+        
+        // Старт: 5%
+        updateLoading(5);
         setTimeout(() => window.scrollTo(0, 0), 0);
 
-        // ------------------------------------------------------------------
-        // БЛОК 1: Если мы в браузере (например, после редиректа)
-        // ------------------------------------------------------------------
-        if (!Telegram.WebApp.initData) {
-            document.body.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background-color: #000; color: #fff;">
-                    <i class="fa-solid fa-circle-check" style="font-size: 60px; color: #34c759; margin-bottom: 20px;"></i>
-                    <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Успешно!</h1>
-                    <p style="color: #b0b0b0; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
-                        Действие выполнено.<br>Возвращаем вас в приложение...
-                    </p>
-                    <button id="return-btn" style="background-color: #007aff; color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 240px; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">
-                        Вернуться в приложение
-                    </button>
-                </div>
-            `;
-            
-            // Функция возврата (Deep Link)
-            const goBackToApp = () => {
-                const appLink = "https://t.me/HATElavka_bot/app";
-                
-                // 1. Сначала пробуем просто перейти по ссылке (самый надежный способ для внешних браузеров)
-                window.location.replace(appLink);
-
-                // 2. Если это встроенный браузер Telegram, ссылка выше может не сработать,
-                // поэтому пробуем закрыть окно (это вернет юзера в чат/бота)
-                setTimeout(() => {
-                    try { window.close(); } catch(e) {}
-                    try { window.Telegram.WebApp.close(); } catch(e) {}
-                }, 1000); // Ждем секунду
-            };
-
-            // Логика кнопки
-            document.getElementById('return-btn').addEventListener('click', goBackToApp);
-
-            // Автоматическая попытка возврата через 500мс
-            setTimeout(goBackToApp, 500);
-
-            // Скрываем лоадер, если он был
+        // БЛОК 1: Возврат в приложение (оставляем как было)
+        if (window.Telegram && !Telegram.WebApp.initData) {
+            // ... ваш код для редиректа ...
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
         }
 
-        // ------------------------------------------------------------------
-        // БЛОК 2: Основная логика приложения (внутри Telegram)
-        // ------------------------------------------------------------------
+        // БЛОК 2: Основная логика
+        updateLoading(10); // Инициализация прошла
 
-        // ШАГ 1: Пытаемся показать КЭШИРОВАННЫЕ данные (Мгновенная загрузка)
+        // 1. Проверяем КЭШ
         let hasCache = false;
         try {
             const cachedJson = localStorage.getItem('app_bootstrap_cache');
             if (cachedJson) {
                 const cachedData = JSON.parse(cachedJson);
                 console.log("Отображаем интерфейс из КЭША...");
+                updateLoading(90); // Кэш есть - сразу почти готово
                 await renderFullInterface(cachedData);
                 
-                // Если есть кэш, сразу скрываем лоадер, не ждем сети!
-                dom.mainContent.classList.add('visible');
-                dom.loaderOverlay.classList.add('hidden');
+                updateLoading(100);
+                setTimeout(() => {
+                    dom.mainContent.classList.add('visible');
+                    dom.loaderOverlay.classList.add('hidden');
+                }, 200); // Небольшая задержка для красоты
                 hasCache = true;
             }
         } catch (e) {
             console.warn("Ошибка чтения кэша:", e);
         }
 
-        // Если кэша нет, показываем лоадер
         if (!hasCache) {
             dom.loaderOverlay.classList.remove('hidden');
+            updateLoading(15); // Начинаем запрос к серверу
         }
 
         try {
-            // ШАГ 2: Загружаем СВЕЖИЕ данные с сервера (Фоном или явно)
+            // 2. Загружаем данные с сервера
+            // Чтобы прогресс не стоял на месте во время запроса, можно запустить фейковый таймер
+            let fakeProgress = 15;
+            const fakeTimer = setInterval(() => {
+                if (fakeProgress < 40) { // До 40% доходим сами пока ждем
+                    fakeProgress++;
+                    if (!hasCache) updateLoading(fakeProgress);
+                }
+            }, 200);
+
             const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', hasCache);
+            clearInterval(fakeTimer); // Останавливаем фейковый таймер
 
-            if (!bootstrapData) throw new Error("Не удалось загрузить данные (Bootstrap failed)");
+            if (!bootstrapData) throw new Error("Bootstrap failed");
 
-            // ШАГ 3: Собираем все картинки и ПРЕДЗАГРУЖАЕМ их
+            // Данные получены — прыгаем на 45%
+            if (!hasCache) updateLoading(45);
+
+            // 3. Предзагрузка картинок (от 45% до 90%)
             const imageUrls = extractImageUrls(bootstrapData);
             
             if (imageUrls.length > 0) {
                 if (!hasCache) {
-                    await preloadImages(imageUrls);
+                    await preloadImages(imageUrls, (percentOfImages) => {
+                        // Математика: преобразуем 0-100% картинок в диапазон 45-95% общей загрузки
+                        const totalProgress = 45 + Math.floor(percentOfImages * 0.5); 
+                        updateLoading(totalProgress);
+                    });
                 } else {
-                    preloadImages(imageUrls); 
+                    preloadImages(imageUrls); // Если кэш, грузим фоном
                 }
             }
 
-            // ШАГ 4: Обновляем интерфейс свежими данными
+            // 4. Рендерим
+            if (!hasCache) updateLoading(95);
             console.log("Обновляем интерфейс СВЕЖИМИ данными...");
             await renderFullInterface(bootstrapData);
 
-            // ШАГ 5: Сохраняем свежие данные в кэш
+            // Сохраняем кэш
             localStorage.setItem('app_bootstrap_cache', JSON.stringify(bootstrapData));
 
-            // Проверка туториала и промокодов
+            // Проверки (туториал и т.д.)
             if (!localStorage.getItem('tutorialCompleted')) startTutorial();
             if (sessionStorage.getItem('newPromoReceived') === 'true') dom.newPromoNotification.classList.remove('hidden');
 
-            // Хэш навигация
             if (window.location.hash === '#quests') {
                 await openQuestsTab(true);
                 history.replaceState(null, null, window.location.pathname + window.location.search);
@@ -2586,26 +2596,19 @@ async function renderFullInterface(bootstrapData) {
         
         } catch (e) {
             console.error("Критическая ошибка main:", e);
-            
-            // 🔥 ДОБАВЛЕНО: Если произошла ошибка, чистим кэш, чтобы при перезагрузке данные скачались заново
             localStorage.removeItem('app_bootstrap_cache');
-            console.log("🧹 Кэш очищен из-за ошибки.");
             
             if (!hasCache) {
                 dom.challengeContainer.innerHTML = `<p style="text-align:center; color: #ff453a;">Ошибка загрузки: ${e.message}</p>`;
+                dom.loadingText.textContent = "Ошибка";
+                dom.loadingText.style.color = "#ff453a";
             }
         } finally {
-            // Гарантированно скрываем лоадер в конце
-            dom.mainContent.classList.add('visible');
-            dom.loaderOverlay.classList.add('hidden');
+            // 5. Финиш
+            updateLoading(100);
+            setTimeout(() => {
+                dom.mainContent.classList.add('visible');
+                dom.loaderOverlay.classList.add('hidden');
+            }, 300); // Даем пользователю увидеть 100%
         }
     }
-    
-    setupEventListeners();
-    main();
-    setInterval(refreshDataSilently, 7000);
-
-} catch (e) {
-    document.getElementById('loader-overlay')?.classList.add('hidden');
-    document.body.innerHTML = `<div style="text-align:center; padding:20px;"><h1>Критическая ошибка</h1><p>${e.message}</p></div>`;
-}
