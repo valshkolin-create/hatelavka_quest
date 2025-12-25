@@ -83,6 +83,7 @@ try {
     // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЛАЙДЕРА V2 (С ЛОГАМИ) ---
     let currentSlideIndex = 0;
     let slideInterval;
+    let lastShopStatus = null; // <--- ДОБАВИТЬ ЭТУ ПЕРЕМЕННУЮ ДЛЯ ЗАПОМИНАНИЯ
     const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
 
     function setupSlider() {
@@ -1226,13 +1227,24 @@ function renderChallenge(challengeData, isGuest) {
         const shopBtn = document.getElementById('shortcut-shop');
         if (!shopBtn) return;
 
-        // Если статуса нет или трейд завершен — возвращаем обычный вид Магазина
-        if (!tradeStatus || tradeStatus === 'none' || tradeStatus === 'completed' || tradeStatus === 'canceled') {
-            // Сбрасываем кастомные стили (возвращаем дефолтный CSS)
+        // Нормализуем статус (если undefined/null -> превращаем в 'none')
+        const currentStatus = tradeStatus || 'none';
+
+        // 🔥 САМОЕ ВАЖНОЕ: Если статус не изменился — ничего не делаем!
+        if (currentStatus === lastShopStatus) return;
+
+        // Запоминаем новый статус
+        lastShopStatus = currentStatus;
+
+        console.log(`Статус магазина изменился: ${currentStatus}`); // Для отладки
+
+        // 1. СЦЕНАРИЙ: ОБЫЧНЫЙ МАГАЗИН (Трейда нет или завершен)
+        if (currentStatus === 'none' || currentStatus === 'completed' || currentStatus === 'canceled') {
+            // Сбрасываем стили (возвращаем стекло)
             shopBtn.style.background = ''; 
             shopBtn.style.border = '';
             
-            // Стандартный контент
+            // Стандартный вид
             shopBtn.innerHTML = `
                 <div style="font-size: 24px; margin-bottom: 5px;"><i class="fa-solid fa-store"></i></div>
                 <div style="font-size: 13px; font-weight: 600;">Магазин</div>
@@ -1240,57 +1252,51 @@ function renderChallenge(challengeData, isGuest) {
             return;
         }
 
-        // --- ЛОГИКА ЭТАПОВ (COLORS & STATES) ---
-        // Здесь мы задаем цвета и тексты под каждый этап Trade-It
-        
+        // 2. СЦЕНАРИЙ: АКТИВНЫЙ ТРЕЙД (Меняем цвет и иконку)
         let color = '';
         let text = '';
         let icon = '';
         let borderColor = 'transparent';
+        let textColor = '#fff';
 
-        switch (tradeStatus) {
-            case 'creating': // 1. Создание трейда
+        switch (currentStatus) {
+            case 'creating': 
                 color = 'linear-gradient(135deg, #FF9500 0%, #FFCC00 100%)'; // Оранжевый
                 text = 'Создаем трейд...';
                 icon = 'fa-solid fa-circle-notch fa-spin';
                 break;
-                
-            case 'sending': // 2. Бот отправляет
+            case 'sending': 
                 color = 'linear-gradient(135deg, #007AFF 0%, #00B4FF 100%)'; // Синий
                 text = 'Отправка...';
                 icon = 'fa-solid fa-paper-plane';
                 break;
-                
-            case 'confirming': // 3. Ждем подтверждения от юзера (ВАЖНО!)
+            case 'confirming': 
                 color = 'linear-gradient(135deg, #34C759 0%, #30D158 100%)'; // Зеленый
-                text = 'ПРИМИТЕ ТРЕЙД!'; // Капсом, чтобы заметил
+                text = 'ПРИМИТЕ ТРЕЙД!';
                 icon = 'fa-solid fa-check-double';
-                borderColor = '#fff'; // Добавим рамку для внимания
+                borderColor = '#fff'; 
                 break;
-                
-            case 'failed': // Ошибка
+            case 'failed': 
                 color = 'linear-gradient(135deg, #FF3B30 0%, #FF453A 100%)'; // Красный
-                text = 'Ошибка трейда';
+                text = 'Ошибка';
                 icon = 'fa-solid fa-triangle-exclamation';
                 break;
-                
-            default: // Неизвестный статус (на всякий случай)
+            default: 
                 color = 'var(--surface-color)';
                 text = 'Загрузка...';
                 icon = 'fa-solid fa-spinner fa-spin';
                 break;
         }
 
-        // Применяем стили
+        // Применяем новые стили
         shopBtn.style.background = color;
         shopBtn.style.border = borderColor !== 'transparent' ? `2px solid ${borderColor}` : 'none';
         
-        // Обновляем контент (сохраняя центровку flex)
         shopBtn.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 5px; color: #fff;">
+            <div style="font-size: 24px; margin-bottom: 5px; color: ${textColor};">
                 <i class="${icon}"></i>
             </div>
-            <div style="font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase; text-align: center; line-height: 1.2;">
+            <div style="font-size: 11px; font-weight: 800; color: ${textColor}; text-transform: uppercase; text-align: center; line-height: 1.2;">
                 ${text}
             </div>
         `;
