@@ -2206,56 +2206,79 @@ async function openQuestsTab(isSilent = false) {
     syncReferralOnLoad();
     
     // Функция обновления статусов на ярлыках (Магазин, Челленджи, Испытания)
+    // Функция обновления статусов на ярлыках (Новая Metro версия)
     function updateShortcutStatuses(userData, allQuests) {
         // 1. Обновляем Челлендж (shortcut-challenge)
-        const challengeEl = document.getElementById('shortcut-challenge-status');
-        if (challengeEl && userData.challenge) {
-            const ch = userData.challenge;
-            const prog = ch.progress_value || 0;
-            const target = ch.target_value || 1;
-            
-            if (ch.claimed_at) {
-                challengeEl.textContent = "Выполнено";
-                challengeEl.classList.add('done');
-            } else if (prog >= target) {
-                challengeEl.textContent = "Забрать!";
-                challengeEl.classList.add('done');
+        const chalStatus = document.getElementById('metro-challenge-status');
+        const chalFill = document.getElementById('metro-challenge-fill');
+        
+        if (chalStatus && chalFill) {
+            if (userData.challenge) {
+                const ch = userData.challenge;
+                const prog = ch.progress_value || 0;
+                const target = ch.target_value || 1;
+                const percent = Math.min(100, (prog / target) * 100);
+
+                if (ch.claimed_at) {
+                    chalStatus.textContent = "Награда получена";
+                    chalStatus.classList.add('metro-status-done');
+                    chalFill.style.width = '100%';
+                    chalFill.classList.add('metro-fill-done');
+                } else if (prog >= target) {
+                    chalStatus.textContent = "ЗАБРАТЬ!";
+                    chalStatus.classList.add('metro-status-done');
+                    chalFill.style.width = '100%';
+                    chalFill.classList.add('metro-fill-done');
+                } else {
+                    chalStatus.textContent = `${prog} / ${target}`;
+                    chalStatus.classList.remove('metro-status-done');
+                    chalFill.style.width = `${percent}%`;
+                    chalFill.classList.remove('metro-fill-done');
+                }
             } else {
-                challengeEl.textContent = `${prog} / ${target}`;
-                challengeEl.classList.remove('done');
+                chalStatus.textContent = "Нет активного";
+                chalFill.style.width = '0%';
             }
-            challengeEl.style.opacity = '1';
-        } else if (challengeEl) {
-            challengeEl.textContent = "Нет активного";
-            challengeEl.style.opacity = '1';
         }
 
         // 2. Обновляем Испытание (shortcut-quests)
-        const questEl = document.getElementById('shortcut-quest-status');
-        if (questEl) {
+        const questStatus = document.getElementById('metro-quest-status');
+        const questFill = document.getElementById('metro-quest-fill');
+
+        if (questStatus && questFill) {
             const activeId = userData.active_quest_id;
             if (!activeId) {
-                questEl.textContent = "Выбрать";
-                questEl.classList.remove('done');
+                questStatus.textContent = "Нажмите для выбора";
+                questStatus.style.fontSize = "11px"; // Чуть меньше, если текст длинный
+                questFill.style.width = '0%';
+                questStatus.classList.remove('metro-status-done');
             } else {
                 // Ищем квест в списке allQuests
                 const quest = allQuests.find(q => q.id === activeId);
                 if (quest) {
                     const prog = userData.active_quest_progress || 0;
                     const target = quest.target_value || 1;
+                    const percent = Math.min(100, (prog / target) * 100);
                     
                     if (prog >= target) {
-                        questEl.textContent = "Готово";
-                        questEl.classList.add('done');
+                        questStatus.textContent = "ГОТОВО";
+                        questStatus.classList.add('metro-status-done');
+                        questFill.style.width = '100%';
+                        questFill.classList.add('metro-fill-done');
                     } else {
-                        questEl.textContent = `${prog} / ${target}`;
-                        questEl.classList.remove('done');
+                        // Форматируем текст (добавляем мин. или иконки)
+                        let suffix = "";
+                        if(quest.quest_type && quest.quest_type.includes('uptime')) suffix = " мин.";
+                        
+                        questStatus.textContent = `${prog} / ${target}${suffix}`;
+                        questStatus.classList.remove('metro-status-done');
+                        questFill.style.width = `${percent}%`;
+                        questFill.classList.remove('metro-fill-done');
                     }
                 } else {
-                    questEl.textContent = "...";
+                    questStatus.textContent = "...";
                 }
             }
-            questEl.style.opacity = '1';
         }
     }
     // --- ОПТИМИЗАЦИЯ: Предзагрузка изображений ---
