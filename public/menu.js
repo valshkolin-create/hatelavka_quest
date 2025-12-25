@@ -2543,96 +2543,107 @@ async function renderFullInterface(bootstrapData) {
     async function main() {
         console.log("--- main() ЗАПУЩЕНА ---");
 
-        // 1. Проверка Telegram (если не в приложении - редирект)
-        if (window.Telegram && !Telegram.WebApp.initData) {
-            // ... тут ваш код редиректа или заглушки ...
-            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-            return; 
-        }
+        // 1. Внутренний TRY для отлова асинхронных ошибок
+        try {
+            // Проверка Telegram
+            if (window.Telegram && !Telegram.WebApp.initData) {
+                if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+                return; 
+            }
 
-        // Проверяем: показано ли уже меню?
-        const isAppVisible = dom.mainContent.classList.contains('visible');
+            const isAppVisible = dom.mainContent && dom.mainContent.classList.contains('visible');
 
-        // ============================================================
-        // СЦЕНАРИЙ 1: ПЕРВАЯ ЗАГРУЗКА (Показываем прогресс-бар)
-        // ============================================================
-        if (!isAppVisible) {
-            dom.loaderOverlay.classList.remove('hidden');
-            updateLoading(1);
+            // --- СЦЕНАРИЙ 1: ПЕРВАЯ ЗАГРУЗКА ---
+            if (!isAppVisible) {
+                if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
+                updateLoading(1);
 
-            let bootstrapData = null;
-            let usedCache = false;
+                let bootstrapData = null;
+                let usedCache = false;
 
-            // А. Пробуем достать КЭШ
-            try {
-                const cachedJson = localStorage.getItem('app_bootstrap_cache');
-                if (cachedJson) {
-                    bootstrapData = JSON.parse(cachedJson);
-                    usedCache = true;
-                    console.log("Первый старт: Нашли кэш.");
-                }
-            } catch (e) { console.warn(e); }
-
-            // Б. Если кэша нет - грузим из сети (с анимацией прогресса)
-            if (!bootstrapData) {
-                // Запускаем фейковый прогресс (до 30%), чтобы не было скучно ждать
-                let fakeP = 1;
-                const timer = setInterval(() => { if(fakeP<30) updateLoading(++fakeP); }, 50);
-                
+                // А. Кэш
                 try {
-                    // Важно: isSilent=true, потому что мы сами управляем лоадером здесь
-                    bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
-                } catch (e) {
-                    clearInterval(timer);
-                    throw e; // Выбрасываем ошибку в catch блок ниже
+                    const cachedJson = localStorage.getItem('app_bootstrap_cache');
+                    if (cachedJson) {
+                        bootstrapData = JSON.parse(cachedJson);
+                        usedCache = true;
+                    }
+                } catch (e) { console.warn(e); }
+
+                // Б. Сеть (если нет кэша)
+                if (!bootstrapData) {
+                    let fakeP = 1;
+                    const timer = setInterval(() => { if(fakeP < 30) updateLoading(++fakeP); }, 50);
+                    
+                    try {
+                        bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
+                    } finally {
+                        clearInterval(timer);
+                    }
                 }
-                clearInterval(timer);
-            }
 
-            if (!bootstrapData) throw new Error("Нет данных для запуска");
+                if (!bootstrapData) throw new Error("Нет данных (bootstrap)");
 
-            // В. Строгая загрузка картинок (30% -> 100%)
-            // Если взяли из кэша, начинаем с 5% (быстро), если из сети — с 35%
-            const startP = usedCache ? 5 : 35;
-            updateLoading(startP);
-            
-            const imageUrls = extractImageUrls(bootstrapData);
-            if (imageUrls.length > 0) {
-                await preloadImages(imageUrls, (p) => {
-                    // Масштабируем прогресс картинок (0-100) в остаток шкалы (startP-100)
-                    const range = 100 - startP;
-                    const val = startP + Math.floor((p * range) / 100);
-                    updateLoading(val);
-                });
-            } else {
-                updateLoading(95);
-            }
-
-            // Г. Рендерим интерфейс
-            await renderFullInterface(bootstrapData);
-            updateLoading(100);
-
-            // Д. Показываем меню пользователю
-            setTimeout(() => {
-                dom.loaderOverlay.classList.add('hidden');
-                dom.mainContent.classList.add('visible');
+                // В. Картинки
+                const startP = usedCache ? 5 : 35;
+                updateLoading(startP);
                 
-                // Е. Если мы показали КЭШ, то теперь (когда меню уже видно)
-                // запускаем тихое обновление данных с сервера
-                if (usedCache) {
-                    console.log("Кэш показан. Запускаем тихое обновление в фоне...");
-                    updateBootstrapSilently(); 
+                const imageUrls = extractImageUrls(bootstrapData);
+                if (imageUrls.length > 0) {
+                    await preloadImages(imageUrls, (p) => {
+                        const range = 100 - startP;
+                        const val = startP + Math.floor((p * range) / 100);
+                        updateLoading(val);
+                    });
+                } else {
+                    updateLoading(95);
                 }
-            }, 300); // Небольшая задержка, чтобы глаз заметил 100%
+
+                // Г. Рендер
+                await renderFullInterface(bootstrapData);
+                
+                // Д. Финиш (безопасно скрываем лоадер)
+                updateLoading(100);
+                setTimeout(() => {
+                    // Проверяем существование элементов перед обращением!
+                    if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+                    if (dom.mainContent) dom.mainContent.classList.add('visible');
+                    
+                    if (usedCache) {
+                        updateBootstrapSilently().catch(console.error); 
+                    }
+                }, 300);
+                
+            } 
+            // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ ---
+            else {
+                await updateBootstrapSilently();
+            }
+
+        } catch (e) {
+            // ОШИБКА ВНУТРИ MAIN (теперь мы её увидим!)
+            console.error("Error inside main:", e);
             
-        } 
-        // ============================================================
-        // СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ (Мгновенно / Тихо)
-        // ============================================================
-        else {
-            console.log("Повторный вызов main: Тихое обновление.");
-            // Просто обновляем данные, не показывая никаких окон загрузки
-            await updateBootstrapSilently();
+            // Если упали, пробуем скрыть лоадер или показать ошибку
+            if (dom.loaderOverlay) {
+                // Если мы уже показали 100%, но упали в самом конце - просто скроем лоадер
+                // Иначе покажем ошибку
+                const currentText = dom.loadingText ? dom.loadingText.textContent : '';
+                if (currentText === '100%') {
+                    dom.loaderOverlay.classList.add('hidden');
+                    if (dom.mainContent) dom.mainContent.classList.add('visible');
+                } else {
+                    dom.loadingText.textContent = "Ошибка запуска";
+                    dom.loadingText.style.color = "#ff453a";
+                    // Выводим ошибку на экран для диагностики
+                    dom.challengeContainer.innerHTML = `<p style="color:red; text-align:center;">${e.message}</p>`;
+                    // Принудительно открываем контент, чтобы юзер хоть что-то увидел
+                    setTimeout(() => {
+                         dom.loaderOverlay.classList.add('hidden');
+                         dom.mainContent.classList.add('visible');
+                    }, 2000);
+                }
+            }
         }
     }
             
