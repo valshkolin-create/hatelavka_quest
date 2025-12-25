@@ -1742,9 +1742,61 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
-    // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ ---
-    // Логика кнопки "В главное меню" в новом окне успеха
-   // --- НОВЫЕ ЯРЛЫКИ НА ГЛАВНОЙ (БЕЗОПАСНАЯ ВЕРСИЯ) ---
+    // --- 1. ИДЕАЛЬНАЯ СЕТКА ДЛЯ ГЛАВНОГО МЕНЮ ---
+    const challengeBtn = document.getElementById('shortcut-challenge');
+    const questsBtn = document.getElementById('shortcut-quests');
+    const shopBtn = document.getElementById('shortcut-shop');
+
+    if (challengeBtn && questsBtn && shopBtn) {
+        const container = challengeBtn.parentElement;
+        if (container) {
+            // Настраиваем родительский контейнер (Сетка 2 колонки)
+            Object.assign(container.style, {
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr', // Две абсолютно равные колонки
+                gridTemplateRows: 'auto auto',  // Высота рядов подстраивается под контент
+                gap: '8px',                     // Отступ между плитками
+                alignItems: 'stretch'           // Растягиваем элементы на всю высоту ячейки
+            });
+
+            // 1. Челлендж (Слева, Верх)
+            Object.assign(challengeBtn.style, {
+                gridColumn: '1',
+                gridRow: '1',
+                width: '100%',
+                margin: '0' // Убираем внешние отступы
+            });
+
+            // 2. Испытания (Слева, Низ)
+            Object.assign(questsBtn.style, {
+                gridColumn: '1',
+                gridRow: '2',
+                width: '100%',
+                margin: '0'
+            });
+
+            // 3. Магазин (Справа, Высота 2 блока)
+            Object.assign(shopBtn.style, {
+                gridColumn: '2',
+                gridRow: '1 / span 2', // Занимает 1-й ряд и растягивается на 2 ряда
+                width: '100%',
+                height: 'auto',        // Высота авто (растянется grid-ом)
+                margin: '0',
+                display: 'flex',       // Чтобы контент внутри центровался
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+            });
+
+            // Добавляем клик на магазин (Здесь, чтобы не сбивать стили)
+            shopBtn.addEventListener('click', () => {
+                window.location.href = '/shop';
+            });
+        }
+    }
+
+    // --- ДРУГИЕ ОБРАБОТЧИКИ ---
+    
     const successCloseBtn = document.getElementById('success-close-btn');
     if (successCloseBtn) {
         successCloseBtn.addEventListener('click', () => {
@@ -1753,18 +1805,9 @@ function setupEventListeners() {
         });
     }
     
-    // 1. Магазин
-    const shopShortcut = document.getElementById('shortcut-shop');
-    if (shopShortcut) {
-        // Заставляем магазин занимать 2 строки в высоту (напротив Челленджа и Квеста)
-        shopShortcut.style.gridRow = 'span 2'; 
-        shopShortcut.style.height = '100%';
-        shopShortcut.addEventListener('click', () => {
-            window.location.href = '/shop';
-        });
-    }
+    // БЛОК "1. Магазин" ЗДЕСЬ УДАЛЕН, ТАК КАК ОН ЛОМАЛ СТИЛИ
 
-    // 2. Челлендж
+    // 2. Челлендж (Логика клика)
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
         chalShortcut.addEventListener('click', () => {
@@ -1778,7 +1821,7 @@ function setupEventListeners() {
         });
     }
 
-    // 3. Испытания
+    // 3. Испытания (Логика клика)
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.addEventListener('click', () => {
