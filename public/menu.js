@@ -1117,28 +1117,30 @@ function renderChallenge(challengeData, isGuest) {
     }
     
     async function refreshDataSilently() {
-        try {
-            // Запрашиваем расширенный heartbeat
-            const hbData = await makeApiRequest("/api/v1/user/heartbeat", {}, 'POST', true);
+    try {
+        // Запрашиваем расширенный heartbeat
+        const hbData = await makeApiRequest("/api/v1/user/heartbeat", {}, 'POST', true);
+        
+        if (hbData) {
+            // 1. Если бот выключен глобально
+            if (hbData.is_active === false) return;
+
+            // 2. Обновляем баланс в интерфейсе и в памяти
+            if (hbData.tickets !== undefined) {
+                userData.tickets = hbData.tickets; // Обновляем память
+                const ticketEl = document.getElementById('ticketStats');
+                if (ticketEl) ticketEl.textContent = hbData.tickets;
+            }
             
-            if (hbData) {
-                // 1. Если бот выключен глобально
-                if (hbData.is_active === false) return;
+            // 3. Обновляем прогресс АВТОМАТИЧЕСКОГО КВЕСТА
+            if (hbData.quest_id) {
+                // Обновляем глобальную переменную
+                userData.active_quest_id = hbData.quest_id;
+                userData.active_quest_progress = hbData.quest_progress;
 
-                // 2. Обновляем баланс в интерфейсе и в памяти
-                if (hbData.tickets !== undefined) {
-                    userData.tickets = hbData.tickets; // Обновляем память
-                    const ticketEl = document.getElementById('ticketStats');
-                    if (ticketEl) ticketEl.textContent = hbData.tickets;
-                }
-                
-                // 3. Обновляем прогресс АВТОМАТИЧЕСКОГО КВЕСТА
-                if (hbData.quest_id) {
-                    // Обновляем глобальную переменную
-                    userData.active_quest_id = hbData.quest_id;
-                    userData.active_quest_progress = hbData.quest_progress;
-
-                    // Находим квест в базе, чтобы точно знать цель (target)
+                // Находим квест в базе, чтобы точно знать цель (target)
+                // Проверка на существование allQuests
+                if (typeof allQuests !== 'undefined') {
                     const activeQuest = allQuests.find(q => q.id === hbData.quest_id);
                     
                     if (activeQuest) {
@@ -1168,61 +1170,70 @@ function renderChallenge(challengeData, isGuest) {
                                 // Если квест выполнен, но кнопки нет -> обновляем UI
                                 if (progress >= target && !claimBtn) {
                                     console.log("Квест выполнен в фоне! Обновляем UI...");
-                                    renderActiveAutomaticQuest(activeQuest, userData);
+                                    if (typeof renderActiveAutomaticQuest === 'function') {
+                                        renderActiveAutomaticQuest(activeQuest, userData);
+                                    }
                                 }
                             }
                         }
                     }
                 }
+            }
 
-                // 4. Обновляем прогресс ЧЕЛЛЕНДЖА
-                if (hbData.has_active_challenge) {
-                    // Обновляем память (если объект challenge существует)
-                    if (!userData.challenge) userData.challenge = {};
-                    userData.challenge.progress_value = hbData.challenge_progress;
-                    userData.challenge.target_value = hbData.challenge_target;
+            // 4. Обновляем прогресс ЧЕЛЛЕНДЖА
+            if (hbData.has_active_challenge) {
+                // Обновляем память (если объект challenge существует)
+                if (!userData.challenge) userData.challenge = {};
+                userData.challenge.progress_value = hbData.challenge_progress;
+                userData.challenge.target_value = hbData.challenge_target;
 
-                    const challengeContainer = document.getElementById('challenge-container');
-                    if (challengeContainer) {
-                        const fill = challengeContainer.querySelector('.progress-fill');
-                        const textSpan = challengeContainer.querySelector('.progress-text');
-                        const claimBtn = challengeContainer.querySelector('#claim-challenge-btn');
+                const challengeContainer = document.getElementById('challenge-container');
+                if (challengeContainer) {
+                    const fill = challengeContainer.querySelector('.progress-fill');
+                    const textSpan = challengeContainer.querySelector('.progress-text');
+                    const claimBtn = challengeContainer.querySelector('#claim-challenge-btn');
 
-                        if (fill && textSpan) {
-                            const progress = hbData.challenge_progress;
-                            const target = hbData.challenge_target;
-                            
-                            // Определяем префикс по текущему тексту
-                            let prefix = "";
-                            const currentText = textSpan.textContent;
-                            if (currentText.includes("💬")) prefix = "💬 ";
-                            if (currentText.includes("✉️")) prefix = "✉️ ";
-                            
-                            const suffix = currentText.includes("мин.") ? " мин." : "";
+                    if (fill && textSpan) {
+                        const progress = hbData.challenge_progress;
+                        const target = hbData.challenge_target;
+                        
+                        // Определяем префикс по текущему тексту
+                        let prefix = "";
+                        const currentText = textSpan.textContent;
+                        if (currentText.includes("💬")) prefix = "💬 ";
+                        if (currentText.includes("✉️")) prefix = "✉️ ";
+                        
+                        const suffix = currentText.includes("мин.") ? " мин." : "";
 
-                            textSpan.textContent = `${prefix}${progress} / ${target}${suffix}`;
-                            const percent = Math.min(100, (progress / target) * 100);
-                            fill.style.width = `${percent}%`;
+                        textSpan.textContent = `${prefix}${progress} / ${target}${suffix}`;
+                        const percent = Math.min(100, (progress / target) * 100);
+                        fill.style.width = `${percent}%`;
 
-                            if (progress >= target && (!claimBtn || claimBtn.disabled)) {
-                                console.log("Челлендж выполнен в фоне! Перерисовываем...");
+                        if (progress >= target && (!claimBtn || claimBtn.disabled)) {
+                            console.log("Челлендж выполнен в фоне! Перерисовываем...");
+                            if (typeof renderChallenge === 'function') {
                                 renderChallenge(userData.challenge, false);
                             }
                         }
                     }
                 }
-
-                // 5. Обновляем ярлыки на ГЛАВНОЙ странице
-                updateShortcutStatuses(userData, allQuests);
-
-                // 6. 🔥 ВАЖНО: Обновляем статус кнопки МАГАЗИНА (Trade-It) 🔥
-                // Передаем статус трейда (creating, sending, confirming...)
-                updateShopButtonState(hbData.active_trade_status);
             }
-        } catch (e) {
-            console.error("Ошибка фонового обновления:", e);
+
+            // 5. Обновляем ярлыки на ГЛАВНОЙ странице
+            if (typeof updateShortcutStatuses === 'function') {
+                updateShortcutStatuses(userData, typeof allQuests !== 'undefined' ? allQuests : []);
+            }
+
+            // 6. 🔥 ВАЖНО: Обновляем статус кнопки МАГАЗИНА (Trade-It) 🔥
+            // Используем функцию updateShopTile, которую мы добавили ранее
+            if (hbData.active_trade_status !== undefined && typeof updateShopTile === 'function') {
+                updateShopTile(hbData.active_trade_status);
+            }
         }
+    } catch (e) {
+        console.error("Ошибка фонового обновления:", e);
     }
+}
 // --- ФУНКЦИЯ: ОБНОВЛЕНИЕ ВИДА КНОПКИ МАГАЗИНА (TRADE-IT ЭТАПЫ) ---
     function updateShopButtonState(tradeStatus) {
         const shopBtn = document.getElementById('shortcut-shop');
@@ -2772,6 +2783,80 @@ setupSlide('auction', menuContent.auction_enabled, auctionImg, '/auction');
     else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
 
     updateShortcutStatuses(userData, allQuests);
+}
+
+// Функция для обновления плитки магазина (меню)
+function updateShopTile(status) {
+    const shopTile = document.getElementById('shortcut-shop');
+    if (!shopTile) return;
+
+    // Не перерисовываем, если статус не изменился (чтобы не моргало)
+    if (shopTile.dataset.status === status) return;
+    shopTile.dataset.status = status;
+
+    // Стандартный вид (Магазин)
+    const defaultHTML = `
+        <div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+        <div class="metro-content">
+            <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
+            <span class="metro-label">Магазин</span>
+            <span class="metro-sublabel">Скины и предметы</span>
+        </div>
+    `;
+
+    // Сбрасываем стили, если статус "none"
+    if (!status || status === 'none') {
+        shopTile.innerHTML = defaultHTML;
+        shopTile.style.background = '';
+        shopTile.style.borderColor = '';
+        return;
+    }
+
+    // Настройки для разных этапов
+    const stages = {
+        'creating': {
+            label: 'Обработка',
+            sub: 'Создаем трейд...',
+            icon: '<i class="fa-solid fa-hourglass-half fa-spin"></i>',
+            bg: 'linear-gradient(135deg, rgba(255, 149, 0, 0.2), rgba(255, 149, 0, 0.05))', // Оранжевый
+            border: 'rgba(255, 149, 0, 0.3)'
+        },
+        'sending': {
+            label: 'Отправка',
+            sub: 'Бот отправляет...',
+            icon: '<i class="fa-solid fa-paper-plane fa-bounce"></i>',
+            bg: 'linear-gradient(135deg, rgba(0, 122, 255, 0.2), rgba(0, 122, 255, 0.05))', // Синий
+            border: 'rgba(0, 122, 255, 0.3)'
+        },
+        'confirming': {
+            label: 'ПРИМИТЕ!',
+            sub: 'Трейд отправлен',
+            icon: '<i class="fa-solid fa-check-circle fa-beat"></i>',
+            bg: 'linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(52, 199, 89, 0.05))', // Зеленый
+            border: 'rgba(52, 199, 89, 0.3)'
+        },
+        'failed': {
+            label: 'Ошибка',
+            sub: 'Повторите',
+            icon: '<i class="fa-solid fa-triangle-exclamation"></i>',
+            bg: 'linear-gradient(135deg, rgba(255, 59, 48, 0.2), rgba(255, 59, 48, 0.05))', // Красный
+            border: 'rgba(255, 59, 48, 0.3)'
+        }
+    };
+
+    const stage = stages[status];
+    if (stage) {
+        shopTile.style.background = stage.bg;
+        shopTile.style.borderColor = stage.border;
+        shopTile.innerHTML = `
+            <div class="metro-tile-bg-icon" style="opacity:0.1">${stage.icon}</div>
+            <div class="metro-content">
+                <div class="metro-icon-main" style="color:#fff">${stage.icon}</div>
+                <span class="metro-label" style="color:#fff">${stage.label}</span>
+                <span class="metro-sublabel" style="opacity:0.9; color: #fff;">${stage.sub}</span>
+            </div>
+        `;
+    }
 }
 
     // Отдельная функция для тихого обновления (без лоадера)
