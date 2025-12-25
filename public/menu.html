@@ -111,33 +111,42 @@
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px;">
 
-        <div class="dashboard-shortcuts">
-            <div class="shortcut-item" id="shortcut-shop">
-                <div class="shortcut-icon shortcut-shop-bg">
-                    <i class="fa-solid fa-cart-shopping"></i>
+        <div class="metro-shortcuts-container">
+            
+            <div class="metro-tile metro-tile-large" id="shortcut-shop">
+                <div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+                <div class="metro-content">
+                    <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
+                    <span class="metro-label">Магазин</span>
+                    <span class="metro-sublabel">Скины и предметы</span>
                 </div>
-                <span class="shortcut-label">Магазин скинов</span>
-                <span class="shortcut-status" style="opacity: 0;">.</span> 
             </div>
 
-            <div class="shortcut-item" id="shortcut-challenge">
-                <div class="shortcut-icon shortcut-challenge-bg">
-                    <i class="fa-solid fa-star"></i>
+            <div class="metro-tile metro-tile-small" id="shortcut-challenge">
+                <div class="metro-header">
+                    <i class="fa-solid fa-star"></i> <span>Челлендж</span>
                 </div>
-                <span class="shortcut-label">Челленджи</span>
-                <span class="shortcut-status" id="shortcut-challenge-status">...</span>
+                <div class="metro-info">
+                    <span id="metro-challenge-status">Загрузка...</span>
+                </div>
+                <div class="metro-progress-track">
+                    <div class="metro-progress-fill" id="metro-challenge-fill" style="width: 0%"></div>
+                </div>
             </div>
 
-            <div class="shortcut-item" id="shortcut-quests">
-                <div class="shortcut-icon shortcut-quest-bg">
-                    <i class="fa-solid fa-bolt"></i>
+            <div class="metro-tile metro-tile-small" id="shortcut-quests">
+                <div class="metro-header">
+                    <i class="fa-solid fa-bolt"></i> <span>Испытание</span>
                 </div>
-                <span class="shortcut-label">Испытания</span>
-                <span class="shortcut-status" id="shortcut-quest-status">...</span>
+                <div class="metro-info">
+                    <span id="metro-quest-status">Выбрать</span>
+                </div>
+                <div class="metro-progress-track">
+                    <div class="metro-progress-fill" id="metro-quest-fill" style="width: 0%"></div>
+                </div>
             </div>
+
         </div>
-      
-    </div>
 
     <div id="view-shop" class="view hidden">
         <h2 class="page-title" style="grid-column: 1 / -1;">
