@@ -2791,53 +2791,58 @@ function updateShopTile(status) {
     const shopTile = document.getElementById('shortcut-shop');
     if (!shopTile) return;
 
-    // Логируем, чтобы видеть, что приходит от сервера
+    // Логируем
     console.log('[ShopTile] Получен статус:', status);
 
-    // Нормализуем статус (если null/undefined -> 'none')
     const safeStatus = status || 'none';
-
-    // Сохраняем статус в dataset для отладки
     shopTile.dataset.status = safeStatus;
 
-    // Настройки для разных этапов
+    // --- НАСТРОЙКИ (ЦВЕТА КАК В SHOP.HTML) ---
     const stages = {
+        // 1. ОЖИДАНИЕ (Pending) -> Как кнопка Trade-In (Фиолетовый)
         'creating': {
-            label: 'Обработка',
-            sub: 'Создаем трейд...',
-            icon: '<i class="fa-solid fa-hourglass-half fa-spin"></i>',
-            bg: 'linear-gradient(135deg, rgba(255, 149, 0, 0.2), rgba(255, 149, 0, 0.05))', // Оранжевый
-            border: '#ff9f0a'
+            label: 'ЗАЯВКА СОЗДАНА',
+            sub: 'Ожидание принятия...',
+            icon: '<i class="fa-regular fa-clock"></i>',
+            // Градиент кнопки Trade-In из shop.html
+            bg: 'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)', 
+            border: 'rgba(255, 255, 255, 0.2)'
         },
+        
+        // 2. ПРОВЕРКА (Review) -> Голубой (как бейдж "Проверка")
         'sending': {
-            label: 'Отправка',
-            sub: 'Бот отправляет...',
-            icon: '<i class="fa-solid fa-paper-plane fa-bounce"></i>',
-            bg: 'linear-gradient(135deg, rgba(0, 122, 255, 0.2), rgba(0, 122, 255, 0.05))', // Синий
-            border: '#007aff'
+            label: 'ПРОВЕРКА АДМИНОМ',
+            sub: 'Ожидайте монеты...',
+            icon: '<i class="fa-solid fa-hourglass-half fa-spin"></i>',
+            // Голубой (Telegram style)
+            bg: 'linear-gradient(135deg, #2AABEE, #229ED9)', 
+            border: 'rgba(255, 255, 255, 0.3)'
         },
+
+        // 3. ДЕЙСТВУЙ (Active) -> Красно-Оранжевый (Pulse)
         'confirming': {
-            label: 'ПРИМИТЕ!',
-            sub: 'Трейд отправлен',
-            icon: '<i class="fa-solid fa-check-circle fa-beat"></i>',
-            bg: 'linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(52, 199, 89, 0.05))', // Зеленый
-            border: '#34c759'
+            label: 'ТРЕБУЕТ ДЕЙСТВИЯ',
+            sub: 'Передайте скин!',
+            icon: '<i class="fa-solid fa-fire fa-beat"></i>',
+            // Яркий красно-оранжевый градиент (как пульсирующая кнопка)
+            bg: 'linear-gradient(135deg, #ff3b30, #ff9500)', 
+            border: '#fff' // Белая рамка для акцента
         },
+
+        // 4. ОШИБКА
         'failed': {
-            label: 'Ошибка',
-            sub: 'Повторите',
-            icon: '<i class="fa-solid fa-triangle-exclamation"></i>',
-            bg: 'linear-gradient(135deg, rgba(255, 59, 48, 0.2), rgba(255, 59, 48, 0.05))', // Красный
-            border: '#ff3b30'
+            label: 'ОТМЕНЕНО',
+            sub: 'Попробуйте снова',
+            icon: '<i class="fa-solid fa-circle-xmark"></i>',
+            bg: 'linear-gradient(135deg, #ff3b30 0%, #ff453a 100%)', // Просто красный
+            border: 'rgba(255, 59, 48, 0.3)'
         }
     };
 
     const stage = stages[safeStatus];
 
-    // Если статус "none" или неизвестный — возвращаем стандартный вид
+    // Если статус "none" — стандартный вид "Магазин"
     if (!stage) {
-        // Проверяем, не стоит ли уже стандартный вид (проверка по наличию класса metro-label без стилей цвета)
-        // Но лучше просто принудительно сбросить стили
         shopTile.style.background = '';
         shopTile.style.borderColor = '';
         shopTile.innerHTML = `
@@ -2848,18 +2853,28 @@ function updateShopTile(status) {
                 <span class="metro-sublabel">Скины и предметы</span>
             </div>
         `;
+        // Убираем пульсацию, если она была
+        shopTile.style.animation = '';
         return;
     }
 
-    // Если есть активный этап — меняем вид
+    // Применяем стили активного этапа
     shopTile.style.background = stage.bg;
     shopTile.style.borderColor = stage.border;
+    
+    // Если статус "confirming" (Действуй), добавляем пульсацию
+    if (safeStatus === 'confirming') {
+        shopTile.style.animation = 'statusPulse 2s infinite';
+    } else {
+        shopTile.style.animation = '';
+    }
+
     shopTile.innerHTML = `
-        <div class="metro-tile-bg-icon" style="opacity:0.1">${stage.icon}</div>
+        <div class="metro-tile-bg-icon" style="opacity:0.15">${stage.icon}</div>
         <div class="metro-content">
-            <div class="metro-icon-main" style="color:#fff; font-size: 28px; margin-bottom: 5px;">${stage.icon}</div>
-            <span class="metro-label" style="color:#fff; font-weight: 800; text-transform: uppercase;">${stage.label}</span>
-            <span class="metro-sublabel" style="opacity:0.9; color: #fff;">${stage.sub}</span>
+            <div class="metro-icon-main" style="color:#fff; font-size: 26px; margin-bottom: 6px;">${stage.icon}</div>
+            <span class="metro-label" style="color:#fff; font-weight: 800; text-transform: uppercase; font-size: 11px;">${stage.label}</span>
+            <span class="metro-sublabel" style="opacity:0.95; color: #fff; font-weight: 500;">${stage.sub}</span>
         </div>
     `;
 }
