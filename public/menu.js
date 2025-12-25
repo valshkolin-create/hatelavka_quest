@@ -2238,37 +2238,99 @@ async function openQuestsTab(isSilent = false) {
         // 1. Обновляем Челлендж (shortcut-challenge)
         const chalStatus = document.getElementById('metro-challenge-status');
         const chalFill = document.getElementById('metro-challenge-fill');
+        const shortcutEl = document.getElementById('shortcut-challenge');
         
-        if (chalStatus && chalFill) {
-            if (userData.challenge) {
-                const ch = userData.challenge;
-                const prog = ch.progress_value || 0;
-                const target = ch.target_value || 1;
-                const percent = Math.min(100, (prog / target) * 100);
+        if (chalStatus && chalFill && shortcutEl) {
+            // Удаляем старую кнопку (иконку или текст), чтобы не дублировалась
+            const oldBtn = document.getElementById('mini-schedule-btn');
+            if (oldBtn) oldBtn.remove();
+            
+            // Проверяем статус стрима
+            const isOnline = userData.is_stream_online === true;
 
-                if (ch.claimed_at) {
-                    chalStatus.textContent = "Награда получена";
-                    chalStatus.classList.add('metro-status-done');
-                    chalFill.style.width = '100%';
-                    chalFill.classList.add('metro-fill-done');
-                } else if (prog >= target) {
-                    chalStatus.textContent = "ЗАБРАТЬ!";
-                    chalStatus.classList.add('metro-status-done');
-                    chalFill.style.width = '100%';
-                    chalFill.classList.add('metro-fill-done');
-                } else {
-                    chalStatus.textContent = `${prog} / ${target}`;
-                    chalStatus.classList.remove('metro-status-done');
-                    chalFill.style.width = `${percent}%`;
-                    chalFill.classList.remove('metro-fill-done');
-                }
-            } else {
-                chalStatus.textContent = "Нет активного";
+            if (!isOnline) {
+                // --- СТРИМ ОФФЛАЙН ---
+                chalStatus.textContent = "Стрим оффлайн";
+                chalStatus.style.color = "#ff453a"; // Красный цвет текста
                 chalFill.style.width = '0%';
+                chalStatus.classList.remove('metro-status-done');
+                chalFill.classList.remove('metro-fill-done');
+
+                // Создаем кнопку с ТЕКСТОМ
+                const btn = document.createElement('div');
+                btn.id = 'mini-schedule-btn';
+                // Добавляем иконку и текст
+                btn.innerHTML = '<i class="fa-regular fa-calendar-days" style="margin-right:5px;"></i> Расписание';
+                
+                // Стили для текстовой кнопки
+                Object.assign(btn.style, {
+                    position: 'absolute',
+                    right: '8px',
+                    bottom: '8px',
+                    background: 'rgba(255, 255, 255, 0.15)', // Полупрозрачный фон
+                    border: '1px solid rgba(255, 255, 255, 0.2)', // Тонкая рамка
+                    color: '#fff',
+                    padding: '6px 10px', // Отступы, чтобы кнопка была побольше
+                    borderRadius: '8px', // Скругление
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px', // Аккуратный шрифт
+                    fontWeight: '600',
+                    zIndex: '10',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(5px)', // Эффект стекла
+                    whiteSpace: 'nowrap' // Чтобы текст не переносился
+                });
+
+                // При клике открываем расписание
+                btn.onclick = (e) => {
+                    e.stopPropagation(); // Важно: блокируем переход на вкладку заданий
+                    const modal = document.getElementById('schedule-modal-overlay');
+                    if (modal) modal.classList.remove('hidden');
+                };
+
+                // Ставим relative родителю, чтобы кнопка позиционировалась внутри него
+                if (getComputedStyle(shortcutEl).position === 'static') {
+                    shortcutEl.style.position = 'relative';
+                }
+                
+                shortcutEl.appendChild(btn);
+
+            } else {
+                // --- СТРИМ ОНЛАЙН ---
+                chalStatus.style.color = ""; // Сбрас цвета
+                
+                if (userData.challenge) {
+                    const ch = userData.challenge;
+                    const prog = ch.progress_value || 0;
+                    const target = ch.target_value || 1;
+                    const percent = Math.min(100, (prog / target) * 100);
+
+                    if (ch.claimed_at) {
+                        chalStatus.textContent = "Награда получена";
+                        chalStatus.classList.add('metro-status-done');
+                        chalFill.style.width = '100%';
+                        chalFill.classList.add('metro-fill-done');
+                    } else if (prog >= target) {
+                        chalStatus.textContent = "ЗАБРАТЬ!";
+                        chalStatus.classList.add('metro-status-done');
+                        chalFill.style.width = '100%';
+                        chalFill.classList.add('metro-fill-done');
+                    } else {
+                        chalStatus.textContent = `${prog} / ${target}`;
+                        chalStatus.classList.remove('metro-status-done');
+                        chalFill.style.width = `${percent}%`;
+                        chalFill.classList.remove('metro-fill-done');
+                    }
+                } else {
+                    chalStatus.textContent = "Нет активного";
+                    chalFill.style.width = '0%';
+                }
             }
         }
 
-        // 2. Обновляем Испытание (shortcut-quests)
+        // 2. Обновляем Испытание (shortcut-quests) - без изменений
         const questStatus = document.getElementById('metro-quest-status');
         const questFill = document.getElementById('metro-quest-fill');
 
@@ -2276,11 +2338,10 @@ async function openQuestsTab(isSilent = false) {
             const activeId = userData.active_quest_id;
             if (!activeId) {
                 questStatus.textContent = "Нажмите для выбора";
-                questStatus.style.fontSize = "11px"; // Чуть меньше, если текст длинный
+                questStatus.style.fontSize = "11px";
                 questFill.style.width = '0%';
                 questStatus.classList.remove('metro-status-done');
             } else {
-                // Ищем квест в списке allQuests
                 const quest = allQuests.find(q => q.id === activeId);
                 if (quest) {
                     const prog = userData.active_quest_progress || 0;
@@ -2293,7 +2354,6 @@ async function openQuestsTab(isSilent = false) {
                         questFill.style.width = '100%';
                         questFill.classList.add('metro-fill-done');
                     } else {
-                        // Форматируем текст (добавляем мин. или иконки)
                         let suffix = "";
                         if(quest.quest_type && quest.quest_type.includes('uptime')) suffix = " мин.";
                         
