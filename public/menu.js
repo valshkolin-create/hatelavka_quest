@@ -2786,31 +2786,19 @@ setupSlide('auction', menuContent.auction_enabled, auctionImg, '/auction');
 }
 
 // Функция для обновления плитки магазина (меню)
+// Функция для обновления плитки магазина (меню)
 function updateShopTile(status) {
     const shopTile = document.getElementById('shortcut-shop');
     if (!shopTile) return;
 
-    // Не перерисовываем, если статус не изменился (чтобы не моргало)
-    if (shopTile.dataset.status === status) return;
-    shopTile.dataset.status = status;
+    // Логируем, чтобы видеть, что приходит от сервера
+    console.log('[ShopTile] Получен статус:', status);
 
-    // Стандартный вид (Магазин)
-    const defaultHTML = `
-        <div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div>
-        <div class="metro-content">
-            <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
-            <span class="metro-label">Магазин</span>
-            <span class="metro-sublabel">Скины и предметы</span>
-        </div>
-    `;
+    // Нормализуем статус (если null/undefined -> 'none')
+    const safeStatus = status || 'none';
 
-    // Сбрасываем стили, если статус "none"
-    if (!status || status === 'none') {
-        shopTile.innerHTML = defaultHTML;
-        shopTile.style.background = '';
-        shopTile.style.borderColor = '';
-        return;
-    }
+    // Сохраняем статус в dataset для отладки
+    shopTile.dataset.status = safeStatus;
 
     // Настройки для разных этапов
     const stages = {
@@ -2819,44 +2807,61 @@ function updateShopTile(status) {
             sub: 'Создаем трейд...',
             icon: '<i class="fa-solid fa-hourglass-half fa-spin"></i>',
             bg: 'linear-gradient(135deg, rgba(255, 149, 0, 0.2), rgba(255, 149, 0, 0.05))', // Оранжевый
-            border: 'rgba(255, 149, 0, 0.3)'
+            border: '#ff9f0a'
         },
         'sending': {
             label: 'Отправка',
             sub: 'Бот отправляет...',
             icon: '<i class="fa-solid fa-paper-plane fa-bounce"></i>',
             bg: 'linear-gradient(135deg, rgba(0, 122, 255, 0.2), rgba(0, 122, 255, 0.05))', // Синий
-            border: 'rgba(0, 122, 255, 0.3)'
+            border: '#007aff'
         },
         'confirming': {
             label: 'ПРИМИТЕ!',
             sub: 'Трейд отправлен',
             icon: '<i class="fa-solid fa-check-circle fa-beat"></i>',
             bg: 'linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(52, 199, 89, 0.05))', // Зеленый
-            border: 'rgba(52, 199, 89, 0.3)'
+            border: '#34c759'
         },
         'failed': {
             label: 'Ошибка',
             sub: 'Повторите',
             icon: '<i class="fa-solid fa-triangle-exclamation"></i>',
             bg: 'linear-gradient(135deg, rgba(255, 59, 48, 0.2), rgba(255, 59, 48, 0.05))', // Красный
-            border: 'rgba(255, 59, 48, 0.3)'
+            border: '#ff3b30'
         }
     };
 
-    const stage = stages[status];
-    if (stage) {
-        shopTile.style.background = stage.bg;
-        shopTile.style.borderColor = stage.border;
+    const stage = stages[safeStatus];
+
+    // Если статус "none" или неизвестный — возвращаем стандартный вид
+    if (!stage) {
+        // Проверяем, не стоит ли уже стандартный вид (проверка по наличию класса metro-label без стилей цвета)
+        // Но лучше просто принудительно сбросить стили
+        shopTile.style.background = '';
+        shopTile.style.borderColor = '';
         shopTile.innerHTML = `
-            <div class="metro-tile-bg-icon" style="opacity:0.1">${stage.icon}</div>
+            <div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div>
             <div class="metro-content">
-                <div class="metro-icon-main" style="color:#fff">${stage.icon}</div>
-                <span class="metro-label" style="color:#fff">${stage.label}</span>
-                <span class="metro-sublabel" style="opacity:0.9; color: #fff;">${stage.sub}</span>
+                <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
+                <span class="metro-label">Магазин</span>
+                <span class="metro-sublabel">Скины и предметы</span>
             </div>
         `;
+        return;
     }
+
+    // Если есть активный этап — меняем вид
+    shopTile.style.background = stage.bg;
+    shopTile.style.borderColor = stage.border;
+    shopTile.innerHTML = `
+        <div class="metro-tile-bg-icon" style="opacity:0.1">${stage.icon}</div>
+        <div class="metro-content">
+            <div class="metro-icon-main" style="color:#fff; font-size: 28px; margin-bottom: 5px;">${stage.icon}</div>
+            <span class="metro-label" style="color:#fff; font-weight: 800; text-transform: uppercase;">${stage.label}</span>
+            <span class="metro-sublabel" style="opacity:0.9; color: #fff;">${stage.sub}</span>
+        </div>
+    `;
 }
 
     // Отдельная функция для тихого обновления (без лоадера)
