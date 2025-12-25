@@ -84,6 +84,7 @@ try {
     let currentSlideIndex = 0;
     let slideInterval;
     let lastShopStatus = null; // <--- ДОБАВИТЬ ЭТУ ПЕРЕМЕННУЮ ДЛЯ ЗАПОМИНАНИЯ
+    let originalShopHTML = null;
     const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
 
     function setupSlider() {
@@ -1227,83 +1228,82 @@ function renderChallenge(challengeData, isGuest) {
         const shopBtn = document.getElementById('shortcut-shop');
         if (!shopBtn) return;
 
-        // Нормализуем статус (если undefined/null -> превращаем в 'none')
+        // Если это первый запуск и мы еще не сохранили дизайн — сохраняем сейчас
+        if (!originalShopHTML && shopBtn.innerHTML.trim() !== "") {
+            originalShopHTML = shopBtn.innerHTML;
+        }
+
+        // Нормализуем статус
         const currentStatus = tradeStatus || 'none';
 
-        // 🔥 САМОЕ ВАЖНОЕ: Если статус не изменился — ничего не делаем!
+        // Если статус не изменился — выходим (чтобы не было мерцания)
         if (currentStatus === lastShopStatus) return;
-
-        // Запоминаем новый статус
         lastShopStatus = currentStatus;
 
-        console.log(`Статус магазина изменился: ${currentStatus}`); // Для отладки
+        console.log(`Статус магазина обновлен: ${currentStatus}`);
 
-        // 1. СЦЕНАРИЙ: ОБЫЧНЫЙ МАГАЗИН (Трейда нет или завершен)
+        // --- СЦЕНАРИЙ 1: ОБЫЧНЫЙ МАГАЗИН (Нет трейда) ---
         if (currentStatus === 'none' || currentStatus === 'completed' || currentStatus === 'canceled') {
-            // Сбрасываем стили (возвращаем стекло)
+            // Сбрасываем цвета
             shopBtn.style.background = ''; 
             shopBtn.style.border = '';
             
-            // Стандартный вид
-            shopBtn.innerHTML = `
-                <div style="font-size: 24px; margin-bottom: 5px;"><i class="fa-solid fa-store"></i></div>
-                <div style="font-size: 13px; font-weight: 600;">Магазин</div>
-            `;
+            // 🔥 ВОЗВРАЩАЕМ ОРИГИНАЛЬНУЮ КРАСИВУЮ ВЕРСТКУ 🔥
+            if (originalShopHTML) {
+                shopBtn.innerHTML = originalShopHTML;
+            } else {
+                // Запасной вариант, если оригинал не сохранился
+                shopBtn.innerHTML = '<i class="fa-solid fa-store" style="font-size:24px;"></i><div style="font-size:13px; font-weight:600;">Магазин</div>';
+            }
             return;
         }
 
-        // 2. СЦЕНАРИЙ: АКТИВНЫЙ ТРЕЙД (Меняем цвет и иконку)
+        // --- СЦЕНАРИЙ 2: АКТИВНЫЙ ТРЕЙД (Меняем вид) ---
         let color = '';
         let text = '';
         let icon = '';
         let borderColor = 'transparent';
-        let textColor = '#fff';
 
         switch (currentStatus) {
             case 'creating': 
-                color = 'linear-gradient(135deg, #FF9500 0%, #FFCC00 100%)'; // Оранжевый
+                color = 'linear-gradient(135deg, #FF9500 0%, #FFCC00 100%)'; 
                 text = 'Создаем трейд...';
                 icon = 'fa-solid fa-circle-notch fa-spin';
                 break;
             case 'sending': 
-                color = 'linear-gradient(135deg, #007AFF 0%, #00B4FF 100%)'; // Синий
+                color = 'linear-gradient(135deg, #007AFF 0%, #00B4FF 100%)'; 
                 text = 'Отправка...';
                 icon = 'fa-solid fa-paper-plane';
                 break;
             case 'confirming': 
-                color = 'linear-gradient(135deg, #34C759 0%, #30D158 100%)'; // Зеленый
+                color = 'linear-gradient(135deg, #34C759 0%, #30D158 100%)'; 
                 text = 'ПРИМИТЕ ТРЕЙД!';
                 icon = 'fa-solid fa-check-double';
                 borderColor = '#fff'; 
                 break;
             case 'failed': 
-                color = 'linear-gradient(135deg, #FF3B30 0%, #FF453A 100%)'; // Красный
+                color = 'linear-gradient(135deg, #FF3B30 0%, #FF453A 100%)'; 
                 text = 'Ошибка';
                 icon = 'fa-solid fa-triangle-exclamation';
                 break;
             default: 
-                color = 'var(--surface-color)';
-                text = 'Загрузка...';
-                icon = 'fa-solid fa-spinner fa-spin';
-                break;
+                return; // Если статус непонятный, лучше ничего не трогать
         }
 
-        // Применяем новые стили
+        // Применяем стили активного трейда
         shopBtn.style.background = color;
         shopBtn.style.border = borderColor !== 'transparent' ? `2px solid ${borderColor}` : 'none';
         
         shopBtn.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 5px; color: ${textColor};">
+            <div style="font-size: 24px; margin-bottom: 5px; color: #fff;">
                 <i class="${icon}"></i>
             </div>
-            <div style="font-size: 11px; font-weight: 800; color: ${textColor}; text-transform: uppercase; text-align: center; line-height: 1.2;">
+            <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase; text-align: center; line-height: 1.2;">
                 ${text}
             </div>
         `;
     }
-
-
-    
+  
     async function startChallengeRoulette() {
         const getChallengeBtn = document.getElementById('get-challenge-btn');
         if(getChallengeBtn) getChallengeBtn.disabled = true;
@@ -1828,12 +1828,18 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
-    // --- 1. ГЕОМЕТРИЯ: РАВНЫЕ БЛОКИ И АДАПТАЦИЯ КОНТЕНТА ---
+    // --- 1. ГЕОМЕТРИЯ: РАВНЫЕ БЛОКИ ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
     const shortcutShop = document.getElementById('shortcut-shop');
 
     if (challengeBtn && questsBtn && shortcutShop) {
+        // 🔥 СОХРАНЯЕМ ОРИГИНАЛЬНЫЙ ВИД КНОПКИ (чтобы не ломался дизайн) 🔥
+        if (!originalShopHTML) {
+            originalShopHTML = shortcutShop.innerHTML;
+        }
+        // ------------------------------------------------------------------
+
         const container = challengeBtn.parentElement;
         if (container) {
             // НАСТРОЙКА КОНТЕЙНЕРА (Оставляем как настроили идеально)
