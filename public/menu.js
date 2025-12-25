@@ -2783,6 +2783,13 @@ setupSlide('auction', menuContent.auction_enabled, auctionImg, '/auction');
     else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
 
     updateShortcutStatuses(userData, allQuests);
+// 👇👇👇 ДОБАВЬТЕ ЭТОТ БЛОК СЮДА 👇👇👇
+    if (dashboardData && dashboardData.active_trade_status) {
+        updateShopTile(dashboardData.active_trade_status);
+    } else {
+        updateShopTile('none');
+    }
+    // 👆👆👆 КОНЕЦ ДОБАВЛЕНИЯ 👆👆👆
 }
 
 // Функция для обновления плитки магазина (меню)
