@@ -2232,74 +2232,79 @@ async function openQuestsTab(isSilent = false) {
     // Запускаем сразу
     syncReferralOnLoad();
     
-    // Функция обновления статусов на ярлыках (Магазин, Челленджи, Испытания)
     // Функция обновления статусов на ярлыках (Новая Metro версия)
     function updateShortcutStatuses(userData, allQuests) {
+        
+        // Вспомогательная функция для центровки контента внутри плитки
+        const makeTileCentered = (el) => {
+            if (!el) return;
+            // Применяем Flexbox для полного центрирования
+            el.style.display = 'flex';
+            el.style.flexDirection = 'column';
+            el.style.alignItems = 'center';     // Горизонтально по центру
+            el.style.justifyContent = 'center'; // Вертикально по центру
+            el.style.textAlign = 'center';      // Текст по центру
+        };
+
         // 1. Обновляем Челлендж (shortcut-challenge)
         const chalStatus = document.getElementById('metro-challenge-status');
         const chalFill = document.getElementById('metro-challenge-fill');
-        const shortcutEl = document.getElementById('shortcut-challenge');
+        const shortcutChal = document.getElementById('shortcut-challenge');
         
-        if (chalStatus && chalFill && shortcutEl) {
-            // Удаляем старую кнопку (иконку или текст), чтобы не дублировалась
+        if (chalStatus && chalFill && shortcutChal) {
+            makeTileCentered(shortcutChal); // <--- Центруем плитку
+
+            // Удаляем старую кнопку (если была)
             const oldBtn = document.getElementById('mini-schedule-btn');
             if (oldBtn) oldBtn.remove();
             
-            // Проверяем статус стрима
+            // Возвращаем видимость элементам (сброс)
+            chalStatus.style.display = '';
+            chalStatus.style.marginBottom = '5px'; // Отступ до полоски
+            if (chalFill.parentElement) chalFill.parentElement.style.display = ''; // Показываем трек прогресса
+
             const isOnline = userData.is_stream_online === true;
 
             if (!isOnline) {
                 // --- СТРИМ ОФФЛАЙН ---
-                chalStatus.textContent = "Стрим оффлайн";
-                chalStatus.style.color = "#ff453a"; // Красный цвет текста
-                chalFill.style.width = '0%';
-                chalStatus.classList.remove('metro-status-done');
-                chalFill.classList.remove('metro-fill-done');
+                // 1. Скрываем статус и полоску прогресса
+                chalStatus.style.display = 'none';
+                if (chalFill.parentElement) chalFill.parentElement.style.display = 'none';
 
-                // Создаем кнопку с ТЕКСТОМ
+                // 2. Создаем кнопку "Расписание" по центру
                 const btn = document.createElement('div');
                 btn.id = 'mini-schedule-btn';
-                // Добавляем иконку и текст
-                btn.innerHTML = '<i class="fa-regular fa-calendar-days" style="margin-right:5px;"></i> Расписание';
+                btn.innerHTML = '<i class="fa-regular fa-calendar-days"></i> Расписание';
                 
-                // Стили для текстовой кнопки
+                // Стиль кнопки (Красивая, по центру)
                 Object.assign(btn.style, {
-                    position: 'absolute',
-                    right: '8px',
-                    bottom: '8px',
-                    background: 'rgba(255, 255, 255, 0.15)', // Полупрозрачный фон
-                    border: '1px solid rgba(255, 255, 255, 0.2)', // Тонкая рамка
+                    marginTop: '5px',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
                     color: '#fff',
-                    padding: '6px 10px', // Отступы, чтобы кнопка была побольше
-                    borderRadius: '8px', // Скругление
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(4px)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '11px', // Аккуратный шрифт
-                    fontWeight: '600',
-                    zIndex: '10',
-                    cursor: 'pointer',
-                    backdropFilter: 'blur(5px)', // Эффект стекла
-                    whiteSpace: 'nowrap' // Чтобы текст не переносился
+                    gap: '6px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
                 });
 
-                // При клике открываем расписание
                 btn.onclick = (e) => {
-                    e.stopPropagation(); // Важно: блокируем переход на вкладку заданий
+                    e.stopPropagation(); 
                     const modal = document.getElementById('schedule-modal-overlay');
                     if (modal) modal.classList.remove('hidden');
                 };
 
-                // Ставим relative родителю, чтобы кнопка позиционировалась внутри него
-                if (getComputedStyle(shortcutEl).position === 'static') {
-                    shortcutEl.style.position = 'relative';
-                }
-                
-                shortcutEl.appendChild(btn);
+                shortcutChal.appendChild(btn);
 
             } else {
                 // --- СТРИМ ОНЛАЙН ---
-                chalStatus.style.color = ""; // Сбрас цвета
+                chalStatus.style.color = ""; 
                 
                 if (userData.challenge) {
                     const ch = userData.challenge;
@@ -2329,6 +2334,49 @@ async function openQuestsTab(isSilent = false) {
                 }
             }
         }
+
+        // 2. Обновляем Испытание (shortcut-quests)
+        const shortcutQuest = document.getElementById('shortcut-quests');
+        const questStatus = document.getElementById('metro-quest-status');
+        const questFill = document.getElementById('metro-quest-fill');
+
+        if (shortcutQuest && questStatus && questFill) {
+            makeTileCentered(shortcutQuest); // <--- Центруем плитку
+            questStatus.style.marginBottom = '5px'; // Отступ
+
+            const activeId = userData.active_quest_id;
+            if (!activeId) {
+                questStatus.textContent = "Нажмите для выбора";
+                questStatus.style.fontSize = "11px";
+                questFill.style.width = '0%';
+                questStatus.classList.remove('metro-status-done');
+            } else {
+                const quest = allQuests.find(q => q.id === activeId);
+                if (quest) {
+                    const prog = userData.active_quest_progress || 0;
+                    const target = quest.target_value || 1;
+                    const percent = Math.min(100, (prog / target) * 100);
+                    
+                    if (prog >= target) {
+                        questStatus.textContent = "ГОТОВО";
+                        questStatus.classList.add('metro-status-done');
+                        questFill.style.width = '100%';
+                        questFill.classList.add('metro-fill-done');
+                    } else {
+                        let suffix = "";
+                        if(quest.quest_type && quest.quest_type.includes('uptime')) suffix = " мин.";
+                        
+                        questStatus.textContent = `${prog} / ${target}${suffix}`;
+                        questStatus.classList.remove('metro-status-done');
+                        questFill.style.width = `${percent}%`;
+                        questFill.classList.remove('metro-fill-done');
+                    }
+                } else {
+                    questStatus.textContent = "...";
+                }
+            }
+        }
+    }
 
         // 2. Обновляем Испытание (shortcut-quests) - без изменений
         const questStatus = document.getElementById('metro-quest-status');
