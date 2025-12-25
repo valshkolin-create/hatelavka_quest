@@ -1,21 +1,4 @@
-try {
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
-
-// --- ДОБАВЬ ЭТУ ФУНКЦИЮ ---
-    function escapeHTML(str) {
-        if (typeof str !== 'string') return str;
-        return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
-    }
-    // --- КОНЕЦ ДОБАВЛЕНИЯ ---
-
-    const updatedBalance = localStorage.getItem('userTicketBalance');
-    if (updatedBalance !== null) {
-        document.getElementById('ticketStats').textContent = updatedBalance;
-        localStorage.removeItem('userTicketBalance');
-    }
-
-    const dom = {
+const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
         mainContent: document.getElementById('main-content'),
         fullName: document.getElementById('fullName'),
@@ -66,6 +49,23 @@ try {
         weeklyGoalsListContainer: document.getElementById('weekly-goals-list-container'),
         weeklyModalCounter: document.getElementById('weekly-modal-counter')
     };
+
+try {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+
+// --- ДОБАВЬ ЭТУ ФУНКЦИЮ ---
+    function escapeHTML(str) {
+        if (typeof str !== 'string') return str;
+        return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
+    }
+    // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
+    const updatedBalance = localStorage.getItem('userTicketBalance');
+    if (updatedBalance !== null) {
+        document.getElementById('ticketStats').textContent = updatedBalance;
+        localStorage.removeItem('userTicketBalance');
+    }
 
     let currentQuestId = null;
     let countdownIntervals = {};
