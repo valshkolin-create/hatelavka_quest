@@ -4724,11 +4724,11 @@ async def user_heartbeat(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    💓 Heartbeat v4 (Updated):
+    💓 Heartbeat v5 (P2P Fix):
     1. Баланс из users.
     2. Квесты из user_quest_progress.
     3. Челленджи из user_challenges.
-    4. 🔥 Статус трейдов из shop_trades (для кнопки Магазин).
+    4. 🔥 Статус P2P сделок из p2p_trades.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -4768,16 +4768,16 @@ async def user_heartbeat(
             }
         )
 
-        # 4. 🔥 Активный ТРЕЙД (Новое)
-        # Ищем трейды, которые НЕ завершены (new, processing, sending, sent, error)
-        # Таблица должна называться 'shop_trades' (если у вас другое название, поменяйте здесь)
+        # 4. 🔥 Активный P2P ТРЕЙД (ИСПРАВЛЕНО)
+        # Смотрим таблицу p2p_trades, а не shop_trades
         trade_task = supabase.get(
-            "/shop_trades",
+            "/p2p_trades",
             params={
                 "user_id": f"eq.{telegram_id}",
-                # Фильтруем только активные статусы. 'completed' и 'canceled' нам не интересны.
-                "status": "in.(new,processing,sending,sent,error)",
-                "order": "created_at.desc", # Берем самый свежий
+                # Ищем незавершенные статусы:
+                # pending (ждем админа), active (надо скинуть скин), review (проверка)
+                "status": "in.(pending,active,review)",
+                "order": "created_at.desc", 
                 "limit": 1
             }
         )
@@ -4802,7 +4802,7 @@ async def user_heartbeat(
             "coins": user_data.get("coins", 0),
             "tickets": user_data.get("tickets", 0),
             "bot_t_coins": user_data.get("bot_t_coins", 0),
-            "is_active": user_data.get("is_bot_active", True), # Исправил ключи (было is_bot_active -> is_active)
+            "is_active": user_data.get("is_bot_active", True),
             
             "quest_id": user_data.get("active_quest_id"),
             "quest_progress": 0, 
@@ -4833,22 +4833,27 @@ async def user_heartbeat(
                 if ch.get("challenge"):
                     response["challenge_target"] = ch["challenge"].get("target_value", 1)
         
-        # 🔥 Обработка ТРЕЙДА
+        # 🔥 Обработка P2P ТРЕЙДА
         if trade_resp.status_code == 200:
             tr_data = trade_resp.json()
             if tr_data:
                 trade = tr_data[0]
                 db_status = trade.get("status")
                 
-                # Маппинг статусов БД -> Фронтенд
-                if db_status in ["new", "processing"]:
-                    response["active_trade_status"] = "creating"   # Оранжевая
-                elif db_status == "sending":
-                    response["active_trade_status"] = "sending"    # Синяя
-                elif db_status == "sent":
-                    response["active_trade_status"] = "confirming" # Зеленая (ПРИМИТЕ ТРЕЙД!)
-                elif db_status == "error":
-                    response["active_trade_status"] = "failed"     # Красная
+                # Маппинг статусов P2P -> Вид плитки в Меню
+                
+                if db_status == "pending":
+                    # Заявка создана, ждем админа -> Оранжевый (Обработка)
+                    response["active_trade_status"] = "creating"
+                    
+                elif db_status == "active":
+                    # Админ принял, надо отправить скин -> Зеленый (ПРИМИТЕ!)
+                    # (Используем стиль 'confirming', так как он самый заметный/зеленый)
+                    response["active_trade_status"] = "confirming" 
+                    
+                elif db_status == "review":
+                    # Юзер отправил, админ проверяет -> Синий (Отправка/Проверка)
+                    response["active_trade_status"] = "sending"
 
         return response
 
