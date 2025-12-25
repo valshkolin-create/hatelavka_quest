@@ -1863,7 +1863,7 @@ function setupEventListeners() {
         document.getElementById('nav-quests').addEventListener('click', async (e) => { 
     e.preventDefault(); 
     // false означает "показать спиннер", так как пользователь нажал кнопку сам
-    await openQuestsTab(false);
+    await openQuestsTab(true);
         });
     // --- ФИКС АККОРДЕОНА (Вставь это в setupEventListeners) ---
     // Используем делегирование, так как элементы создаются динамически
@@ -2169,6 +2169,16 @@ function setupEventListeners() {
 // isSilent = true означает, что мы НЕ трогаем спиннер (он уже крутится в main)
 async function openQuestsTab(isSilent = false) {
     switchView('view-quests');
+    
+    // 👇 ДОБАВИТЬ ЭТО: Если грузим тихо, покажем маленький спиннер внутри списка, чтобы не было пусто
+    if (isSilent) {
+        const list = document.getElementById('manual-quests-list');
+        // Если список пуст, покажем крутилку. Если там уже есть старые квесты - оставим их, пока грузятся новые.
+        if (list && list.children.length === 0) {
+            list.innerHTML = '<div class="spinner" style="margin: 20px auto;"></div>';
+        }
+    }
+    // 👆 КОНЕЦ ДОБАВЛЕНИЯ
     
     // Загружаем квесты
     const manualQuests = await makeApiRequest("/api/v1/quests/manual", {}, 'POST', isSilent);
