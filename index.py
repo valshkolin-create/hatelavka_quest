@@ -4724,10 +4724,11 @@ async def user_heartbeat(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    💓 Heartbeat v3 (Final):
+    💓 Heartbeat v4 (Updated):
     1. Баланс из users.
-    2. Квесты из user_quest_progress (current_progress).
-    3. Челленджи из user_challenges (progress_value).
+    2. Квесты из user_quest_progress.
+    3. Челленджи из user_challenges.
+    4. 🔥 Статус трейдов из shop_trades (для кнопки Магазин).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -4736,7 +4737,7 @@ async def user_heartbeat(
     telegram_id = user_info["id"]
 
     try:
-        # 1. Основные данные юзера (баланс + ID активного квеста)
+        # 1. Основные данные юзера
         user_task = supabase.get(
             "/users",
             params={
@@ -4745,7 +4746,7 @@ async def user_heartbeat(
             }
         )
 
-        # 2. Прогресс квеста (user_quest_progress)
+        # 2. Прогресс квеста
         quest_progress_task = supabase.get(
             "/user_quest_progress",
             params={
@@ -4756,8 +4757,7 @@ async def user_heartbeat(
             }
         )
 
-        # 3. Активный челлендж (user_challenges)
-        # Ищем статус 'pending' и забираем progress_value
+        # 3. Активный челлендж
         challenge_task = supabase.get(
             "/user_challenges",
             params={
@@ -4768,8 +4768,24 @@ async def user_heartbeat(
             }
         )
 
-        # Выполняем 3 запроса параллельно
-        user_resp, q_prog_resp, ch_resp = await asyncio.gather(user_task, quest_progress_task, challenge_task)
+        # 4. 🔥 Активный ТРЕЙД (Новое)
+        # Ищем трейды, которые НЕ завершены (new, processing, sending, sent, error)
+        # Таблица должна называться 'shop_trades' (если у вас другое название, поменяйте здесь)
+        trade_task = supabase.get(
+            "/shop_trades",
+            params={
+                "user_id": f"eq.{telegram_id}",
+                # Фильтруем только активные статусы. 'completed' и 'canceled' нам не интересны.
+                "status": "in.(new,processing,sending,sent,error)",
+                "order": "created_at.desc", # Берем самый свежий
+                "limit": 1
+            }
+        )
+
+        # Выполняем 4 запроса параллельно
+        user_resp, q_prog_resp, ch_resp, trade_resp = await asyncio.gather(
+            user_task, quest_progress_task, challenge_task, trade_task
+        )
 
         if user_resp.status_code != 200:
             logging.error(f"Heartbeat DB Error: {user_resp.text}")
@@ -4781,41 +4797,58 @@ async def user_heartbeat(
         
         user_data = user_data_list[0]
         
-        # Собираем ответ
+        # Собираем базовый ответ
         response = {
             "coins": user_data.get("coins", 0),
             "tickets": user_data.get("tickets", 0),
             "bot_t_coins": user_data.get("bot_t_coins", 0),
-            "is_bot_active": user_data.get("is_bot_active", False),
+            "is_active": user_data.get("is_bot_active", True), # Исправил ключи (было is_bot_active -> is_active)
             
             "quest_id": user_data.get("active_quest_id"),
             "quest_progress": 0, 
             
             "has_active_challenge": False,
             "challenge_progress": 0,
-            "challenge_target": 1
+            "challenge_target": 1,
+            
+            # По умолчанию трейда нет
+            "active_trade_status": "none" 
         }
 
-        # Данные квеста
+        # Обработка Квеста
         if q_prog_resp.status_code == 200:
             q_data = q_prog_resp.json()
             if q_data:
                 progress_record = q_data[0]
-                # Сверяем ID, чтобы не показать прогресс от старого/отмененного квеста
                 if response["quest_id"] and progress_record.get("quest_id") == response["quest_id"]:
                     response["quest_progress"] = progress_record.get("current_progress", 0)
 
-        # Данные челленджа
+        # Обработка Челленджа
         if ch_resp.status_code == 200:
             ch_data = ch_resp.json()
             if ch_data:
                 ch = ch_data[0]
                 response["has_active_challenge"] = True
-                response["challenge_progress"] = ch.get("progress_value", 0) # Вот оно, твое поле!
-                
-                # Получаем цель (target) из связанной таблицы challenges
+                response["challenge_progress"] = ch.get("progress_value", 0)
                 if ch.get("challenge"):
                     response["challenge_target"] = ch["challenge"].get("target_value", 1)
+        
+        # 🔥 Обработка ТРЕЙДА
+        if trade_resp.status_code == 200:
+            tr_data = trade_resp.json()
+            if tr_data:
+                trade = tr_data[0]
+                db_status = trade.get("status")
+                
+                # Маппинг статусов БД -> Фронтенд
+                if db_status in ["new", "processing"]:
+                    response["active_trade_status"] = "creating"   # Оранжевая
+                elif db_status == "sending":
+                    response["active_trade_status"] = "sending"    # Синяя
+                elif db_status == "sent":
+                    response["active_trade_status"] = "confirming" # Зеленая (ПРИМИТЕ ТРЕЙД!)
+                elif db_status == "error":
+                    response["active_trade_status"] = "failed"     # Красная
 
         return response
 
