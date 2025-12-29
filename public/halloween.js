@@ -68,6 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
         adminStartDate: document.getElementById('admin-start-date'),
         adminEndDate: document.getElementById('admin-end-date'),
         toggleEditBtn: document.getElementById('toggle-edit-btn'),
+        // --- ДОБАВЬ ВОТ ЭТИ СТРОКИ ---
+        activeGameInterface: document.getElementById('active-game-interface'),
+        subscriptionLockInterface: document.getElementById('subscription-lock-interface'),
+        checkSubBtn: document.getElementById('check-sub-btn'),
+        // -----------------------------
         // --- НОВЫЕ ЭЛЕМЕНТЫ ---
         rewardsListButton: document.getElementById('rewards-list-button'),
         rewardsListModal: document.getElementById('rewards-list-modal'),
@@ -721,9 +726,6 @@ function renderPage(eventData, leaderboardData = {}) {
 
     // Функция проверки подписки
     async function checkSubscriptionStatus() {
-        // Если пользователь админ, пропускаем проверку (опционально, но удобно для тестов)
-        // Но так как данные юзера грузятся параллельно, надежнее проверить сервер.
-        
         try {
             if (dom.checkSubBtn) {
                 dom.checkSubBtn.textContent = 'Проверяю...';
@@ -733,20 +735,18 @@ function renderPage(eventData, leaderboardData = {}) {
             const response = await makeApiRequest('/api/v1/user/check_subscription', {}, 'POST');
             
             if (response.is_subscribed) {
-                // Если подписан -> Скрываем оверлей
-                dom.gatekeeperOverlay.classList.add('hidden');
-                document.body.classList.remove('no-scroll');
+                // Если подписан -> Показываем интерфейс игры, скрываем замок
+                if (dom.activeGameInterface) dom.activeGameInterface.classList.remove('hidden');
+                if (dom.subscriptionLockInterface) dom.subscriptionLockInterface.classList.add('hidden');
                 return true;
             } else {
-                // Если НЕ подписан -> Показываем оверлей
-                dom.gatekeeperOverlay.classList.remove('hidden');
-                document.body.classList.add('no-scroll'); // Блокируем скролл фона
+                // Если НЕ подписан -> Скрываем игру, показываем замок
+                if (dom.activeGameInterface) dom.activeGameInterface.classList.add('hidden');
+                if (dom.subscriptionLockInterface) dom.subscriptionLockInterface.classList.remove('hidden');
                 return false;
             }
         } catch (e) {
             console.error('[SUB] Ошибка проверки подписки:', e);
-            // В случае ошибки сети лучше не блокировать намертво, но тут решайте сами.
-            // Пока оставим оверлей, чтобы человек попробовал нажать кнопку еще раз.
             return false;
         } finally {
             if (dom.checkSubBtn) {
@@ -1086,10 +1086,10 @@ function renderPage(eventData, leaderboardData = {}) {
     // ✅ ВСТАВЬТЕ ВМЕСТО НЕЕ ЭТОТ БЛОК:
     console.log('[INIT] Запуск проверок...');
     
-    // Сначала проверим подписку
-    checkSubscriptionStatus().then((isSubscribed) => {
-        // Загружаем данные страницы в любом случае
+    // Сначала проверяем подписку, потом грузим данные
+    checkSubscriptionStatus().then(() => {
         fetchDataAndRender();
+    });
         
         // Если не подписан — показываем оверлей
         if (!isSubscribed) {
