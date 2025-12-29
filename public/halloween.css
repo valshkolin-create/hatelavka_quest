@@ -1137,3 +1137,42 @@ body.no-scroll {
 .check-btn:hover {
     background: rgba(255, 255, 255, 0.15);
 }
+
+/* Кнопки блокировки (встроенные) */
+.gatekeeper-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    border: none;
+    font-family: var(--font-main);
+    transition: transform 0.2s, filter 0.2s;
+}
+
+.gatekeeper-btn:active {
+    transform: scale(0.96);
+}
+
+.subscribe-btn {
+    background: #24A1DE; /* Telegram Blue */
+    color: white;
+    box-shadow: 0 4px 15px rgba(36, 161, 222, 0.3);
+}
+.subscribe-btn i {
+    margin-right: 8px;
+    font-size: 18px;
+}
+
+.check-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.check-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
