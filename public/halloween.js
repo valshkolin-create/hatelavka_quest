@@ -1121,3 +1121,4 @@ function renderPage(eventData, leaderboardData = {}) {
             }
         });
     }
+}); // <--- Вот здесь закрывается основной блок (строка 1122)
