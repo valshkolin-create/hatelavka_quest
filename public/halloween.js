@@ -1090,13 +1090,6 @@ function renderPage(eventData, leaderboardData = {}) {
     checkSubscriptionStatus().then(() => {
         fetchDataAndRender();
     });
-        
-        // Если не подписан — показываем оверлей
-        if (!isSubscribed) {
-            console.log('[INIT] Подписка отсутствует. Показываем Gatekeeper.');
-            dom.gatekeeperOverlay.classList.remove('hidden');
-        }
-    });
     // ==========================================
 
     const rulesViewed = localStorage.getItem('cauldronRulesViewed');
@@ -1104,6 +1097,7 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.rulesButton.classList.add('highlight');
         dom.tutorialOverlay.classList.remove('hidden');
     }
+    
     // [НОВОЕ] Обработчик клика по наградам в модалке (Зум)
     if (dom.rewardsListContent) {
         dom.rewardsListContent.addEventListener('click', (e) => {
@@ -1121,4 +1115,4 @@ function renderPage(eventData, leaderboardData = {}) {
             }
         });
     }
-}); // <--- Вот здесь закрывается основной блок (строка 1122)
+}); // <--- ЭТО ПОСЛЕДНИЕ СТРОКИ ФАЙЛА
