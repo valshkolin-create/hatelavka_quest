@@ -32,23 +32,37 @@
             <span>Режим администратора: ивент скрыт для обычных пользователей.</span>
         </div>
         
-        <div id="gatekeeper-overlay" class="gatekeeper-overlay hidden">
-        <div class="gatekeeper-content">
-            <div class="gatekeeper-icon">
-                <i class="fa-solid fa-lock"></i>
-            </div>
-            <h2>Доступ ограничен</h2>
-            <p>Чтобы участвовать в ивенте, необходимо быть подписанным на наш канал.</p>
+        <section class="contribution-section">
+                <div id="active-game-interface">
+                    <p>Ваш баланс: <strong id="user-ticket-balance">...</strong> <i class="fa-solid fa-ticket"></i></p>
+                    <p>Заброшено вами: <strong id="user-contribution-total">...</strong> <i class="fa-solid fa-ticket"></i></p>
+                    <p>Ваше место: <strong id="user-leaderboard-rank">...</strong></p>
+                    <form id="contribution-form">
+                        <input type="number" id="tickets-input" placeholder="Кол-во билетов" min="1" required>
+                        <button type="submit">Вложить в котел</button>
+                    </form>
+                </div>
 
-            <button type="button" id="subscribe-channel-btn" class="gatekeeper-btn subscribe-btn">
-                <i class="fa-brands fa-telegram"></i> Подписаться
-            </button>
-                   
-            <button id="check-sub-btn" class="gatekeeper-btn check-btn">
-                Проверить подписку
-            </button>
-        </div>
-    </div>
+                <div id="subscription-lock-interface" class="hidden" style="text-align: center; padding: 15px 0;">
+                    <div style="font-size: 40px; color: var(--danger-color); margin-bottom: 15px;">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <h3 style="margin: 0 0 10px 0; color: #fff; font-size: 18px;">Доступ ограничен</h3>
+                    <p style="margin-bottom: 20px; color: var(--text-color-muted); font-size: 14px; line-height: 1.5;">
+                        Чтобы делать вклады и выигрывать скины, необходимо быть подписанным на наш канал.
+                    </p>
+                    
+                    <button type="button" id="subscribe-channel-btn" class="gatekeeper-btn subscribe-btn" style="width: 100%; margin-bottom: 10px;">
+                        <i class="fa-brands fa-telegram"></i> Подписаться
+                    </button>
+                    
+                    <button id="check-sub-btn" class="gatekeeper-btn check-btn" style="width: 100%;">
+                        Проверить подписку
+                    </button>
+                </div>
+
+                <div id="error-message" class="error-message hidden"></div>
+            </section>
 
         <header class="page-header">
             <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
