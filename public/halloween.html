@@ -32,7 +32,30 @@
             <span>Режим администратора: ивент скрыт для обычных пользователей.</span>
         </div>
         
-        <section class="contribution-section">
+        <header class="page-header">
+            <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
+        </header>
+
+        <div id="event-dates-display" class="event-timer" data-editable="dates">
+        </div>
+
+        <div class="rules-button-container" style="display: flex; gap: 10px; justify-content: center;">
+            <button id="rules-button" class="rules-button">КАК ИГРАТЬ?</button>
+            <button id="rewards-list-button" class="rules-button" style="background: linear-gradient(45deg, #FFC107, #FF9800);">НАГРАДЫ</button>
+        </div>
+        
+        <div class="page-layout">
+            <section class="top-section">
+                <div class="cauldron-image-wrapper">
+                    <img id="cauldron-image" src="" alt="Cauldron">
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                </div>
+                <div id="progress-text" class="progress-text">0 / 0</div>
+            </section>
+            
+            <section class="contribution-section">
                 <div id="active-game-interface">
                     <p>Ваш баланс: <strong id="user-ticket-balance">...</strong> <i class="fa-solid fa-ticket"></i></p>
                     <p>Заброшено вами: <strong id="user-contribution-total">...</strong> <i class="fa-solid fa-ticket"></i></p>
@@ -61,41 +84,6 @@
                     </button>
                 </div>
 
-                <div id="error-message" class="error-message hidden"></div>
-            </section>
-
-        <header class="page-header">
-            <h1 id="event-title" class="page-header-title">Ведьминский Котел</h1>
-        </header>
-
-        <div id="event-dates-display" class="event-timer" data-editable="dates">
-        </div>
-
-        <div class="rules-button-container" style="display: flex; gap: 10px; justify-content: center;">
-            <button id="rules-button" class="rules-button">КАК ИГРАТЬ?</button>
-            <button id="rewards-list-button" class="rules-button" style="background: linear-gradient(45deg, #FFC107, #FF9800);">НАГРАДЫ</button>
-        </div>
-        
-        <div class="page-layout">
-            <section class="top-section">
-                <div class="cauldron-image-wrapper">
-                    <img id="cauldron-image" src="" alt="Cauldron">
-                </div>
-                <div class="progress-bar-container">
-                    <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
-                </div>
-                <div id="progress-text" class="progress-text">0 / 0</div>
-            </section>
-            
-            <section class="contribution-section">
-                <p>Ваш баланс: <strong id="user-ticket-balance">...</strong> <i class="fa-solid fa-ticket"></i></p>
-
-                <p>Заброшено вами: <strong id="user-contribution-total">...</strong> <i class="fa-solid fa-ticket"></i></p>
-                <p>Ваше место: <strong id="user-leaderboard-rank">...</strong></p>
-                <form id="contribution-form">
-                    <input type="number" id="tickets-input" placeholder="Кол-во билетов" min="1" required>
-                    <button type="submit">Вложить в котел</button>
-                </form>
                 <div id="error-message" class="error-message hidden"></div>
             </section>
             
