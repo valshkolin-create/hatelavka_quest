@@ -1121,4 +1121,3 @@ function renderPage(eventData, leaderboardData = {}) {
             }
         });
     }
-});
