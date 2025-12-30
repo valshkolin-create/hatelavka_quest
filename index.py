@@ -5012,32 +5012,44 @@ async def get_cauldron_participants_admin(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    (Админ) Возвращает список участников ивента 'Котел' с проверкой подписки.
+    (Админ) Возвращает список участников ивента 'Котел' с проверкой подписки и ТРЕЙД-ССЫЛКАМИ.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем сырые данные лидерборда (всех участников)
-        # Используем существующую RPC, так как она уже собирает суммы вкладов
+        # 1. Получаем список участников через RPC
         resp = await supabase.post("/rpc/get_cauldron_leaderboard_public")
         
         data = resp.json()
-        # RPC возвращает { "all": [...], "top20": [...] }
-        # Нам нужен список 'all'
         participants = data.get('all', []) if data else []
         
         if not participants:
             return []
 
-        # 2. Собираем ID пользователей для проверки
+        # 2. Собираем ID пользователей
         user_ids = [p['user_id'] for p in participants if p.get('user_id')]
         
-        # 3. Проверяем подписку (Batch Check)
+        # --- 🔥 ФИКС НАЧАЛО: Запрашиваем трейд-ссылки отдельно ---
+        trade_link_map = {}
+        if user_ids:
+            # Делаем запрос в таблицу users для этих ID
+            users_resp = await supabase.get(
+                "/users",
+                params={
+                    "telegram_id": f"in.({','.join(map(str, user_ids))})",
+                    "select": "telegram_id, trade_link"
+                }
+            )
+            if users_resp.status_code == 200:
+                # Собираем словарь { telegram_id: "ссылка" }
+                for u in users_resp.json():
+                    trade_link_map[u['telegram_id']] = u.get('trade_link')
+        # --- 🔥 ФИКС КОНЕЦ ---
+
+        # 3. Проверяем подписку (Ваш существующий код)
         REQUIRED_CHANNEL_ID = -1002144676097
-        
-        # Создаем временного бота для проверки (чтобы не блокировать основной поток)
         temp_bot = Bot(token=BOT_TOKEN)
         
         async def check_user_sub(uid):
@@ -5046,24 +5058,21 @@ async def get_cauldron_participants_admin(
                 is_sub = m.status in ['member', 'administrator', 'creator', 'restricted']
                 return uid, is_sub
             except Exception:
-                # Если ошибка (например, юзер не найден или бот кикнут), считаем "не подписан"
                 return uid, False
 
-        # Запускаем проверки параллельно
-        # Важно: если участников ОЧЕНЬ много (>200), стоит разбить на пачки, 
-        # но для типичного ивента asyncio.gather справится.
         tasks = [check_user_sub(uid) for uid in user_ids]
         results = await asyncio.gather(*tasks)
-        
         await temp_bot.session.close()
         
-        # Создаем карту {user_id: is_subscribed}
         sub_map = {uid: is_sub for uid, is_sub in results}
         
-        # 4. Обогащаем список участников
+        # 4. Обогащаем список (Подписка + Ссылка)
         for p in participants:
-            # Если ключа нет в map, по умолчанию False
-            p['is_subscribed'] = sub_map.get(p.get('user_id'), False)
+            uid = p.get('user_id')
+            p['is_subscribed'] = sub_map.get(uid, False)
+            
+            # Вставляем ссылку, которую получили отдельно
+            p['trade_link'] = trade_link_map.get(uid) 
             
         return participants
 
