@@ -30,6 +30,19 @@ const dom = {
         questChooseBtn: document.getElementById("quest-choose-btn"),
         questChooseContainer: document.getElementById("quest-choose-container"),
 
+        giftContainer: document.getElementById('gift-container'),
+        giftIconBtn: document.getElementById('gift-icon-btn'),
+        giftModalOverlay: document.getElementById('gift-modal-overlay'),
+        giftOpenBtn: document.getElementById('gift-open-btn'),
+        giftCloseBtn: document.getElementById('gift-close-btn'),
+        giftContentInitial: document.getElementById('gift-content-initial'),
+        giftContentResult: document.getElementById('gift-content-result'),
+        giftResultTitle: document.getElementById('gift-result-title'),
+        giftResultText: document.getElementById('gift-result-text'),
+        giftResultIcon: document.getElementById('gift-result-icon'),
+        giftPromoBlock: document.getElementById('gift-promo-block'),
+        giftPromoCode: document.getElementById('gift-promo-code'),
+
         newPromoNotification: document.getElementById('new-promo-notification'),
         closePromoNotification: document.getElementById('close-promo-notification'),
 
@@ -2886,6 +2899,89 @@ function updateShopTile(status) {
         </div>
     `;
 }
+        // --- 🎄 GIFT LOGIC 🎄 ---
+    async function checkGift() {
+        try {
+            const res = await makeApiRequest('/api/v1/gift/check', {}, 'POST', true);
+            if (res && res.available) {
+                if(dom.giftContainer) dom.giftContainer.classList.remove('hidden');
+                
+                // Рандомная позиция по X (чтобы не было скучно)
+                const randomRight = Math.floor(Math.random() * 40) + 10; // 10px - 50px
+                if(dom.giftContainer) dom.giftContainer.style.right = `${randomRight}px`;
+            } else {
+                if(dom.giftContainer) dom.giftContainer.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error("Gift check error:", e);
+        }
+    }
+
+    if (dom.giftIconBtn) {
+        dom.giftIconBtn.addEventListener('click', () => {
+            dom.giftModalOverlay.classList.remove('hidden');
+            dom.giftContentInitial.classList.remove('hidden');
+            dom.giftContentResult.classList.add('hidden');
+        });
+    }
+
+    if (dom.giftOpenBtn) {
+        dom.giftOpenBtn.addEventListener('click', async () => {
+            try {
+                dom.giftOpenBtn.disabled = true;
+                dom.giftOpenBtn.textContent = "Проверяем...";
+                
+                const result = await makeApiRequest('/api/v1/gift/claim', {});
+                
+                // Успех!
+                dom.giftContentInitial.classList.add('hidden');
+                dom.giftContentResult.classList.remove('hidden');
+                dom.giftContainer.classList.add('hidden'); 
+
+                dom.giftPromoBlock.classList.add('hidden');
+                
+                if (result.type === 'tickets') {
+                    dom.giftResultTitle.textContent = "Выпали Билеты!";
+                    dom.giftResultIcon.innerHTML = "🎟️";
+                    dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> билетов!`;
+                    // Обновляем баланс в UI
+                    const current = parseInt(document.getElementById('ticketStats').textContent) || 0;
+                    document.getElementById('ticketStats').textContent = current + result.value;
+                } else if (result.type === 'coins') {
+                    dom.giftResultTitle.textContent = "Выпали Монеты!";
+                    dom.giftResultIcon.innerHTML = "💰";
+                    dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> монет!`;
+                    dom.giftPromoBlock.classList.remove('hidden');
+                    dom.giftPromoCode.textContent = result.meta.code;
+                } else if (result.type === 'skin') {
+                    dom.giftResultTitle.textContent = "ВЫПАЛ СКИН!";
+                    dom.giftResultIcon.innerHTML = `<img src="${escapeHTML(result.meta.image_url)}" style="width:100px; height:100px; object-fit:contain;">`;
+                    dom.giftResultText.innerHTML = `<b>${escapeHTML(result.meta.name)}</b><br><small style="color:#aaa;">Заявка на выдачу создана!</small>`;
+                }
+
+            } catch (e) {
+                if (e.message && e.message.includes('subscription_required')) {
+                    Telegram.WebApp.showConfirm("Для получения подарка нужно подписаться на канал!\nПерейти?", (ok) => {
+                        if (ok) Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv");
+                    });
+                } else {
+                    Telegram.WebApp.showAlert(e.message);
+                }
+            } finally {
+                dom.giftOpenBtn.disabled = false;
+                dom.giftOpenBtn.textContent = "Открыть";
+            }
+        });
+    }
+
+    if (dom.giftCloseBtn) {
+        dom.giftCloseBtn.addEventListener('click', () => {
+            dom.giftModalOverlay.classList.add('hidden');
+        });
+    }
+
+    // Запускаем проверку подарка через секунду после загрузки
+    setTimeout(checkGift, 1000);
 
     // Отдельная функция для тихого обновления (без лоадера)
     async function updateBootstrapSilently() {
