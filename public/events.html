@@ -1212,10 +1212,14 @@
     };
 
     async function fetchShopItems() {
+        // Курс: 1 билет = 3 монеты
         shopItems = [
             { type: 'ticket', cost: 3, reward: 1, title: '1 Билет' },
-            { type: 'ticket', cost: 15, reward: 1, title: '5 Билетов' },        
-            { type: 'ticket', cost: 30, reward: 10, title: '10 Билетов' }
+            { type: 'ticket', cost: 15, reward: 5, title: '5 Билетов' },        
+            { type: 'ticket', cost: 30, reward: 10, title: '10 Билетов' },
+            { type: 'ticket', cost: 75, reward: 25, title: '25 Билетов' },
+            { type: 'ticket', cost: 150, reward: 50, title: '50 Билетов' },
+            { type: 'ticket', cost: 300, reward: 100, title: '100 Билетов' }
         ];
         try {
             const response = await fetch('/api/v1/user/grind/shop');
