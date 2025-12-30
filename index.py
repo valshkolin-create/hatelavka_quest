@@ -11436,43 +11436,44 @@ async def claim_gift(
     request_data: GiftClaimRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # --- 1. АВТОРИЗАЦИЯ И ПРОВЕРКИ ---
+    # --- 1. АВТОРИЗАЦИЯ ---
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info['id']
 
-    # Проверка: получал ли уже подарок
+    # Проверка: получал ли уже подарок (это блокируем жестко)
     check_resp = await check_gift_availability(GiftCheckRequest(initData=request_data.initData), supabase)
     if not check_resp['available']:
         raise HTTPException(status_code=400, detail="Подарок уже получен сегодня! Приходите завтра.")
 
-    # Проверка подписки на канал
+    # --- 2. ПРОВЕРКА ПОДПИСКИ (МЯГКАЯ) ---
     REQUIRED_CHANNEL_ID = -1002144676097
+    is_subscribed = False # По умолчанию считаем, что не подписан
+    
     try:
         chat_member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=telegram_id)
-        if chat_member.status in ["left", "kicked", "restricted"]:
-             raise HTTPException(status_code=403, detail="subscription_required")
-    except HTTPException as he:
-        raise he
+        if chat_member.status in ["creator", "administrator", "member", "restricted"]:
+             is_subscribed = True
     except Exception as e:
-        logging.error(f"Ошибка проверки подписки в подарке: {e}")
-        if "subscription_required" in str(e):
-             raise HTTPException(status_code=403, detail="subscription_required")
-        pass # Игнорируем технические ошибки телеграма, чтобы не блокировать юзера зря
+        logging.error(f"Ошибка проверки подписки: {e}")
+        # Если ошибка API, можно дать поблажку, но для строгости оставим False
+        pass
 
-    # --- 2. ЛОГИКА ВЫБОРА НАГРАДЫ ---
+    # --- 3. РАСЧЕТ НАГРАДЫ (ВИЗУАЛЬНЫЙ) ---
+    # Мы рассчитываем, что выпало, но НЕ ЗАПИСЫВАЕМ в базу, если нет подписки
+    
     prize_type = "none"
     prize_value = 0
     prize_meta = {}
 
-    # Получаем список активных скинов
+    # Получаем скины (для расчета вероятности)
     skins_resp = await supabase.get("/gift_skins", params={"is_active": "eq.true"})
     skins = skins_resp.json()
     
     won_skin = None
-    # Шанс 35% на попытку выбить скин (если они есть в базе)
+    # 35% шанс на скин
     if skins and random.random() < 0.35:
         total_chance = sum(s['chance'] for s in skins)
         if total_chance > 0:
@@ -11485,107 +11486,109 @@ async def claim_gift(
                     break
     
     if won_skin:
-        # === ВЕТКА 1: ВЫПАЛ СКИН ===
+        # === ВЫПАЛ СКИН ===
         prize_type = "skin"
         prize_meta = {"name": won_skin['name'], "image_url": won_skin['image_url']}
         
-        # Создаем заявку на выдачу (Manual Reward)
-        await supabase.post("/manual_rewards", json={
-            "user_id": telegram_id,
-            "status": "pending",
-            "reward_details": f"Скин: {won_skin['name']}",
-            "source_type": "gift_skin",
-            "source_description": "Новогодний Подарок"
-        })
-        logging.info(f"🎁 GIFT: Юзер {telegram_id} выиграл СКИН: {won_skin['name']}")
+        # ЗАПИСЬ В БАЗУ ТОЛЬКО ЕСЛИ ПОДПИСАН
+        if is_subscribed:
+            await supabase.post("/manual_rewards", json={
+                "user_id": telegram_id,
+                "status": "pending",
+                "reward_details": f"Скин: {won_skin['name']}",
+                "source_type": "gift_skin",
+                "source_description": "Новогодний Подарок"
+            })
+            logging.info(f"🎁 GIFT: Юзер {telegram_id} выиграл СКИН: {won_skin['name']}")
 
     else:
-        # === ВЕТКА 2: НЕ СКИН (Билеты или Монеты) ===
-        # Шанс 50/50
+        # === БИЛЕТЫ ИЛИ МОНЕТЫ ===
         if random.random() < 0.5:
             # --- БИЛЕТЫ ---
             roll = random.random()
-            if roll < 0.6: amount = random.randint(1, 10)     # 60% шанс
-            elif roll < 0.9: amount = random.randint(11, 20)  # 30% шанс
-            else: amount = random.randint(21, 30)             # 10% шанс
+            if roll < 0.6: amount = random.randint(1, 10)
+            elif roll < 0.9: amount = random.randint(11, 20)
+            else: amount = random.randint(21, 30)
             
             prize_type = "tickets"
             prize_value = amount
             
-            await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": amount})
-            logging.info(f"🎁 GIFT: Юзер {telegram_id} получил {amount} билетов.")
+            # ЗАПИСЬ В БАЗУ ТОЛЬКО ЕСЛИ ПОДПИСАН
+            if is_subscribed:
+                await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": amount})
+                logging.info(f"🎁 GIFT: Юзер {telegram_id} получил {amount} билетов.")
             
         else:
-            # --- МОНЕТЫ (ПРОМОКОДЫ ИЗ БАЗЫ) ---
-            
-            # 1. Ищем свободные коды <= 20 монет.
-            # Сортируем по возрастанию (1, 2, ... 20), чтобы "умный рандом" работал корректно.
-            response_codes = await supabase.get(
-                "/promocodes",
-                params={
-                    "select": "id,code,reward_value",
-                    "is_used": "eq.false",
-                    "telegram_id": "is.null",
-                    "reward_value": "lte.20",    # Только <= 20
-                    "order": "reward_value.asc", # Сортировка от малого к большему
-                    "limit": "50"                # Берем пачку для выбора
-                }
-            )
-
-            available_codes = response_codes.json()
-
-            # Если кодов нет — выдаем билеты (Фолбэк)
-            if not available_codes:
-                logging.warning(f"⚠️ GIFT: Промокоды <=20 закончились! Юзер {telegram_id} получит билеты.")
-                fallback_tickets = 10
-                await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": fallback_tickets})
-                
-                # Обновляем дату получения, чтобы не абузили запрос
-                await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
-                    "last_new_year_gift_at": datetime.now(timezone.utc).isoformat()
-                })
-
-                return {
-                    "type": "tickets",
-                    "value": fallback_tickets,
-                    "meta": {},
-                    "message": "Промокоды разобрали! Держи билеты."
-                }
-
-            # 2. Умный выбор (Smart Random)
-            # triangular(low, high, mode) -> mode=0 значит "чаще выбирай начало списка" (мелкие суммы)
-            count = len(available_codes)
-            random_index = int(random.triangular(0, count - 1, 0))
-            
-            promo = available_codes[random_index]
-            code_id = promo['id']
-            code_str = promo['code']
-            
-            # Если reward_value в базе null, ставим 1-5. Если есть число, берем его.
-            amount = promo.get('reward_value') or random.randint(1, 5)
-
+            # --- МОНЕТЫ ---
             prize_type = "coins"
-            prize_value = amount
-
-            # 3. Закрепляем код за юзером
-            update_data = {
-                "is_used": True,
-                "telegram_id": telegram_id,
-                "reward_value": amount,
-                "description": f"Новогодний подарок ({amount} монеток)",
-                "claimed_at": datetime.now().isoformat()
-            }
             
-            await supabase.patch(
-                "/promocodes", 
-                params={"id": f"eq.{code_id}"}, 
-                json=update_data
-            )
+            # Если ПОДПИСАН — берем реальный код из базы
+            if is_subscribed:
+                # 1. Ищем свободные коды <= 20
+                response_codes = await supabase.get(
+                    "/promocodes",
+                    params={
+                        "select": "id,code,reward_value",
+                        "is_used": "eq.false",
+                        "telegram_id": "is.null",
+                        "reward_value": "lte.20",
+                        "order": "reward_value.asc",
+                        "limit": "50"
+                    }
+                )
+                available_codes = response_codes.json()
 
-            logging.info(f"🎁 GIFT: Юзер {telegram_id} забрал код {code_str} (ID: {code_id}) на {amount} монет.")
-            prize_meta = {"code": code_str}
+                if not available_codes:
+                    # Фолбэк на билеты, если коды кончились
+                    prize_type = "tickets"
+                    prize_value = 10
+                    await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": 10})
+                    # Тут можно ретёрн сделать или просто продолжить, но логика понятна
+                else:
+                    count = len(available_codes)
+                    random_index = int(random.triangular(0, count - 1, 0))
+                    promo = available_codes[random_index]
+                    
+                    amount = promo.get('reward_value') or random.randint(1, 5)
+                    prize_value = amount
+                    code_str = promo['code']
+                    
+                    # Закрепляем код
+                    await supabase.patch(
+                        "/promocodes", 
+                        params={"id": f"eq.{promo['id']}"}, 
+                        json={
+                            "is_used": True,
+                            "telegram_id": telegram_id,
+                            "reward_value": amount,
+                            "description": f"Новогодний подарок ({amount} coins)",
+                            "claimed_at": datetime.now().isoformat()
+                        }
+                    )
+                    prize_meta = {"code": code_str}
+                    logging.info(f"🎁 GIFT: Юзер {telegram_id} забрал код {code_str} на {amount} монет.")
 
-    # --- 3. ФИНАЛ: ОБНОВЛЯЕМ ВРЕМЯ ПОЛУЧЕНИЯ ПОДАРКА ---
+            else:
+                # ЕСЛИ НЕ ПОДПИСАН — Генерируем "Фейк" для показа
+                # Просто показываем юзеру "Ты мог выиграть X монет", но код не даем
+                amount = random.randint(1, 20) 
+                prize_value = amount
+                # Код скрываем
+                prize_meta = {"code": "🔒 ПОДПИШИСЬ"} 
+
+    # --- 4. ФИНАЛ ---
+    
+    # Если НЕ ПОДПИСАН — возвращаем данные для тизера, но ставим флаг
+    if not is_subscribed:
+        return {
+            "type": prize_type,
+            "value": prize_value,
+            "meta": prize_meta,
+            "subscription_required": True, # <--- ФЛАГ ДЛЯ ФРОНТЕНДА
+            "message": "Подпишись, чтобы забрать награду!"
+        }
+
+    # Если ПОДПИСАН — обновляем дату получения подарка в базе
     await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
         "last_new_year_gift_at": datetime.now(timezone.utc).isoformat()
     })
@@ -11593,7 +11596,8 @@ async def claim_gift(
     return {
         "type": prize_type,
         "value": prize_value,
-        "meta": prize_meta
+        "meta": prize_meta,
+        "subscription_required": False
     }
 
 @app.post("/api/v1/admin/gift/skins/list")
