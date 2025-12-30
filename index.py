@@ -11578,26 +11578,33 @@ async def claim_gift(
 
     # --- 4. ФИНАЛ ---
     
-    # Если НЕ ПОДПИСАН — возвращаем данные для тизера, но ставим флаг
+    # Если НЕ ПОДПИСАН — возвращаем данные для тизера
     if not is_subscribed:
         return {
             "type": prize_type,
             "value": prize_value,
             "meta": prize_meta,
-            "subscription_required": True, # <--- ФЛАГ ДЛЯ ФРОНТЕНДА
+            "subscription_required": True,
             "message": "Подпишись, чтобы забрать награду!"
         }
 
+    # 1. ВЫЧИСЛЯЕМ МОСКОВСКОЕ ВРЕМЯ (UTC + 3 часа)
+    # Важно: убедитесь, что наверху файла есть: from datetime import timedelta
+    moscow_now = datetime.utcnow() + timedelta(hours=3)
+    claim_time_str = moscow_now.isoformat()
+
     # Если ПОДПИСАН — обновляем дату получения подарка в базе
     await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
-        "last_new_year_gift_at": datetime.now(timezone.utc).isoformat()
+        "last_new_year_gift_at": datetime.now(timezone.utc).isoformat() # В базе лучше хранить UTC
     })
 
+    # 2. ВОЗВРАЩАЕМ ВРЕМЯ НА ТЕЛЕФОН
     return {
         "type": prize_type,
         "value": prize_value,
         "meta": prize_meta,
-        "subscription_required": False
+        "subscription_required": False,
+        "claimed_at": claim_time_str  # <--- ВОТ ЭТО ПОЛЕ НУЖНО ДОБАВИТЬ
     }
 
 @app.post("/api/v1/admin/gift/skins/list")
