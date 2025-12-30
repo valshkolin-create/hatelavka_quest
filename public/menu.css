@@ -1557,6 +1557,78 @@ button, .popup-btn {
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
 
+/* --- 🎁 GIFT STYLES --- */
+.gift-container {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 200;
+    animation: floatGift 3s ease-in-out infinite;
+}
+
+.gift-box-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.gift-icon {
+    width: 60px;
+    height: 60px;
+    cursor: pointer;
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
+    transition: transform 0.2s;
+}
+
+.gift-icon:active {
+    transform: scale(0.9);
+}
+
+.gift-message {
+    background: rgba(0, 0, 0, 0.8);
+    color: #FFD700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    animation: fadeText 2s infinite alternate;
+}
+
+@keyframes floatGift {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+
+@keyframes fadeText {
+    0% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.gift-modal-content {
+    background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+    border: 1px solid #FFD700;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
+    text-align: center;
+}
+
+.gift-animation-placeholder {
+    font-size: 80px;
+    margin: 20px 0;
+    animation: shake 0.5s infinite;
+}
+
+@keyframes shake {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(5deg); }
+    50% { transform: rotate(0eg); }
+    75% { transform: rotate(-5deg); }
+    100% { transform: rotate(0deg); }
+}
+
 /* Цвета прогресс баров */
 #metro-challenge-fill { background: #007aff; box-shadow: 0 0 8px rgba(0, 122, 255, 0.6); }
 #metro-quest-fill { background: #ff3b30; box-shadow: 0 0 8px rgba(255, 59, 48, 0.6); }
