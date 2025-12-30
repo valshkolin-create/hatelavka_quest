@@ -390,6 +390,41 @@
     </div>
 </div>
 
+  <div id="gift-container" class="gift-container hidden">
+    <div class="gift-box-wrapper">
+        <div class="gift-message">Тыкни меня! 👇</div>
+        <img src="https://cdn-icons-png.flaticon.com/512/4213/4213650.png" alt="Gift" class="gift-icon" id="gift-icon-btn">
+    </div>
+</div>
+
+<div id="gift-modal-overlay" class="prompt-overlay hidden" style="z-index: 9999;">
+    <div class="prompt-modal gift-modal-content">
+        <div id="gift-content-initial">
+            <h2 style="margin-top:0; color:#FFD700;">🎄 Ежедневный Подарок!</h2>
+            <p>Открой коробку и забери случайную награду.</p>
+            <div class="gift-animation-placeholder">🎁</div>
+            <button id="gift-open-btn" class="claim-reward-button" style="width:100%; margin-top:15px;">
+                Открыть
+            </button>
+        </div>
+        
+        <div id="gift-content-result" class="hidden">
+            <h2 id="gift-result-title" style="margin-top:0; color:#34c759;">Поздравляем!</h2>
+            <div id="gift-result-icon" style="font-size: 60px; margin: 15px 0;">🎉</div>
+            <p id="gift-result-text" style="font-size:14px; color:#ddd;"></p>
+            
+            <div id="gift-promo-block" class="hidden" style="margin: 15px 0; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">
+                <p style="font-size:11px; color:#aaa; margin:0 0 5px;">Личный промокод (добавлен в профиль):</p>
+                <code id="gift-promo-code" style="font-size:16px; font-weight:bold; color:#FFD700; user-select:all;"></code>
+            </div>
+
+            <button id="gift-close-btn" class="perform-quest-button" style="width:100%; margin-top:15px; background:#555;">
+                Круто!
+            </button>
+        </div>
+    </div>
+</div>
+
   <script src="/public/menu.js"></script>
 </body>
 </html>
