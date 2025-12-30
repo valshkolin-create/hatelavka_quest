@@ -6896,8 +6896,9 @@ async def get_user_rewards(
                 "data": grant
             })
             
-        # 3. Сортируем все награды по дате (новые сверху)
-        all_rewards.sort(key=lambda x: x['date'], reverse=True)
+        # Если даты нет, подставляем старую дату (или пустую строку), чтобы ошибка не возникала
+        all_rewards.sort(key=lambda x: str(x.get('date') or '1970-01-01'), reverse=True)
+
         
         return all_rewards
 
