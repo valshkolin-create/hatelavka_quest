@@ -1705,24 +1705,29 @@ html, body {
 
 #pull-to-refresh {
     position: fixed;
-    top: 0;            /* Прижимаем к самому верху экрана */
+    top: -80px;      /* <--- ГЛАВНОЕ: Спрятан над экраном */
     left: 0;
-    width: 100%;       /* Растягиваем контейнер на всю ширину */
-    height: 120px;     /* Задаем высоту, чтобы значок не обрезался */
+    width: 100%;
+    height: 80px;    /* Высота блока равна отступу */
     
     display: flex;
-    justify-content: center; /* <--- ЭТО ДЕЛАЕТ ЕГО ПО ЦЕНТРУ ЭКРАНА */
-    align-items: flex-start; /* <--- Это держит его наверху */
+    justify-content: center;
+    align-items: center; /* Иконка по центру своего блока */
     
-    padding-top: 10px; /* Небольшой отступ от верхней кромки (челки) */
+    z-index: 999;    /* Поверх всего */
+    background: transparent;
+    pointer-events: none;
     
-    z-index: 1;      
-    background: transparent; 
-    border: none;
-    backdrop-filter: none;
-    pointer-events: none; /* Пропускает клики сквозь себя */
+    /* Убираем лишние отступы, теперь всё решит движение */
+    padding: 0;
 }
 
+#pull-to-refresh i {
+    font-size: 26px; /* Размер иконки */
+    color: #FFD700;
+    /* Тень чтобы было видно на любом фоне */
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); 
+}
 /* Стили самой иконки (стрелочки) */
 #pull-to-refresh i {
     font-size: 24px;
