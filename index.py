@@ -693,6 +693,23 @@ class SettingsUpdateModel(BaseModel):
     initData: str
     settings: Dict[str, Any]
 
+# --- МОДЕЛИ ДЛЯ ПОДАРКОВ (Вставить к другим моделям) ---
+class GiftCheckRequest(BaseModel):
+    initData: str
+
+class GiftClaimRequest(BaseModel):
+    initData: str
+
+class GiftSkinCreateRequest(BaseModel):
+    initData: str
+    name: str
+    image_url: str
+    chance: int
+
+class GiftSkinDeleteRequest(BaseModel):
+    initData: str
+    skin_id: int
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -11385,6 +11402,187 @@ async def list_advent_days(req: InitDataRequest, supabase: httpx.AsyncClient = D
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
     r = await supabase.get("/advent_calendar_days", params={"order": "day_id.asc"})
     return r.json()
+
+# --- 🎄 ЛОГИКА НОВОГОДНЕГО ПОДАРКА 🎄 ---
+
+@app.post("/api/v1/gift/check")
+async def check_gift_availability(
+    request_data: GiftCheckRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info['id']
+    
+    # Получаем время последнего подарка
+    resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "last_new_year_gift_at"})
+    user_data = resp.json()
+    
+    available = True
+    if user_data and user_data[0]['last_new_year_gift_at']:
+        last_gift = datetime.fromisoformat(user_data[0]['last_new_year_gift_at'].replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        # Если подарок был получен сегодня (по дате UTC), то недоступен
+        if last_gift.date() == now.date():
+            available = False
+            
+    return {"available": available}
+
+@app.post("/api/v1/gift/claim")
+async def claim_gift(
+    request_data: GiftClaimRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info['id']
+
+    # 1. Проверка доступности (еще раз для безопасности)
+    check_resp = await check_gift_availability(GiftCheckRequest(initData=request_data.initData), supabase)
+    if not check_resp['available']:
+        raise HTTPException(status_code=400, detail="Подарок уже получен сегодня! Приходите завтра.")
+
+    # 2. Проверка подписки на канал (Используем существующий ID)
+    REQUIRED_CHANNEL_ID = -1002144676097 # ID из вашего кода
+    try:
+        # Используем глобального бота bot, который уже объявлен
+        chat_member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=telegram_id)
+        if chat_member.status in ["left", "kicked", "restricted"]:
+             raise HTTPException(status_code=403, detail="subscription_required")
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logging.error(f"Ошибка проверки подписки в подарке: {e}")
+        # Если ошибка API (бот не админ и т.д.), можно пропустить или блокировать. 
+        # Блокируем, чтобы мотивировать подписку, но с понятной ошибкой
+        if "subscription_required" in str(e):
+             raise HTTPException(status_code=403, detail="subscription_required")
+        pass # Пропускаем другие ошибки
+
+    # 3. Логика Рандома
+    
+    prize_type = "none"
+    prize_value = 0
+    prize_meta = {}
+
+    # Получаем скины
+    skins_resp = await supabase.get("/gift_skins", params={"is_active": "eq.true"})
+    skins = skins_resp.json()
+    
+    # Пытаемся выбить скин (35% шанс, если они есть)
+    won_skin = None
+    if skins and random.random() < 0.35:
+        total_chance = sum(s['chance'] for s in skins)
+        if total_chance > 0:
+            pick = random.uniform(0, total_chance)
+            current = 0
+            for skin in skins:
+                current += skin['chance']
+                if pick <= current:
+                    won_skin = skin
+                    break
+    
+    if won_skin:
+        prize_type = "skin"
+        prize_meta = {"name": won_skin['name'], "image_url": won_skin['image_url']}
+        # Выдаем как ручную награду (чтобы админ увидел и выдал)
+        # Либо, если это просто картинка-коллекционка, можно просто записать в лог
+        await supabase.post("/manual_rewards", json={
+            "user_id": telegram_id,
+            "status": "pending",
+            "reward_details": f"Скин: {won_skin['name']}",
+            "source_type": "gift_skin",
+            "source_description": "Новогодний Подарок"
+        })
+    else:
+        # Если не скин, то 50/50 билеты или монеты
+        if random.random() < 0.5:
+            # Билеты (до 30)
+            # Шансы: 1-10 (60%), 11-20 (30%), 21-30 (10%)
+            roll = random.random()
+            if roll < 0.6: amount = random.randint(1, 10)
+            elif roll < 0.9: amount = random.randint(11, 20)
+            else: amount = random.randint(21, 30)
+            
+            prize_type = "tickets"
+            prize_value = amount
+            
+            # Начисляем сразу
+            await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": amount})
+            
+        else:
+            # Монеты (до 20) через промокод
+            amount = random.randint(1, 20)
+            prize_type = "coins"
+            prize_value = amount
+            
+            # Генерируем личный промокод
+            code = f"GIFT-{uuid.uuid4().hex[:6].upper()}"
+            await supabase.post("/promocodes", json={
+                "code": code,
+                "is_used": False,
+                "telegram_id": telegram_id, # Личный промокод (появится в профиле)
+                "reward_value": amount,
+                "description": "Новогодний подарок (Монеты)"
+            })
+            prize_meta = {"code": code}
+
+    # 4. Обновляем время получения
+    await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+        "last_new_year_gift_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {
+        "type": prize_type,
+        "value": prize_value,
+        "meta": prize_meta
+    }
+
+# --- ADMIN ROUTES FOR GIFTS ---
+
+@app.post("/api/v1/admin/gift/skins/list")
+async def list_gift_skins(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+    resp = await supabase.get("/gift_skins", params={"order": "created_at.desc"})
+    return resp.json()
+
+@app.post("/api/v1/admin/gift/skins/add")
+async def add_gift_skin(
+    request_data: GiftSkinCreateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+    await supabase.post("/gift_skins", json={
+        "name": request_data.name,
+        "image_url": request_data.image_url,
+        "chance": request_data.chance
+    })
+    return {"message": "Скин добавлен"}
+
+@app.post("/api/v1/admin/gift/skins/delete")
+async def delete_gift_skin(
+    request_data: GiftSkinDeleteRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+    await supabase.delete("/gift_skins", params={"id": f"eq.{request_data.skin_id}"})
+    return {"message": "Скин удален"}
 
 @app.post("/api/v1/admin/advent/pending_list")
 async def get_advent_pending_list(req: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
