@@ -1642,3 +1642,39 @@ button, .popup-btn {
     70% { box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); transform: scale(1.02); }
     100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); transform: scale(1); }
 }
+
+/* === БЛОКИРОВКА СВОРАЧИВАНИЯ === */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* ⛔️ ЗАПРЕЩАЕМ скролл самого окна */
+    overscroll-behavior-y: none; /* Убирает "пружинку" на iOS */
+    position: fixed; /* Жестко фиксируем */
+}
+
+/* === ГЛАВНЫЙ КОНТЕЙНЕР ТЕПЕРЬ ОТВЕЧАЕТ ЗА СКРОЛЛ === */
+.main-content {
+    height: 100%;       /* Занимает всю высоту */
+    overflow-y: auto;   /* Скроллится только содержимое внутри */
+    -webkit-overflow-scrolling: touch; /* Плавный скролл на айфонах */
+    position: relative;
+    padding-bottom: 100px; /* Отступ под футер */
+}
+
+/* Скрытый блок обновления (появится при оттягивании) */
+#pull-to-refresh {
+    position: absolute;
+    top: -60px; /* Спрятан сверху */
+    left: 0;
+    width: 100%;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #FFD700;
+    font-size: 24px;
+    transition: transform 0.2s;
+    z-index: 10;
+}
