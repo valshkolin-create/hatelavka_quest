@@ -11442,15 +11442,14 @@ async def claim_gift(
     
     telegram_id = user_info['id']
 
-    # 1. Проверка доступности (еще раз для безопасности)
+    # 1. Проверка доступности
     check_resp = await check_gift_availability(GiftCheckRequest(initData=request_data.initData), supabase)
     if not check_resp['available']:
         raise HTTPException(status_code=400, detail="Подарок уже получен сегодня! Приходите завтра.")
 
-    # 2. Проверка подписки на канал (Используем существующий ID)
-    REQUIRED_CHANNEL_ID = -1002144676097 # ID из вашего кода
+    # 2. Проверка подписки на канал
+    REQUIRED_CHANNEL_ID = -1002144676097
     try:
-        # Используем глобального бота bot, который уже объявлен
         chat_member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=telegram_id)
         if chat_member.status in ["left", "kicked", "restricted"]:
              raise HTTPException(status_code=403, detail="subscription_required")
@@ -11458,14 +11457,11 @@ async def claim_gift(
         raise he
     except Exception as e:
         logging.error(f"Ошибка проверки подписки в подарке: {e}")
-        # Если ошибка API (бот не админ и т.д.), можно пропустить или блокировать. 
-        # Блокируем, чтобы мотивировать подписку, но с понятной ошибкой
         if "subscription_required" in str(e):
              raise HTTPException(status_code=403, detail="subscription_required")
-        pass # Пропускаем другие ошибки
+        pass
 
     # 3. Логика Рандома
-    
     prize_type = "none"
     prize_value = 0
     prize_meta = {}
@@ -11474,7 +11470,6 @@ async def claim_gift(
     skins_resp = await supabase.get("/gift_skins", params={"is_active": "eq.true"})
     skins = skins_resp.json()
     
-    # Пытаемся выбить скин (35% шанс, если они есть)
     won_skin = None
     if skins and random.random() < 0.35:
         total_chance = sum(s['chance'] for s in skins)
@@ -11490,8 +11485,7 @@ async def claim_gift(
     if won_skin:
         prize_type = "skin"
         prize_meta = {"name": won_skin['name'], "image_url": won_skin['image_url']}
-        # Выдаем как ручную награду (чтобы админ увидел и выдал)
-        # Либо, если это просто картинка-коллекционка, можно просто записать в лог
+        
         await supabase.post("/manual_rewards", json={
             "user_id": telegram_id,
             "status": "pending",
@@ -11502,8 +11496,7 @@ async def claim_gift(
     else:
         # Если не скин, то 50/50 билеты или монеты
         if random.random() < 0.5:
-            # Билеты (до 30)
-            # Шансы: 1-10 (60%), 11-20 (30%), 21-30 (10%)
+            # === БИЛЕТЫ ===
             roll = random.random()
             if roll < 0.6: amount = random.randint(1, 10)
             elif roll < 0.9: amount = random.randint(11, 20)
@@ -11512,28 +11505,28 @@ async def claim_gift(
             prize_type = "tickets"
             prize_value = amount
             
-            # Начисляем сразу
             await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": amount})
             
         else:
             # === ВЕТКА: МОНЕТЫ (ЧЕРЕЗ БАЗУ ДАННЫХ) ===
-            
-            # 1. Пытаемся найти СВОБОДНЫЙ промокод в базе
-            # Условие: is_used = false И telegram_id пустое
-            response_codes = await supabase.table("promocodes") \
-                .select("id, code, reward_value") \
-                .eq("is_used", False) \
-                .is_("telegram_id", "null") \
-                .limit(1) \
-                .execute()
+            # Исправленный запрос через HTTP GET
+            # Ищем: is_used=false И telegram_id=is.null (синтаксис Postgrest)
+            response_codes = await supabase.get(
+                "/promocodes",
+                params={
+                    "select": "id,code,reward_value",
+                    "is_used": "eq.false",
+                    "telegram_id": "is.null",
+                    "limit": "1"
+                }
+            )
 
-            available_codes = response_codes.data
+            available_codes = response_codes.json()
 
             # === ПРОВЕРКА: ЗАКОНЧИЛИСЬ ЛИ КОДЫ? ===
             if not available_codes:
                 logging.warning(f"⚠️ GIFT: Промокоды закончились! Юзер {telegram_id} получит билеты как утешительный приз.")
                 
-                # Фолбэк: Выдаем билеты вместо ошибки
                 fallback_tickets = 10
                 await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": fallback_tickets})
                 
@@ -11549,9 +11542,6 @@ async def claim_gift(
             code_id = promo['id']
             code_str = promo['code']
             
-            # Определяем награду:
-            # Если в базе у промокода уже есть цена (например 5), берем её.
-            # Если нет (null), генерируем рандом 1-20 (как было в логике игры).
             if promo.get('reward_value'):
                 amount = promo['reward_value']
             else:
@@ -11560,17 +11550,21 @@ async def claim_gift(
             prize_type = "coins"
             prize_value = amount
 
-            # 2. "ЗАБИРАЕМ" КОД (Обновляем запись в базе)
-            # Ставим is_used=True, прописываем юзера, дату и сумму
+            # 2. "ЗАБИРАЕМ" КОД (Исправленный запрос через HTTP PATCH)
             update_data = {
                 "is_used": True,
                 "telegram_id": telegram_id,
-                "reward_value": amount, # Фиксируем сколько выдали
+                "reward_value": amount,
                 "description": f"Новогодний подарок ({amount} coins)",
                 "claimed_at": datetime.now().isoformat()
             }
             
-            await supabase.table("promocodes").update(update_data).eq("id", code_id).execute()
+            # Обновляем запись по ID
+            await supabase.patch(
+                "/promocodes", 
+                params={"id": f"eq.{code_id}"}, 
+                json=update_data
+            )
 
             logging.info(f"🎁 GIFT: Пользователь {telegram_id} забрал промокод {code_str} (ID: {code_id}) на {amount} монет.")
 
@@ -11586,8 +11580,6 @@ async def claim_gift(
         "value": prize_value,
         "meta": prize_meta
     }
-
-# --- ADMIN ROUTES FOR GIFTS ---
 
 @app.post("/api/v1/admin/gift/skins/list")
 async def list_gift_skins(
