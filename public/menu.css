@@ -1665,18 +1665,32 @@ html, body {
 
 /* Скрытый блок обновления (появится при оттягивании) */
 #pull-to-refresh {
-    position: absolute;
-    top: -60px; /* Спрятан сверху */
+    position: fixed; /* Фиксируем, чтобы был поверх всего */
+    top: -70px;      /* Спрятан сверху */
     left: 0;
     width: 100%;
-    height: 60px;
+    height: 70px;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-end; /* Иконка ближе к низу блока */
+    padding-bottom: 15px;
+    
+    /* Фон и размытие, чтобы перекрывать контент снизу */
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    
     color: #FFD700;
     font-size: 24px;
-    transition: transform 0.2s;
-    z-index: 10;
+    transition: transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28); /* Плавная пружина */
+    z-index: 9000; /* Поверх всего контента, но под модалками */
+    box-sizing: border-box;
+}
+/* Класс для полной блокировки скролла когда открыто окно */
+.no-scroll {
+    overflow: hidden !important;
+    touch-action: none; /* Запрещает свайпы */
 }
 
 /* Крестик в углу подарка */
