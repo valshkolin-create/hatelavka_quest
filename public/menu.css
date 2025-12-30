@@ -1655,42 +1655,54 @@ html, body {
 }
 
 /* === ГЛАВНЫЙ КОНТЕЙНЕР ТЕПЕРЬ ОТВЕЧАЕТ ЗА СКРОЛЛ === */
-.main-content {
-    height: 100%;       /* Занимает всю высоту */
-    overflow-y: auto;   /* Скроллится только содержимое внутри */
-    -webkit-overflow-scrolling: touch; /* Плавный скролл на айфонах */
+/* 1. Контейнер контента должен быть "выше" и иметь фон, чтобы закрывать иконку */
+#main-content {
     position: relative;
-    padding-bottom: 100px; /* Отступ под футер */
+    z-index: 10; /* Поверх иконки */
+    background-color: #000000; /* ВАЖНО: Фон должен быть непрозрачным */
+    background-image: var(--bg-gradient); /* Дублируем градиент, чтобы было красиво */
+    min-height: 100vh;
+    will-change: transform; /* Оптимизация для плавности */
 }
 
-/* Скрытый блок обновления (появится при оттягивании) */
+/* 2. Сама иконка теперь лежит "под" контентом и зафиксирована */
 #pull-to-refresh {
-    position: fixed; /* Фиксируем, чтобы был поверх всего */
-    top: -70px;      /* Спрятан сверху */
+    position: fixed;
+    top: 30px;       /* Фиксированная позиция сверху (не двигается) */
     left: 0;
     width: 100%;
-    height: 70px;
+    height: 60px;
     display: flex;
     justify-content: center;
-    align-items: flex-end; /* Иконка ближе к низу блока */
-    padding-bottom: 15px;
+    align-items: center;
+    z-index: 1;      /* Под контентом */
     
-    /* Фон и размытие, чтобы перекрывать контент снизу */
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    /* Убираем черную плашку, оставляем только иконку */
+    background: transparent; 
+    border: none;
+    backdrop-filter: none;
     
-    color: #FFD700;
-    font-size: 24px;
-    transition: transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28); /* Плавная пружина */
-    z-index: 9000; /* Поверх всего контента, но под модалками */
-    box-sizing: border-box;
+    pointer-events: none; /* Чтобы нельзя было нажать сквозь контент */
 }
-/* Класс для полной блокировки скролла когда открыто окно */
+
+/* Стили самой иконки (стрелочки) */
+#pull-to-refresh i {
+    font-size: 24px;
+    color: #FFD700;
+    
+    /* Начальное состояние: маленькая и прозрачная */
+    opacity: 0;
+    transform: scale(0); 
+    transition: opacity 0.2s, transform 0.2s;
+    
+    /* Тень для красоты, так как она на темном фоне */
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+}
+
+/* Блокировка скролла (оставляем ту же) */
 .no-scroll {
     overflow: hidden !important;
-    touch-action: none; /* Запрещает свайпы */
+    touch-action: none;
 }
 
 /* Крестик в углу подарка */
