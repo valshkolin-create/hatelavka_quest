@@ -1790,3 +1790,83 @@ hr {
     margin-top: 4px !important;
     margin-bottom: 8px !important;
 }
+
+/* ============================================================ */
+/* 1. ПОЗИЦИЯ ПОДАРКА (ДЛЯ ВСЕХ: И ТЕЛЕФОН, И ПК)               */
+/* ============================================================ */
+.gift-container {
+    /* Сбрасываем привязку к низу и праву */
+    bottom: auto !important;
+    right: auto !important;
+
+    /* Ставим слева */
+    left: 15px !important; 
+
+    /* Ставим по центру вертикали */
+    top: 50% !important;
+    margin-top: -40px !important; /* Поправка на высоту иконки, чтобы было ровно */
+    
+    z-index: 8000 !important;
+    position: fixed; /* Гарантируем фиксацию */
+}
+
+/* Сдвигаем текст облачка вправо, чтобы не уходил за экран */
+.gift-message {
+    margin-left: 5px; 
+    text-align: left;
+}
+
+
+/* ============================================================ */
+/* 2. НАСТРОЙКИ ДЛЯ ПК И ПЛАНШЕТОВ (Ширина экрана > 768px)      */
+/* ============================================================ */
+@media (min-width: 768px) {
+
+    /* Чуть увеличиваем отступ подарка на больших экранах (для красоты) */
+    .gift-container {
+        left: 30px !important;
+    }
+
+    /* --- ОГРАНИЧЕНИЕ ШИРИНЫ БЛОКОВ НА ПК --- */
+    
+    /* Магазин и Челленджи: фиксируем ширину и центруем */
+    .metro-shortcuts-container {
+        max-width: 500px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        gap: 8px !important;
+    }
+    
+    /* Слайдер и Баннер целей: фиксируем ширину */
+    #main-slider-container, 
+    .weekly-banner-wrapper {
+        max-width: 500px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* Уменьшаем гигантские шрифты в плитках на ПК */
+    .metro-icon-main { font-size: 24px !important; }
+    .metro-label { font-size: 14px !important; }
+    .metro-tile-bg-icon { font-size: 60px !important; }
+    
+    /* Центрируем весь контент на странице */
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center; 
+    }
+    
+    /* Убеждаемся, что все блоки внутри имеют единую ширину */
+    .main-content > * {
+        width: 100%;
+        max-width: 500px;
+    }
+    
+    /* Шапка профиля тоже по центру */
+    .user-profile {
+        max-width: 500px;
+        width: 100%;
+        margin: 0 auto 5px !important;
+    }
+}
