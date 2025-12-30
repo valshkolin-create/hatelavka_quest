@@ -811,6 +811,10 @@ const showLoader = () => {
                     await loadP2PSettingsAndCases(); // <-- Грузит кейсы И твою ссылку в инпут
                     break;
                 }
+                case 'view-admin-gifts': {
+                    await loadGiftSkins();
+                    break;
+                }    
                 // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
                 case 'view-admin-advent': {
                     await loadAdventSettings();
@@ -6023,6 +6027,72 @@ async function adminForceConfirmSent(tradeId) {
         'Да, скин у меня',
         '#007aff'
     );
+}
+// --- 🎁 GIFT ADMIN LOGIC ---
+
+async function loadGiftSkins() {
+    const container = document.getElementById('gift-skins-list');
+    if(!container) return;
+    container.innerHTML = '<p>Загрузка...</p>';
+    try {
+        const skins = await makeApiRequest('/api/v1/admin/gift/skins/list', {}, 'POST', true);
+        container.innerHTML = '';
+        
+        if (!skins || skins.length === 0) {
+            container.innerHTML = '<p style="text-align:center;">Нет добавленных скинов.</p>';
+            return;
+        }
+
+        skins.forEach(skin => {
+            const div = document.createElement('div');
+            div.className = 'quest-card';
+            div.style.cssText = 'flex-direction: row; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px;';
+            div.innerHTML = `
+                <img src="${escapeHTML(skin.image_url)}" style="width:40px; height:40px; object-fit:contain; border-radius:6px;">
+                <div style="flex-grow:1;">
+                    <p style="margin:0; font-weight:600; font-size:14px;">${escapeHTML(skin.name)}</p>
+                    <small style="color:#aaa;">Шанс: ${skin.chance}</small>
+                </div>
+                <button class="admin-action-btn reject delete-gift-skin-btn" data-id="${skin.id}" style="width:auto; padding:5px 10px;">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        });
+
+        // Вешаем обработчики удаления
+        document.querySelectorAll('.delete-gift-skin-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if(confirm('Удалить этот скин?')) {
+                    await makeApiRequest('/api/v1/admin/gift/skins/delete', { skin_id: parseInt(btn.dataset.id) });
+                    loadGiftSkins();
+                }
+            });
+        });
+
+    } catch (e) {
+        container.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
+    }
+}
+
+const addGiftSkinForm = document.getElementById('add-gift-skin-form');
+if (addGiftSkinForm) {
+    addGiftSkinForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            await makeApiRequest('/api/v1/admin/gift/skins/add', {
+                name: formData.get('name'),
+                image_url: formData.get('image_url'),
+                chance: parseInt(formData.get('chance'))
+            });
+            e.target.reset();
+            tg.showPopup({message: 'Скин добавлен!'});
+            loadGiftSkins();
+        } catch (err) {
+            tg.showAlert(`Ошибка: ${err.message}`);
+        }
+    });
 }
 /* === НОВАЯ ФУНКЦИЯ: ОБНОВЛЕНИЕ ОТКРЫТОЙ СДЕЛКИ === */
 async function refreshCurrentP2PTradeDetails() {
