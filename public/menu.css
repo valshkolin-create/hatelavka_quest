@@ -1705,29 +1705,30 @@ html, body {
 
 #pull-to-refresh {
     position: fixed;
-    top: -80px;      /* <--- ГЛАВНОЕ: Спрятан над экраном */
+    top: -80px;      /* 1. Спрятан НАД экраном */
     left: 0;
     width: 100%;
-    height: 80px;    /* Высота блока равна отступу */
+    height: 80px;    /* Высота равна отступу */
     
     display: flex;
     justify-content: center;
-    align-items: center; /* Иконка по центру своего блока */
+    align-items: center; 
     
-    z-index: 999;    /* Поверх всего */
+    z-index: 2000;    /* 2. ВАЖНО: Выше чем main-content (у которого 10) */
+    
     background: transparent;
     pointer-events: none;
-    
-    /* Убираем лишние отступы, теперь всё решит движение */
     padding: 0;
+    will-change: transform; /* Оптимизация анимации */
 }
 
 #pull-to-refresh i {
-    font-size: 26px; /* Размер иконки */
+    font-size: 26px; 
     color: #FFD700;
-    /* Тень чтобы было видно на любом фоне */
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); 
+    /* Тень чтобы иконка читалась на любом фоне */
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8)); 
 }
+
 /* Стили самой иконки (стрелочки) */
 #pull-to-refresh i {
     font-size: 24px;
