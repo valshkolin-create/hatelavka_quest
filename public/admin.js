@@ -511,10 +511,10 @@ async function renderCauldronParticipants() {
     // 1. Сохраняем текущую позицию скролла
     const scrollPos = container.scrollTop;
     
-    container.innerHTML = '<p style="text-align: center;">Загрузка участников...</p>';
+    container.innerHTML = '<p style="text-align: center;">Загрузка участников и проверка подписок...</p>';
     
     try {
-        // Запрашиваем участников (предполагаем, что бэкенд возвращает поле is_reward_sent)
+        // Запрашиваем участников (теперь бэкенд возвращает и is_subscribed)
         const participants = await makeApiRequest('/api/v1/admin/events/cauldron/participants', {}, 'POST', true);
         
         if (!participants || participants.length === 0) {
@@ -529,14 +529,14 @@ async function renderCauldronParticipants() {
             return (a.full_name || '').localeCompare(b.full_name || '');
         });
 
-        // Определяем текущий уровень наград
+        // Определяем текущий уровень наград (для отображения приза)
         let activeRewardLevel = null;
         if (currentCauldronData && currentCauldronData.levels) {
             const currentLevel = getCurrentLevel(currentCauldronData);
             activeRewardLevel = currentCauldronData.levels[`level_${currentLevel}`];
         }
 
-        // Хедер таблицы (компактный)
+        // Хедер таблицы
         let html = `
             <div class="distribution-header compact-header">
                 <span style="width:30px; text-align:center;">#</span>
@@ -554,12 +554,10 @@ async function renderCauldronParticipants() {
             let prize = null;
 
             if (activeRewardLevel) {
-                // 1. Проверяем Топ-20
+                // Логика определения награды
                 if (place <= 20) {
                     prize = activeRewardLevel.top_places?.find(r => r.place === place);
-                } 
-                // 2. Проверяем Тиры (21-30, 31-40, 41+)
-                else {
+                } else {
                     const tiers = activeRewardLevel.tiers || {};
                     if (place <= 30) prize = tiers["21-30"];
                     else if (place <= 40) prize = tiers["31-40"];
@@ -567,7 +565,6 @@ async function renderCauldronParticipants() {
                 }
             }
 
-            // Формируем HTML приза
             const prizeHtml = prize && prize.name
                 ? `<div class="dist-prize compact">
                        <img src="${escapeHTML(prize.image_url || '')}" onerror="this.style.display='none'">
@@ -575,9 +572,7 @@ async function renderCauldronParticipants() {
                    </div>`
                 : '<span class="no-prize">-</span>';
 
-            // Кнопка статуса (Выдано / Не выдано)
-            // Используем data-аттрибуты для обработки клика
-            const isSent = p.is_reward_sent || false; // Бэкенд должен возвращать это поле
+            const isSent = p.is_reward_sent || false;
             const statusBtn = `
                 <button class="status-toggle-btn ${isSent ? 'sent' : 'pending'}" 
                         data-user-id="${p.user_id}" 
@@ -591,11 +586,22 @@ async function renderCauldronParticipants() {
                 ? `<a href="${escapeHTML(p.trade_link)}" target="_blank" class="compact-link"><i class="fa-solid fa-link"></i></a>`
                 : `<span class="compact-no-link"><i class="fa-solid fa-link-slash"></i></span>`;
 
+            // 🔥🔥🔥 НОВАЯ ЛОГИКА ПРОВЕРКИ ПОДПИСКИ 🔥🔥🔥
+            // Если is_subscribed === false (именно false, не undefined), красим в красный
+            const isSubscribed = p.is_subscribed !== false; 
+            
+            const nameStyle = !isSubscribed ? 'color: var(--danger-color); font-weight: bold;' : '';
+            const subIcon = !isSubscribed ? '<i class="fa-solid fa-user-slash" title="Не подписан на канал!" style="color: var(--danger-color); margin-left: 6px;"></i>' : '';
+            // 🔥🔥🔥
+
             return `
                 <div class="distribution-row compact-row ${isSent ? 'row-sent' : ''}">
                     <span class="dist-place">${place}</span>
                     <div class="dist-name-wrapper">
-                        <span class="dist-name" title="${escapeHTML(p.full_name)}">${escapeHTML(p.full_name || 'No Name')}</span>
+                        <span class="dist-name" style="${nameStyle}" title="${escapeHTML(p.full_name)}">
+                            ${escapeHTML(p.full_name || 'No Name')}
+                        </span>
+                        ${subIcon}
                         ${p.twitch_login ? `<span class="dist-twitch"><i class="fa-brands fa-twitch"></i> ${escapeHTML(p.twitch_login)}</span>` : ''}
                     </div>
                     <span class="dist-amount">${p.total_contribution}</span>
@@ -605,53 +611,14 @@ async function renderCauldronParticipants() {
                 </div>`;
         }).join('');
 
-        html += `</div>`; // Закрываем wrapper
+        html += `</div>`;
         container.innerHTML = html;
-        
-        // Восстанавливаем скролл
         container.scrollTop = scrollPos;
 
     } catch (e) {
         container.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
     }
 }
-
-// Добавь эту новую функцию в конец admin.js (глобально)
-window.toggleRewardStatus = async function(btn, event) {
-    event.stopPropagation(); // Чтобы не кликалось что-то еще
-    
-    const userId = btn.dataset.userId;
-    const currentStatus = btn.dataset.currentStatus === 'true';
-    const newStatus = !currentStatus;
-
-    // Визуальное обновление (оптимистичное)
-    const icon = btn.querySelector('i');
-    btn.disabled = true;
-    
-    try {
-        // Отправляем запрос на бэкенд (Тебе нужно добавить этот эндпоинт в Python)
-        // Если эндпоинта нет, используй заглушку или скажи, я напишу SQL запрос
-        await makeApiRequest('/api/v1/admin/events/cauldron/toggle_reward_status', {
-            user_id: parseInt(userId),
-            is_sent: newStatus
-        }, 'POST', true);
-
-        // Обновляем кнопку
-        btn.dataset.currentStatus = newStatus;
-        btn.className = `status-toggle-btn ${newStatus ? 'sent' : 'pending'}`;
-        icon.className = `fa-solid ${newStatus ? 'fa-check' : 'fa-clock'}`;
-        
-        // Подсвечиваем строку
-        const row = btn.closest('.distribution-row');
-        if(newStatus) row.classList.add('row-sent');
-        else row.classList.remove('row-sent');
-
-    } catch (e) {
-        tg.showAlert('Ошибка сохранения статуса: ' + e.message);
-    } finally {
-        btn.disabled = false;
-    }
-};
 
 async function loadStatistics() {
         showLoader();
