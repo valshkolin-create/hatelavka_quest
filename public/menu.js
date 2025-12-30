@@ -2926,121 +2926,167 @@ function updateShopTile(status) {
     }
 
     // === ЛОГИКА ОТКРЫТИЯ ПОДАРКА ===
+    // === ЛОГИКА ПОДАРКА И КЭШИРОВАНИЯ (С ИСЧЕЗНОВЕНИЕМ) ===
+
+    // 1. Сохраняем выигрыш
+    function saveGiftToCache(data) {
+        const cacheData = {
+            date: new Date().toDateString(),
+            result: data
+        };
+        localStorage.setItem('daily_gift_cache', JSON.stringify(cacheData));
+    }
+
+    // 2. Проверяем память
+    function checkCachedGift() {
+        const raw = localStorage.getItem('daily_gift_cache');
+        if (!raw) return null;
+        try {
+            const cache = JSON.parse(raw);
+            if (cache.date === new Date().toDateString()) return cache.result;
+        } catch (e) { console.error(e); }
+        return null;
+    }
+
+    // 3. Функция отрисовки (и СКРЫТИЯ кнопки)
+    function renderGiftResult(result) {
+        // Скрываем начальный экран, показываем результат
+        dom.giftContentInitial.classList.add('hidden');
+        dom.giftContentResult.classList.remove('hidden');
+        
+        // 🔥🔥🔥 СКРЫВАЕМ ЛЕТАЮЩИЙ ПОДАРОК 🔥🔥🔥
+        const giftBtn = document.getElementById('daily-gift-btn');
+        if (giftBtn) giftBtn.style.display = 'none'; // Прячем кнопку
+        dom.giftContainer.classList.add('hidden');   // Прячем старый контейнер (на всякий случай)
+        // ----------------------------------------
+
+        dom.giftPromoBlock.classList.add('hidden'); 
+
+        // Заполняем данными
+        if (result.type === 'tickets') {
+            dom.giftResultIcon.innerHTML = "🎟️";
+            dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> билетов!`;
+        } else if (result.type === 'coins') {
+            dom.giftResultIcon.innerHTML = "💰";
+            dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> монет!`;
+            dom.giftPromoBlock.classList.remove('hidden');
+        } else if (result.type === 'skin') {
+            dom.giftResultIcon.innerHTML = `<img src="${escapeHTML(result.meta.image_url)}" style="width:100px; height:100px; object-fit:contain;">`;
+            dom.giftResultText.innerHTML = `<b>${escapeHTML(result.meta.name)}</b><br><small style="color:#aaa;">Скин будет выдан администратором.</small>`;
+        }
+
+        // --- ЛОГИКА ТИЗЕРА ---
+        if (result.subscription_required) {
+            // Если НЕТ подписки — подарок НЕ пропадает (кнопка остается),
+            // потому что юзер еще не забрал его.
+            if (giftBtn) giftBtn.style.display = 'flex'; // Возвращаем кнопку, если вдруг скрыли
+
+            dom.giftResultTitle.textContent = "ПОЧТИ ТВОЁ!";
+            dom.giftResultTitle.style.color = "#ff3b30";
+            
+            if (result.type === 'coins') {
+                dom.giftPromoCode.textContent = "🔒 ПОДПИШИСЬ";
+                dom.giftPromoCode.style.filter = "blur(5px)";
+                dom.giftPromoCode.style.userSelect = "none";
+            }
+            
+            dom.giftCloseBtn.textContent = "Подписаться и забрать";
+            dom.giftCloseBtn.style.background = "#0088cc";
+            
+            dom.giftCloseBtn.onclick = (e) => {
+                e.preventDefault();
+                Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv");
+                dom.giftModalOverlay.classList.add('hidden');
+                
+                setTimeout(() => {
+                    dom.giftContentInitial.classList.remove('hidden');
+                    dom.giftContentResult.classList.add('hidden');
+                    dom.giftOpenBtn.disabled = false;
+                    dom.giftOpenBtn.textContent = "Открыть";
+                }, 500);
+            };
+        } else {
+            // Если УСПЕХ (забрал) — всё скрыто
+            dom.giftResultTitle.textContent = "Поздравляем!";
+            dom.giftResultTitle.style.color = "#34c759";
+
+            if (result.type === 'coins') {
+                dom.giftPromoCode.textContent = result.meta.code;
+                dom.giftPromoCode.style.filter = "none";
+                dom.giftPromoCode.style.userSelect = "all";
+            }
+            
+            dom.giftCloseBtn.textContent = "Круто!";
+            dom.giftCloseBtn.style.background = "#555";
+            dom.giftCloseBtn.onclick = () => {
+                dom.giftModalOverlay.classList.add('hidden');
+                // Кнопка подарка уже скрыта выше (style.display = 'none')
+            };
+        }
+    }
+
+    // === ОБРАБОТЧИКИ ===
+
+    const giftFloatingBtn = document.getElementById('daily-gift-btn');
+    if (giftFloatingBtn) {
+        giftFloatingBtn.addEventListener('click', () => {
+            dom.giftModalOverlay.classList.remove('hidden');
+            
+            const cached = checkCachedGift();
+            // Если есть кэш успеха — показываем результат
+            if (cached && !cached.subscription_required) {
+                renderGiftResult(cached);
+            } else {
+                dom.giftContentInitial.classList.remove('hidden');
+                dom.giftContentResult.classList.add('hidden');
+            }
+        });
+    }
+
     if (dom.giftOpenBtn) {
         dom.giftOpenBtn.addEventListener('click', async () => {
             try {
-                // 1. Блокируем кнопку и показываем загрузку
                 dom.giftOpenBtn.disabled = true;
                 dom.giftOpenBtn.textContent = "Проверяем...";
                 
-                // 2. Делаем запрос (теперь он вернет 200 OK даже если нет подписки, но с флагом)
                 const result = await makeApiRequest('/api/v1/gift/claim', {});
                 
-                // 3. Скрываем начальный экран, показываем результат
-                dom.giftContentInitial.classList.add('hidden');
-                dom.giftContentResult.classList.remove('hidden');
-                dom.giftContainer.classList.add('hidden'); // Убираем летающий подарок
-
-                dom.giftPromoBlock.classList.add('hidden'); // Скрываем блок промокода по умолчанию
-                
-                // --- ЗАПОЛНЕНИЕ ДАННЫХ О ПРИЗЕ ---
-                
-                // Текст и иконка награды
-                if (result.type === 'tickets') {
-                    dom.giftResultIcon.innerHTML = "🎟️";
-                    dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> билетов!`;
-                } else if (result.type === 'coins') {
-                    dom.giftResultIcon.innerHTML = "💰";
-                    dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> монет!`;
-                    dom.giftPromoBlock.classList.remove('hidden');
-                } else if (result.type === 'skin') {
-                    dom.giftResultIcon.innerHTML = `<img src="${escapeHTML(result.meta.image_url)}" style="width:100px; height:100px; object-fit:contain;">`;
-                    dom.giftResultText.innerHTML = `<b>${escapeHTML(result.meta.name)}</b><br><small style="color:#aaa;">Скин будет выдан администратором.</small>`;
-                }
-
-                // --- ГЛАВНАЯ ПРОВЕРКА: НУЖНА ЛИ ПОДПИСКА? ---
-                
-                if (result.subscription_required) {
-                    // === РЕЖИМ "ТИЗЕР" (НЕТ ПОДПИСКИ) ===
-                    dom.giftResultTitle.textContent = "ПОЧТИ ТВОЁ!";
-                    dom.giftResultTitle.style.color = "#ff3b30"; // Красный цвет тревоги
-                    
-                    // Если это монеты — блюрим код
-                    if (result.type === 'coins') {
-                        dom.giftPromoCode.textContent = "🔒 ПОДПИШИСЬ";
-                        dom.giftPromoCode.style.filter = "blur(5px)"; // Размываем
-                        dom.giftPromoCode.style.userSelect = "none";  // Не даем выделить
-                    }
-
-                    // Меняем кнопку на "ПОДПИСАТЬСЯ"
-                    dom.giftCloseBtn.textContent = "Подписаться и забрать";
-                    dom.giftCloseBtn.style.background = "#0088cc"; // Цвет Телеграма
-                    
-                    // Переопределяем поведение кнопки (чтобы вела на канал)
-                    dom.giftCloseBtn.onclick = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Открываем канал
-                        Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv");
-                        // Закрываем модалку, чтобы юзер мог нажать "Открыть" снова после подписки
-                        dom.giftModalOverlay.classList.add('hidden');
-                        // Сбрасываем интерфейс подарка (возвращаем кнопку "Открыть")
-                        setTimeout(() => {
-                            dom.giftContentInitial.classList.remove('hidden');
-                            dom.giftContentResult.classList.add('hidden');
-                            dom.giftOpenBtn.disabled = false;
-                            dom.giftOpenBtn.textContent = "Открыть";
-                        }, 500);
-                    };
-
-                } else {
-                    // === РЕЖИМ "УСПЕХ" (ПОДПИСКА ЕСТЬ) ===
-                    dom.giftResultTitle.textContent = "Поздравляем!";
-                    dom.giftResultTitle.style.color = "#34c759"; // Зеленый цвет успеха
-
-                    if (result.type === 'coins') {
-                        dom.giftPromoCode.textContent = result.meta.code;
-                        dom.giftPromoCode.style.filter = "none"; // Убираем блюр
-                        dom.giftPromoCode.style.userSelect = "all";
-                    }
-
-                    // Обновляем баланс билетов визуально (если выпали билеты)
+                if (!result.subscription_required) {
+                    saveGiftToCache(result);
                     if (result.type === 'tickets') {
                         const current = parseInt(document.getElementById('ticketStats').textContent) || 0;
                         document.getElementById('ticketStats').textContent = current + result.value;
                     }
-
-                    // Кнопка закрытия
-                    dom.giftCloseBtn.textContent = "Круто!";
-                    dom.giftCloseBtn.style.background = "#555";
-                    
-                    dom.giftCloseBtn.onclick = () => {
-                        dom.giftModalOverlay.classList.add('hidden');
-                        location.reload(); // Перезагружаем, чтобы обновить все балансы и историю
-                    };
                 }
+                renderGiftResult(result);
 
             } catch (e) {
                 console.error(e);
-                Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
-                // Возвращаем кнопку в исходное состояние при ошибке
+                Telegram.WebApp.showAlert(e.message || "Ошибка");
                 dom.giftOpenBtn.disabled = false;
                 dom.giftOpenBtn.textContent = "Открыть";
             }
         });
     }
 
-    // Обработчик закрытия по умолчанию (если он нужен вне логики выше)
-    // Но основная логика теперь внутри onclick выше
-    if (dom.giftCloseBtn) {
-        dom.giftCloseBtn.addEventListener('click', () => {
-           // Этот код сработает, если мы не переопределили onclick (страховка)
-           dom.giftModalOverlay.classList.add('hidden');
+    const giftXBtn = document.getElementById('gift-x-btn');
+    if (giftXBtn) {
+        giftXBtn.addEventListener('click', () => {
+            dom.giftModalOverlay.classList.add('hidden');
         });
     }
 
-    // Запускаем проверку наличия подарка (можно оставить как есть)
-    setTimeout(checkGift, 1000);
+    // === ФИНАЛЬНЫЙ ЗАПУСК (ИСПРАВЛЕННАЯ ЛОГИКА) ===
+    const todayCache = checkCachedGift();
+
+    // Если подарок уже получен и подписка есть -> СКРЫВАЕМ КНОПКУ
+    if (todayCache && !todayCache.subscription_required) {
+        if (giftFloatingBtn) giftFloatingBtn.style.display = 'none'; // Прячем
+        dom.giftContainer.classList.add('hidden');
+    } else {
+        // Если не получен — проверяем сервер (вдруг доступен)
+        setTimeout(checkGift, 1000);
+    }
     // Отдельная функция для тихого обновления (без лоадера)
     async function updateBootstrapSilently() {
         try {
