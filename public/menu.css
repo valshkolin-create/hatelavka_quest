@@ -1885,7 +1885,7 @@ hr {
     #main-slider-container,
     .weekly-banner-wrapper,
     .metro-shortcuts-container {
-        max-width: 380px !important; /* <--- БЫЛО 500px. Ставим 380px для компактности */
+        max-width: 200px !important; /* <--- БЫЛО 500px. Ставим 380px для компактности */
     }
 
     /* --- АДАПТАЦИЯ ШРИФТОВ ПОД МАЛЕНЬКИЙ РАЗМЕР --- */
