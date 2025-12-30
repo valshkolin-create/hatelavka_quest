@@ -3060,6 +3060,94 @@ function updateShopTile(status) {
         }
     }
 
+// === PULL TO REFRESH (ОБНОВЛЕНИЕ СВАЙПОМ) ===
+
+function initPullToRefresh() {
+    const content = document.getElementById('main-content');
+    const ptrIcon = document.getElementById('pull-to-refresh');
+    const icon = ptrIcon.querySelector('i');
+    
+    let startY = 0;
+    let pulledDistance = 0;
+    let isPulling = false;
+    const triggerThreshold = 80; // Сколько пикселей надо оттянуть, чтобы сработало
+
+    // 1. НАЧАЛО КАСАНИЯ
+    content.addEventListener('touchstart', (e) => {
+        // Работаем только если мы в самом верху страницы
+        if (content.scrollTop === 0) {
+            startY = e.touches[0].clientY;
+            isPulling = true;
+        } else {
+            isPulling = false;
+        }
+    }, { passive: true });
+
+    // 2. ДВИЖЕНИЕ ПАЛЬЦА
+    content.addEventListener('touchmove', (e) => {
+        if (!isPulling) return;
+
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+
+        // Если тянем вниз (diff > 0) и мы наверху
+        if (diff > 0 && content.scrollTop === 0) {
+            // Замедляем движение (коэффициент 0.5), чтобы чувствовалось сопротивление
+            pulledDistance = diff * 0.5;
+            
+            // Ограничиваем максимальное оттягивание
+            if (pulledDistance > 120) pulledDistance = 120;
+
+            // Двигаем иконку
+            ptrIcon.style.transform = `translateY(${pulledDistance}px)`;
+            
+            // Вращаем иконку, чем сильнее тянем
+            icon.style.transform = `rotate(${pulledDistance * 3}deg)`;
+            
+            // Если оттянули достаточно - меняем цвет или стиль (подсказка юзеру)
+            if (pulledDistance > triggerThreshold) {
+                icon.style.color = "#34c759"; // Зеленеет, если готово
+            } else {
+                icon.style.color = "#FFD700";
+            }
+        }
+    }, { passive: false });
+
+    // 3. КОНЕЦ КАСАНИЯ
+    content.addEventListener('touchend', () => {
+        if (!isPulling) return;
+        isPulling = false;
+
+        // Если оттянули достаточно далеко -> ОБНОВЛЯЕМ
+        if (pulledDistance > triggerThreshold) {
+            // Фиксируем иконку в состоянии загрузки
+            ptrIcon.style.transition = "transform 0.3s";
+            ptrIcon.style.transform = `translateY(50px)`;
+            icon.classList.add('fa-spin'); // Запускаем вращение CSS
+
+            // ⚡️ ЗАПУСКАЕМ ОБНОВЛЕНИЕ ⚡️
+            console.log("🔄 Обновление страницы...");
+            
+            // Вибрация (если поддерживается телефоном)
+            if (Telegram.WebApp.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
+
+            // Перезагружаем страницу через 1.5 сек (для красоты анимации)
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+
+        } else {
+            // Если мало оттянули — просто возвращаем всё назад
+            ptrIcon.style.transition = "transform 0.3s";
+            ptrIcon.style.transform = `translateY(0px)`;
+        }
+
+        pulledDistance = 0;
+    });
+}
+
     async function main() {
         console.log("--- main() ЗАПУЩЕНА ---");
 
@@ -3170,6 +3258,7 @@ function updateShopTile(status) {
 // --- ЗАПУСК ПРИЛОЖЕНИЯ (Этого не хватало) ---
     setupEventListeners();
     main();
+    initPullToRefresh(); // <--- ДОБАВИТЬ ВОТ ЭТУ СТРОЧКУ
     setInterval(refreshDataSilently, 7000);
 
 } catch (e) {
