@@ -11516,32 +11516,65 @@ async def claim_gift(
             await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": amount})
             
         else:
-            # Монеты (до 20) через промокод
-            amount = random.randint(1, 20)
-            prize_type = "coins" # Или "stars", смотря что у тебя в базе
+            # === ВЕТКА: МОНЕТЫ (ЧЕРЕЗ БАЗУ ДАННЫХ) ===
+            
+            # 1. Пытаемся найти СВОБОДНЫЙ промокод в базе
+            # Условие: is_used = false И telegram_id пустое
+            response_codes = await supabase.table("promocodes") \
+                .select("id, code, reward_value") \
+                .eq("is_used", False) \
+                .is_("telegram_id", "null") \
+                .limit(1) \
+                .execute()
+
+            available_codes = response_codes.data
+
+            # === ПРОВЕРКА: ЗАКОНЧИЛИСЬ ЛИ КОДЫ? ===
+            if not available_codes:
+                logging.warning(f"⚠️ GIFT: Промокоды закончились! Юзер {telegram_id} получит билеты как утешительный приз.")
+                
+                # Фолбэк: Выдаем билеты вместо ошибки
+                fallback_tickets = 10
+                await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": fallback_tickets})
+                
+                return {
+                    "type": "tickets",
+                    "value": fallback_tickets,
+                    "meta": {},
+                    "message": "Промокоды разобрали! Держи билеты."
+                }
+
+            # Если код найден, берем первый
+            promo = available_codes[0]
+            code_id = promo['id']
+            code_str = promo['code']
+            
+            # Определяем награду:
+            # Если в базе у промокода уже есть цена (например 5), берем её.
+            # Если нет (null), генерируем рандом 1-20 (как было в логике игры).
+            if promo.get('reward_value'):
+                amount = promo['reward_value']
+            else:
+                amount = random.randint(1, 20)
+
+            prize_type = "coins"
             prize_value = amount
-            
-            # --- ИСПРАВЛЕНИЕ 1: Правильный формат кода ---
-            # Было: code = f"GIFT-{uuid.uuid4().hex[:6].upper()}"
-            # Стало (как в твоем примере):
-            code = uuid.uuid4().hex[:13].upper()
-            # ---------------------------------------------
 
-            # --- ИСПРАВЛЕНИЕ 2: Логирование ---
-            logging.info(f"🎁 GIFT: Пользователь {telegram_id} получил промокод {code} на {amount} (coins/stars)")
-            # ----------------------------------
-
-            await supabase.table("promocodes").insert({
-                "code": code,
-                "is_used": True, # Ставим True, если мы просто показываем юзеру "Ты выиграл", и считаем что он его забрал. 
-                                 # Если юзер должен его КОПИРОВАТЬ и вставлять - ставь False.
-                "telegram_id": telegram_id, 
-                "reward_value": amount,
-                "description": "Новогодний подарок (Монеты)",
-                "claimed_at": datetime.now().isoformat() # Сразу ставим дату, чтобы сортировка не ломалась
-            }).execute()
+            # 2. "ЗАБИРАЕМ" КОД (Обновляем запись в базе)
+            # Ставим is_used=True, прописываем юзера, дату и сумму
+            update_data = {
+                "is_used": True,
+                "telegram_id": telegram_id,
+                "reward_value": amount, # Фиксируем сколько выдали
+                "description": f"Новогодний подарок ({amount} coins)",
+                "claimed_at": datetime.now().isoformat()
+            }
             
-            prize_meta = {"code": code}
+            await supabase.table("promocodes").update(update_data).eq("id", code_id).execute()
+
+            logging.info(f"🎁 GIFT: Пользователь {telegram_id} забрал промокод {code_str} (ID: {code_id}) на {amount} монет.")
+
+            prize_meta = {"code": code_str}
 
     # 4. Обновляем время получения
     await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
