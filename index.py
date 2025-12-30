@@ -11561,7 +11561,7 @@ async def claim_gift(
                             "is_used": True,
                             "telegram_id": telegram_id,
                             "reward_value": amount,
-                            "description": f"Новогодний подарок ({amount} coins)",
+                            "description": f"Новогодний подарок ({amount} монеток)",
                             "claimed_at": datetime.now().isoformat()
                         }
                     )
