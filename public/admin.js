@@ -586,22 +586,31 @@ async function renderCauldronParticipants() {
                 ? `<a href="${escapeHTML(p.trade_link)}" target="_blank" class="compact-link"><i class="fa-solid fa-link"></i></a>`
                 : `<span class="compact-no-link"><i class="fa-solid fa-link-slash"></i></span>`;
 
-            // 🔥🔥🔥 НОВАЯ ЛОГИКА ПРОВЕРКИ ПОДПИСКИ 🔥🔥🔥
-            // Если is_subscribed === false (именно false, не undefined), красим в красный
+            // 🔥🔥🔥 ЛОГИКА ПОДПИСКИ 🔥🔥🔥
             const isSubscribed = p.is_subscribed !== false; 
             
+            // Красим имя в красный, если не подписан
             const nameStyle = !isSubscribed ? 'color: var(--danger-color); font-weight: bold;' : '';
-            const subIcon = !isSubscribed ? '<i class="fa-solid fa-user-slash" title="Не подписан на канал!" style="color: var(--danger-color); margin-left: 6px;"></i>' : '';
+            
+            // Иконка справа (маленькая и аккуратная)
+            // Если хотите ВООБЩЕ убрать иконку, замените строку ниже на: const subIcon = '';
+            const subIcon = !isSubscribed 
+                ? '<i class="fa-solid fa-user-slash" title="Не подписан на канал!" style="color: var(--danger-color); margin-left: 6px; font-size: 11px; flex-shrink: 0;"></i>' 
+                : '';
             // 🔥🔥🔥
 
             return `
                 <div class="distribution-row compact-row ${isSent ? 'row-sent' : ''}">
                     <span class="dist-place">${place}</span>
                     <div class="dist-name-wrapper">
-                        <span class="dist-name" style="${nameStyle}" title="${escapeHTML(p.full_name)}">
-                            ${escapeHTML(p.full_name || 'No Name')}
-                        </span>
-                        ${subIcon}
+                        
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <span class="dist-name" style="${nameStyle} flex: 0 1 auto;" title="${escapeHTML(p.full_name)}">
+                                ${escapeHTML(p.full_name || 'No Name')}
+                            </span>
+                            ${subIcon}
+                        </div>
+
                         ${p.twitch_login ? `<span class="dist-twitch"><i class="fa-brands fa-twitch"></i> ${escapeHTML(p.twitch_login)}</span>` : ''}
                     </div>
                     <span class="dist-amount">${p.total_contribution}</span>
