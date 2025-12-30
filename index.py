@@ -4990,26 +4990,69 @@ async def reset_cauldron_progress(
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
 @app.post("/api/v1/admin/events/cauldron/participants")
-async def get_cauldron_participants_for_admin(
+async def get_cauldron_participants_admin(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Возвращает список всех участников ивента 'Котел' с их суммарным вкладом и трейд-ссылками."""
+    """
+    (Админ) Возвращает список участников ивента 'Котел' с проверкой подписки.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Вызываем RPC функцию, которая сделает всю сложную работу
-        response = await supabase.post("/rpc/get_cauldron_leaderboard_admin")
-        response.raise_for_status()
+        # 1. Получаем сырые данные лидерборда (всех участников)
+        # Используем существующую RPC, так как она уже собирает суммы вкладов
+        resp = await supabase.post("/rpc/get_cauldron_leaderboard_public")
         
-        # Просто возвращаем результат как есть
-        return response.json()
+        data = resp.json()
+        # RPC возвращает { "all": [...], "top20": [...] }
+        # Нам нужен список 'all'
+        participants = data.get('all', []) if data else []
+        
+        if not participants:
+            return []
+
+        # 2. Собираем ID пользователей для проверки
+        user_ids = [p['user_id'] for p in participants if p.get('user_id')]
+        
+        # 3. Проверяем подписку (Batch Check)
+        REQUIRED_CHANNEL_ID = -1002144676097
+        
+        # Создаем временного бота для проверки (чтобы не блокировать основной поток)
+        temp_bot = Bot(token=BOT_TOKEN)
+        
+        async def check_user_sub(uid):
+            try:
+                m = await temp_bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=uid)
+                is_sub = m.status in ['member', 'administrator', 'creator', 'restricted']
+                return uid, is_sub
+            except Exception:
+                # Если ошибка (например, юзер не найден или бот кикнут), считаем "не подписан"
+                return uid, False
+
+        # Запускаем проверки параллельно
+        # Важно: если участников ОЧЕНЬ много (>200), стоит разбить на пачки, 
+        # но для типичного ивента asyncio.gather справится.
+        tasks = [check_user_sub(uid) for uid in user_ids]
+        results = await asyncio.gather(*tasks)
+        
+        await temp_bot.session.close()
+        
+        # Создаем карту {user_id: is_subscribed}
+        sub_map = {uid: is_sub for uid, is_sub in results}
+        
+        # 4. Обогащаем список участников
+        for p in participants:
+            # Если ключа нет в map, по умолчанию False
+            p['is_subscribed'] = sub_map.get(p.get('user_id'), False)
+            
+        return participants
 
     except Exception as e:
-        logging.error(f"Ошибка при получении участников котла для админа: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось получить список участников.")
+        logging.error(f"Ошибка получения участников котла (admin): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить список участников.")
 
 @app.post("/api/v1/admin/events/cauldron/toggle_reward_status")
 async def toggle_cauldron_reward_status(
