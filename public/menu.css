@@ -1753,3 +1753,38 @@ hr {
     /* Чуть приподнимаем к линии */
     margin-top: 0 !important; 
 }
+/* === УПЛОТНЕНИЕ ГЛАВНОГО ЭКРАНА (DASHBOARD COMPACT) === */
+
+/* 1. Слайдер (Верхний блок) */
+#main-slider-container {
+    /* Оставляем маленький зазор снизу до Недельных целей */
+    margin-bottom: 8px !important; 
+}
+
+/* 2. Недельные испытания (Баннер посередине) */
+.weekly-banner-wrapper {
+    /* Убираем отступ сверху (используем отступ слайдера) */
+    margin-top: 0 !important;
+    
+    /* Маленький отступ снизу до линии */
+    margin-bottom: 8px !important;
+}
+
+/* 3. Линия-разделитель (HR) */
+#view-dashboard hr {
+    /* Сжимаем отступы вокруг линии до минимума */
+    margin-top: 0 !important;
+    margin-bottom: 8px !important;
+    
+    /* Можно сделать её чуть прозрачнее, чтобы не бросалась в глаза */
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 4. Блок Магазин + Челлендж + Испытания (Нижний блок) */
+.metro-shortcuts-container {
+    /* Подтягиваем этот блок вверх к линии */
+    margin-top: 0 !important;
+    
+    /* Если внутри есть свои отступы, можно их тоже чуть поджать */
+    padding-top: 0 !important;
+}
