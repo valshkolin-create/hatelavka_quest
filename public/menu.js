@@ -3147,49 +3147,47 @@ function initPullToRefresh() {
     let startY = 0;
     let pulledDistance = 0;
     let isPulling = false;
-    const triggerThreshold = 90; // Дистанция для срабатывания
+    const triggerThreshold = 90; 
 
     // 1. НАЧАЛО
     content.addEventListener('touchstart', (e) => {
         if (content.scrollTop <= 0) {
             startY = e.touches[0].clientY;
             isPulling = true;
-            // Убираем плавность при начале тяги
+            // Убираем плавность, чтобы все двигалось мгновенно за пальцем
             content.style.transition = 'none'; 
+            ptrContainer.style.transition = 'none'; 
             icon.style.transition = 'none';
         } else {
             isPulling = false;
         }
     }, { passive: true });
 
-    // 2. ДВИЖЕНИЕ
+    // 2. ДВИЖЕНИЕ (САМОЕ ВАЖНОЕ)
     content.addEventListener('touchmove', (e) => {
         if (!isPulling) return;
 
         const currentY = e.touches[0].clientY;
         const diff = currentY - startY;
 
-        // Если тянем вниз и мы наверху
         if (diff > 0 && content.scrollTop <= 0) {
             if (e.cancelable) e.preventDefault();
 
-            // Формула сопротивления (чтобы тянулось тяжелее чем дальше)
+            // Считаем дистанцию с сопротивлением
             pulledDistance = Math.pow(diff, 0.85); 
-            if (pulledDistance > 160) pulledDistance = 160; // Ограничитель
+            if (pulledDistance > 180) pulledDistance = 180;
 
             // 1. Двигаем КОНТЕНТ вниз
             content.style.transform = `translateY(${pulledDistance}px)`;
 
-            // 2. Анимируем ИКОНКУ (она стоит на месте, но растет)
-            // Начинаем показывать иконку только когда немного оттянули (например, 20px)
-            let progress = Math.max(0, (pulledDistance - 20) / (triggerThreshold - 20));
-            if (progress > 1) progress = 1;
+            // 2. Двигаем ЗНАЧОК вниз ровно на то же расстояние!
+            // Он был на -80px. Если мы оттянули на 100px, он станет на +20px (видно).
+            ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
 
-            // Иконка вращается и увеличивается (эффект "поднятия")
-            icon.style.opacity = progress;
-            icon.style.transform = `scale(${progress}) rotate(${pulledDistance * 2}deg)`;
+            // Вращаем саму иконку для красоты
+            icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
             
-            // Цвет меняется при готовности
+            // Цвет меняется, когда готово к обновлению
             if (pulledDistance > triggerThreshold) {
                 icon.style.color = "#34c759"; // Зеленый
             } else {
@@ -3203,40 +3201,33 @@ function initPullToRefresh() {
         if (!isPulling) return;
         isPulling = false;
         
-        // Возвращаем плавность
-        content.style.transition = 'transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)';
-        icon.style.transition = 'all 0.4s ease';
+        // Включаем плавный возврат
+        content.style.transition = 'transform 0.3s ease-out';
+        ptrContainer.style.transition = 'transform 0.3s ease-out';
 
         if (pulledDistance > triggerThreshold) {
             // === ОБНОВЛЕНИЕ ===
-            console.log("🔄 Refresh triggered");
             
-            // Оставляем контент чуть сдвинутым, чтобы было видно крутилку
-            content.style.transform = `translateY(60px)`;
+            // Фиксируем иконку и контент в открытом состоянии
+            content.style.transform = `translateY(80px)`;
+            ptrContainer.style.transform = `translateY(80px)`; // Значок висит на виду (на уровне 0px по экрану)
             
-            // Иконку фиксируем в активном состоянии
-            icon.style.opacity = '1';
-            icon.style.transform = `scale(1) rotate(${pulledDistance * 2}deg)`;
-            icon.classList.add('fa-spin'); // Запуск вращения
+            icon.classList.add('fa-spin');
             
             if (window.Telegram && Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
 
-            // Перезагрузка
             setTimeout(() => {
                 window.location.reload();
-            }, 600);
+            }, 500);
 
         } else {
             // === ОТМЕНА ===
-            // Возвращаем контент на место
+            // Всё уезжает обратно вверх
             content.style.transform = 'translateY(0px)';
-            
-            // Прячем иконку обратно
-            icon.style.opacity = '0';
-            icon.style.transform = 'scale(0) rotate(0deg)';
-            icon.classList.remove('fa-spin');
+            ptrContainer.style.transform = 'translateY(0px)'; // Возвращается на -80px
+            icon.style.transform = 'rotate(0deg)';
         }
 
         pulledDistance = 0;
