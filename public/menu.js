@@ -3139,22 +3139,23 @@ function updateShopTile(status) {
 
 function initPullToRefresh() {
     const content = document.getElementById('main-content');
-    const ptrContainer = document.getElementById('pull-to-refresh');
-    const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
+    const ptrContainer = document.getElementById('pull-to-refresh'); // Сам блок
+    const icon = ptrContainer ? ptrContainer.querySelector('i') : null; // Иконка внутри
     
     if (!content || !ptrContainer || !icon) return;
 
     let startY = 0;
     let pulledDistance = 0;
     let isPulling = false;
-    const triggerThreshold = 90; 
+    const triggerThreshold = 80; // Дистанция срабатывания
 
     // 1. НАЧАЛО
     content.addEventListener('touchstart', (e) => {
         if (content.scrollTop <= 0) {
             startY = e.touches[0].clientY;
             isPulling = true;
-            // Убираем плавность, чтобы все двигалось мгновенно за пальцем
+            
+            // Отключаем плавность, чтобы всё двигалось четко за пальцем
             content.style.transition = 'none'; 
             ptrContainer.style.transition = 'none'; 
             icon.style.transition = 'none';
@@ -3163,35 +3164,35 @@ function initPullToRefresh() {
         }
     }, { passive: true });
 
-    // 2. ДВИЖЕНИЕ (САМОЕ ВАЖНОЕ)
+    // 2. ДВИЖЕНИЕ
     content.addEventListener('touchmove', (e) => {
         if (!isPulling) return;
 
         const currentY = e.touches[0].clientY;
         const diff = currentY - startY;
 
+        // Если тянем вниз и страница наверху
         if (diff > 0 && content.scrollTop <= 0) {
             if (e.cancelable) e.preventDefault();
 
-            // Считаем дистанцию с сопротивлением
+            // Считаем дистанцию с сопротивлением (чтобы не улетало бесконечно)
             pulledDistance = Math.pow(diff, 0.85); 
             if (pulledDistance > 180) pulledDistance = 180;
 
             // 1. Двигаем КОНТЕНТ вниз
             content.style.transform = `translateY(${pulledDistance}px)`;
 
-            // 2. Двигаем ЗНАЧОК вниз ровно на то же расстояние!
-            // Он был на -80px. Если мы оттянули на 100px, он станет на +20px (видно).
+            // 2. Двигаем ЗНАЧОК вниз (он выезжает из-за верхней границы)
             ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
 
-            // Вращаем саму иконку для красоты
+            // 3. Крутим иконку для красоты
             icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
             
-            // Цвет меняется, когда готово к обновлению
+            // Меняем цвет, если дотянули до обновления
             if (pulledDistance > triggerThreshold) {
-                icon.style.color = "#34c759"; // Зеленый
+                icon.style.color = "#34c759"; // Зеленый (готово)
             } else {
-                icon.style.color = "#FFD700"; // Желтый
+                icon.style.color = "#FFD700"; // Желтый (тяни еще)
             }
         }
     }, { passive: false });
@@ -3206,34 +3207,35 @@ function initPullToRefresh() {
         ptrContainer.style.transition = 'transform 0.3s ease-out';
 
         if (pulledDistance > triggerThreshold) {
-            // === ОБНОВЛЕНИЕ ===
+            // === ЗАПУСК ОБНОВЛЕНИЯ ===
+            console.log("🔄 Обновление...");
             
-            // Фиксируем иконку и контент в открытом состоянии
+            // Фиксируем в открытом положении (чуть ниже верха)
             content.style.transform = `translateY(80px)`;
-            ptrContainer.style.transform = `translateY(80px)`; // Значок висит на виду (на уровне 0px по экрану)
+            ptrContainer.style.transform = `translateY(80px)`; // Значок становится видимым
             
-            icon.classList.add('fa-spin');
+            icon.classList.add('fa-spin'); // Запускаем вращение
             
             if (window.Telegram && Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
 
+            // Перезагрузка страницы через полсекунды
             setTimeout(() => {
                 window.location.reload();
             }, 500);
 
         } else {
             // === ОТМЕНА ===
-            // Всё уезжает обратно вверх
+            // Возвращаем всё наверх
             content.style.transform = 'translateY(0px)';
-            ptrContainer.style.transform = 'translateY(0px)'; // Возвращается на -80px
+            ptrContainer.style.transform = 'translateY(0px)'; // Прячется обратно на -80px
             icon.style.transform = 'rotate(0deg)';
         }
 
         pulledDistance = 0;
     });
 }
-
     async function main() {
         console.log("--- main() ЗАПУЩЕНА ---");
 
