@@ -2935,6 +2935,8 @@ function updateShopTile(status) {
             dom.giftModalOverlay.classList.remove('hidden');
             dom.giftContentInitial.classList.remove('hidden');
             dom.giftContentResult.classList.add('hidden');
+                
+            lockAppScroll(); // <-- БЛОКИРУЕМ СКРОЛЛ
         });
     }
 
@@ -3010,6 +3012,7 @@ function updateShopTile(status) {
                 e.preventDefault();
                 Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv");
                 dom.giftModalOverlay.classList.add('hidden');
+                    unlockAppScroll(); // <--- ДОБАВИТЬ ЭТО
                 
                 setTimeout(() => {
                     dom.giftContentInitial.classList.remove('hidden');
@@ -3033,6 +3036,7 @@ function updateShopTile(status) {
             dom.giftCloseBtn.style.background = "#555";
             dom.giftCloseBtn.onclick = () => {
                 dom.giftModalOverlay.classList.add('hidden');
+                unlockAppScroll(); // <--- ДОБАВИТЬ ЭТО
                 // Кнопка подарка уже скрыта выше (style.display = 'none')
             };
         }
@@ -3084,9 +3088,21 @@ function updateShopTile(status) {
 
     const giftXBtn = document.getElementById('gift-x-btn');
     if (giftXBtn) {
-        giftXBtn.addEventListener('click', () => {
+        // Используем onclick напрямую, чтобы перебить любые другие слушатели
+        giftXBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Скрываем оверлей
             dom.giftModalOverlay.classList.add('hidden');
-        });
+            
+            // Скрываем летающую кнопку, если подарок был с требованием подписки (так как мы нажали крестик, значит отказались или отложили)
+            // Но если логика требует оставить кнопку - удалите следующую строку
+            // const floatBtn = document.getElementById('daily-gift-btn');
+            // if(floatBtn) floatBtn.style.display = 'flex'; 
+
+            unlockAppScroll(); // Разблокируем скролл
+        };
     }
 
     // === ФИНАЛЬНЫЙ ЗАПУСК (ИСПРАВЛЕННАЯ ЛОГИКА) ===
