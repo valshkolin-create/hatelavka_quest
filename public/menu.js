@@ -68,6 +68,19 @@ const dom = {
     let lastShopStatus = null; // <--- ДОБАВИТЬ ЭТУ ПЕРЕМЕННУЮ ДЛЯ ЗАПОМИНАНИЯ
     let originalShopHTML = null;
 
+// --- ФУНКЦИИ БЛОКИРОВКИ СКРОЛЛА ---
+    function lockAppScroll() {
+        document.body.classList.add('no-scroll');
+        const content = document.getElementById('main-content');
+        if (content) content.classList.add('no-scroll');
+    }
+
+    function unlockAppScroll() {
+        document.body.classList.remove('no-scroll');
+        const content = document.getElementById('main-content');
+        if (content) content.classList.remove('no-scroll');
+    }
+
 try {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
@@ -3116,12 +3129,12 @@ function initPullToRefresh() {
     let startY = 0;
     let pulledDistance = 0;
     let isPulling = false;
-    const triggerThreshold = 80; // Сколько пикселей надо оттянуть, чтобы сработало
+    const triggerThreshold = 85; // Порог срабатывания
 
-    // 1. НАЧАЛО КАСАНИЯ
+    // 1. НАЧАЛО
     content.addEventListener('touchstart', (e) => {
-        // Работаем только если мы в самом верху страницы
-        if (content.scrollTop === 0) {
+        // Срабатывает только если мы в самом верху страницы
+        if (content.scrollTop <= 0) {
             startY = e.touches[0].clientY;
             isPulling = true;
         } else {
@@ -3129,65 +3142,77 @@ function initPullToRefresh() {
         }
     }, { passive: true });
 
-    // 2. ДВИЖЕНИЕ ПАЛЬЦА
+    // 2. ДВИЖЕНИЕ
     content.addEventListener('touchmove', (e) => {
         if (!isPulling) return;
 
         const currentY = e.touches[0].clientY;
         const diff = currentY - startY;
 
-        // Если тянем вниз (diff > 0) и мы наверху
-        if (diff > 0 && content.scrollTop === 0) {
-            // Замедляем движение (коэффициент 0.5), чтобы чувствовалось сопротивление
-            pulledDistance = diff * 0.5;
-            
-            // Ограничиваем максимальное оттягивание
-            if (pulledDistance > 120) pulledDistance = 120;
+        // Если тянем вниз и страница наверху
+        if (diff > 0 && content.scrollTop <= 0) {
+            // Если мы пытаемся скроллить вверх, блокируем стандартное поведение (чтобы не тянулся весь браузер)
+            if (e.cancelable) e.preventDefault();
 
-            // Двигаем иконку
+            // Замедляем движение (коэффициент 0.4)
+            pulledDistance = diff * 0.4;
+            
+            // Ограничитель, чтобы не оттянуть слишком далеко
+            if (pulledDistance > 140) pulledDistance = 140;
+
+            // Двигаем иконку вниз
             ptrIcon.style.transform = `translateY(${pulledDistance}px)`;
             
-            // Вращаем иконку, чем сильнее тянем
-            icon.style.transform = `rotate(${pulledDistance * 3}deg)`;
+            // Также немного сдвигаем контент вниз для красоты (параллакс)
+            content.style.transform = `translateY(${pulledDistance * 0.3}px)`;
+            content.style.transition = 'none'; // Убираем плавность во время драга
+
+            // Вращаем иконку
+            icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
             
-            // Если оттянули достаточно - меняем цвет или стиль (подсказка юзеру)
+            // Индикация готовности (цвет)
             if (pulledDistance > triggerThreshold) {
-                icon.style.color = "#34c759"; // Зеленеет, если готово
+                icon.style.color = "#34c759"; // Зеленый
+                if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                     // Легкая вибрация при достижении порога (опционально можно добавить флаг, чтобы не вибрировало постоянно)
+                }
             } else {
-                icon.style.color = "#FFD700";
+                icon.style.color = "#FFD700"; // Желтый
             }
         }
     }, { passive: false });
 
-    // 3. КОНЕЦ КАСАНИЯ
+    // 3. КОНЕЦ
     content.addEventListener('touchend', () => {
         if (!isPulling) return;
         isPulling = false;
+        
+        // Возвращаем контент на место плавно
+        content.style.transition = 'transform 0.3s ease-out';
+        content.style.transform = 'translateY(0px)';
 
-        // Если оттянули достаточно далеко -> ОБНОВЛЯЕМ
         if (pulledDistance > triggerThreshold) {
-            // Фиксируем иконку в состоянии загрузки
-            ptrIcon.style.transition = "transform 0.3s";
-            ptrIcon.style.transform = `translateY(50px)`;
-            icon.classList.add('fa-spin'); // Запускаем вращение CSS
-
-            // ⚡️ ЗАПУСКАЕМ ОБНОВЛЕНИЕ ⚡️
-            console.log("🔄 Обновление страницы...");
+            // === ЗАПУСК ОБНОВЛЕНИЯ ===
+            console.log("🔄 Обновление...");
             
-            // Вибрация (если поддерживается телефоном)
-            if (Telegram.WebApp.HapticFeedback) {
+            // Фиксируем иконку в активном состоянии
+            ptrIcon.style.transform = `translateY(70px)`; 
+            icon.classList.add('fa-spin'); 
+            
+            // Вибрация успеха
+            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
 
-            // Перезагружаем страницу через 1.5 сек (для красоты анимации)
+            // Перезагрузка страницы
             setTimeout(() => {
                 window.location.reload();
             }, 500);
 
         } else {
-            // Если мало оттянули — просто возвращаем всё назад
-            ptrIcon.style.transition = "transform 0.3s";
+            // === ОТМЕНА ===
             ptrIcon.style.transform = `translateY(0px)`;
+            icon.style.transform = `rotate(0deg)`;
         }
 
         pulledDistance = 0;
