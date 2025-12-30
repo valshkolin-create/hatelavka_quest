@@ -1724,3 +1724,32 @@ html, body {
 .gift-modal-close-x:hover {
     color: #fff;
 }
+
+/* === УМЕНЬШЕНИЕ ОТСТУПОВ ВОКРУГ НЕДЕЛЬНЫХ ИСПЫТАНИЙ === */
+
+/* 1. Сам блок с баннером (Weekly Goals) */
+.weekly-banner-wrapper {
+    /* Было 15px сверху, делаем минимум */
+    margin-top: 6px !important;  
+    
+    /* Добавляем минимальный отступ снизу до разделительной линии */
+    margin-bottom: 6px !important; 
+}
+
+/* 2. Слайдер над ним (чтобы он не толкал баннер вниз) */
+.slider-container {
+    margin-bottom: 6px !important; /* Уменьшаем отступ до баннера */
+}
+
+/* 3. Разделительная линия (HR) под баннером */
+hr {
+    /* Сжимаем отступы линии (было 20px и 15px) */
+    margin: 6px 0 10px !important; 
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 4. Блок кнопок (Магазин/Челлендж) под линией */
+.metro-shortcuts-container {
+    /* Чуть приподнимаем к линии */
+    margin-top: 0 !important; 
+}
