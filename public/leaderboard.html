@@ -5,7 +5,7 @@
   <title>Лидерборд</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
 <style>
     /* --- СТИЛИ БЕЗ ИЗМЕНЕНИЙ --- */
     :root {
@@ -21,7 +21,60 @@
       --surface-glass-bg: rgba(28, 28, 30, 0.75);
       --accent-green: #34c759;
     }
-    body { margin: 0; min-height: 100vh; background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
+    /* === FIX SCROLL & LAYOUT === */
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        position: fixed; /* Блокируем скролл всей страницы */
+        overflow: hidden; 
+        overscroll-behavior-y: none;
+        
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        
+        /* Фон (если нужен такой же как везде, раскомментируй) */
+        /* background-image: url('https://i.postimg.cc/Dyks29xc/fon-variant1.png');
+        background-size: cover;
+        background-position: center; */
+    }
+
+    /* Контейнер для скролла */
+    #main-content {
+        height: 100vh; 
+        overflow-y: auto !important; 
+        -webkit-overflow-scrolling: touch; 
+        position: relative;
+        z-index: 10;
+        display: block;
+        box-sizing: border-box;
+        
+        /* Отступы контента */
+        padding: 20px 10px 140px; /* 140px снизу, чтобы не перекрывало footer и user-stats */
+    }
+
+    /* Крутилка обновления */
+    #pull-to-refresh {
+        position: fixed;
+        top: -80px;
+        left: 0;
+        width: 100%;
+        height: 80px;
+        display: flex;
+        justify-content: center;
+        align-items: center; 
+        z-index: 2000;
+        pointer-events: none;
+        will-change: transform;
+    }
+
+    #pull-to-refresh i {
+        font-size: 24px; 
+        color: #FFD700;
+        text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+    }
     .main-content { flex-grow: 1; overflow-y: auto; padding: 15px 15px 90px; }
 
     .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -121,7 +174,11 @@
 </style>
 </head>
 <body>
-  <main class="main-content">
+  <main id="main-content" class="main-content">
+
+    <div id="pull-to-refresh">
+        <i class="fa-solid fa-rotate-right"></i>
+    </div>
 
     <div id="info-box-twitch" class="info-box hidden">
         <div class="header-controls">
@@ -204,7 +261,7 @@
         <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
         <span>Задания</span>
     </a>
-        <a href="/menu" class="footer-item">
+    <a href="/menu" class="footer-item">
         <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
         <span>Главная</span>
     </a>
@@ -253,6 +310,14 @@
   };
 
   let currentUser = null;
+
+  // --- ХЕЛПЕР ДЛЯ ВИБРАЦИИ ---
+  function haptic(style = 'light') {
+      if (Telegram.WebApp.HapticFeedback) {
+          Telegram.WebApp.HapticFeedback.impactOccurred(style);
+      }
+  }
+  
 
   // 1. Загрузка профиля
   async function loadCurrentUser() {
@@ -488,8 +553,11 @@
     }
   }
   
+  // --- ОБРАБОТЧИКИ КНОПОК С ВИБРАЦИЕЙ ---
+
   dom.sourceButtons.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.source = button.dataset.source;
       dom.sourceButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -500,6 +568,7 @@
 
   dom.telegramPeriodButtons.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.telegramPeriod = button.dataset.period;
       dom.telegramPeriodButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -509,6 +578,7 @@
 
   dom.twitchMetricButtonList.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.twitchMetric = button.dataset.metric;
       dom.twitchMetricButtonList.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -519,6 +589,7 @@
 
   dom.twitchPeriodButtonList.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.twitchPeriod = button.dataset.period;
       dom.twitchPeriodButtonList.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -528,15 +599,109 @@
   
   dom.refreshButtons.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('medium'); // Вибрация посильнее
       loadCurrentUser(); 
       fetchAndRender();
     });
+  });
+
+  // Вибрация для футера
+  document.querySelectorAll('.footer-item').forEach(item => {
+      item.addEventListener('click', () => {
+          haptic('light');
+      });
   });
 
   // Запуск
   loadCurrentUser();
   updateUI();
   fetchAndRender();
+  // === ИСПРАВЛЕННАЯ КНОПКА "НАВЕРХ" ===
+  const scrollTopBtn = document.getElementById("scrollTopBtn");
+  const mainContent = document.getElementById("main-content");
+
+  // Слушаем скролл теперь на контейнере, а не на окне
+  mainContent.addEventListener('scroll', () => {
+      if (mainContent.scrollTop > 300) {
+          scrollTopBtn.style.display = "flex";
+      } else {
+          scrollTopBtn.style.display = "none";
+      }
+  });
+
+  scrollTopBtn.addEventListener('click', () => {
+      mainContent.scrollTo({
+          top: 0,
+          behavior: "smooth"
+      });
+  });
+
+  // === PULL TO REFRESH (СВАЙП) ===
+  function initPullToRefresh() {
+      const ptrContainer = document.getElementById('pull-to-refresh');
+      const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
+      
+      if (!mainContent || !ptrContainer || !icon) return;
+
+      let startY = 0;
+      let pulledDistance = 0;
+      let isPulling = false;
+
+      mainContent.addEventListener('touchstart', (e) => {
+          if (mainContent.scrollTop <= 0) {
+              startY = e.touches[0].clientY;
+              isPulling = true;
+              mainContent.style.transition = 'none'; 
+              ptrContainer.style.transition = 'none'; 
+          } else {
+              isPulling = false;
+          }
+      }, { passive: true });
+
+      mainContent.addEventListener('touchmove', (e) => {
+          if (!isPulling) return;
+          const currentY = e.touches[0].clientY;
+          const diff = currentY - startY;
+
+          if (diff > 0 && mainContent.scrollTop <= 0) {
+              if (e.cancelable) e.preventDefault();
+              pulledDistance = Math.pow(diff, 0.85); 
+              if (pulledDistance > 180) pulledDistance = 180;
+
+              mainContent.style.transform = `translateY(${pulledDistance}px)`;
+              ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
+              icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
+              
+              icon.style.color = pulledDistance > 80 ? "#34c759" : "#FFD700";
+          }
+      }, { passive: false });
+
+      mainContent.addEventListener('touchend', () => {
+          if (!isPulling) return;
+          isPulling = false;
+          
+          mainContent.style.transition = 'transform 0.3s ease-out';
+          ptrContainer.style.transition = 'transform 0.3s ease-out';
+
+          if (pulledDistance > 80) {
+              mainContent.style.transform = `translateY(80px)`;
+              ptrContainer.style.transform = `translateY(80px)`;
+              icon.classList.add('fa-spin');
+              if (window.Telegram?.WebApp?.HapticFeedback) {
+                  Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+              }
+              setTimeout(() => { window.location.reload(); }, 500);
+          } else {
+              mainContent.style.transform = 'translateY(0px)';
+              ptrContainer.style.transform = 'translateY(0px)';
+              icon.style.transform = 'rotate(0deg)';
+          }
+          pulledDistance = 0;
+      });
+  }
+
+  // Запуск
+  document.addEventListener('DOMContentLoaded', initPullToRefresh);
 </script>
 </body>
 </html>
