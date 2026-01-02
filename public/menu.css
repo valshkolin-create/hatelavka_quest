@@ -425,13 +425,18 @@ html, body {
 }
 
     /* --- СТИЛИ ДЛЯ СЛАЙДЕРА НА ГЛАВНОЙ (ФИНАЛЬНАЯ ВЕРСИЯ) --- */
-    .slider-container {
-        position: relative;
-        width: 100%;
-        border-radius: 12px;
-        overflow: hidden;
-        margin-bottom: 15px;
-    }
+    /* --- СТИЛИ ДЛЯ СЛАЙДЕРА НА ГЛАВНОЙ (ФИНАЛЬНАЯ ВЕРСИЯ) --- */
+.slider-container {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 15px;
+    
+    /* 👇 ДОБАВИТЬ ЭТУ СТРОКУ 👇 */
+    touch-action: pan-y; 
+    /* 👆 ЭТО ВАЖНО: Разрешает вертикальный скролл, но отдает горизонтальный в JS */
+}
     .slider-wrapper {
         display: flex;
         transition: transform 0.5s ease-in-out;
