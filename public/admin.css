@@ -1478,34 +1478,100 @@ input[type="datetime-local"] {
 }
 /* --- СТИЛИ ДЛЯ КОПИРОВАНИЯ НАГРАД (КОТЕЛ) --- */
 
-/* Чекбокс выбора награды */
-.reward-select-checkbox {
-    width: 20px !important;
-    height: 20px !important;
-    cursor: pointer;
-    accent-color: var(--action-color); /* Синий цвет галочки */
-    margin: 0 !important;
+/* --- СТИЛИ ДЛЯ ПАНЕЛИ МАССОВЫХ ДЕЙСТВИЙ --- */
+
+/* Контейнер панели (скрыт по умолчанию) */
+#bulk-actions-panel {
+    background: rgba(44, 44, 46, 0.95); /* Темный фон под стиль iOS/Telegram */
+    border: 1px solid rgba(88, 86, 214, 0.3);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    
+    /* Анимация появления */
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none; /* Чтобы не мешал кликам когда скрыт */
+    position: absolute; /* Чтобы не занимал место */
+    visibility: hidden;
+    width: calc(100% - 32px); /* Учет паддингов */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10;
 }
 
-/* Кнопка "Скопировать" (плавающая) */
-#copy-rewards-btn {
-    width: 100%;
-    background-color: #5856d6; /* Фиолетовый оттенок */
-    color: white;
+/* Когда панель активна */
+#bulk-actions-panel.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    position: relative; /* Возвращаем в поток */
+    visibility: visible;
+}
+
+/* Текст "Выбрано: 5" */
+.bulk-info {
+    font-size: 14px;
     font-weight: 600;
-    padding: 12px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bulk-count-badge {
+    background: #5856d6;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+/* Правая часть с кнопками */
+.bulk-controls {
+    display: flex;
+    gap: 10px;
+}
+
+/* Кнопка "Выделить все" (текстовая) */
+.btn-text-action {
+    background: none;
     border: none;
+    color: #a1a1aa;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: color 0.2s;
+}
+.btn-text-action:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.1);
+}
+
+/* Кнопка "Перенести" (яркая) */
+.btn-primary-action {
+    background: #5856d6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
     border-radius: 8px;
-    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s;
+    gap: 6px;
+    transition: transform 0.1s, background 0.2s;
 }
 
-#copy-rewards-btn:hover {
-    background-color: #4b49b6;
-    transform: translateY(-2px);
+.btn-primary-action:hover {
+    background: #4b49b6;
+}
+.btn-primary-action:active {
+    transform: scale(0.96);
 }
