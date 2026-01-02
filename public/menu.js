@@ -1866,6 +1866,15 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
+    // --- 👇 НОВЫЙ БЛОК: ВИБРАЦИЯ ДЛЯ НИЖНЕГО МЕНЮ 👇 ---
+    if (dom.footerItems) {
+        dom.footerItems.forEach(item => {
+            item.addEventListener('click', () => {
+                // impactOccurred('light') дает легкую, приятную вибрацию, похожую на клик
+                Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            });
+        });
+    }
     // --- 1. ГЕОМЕТРИЯ: РАВНЫЕ БЛОКИ ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
