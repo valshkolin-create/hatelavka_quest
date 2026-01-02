@@ -6,8 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+  
 <style>
-    /* --- СТИЛИ БЕЗ ИЗМЕНЕНИЙ --- */
+    /* --- БАЗОВЫЕ ПЕРЕМЕННЫЕ --- */
     :root {
       --bg-color: #000000;
       --surface-color: #1c1c1e;
@@ -21,7 +22,8 @@
       --surface-glass-bg: rgba(28, 28, 30, 0.75);
       --accent-green: #34c759;
     }
-    /* === FIX SCROLL & LAYOUT === */
+
+    /* === ✅ ГЛАВНЫЙ ФИКС СКРОЛЛА === */
     html, body {
         margin: 0;
         padding: 0;
@@ -30,18 +32,12 @@
         position: fixed; /* Блокируем скролл всей страницы */
         overflow: hidden; 
         overscroll-behavior-y: none;
-        
         background-color: var(--bg-color);
         color: var(--text-color);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        
-        /* Фон (если нужен такой же как везде, раскомментируй) */
-        /* background-image: url('https://i.postimg.cc/Dyks29xc/fon-variant1.png');
-        background-size: cover;
-        background-position: center; */
     }
 
-    /* Контейнер для скролла */
+    /* === ✅ КОНТЕЙНЕР ДЛЯ КОНТЕНТА === */
     #main-content {
         height: 100vh; 
         overflow-y: auto !important; 
@@ -50,12 +46,11 @@
         z-index: 10;
         display: block;
         box-sizing: border-box;
-        
-        /* Отступы контента */
-        padding: 20px 10px 140px; /* 140px снизу, чтобы не перекрывало footer и user-stats */
+        /* Отступы: сверху 20px, по бокам 10px, снизу 100px (для футера) */
+        padding: 20px 15px 100px; 
     }
 
-    /* Крутилка обновления */
+    /* === ✅ КРУТИЛКА ОБНОВЛЕНИЯ === */
     #pull-to-refresh {
         position: fixed;
         top: -80px;
@@ -75,8 +70,8 @@
         color: #FFD700;
         text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
     }
-    .main-content { flex-grow: 1; overflow-y: auto; padding: 15px 15px 90px; }
 
+    /* --- ОСТАЛЬНЫЕ СТИЛИ --- */
     .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .header-controls h2 { margin: 0; font-size: 16px; color: var(--text-color); }
     .refresh-button { background: none; border: none; color: var(--text-color-muted); cursor: pointer; padding: 0; font-size: 18px; transition: color 0.2s ease-in-out; }
@@ -174,7 +169,8 @@
 </style>
 </head>
 <body>
-  <main id="main-content" class="main-content">
+
+  <main id="main-content">
 
     <div id="pull-to-refresh">
         <i class="fa-solid fa-rotate-right"></i>
@@ -250,8 +246,8 @@
       <tbody id="leaderboardBody"></tbody>
     </table>
     <div id="loader" class="loader">Загрузка данных...</div>
-  </main>
-      
+  
+  </main> 
   <footer class="app-footer">
     <a href="/leaderboard" class="footer-item active">
         <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
@@ -273,7 +269,7 @@
         <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
         <span>Аукцион</span>
     </a>
-</footer>
+  </footer>
 
 <script>
   Telegram.WebApp.ready();
@@ -311,15 +307,6 @@
 
   let currentUser = null;
 
-  // --- ХЕЛПЕР ДЛЯ ВИБРАЦИИ ---
-  function haptic(style = 'light') {
-      if (Telegram.WebApp.HapticFeedback) {
-          Telegram.WebApp.HapticFeedback.impactOccurred(style);
-      }
-  }
-  
-
-  // 1. Загрузка профиля
   async function loadCurrentUser() {
       try {
           const response = await fetch('/api/v1/user/me', {
@@ -329,12 +316,6 @@
           });
           if (response.ok) {
               currentUser = await response.json();
-              // Сразу после загрузки пробуем обновить, если таблица уже готова
-              if (dom.leaderboardBody.children.length > 0) {
-                  // Перезапускаем рендер, чтобы применить найденный ID к уже загруженной таблице
-                  // Но лучше просто обновить стату, если данные таблицы где-то сохранены. 
-                  // Для простоты оставим как есть, fetchAndRender вызовется при кликах.
-              }
           }
       } catch (e) {
           console.error("Ошибка загрузки профиля:", e);
@@ -342,33 +323,24 @@
       }
   }
 
-  // 2. Обновление плашки
   function updatePersonalStats(realTimeValue = null) {
-      // Если профиль еще не загрузился, пробуем показать хотя бы имя из WebApp
       const fallbackName = (Telegram.WebApp.initDataUnsafe.user && Telegram.WebApp.initDataUnsafe.user.first_name) || 'Пользователь';
       
-      // --- TELEGRAM ---
       if (state.source === 'telegram') {
           const name = currentUser ? (currentUser.full_name || currentUser.username) : fallbackName;
           dom.tgUserName.textContent = `Вы: ${name}`;
           
           let val = 0;
-          
           if (realTimeValue !== null) {
               val = realTimeValue;
           } else if (currentUser) {
-              // Fallback на базу
               if (state.telegramPeriod === 'day') val = currentUser.telegram_daily_message_count || 0;
               else if (state.telegramPeriod === 'week') val = currentUser.telegram_weekly_message_count || 0;
               else if (state.telegramPeriod === 'month') val = currentUser.telegram_monthly_message_count || 0;
               else if (state.telegramPeriod === 'all') val = currentUser.telegram_total_message_count || 0;
           }
-
           dom.tgUserStat.innerHTML = `Ваш результат: <span>${val} сообщений</span>`;
-      } 
-      
-      // --- TWITCH ---
-      else {
+      } else {
           if (currentUser && !currentUser.twitch_login) {
               dom.twitchUserName.textContent = "Вы: Twitch не привязан";
               dom.twitchUserStat.innerHTML = `<a href="/profile" style="color:var(--twitch-color)">Привязать профиль</a>`;
@@ -467,44 +439,25 @@
       const data = await response.json();
       const leaderboardData = Array.isArray(data) ? data : data.leaderboard;
 
-      // --- ФИКС ПОИСКА СЕБЯ ---
       let myRealTimeStat = null;
-      
-      // Получаем ID из всех возможных источников
       let rawTgId = null;
       if (currentUser) rawTgId = currentUser.telegram_id || currentUser.id;
-      
-      // САМЫЙ ВАЖНЫЙ ФИКС: Берем ID из WebApp, если в базе его нет
       if (!rawTgId && window.Telegram && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
           rawTgId = Telegram.WebApp.initDataUnsafe.user.id;
       }
-      
-      const myTgIdStr = String(rawTgId); // Строка для сравнения
+      const myTgIdStr = String(rawTgId); 
       
       if (Array.isArray(leaderboardData)) {
           const myTwitchLogin = currentUser && currentUser.twitch_login ? currentUser.twitch_login.toLowerCase() : null;
           const myUsername = currentUser && currentUser.username ? currentUser.username.toLowerCase().replace('@', '') : null;
 
-          console.log(`🔍 [DEBUG] Ищу себя. ID: ${myTgIdStr}, Twitch: ${myTwitchLogin}`);
-
           const me = leaderboardData.find(entry => {
-              // 1. Логика для Telegram
               if (state.source === 'telegram') {
-                  // Проверяем ID (самое надежное)
                   const entryId = entry.telegram_id || entry.user_id || entry.id;
-                  if (entryId && String(entryId) === myTgIdStr) {
-                      console.log("🎯 Нашел по ID!");
-                      return true;
-                  }
-                  // Проверяем Username
+                  if (entryId && String(entryId) === myTgIdStr) return true;
                   const entryUser = entry.username ? entry.username.toLowerCase().replace('@', '') : null;
-                  if (entryUser && myUsername && entryUser === myUsername) {
-                      console.log("🎯 Нашел по Username!");
-                      return true;
-                  }
+                  if (entryUser && myUsername && entryUser === myUsername) return true;
               }
-              
-              // 2. Логика для Twitch
               if (state.source === 'twitch' && myTwitchLogin) {
                   const entryName = (entry.user_name || entry.username || "").toLowerCase();
                   if (entryName === myTwitchLogin) return true;
@@ -518,7 +471,6 @@
       }
       
       updatePersonalStats(myRealTimeStat);
-      // --------------------------------------
 
       if (!Array.isArray(leaderboardData) || leaderboardData.length === 0) {
         dom.loader.textContent = 'Нет данных.';
@@ -553,11 +505,8 @@
     }
   }
   
-  // --- ОБРАБОТЧИКИ КНОПОК С ВИБРАЦИЕЙ ---
-
   dom.sourceButtons.forEach(button => {
     button.addEventListener('click', () => {
-      haptic('light'); // Вибрация
       state.source = button.dataset.source;
       dom.sourceButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -568,7 +517,6 @@
 
   dom.telegramPeriodButtons.forEach(button => {
     button.addEventListener('click', () => {
-      haptic('light'); // Вибрация
       state.telegramPeriod = button.dataset.period;
       dom.telegramPeriodButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -578,7 +526,6 @@
 
   dom.twitchMetricButtonList.forEach(button => {
     button.addEventListener('click', () => {
-      haptic('light'); // Вибрация
       state.twitchMetric = button.dataset.metric;
       dom.twitchMetricButtonList.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -589,7 +536,6 @@
 
   dom.twitchPeriodButtonList.forEach(button => {
     button.addEventListener('click', () => {
-      haptic('light'); // Вибрация
       state.twitchPeriod = button.dataset.period;
       dom.twitchPeriodButtonList.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -599,45 +545,14 @@
   
   dom.refreshButtons.forEach(button => {
     button.addEventListener('click', () => {
-      haptic('medium'); // Вибрация посильнее
       loadCurrentUser(); 
       fetchAndRender();
     });
   });
 
-  // Вибрация для футера
-  document.querySelectorAll('.footer-item').forEach(item => {
-      item.addEventListener('click', () => {
-          haptic('light');
-      });
-  });
-
-  // Запуск
-  loadCurrentUser();
-  updateUI();
-  fetchAndRender();
-  // === ИСПРАВЛЕННАЯ КНОПКА "НАВЕРХ" ===
-  const scrollTopBtn = document.getElementById("scrollTopBtn");
-  const mainContent = document.getElementById("main-content");
-
-  // Слушаем скролл теперь на контейнере, а не на окне
-  mainContent.addEventListener('scroll', () => {
-      if (mainContent.scrollTop > 300) {
-          scrollTopBtn.style.display = "flex";
-      } else {
-          scrollTopBtn.style.display = "none";
-      }
-  });
-
-  scrollTopBtn.addEventListener('click', () => {
-      mainContent.scrollTo({
-          top: 0,
-          behavior: "smooth"
-      });
-  });
-
-  // === PULL TO REFRESH (СВАЙП) ===
+  // === ✅ ДОБАВЛЕНА ФУНКЦИЯ PULL TO REFRESH ===
   function initPullToRefresh() {
+      const mainContent = document.getElementById('main-content');
       const ptrContainer = document.getElementById('pull-to-refresh');
       const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
       
@@ -687,7 +602,7 @@
               mainContent.style.transform = `translateY(80px)`;
               ptrContainer.style.transform = `translateY(80px)`;
               icon.classList.add('fa-spin');
-              if (window.Telegram?.WebApp?.HapticFeedback) {
+              if (window.Telegram && Telegram.WebApp.HapticFeedback) {
                   Telegram.WebApp.HapticFeedback.notificationOccurred('success');
               }
               setTimeout(() => { window.location.reload(); }, 500);
@@ -700,8 +615,11 @@
       });
   }
 
-  // Запуск
-  document.addEventListener('DOMContentLoaded', initPullToRefresh);
+  loadCurrentUser();
+  updateUI();
+  fetchAndRender();
+  // ✅ ЗАПУСК СКРИПТА СВАЙПА
+  initPullToRefresh();
 </script>
 </body>
 </html>
