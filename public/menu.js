@@ -1866,15 +1866,25 @@ function openWelcomePopup(userData) {
 }
     
 function setupEventListeners() {
-    // --- 👇 НОВЫЙ БЛОК: ВИБРАЦИЯ ДЛЯ НИЖНЕГО МЕНЮ 👇 ---
-    if (dom.footerItems) {
-        dom.footerItems.forEach(item => {
-            item.addEventListener('click', () => {
-                // impactOccurred('light') дает легкую, приятную вибрацию, похожую на клик
-                Telegram.WebApp.HapticFeedback.impactOccurred('light');
-            });
+    // --- 👇 ИСПРАВЛЕННЫЙ БЛОК: ВИБРАЦИЯ (Делегирование) 👇 ---
+    // Ищем футер напрямую в момент запуска функции (так надежнее, чем dom.footerItems)
+    const footer = document.querySelector('.app-footer');
+    
+    if (footer) {
+        footer.addEventListener('click', (e) => {
+            // Проверяем, был ли клик по элементу с классом .footer-item или внутри него
+            if (e.target.closest('.footer-item')) {
+                // Используем try-catch, чтобы ошибка вибрации не ломала остальной код
+                try {
+                    // impactOccurred('medium') — более ощутимый толчок
+                    Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                } catch (err) {
+                    console.log("Ошибка вибрации:", err);
+                }
+            }
         });
     }
+    // --- 👆 КОНЕЦ ИСПРАВЛЕННОГО БЛОКА 👆 ---
     // --- 1. ГЕОМЕТРИЯ: РАВНЫЕ БЛОКИ ---
     const challengeBtn = document.getElementById('shortcut-challenge');
     const questsBtn = document.getElementById('shortcut-quests');
