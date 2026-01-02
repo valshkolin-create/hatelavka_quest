@@ -1150,3 +1150,70 @@ function renderPage(eventData, leaderboardData = {}) {
         });
     }
 }); // <--- ЭТО ПОСЛЕДНИЕ СТРОКИ ФАЙЛА
+// === PULL TO REFRESH (СВАЙП) ===
+function initPullToRefresh() {
+    const mainContent = document.getElementById('main-content');
+    const ptrContainer = document.getElementById('pull-to-refresh');
+    const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
+    
+    if (!mainContent || !ptrContainer || !icon) return;
+
+    let startY = 0;
+    let pulledDistance = 0;
+    let isPulling = false;
+
+    mainContent.addEventListener('touchstart', (e) => {
+        if (mainContent.scrollTop <= 0) {
+            startY = e.touches[0].clientY;
+            isPulling = true;
+            mainContent.style.transition = 'none'; 
+            ptrContainer.style.transition = 'none'; 
+        } else {
+            isPulling = false;
+        }
+    }, { passive: true });
+
+    mainContent.addEventListener('touchmove', (e) => {
+        if (!isPulling) return;
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+
+        if (diff > 0 && mainContent.scrollTop <= 0) {
+            if (e.cancelable) e.preventDefault();
+            pulledDistance = Math.pow(diff, 0.85); 
+            if (pulledDistance > 180) pulledDistance = 180;
+
+            mainContent.style.transform = `translateY(${pulledDistance}px)`;
+            ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
+            icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
+            
+            icon.style.color = pulledDistance > 80 ? "#34c759" : "#FFD700";
+        }
+    }, { passive: false });
+
+    mainContent.addEventListener('touchend', () => {
+        if (!isPulling) return;
+        isPulling = false;
+        
+        mainContent.style.transition = 'transform 0.3s ease-out';
+        ptrContainer.style.transition = 'transform 0.3s ease-out';
+
+        if (pulledDistance > 80) {
+            mainContent.style.transform = `translateY(80px)`;
+            ptrContainer.style.transform = `translateY(80px)`;
+            icon.classList.add('fa-spin');
+            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
+            setTimeout(() => { window.location.reload(); }, 500);
+        } else {
+            mainContent.style.transform = 'translateY(0px)';
+            ptrContainer.style.transform = 'translateY(0px)';
+            icon.style.transform = 'rotate(0deg)';
+        }
+        pulledDistance = 0;
+    });
+}
+
+// Запуск после загрузки страницы
+document.addEventListener('DOMContentLoaded', initPullToRefresh);
