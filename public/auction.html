@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Аукцион</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
     <link rel="stylesheet" href="/public/auction.css" />
 </head>
 <body>
@@ -18,50 +18,47 @@
             <i class="fa-solid fa-rotate-right"></i>
         </div>
 
-    <div class="container">
-        <div class="new-header-container">
-            <a href="/menu" class="header-back-button">
-                <i class="fa-solid fa-chevron-left"></i> ГЛАВНАЯ
-            </a>
-            <div class="page-header">
-                <h2 class="page-title">АУКЦИОН</h2>
+        <div class="container">
+            <div class="new-header-container">
+                <a href="/menu" class="header-back-button">
+                    <i class="fa-solid fa-chevron-left"></i> ГЛАВНАЯ
+                </a>
+                <div class="page-header">
+                    <h2 class="page-title">АУКЦИОН</h2>
+                </div>
             </div>
-        </div>
-        </main>
-        
-        <div id="auctions-list" class="auctions-container">
+            
+            <div id="auctions-list" class="auctions-container">
             </div>
 
-        <button id="archive-btn" class="archive-toggle-btn">
-            <i class="fa-solid fa-box-archive"></i> Архив выигрышей
-        </button>
+            <button id="archive-btn" class="archive-toggle-btn">
+                <i class="fa-solid fa-box-archive"></i> Архив выигрышей
+            </button>
 
-        <div class="info-blocks-container">
-            <div class="info-block">
-                <i class="fa-solid fa-gavel info-icon"></i>
-                <div class="info-text-content">
-                    <h3 class="info-title">Как это работает?</h3>
-                    <p class="info-description">Делайте ставку. Ваша ставка должна быть выше текущей.</p>
+            <div class="info-blocks-container">
+                <div class="info-block">
+                    <i class="fa-solid fa-gavel info-icon"></i>
+                    <div class="info-text-content">
+                        <h3 class="info-title">Как это работает?</h3>
+                        <p class="info-description">Делайте ставку. Ваша ставка должна быть выше текущей.</p>
+                    </div>
                 </div>
-            </div>
-            <div class="info-block">
-                <i class="fa-solid fa-hourglass-half info-icon"></i>
-                <div class="info-text-content">
-                    <h3 class="info-title">Таймер перехвата</h3>
-                    <p class="info-description">После каждой новой ставки запускается таймер. Если никто не перебьет вашу ставку за это время — вы победили.</p>
+                <div class="info-block">
+                    <i class="fa-solid fa-hourglass-half info-icon"></i>
+                    <div class="info-text-content">
+                        <h3 class="info-title">Таймер перехвата</h3>
+                        <p class="info-description">После каждой новой ставки запускается таймер. Если никто не перебьет вашу ставку за это время — вы победили.</p>
+                    </div>
                 </div>
-            </div>
-            <div class="info-block">
-                <i class="fa-solid fa-shield-halved info-icon"></i>
-                <div class="info-text-content">
-                    <h3 class="info-title">Честная игра</h3>
-                    <p class="info-description">Билеты списываются <b>только</b> у победителя. Если вашу ставку перебили, ваши билеты не тратятся.</p>
+                <div class="info-block">
+                    <i class="fa-solid fa-shield-halved info-icon"></i>
+                    <div class="info-text-content">
+                        <h3 class="info-title">Честная игра</h3>
+                        <p class="info-description">Билеты списываются <b>только</b> у победителя. Если вашу ставку перебили, ваши билеты не тратятся.</p>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-  
-    <div id="bid-modal" class="modal-overlay hidden">
+            </div> </div> </main> <div id="bid-modal" class="modal-overlay hidden">
+                
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="bid-modal-title" style="margin: 0;">Сделать ставку</h3>
