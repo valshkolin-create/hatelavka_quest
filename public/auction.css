@@ -958,3 +958,76 @@ body.browser-view {
   /* 👇 ДОБАВЛЕНО: Уменьшаем высоту строки самого качества, чтобы оно занимало меньше места */
   line-height: 1; 
 }
+/* === ЗАЩИТА ОТ СВОРАЧИВАНИЯ (FIXED BODY) === */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    
+    /* Блокируем скролл самого окна */
+    position: fixed; 
+    top: 0; left: 0; right: 0; bottom: 0;
+    overflow: hidden; 
+    overscroll-behavior-y: none;
+    
+    font-family: 'Inter', sans-serif;
+    background-color: var(--background-main);
+    color: var(--text-primary);
+    
+    /* Фон фиксирован на body */
+    background-image: url('https://i.postimg.cc/Dyks29xc/fon-variant1.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* === КОНТЕЙНЕР ДЛЯ СКРОЛЛА === */
+#main-content {
+    /* Занимает весь экран */
+    height: 100vh; 
+    
+    /* Включаем скролл здесь */
+    overflow-y: auto !important; 
+    -webkit-overflow-scrolling: touch; 
+    
+    position: relative;
+    z-index: 10;
+    display: block;
+    
+    /* Отступы контента (взяты из старого body, но padding-bottom увеличен для футера) */
+    box-sizing: border-box;
+    padding-bottom: 120px; /* Чтобы контент не прятался за футером */
+    
+    will-change: transform;
+    background: transparent;
+}
+
+/* === КРУТИЛКА ОБНОВЛЕНИЯ === */
+#pull-to-refresh {
+    position: fixed;
+    top: -80px;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center; 
+    
+    z-index: 2000;
+    
+    background: transparent;
+    pointer-events: none;
+    padding: 0;
+    will-change: transform;
+}
+
+#pull-to-refresh i {
+    font-size: 24px; 
+    color: #FFD700;
+    opacity: 1;          
+    transform: scale(1);
+    transition: opacity 0.2s, transform 0.2s;
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+}
