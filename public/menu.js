@@ -228,57 +228,64 @@ try {
         let touchEndX = 0;
         let isSwiping = false;
 
-        // 1. НАЧАЛО КАСАНИЯ
         container.addEventListener('touchstart', (e) => {
-            e.stopPropagation(); // Изолируем от Pull-to-Refresh
+            // Разрешаем вертикальный скролл, но готовимся перехватить горизонтальный
             touchStartX = e.touches[0].clientX;
-            touchEndX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
+            touchEndX = touchStartX; // Сбрасываем конечную точку на старт
             isSwiping = false;
         }, { passive: true });
 
-        // 2. ДВИЖЕНИЕ
         container.addEventListener('touchmove', (e) => {
-            e.stopPropagation(); // Изолируем
-
-            if (!touchStartX || !touchStartY) return;
+            if (touchStartX === 0 && touchStartY === 0) return;
 
             const touchCurrentX = e.touches[0].clientX;
             const touchCurrentY = e.touches[0].clientY;
             
-            const deltaX = Math.abs(touchStartX - touchCurrentX);
-            const deltaY = Math.abs(touchStartY - touchCurrentY);
+            const diffX = touchStartX - touchCurrentX;
+            const diffY = touchStartY - touchCurrentY;
 
-            // Если движение горизонтальное > вертикального
-            if (deltaX > deltaY && deltaX > 5) {
+            // Если движение по горизонтали больше, чем по вертикали
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 5) {
                 isSwiping = true;
-                // БЛОКИРУЕМ скролл страницы, чтобы сработал свайп слайдера
-                if (e.cancelable) e.preventDefault(); 
+                
+                // ⛔️ ЖЕСТКАЯ БЛОКИРОВКА стандартного поведения (скролла/жеста назад)
+                if (e.cancelable) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
             }
             
+            // Обновляем последнюю точку ВСЕГДА, если мы касаемся экрана
             touchEndX = touchCurrentX;
-        }, { passive: false }); // Важно: passive: false
+        }, { passive: false }); // ⚠️ passive: false обязателен
 
-        // 3. КОНЕЦ
         container.addEventListener('touchend', (e) => {
-            e.stopPropagation();
-            const swipeThreshold = 50; 
-            
+            // Если это был свайп
             if (isSwiping) {
-                if (touchStartX - touchEndX > swipeThreshold) {
-                    nextSlide();
-                    resetSlideInterval();
-                } else if (touchEndX - touchStartX > swipeThreshold) {
-                    prevSlide();
+                // Вычисляем разницу
+                const diff = touchStartX - touchEndX;
+                const swipeThreshold = 40; // Чувствительность свайпа
+
+                if (Math.abs(diff) > swipeThreshold) {
+                    if (diff > 0) {
+                        // Палец пошел влево (Next)
+                        nextSlide();
+                    } else {
+                        // Палец пошел вправо (Prev)
+                        prevSlide();
+                    }
                     resetSlideInterval();
                 }
             }
+            
+            // Сброс
             touchStartX = 0;
             touchStartY = 0;
             isSwiping = false;
         }, { passive: true });
         
-        // Блокируем клик по ссылке, если это был свайп
+        // Блокируем клики по ссылкам, если был свайп
         allSlides.forEach(slide => {
             slide.onclick = (e) => {
                 if (isSwiping) {
