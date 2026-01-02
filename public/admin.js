@@ -396,10 +396,10 @@ function getCurrentLevel(eventData) {
     // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 1
 
     // Создает HTML-строку для награды из топ-20
+    // Создает HTML-строку для награды из топ-20
     function createTopRewardRow(reward = {}) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'top-reward-row admin-form';
-        // Важно: flex-wrap: wrap поможет на очень маленьких экранах, но gap спасет
+        wrapper.className = 'top-reward-row admin-form'; // Класс top-reward-row важен для выделения!
         wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #444; position: relative;';
         
         const place = reward.place || '';
@@ -408,20 +408,20 @@ function getCurrentLevel(eventData) {
         const wear = reward.wear || '';     
         const rarity = reward.rarity || ''; 
 
-        // Генерируем HTML
+        // 👇 НОВАЯ СТРУКТУРА ПЕРВОЙ СТРОКИ
         wrapper.innerHTML = `
-            <div style="display:flex; gap:8px; width: 100%; align-items: center; justify-content: space-between;">
+            <div style="display:flex; gap:8px; width: 100%; align-items: center;">
                 <input type="number" class="reward-place reward-place-input" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20">
                 
-                <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" 
-                       style="flex: 1; min-width: 100px;">
+                <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}">
                 
-                <input type="checkbox" class="reward-select-checkbox" title="Выбрать">
-
-                <button type="button" class="admin-action-btn reject remove-reward-btn" 
-                        style="width: 32px; height: 32px; padding: 0; flex: 0 0 32px; display: flex; align-items: center; justify-content: center;">
-                    <i class="fa-solid fa-trash-can"></i>
-                </button>
+                <div class="reward-actions-group">
+                    <input type="checkbox" class="reward-select-checkbox" title="Выбрать">
+                    
+                    <button type="button" class="admin-action-btn reject remove-reward-btn">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
             </div>
             
             <div style="display:flex; gap:8px; width: 100%;">
@@ -437,7 +437,7 @@ function getCurrentLevel(eventData) {
             </div>
         `;
         
-        // Вешаем обработчики
+        // Обработчики
         wrapper.querySelector('.remove-reward-btn').addEventListener('click', () => {
             wrapper.remove();
             if (typeof checkCopyVisibility === 'function') checkCopyVisibility();
@@ -6306,22 +6306,31 @@ function checkCopyVisibility() {
 }
 
 // 2. Функция "Выделить все / Снять все"
+// Функция "Выделить все" (Только для Топ-20 наград)
 function toggleSelectAllRewards() {
-    // Ищем только видимые чекбоксы (в текущей активной вкладке)
-    // Если нужно во всех вкладках сразу - убери :not(.hidden) у родителей, но лучше только видимые
-    const activeContainer = document.querySelector('.cauldron-rewards-list:not(.hidden), .tab-content.active .top-rewards-list'); 
-    
-    // Если специфичный контейнер не найден, ищем все чекбоксы на странице
-    const allCheckboxes = activeContainer 
-        ? activeContainer.querySelectorAll('.reward-select-checkbox')
-        : document.querySelectorAll('.reward-select-checkbox');
+    // 1. Ищем активный контейнер (текущая вкладка)
+    const activeTab = document.querySelector('.tab-content.active');
+    if (!activeTab) return;
 
-    if (allCheckboxes.length === 0) return;
-
-    // Проверяем: если все уже выбраны, то снимаем. Если нет - выбираем все.
-    const allSelected = Array.from(allCheckboxes).every(cb => cb.checked);
+    // 2. Ищем строки ТОЛЬКО с классом .top-reward-row внутри активной вкладки
+    // Это гарантирует, что мы выделяем только награды Топ-20
+    const topRewardRows = activeTab.querySelectorAll('.top-reward-row');
     
-    allCheckboxes.forEach(cb => {
+    if (topRewardRows.length === 0) return;
+
+    // Собираем все чекбоксы из этих строк
+    const checkboxes = [];
+    topRewardRows.forEach(row => {
+        const cb = row.querySelector('.reward-select-checkbox');
+        if (cb) checkboxes.push(cb);
+    });
+
+    if (checkboxes.length === 0) return;
+
+    // Логика: если все выбраны -> снимаем, иначе -> выбираем все
+    const allSelected = checkboxes.every(cb => cb.checked);
+    
+    checkboxes.forEach(cb => {
         cb.checked = !allSelected;
     });
 
