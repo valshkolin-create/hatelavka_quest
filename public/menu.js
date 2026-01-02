@@ -288,6 +288,16 @@ try {
                 }
             };
         });
+
+        // Проверяем, не вышел ли текущий индекс за пределы
+        if (currentSlideIndex >= visibleSlides.length) {
+            currentSlideIndex = 0;
+        }
+
+        // Используем ТЕКУЩИЙ индекс
+        showSlide(currentSlideIndex);
+        resetSlideInterval();
+    } // <--- ВОТ ЭТА СКОБКА БЫЛА ПОТЕРЯНА
     
     const tutorialSteps = [
         {
