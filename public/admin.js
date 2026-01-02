@@ -6260,3 +6260,81 @@ async function refreshCurrentP2PTradeDetails() {
         setupEventListeners();
         main();
     });
+/* ==========================================
+   ЛОГИКА ПЕРЕНОСА НАГРАД (КОТЕЛ)
+   Вставить в конец файла admin.js
+   ========================================== */
+
+// 1. Проверяет видимость кнопки переноса
+function checkCopyVisibility() {
+    const checked = document.querySelectorAll('.reward-select-checkbox:checked');
+    const container = document.getElementById('copy-rewards-wrapper');
+    const countSpan = document.getElementById('copy-selected-count');
+    
+    if (container) {
+        if (checked.length > 0) {
+            container.classList.add('visible');
+            if (countSpan) countSpan.textContent = checked.length;
+        } else {
+            container.classList.remove('visible');
+        }
+    }
+}
+
+// 2. Выполняет сам перенос
+function transferSelectedRewards() {
+    const checked = document.querySelectorAll('.reward-select-checkbox:checked');
+    if (checked.length === 0) return;
+
+    // Спрашиваем уровень
+    const targetLevel = prompt("Введите номер уровня, куда перенести (например: 1, 2, 3...):");
+    
+    // Если нажали Отмена или ничего не ввели
+    if (!targetLevel) return;
+
+    const targetContainer = document.getElementById(`top-rewards-container-${targetLevel}`);
+    
+    if (!targetContainer) {
+        tg.showAlert(`Ошибка: Контейнер уровня ${targetLevel} не найден. Убедитесь, что вкладки загружены.`);
+        return;
+    }
+
+    let count = 0;
+    checked.forEach(checkbox => {
+        const row = checkbox.closest('.top-reward-row');
+        if (row) {
+            // Собираем данные
+            const data = {
+                place: '', // Оставляем место пустым
+                name: row.querySelector('.reward-name').value,
+                image_url: row.querySelector('.reward-image').value,
+                wear: row.querySelector('.reward-wear')?.value || '',
+                rarity: row.querySelector('.reward-rarity')?.value || ''
+            };
+            
+            // Создаем новую строку в целевом контейнере
+            // ВАЖНО: Функция createTopRewardRow должна быть доступна
+            if (typeof createTopRewardRow === 'function') {
+                const newRow = createTopRewardRow(data);
+                targetContainer.appendChild(newRow);
+                
+                // Снимаем галочку с текущего
+                checkbox.checked = false;
+                count++;
+            }
+        }
+    });
+
+    checkCopyVisibility(); // Скрываем кнопку после переноса
+    
+    // Переключаем вкладку, чтобы показать результат
+    const targetTabBtn = document.querySelector(`.tab-button[data-tab="cauldron-rewards-${targetLevel}"]`);
+    if (targetTabBtn) targetTabBtn.click();
+    
+    tg.showAlert(`Успешно перенесено ${count} наград в Уровень ${targetLevel}!`);
+    
+    // Скролл вниз
+    setTimeout(() => {
+        targetContainer.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+}
