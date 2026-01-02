@@ -1521,45 +1521,14 @@
             <div id="p2p-trades-list" class="quests-container"></div>
         </div>
 
-        <div id="view-admin-p2p-settings" class="view hidden">
-    <div class="content-header">
-        <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-        <h2>Настройки P2P</h2>
-    </div>
-<div id="view-admin-gifts" class="view hidden">
-    <div class="page-header">
-        <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-        <h1 class="page-header-title">Настройка Подарков</h1>
-        <div style="width: 60px;"></div>
-    </div>
+       <div id="view-admin-p2p-settings" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Настройки P2P</h1>
+                <div style="width: 60px;"></div>
+            </div>
 
-    <div class="quest-card">
-        <h3>Добавить скин в подарок</h3>
-        <form id="add-gift-skin-form" class="admin-form">
-            <label>Название скина</label>
-            <input type="text" name="name" required placeholder="AK-47 | Redline">
-            
-            <label>Ссылка на картинку</label>
-            <input type="text" name="image_url" required placeholder="https://...">
-            
-            <label>Вес шанса (Chance)</label>
-            <input type="number" name="chance" required placeholder="10" value="10">
-            <p class="form-hint">Чем больше число, тем выше шанс выпадения.</p>
-            
-            <button type="submit" class="admin-action-btn approve">Добавить</button>
-        </form>
-    </div>
-
-    <div class="quest-card" style="margin-top: 20px;">
-        <h3>Список скинов</h3>
-        <div id="gift-skins-list" class="pending-actions-grid">
-            <p>Загрузка...</p>
-        </div>
-    </div>
-</div>
-          
-
-    <div class="quest-card p2p-controls-panel">
+            <div class="quest-card p2p-controls-panel">
                 <div class="control-item">
                     <div class="icon-box" style="background: rgba(0, 122, 255, 0.15); color: #007aff;">
                         <i class="fa-solid fa-link"></i>
@@ -1589,8 +1558,39 @@
 
             <h3 style="margin-left: 5px; margin-bottom: 15px;">📦 Активные кейсы</h3>
 
-            <div id="p2p-cases-list" class="cases-grid">
+            <div id="p2p-cases-list" class="cases-grid"></div>
+        </div>
+
+        <div id="view-admin-gifts" class="view hidden">
+            <div class="page-header">
+                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                <h1 class="page-header-title">Настройка Подарков</h1>
+                <div style="width: 60px;"></div>
+            </div>
+
+            <div class="quest-card">
+                <h3>Добавить скин в подарок</h3>
+                <form id="add-gift-skin-form" class="admin-form">
+                    <label>Название скина</label>
+                    <input type="text" name="name" required placeholder="AK-47 | Redline">
+
+                    <label>Ссылка на картинку</label>
+                    <input type="text" name="image_url" required placeholder="https://...">
+
+                    <label>Вес шанса (Chance)</label>
+                    <input type="number" name="chance" required placeholder="10" value="10">
+                    <p class="form-hint">Чем больше число, тем выше шанс выпадения.</p>
+
+                    <button type="submit" class="admin-action-btn approve">Добавить</button>
+                </form>
+            </div>
+
+            <div class="quest-card" style="margin-top: 20px;">
+                <h3>Список скинов</h3>
+                <div id="gift-skins-list" class="pending-actions-grid">
+                    <p>Загрузка...</p>
                 </div>
+            </div>
         </div>
       
         </main>
