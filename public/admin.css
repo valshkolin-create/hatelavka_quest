@@ -1478,21 +1478,47 @@ input[type="datetime-local"] {
 }
 /* --- СТИЛИ ДЛЯ КОПИРОВАНИЯ НАГРАД (КОТЕЛ) --- */
 
-/* --- ИСПРАВЛЕННЫЕ СТИЛИ ДЛЯ ПАНЕЛИ И СТРОК --- */
-
-/* 1. Поле названия (Надпись скина) */
-.reward-name {
-    flex: 1 1 auto !important; /* Растягиваться всегда */
-    min-width: 120px !important; /* Минимальная ширина, чтобы не пропадало */
-    width: auto !important;
-}
-
-/* 2. Узкое поле места (#) */
+/* 1. Поле места (узкое) */
 .reward-place-input {
-    width: 45px !important;
-    flex: 0 0 45px !important;
+    width: 40px !important;
+    flex: 0 0 40px !important;
     text-align: center;
     padding: 8px 0 !important;
+}
+
+/* 2. Поле названия (Растягиваем на всю ширину) */
+.reward-name {
+    flex: 1 !important;        /* Занимает все свободное место */
+    width: auto !important;    /* Сбрасываем фикс ширину */
+    min-width: 0 !important;   /* Позволяет сжиматься если совсем нет места */
+}
+
+/* 3. Группа действий (Чекбокс + Корзина) */
+.reward-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 4px; /* Маленький отступ между галочкой и корзиной */
+    flex: 0 0 auto; /* Не сжиматься */
+    padding-left: 5px;
+}
+
+/* Чекбокс внутри группы */
+.reward-select-checkbox {
+    width: 22px !important;
+    height: 22px !important;
+    margin: 0 !important;
+    cursor: pointer;
+    accent-color: #5856d6;
+}
+
+/* Корзина */
+.remove-reward-btn {
+    width: 32px !important;
+    height: 32px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
 }
 
 /* 3. Панель действий (ТЕПЕРЬ БЕЗ position: absolute) */
