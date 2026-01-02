@@ -396,29 +396,34 @@ function getCurrentLevel(eventData) {
     // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 1
 
     // Создает HTML-строку для награды из топ-20
+    // Создает HTML-строку для награды из топ-20
     function createTopRewardRow(reward = {}) {
         const wrapper = document.createElement('div');
         wrapper.className = 'top-reward-row admin-form';
-        wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #444;';
+        // 👇 Изменил margin-bottom и padding, добавил position relative
+        wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #444; position: relative;';
         
         const place = reward.place || '';
         const name = reward.name || '';
         const image = reward.image_url || '';
-        const wear = reward.wear || '';     // Износ
-        const rarity = reward.rarity || ''; // Редкость
+        const wear = reward.wear || '';     
+        const rarity = reward.rarity || ''; 
 
         wrapper.innerHTML = `
-            <div style="display:flex; gap:10px; width: 100%; align-items: center;">
-                <input type="number" class="reward-place" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20" style="width: 50px;">
+            <div style="display:flex; gap:8px; width: 100%; align-items: center;">
+                <input type="number" class="reward-place" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20" style="width: 40px; padding: 8px 4px; text-align: center;">
+                
                 <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" style="flex: 1;">
                 
+                <input type="checkbox" class="reward-select-checkbox" title="Выбрать для копирования">
+
                 <button type="button" class="admin-action-btn reject remove-reward-btn" 
-                        style="width: 24px; height: 24px; padding: 0; font-size: 11px; flex: 0 0 24px; display: flex; align-items: center; justify-content: center;">
+                        style="width: 28px; height: 28px; padding: 0; font-size: 12px; flex: 0 0 28px; display: flex; align-items: center; justify-content: center;">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
             
-            <div style="display:flex; gap:10px; width: 100%;">
+            <div style="display:flex; gap:8px; width: 100%;">
                 <input type="text" class="reward-image" placeholder="URL картинки" value="${escapeHTML(image)}" style="flex: 1;">
                 
                 <select class="reward-wear" style="flex: 1;">
@@ -430,6 +435,11 @@ function getCurrentLevel(eventData) {
                 </select>
             </div>
         `;
+        
+        // 👇 Добавляем обработчик на чекбокс сразу при создании
+        const checkbox = wrapper.querySelector('.reward-select-checkbox');
+        checkbox.addEventListener('change', updateCopyButtonVisibility);
+
         return wrapper;
     }
 
@@ -3025,6 +3035,97 @@ if (dom.weeklyGoalsList) {
         }
     });
 }  
+// --- 👇 ЛОГИКА КОПИРОВАНИЯ НАГРАД (НОВЫЙ КОД) 👇 ---
+
+// 1. Проверяет, выбрано ли что-то, и показывает/скрывает кнопку "Скопировать"
+function updateCopyButtonVisibility() {
+    const checkedBoxes = document.querySelectorAll('.reward-select-checkbox:checked');
+    const container = document.getElementById('cauldron-copy-btn-container');
+    const countSpan = document.getElementById('copy-count-span');
+    
+    if (!container) return; // Если мы не на той вкладке
+
+    if (checkedBoxes.length > 0) {
+        container.classList.remove('hidden');
+        if (countSpan) countSpan.textContent = checkedBoxes.length;
+    } else {
+        container.classList.add('hidden');
+    }
+}
+
+// 2. Функция, которая выполняется при нажатии "Скопировать"
+function handleCopyRewards() {
+    const checkedBoxes = document.querySelectorAll('.reward-select-checkbox:checked');
+    if (checkedBoxes.length === 0) return;
+
+    // Собираем данные выбранных наград
+    const rewardsToCopy = [];
+    checkedBoxes.forEach(box => {
+        const row = box.closest('.top-reward-row');
+        if (row) {
+            rewardsToCopy.push({
+                place: '', // Место стираем, как ты просил
+                name: row.querySelector('.reward-name').value,
+                image_url: row.querySelector('.reward-image').value,
+                wear: row.querySelector('.reward-wear').value,
+                rarity: row.querySelector('.reward-rarity').value
+            });
+        }
+    });
+
+    // Показываем меню выбора уровня (простое окно)
+    showCustomConfirmHTML(
+        `Куда перенести ${rewardsToCopy.length} наград(ы)?<br>
+        <select id="target-level-select" style="margin-top:10px; padding:8px; width:100%; background:#333; color:white; border-radius:6px;">
+            <option value="1">Уровень 1</option>
+            <option value="2">Уровень 2</option>
+            <option value="3">Уровень 3</option>
+            <option value="4">Уровень 4</option>
+        </select>`,
+        (closeModal) => {
+            const select = document.getElementById('target-level-select');
+            const targetLevel = select.value;
+            
+            // Выполняем перенос
+            executeCopy(rewardsToCopy, targetLevel);
+            closeModal();
+        },
+        'Перенести',
+        '#5856d6' // Фиолетовая кнопка
+    );
+}
+
+// 3. Техническая функция переноса
+function executeCopy(rewardsData, targetLevel) {
+    const targetContainer = document.getElementById(`top-rewards-container-${targetLevel}`);
+    if (!targetContainer) {
+        tg.showAlert('Ошибка: Целевой контейнер не найден (возможно, не загружен). Перейдите на вкладку Котла.');
+        return;
+    }
+
+    // 1. Переключаемся на нужную вкладку, чтобы юзер видел результат
+    const targetTabBtn = document.querySelector(`.tab-button[data-tab="cauldron-rewards-${targetLevel}"]`);
+    if (targetTabBtn) targetTabBtn.click();
+
+    // 2. Добавляем награды в конец
+    rewardsData.forEach(reward => {
+        // Создаем строку через нашу функцию
+        const newRow = createTopRewardRow(reward);
+        targetContainer.appendChild(newRow);
+    });
+
+    // 3. Снимаем галочки с исходных (или можно оставить, но лучше снять)
+    document.querySelectorAll('.reward-select-checkbox').forEach(cb => cb.checked = false);
+    updateCopyButtonVisibility();
+
+    tg.showPopup({ message: `Скопировано в Уровень ${targetLevel}!` });
+    
+    // Скролл вниз к новым элементам
+    setTimeout(() => {
+        targetContainer.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+}
+// --- 👆 КОНЕЦ НОВОГО КОДА 👆 ---
     function setupEventListeners() {
         // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
         console.log('[DEBUG] setupEventListeners() - ФУНКЦИЯ ЗАПУЩЕНА. Начинаем привязку...');
@@ -3566,24 +3667,47 @@ if (dom.weeklyGoalsList) {
         }
 
         if (dom.cauldronSettingsForm) {
-            dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                tg.showConfirm('Сохранить все настройки для ивента "Котел"?', async (ok) => {
-                    if (ok) {
-                        try {
-                            const eventData = collectCauldronData();
-                            const currentStatus = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
-                            eventData.current_progress = currentStatus.current_progress || 0; // Сохраняем текущий прогресс
+    // --- НАЧАЛО ВСТАВКИ: Кнопка переноса ---
+    // Ищем кнопку сохранения (обычно последняя кнопка в форме или имеет класс approve)
+    const saveBtn = dom.cauldronSettingsForm.querySelector('button[type="submit"]') || dom.cauldronSettingsForm.querySelector('.approve');
+    
+    if (saveBtn) {
+        // Создаем обертку для кнопки копирования
+        const copyWrapper = document.createElement('div');
+        copyWrapper.id = 'copy-rewards-wrapper';
+        copyWrapper.innerHTML = `
+            <button type="button" class="btn-copy-transfer" id="btn-do-transfer">
+                <i class="fa-solid fa-copy"></i> 
+                Перенести выбранные (<span id="copy-selected-count">0</span>) в другой уровень
+            </button>
+        `;
+        // Вставляем ПЕРЕД кнопкой сохранения
+        saveBtn.parentElement.insertBefore(copyWrapper, saveBtn); // Или insertBefore(copyWrapper, saveBtn.parentElement) если кнопка обернута
+        
+        // Вешаем клик на новую кнопку
+        document.getElementById('btn-do-transfer').addEventListener('click', transferSelectedRewards);
+    }
+    // --- КОНЕЦ ВСТАВКИ ---
 
-                            await makeApiRequest('/api/v1/admin/cauldron/update', { content: eventData });
-                            tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
-                        } catch (error) {
-                            tg.showAlert(`Ошибка сохранения: ${error.message}`);
-                        }
-                    }
-                });
-            });
-        }
+    // ТВОЙ ОРИГИНАЛЬНЫЙ КОД (без изменений логики)
+    dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        tg.showConfirm('Сохранить все настройки для ивента "Котел"?', async (ok) => {
+            if (ok) {
+                try {
+                    const eventData = collectCauldronData();
+                    const currentStatus = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
+                    eventData.current_progress = currentStatus.current_progress || 0; // Сохраняем текущий прогресс
+
+                    await makeApiRequest('/api/v1/admin/cauldron/update', { content: eventData });
+                    tg.showAlert('Настройки ивента "Котел" успешно сохранены!');
+                } catch (error) {
+                    tg.showAlert(`Ошибка сохранения: ${error.message}`);
+                }
+            }
+        });
+    });
+}
 
         if (dom.resetCauldronBtn) {
             dom.resetCauldronBtn.addEventListener('click', () => {
