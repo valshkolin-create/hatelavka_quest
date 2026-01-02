@@ -3667,27 +3667,40 @@ function executeCopy(rewardsData, targetLevel) {
         }
 
         if (dom.cauldronSettingsForm) {
-    // --- НАЧАЛО ВСТАВКИ: Кнопка переноса ---
-    // Ищем кнопку сохранения (обычно последняя кнопка в форме или имеет класс approve)
-    const saveBtn = dom.cauldronSettingsForm.querySelector('button[type="submit"]') || dom.cauldronSettingsForm.querySelector('.approve');
-    
-    if (saveBtn) {
-        // Создаем обертку для кнопки копирования
-        const copyWrapper = document.createElement('div');
-        copyWrapper.id = 'copy-rewards-wrapper';
-        copyWrapper.innerHTML = `
-            <button type="button" class="btn-copy-transfer" id="btn-do-transfer">
-                <i class="fa-solid fa-copy"></i> 
-                Перенести выбранные (<span id="copy-selected-count">0</span>) в другой уровень
-            </button>
-        `;
-        // Вставляем ПЕРЕД кнопкой сохранения
-        saveBtn.parentElement.insertBefore(copyWrapper, saveBtn); // Или insertBefore(copyWrapper, saveBtn.parentElement) если кнопка обернута
-        
-        // Вешаем клик на новую кнопку
-        document.getElementById('btn-do-transfer').addEventListener('click', transferSelectedRewards);
-    }
-    // --- КОНЕЦ ВСТАВКИ ---
+            
+            // --- 👇 НОВЫЙ КОД: Вставка Красивой Панели Действий 👇 ---
+            const saveBtn = dom.cauldronSettingsForm.querySelector('button[type="submit"]') || dom.cauldronSettingsForm.querySelector('.approve');
+            
+            if (saveBtn) {
+                // Удаляем старую панель если есть, чтобы не дублировалась при перезагрузках
+                const oldPanel = document.getElementById('bulk-actions-panel');
+                if (oldPanel) oldPanel.remove();
+
+                const panel = document.createElement('div');
+                panel.id = 'bulk-actions-panel';
+                panel.innerHTML = `
+                    <div class="bulk-info">
+                        <span>Выбрано:</span>
+                        <span id="bulk-selected-count" class="bulk-count-badge">0</span>
+                    </div>
+                    <div class="bulk-controls">
+                        <button type="button" class="btn-text-action" id="btn-select-all">
+                            <i class="fa-solid fa-check-double"></i> Все
+                        </button>
+                        <button type="button" class="btn-primary-action" id="btn-transfer-action">
+                            <i class="fa-solid fa-share-from-square"></i> Перенести
+                        </button>
+                    </div>
+                `;
+                
+                // Вставляем НАД кнопкой сохранения
+                saveBtn.parentElement.insertBefore(panel, saveBtn);
+
+                // Вешаем обработчики
+                document.getElementById('btn-transfer-action').addEventListener('click', transferSelectedRewards);
+                document.getElementById('btn-select-all').addEventListener('click', toggleSelectAllRewards);
+            }
+            // --- 👆 КОНЕЦ ВСТАВКИ 👆 ---
 
     // ТВОЙ ОРИГИНАЛЬНЫЙ КОД (без изменений логики)
     dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
@@ -6265,37 +6278,57 @@ async function refreshCurrentP2PTradeDetails() {
    Вставить в конец файла admin.js
    ========================================== */
 
-// 1. Проверяет видимость кнопки переноса
+// 1. Проверяет видимость панели
 function checkCopyVisibility() {
     const checked = document.querySelectorAll('.reward-select-checkbox:checked');
-    const container = document.getElementById('copy-rewards-wrapper');
-    const countSpan = document.getElementById('copy-selected-count');
+    const panel = document.getElementById('bulk-actions-panel');
+    const countSpan = document.getElementById('bulk-selected-count');
     
-    if (container) {
+    if (panel) {
         if (checked.length > 0) {
-            container.classList.add('visible');
+            panel.classList.add('active'); // Показываем красиво
             if (countSpan) countSpan.textContent = checked.length;
         } else {
-            container.classList.remove('visible');
+            panel.classList.remove('active'); // Скрываем
         }
     }
 }
 
-// 2. Выполняет сам перенос
+// 2. Функция "Выделить все / Снять все"
+function toggleSelectAllRewards() {
+    // Ищем только видимые чекбоксы (в текущей активной вкладке)
+    // Если нужно во всех вкладках сразу - убери :not(.hidden) у родителей, но лучше только видимые
+    const activeContainer = document.querySelector('.cauldron-rewards-list:not(.hidden), .tab-content.active .top-rewards-list'); 
+    
+    // Если специфичный контейнер не найден, ищем все чекбоксы на странице
+    const allCheckboxes = activeContainer 
+        ? activeContainer.querySelectorAll('.reward-select-checkbox')
+        : document.querySelectorAll('.reward-select-checkbox');
+
+    if (allCheckboxes.length === 0) return;
+
+    // Проверяем: если все уже выбраны, то снимаем. Если нет - выбираем все.
+    const allSelected = Array.from(allCheckboxes).every(cb => cb.checked);
+    
+    allCheckboxes.forEach(cb => {
+        cb.checked = !allSelected;
+    });
+
+    checkCopyVisibility();
+}
+
+// 3. Выполняет перенос
 function transferSelectedRewards() {
     const checked = document.querySelectorAll('.reward-select-checkbox:checked');
     if (checked.length === 0) return;
 
-    // Спрашиваем уровень
-    const targetLevel = prompt("Введите номер уровня, куда перенести (например: 1, 2, 3...):");
-    
-    // Если нажали Отмена или ничего не ввели
+    const targetLevel = prompt("Введите номер уровня (1, 2, 3...):");
     if (!targetLevel) return;
 
     const targetContainer = document.getElementById(`top-rewards-container-${targetLevel}`);
     
     if (!targetContainer) {
-        tg.showAlert(`Ошибка: Контейнер уровня ${targetLevel} не найден. Убедитесь, что вкладки загружены.`);
+        tg.showAlert(`Ошибка: Контейнер уровня ${targetLevel} не найден.`);
         return;
     }
 
@@ -6303,37 +6336,31 @@ function transferSelectedRewards() {
     checked.forEach(checkbox => {
         const row = checkbox.closest('.top-reward-row');
         if (row) {
-            // Собираем данные
             const data = {
-                place: '', // Оставляем место пустым
+                place: '', 
                 name: row.querySelector('.reward-name').value,
                 image_url: row.querySelector('.reward-image').value,
                 wear: row.querySelector('.reward-wear')?.value || '',
                 rarity: row.querySelector('.reward-rarity')?.value || ''
             };
             
-            // Создаем новую строку в целевом контейнере
-            // ВАЖНО: Функция createTopRewardRow должна быть доступна
             if (typeof createTopRewardRow === 'function') {
                 const newRow = createTopRewardRow(data);
                 targetContainer.appendChild(newRow);
-                
-                // Снимаем галочку с текущего
-                checkbox.checked = false;
+                checkbox.checked = false; // Снимаем галочку после переноса
                 count++;
             }
         }
     });
 
-    checkCopyVisibility(); // Скрываем кнопку после переноса
+    checkCopyVisibility(); // Обновляем панель (она скроется)
     
-    // Переключаем вкладку, чтобы показать результат
+    // Переход к результату
     const targetTabBtn = document.querySelector(`.tab-button[data-tab="cauldron-rewards-${targetLevel}"]`);
     if (targetTabBtn) targetTabBtn.click();
     
-    tg.showAlert(`Успешно перенесено ${count} наград в Уровень ${targetLevel}!`);
+    tg.showPopup({ message: `Перенесено: ${count} шт.` });
     
-    // Скролл вниз
     setTimeout(() => {
         targetContainer.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
     }, 300);
