@@ -444,6 +444,30 @@
 .reward-how-to-use-btn:active {
     transform: scale(0.96);
 }
+/* === ГЛАВНАЯ ЗАЩИТА ОТ СВОРАЧИВАНИЯ === */
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        /* 1. Запрещаем двигаться самой странице */
+        position: fixed; 
+        overflow: hidden; 
+        overscroll-behavior-y: none; /* Убирает пружинку */
+        background-color: #111; /* Твой цвет фона */
+    }
+
+    /* === РАЗРЕШАЕМ СКРОЛЛ ВНУТРИ === */
+    #main-content {
+        /* Занимает весь экран */
+        height: 100vh; 
+        /* Включаем скролл здесь */
+        overflow-y: auto !important; 
+        -webkit-overflow-scrolling: touch; 
+        /* Отступы переносим сюда */
+        box-sizing: border-box;
+        padding: 10px 10px 120px; 
+    }
 
 /* Стили попапа "Как использовать" (адаптированные под events.html) */
 .custom-popup {
@@ -526,6 +550,7 @@
   </style>
 </head>
 <body>
+<main id="main-content">
 
   <div class="new-header-container">
     <a href="/menu" class="header-back-button">
@@ -646,6 +671,7 @@
         <button class="btn-close-success" onclick="closeSuccessModal()">Закрыть</button>
     </div>
 </div>
+  </main>
 
   <footer class="app-footer">
     <a href="/leaderboard" class="footer-item">
@@ -1279,6 +1305,107 @@
         document.body.appendChild(floatEl);
         setTimeout(() => floatEl.remove(), 1000);
     }
+  // === PULL TO REFRESH ЛОГИКА ===
+    function initPullToRefresh() {
+        const content = document.getElementById('main-content');
+        const ptrContainer = document.getElementById('pull-to-refresh');
+        const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
+        
+        if (!content || !ptrContainer || !icon) return;
+
+        let startY = 0;
+        let pulledDistance = 0;
+        let isPulling = false;
+        const triggerThreshold = 80;
+
+        content.addEventListener('touchstart', (e) => {
+            if (content.scrollTop <= 0) {
+                startY = e.touches[0].clientY;
+                isPulling = true;
+                content.style.transition = 'none'; 
+                ptrContainer.style.transition = 'none'; 
+                icon.style.transition = 'none';
+            } else {
+                isPulling = false;
+            }
+        }, { passive: true });
+
+        content.addEventListener('touchmove', (e) => {
+            if (!isPulling) return;
+            const currentY = e.touches[0].clientY;
+            const diff = currentY - startY;
+
+            if (diff > 0 && content.scrollTop <= 0) {
+                if (e.cancelable) e.preventDefault();
+                pulledDistance = Math.pow(diff, 0.85); 
+                if (pulledDistance > 180) pulledDistance = 180;
+
+                content.style.transform = `translateY(${pulledDistance}px)`;
+                ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
+                icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
+                
+                if (pulledDistance > triggerThreshold) {
+                    icon.style.color = "#34c759";
+                } else {
+                    icon.style.color = "#FFD700";
+                }
+            }
+        }, { passive: false });
+
+        content.addEventListener('touchend', () => {
+            if (!isPulling) return;
+            isPulling = false;
+            
+            content.style.transition = 'transform 0.3s ease-out';
+            ptrContainer.style.transition = 'transform 0.3s ease-out';
+
+            if (pulledDistance > triggerThreshold) {
+                content.style.transform = `translateY(80px)`;
+                ptrContainer.style.transform = `translateY(80px)`;
+                icon.classList.add('fa-spin');
+                if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+                setTimeout(() => { window.location.reload(); }, 500);
+            } else {
+                content.style.transform = 'translateY(0px)';
+                ptrContainer.style.transform = 'translateY(0px)';
+                icon.style.transform = 'rotate(0deg)';
+            }
+            pulledDistance = 0;
+        });
+    }
+
+    // Запускаем функцию после загрузки DOM
+    document.addEventListener('DOMContentLoaded', initPullToRefresh);
+  // --- 📳 ВИБРАЦИЯ (HAPTIC FEEDBACK) 📳 ---
+    document.body.addEventListener('click', (e) => {
+        // Список селекторов для всех интерактивных элементов страницы
+        const selector = `
+            a, 
+            button, 
+            .open-shop-card, 
+            .footer-item, 
+            .tab-btn, 
+            .modal-close-btn, 
+            .mini-btn, 
+            .reward-how-to-use-btn, 
+            .popup-btn,
+            .header-back-button
+        `;
+        
+        // Проверяем, был ли клик по интерактивному элементу
+        if (e.target.closest(selector)) {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                try {
+                    // Используем medium для приятного отклика
+                    window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                } catch (err) {
+                    console.warn("Haptic error:", err);
+                }
+            }
+        }
+    });
 </script>
 </body>
 </html>
