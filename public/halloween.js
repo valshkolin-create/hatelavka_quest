@@ -818,6 +818,21 @@ function renderPage(eventData, leaderboardData = {}) {
             }
         }
     }
+// --- 📳 НОВЫЙ БЛОК: ВИБРАЦИЯ ДЛЯ ВСЕХ ЭЛЕМЕНТОВ 📳 ---
+    document.body.addEventListener('click', (e) => {
+        // Ищем клик по кнопкам, табам, крестикам закрытия и спец. элементам
+        const target = e.target.closest('button, .rewards-tab-btn, .modal-close-btn, .viewer-close-btn, .theme-btn, #rules-button, #rewards-list-button, #check-sub-btn, #toggle-edit-btn');
+        
+        if (target) {
+            try {
+                // Вызываем легкую вибрацию (как клик по клавиатуре)
+                tg.HapticFeedback.impactOccurred('light');
+            } catch (err) {
+                // Игнорируем ошибки (если запущено не в Telegram)
+            }
+        }
+    });
+    // --- 👆 КОНЕЦ БЛОКА 👆 ---
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
