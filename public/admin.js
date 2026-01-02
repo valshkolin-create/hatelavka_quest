@@ -6308,32 +6308,30 @@ function checkCopyVisibility() {
 // 2. Функция "Выделить все / Снять все"
 // Функция "Выделить все" (Только для Топ-20 наград)
 function toggleSelectAllRewards() {
-    // 1. Ищем активный контейнер (текущая вкладка)
-    const activeTab = document.querySelector('.tab-content.active');
-    if (!activeTab) return;
-
-    // 2. Ищем строки ТОЛЬКО с классом .top-reward-row внутри активной вкладки
-    // Это гарантирует, что мы выделяем только награды Топ-20
-    const topRewardRows = activeTab.querySelectorAll('.top-reward-row');
+    // 1. Берем вообще все строки наград, которые есть на странице
+    const allRows = document.querySelectorAll('.top-reward-row');
     
-    if (topRewardRows.length === 0) return;
+    // 2. Фильтруем: оставляем только те, которые РЕАЛЬНО ВИДНЫ пользователю
+    // (row.offsetParent === null, если элемент или его родитель скрыт через display: none)
+    const visibleRows = Array.from(allRows).filter(row => row.offsetParent !== null);
 
-    // Собираем все чекбоксы из этих строк
-    const checkboxes = [];
-    topRewardRows.forEach(row => {
-        const cb = row.querySelector('.reward-select-checkbox');
-        if (cb) checkboxes.push(cb);
-    });
+    if (visibleRows.length === 0) return;
+
+    // 3. Собираем чекбоксы только с видимых строк
+    const checkboxes = visibleRows
+        .map(row => row.querySelector('.reward-select-checkbox'))
+        .filter(cb => cb); // на всякий случай проверяем, что чекбокс нашелся
 
     if (checkboxes.length === 0) return;
 
-    // Логика: если все выбраны -> снимаем, иначе -> выбираем все
+    // 4. Логика переключения: если все видимые уже выбраны -> снимаем, иначе -> выбираем
     const allSelected = checkboxes.every(cb => cb.checked);
     
     checkboxes.forEach(cb => {
         cb.checked = !allSelected;
     });
 
+    // Обновляем панель
     checkCopyVisibility();
 }
 
