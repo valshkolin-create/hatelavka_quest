@@ -307,6 +307,13 @@
 
   let currentUser = null;
 
+  // --- ХЕЛПЕР ДЛЯ ВИБРАЦИИ ---
+  function haptic(style = 'light') {
+      if (Telegram.WebApp.HapticFeedback) {
+          Telegram.WebApp.HapticFeedback.impactOccurred(style);
+      }
+  }
+
   async function loadCurrentUser() {
       try {
           const response = await fetch('/api/v1/user/me', {
@@ -505,8 +512,11 @@
     }
   }
   
+  d// --- ОБРАБОТЧИКИ КНОПОК С ВИБРАЦИЕЙ ---
+
   dom.sourceButtons.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.source = button.dataset.source;
       dom.sourceButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -517,6 +527,7 @@
 
   dom.telegramPeriodButtons.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.telegramPeriod = button.dataset.period;
       dom.telegramPeriodButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -526,6 +537,7 @@
 
   dom.twitchMetricButtonList.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.twitchMetric = button.dataset.metric;
       dom.twitchMetricButtonList.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -536,6 +548,7 @@
 
   dom.twitchPeriodButtonList.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('light'); // Вибрация
       state.twitchPeriod = button.dataset.period;
       dom.twitchPeriodButtonList.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -545,9 +558,17 @@
   
   dom.refreshButtons.forEach(button => {
     button.addEventListener('click', () => {
+      haptic('medium'); // Вибрация посильнее
       loadCurrentUser(); 
       fetchAndRender();
     });
+  });
+
+  // Вибрация для футера
+  document.querySelectorAll('.footer-item').forEach(item => {
+      item.addEventListener('click', () => {
+          haptic('light');
+      });
   });
 
   // === ✅ ДОБАВЛЕНА ФУНКЦИЯ PULL TO REFRESH ===
