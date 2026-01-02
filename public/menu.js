@@ -112,13 +112,20 @@ try {
     // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЛАЙДЕРА V2 (С ЛОГАМИ) ---
     let currentSlideIndex = 0;
     let slideInterval;
-    const slideDuration = 15000; // 30 секунд (было 15000, в комменте 30. Оставил 15000)
+    let sliderAbortController = null; // <--- ВАЖНО: Контроллер для удаления старых слушателей
+    const slideDuration = 15000;
 
     function setupSlider() {
-        // console.log("--- [setupSlider] Запуск ---");
-
-        // 1. Сбрасываем предыдущий интервал, если он был
+        // 1. Очистка старого интервала
         if (slideInterval) clearInterval(slideInterval);
+
+        // 2. Очистка старых слушателей свайпа! (Это решает проблему с багами)
+        if (sliderAbortController) {
+            sliderAbortController.abort();
+        }
+        // Создаем новый контроллер для текущего запуска
+        sliderAbortController = new AbortController();
+        const signal = sliderAbortController.signal;
 
         const container = document.getElementById('main-slider-container');
         if (!container) return;
@@ -126,7 +133,7 @@ try {
         // Находим слайды
         const allSlides = container.querySelectorAll('.slide');
         
-        // Фильтруем слайды (проверяем, не скрыты ли они стилями)
+        // Фильтруем слайды
         const visibleSlides = Array.from(allSlides).filter(slide => {
             return slide.style.display !== 'none';
         });
@@ -134,23 +141,19 @@ try {
         const wrapper = container.querySelector('.slider-wrapper');
         const dotsContainer = container.querySelector('.slider-dots');
         
-        // --- Очистка кнопок от старых событий ---
+        // --- Очистка кнопок (Клонирование удаляет слушатели с кнопок) ---
         let prevBtnOld = document.getElementById('slide-prev-btn');
         let nextBtnOld = document.getElementById('slide-next-btn');
         
-        // Клонируем без событий
         let prevBtn = prevBtnOld.cloneNode(true);
         let nextBtn = nextBtnOld.cloneNode(true);
         
-        // Заменяем старые кнопки новыми (чистыми) в DOM
         prevBtnOld.parentNode.replaceChild(prevBtn, prevBtnOld);
         nextBtnOld.parentNode.replaceChild(nextBtn, nextBtnOld);
         // ------------------------------------------------------------
 
         // Если слайдов 0
         if (visibleSlides.length === 0) {
-            console.log("Слайдер: Ждем загрузки слайдов...");
-            // container.style.display = 'none'; // <--- ЭТА СТРОКА ЗАКОММЕНТИРОВАНА, ЧТОБЫ НЕ СКРЫВАТЬ БЛОК
             return;
         } else {
              container.style.display = ''; 
@@ -168,7 +171,6 @@ try {
         }
         
         // Если слайдов > 1
-        container.style.display = '';
         prevBtn.style.display = 'flex';
         nextBtn.style.display = 'flex';
         if (dotsContainer) dotsContainer.style.display = 'flex';
@@ -211,7 +213,7 @@ try {
             slideInterval = setInterval(nextSlide, slideDuration);
         }
 
-        // Вешаем события на кнопки
+        // Кнопки
         prevBtn.addEventListener('click', () => {
             prevSlide();
             resetSlideInterval();
@@ -222,19 +224,19 @@ try {
             resetSlideInterval();
         });
         
-        // Логика свайпа
+        // === ЛОГИКА СВАЙПА (С ИСПОЛЬЗОВАНИЕМ SIGNAL) ===
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
         let isSwiping = false;
 
         container.addEventListener('touchstart', (e) => {
-            // Разрешаем вертикальный скролл, но готовимся перехватить горизонтальный
+            // signal: signal гарантирует, что если setupSlider вызовется снова, этот слушатель умрет
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-            touchEndX = touchStartX; // Сбрасываем конечную точку на старт
+            touchEndX = touchStartX;
             isSwiping = false;
-        }, { passive: true });
+        }, { passive: true, signal: signal });
 
         container.addEventListener('touchmove', (e) => {
             if (touchStartX === 0 && touchStartY === 0) return;
@@ -245,48 +247,46 @@ try {
             const diffX = touchStartX - touchCurrentX;
             const diffY = touchStartY - touchCurrentY;
 
-            // Если движение по горизонтали больше, чем по вертикали
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 5) {
+            // Если движение горизонтальное
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
                 isSwiping = true;
                 
-                // ⛔️ ЖЕСТКАЯ БЛОКИРОВКА стандартного поведения (скролла/жеста назад)
+                // Блокируем скролл страницы
                 if (e.cancelable) {
                     e.preventDefault();
                     e.stopPropagation();
                 }
             }
             
-            // Обновляем последнюю точку ВСЕГДА, если мы касаемся экрана
             touchEndX = touchCurrentX;
-        }, { passive: false }); // ⚠️ passive: false обязателен
+        }, { passive: false, signal: signal }); // passive: false обязательно
 
         container.addEventListener('touchend', (e) => {
-            // Если это был свайп
             if (isSwiping) {
-                // Вычисляем разницу
+                e.stopPropagation();
+                
                 const diff = touchStartX - touchEndX;
-                const swipeThreshold = 40; // Чувствительность свайпа
+                const swipeThreshold = 50;
 
+                // Проверяем длину свайпа
                 if (Math.abs(diff) > swipeThreshold) {
                     if (diff > 0) {
-                        // Палец пошел влево (Next)
-                        nextSlide();
+                        nextSlide(); // Свайп влево -> Далее
                     } else {
-                        // Палец пошел вправо (Prev)
-                        prevSlide();
+                        prevSlide(); // Свайп вправо -> Назад
                     }
                     resetSlideInterval();
                 }
             }
             
-            // Сброс
             touchStartX = 0;
             touchStartY = 0;
             isSwiping = false;
-        }, { passive: true });
+        }, { passive: true, signal: signal });
         
-        // Блокируем клики по ссылкам, если был свайп
+        // Блокировка кликов
         allSlides.forEach(slide => {
+            // Сбрасываем старый onclick, просто перезаписывая его
             slide.onclick = (e) => {
                 if (isSwiping) {
                     e.preventDefault();
@@ -296,15 +296,14 @@ try {
             };
         });
 
-        // Проверяем, не вышел ли текущий индекс за пределы
+        // Проверяем индекс
         if (currentSlideIndex >= visibleSlides.length) {
             currentSlideIndex = 0;
         }
 
-        // Используем ТЕКУЩИЙ индекс
         showSlide(currentSlideIndex);
         resetSlideInterval();
-    } // <--- ВОТ ЭТА СКОБКА БЫЛА ПОТЕРЯНА
+    }
     
     const tutorialSteps = [
         {
