@@ -228,53 +228,66 @@ try {
         let touchEndX = 0;
         let isSwiping = false;
 
-        container.ontouchstart = (e) => {
+        // 1. НАЧАЛО КАСАНИЯ
+        container.addEventListener('touchstart', (e) => {
+            e.stopPropagation(); // Изолируем от Pull-to-Refresh
             touchStartX = e.touches[0].clientX;
             touchEndX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = false;
-        };
+        }, { passive: true });
 
-        container.ontouchmove = (e) => {
+        // 2. ДВИЖЕНИЕ
+        container.addEventListener('touchmove', (e) => {
+            e.stopPropagation(); // Изолируем
+
             if (!touchStartX || !touchStartY) return;
+
             const touchCurrentX = e.touches[0].clientX;
             const touchCurrentY = e.touches[0].clientY;
+            
             const deltaX = Math.abs(touchStartX - touchCurrentX);
             const deltaY = Math.abs(touchStartY - touchCurrentY);
-            if (deltaX > deltaY) e.preventDefault();
-            touchEndX = touchCurrentX;
-            if (deltaX > 10) isSwiping = true;
-        };
 
-        container.ontouchend = () => {
+            // Если движение горизонтальное > вертикального
+            if (deltaX > deltaY && deltaX > 5) {
+                isSwiping = true;
+                // БЛОКИРУЕМ скролл страницы, чтобы сработал свайп слайдера
+                if (e.cancelable) e.preventDefault(); 
+            }
+            
+            touchEndX = touchCurrentX;
+        }, { passive: false }); // Важно: passive: false
+
+        // 3. КОНЕЦ
+        container.addEventListener('touchend', (e) => {
+            e.stopPropagation();
             const swipeThreshold = 50; 
-            if (touchStartX - touchEndX > swipeThreshold) {
-                nextSlide();
-                resetSlideInterval();
-            } else if (touchEndX - touchStartX > swipeThreshold) {
-                prevSlide();
-                resetSlideInterval();
+            
+            if (isSwiping) {
+                if (touchStartX - touchEndX > swipeThreshold) {
+                    nextSlide();
+                    resetSlideInterval();
+                } else if (touchEndX - touchStartX > swipeThreshold) {
+                    prevSlide();
+                    resetSlideInterval();
+                }
             }
             touchStartX = 0;
             touchStartY = 0;
-        };
+            isSwiping = false;
+        }, { passive: true });
         
+        // Блокируем клик по ссылке, если это был свайп
         allSlides.forEach(slide => {
             slide.onclick = (e) => {
-                if (isSwiping) e.preventDefault();
+                if (isSwiping) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
             };
         });
-        // Проверяем, не вышел ли текущий индекс за пределы (на случай, если слайды изменились)
-        if (currentSlideIndex >= visibleSlides.length) {
-            currentSlideIndex = 0;
-        }
-        
-        // Используем ТЕКУЩИЙ индекс вместо 0, чтобы позиция не сбрасывалась при обновлении
-        showSlide(currentSlideIndex); 
-        // --- ИСПРАВЛЕНИЕ КОНЕЦ ---
-
-        resetSlideInterval();
-    }
     
     const tutorialSteps = [
         {
