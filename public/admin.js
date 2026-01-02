@@ -396,11 +396,10 @@ function getCurrentLevel(eventData) {
     // 👆 КОНЕЦ НОВОГО КОДА ДЛЯ ШАГА 1
 
     // Создает HTML-строку для награды из топ-20
-    // Создает HTML-строку для награды из топ-20
     function createTopRewardRow(reward = {}) {
         const wrapper = document.createElement('div');
         wrapper.className = 'top-reward-row admin-form';
-        // 👇 Изменил margin-bottom и padding, добавил position relative
+        // Важно: flex-wrap: wrap поможет на очень маленьких экранах, но gap спасет
         wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #444; position: relative;';
         
         const place = reward.place || '';
@@ -409,16 +408,18 @@ function getCurrentLevel(eventData) {
         const wear = reward.wear || '';     
         const rarity = reward.rarity || ''; 
 
+        // Генерируем HTML
         wrapper.innerHTML = `
-            <div style="display:flex; gap:8px; width: 100%; align-items: center;">
-                <input type="number" class="reward-place" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20" style="width: 40px; padding: 8px 4px; text-align: center;">
+            <div style="display:flex; gap:8px; width: 100%; align-items: center; justify-content: space-between;">
+                <input type="number" class="reward-place reward-place-input" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20">
                 
-                <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" style="flex: 1;">
+                <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}" 
+                       style="flex: 1; min-width: 100px;">
                 
-                <input type="checkbox" class="reward-select-checkbox" title="Выбрать для копирования">
+                <input type="checkbox" class="reward-select-checkbox" title="Выбрать">
 
                 <button type="button" class="admin-action-btn reject remove-reward-btn" 
-                        style="width: 28px; height: 28px; padding: 0; font-size: 12px; flex: 0 0 28px; display: flex; align-items: center; justify-content: center;">
+                        style="width: 32px; height: 32px; padding: 0; flex: 0 0 32px; display: flex; align-items: center; justify-content: center;">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
@@ -427,18 +428,24 @@ function getCurrentLevel(eventData) {
                 <input type="text" class="reward-image" placeholder="URL картинки" value="${escapeHTML(image)}" style="flex: 1;">
                 
                 <select class="reward-wear" style="flex: 1;">
-                    ${generateOptionsHtml(WEAR_OPTIONS, wear)}
+                    ${typeof generateOptionsHtml === 'function' ? generateOptionsHtml(WEAR_OPTIONS, wear) : ''}
                 </select>
                 
                 <select class="reward-rarity" style="flex: 1;">
-                    ${generateOptionsHtml(RARITY_OPTIONS, rarity)}
+                    ${typeof generateOptionsHtml === 'function' ? generateOptionsHtml(RARITY_OPTIONS, rarity) : ''}
                 </select>
             </div>
         `;
         
-        // 👇 Добавляем обработчик на чекбокс сразу при создании
-        const checkbox = wrapper.querySelector('.reward-select-checkbox');
-        checkbox.addEventListener('change', updateCopyButtonVisibility);
+        // Вешаем обработчики
+        wrapper.querySelector('.remove-reward-btn').addEventListener('click', () => {
+            wrapper.remove();
+            if (typeof checkCopyVisibility === 'function') checkCopyVisibility();
+        });
+        
+        wrapper.querySelector('.reward-select-checkbox').addEventListener('change', () => {
+            if (typeof checkCopyVisibility === 'function') checkCopyVisibility();
+        });
 
         return wrapper;
     }
@@ -3668,35 +3675,39 @@ function executeCopy(rewardsData, targetLevel) {
 
         if (dom.cauldronSettingsForm) {
             
-            // --- 👇 НОВЫЙ КОД: Вставка Красивой Панели Действий 👇 ---
+            // --- 👇 ИСПРАВЛЕННАЯ ВСТАВКА ПАНЕЛИ 👇 ---
             const saveBtn = dom.cauldronSettingsForm.querySelector('button[type="submit"]') || dom.cauldronSettingsForm.querySelector('.approve');
             
             if (saveBtn) {
-                // Удаляем старую панель если есть, чтобы не дублировалась при перезагрузках
+                // 1. Удаляем старые дубликаты, если есть
                 const oldPanel = document.getElementById('bulk-actions-panel');
                 if (oldPanel) oldPanel.remove();
 
+                // 2. Создаем новую панель
                 const panel = document.createElement('div');
                 panel.id = 'bulk-actions-panel';
+                // По умолчанию скрыта классом (display: none в CSS)
+                
                 panel.innerHTML = `
                     <div class="bulk-info">
-                        <span>Выбрано:</span>
-                        <span id="bulk-selected-count" class="bulk-count-badge">0</span>
+                        Выбрано: <span id="bulk-selected-count" class="bulk-count-badge">0</span>
                     </div>
                     <div class="bulk-controls">
                         <button type="button" class="btn-text-action" id="btn-select-all">
                             <i class="fa-solid fa-check-double"></i> Все
                         </button>
                         <button type="button" class="btn-primary-action" id="btn-transfer-action">
-                            <i class="fa-solid fa-share-from-square"></i> Перенести
+                            <i class="fa-solid fa-share"></i> Перенести
                         </button>
                     </div>
                 `;
                 
-                // Вставляем НАД кнопкой сохранения
-                saveBtn.parentElement.insertBefore(panel, saveBtn);
+                // 3. Вставляем ПЕРЕД родительским блоком кнопки сохранения
+                // Это гарантирует, что панель будет НАД кнопкой, а не внутри её контейнера
+                const parent = saveBtn.closest('.admin-action-btn')?.parentElement || saveBtn.parentElement;
+                parent.insertBefore(panel, saveBtn.closest('.admin-action-btn') || saveBtn);
 
-                // Вешаем обработчики
+                // 4. Вешаем события
                 document.getElementById('btn-transfer-action').addEventListener('click', transferSelectedRewards);
                 document.getElementById('btn-select-all').addEventListener('click', toggleSelectAllRewards);
             }
