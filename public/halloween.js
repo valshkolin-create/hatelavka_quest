@@ -819,20 +819,39 @@ function renderPage(eventData, leaderboardData = {}) {
         }
     }
 // --- 📳 НОВЫЙ БЛОК: ВИБРАЦИЯ ДЛЯ ВСЕХ ЭЛЕМЕНТОВ 📳 ---
+    // --- 📳 ОБНОВЛЕННЫЙ БЛОК: УСИЛЕННАЯ ВИБРАЦИЯ 📳 ---
     document.body.addEventListener('click', (e) => {
-        // Ищем клик по кнопкам, табам, крестикам закрытия и спец. элементам
-        const target = e.target.closest('button, .rewards-tab-btn, .modal-close-btn, .viewer-close-btn, .theme-btn, #rules-button, #rewards-list-button, #check-sub-btn, #toggle-edit-btn');
+        // Расширенный список элементов, на которые реагируем
+        // Добавили 'a', '[role="button"]' и '.item-content' на всякий случай
+        const selector = `
+            button, 
+            a, 
+            .rewards-tab-btn, 
+            .modal-close-btn, 
+            .viewer-close-btn, 
+            .theme-btn, 
+            #rules-button, 
+            #rewards-list-button, 
+            #check-sub-btn, 
+            #toggle-edit-btn,
+            [role="button"]
+        `;
         
-        if (target) {
-            try {
-                // Вызываем легкую вибрацию (как клик по клавиатуре)
-                tg.HapticFeedback.impactOccurred('light');
-            } catch (err) {
-                // Игнорируем ошибки (если запущено не в Telegram)
+        // Проверяем, был ли клик по нужному элементу
+        if (e.target.closest(selector)) {
+            // Проверяем наличие API
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                try {
+                    // 'medium' - средняя вибрация (ощущается лучше, чем light)
+                    // 'heavy' - сильная, если medium не чувствуется
+                    window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                } catch (err) {
+                    console.warn("Ошибка вибрации:", err);
+                }
             }
         }
     });
-    // --- 👆 КОНЕЦ БЛОКА 👆 ---
+    // --- 👆 КОНЕЦ ОБНОВЛЕННОГО БЛОКА 👆 ---
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
