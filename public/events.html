@@ -468,6 +468,34 @@
         box-sizing: border-box;
         padding: 10px 10px 120px; 
     }
+    /* === PULL TO REFRESH СТИЛИ (ЭТОГО НЕ ХВАТАЛО) === */
+    #pull-to-refresh {
+        position: fixed;
+        top: -80px;      /* Спрятан НАД экраном */
+        left: 0;
+        width: 100%;
+        height: 80px;    
+        
+        display: flex;
+        justify-content: center;
+        align-items: center; 
+        
+        z-index: 2000;    /* Выше чем main-content */
+        
+        background: transparent;
+        pointer-events: none;
+        padding: 0;
+        will-change: transform;
+    }
+
+    #pull-to-refresh i {
+        font-size: 24px; 
+        color: #FFD700;
+        opacity: 1;          
+        transform: scale(1);
+        transition: opacity 0.2s, transform 0.2s;
+        text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+    }
 
 /* Стили попапа "Как использовать" (адаптированные под events.html) */
 .custom-popup {
@@ -551,6 +579,9 @@
 </head>
 <body>
 <main id="main-content">
+  <div id="pull-to-refresh">
+      <i class="fa-solid fa-rotate-right"></i> 
+  </div>
 
   <div class="new-header-container">
     <a href="/menu" class="header-back-button">
