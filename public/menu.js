@@ -112,39 +112,50 @@ try {
     // --- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЛАЙДЕРА V2 (С ЛОГАМИ) ---
     let currentSlideIndex = 0;
     let slideInterval;
-    let sliderAbortController = null; // <--- ВАЖНО: Контроллер для удаления старых слушателей
-    const slideDuration = 15000;
+    let sliderAbortController = null; 
+    let lastSliderSignature = ''; // <--- Храним "слепок" текущих слайдов
+
+    const slideDuration = 15000; 
 
     function setupSlider() {
-        // 1. Очистка старого интервала
-        if (slideInterval) clearInterval(slideInterval);
-
-        // 2. Очистка старых слушателей свайпа! (Это решает проблему с багами)
-        if (sliderAbortController) {
-            sliderAbortController.abort();
-        }
-        // Создаем новый контроллер для текущего запуска
-        sliderAbortController = new AbortController();
-        const signal = sliderAbortController.signal;
-
         const container = document.getElementById('main-slider-container');
         if (!container) return;
 
-        // Находим слайды
+        // Находим видимые слайды
         const allSlides = container.querySelectorAll('.slide');
-        
-        // Фильтруем слайды
         const visibleSlides = Array.from(allSlides).filter(slide => {
             return slide.style.display !== 'none';
         });
 
+        // 1. ГЕНЕРИРУЕМ "ПОДПИСЬ" ТЕКУЩЕГО СОСТОЯНИЯ
+        // (Собираем ID или ссылки слайдов в одну строку)
+        const currentSignature = visibleSlides.map(s => s.dataset.event || s.href || s.src).join('|');
+
+        // 2. ПРОВЕРКА: Если слайды те же самые, что и в прошлый раз — ВЫХОДИМ
+        // Это предотвращает сброс кликов и лаги при загрузке картинок
+        if (currentSignature === lastSliderSignature && sliderAbortController) {
+            // Слайдер уже настроен и актуален, ничего не делаем
+            return;
+        }
+
+        // Если что-то изменилось, запоминаем новую подпись и настраиваем заново
+        lastSliderSignature = currentSignature;
+
+        // 3. ОЧИСТКА (Только если реально меняем конфигурацию)
+        if (slideInterval) clearInterval(slideInterval);
+        if (sliderAbortController) sliderAbortController.abort();
+        
+        sliderAbortController = new AbortController();
+        const signal = sliderAbortController.signal;
+
         const wrapper = container.querySelector('.slider-wrapper');
         const dotsContainer = container.querySelector('.slider-dots');
         
-        // --- Очистка кнопок (Клонирование удаляет слушатели с кнопок) ---
+        // --- Очистка кнопок ---
         let prevBtnOld = document.getElementById('slide-prev-btn');
         let nextBtnOld = document.getElementById('slide-next-btn');
         
+        // Клонируем, чтобы убрать старые (возможно дублирующиеся) слушатели
         let prevBtn = prevBtnOld.cloneNode(true);
         let nextBtn = nextBtnOld.cloneNode(true);
         
@@ -180,10 +191,11 @@ try {
         visibleSlides.forEach((_, i) => {
             const dot = document.createElement('button');
             dot.classList.add('dot');
-            dot.addEventListener('click', () => {
+            // Для точек используем signal не обязательно, но для чистоты можно
+            dot.onclick = () => {
                 showSlide(i);
                 resetSlideInterval();
-            });
+            };
             dotsContainer.appendChild(dot);
         });
         const dots = dotsContainer.querySelectorAll('.dot');
@@ -213,25 +225,24 @@ try {
             slideInterval = setInterval(nextSlide, slideDuration);
         }
 
-        // Кнопки
+        // Вешаем события на кнопки
         prevBtn.addEventListener('click', () => {
             prevSlide();
             resetSlideInterval();
-        });
+        }, { signal: signal }); // Привязываем к контроллеру
 
         nextBtn.addEventListener('click', () => {
             nextSlide();
             resetSlideInterval();
-        });
+        }, { signal: signal });
         
-        // === ЛОГИКА СВАЙПА (С ИСПОЛЬЗОВАНИЕМ SIGNAL) ===
+        // === ЛОГИКА СВАЙПА ===
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
         let isSwiping = false;
 
         container.addEventListener('touchstart', (e) => {
-            // signal: signal гарантирует, что если setupSlider вызовется снова, этот слушатель умрет
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             touchEndX = touchStartX;
@@ -250,43 +261,35 @@ try {
             // Если движение горизонтальное
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
                 isSwiping = true;
-                
                 // Блокируем скролл страницы
                 if (e.cancelable) {
                     e.preventDefault();
                     e.stopPropagation();
                 }
             }
-            
             touchEndX = touchCurrentX;
-        }, { passive: false, signal: signal }); // passive: false обязательно
+        }, { passive: false, signal: signal });
 
         container.addEventListener('touchend', (e) => {
             if (isSwiping) {
                 e.stopPropagation();
-                
                 const diff = touchStartX - touchEndX;
                 const swipeThreshold = 50;
 
-                // Проверяем длину свайпа
                 if (Math.abs(diff) > swipeThreshold) {
-                    if (diff > 0) {
-                        nextSlide(); // Свайп влево -> Далее
-                    } else {
-                        prevSlide(); // Свайп вправо -> Назад
-                    }
+                    if (diff > 0) nextSlide();
+                    else prevSlide();
                     resetSlideInterval();
                 }
             }
-            
+            // Сброс
             touchStartX = 0;
             touchStartY = 0;
             isSwiping = false;
         }, { passive: true, signal: signal });
         
-        // Блокировка кликов
+        // Блокировка клика ТОЛЬКО если был свайп
         allSlides.forEach(slide => {
-            // Сбрасываем старый onclick, просто перезаписывая его
             slide.onclick = (e) => {
                 if (isSwiping) {
                     e.preventDefault();
@@ -296,7 +299,7 @@ try {
             };
         });
 
-        // Проверяем индекс
+        // Проверяем индекс и запускаем
         if (currentSlideIndex >= visibleSlides.length) {
             currentSlideIndex = 0;
         }
