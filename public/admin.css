@@ -1478,100 +1478,72 @@ input[type="datetime-local"] {
 }
 /* --- СТИЛИ ДЛЯ КОПИРОВАНИЯ НАГРАД (КОТЕЛ) --- */
 
-/* --- СТИЛИ ДЛЯ ПАНЕЛИ МАССОВЫХ ДЕЙСТВИЙ --- */
+/* --- ИСПРАВЛЕННЫЕ СТИЛИ ДЛЯ ПАНЕЛИ И СТРОК --- */
 
-/* Контейнер панели (скрыт по умолчанию) */
+/* 1. Поле названия (Надпись скина) */
+.reward-name {
+    flex: 1 1 auto !important; /* Растягиваться всегда */
+    min-width: 120px !important; /* Минимальная ширина, чтобы не пропадало */
+    width: auto !important;
+}
+
+/* 2. Узкое поле места (#) */
+.reward-place-input {
+    width: 45px !important;
+    flex: 0 0 45px !important;
+    text-align: center;
+    padding: 8px 0 !important;
+}
+
+/* 3. Панель действий (ТЕПЕРЬ БЕЗ position: absolute) */
 #bulk-actions-panel {
-    background: rgba(44, 44, 46, 0.95); /* Темный фон под стиль iOS/Telegram */
-    border: 1px solid rgba(88, 86, 214, 0.3);
+    background: #2c2c2e;
+    border: 1px solid #5856d6;
     border-radius: 12px;
     padding: 12px 16px;
-    margin-bottom: 15px;
-    display: flex;
+    margin-bottom: 15px; /* Отступ от кнопки сохранения */
+    
+    /* Скрываем через display, а не opacity - это надежнее */
+    display: none; 
+    
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    
-    /* Анимация появления */
-    opacity: 0;
-    transform: translateY(10px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    pointer-events: none; /* Чтобы не мешал кликам когда скрыт */
-    position: absolute; /* Чтобы не занимал место */
-    visibility: hidden;
-    width: calc(100% - 32px); /* Учет паддингов */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 10;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    z-index: 100;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-/* Когда панель активна */
+/* Класс, который делает панель видимой */
 #bulk-actions-panel.active {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-    position: relative; /* Возвращаем в поток */
-    visibility: visible;
+    display: flex !important;
+    animation: fadeInPanel 0.3s ease-out;
 }
 
-/* Текст "Выбрано: 5" */
-.bulk-info {
-    font-size: 14px;
-    font-weight: 600;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+@keyframes fadeInPanel {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.bulk-count-badge {
-    background: #5856d6;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 12px;
-}
+/* Текст и кнопки внутри панели */
+.bulk-info { color: #fff; font-weight: 600; font-size: 14px; }
+.bulk-count-badge { background: #5856d6; padding: 2px 8px; border-radius: 8px; margin-left: 5px; }
 
-/* Правая часть с кнопками */
-.bulk-controls {
-    display: flex;
-    gap: 10px;
-}
-
-/* Кнопка "Выделить все" (текстовая) */
 .btn-text-action {
-    background: none;
+    background: transparent;
     border: none;
     color: #a1a1aa;
-    font-size: 13px;
-    font-weight: 500;
     cursor: pointer;
-    padding: 6px 10px;
-    border-radius: 6px;
-    transition: color 0.2s;
+    font-size: 13px;
+    margin-right: 10px;
 }
-.btn-text-action:hover {
-    color: #fff;
-    background: rgba(255,255,255,0.1);
-}
-
-/* Кнопка "Перенести" (яркая) */
 .btn-primary-action {
     background: #5856d6;
     color: white;
     border: none;
     padding: 8px 16px;
     border-radius: 8px;
-    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: transform 0.1s, background 0.2s;
-}
-
-.btn-primary-action:hover {
-    background: #4b49b6;
-}
-.btn-primary-action:active {
-    transform: scale(0.96);
 }
