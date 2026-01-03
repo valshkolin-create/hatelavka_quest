@@ -582,7 +582,21 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 .modal-progress-wrapper { width: 100%; background: rgba(0,0,0,0.3); height: 10px; border-radius: 5px; margin: 15px 0 5px 0; overflow: hidden; border: 1px solid var(--border-color); }
 .modal-progress-fill { height: 100%; background: linear-gradient(90deg, var(--danger-color), var(--action-color)); transition: width 0.5s ease; }
 /* УТИЛИТЫ */
-.tutorial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 200; transition: opacity 0.3s ease; }
+/* ИСПРАВЛЕНИЕ: Опускаем оверлей ниже контента (10), но выше фона (1) */
+.tutorial-overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    background-color: rgba(0, 0, 0, 0.9); 
+    
+    /* БЫЛО: z-index: 200; */
+    z-index: 5; /* СТАЛО: 5 */
+    
+    transition: opacity 0.3s ease; 
+    pointer-events: none; /* Чтобы можно было кликать сквозь него, если нужно */
+}
 .image-viewer-overlay {
     position: fixed;
     top: 0;
