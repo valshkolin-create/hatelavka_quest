@@ -55,78 +55,72 @@ body[data-theme="classic"] {
    2. ГЛОБАЛЬНЫЕ НАСТРОЙКИ (ФОН И СКРОЛЛ)
    ========================================= */
 
-html {
-    width: 100%;
-    height: 100%;
-    overflow: hidden; /* Блокируем скролл html */
-}
-
-body {
+/* Сбрасываем html и body */
+html, body {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
-    /* ВАЖНО: position: relative вместо fixed */
-    position: relative; 
-    overflow: hidden; /* Блокируем скролл body */
-    overscroll-behavior: none;
+    overflow: hidden; /* Запрещаем скролл на уровне окна */
+    background-color: #0d1117; /* Цвет подстраховки */
+    position: relative;
+    
+    /* Перенесли шрифты и сглаживание сюда */
     font-family: 'Inter', sans-serif;
-    background-color: #0d1117; 
-    color: var(--text-color);
     -webkit-font-smoothing: antialiased;
+    image-rendering: -webkit-optimize-contrast; 
 }
 
-/* === ОТДЕЛЬНЫЙ СЛОЙ ДЛЯ КАРТИНКИ === */
-.bg-layer {
-    position: fixed;
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    height: 100%;
-    z-index: -2; /* Самый нижний слой */
-    
-    background-image: var(--bg-image);
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-size: cover;
-    
-    /* Добавляем transition для плавной смены тем */
-    transition: background-image 0.5s ease;
-    will-change: background-image;
-}
-
-/* === ОТДЕЛЬНЫЙ СЛОЙ ДЛЯ ЗАТЕМНЕНИЯ === */
-.bg-overlay {
-    position: fixed;
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    height: 100%;
-    z-index: -1; /* Поверх картинки, но под контентом */
-    background-color: rgba(0, 0, 0, 0.6);
-    pointer-events: none;
-}
-
-/* Удаляем старые псевдо-элементы, они больше не нужны */
-body::before,
-body::after {
+/* Убиваем старые псевдо-элементы, чтобы не мешали */
+body::before, body::after {
     display: none !important;
     content: none !important;
 }
 
-/* === КОНТЕЙНЕР ДЛЯ СКРОЛЛА === */
-#main-content {
-    position: absolute; /* Абсолютное позиционирование внутри body */
+/* 1. Слой с картинкой (Самый нижний, z-index: 0) */
+.bg-layer {
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    overflow-y: auto !important; /* Разрешаем скролл только здесь */
-    -webkit-overflow-scrolling: touch; 
-    z-index: 10;
-    display: block;
+    z-index: 0; /* Базовый уровень (НЕ ОТРИЦАТЕЛЬНЫЙ) */
+    
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    /* Важно: НЕ используем attachment: fixed, так как сам div уже fixed */
+    
+    transition: background-image 0.5s ease;
+    will-change: background-image;
+    pointer-events: none;
+}
+
+/* 2. Слой затемнения (Поверх картинки, z-index: 1) */
+.bg-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; /* Чуть выше картинки */
+    background-color: rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+/* 3. Контент (Поверх всего, z-index: 10) */
+#main-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10; /* Значительно выше фона */
+    overflow-y: auto !important; /* Скролл разрешен только тут */
+    -webkit-overflow-scrolling: touch; /* Плавность на iOS */
+    padding-bottom: 100px; /* Отступ под футер */
     box-sizing: border-box;
-    padding-bottom: 100px;
 }
 
 /* === КРУТИЛКА ОБНОВЛЕНИЯ === */
@@ -149,46 +143,10 @@ body::after {
     color: #FFD700;
     text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
 }
-body {
-    margin: 0;
-    padding: 0;
-    font-family: 'Inter', sans-serif;
-    overflow-x: hidden;
-    background-color: #0d1117; 
-    
-    /* Настройки фона для четкости */
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-attachment: fixed;
-    background-size: cover;
-    
-    /* Убираем мыло */
-    -webkit-font-smoothing: antialiased;
-    image-rendering: -webkit-optimize-contrast; 
-    
-    /* Чтобы футер не перекрывал контент, добавляем отступ снизу для всего body */
-    padding-bottom: 80px; 
-}
 
-body::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.6); /* Затемнение фона */
-    z-index: -1;
-}
-
-body::after {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background-image: var(--bg-image);
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    /* Убрал filter: blur, так как он делает картинку мыльной */
-    z-index: -2;
-    transition: background-image 0.5s ease;
+/* Исправление для видео-гирлянды (если она есть) */
+.garland-video {
+    z-index: 5 !important; /* Между фоном (1) и контентом (10) */
 }
 
 /* =========================================
