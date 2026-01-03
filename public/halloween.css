@@ -54,28 +54,79 @@ body[data-theme="classic"] {
 /* =========================================
    2. ГЛОБАЛЬНЫЕ НАСТРОЙКИ (ФОН И СКРОЛЛ)
    ========================================= */
-/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА === */
-html, body {
+
+html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Блокируем скролл html */
+}
+
+body {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
-    position: fixed; /* Блокируем скролл всей страницы */
-    overflow: hidden; 
-    overscroll-behavior-y: none;
-    background-color: #000; /* Цвет фона под картинкой */
+    /* ВАЖНО: position: relative вместо fixed */
+    position: relative; 
+    overflow: hidden; /* Блокируем скролл body */
+    overscroll-behavior: none;
+    font-family: 'Inter', sans-serif;
+    background-color: #0d1117; 
+    color: var(--text-color);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* === ОТДЕЛЬНЫЙ СЛОЙ ДЛЯ КАРТИНКИ === */
+.bg-layer {
+    position: fixed;
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    z-index: -2; /* Самый нижний слой */
+    
+    background-image: var(--bg-image);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: cover;
+    
+    /* Добавляем transition для плавной смены тем */
+    transition: background-image 0.5s ease;
+    will-change: background-image;
+}
+
+/* === ОТДЕЛЬНЫЙ СЛОЙ ДЛЯ ЗАТЕМНЕНИЯ === */
+.bg-overlay {
+    position: fixed;
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    z-index: -1; /* Поверх картинки, но под контентом */
+    background-color: rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+/* Удаляем старые псевдо-элементы, они больше не нужны */
+body::before,
+body::after {
+    display: none !important;
+    content: none !important;
 }
 
 /* === КОНТЕЙНЕР ДЛЯ СКРОЛЛА === */
 #main-content {
-    height: 100vh; 
-    overflow-y: auto !important; 
+    position: absolute; /* Абсолютное позиционирование внутри body */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto !important; /* Разрешаем скролл только здесь */
     -webkit-overflow-scrolling: touch; 
-    position: relative;
     z-index: 10;
     display: block;
     box-sizing: border-box;
-    padding-bottom: 100px; /* Место для футера */
+    padding-bottom: 100px;
 }
 
 /* === КРУТИЛКА ОБНОВЛЕНИЯ === */
