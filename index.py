@@ -893,7 +893,7 @@ async def sleep_mode_check(request: Request, call_next):
     
     # 1. БЫСТРЫЙ ВЫХОД: Пропускаем статику, админку, вебхуки и фавикон
     # 🔥 ДОБАВИЛИ: /api/v1/bootstrap, чтобы фронтенд мог загрузиться и проверить права
-    if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico", "/api/v1/bootstrap")):
+    if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico", "/api/v1/bootstrap", "/api/v1/user/me")):
         return await call_next(request)
 
     # 2. Старая логика проверки кэша (только для обычных пользователей)
