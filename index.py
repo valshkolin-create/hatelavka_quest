@@ -1393,12 +1393,19 @@ async def bootstrap_app(
         user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
         user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
         
-        # Статус стрима (Task H)
+        # Статус стрима (Task H) - 🔥 ДОБАВЛЕН FIX JSON 🔥
         user_data['is_stream_online'] = False
         if not isinstance(stream_res, Exception) and stream_res.status_code == 200:
             s_data = stream_res.json()
-            if s_data:
-                user_data['is_stream_online'] = s_data[0].get('value', False)
+            if s_data and len(s_data) > 0:
+                raw_val = s_data[0].get('value', False)
+                # Если Supabase вернул строку JSON, парсим её
+                if isinstance(raw_val, str):
+                    try:
+                        raw_val = json.loads(raw_val)
+                    except json.JSONDecodeError:
+                        pass # Оставляем как есть, если это просто строка
+                user_data['is_stream_online'] = raw_val
 
         # Подписка
         user_data['is_telegram_subscribed'] = True if user_data.get('referral_activated_at') else False
