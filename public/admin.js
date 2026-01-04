@@ -3146,6 +3146,39 @@ function executeCopy(rewardsData, targetLevel) {
                 }
             });
         }
+        / --- ВСТАВИТЬ ВНУТРЬ setupEventListeners() ---
+
+    // 1. Исправление для формы Челленджей (Challenges)
+    if (dom.challengeForm) {
+        const typeSelect = dom.challengeForm.querySelector('select[name="condition_type"]');
+        if (typeSelect) {
+            typeSelect.addEventListener('change', () => {
+                updateChallengeFormUI(dom.challengeForm);
+            });
+        }
+    }
+
+    // 2. Исправление для формы Квестов (Quests)
+    if (dom.createQuestForm) {
+        const typeSelect = dom.createQuestForm.querySelector('select[name="quest_type"]');
+        if (typeSelect) {
+            typeSelect.addEventListener('change', () => {
+                updateQuestFormUI(dom.createQuestForm);
+            });
+        }
+    }
+    
+    // 3. Исправление для формы Редактирования Квестов
+    if (dom.editQuestForm) {
+        const typeSelect = dom.editQuestForm.querySelector('select[name="quest_type"]');
+        if (typeSelect) {
+            typeSelect.addEventListener('change', () => {
+                updateQuestFormUI(dom.editQuestForm);
+            });
+        }
+    }
+    
+    // --- КОНЕЦ ВСТАВКИ ---
         // Обработчик добавления предмета в Адвент
         const addAdventItemForm = document.getElementById('add-advent-item-form');
         if (addAdventItemForm) {
