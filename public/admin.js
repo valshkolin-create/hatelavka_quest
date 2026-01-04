@@ -3146,8 +3146,6 @@ function executeCopy(rewardsData, targetLevel) {
                 }
             });
         }
-        / --- ВСТАВИТЬ ВНУТРЬ setupEventListeners() ---
-
     // 1. Исправление для формы Челленджей (Challenges)
     if (dom.challengeForm) {
         const typeSelect = dom.challengeForm.querySelector('select[name="condition_type"]');
