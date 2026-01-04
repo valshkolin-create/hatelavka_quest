@@ -1501,6 +1501,39 @@
     
     
     <script>
+        // ==========================================
+    // 🛡️ ВСТАВЛЯЕМ СЮДА (САМЫЙ ВЕРХ)
+    // ==========================================
+    async function checkMaintenance() {
+        try {
+            // Проверяем статус сервера
+            const res = await fetch('/api/v1/bootstrap', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // Используем безопасное получение initData
+                body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Если включен режим сна (maintenance: true)
+                if (data.maintenance) {
+                    console.warn("⛔ Тех. режим включен. Редирект на главную.");
+                    // Скрываем интерфейс, чтобы не моргнул
+                    document.body.innerHTML = ""; 
+                    // Выкидываем на заглушку
+                    window.location.href = '/'; 
+                }
+            }
+        } catch (e) {
+            console.error("Ошибка проверки статуса:", e);
+        }
+    }
+
+    // Запускаем проверку мгновенно
+    checkMaintenance();
+    // ==========================================
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.BackButton.show();
