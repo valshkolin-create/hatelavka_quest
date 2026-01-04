@@ -5332,92 +5332,91 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
 };
     
 async function main() {
-        try {
+    try {
+        // 1. Инициализация Telegram WebApp
+        if (window.Telegram && window.Telegram.WebApp) {
+            tg.ready();
             tg.expand();
-            // --- ЛОГ 1: Проверяем initData ---
-            console.log("main(): Проверка tg.initData:", tg.initData);
-            if (!tg.initData) {
-                console.error("main(): tg.initData отсутствует!"); // <-- Добавлено
-                throw new Error("Требуется авторизация в Telegram.");
-            }
-
-            showLoader();
-            const [userData, sleepStatus] = await Promise.all([
-                makeApiRequest("/api/v1/user/me", {}, 'POST', true),
-                makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true)
-            ]);
-
-            // --- ЛОГ 2: Проверяем ответ от /user/me ---
-            console.log("main(): Ответ от /api/v1/user/me:", JSON.stringify(userData));
-            // --- ЛОГ 3: Проверяем результат проверки админа ---
-            console.log(`main(): Проверка userData.is_admin. Значение: ${userData?.is_admin}. Результат проверки (!userData.is_admin): ${!userData?.is_admin}`);
-
-            if (!userData.is_admin) {
-                // --- ЛОГ 4: Фиксируем момент выбрасывания ошибки ---
-                console.error("main(): ОШИБКА ДОСТУПА! userData.is_admin НЕ true. Выбрасываем ошибку.");
-                throw new Error("Доступ запрещен.");
-            }
-            // ЗАПРОС СЧЕТЧИКОВ ПЕРЕД ПОКАЗОМ ГЛАВНОГО ЭКРАНА
-            try {
-                const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
-                const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
-                
-                const mainBadge = document.getElementById('main-pending-count');
-                if (mainBadge) {
-                    mainBadge.textContent = totalPending;
-                    mainBadge.classList.toggle('hidden', totalPending === 0);
-                }
-
-                // --- ДОБАВЛЕНО: Обновление бейджа магазина ---
-                const shopBadge = document.getElementById('shop-badge-main');
-                if (shopBadge) {
-                    const shopCount = counts.shop_prizes || 0;
-                    shopBadge.textContent = shopCount;
-                    shopBadge.classList.toggle('hidden', shopCount === 0);
-                }
-                // --- КОНЕЦ ДОБАВЛЕНИЯ ---
-                // 👇👇👇 ДОБАВИТЬ ЭТОТ БЛОК НИЖЕ 👇👇👇
-                // --- P2P БЕЙДЖ (Загружаем список, чтобы посчитать активные) ---
-                try {
-                    const p2pTrades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
-                    updateP2PBadge(p2pTrades); // Используем существующую функцию для обновления бейджа
-                } catch (p2pErr) {
-                    console.error("Ошибка загрузки P2P бейджа при старте:", p2pErr);
-                }
-                // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
-
-            } catch (countError) {
-                console.error("Не удалось загрузить счетчики:", countError);
-                const mainBadge = document.getElementById('main-pending-count');
-                if (mainBadge) mainBadge.classList.add('hidden');
-            }
-            // Этот код не должен выполниться, если нет доступа
-            console.log("main(): Доступ разрешен. Установка isAdmin=true и переключение вида."); // <-- Добавлено
-            document.body.dataset.isAdmin = 'true';
-            
-            // Проверяем, был ли введен пароль 6971
-            if (hasAdminAccess) {
-                 // Показываем все скрытые элементы админа
-                 document.querySelectorAll('.admin-feature-6971').forEach(el => {
-                    el.style.display = 'block'; // или 'flex'
-                 });
-            }
-            
-            updateSleepButton(sleepStatus);
-            await switchView('view-admin-main');
-
-        } catch (e) {
-            // --- ЛОГ 5: Фиксируем ошибку в блоке catch ---
-            console.error("main(): Ошибка поймана в блоке catch:", e.message);
-            document.body.dataset.isAdmin = 'false';
-            if(dom.sleepModeToggle) dom.sleepModeToggle.classList.add('hidden');
-            if(dom.appContainer) dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
-        } finally {
-            // --- ЛОГ 6: Фиксируем выполнение finally ---
-            console.log("main(): Блок finally выполняется.");
-            hideLoader();
+            // Настройка цветов и т.д.
+            tg.setHeaderColor(tg.themeParams.bg_color || '#ffffff');
+            tg.setBackgroundColor(tg.themeParams.bg_color || '#ffffff');
         }
+
+        console.log("Admin Init Started");
+
+        // Проверка наличия initData
+        if (!tg.initData) {
+            console.error("Нет initData! Запуск вне Telegram?");
+            // Можно раскомментировать для тестов в браузере:
+            // return; 
+        }
+
+        // --- 👇 ИЗМЕНЕНИЯ ЗДЕСЬ 👇 ---
+
+        // 2. Загрузка данных (Bootstrap вместо /user/me)
+        console.log("Запрашиваем данные bootstrap...");
+        
+        // БЫЛО:
+        // const userData = await makeApiRequest('/api/v1/user/me');
+        // console.log("User Data:", userData);
+
+        // СТАЛО (Вариант 1: Запрос bootstrap):
+        // Убедитесь, что маршрут /api/v1/bootstrap существует в index.py!
+        /*
+        const bootstrapData = await makeApiRequest('/api/v1/bootstrap');
+        console.log("Bootstrap Data:", bootstrapData);
+        if (bootstrapData && bootstrapData.user) {
+             // Сохраняем пользователя глобально или обновляем UI, если нужно
+             // currentUser = bootstrapData.user; 
+        }
+        */
+
+        // СТАЛО (Вариант 2: Просто берем данные из WebApp, без лишнего запроса):
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            console.log("Пользователь из WebApp:", tg.initDataUnsafe.user);
+            // Используем данные, которые уже есть в мини-приложении
+        }
+
+        // --- 👆 КОНЕЦ ИЗМЕНЕНИЙ 👆 ---
+
+        // 3. Проверка статуса спящего режима (оставляем как было, если эндпоинт рабочий)
+        try {
+            // Если этот запрос падает с 500 ошибкой, убедитесь, что применили 
+            // исправление для makeApiRequest и для index.py (json parsing), которое я давал выше.
+            const sleepStatus = await makeApiRequest('/api/v1/admin/sleep_mode_status');
+            
+            if (sleepStatus) {
+                console.log("Sleep Status:", sleepStatus);
+                // Обновляем UI переключателя
+                const sleepToggle = document.getElementById('maintenance-toggle'); // Или как ID в HTML
+                if (sleepToggle) {
+                    sleepToggle.checked = sleepStatus.is_sleeping;
+                }
+                
+                // Если нужно обновить иконку или кнопку в меню
+                if (sleepStatus.is_sleeping && dom.sleepModeToggle) {
+                    dom.sleepModeToggle.classList.add('is-sleeping');
+                }
+            }
+        } catch (err) {
+            console.error("Не удалось получить статус sleep_mode:", err);
+            // Не прерываем загрузку всей админки из-за этого
+        }
+
+        // 4. Настройка обработчиков событий
+        setupEventListeners();
+
+        // Убираем лоадер, если он был
+        hideLoader();
+
+    } catch (error) {
+        console.error("Критическая ошибка в main():", error);
+        tg.showAlert("Ошибка загрузки админки: " + error.message);
+        hideLoader();
+    } finally {
+        console.log("main(): Блок finally выполняется.");
     }
+}
     // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
 // --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
 /* === 1. ЗАГРУЗКА СПИСКА (С КНОПКОЙ УДАЛЕНИЯ) === */
