@@ -2385,10 +2385,10 @@ function updateSleepButton(status) {
         if (dom.sleepModeToggle) { // <-- ДОБАВЛЕНА ПРОВЕРКА
             if (status.is_sleeping) {
                 dom.sleepModeToggle.classList.add('is-sleeping');
-                dom.sleepModeToggle.title = "Разбудить бота";
+                dom.sleepModeToggle.title = "Выключить тех. режим";
             } else {
                 dom.sleepModeToggle.classList.remove('is-sleeping');
-                dom.sleepModeToggle.title = "Уложить бота спать";
+                dom.sleepModeToggle.title = "Включить тех. режим";
             }
         } else {
             console.warn("updateSleepButton: Элемент dom.sleepModeToggle не найден!"); // Добавим лог на всякий случай
@@ -3817,16 +3817,26 @@ function executeCopy(rewardsData, targetLevel) {
         if(dom.sleepModeToggle) {
             dom.sleepModeToggle.addEventListener('click', async () => {
                 const isSleeping = dom.sleepModeToggle.classList.contains('is-sleeping');
+                
                 if (isSleeping) {
-                    tg.showConfirm('Разбудить бота?', async (ok) => {
+                    // Выключаем тех. режим
+                    tg.showConfirm("🔴 Завершить технические работы?\n\nДоступ к боту будет открыт для всех пользователей.", async (ok) => {
                         if (ok) {
                             const result = await makeApiRequest('/api/v1/admin/toggle_sleep_mode');
                             updateSleepButton(result.new_status);
-                            tg.showAlert(result.message);
+                            tg.showAlert("✅ Технический режим ВЫКЛЮЧЕН.\nБот доступен всем.");
                         }
                     });
                 } else {
-                    dom.sleepPromptOverlay.classList.remove('hidden');
+                    // Включаем тех. режим (сразу, без таймера)
+                    tg.showConfirm("🛠 Включить ТЕХНИЧЕСКИЙ РЕЖИМ?\n\n• Обычные пользователи увидят экран тех. работ.\n• Админы (вы) смогут пользоваться ботом как обычно.", async (ok) => {
+                        if (ok) {
+                            // minutes: 0 означает бессрочно (или просто переключение, если бэкенд это поддерживает)
+                            const result = await makeApiRequest('/api/v1/admin/toggle_sleep_mode', { minutes: 0 });
+                            updateSleepButton(result.new_status);
+                            tg.showAlert("🛠 Технический режим ВКЛЮЧЕН.\nТолько админы имеют доступ.");
+                        }
+                    });
                 }
             });
         }
