@@ -106,10 +106,9 @@ class BuyItemRequest(BaseModel):
     initData: str
     reward_value: int
 
-class SleepModeUpdate(BaseModel):
+class SleepModeRequest(BaseModel):
     initData: str
-    is_sleeping: bool
-    wake_up_at: Optional[str] = None # ISO format date
+    minutes: Optional[int] = None # Сколько минут спать
 
 class QuestStartRequest(BaseModel):
     initData: str
@@ -887,64 +886,64 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Quest Bot API")
 # app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
 
-# --- GLOBAL CACHE ---
-# Кэш храним в памяти. При перезапуске сервера он сбросится в False.
-# (Чтобы подтянуть состояние при старте, нужно делать это в @app.on_event("startup"), 
-# но пока оставим простую логику: админ сам включит если надо).
-sleep_cache = {
-    "is_sleeping": False,
-    "wake_up_at": None,
-    "last_checked": 0
-}
-
-# --- MIDDLEWARE ---
+# --- Middlewares ---
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
     path = request.url.path
     
-    # 1. Белый список путей (Whitelist)
-    # Эти пути работают ВСЕГДА, даже если бот спит.
-    allowed_prefixes = (
-        "/api/v1/admin",      # Админка (важно!)
-        "/admin",             # HTML админки
-        "/api/v1/webhooks",   # Платежи и телеграм
-        "/public",            # Статика
-        "/favicon.ico",
-        "/api/v1/bootstrap",  # Вход (там внутри мы проверим админ или нет)
-        "/docs",              # Документация (Swagger)
-        "/openapi.json"
-    )
-
-    if path.startswith(allowed_prefixes):
+    # 1. БЫСТРЫЙ ВЫХОД: Пропускаем статику, админку, вебхуки и фавикон
+    # Это экономит CPU, пропуская логику сна для служебных запросов
+    if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico")):
         return await call_next(request)
 
-    # 2. Проверка времени пробуждения (Авто-отключение режима)
-    # Если таймер установлен и время пришло — выключаем режим
-    if sleep_cache["is_sleeping"] and sleep_cache["wake_up_at"]:
+    # 2. Старая логика проверки кэша (только для обычных пользователей)
+    if time.time() - sleep_cache["last_checked"] > CACHE_DURATION_SECONDS:
+        # Логируем только реальные проверки базы, чтобы не засорять консоль
+        # logging.info("--- 😴 Кеш режима сна истек, проверяем базу... ---") 
         try:
-            wake_up_time = datetime.fromisoformat(sleep_cache["wake_up_at"])
-            # Используем UTC для надежности
-            if datetime.now(timezone.utc) > wake_up_time:
-                sleep_cache["is_sleeping"] = False
-                sleep_cache["wake_up_at"] = None
-                # Можно добавить лог, что бот проснулся
-                print("⏰ Бот автоматически проснулся по таймеру!")
-        except Exception:
-            # Если дата кривая, просто игнорируем, чтобы не крашить сервер
+            # Используем глобальный клиент, если он уже настроен (или создаем временный, как было)
+            # Для надежности пока оставим httpx.AsyncClient, но без yield
+            async with httpx.AsyncClient(
+                base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1", 
+                headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}
+            ) as client:
+                resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
+                settings = resp.json()
+                if settings:
+                    sleep_data = settings[0].get('value', {})
+                    sleep_cache["is_sleeping"] = sleep_data.get('is_sleeping', False)
+                    sleep_cache["wake_up_at"] = sleep_data.get('wake_up_at')
+                else:
+                    sleep_cache["is_sleeping"] = False 
+                sleep_cache["last_checked"] = time.time() 
+        except Exception as e:
+            logging.error(f"Ошибка проверки режима сна: {e}")
+            # Если ошибка БД, лучше пропустить пользователя, чем блокировать
             pass
 
-    # 3. Блокировка (Maintenance Mode)
-    # Если режим включен — отдаем 503 для всех остальных запросов
-    if sleep_cache["is_sleeping"]:
+    # 3. Проверка времени пробуждения
+    is_sleeping = sleep_cache["is_sleeping"]
+    wake_up_at_str = sleep_cache["wake_up_at"]
+
+    if is_sleeping and wake_up_at_str:
+        try:
+            wake_up_time = datetime.fromisoformat(wake_up_at_str)
+            if datetime.now(timezone.utc) > wake_up_time:
+                is_sleeping = False 
+                # Можно обновить кэш, чтобы не парсить дату каждый раз
+                sleep_cache["is_sleeping"] = False
+        except ValueError:
+            pass # Если формат даты битый, игнорируем
+
+    if is_sleeping:
         return JSONResponse(
             status_code=503,
-            content={"detail": "Maintenance Mode"}
+            content={"detail": "Ботик спит, набирается сил"}
         )
 
     return await call_next(request)
-
-
-# --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (SUPABASE) ---
+# --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
+# --- Глобальная переменная для ленивой инициализации ---
 _lazy_supabase_client: Optional[httpx.AsyncClient] = None
 
 async def get_supabase_client() -> httpx.AsyncClient:
@@ -953,56 +952,52 @@ async def get_supabase_client() -> httpx.AsyncClient:
     if _lazy_supabase_client is not None and not _lazy_supabase_client.is_closed:
         return _lazy_supabase_client
         
-    # logging.info("🔌 (Re)Creating global Supabase client...")
+    logging.info("🔌 (Re)Creating global Supabase client...")
     
-    # Настройки соединений:
-    # keepalive_expiry=10: закрывать соединения, которые висят без дела > 10 сек
+    # 🔥 ИЗМЕНЕНИЕ: Добавляем keepalive_expiry=10
+    # Это заставит клиент закрывать соединения, которые висят без дела больше 10 секунд.
+    # Это предотвратит попытки использования "мертвых" соединений.
     limits = httpx.Limits(max_keepalive_connections=5, max_connections=20, keepalive_expiry=10)
     
     _lazy_supabase_client = httpx.AsyncClient(
-        base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1",
-        headers={
-            "apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY'),
-            "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_ROLE_KEY')}"
-        },
-        timeout=10.0, # Таймаут 10 секунд
+        base_url=f"{SUPABASE_URL}/rest/v1",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+        timeout=10.0, # 🔥 Уменьшаем таймаут до 10 секунд (15 это много)
         limits=limits
     )
     
     return _lazy_supabase_client
 
-
-# --- VALIDATION UTILS ---
-
+# --- Utils ---
 def encode_cookie(value: dict) -> str:
     return base64.urlsafe_b64encode(json.dumps(value).encode("utf-8")).decode("ascii")
 
 def decode_cookie(value: str | None) -> dict | None:
     if not value: return None
-    try: 
-        return json.loads(base64.urlsafe_b64decode(value.encode("ascii")).decode("utf-8"))
-    except Exception: 
-        return None
+    try: return json.loads(base64.urlsafe_b64decode(value.encode("ascii")).decode("utf-8"))
+    except Exception: return None
 
 def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
-    """
-    Проверяет initData от Telegram.
-    Поддерживает несколько токенов (если у тебя несколько ботов на одном бэке).
-    """
     try:
+        # --- 🔍 DEBUG LOGS ---
         if not init_data:
             logging.error("❌ Validation Error: initData is EMPTY or None!")
             return None
             
+        # Логируем первые 50 символов, чтобы понять, что пришло (не паля весь хеш)
+        # logging.info(f"🔍 Validating initData (start): {init_data[:50]}...") 
+        # ---------------------
+
         parsed_data = dict(parse_qsl(init_data))
         
         if "hash" not in parsed_data:
-            logging.error(f"❌ Validation Error: 'hash' not found in initData")
+            # 🔥 ВОТ ТУТ МЫ УВИДИМ, ЧТО ПРИШЛО, ЕСЛИ НЕТ ХЕША
+            logging.error(f"❌ Validation Error: 'hash' not found. Raw data: {init_data}")
             return None
             
         received_hash = parsed_data.pop("hash")
         
-        # Сортируем параметры по алфавиту для проверки хеша
+        # Сортируем и собираем строку для проверки
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items()))
         
         for token in valid_tokens:
@@ -1011,24 +1006,22 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
             calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
             
             if calculated_hash == received_hash:
-                # Возвращаем объект user
                 return json.loads(parsed_data.get("user", "{}"))
                 
-        logging.error("❌ HASH MISMATCH - Подпись не совпала.")
+        logging.error("❌ HASH MISMATCH - Подпись не совпала (проверьте BOT_TOKEN).")
         return None
     except Exception as e:
         logging.error(f"Error checking hash: {e}")
         return None
         
 def create_twitch_state(init_data: str) -> str:
-    # Используем SECRET_KEY из env или дефолтный (лучше вынеси в env)
-    secret = os.getenv("SECRET_KEY", "default_secret") 
-    return hmac.new(secret.encode(), init_data.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(SECRET_KEY.encode(), init_data.encode(), hashlib.sha256).hexdigest()
 
 def validate_twitch_state(state: str, init_data: str) -> bool:
     expected_state = create_twitch_state(init_data)
     return hmac.compare_digest(expected_state, state)
 
+# --- WebSocket Endpoint ---
 # --- WebSocket Endpoint ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -1393,19 +1386,12 @@ async def bootstrap_app(
         user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
         user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
         
-        # Статус стрима (Task H) - 🔥 ДОБАВЛЕН FIX JSON 🔥
+        # Статус стрима (Task H)
         user_data['is_stream_online'] = False
         if not isinstance(stream_res, Exception) and stream_res.status_code == 200:
             s_data = stream_res.json()
-            if s_data and len(s_data) > 0:
-                raw_val = s_data[0].get('value', False)
-                # Если Supabase вернул строку JSON, парсим её
-                if isinstance(raw_val, str):
-                    try:
-                        raw_val = json.loads(raw_val)
-                    except json.JSONDecodeError:
-                        pass # Оставляем как есть, если это просто строка
-                user_data['is_stream_online'] = raw_val
+            if s_data:
+                user_data['is_stream_online'] = s_data[0].get('value', False)
 
         # Подписка
         user_data['is_telegram_subscribed'] = True if user_data.get('referral_activated_at') else False
@@ -7469,36 +7455,6 @@ async def get_sleep_mode_status(request_data: InitDataRequest, supabase: httpx.A
         return {"is_sleeping": False, "wake_up_at": None}
     return settings[0].get('value', {"is_sleeping": False, "wake_up_at": None})
 
-# [Добавляем/Обновляем эндпоинт управления режимом сна]
-@app.post("/api/v1/admin/sleep_mode/set")
-async def set_sleep_mode(
-    request_data: SleepModeUpdate,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен")
-
-    new_settings = {
-        "is_sleeping": request_data.is_sleeping,
-        "wake_up_at": request_data.wake_up_at
-    }
-
-    # Сохраняем в БД
-    await supabase.post(
-        "/settings",
-        json={"key": "sleep_mode", "value": new_settings},
-        headers={"Prefer": "resolution=merge-duplicates"}
-    )
-
-    # Обновляем кэш мгновенно
-    sleep_cache["is_sleeping"] = request_data.is_sleeping
-    sleep_cache["wake_up_at"] = request_data.wake_up_at
-    sleep_cache["last_checked"] = time.time()
-
-    status = "включен" if request_data.is_sleeping else "выключен"
-    return {"message": f"Режим технических работ {status}."}
-
 @app.post("/api/v1/admin/toggle_sleep_mode")
 async def toggle_sleep_mode(request_data: SleepModeRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -7990,17 +7946,6 @@ async def enter_event(
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
-
-    # --- 🔥 ЛОГИКА ТЕХНИЧЕСКИХ РАБОТ 🔥 ---
-    # Проверяем кэш (он обновляется middleware или вручную)
-    if sleep_cache["is_sleeping"]:
-        # Если это НЕ админ — выдаем ошибку 503
-        if telegram_id not in ADMIN_IDS:
-            raise HTTPException(
-                status_code=503, 
-                detail="MAINTENANCE_MODE" # Специальный код для фронтенда
-            )
-    
     event_id_to_enter = request_data.event_id
 
     # --- НАЧАЛО ИЗМЕНЕНИЯ 1: Проверка на участие в других активных ивентах ---
