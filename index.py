@@ -4625,6 +4625,14 @@ async def get_current_user_data(
 
     telegram_id = user_info["id"]
 
+    # --- 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА 🛡️ ---
+    # Если режим включен и ты НЕ админ — выдаем ошибку 503 (Maintenance)
+    if sleep_cache["is_sleeping"] and telegram_id not in ADMIN_IDS:
+        return JSONResponse(
+            status_code=503, 
+            content={"detail": "Ботик спит 😴", "maintenance": True}
+        )
+        
     # 2. Фоновые задачи (не тормозят ответ пользователю)
     # Обновляем инфу о Twitch-подписке тихо в фоне
     background_tasks.add_task(silent_update_twitch_user, telegram_id)
