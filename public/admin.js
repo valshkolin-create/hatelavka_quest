@@ -6414,3 +6414,111 @@ function transferSelectedRewards() {
         targetContainer.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
     }, 300);
 }
+if (dom.sleepModeToggle) {
+    dom.sleepModeToggle.addEventListener('click', async () => {
+        showLoader();
+        try {
+            // 1. Узнаем текущий статус
+            // Можно сделать отдельный GET запрос, но для скорости 
+            // предположим, что мы знаем состояние или запросим его.
+            // Лучше всего запросить актуальное состояние:
+            const statusResp = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true); 
+            // *Примечание: в твоем коде settings возвращает всё, можно использовать это
+            // Но sleep_mode лежит отдельно. Давай сделаем просто:
+            // При нажатии открываем окно, состояние по умолчанию false, но если api вернет true - обновим.
+            
+            // Упрощенная версия: просто открываем модалку
+            showMaintenanceModal();
+            
+        } catch (e) {
+            console.error(e);
+            tg.showAlert("Ошибка доступа к настройкам.");
+        } finally {
+            hideLoader();
+        }
+    });
+}
+
+function showMaintenanceModal() {
+    // Создаем красивое модальное окно динамически
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-confirm-overlay';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7); z-index: 10000;
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(5px); animation: fadeIn 0.2s;
+    `;
+
+    const box = document.createElement('div');
+    box.style.cssText = `
+        background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 20px; padding: 25px; width: 85%; max-width: 320px;
+        text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    `;
+
+    // Контент окна
+    box.innerHTML = `
+        <div style="font-size: 40px; margin-bottom: 15px;">🚧</div>
+        <h3 style="margin: 0 0 10px; font-size: 20px; font-weight: 600;">Технические работы</h3>
+        <p style="font-size: 14px; color: #b0b0b0; margin-bottom: 20px;">
+            Если включить этот режим, бот будет доступен <b>только администраторам</b>. 
+            Остальные увидят экран заглушку.
+        </p>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; margin-bottom: 25px;">
+            <span style="font-weight: 500;">Статус режима</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="maintenance-toggle">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button id="m-cancel" style="flex: 1; padding: 12px; border-radius: 10px; border: none; background: rgba(255,255,255,0.1); color: white; font-weight: 600; cursor: pointer;">Отмена</button>
+            <button id="m-save" style="flex: 1; padding: 12px; border-radius: 10px; border: none; background: #34c759; color: white; font-weight: 600; cursor: pointer;">Сохранить</button>
+        </div>
+    `;
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    // Логика
+    const toggle = box.querySelector('#maintenance-toggle');
+    const saveBtn = box.querySelector('#m-save');
+    const cancelBtn = box.querySelector('#m-cancel');
+
+    // Проверяем текущее состояние (можно через API, но тут визуально ставим выкл по дефолту, 
+    // или можно покрасить кнопку sleep-mode в красный, если активен)
+    const isCurrentlySleeping = dom.sleepModeToggle.classList.contains('is-sleeping');
+    toggle.checked = isCurrentlySleeping;
+
+    const close = () => { overlay.remove(); };
+
+    cancelBtn.onclick = close;
+
+    saveBtn.onclick = async () => {
+        const newState = toggle.checked;
+        saveBtn.textContent = "Сохранение...";
+        
+        try {
+            await makeApiRequest('/api/v1/admin/sleep_mode/set', {
+                is_sleeping: newState,
+                wake_up_at: null // Можно добавить таймер, если нужно
+            }, 'POST', true);
+            
+            // Обновляем иконку в админке
+            if (newState) {
+                dom.sleepModeToggle.classList.add('is-sleeping'); // Добавь стиль для красной кнопки в CSS
+            } else {
+                dom.sleepModeToggle.classList.remove('is-sleeping');
+            }
+            
+            tg.showAlert(newState ? "Режим обслуживания ВКЛЮЧЕН" : "Режим обслуживания ВЫКЛЮЧЕН");
+            close();
+        } catch (e) {
+            tg.showAlert("Ошибка: " + e.message);
+            saveBtn.textContent = "Сохранить";
+        }
+    };
+}
