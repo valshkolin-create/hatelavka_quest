@@ -1402,66 +1402,128 @@ input[type="datetime-local"] {
     transform: scale(0.96); /* Эффект нажатия */
 }
 
-/* === P2P СДЕЛКИ: СЕТКА И КАРТОЧКИ === */
+/* === P2P СДЕЛКИ: СЕТКА И КАРТОЧКИ (ИСПРАВЛЕНО) === */
 
 .p2p-trades-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 2 колонки */
-    gap: 12px;
-    padding-bottom: 20px;
+    grid-template-columns: repeat(2, 1fr); /* Две равные колонки */
+    gap: 10px; /* Чуть меньше отступ, чтобы влезало на узкие экраны */
+    padding-bottom: 80px; /* Отступ снизу для скролла */
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .p2p-trade-card {
     background: rgba(30, 30, 30, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 12px;
+    border-radius: 14px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     position: relative;
     backdrop-filter: blur(5px);
+    
+    /* 🔥 ГЛАВНЫЙ ФИКС РАСТЯГИВАНИЯ 🔥 */
+    min-width: 0; 
+    width: 100%; 
+    box-sizing: border-box;
+    overflow: hidden; 
 }
 
 /* Статус (цветная точка) */
 .p2p-status-dot {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 8px;
+    right: 8px;
     width: 8px;
     height: 8px;
     border-radius: 50%;
     box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    z-index: 2;
 }
-.status-pending { background-color: #ff9500; box-shadow: 0 0 5px #ff9500; } /* Ожидание */
-.status-review { background-color: #007aff; box-shadow: 0 0 5px #007aff; }  /* Проверка */
-.status-completed { background-color: #32d74b; } /* Готово */
-.status-canceled { background-color: #ff453a; } /* Отмена */
+.status-pending { background-color: #ff9500; box-shadow: 0 0 5px #ff9500; } 
+.status-review { background-color: #007aff; box-shadow: 0 0 5px #007aff; }  
+.status-completed { background-color: #32d74b; } 
+.status-canceled { background-color: #ff453a; } 
 
 .p2p-trade-card img {
-    width: 60px;
+    width: 100%; /* Резина */
+    max-width: 70px; /* Не больше 70px */
     height: 50px;
     object-fit: contain;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     filter: drop-shadow(0 0 5px rgba(255,255,255,0.1));
 }
 
 .p2p-user-name {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     color: #fff;
     margin-bottom: 2px;
+    
+    /* Обрезаем длинные ники */
+    width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
 }
 
 .p2p-case-name {
     font-size: 11px;
     color: #aaa;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    
+    /* Обрезаем длинные названия кейсов */
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Кнопка Подробнее */
+.btn-details-p2p {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 0;
+    width: 100%;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: auto; /* Прибиваем к низу */
+}
+
+.btn-details-p2p:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Кнопка удаления на карточке (левый верхний угол) */
+.p2p-card-delete-btn {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(255, 69, 58, 0.15); /* Чуть прозрачнее */
+    color: #ff453a;
+    border: none;
+    border-radius: 50%;
+    width: 24px; /* Чуть меньше */
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    z-index: 5; 
+}
+
+.p2p-card-delete-btn:hover {
+    background: #ff453a;
+    color: white;
+    transform: scale(1.1);
 }
 
 /* Кнопка Подробнее */
