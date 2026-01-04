@@ -891,38 +891,56 @@ app = FastAPI(title="Quest Bot API")
 async def sleep_mode_check(request: Request, call_next):
     path = request.url.path
     
-    # 1. БЕЛЫЙ СПИСОК: Служебные запросы всегда пропускаем
-    # Важно: /api/v1/user/me и /api/v1/bootstrap нужны для проверки личности
+    # 1. БЕЛЫЙ СПИСОК (Пропускаем без проверок)
     if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico", "/api/v1/bootstrap", "/api/v1/user/me")):
         return await call_next(request)
 
-    # 2. ПРОВЕРКА ТЕХ. РЕЖИМА
+    # 2. АВТО-ОБНОВЛЕНИЕ СТАТУСА ИЗ БАЗЫ (КЭШ 10 СЕКУНД)
+    # Если сервер не знает статус или кэш устарел -> идем в базу
+    now = time.time()
+    if (now - sleep_cache["last_checked"]) > 10: # Проверяем каждые 10 сек
+        try:
+            # Создаем временный клиент, так как middleware работает вне зависимостей
+            async with httpx.AsyncClient(
+                base_url=f"{SUPABASE_URL}/rest/v1",
+                headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+                timeout=5.0
+            ) as client:
+                resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
+                if resp.status_code == 200 and resp.json():
+                    data = resp.json()[0].get("value", {})
+                    sleep_cache["is_sleeping"] = data.get("is_sleeping", False)
+                    sleep_cache["wake_up_at"] = data.get("wake_up_at")
+                sleep_cache["last_checked"] = now
+        except Exception as e:
+            print(f"Ошибка обновления sleep_cache: {e}")
+
+    # 3. ПРОВЕРКА ТЕХ. РЕЖИМА
     if sleep_cache["is_sleeping"]:
-        # Ищем пропуск: либо в ссылке (?admin_bypass=1), либо в сохраненных куках (maintenance_bypass=1)
+        # Проверяем пропуск админа (Cookie или параметр)
         has_bypass = (
             request.query_params.get("admin_bypass") == "1" or 
             request.cookies.get("maintenance_bypass") == "1"
         )
 
-        # Если это API-запрос (но не админский) -> ошибка 503
+        # БЛОКИРУЕМ API для обычных юзеров
         if path.startswith("/api/"):
              return JSONResponse(
                 status_code=503, 
                 content={"detail": "Ботик спит, набирается сил 😴", "maintenance": True}
              )
         
-        # Если это любая страница кроме главной, и НЕТ пропуска -> РЕДИРЕКТ НА ЗАГЛУШКУ
+        # БЛОКИРУЕМ СТРАНИЦЫ (редирект на главную)
         if path not in ["/", "/index.html"] and not has_bypass:
             from fastapi.responses import RedirectResponse
-            # Перекидываем нарушителя на главную страницу с заглушкой
             return RedirectResponse(url="/")
 
-    # 3. Таймер пробуждения (если есть)
+    # 4. Таймер пробуждения
     if sleep_cache["wake_up_at"]:
         if time.time() > sleep_cache["wake_up_at"]:
              sleep_cache["is_sleeping"] = False
              sleep_cache["wake_up_at"] = None
-             asyncio.create_task(update_sleep_status_db(False, None))
+             # Тут можно запустить фоновую задачу на обновление БД, если нужно
 
     return await call_next(request)
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
