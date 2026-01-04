@@ -1604,3 +1604,29 @@ input[type="datetime-local"] {
     font-weight: 600;
     cursor: pointer;
 }
+/* --- FIX: TRADE KEYS P2P LAYOUT --- */
+.cases-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2 колонки равной ширины */
+    gap: 15px; /* Отступ между кейсами */
+    padding-bottom: 50px; /* Отступ снизу, чтобы не перекрывалось меню */
+}
+
+/* На мобильных (если экран очень узкий) можно оставить 2, 
+   или сделать 1, если контент не влезает. 
+   Но вы просили "2 в ряд", поэтому оставляем grid. */
+
+/* Убедимся, что карточка кейса не ломает сетку */
+.p2p-case-card {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Чтобы карточки были одной высоты */
+}
+
+/* Исправление "ломания" фиксированной страницы */
+/* Убедитесь, что контейнер кейсов не вылезает за пределы прокрутки */
+#view-admin-p2p-trades {
+    overflow-x: hidden; /* Скрываем горизонтальный скролл */
+}
