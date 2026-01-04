@@ -80,6 +80,32 @@ const dom = {
         const content = document.getElementById('main-content');
         if (content) content.classList.remove('no-scroll');
     }
+// --- ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА ---
+    async function checkMaintenance() {
+        try {
+            // Стучимся на сервер, передавая данные телеграма (чтобы админа НЕ выкинуло)
+            const res = await fetch('/api/v1/bootstrap', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: window.Telegram.WebApp.initData || '' })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Если сервер ответил, что сейчас тех. работы (maintenance: true)
+                if (data.maintenance) {
+                    // Мгновенно перекидываем пользователя на главную (index.html)
+                    window.location.href = '/'; 
+                }
+            }
+        } catch (e) {
+            console.error("Ошибка проверки статуса:", e);
+        }
+    }
+
+    // Запускаем проверку при загрузке страницы
+    checkMaintenance();
 
 try {
     Telegram.WebApp.ready();
