@@ -891,57 +891,38 @@ app = FastAPI(title="Quest Bot API")
 async def sleep_mode_check(request: Request, call_next):
     path = request.url.path
     
-    # 1. БЫСТРЫЙ ВЫХОД: Пропускаем статику, админку, вебхуки и фавикон
-    # 🔥 ДОБАВИЛИ: /api/v1/bootstrap, чтобы фронтенд мог загрузиться и проверить права
+    # 1. БЕЛЫЙ СПИСОК: Служебные запросы всегда пропускаем
+    # Важно: /api/v1/user/me и /api/v1/bootstrap нужны для проверки личности
     if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico", "/api/v1/bootstrap", "/api/v1/user/me")):
         return await call_next(request)
 
-    # 2. Старая логика проверки кэша (только для обычных пользователей)
-
-    # 2. Старая логика проверки кэша (только для обычных пользователей)
-    if time.time() - sleep_cache["last_checked"] > CACHE_DURATION_SECONDS:
-        # Логируем только реальные проверки базы, чтобы не засорять консоль
-        # logging.info("--- 😴 Кеш режима сна истек, проверяем базу... ---") 
-        try:
-            # Используем глобальный клиент, если он уже настроен (или создаем временный, как было)
-            # Для надежности пока оставим httpx.AsyncClient, но без yield
-            async with httpx.AsyncClient(
-                base_url=f"{os.getenv('SUPABASE_URL')}/rest/v1", 
-                headers={"apikey": os.getenv('SUPABASE_SERVICE_ROLE_KEY')}
-            ) as client:
-                resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
-                settings = resp.json()
-                if settings:
-                    sleep_data = settings[0].get('value', {})
-                    sleep_cache["is_sleeping"] = sleep_data.get('is_sleeping', False)
-                    sleep_cache["wake_up_at"] = sleep_data.get('wake_up_at')
-                else:
-                    sleep_cache["is_sleeping"] = False 
-                sleep_cache["last_checked"] = time.time() 
-        except Exception as e:
-            logging.error(f"Ошибка проверки режима сна: {e}")
-            # Если ошибка БД, лучше пропустить пользователя, чем блокировать
-            pass
-
-    # 3. Проверка времени пробуждения
-    is_sleeping = sleep_cache["is_sleeping"]
-    wake_up_at_str = sleep_cache["wake_up_at"]
-
-    if is_sleeping and wake_up_at_str:
-        try:
-            wake_up_time = datetime.fromisoformat(wake_up_at_str)
-            if datetime.now(timezone.utc) > wake_up_time:
-                is_sleeping = False 
-                # Можно обновить кэш, чтобы не парсить дату каждый раз
-                sleep_cache["is_sleeping"] = False
-        except ValueError:
-            pass # Если формат даты битый, игнорируем
-
-    if is_sleeping:
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "Ботик спит, набирается сил"}
+    # 2. ПРОВЕРКА ТЕХ. РЕЖИМА
+    if sleep_cache["is_sleeping"]:
+        # Ищем пропуск: либо в ссылке (?admin_bypass=1), либо в сохраненных куках (maintenance_bypass=1)
+        has_bypass = (
+            request.query_params.get("admin_bypass") == "1" or 
+            request.cookies.get("maintenance_bypass") == "1"
         )
+
+        # Если это API-запрос (но не админский) -> ошибка 503
+        if path.startswith("/api/"):
+             return JSONResponse(
+                status_code=503, 
+                content={"detail": "Ботик спит, набирается сил 😴", "maintenance": True}
+             )
+        
+        # Если это любая страница кроме главной, и НЕТ пропуска -> РЕДИРЕКТ НА ЗАГЛУШКУ
+        if path not in ["/", "/index.html"] and not has_bypass:
+            from fastapi.responses import RedirectResponse
+            # Перекидываем нарушителя на главную страницу с заглушкой
+            return RedirectResponse(url="/")
+
+    # 3. Таймер пробуждения (если есть)
+    if sleep_cache["wake_up_at"]:
+        if time.time() > sleep_cache["wake_up_at"]:
+             sleep_cache["is_sleeping"] = False
+             sleep_cache["wake_up_at"] = None
+             asyncio.create_task(update_sleep_status_db(False, None))
 
     return await call_next(request)
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
