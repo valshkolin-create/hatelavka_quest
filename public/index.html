@@ -2,96 +2,257 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <title>Вход</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>Загрузка...</title>
   <style>
-    body { margin: 0; height: 100vh; background-color: #121212; display: flex; justify-content: center; align-items: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #fff; flex-direction: column; padding: 20px; text-align: center; box-sizing: border-box;}
-    .auth-box { background: rgba(255, 255, 255, 0.05); border-radius: 15px; padding: 30px; width: 100%; max-width: 350px; }
-    button { background-color: #0088cc; border: none; padding: 15px; border-radius: 10px; color: #fff; font-size: 1.1rem; cursor: pointer; transition: background-color 0.3s ease; width: 100%; font-weight: 600; }
-    .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: #28a745; color: white; padding: 12px 20px; border-radius: 8px; opacity: 0; visibility: hidden; transition: all 0.4s ease; z-index: 100; }
-    .notification.show { top: 30px; opacity: 1; visibility: visible; }
+    /* --- ОСНОВНЫЕ СТИЛИ --- */
+    body { 
+        margin: 0; 
+        height: 100vh; 
+        background-color: #000; 
+        /* Премиальный темный фон */
+        background: radial-gradient(circle at 50% 100%, #1a2c20, #000000);
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        color: #fff; 
+        flex-direction: column; 
+        padding: 20px; 
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    /* Скрываем скроллбар */
+    ::-webkit-scrollbar { width: 0; }
+    
+    .hidden { display: none !important; }
+
+    /* --- ЛОАДЕР (Загрузка) --- */
+    .loader-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        border-top-color: #0088cc;
+        animation: spin 1s ease-in-out infinite;
+        margin-bottom: 20px;
+    }
+
+    .loading-text {
+        color: #666;
+        font-size: 14px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+
+    /* --- 🔥 ПРЕМИАЛЬНЫЙ ЭКРАН ТЕХ. РАБОТ 🔥 --- */
+    .maintenance-wrapper {
+        text-align: center;
+        width: 100%;
+        max-width: 400px;
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    .maintenance-icon-box {
+        margin-bottom: 25px;
+        position: relative;
+        display: inline-block;
+    }
+
+    .maintenance-icon {
+        font-size: 80px;
+        color: #e0e0e0;
+        filter: drop-shadow(0 0 20px rgba(255,255,255,0.2));
+        animation: float 3s ease-in-out infinite;
+    }
+
+    /* Пульсация за иконкой */
+    .pulse-ring {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100px; height: 100px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        animation: pulse 2s infinite;
+        z-index: -1;
+    }
+
+    h1.maintenance-title {
+        font-size: 28px;
+        font-weight: 800;
+        margin: 0 0 15px;
+        background: linear-gradient(135deg, #ffffff 0%, #a5a5a5 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
+    }
+
+    p.maintenance-text {
+        color: #888;
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0 0 30px;
+    }
+
+    /* Кнопки соцсетей */
+    .social-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .social-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 16px 20px;
+        border-radius: 16px;
+        text-decoration: none;
+        color: white;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(5px);
+    }
+
+    .social-link:active {
+        background: rgba(255, 255, 255, 0.15);
+        transform: scale(0.98);
+    }
+
+    .social-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .social-icon {
+        font-size: 24px;
+        color: #0088cc; /* Telegram Blue */
+    }
+
+    .social-info {
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+    }
+    
+    .social-name { font-weight: 700; font-size: 15px; }
+    .social-desc { font-size: 12px; color: #888; margin-top: 2px; }
+
+    .social-arrow { color: #555; font-size: 14px; }
+
+    /* Анимации */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    @keyframes pulse { 0% { width: 80px; height: 80px; opacity: 1; } 100% { width: 140px; height: 140px; opacity: 0; } }
+
   </style>
 </head>
 <body>
-  <div class="auth-box">
-    <button onclick="startTelegramAuth()">Войти через Telegram</button>
+
+  <div class="loader-container" id="loader-container">
+      <div class="spinner"></div>
+      <div class="loading-text">Загрузка...</div>
   </div>
-  <div id="notification" class="notification"></div>
-<script>
-    Telegram.WebApp?.ready();
-    Telegram.WebApp?.expand();
 
-    // --- ОБНОВЛЕННЫЙ БЛОК ДЛЯ ПРОВЕРКИ СЕССИИ ---
-    (async () => {
-      try {
-        // Обращаемся к новому, специальному эндпоинту для проверки cookie
-        const response = await fetch('/api/v1/auth/session_check');
-        
-        if (response.ok) {
-          const sessionData = await response.json();
-          // Если сессия активна (пользователь не гость), перенаправляем в меню
-          if (sessionData && !sessionData.is_guest) {
-            console.log('Активная сессия найдена. Перенаправляем в меню...');
-            // Перенаправляем на роут /menu, а не на файл /menu.html
-            window.location.href = '/menu';
-          }
-        }
-      } catch (error) {
-        console.error('Ошибка при проверке сессии:', error);
-      }
-    })();
-    // --- КОНЕЦ ОБНОВЛЕННОГО БЛОКА ---
+  <div class="maintenance-wrapper hidden" id="maintenance-container">
+    
+    <div class="maintenance-icon-box">
+        <div class="pulse-ring"></div>
+        <i class="fa-solid fa-screwdriver-wrench maintenance-icon"></i>
+    </div>
 
+    <h1 class="maintenance-title">Технические работы</h1>
+    
+    <p class="maintenance-text">
+        Валька обновляет бота, чтобы он стал еще лучше.<br>
+        Совсем скоро все заработает!
+    </p>
 
-    function showNotification(message, isSuccess = true) {
-      const notif = document.getElementById("notification");
-      notif.textContent = message;
-      notif.style.backgroundColor = isSuccess ? "#28a745" : "#dc3545";
-      notif.classList.add("show");
-      setTimeout(() => notif.classList.remove("show"), 3000);
-    }
+    <div class="social-buttons">
+        <a href="https://t.me/hatelove_ttv" target="_blank" class="social-link">
+            <div class="social-left">
+                <i class="fa-regular fa-paper-plane social-icon"></i>
+                <div class="social-info">
+                    <span class="social-name">Наш Канал</span>
+                    <span class="social-desc">Следите за новостями</span>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right social-arrow"></i>
+        </a>
 
-    async function startTelegramAuth() {
-      try {
-        const res = await fetch("/api/v1/auth/generate_token");
-        if (!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
+        <a href="https://t.me/hatelovettv" target="_blank" class="social-link">
+            <div class="social-left">
+                <i class="fa-regular fa-comments social-icon"></i>
+                <div class="social-info">
+                    <span class="social-name">Наш Чат</span>
+                    <span class="social-desc">Общение с комьюнити</span>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right social-arrow"></i>
+        </a>
+    </div>
+  </div>
 
-        const data = await res.json();
-        const token = data.token;
-        if (!token) throw new Error("Токен не получен");
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
 
-        const botUsername = "quest_hatelavka_bot"; // Убедись, что это юзернейм твоего основного бота
-        const telegramUrl = `https://t.me/${botUsername}?start=${token}`;
-        Telegram.WebApp?.openTelegramLink(telegramUrl);
+    // Настраиваем цвета хедера под стиль
+    if(tg.setHeaderColor) tg.setHeaderColor('#000000');
+    if(tg.setBackgroundColor) tg.setBackgroundColor('#000000');
 
-        showNotification("Ожидайте авторизации! Буквально чучуч 🥺");
+    // --- ЛОГИКА ---
+    async function initApp() {
+        try {
+            // Стучимся на сервер, чтобы узнать статус
+            // initData нужна, чтобы сервер понял, админ мы или нет
+            const res = await fetch('/api/v1/bootstrap', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData || '' })
+            });
 
-        let attempts = 0, maxAttempts = 45;
-        const interval = setInterval(async () => {
-          attempts++;
-          if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            showNotification("Время ожидания истекло", false);
-            return;
-          }
-
-          const check = await fetch(`/api/v1/auth/check_token?token=${token}`);
-          if (check.ok) {
-            const result = await check.json();
-            if (result.authenticated) {
-              clearInterval(interval);
-              showNotification("✅ Авторизация успешна!");
-              setTimeout(() => {
-                window.location.href = `/menu`;
-              }, 1000);
+            if (res.ok) {
+                const data = await res.json();
+                
+                if (data.maintenance) {
+                    // 🔴 ТЕХ. РАБОТЫ (и мы не админ)
+                    document.getElementById('loader-container').classList.add('hidden');
+                    document.getElementById('maintenance-container').classList.remove('hidden');
+                } else {
+                    // 🟢 ВСЕ ОК -> Редирект в меню
+                    window.location.href = '/menu';
+                }
+            } else {
+                // Если ошибка сервера, пробуем редирект (или показываем ошибку)
+                console.error("Server error, trying redirect...");
+                window.location.href = '/menu';
             }
-          }
-        }, 2000);
-      } catch (err) {
-        showNotification("Ошибка: " + err.message, false);
-      }
+        } catch (e) {
+            console.error("Connection error:", e);
+            // При ошибке сети тоже можно попробовать редиректнуть или показать тех. работы
+            window.location.href = '/menu';
+        }
     }
-</script>
+
+    // Запускаем
+    window.onload = initApp;
+  </script>
 </body>
 </html>
