@@ -220,8 +220,6 @@
     // --- ЛОГИКА ---
     async function initApp() {
         try {
-            // Стучимся на сервер, чтобы узнать статус
-            // initData нужна, чтобы сервер понял, админ мы или нет
             const res = await fetch('/api/v1/bootstrap', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -232,21 +230,25 @@
                 const data = await res.json();
                 
                 if (data.maintenance) {
-                    // 🔴 ТЕХ. РАБОТЫ (и мы не админ)
+                    // 🔴 РЕЖИМ ВКЛЮЧЕН (и вы не админ)
                     document.getElementById('loader-container').classList.add('hidden');
                     document.getElementById('maintenance-container').classList.remove('hidden');
                 } else {
-                    // 🟢 ВСЕ ОК -> Редирект в меню
+                    // 🟢 ДОСТУП РАЗРЕШЕН (Вы админ или режим выключен)
+                    
+                    // Выдаем "Печеньку-пропуск" на 1 час
+                    // Она позволит вам открывать shop.html и другие файлы без редиректа
+                    document.cookie = "maintenance_bypass=1; path=/; max-age=3600";
+                    
+                    // Заходим в меню
                     window.location.href = '/menu';
                 }
             } else {
-                // Если ошибка сервера, пробуем редирект (или показываем ошибку)
-                console.error("Server error, trying redirect...");
+                // Если сервер не отвечает, пробуем зайти
                 window.location.href = '/menu';
             }
         } catch (e) {
             console.error("Connection error:", e);
-            // При ошибке сети тоже можно попробовать редиректнуть или показать тех. работы
             window.location.href = '/menu';
         }
     }
