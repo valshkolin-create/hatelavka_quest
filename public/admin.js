@@ -948,82 +948,88 @@ const showLoader = () => {
         console.log(`[switchView] Завершаем для targetViewId = ${targetViewId}`); // Лог выхода
     };
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
-    if (!isSilent) showLoader();
+        if (!isSilent) showLoader();
 
-    try {
-        const options = {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-        };
-
-        if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
-            options.body = JSON.stringify({ ...body, initData: tg.initData });
-            console.log(`Sending body to ${url}:`, options.body);
-        }
-
-        const response = await fetch(url, options);
-
-        if (response.status === 204) {
-            return null;
-        }
-
-        // --- 👇 ИСПРАВЛЕНИЕ ЗДЕСЬ 👇 ---
-        // Сначала читаем текст ответа (один раз!)
-        const textResponse = await response.text();
-        let result;
-        
         try {
-            // Пытаемся превратить текст в JSON
-            result = JSON.parse(textResponse);
-        } catch (jsonError) {
-            // Если это не JSON (например, ошибка 500 html/text), используем текст как есть
-            console.error("Non-JSON response received:", textResponse);
-            
-            // Если статус плохой, выбрасываем ошибку с текстом ответа
-            if (!response.ok) {
-                throw new Error(`Ошибка ${response.status}: ${textResponse || 'Не удалось получить детали ошибки'}`);
-            }
-            // Если статус OK, но не JSON - возвращаем текст
-            return textResponse;
-        }
-        // --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
+            const options = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+            };
 
-        if (!response.ok) {
-            // Обработка ошибок FastAPI из JSON объекта
-            let detailMessage = 'Неизвестная ошибка сервера';
-            if (result && result.detail) {
-                if (Array.isArray(result.detail)) {
-                    try {
-                        detailMessage = result.detail.map(err => {
-                            const field = err.loc && Array.isArray(err.loc) ? err.loc.join(' -> ') : 'поле';
-                            return `${field}: ${err.msg}`;
-                        }).join('; ');
-                    } catch (e) {
-                        detailMessage = JSON.stringify(result.detail);
-                    }
-                } else {
-                    detailMessage = String(result.detail);
+            if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
+                options.body = JSON.stringify({ ...body, initData: tg.initData });
+                // --- >>> ДОБАВЬ ЭТУ СТРОКУ ЛОГИРОВАНИЯ <<< ---
+                console.log(`Sending body to ${url}:`, options.body);
+                // --- >>> КОНЕЦ ДОБАВЛЕНИЯ <<< ---
+            }
+
+            const response = await fetch(url, options);
+
+            // ... (остальная часть функции без изменений) ...
+             if (response.status === 204) {
+                return null;
+            }
+
+            // --- НАЧАЛО ИЗМЕНЕНИЙ В ОБРАБОТКЕ ОТВЕТА ---
+            let result;
+            try {
+                result = await response.json(); // Пытаемся распарсить JSON
+            } catch (jsonError) {
+                // Если не JSON, читаем как текст (на случай HTML-ошибки или простой строки)
+                const textResponse = await response.text();
+                console.error("Non-JSON response received:", textResponse);
+                 // Если ответ не был успешным (не 2xx), бросаем ошибку с текстом ответа
+                if (!response.ok) {
+                    throw new Error(`Ошибка ${response.status}: ${textResponse || 'Не удалось получить детали ошибки'}`);
                 }
-            } else {
-                detailMessage = JSON.stringify(result);
+                 // Если ответ успешный, но не JSON (маловероятно для FastAPI), возвращаем текст
+                return textResponse;
             }
-            
-            const userErrorMessage = `Ошибка ${response.status}: ${detailMessage}`;
-            console.error("API Error Response:", result);
-            throw new Error(userErrorMessage);
+            // --- КОНЕЦ ИЗМЕНЕНИЙ В ОБРАБОТКЕ ОТВЕТА ---
+            if (!response.ok) {
+                // --- УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК FastAPI ---
+                let detailMessage = 'Неизвестная ошибка сервера';
+                if (result && result.detail) {
+                    if (Array.isArray(result.detail)) {
+                         try {
+                            // Собираем сообщения для каждого невалидного поля
+                            detailMessage = result.detail.map(err => {
+                                const field = err.loc && Array.isArray(err.loc) ? err.loc.join(' -> ') : 'поле'; // Добавлена проверка на массив err.loc
+                                return `${field}: ${err.msg}`;
+                            }).join('; ');
+                         } catch (parseError) {
+                             console.error("Error parsing FastAPI detail array:", parseError);
+                            detailMessage = JSON.stringify(result.detail); // Если структура не та, показываем как есть
+                         }
+                    } else if (typeof result.detail === 'string') {
+                        detailMessage = result.detail; // Если просто строка
+                    } else {
+                         // Если detail не строка и не массив, пытаемся превратить в строку
+                         detailMessage = JSON.stringify(result.detail);
+                    }
+                } else if (typeof result === 'string') {
+                    detailMessage = result; // Если сам ответ - строка
+                } else if (result && typeof result === 'object') {
+                    // Если detail нет, но есть другие поля, показываем их
+                    detailMessage = JSON.stringify(result);
+                }
+                 // Формируем сообщение для пользователя
+                const userErrorMessage = `Ошибка ${response.status}: ${detailMessage}`;
+                console.error("API Error Response:", result); // Логируем полный ответ для отладки
+                throw new Error(userErrorMessage); // Бросаем ошибку с детальным сообщением
+                 // --- КОНЕЦ УЛУЧШЕННОЙ ОБРАБОТКИ ---
+            }
+            return result;
+        } catch (e) {
+            // Теперь e.message должно быть строкой
+            const errorMessage = e instanceof Error ? e.message : 'Произошла неизвестная ошибка';
+            if (!isSilent) tg.showAlert(errorMessage);
+            console.error(`Ошибка в makeApiRequest для ${url}:`, e); // Логируем исходную ошибку
+            throw e; // Перебрасываем ошибку дальше
+        } finally {
+            if (!isSilent) hideLoader();
         }
-        
-        return result;
-
-    } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : 'Произошла неизвестная ошибка';
-        if (!isSilent) tg.showAlert(errorMessage);
-        console.error(`Ошибка в makeApiRequest для ${url}:`, e);
-        throw e;
-    } finally {
-        if (!isSilent) hideLoader();
     }
-}
 
 // --- НОВАЯ ФУНКЦИЯ ДЛЯ РЕНДЕРИНГА СЕТКИ ИКОНОК ---
     function renderGroupedItemsGrid(containerId, groupedData) {
@@ -5332,91 +5338,92 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
 };
     
 async function main() {
-    try {
-        // 1. Инициализация Telegram WebApp
-        if (window.Telegram && window.Telegram.WebApp) {
-            tg.ready();
-            tg.expand();
-            // Настройка цветов и т.д.
-            tg.setHeaderColor(tg.themeParams.bg_color || '#ffffff');
-            tg.setBackgroundColor(tg.themeParams.bg_color || '#ffffff');
-        }
-
-        console.log("Admin Init Started");
-
-        // Проверка наличия initData
-        if (!tg.initData) {
-            console.error("Нет initData! Запуск вне Telegram?");
-            // Можно раскомментировать для тестов в браузере:
-            // return; 
-        }
-
-        // --- 👇 ИЗМЕНЕНИЯ ЗДЕСЬ 👇 ---
-
-        // 2. Загрузка данных (Bootstrap вместо /user/me)
-        console.log("Запрашиваем данные bootstrap...");
-        
-        // БЫЛО:
-        // const userData = await makeApiRequest('/api/v1/user/me');
-        // console.log("User Data:", userData);
-
-        // СТАЛО (Вариант 1: Запрос bootstrap):
-        // Убедитесь, что маршрут /api/v1/bootstrap существует в index.py!
-        /*
-        const bootstrapData = await makeApiRequest('/api/v1/bootstrap');
-        console.log("Bootstrap Data:", bootstrapData);
-        if (bootstrapData && bootstrapData.user) {
-             // Сохраняем пользователя глобально или обновляем UI, если нужно
-             // currentUser = bootstrapData.user; 
-        }
-        */
-
-        // СТАЛО (Вариант 2: Просто берем данные из WebApp, без лишнего запроса):
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            console.log("Пользователь из WebApp:", tg.initDataUnsafe.user);
-            // Используем данные, которые уже есть в мини-приложении
-        }
-
-        // --- 👆 КОНЕЦ ИЗМЕНЕНИЙ 👆 ---
-
-        // 3. Проверка статуса спящего режима (оставляем как было, если эндпоинт рабочий)
         try {
-            // Если этот запрос падает с 500 ошибкой, убедитесь, что применили 
-            // исправление для makeApiRequest и для index.py (json parsing), которое я давал выше.
-            const sleepStatus = await makeApiRequest('/api/v1/admin/sleep_mode_status');
-            
-            if (sleepStatus) {
-                console.log("Sleep Status:", sleepStatus);
-                // Обновляем UI переключателя
-                const sleepToggle = document.getElementById('maintenance-toggle'); // Или как ID в HTML
-                if (sleepToggle) {
-                    sleepToggle.checked = sleepStatus.is_sleeping;
-                }
-                
-                // Если нужно обновить иконку или кнопку в меню
-                if (sleepStatus.is_sleeping && dom.sleepModeToggle) {
-                    dom.sleepModeToggle.classList.add('is-sleeping');
-                }
+            tg.expand();
+            // --- ЛОГ 1: Проверяем initData ---
+            console.log("main(): Проверка tg.initData:", tg.initData);
+            if (!tg.initData) {
+                console.error("main(): tg.initData отсутствует!"); // <-- Добавлено
+                throw new Error("Требуется авторизация в Telegram.");
             }
-        } catch (err) {
-            console.error("Не удалось получить статус sleep_mode:", err);
-            // Не прерываем загрузку всей админки из-за этого
+
+            showLoader();
+            const [userData, sleepStatus] = await Promise.all([
+                makeApiRequest("/api/v1/user/me", {}, 'POST', true),
+                makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true)
+            ]);
+
+            // --- ЛОГ 2: Проверяем ответ от /user/me ---
+            console.log("main(): Ответ от /api/v1/user/me:", JSON.stringify(userData));
+            // --- ЛОГ 3: Проверяем результат проверки админа ---
+            console.log(`main(): Проверка userData.is_admin. Значение: ${userData?.is_admin}. Результат проверки (!userData.is_admin): ${!userData?.is_admin}`);
+
+            if (!userData.is_admin) {
+                // --- ЛОГ 4: Фиксируем момент выбрасывания ошибки ---
+                console.error("main(): ОШИБКА ДОСТУПА! userData.is_admin НЕ true. Выбрасываем ошибку.");
+                throw new Error("Доступ запрещен.");
+            }
+            // ЗАПРОС СЧЕТЧИКОВ ПЕРЕД ПОКАЗОМ ГЛАВНОГО ЭКРАНА
+            try {
+                const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+                const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
+                
+                const mainBadge = document.getElementById('main-pending-count');
+                if (mainBadge) {
+                    mainBadge.textContent = totalPending;
+                    mainBadge.classList.toggle('hidden', totalPending === 0);
+                }
+
+                // --- ДОБАВЛЕНО: Обновление бейджа магазина ---
+                const shopBadge = document.getElementById('shop-badge-main');
+                if (shopBadge) {
+                    const shopCount = counts.shop_prizes || 0;
+                    shopBadge.textContent = shopCount;
+                    shopBadge.classList.toggle('hidden', shopCount === 0);
+                }
+                // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+                // 👇👇👇 ДОБАВИТЬ ЭТОТ БЛОК НИЖЕ 👇👇👇
+                // --- P2P БЕЙДЖ (Загружаем список, чтобы посчитать активные) ---
+                try {
+                    const p2pTrades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+                    updateP2PBadge(p2pTrades); // Используем существующую функцию для обновления бейджа
+                } catch (p2pErr) {
+                    console.error("Ошибка загрузки P2P бейджа при старте:", p2pErr);
+                }
+                // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
+
+            } catch (countError) {
+                console.error("Не удалось загрузить счетчики:", countError);
+                const mainBadge = document.getElementById('main-pending-count');
+                if (mainBadge) mainBadge.classList.add('hidden');
+            }
+            // Этот код не должен выполниться, если нет доступа
+            console.log("main(): Доступ разрешен. Установка isAdmin=true и переключение вида."); // <-- Добавлено
+            document.body.dataset.isAdmin = 'true';
+            
+            // Проверяем, был ли введен пароль 6971
+            if (hasAdminAccess) {
+                 // Показываем все скрытые элементы админа
+                 document.querySelectorAll('.admin-feature-6971').forEach(el => {
+                    el.style.display = 'block'; // или 'flex'
+                 });
+            }
+            
+            updateSleepButton(sleepStatus);
+            await switchView('view-admin-main');
+
+        } catch (e) {
+            // --- ЛОГ 5: Фиксируем ошибку в блоке catch ---
+            console.error("main(): Ошибка поймана в блоке catch:", e.message);
+            document.body.dataset.isAdmin = 'false';
+            if(dom.sleepModeToggle) dom.sleepModeToggle.classList.add('hidden');
+            if(dom.appContainer) dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
+        } finally {
+            // --- ЛОГ 6: Фиксируем выполнение finally ---
+            console.log("main(): Блок finally выполняется.");
+            hideLoader();
         }
-
-        // 4. Настройка обработчиков событий
-        setupEventListeners();
-
-        // Убираем лоадер, если он был
-        hideLoader();
-
-    } catch (error) {
-        console.error("Критическая ошибка в main():", error);
-        tg.showAlert("Ошибка загрузки админки: " + error.message);
-        hideLoader();
-    } finally {
-        console.log("main(): Блок finally выполняется.");
     }
-}
     // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
 // --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
 /* === 1. ЗАГРУЗКА СПИСКА (С КНОПКОЙ УДАЛЕНИЯ) === */
@@ -6406,112 +6413,4 @@ function transferSelectedRewards() {
     setTimeout(() => {
         targetContainer.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
     }, 300);
-}
-if (dom.sleepModeToggle) {
-    dom.sleepModeToggle.addEventListener('click', async () => {
-        showLoader();
-        try {
-            // 1. Узнаем текущий статус
-            // Можно сделать отдельный GET запрос, но для скорости 
-            // предположим, что мы знаем состояние или запросим его.
-            // Лучше всего запросить актуальное состояние:
-            const statusResp = await makeApiRequest('/api/v1/admin/settings', {}, 'POST', true); 
-            // *Примечание: в твоем коде settings возвращает всё, можно использовать это
-            // Но sleep_mode лежит отдельно. Давай сделаем просто:
-            // При нажатии открываем окно, состояние по умолчанию false, но если api вернет true - обновим.
-            
-            // Упрощенная версия: просто открываем модалку
-            showMaintenanceModal();
-            
-        } catch (e) {
-            console.error(e);
-            tg.showAlert("Ошибка доступа к настройкам.");
-        } finally {
-            hideLoader();
-        }
-    });
-}
-
-function showMaintenanceModal() {
-    // Создаем красивое модальное окно динамически
-    const overlay = document.createElement('div');
-    overlay.className = 'custom-confirm-overlay';
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.7); z-index: 10000;
-        display: flex; align-items: center; justify-content: center;
-        backdrop-filter: blur(5px); animation: fadeIn 0.2s;
-    `;
-
-    const box = document.createElement('div');
-    box.style.cssText = `
-        background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 20px; padding: 25px; width: 85%; max-width: 320px;
-        text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    `;
-
-    // Контент окна
-    box.innerHTML = `
-        <div style="font-size: 40px; margin-bottom: 15px;">🚧</div>
-        <h3 style="margin: 0 0 10px; font-size: 20px; font-weight: 600;">Технические работы</h3>
-        <p style="font-size: 14px; color: #b0b0b0; margin-bottom: 20px;">
-            Если включить этот режим, бот будет доступен <b>только администраторам</b>. 
-            Остальные увидят экран заглушку.
-        </p>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; margin-bottom: 25px;">
-            <span style="font-weight: 500;">Статус режима</span>
-            <label class="toggle-switch">
-                <input type="checkbox" id="maintenance-toggle">
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-
-        <div style="display: flex; gap: 10px;">
-            <button id="m-cancel" style="flex: 1; padding: 12px; border-radius: 10px; border: none; background: rgba(255,255,255,0.1); color: white; font-weight: 600; cursor: pointer;">Отмена</button>
-            <button id="m-save" style="flex: 1; padding: 12px; border-radius: 10px; border: none; background: #34c759; color: white; font-weight: 600; cursor: pointer;">Сохранить</button>
-        </div>
-    `;
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-
-    // Логика
-    const toggle = box.querySelector('#maintenance-toggle');
-    const saveBtn = box.querySelector('#m-save');
-    const cancelBtn = box.querySelector('#m-cancel');
-
-    // Проверяем текущее состояние (можно через API, но тут визуально ставим выкл по дефолту, 
-    // или можно покрасить кнопку sleep-mode в красный, если активен)
-    const isCurrentlySleeping = dom.sleepModeToggle.classList.contains('is-sleeping');
-    toggle.checked = isCurrentlySleeping;
-
-    const close = () => { overlay.remove(); };
-
-    cancelBtn.onclick = close;
-
-    saveBtn.onclick = async () => {
-        const newState = toggle.checked;
-        saveBtn.textContent = "Сохранение...";
-        
-        try {
-            await makeApiRequest('/api/v1/admin/sleep_mode/set', {
-                is_sleeping: newState,
-                wake_up_at: null // Можно добавить таймер, если нужно
-            }, 'POST', true);
-            
-            // Обновляем иконку в админке
-            if (newState) {
-                dom.sleepModeToggle.classList.add('is-sleeping'); // Добавь стиль для красной кнопки в CSS
-            } else {
-                dom.sleepModeToggle.classList.remove('is-sleeping');
-            }
-            
-            tg.showAlert(newState ? "Режим обслуживания ВКЛЮЧЕН" : "Режим обслуживания ВЫКЛЮЧЕН");
-            close();
-        } catch (e) {
-            tg.showAlert("Ошибка: " + e.message);
-            saveBtn.textContent = "Сохранить";
-        }
-    };
 }
