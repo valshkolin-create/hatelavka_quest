@@ -106,9 +106,10 @@ class BuyItemRequest(BaseModel):
     initData: str
     reward_value: int
 
-class SleepModeRequest(BaseModel):
+class SleepModeUpdate(BaseModel):
     initData: str
-    minutes: Optional[int] = None # Сколько минут спать
+    is_sleeping: bool
+    wake_up_at: Optional[str] = None # ISO format date
 
 class QuestStartRequest(BaseModel):
     initData: str
@@ -891,10 +892,21 @@ app = FastAPI(title="Quest Bot API")
 async def sleep_mode_check(request: Request, call_next):
     path = request.url.path
     
-    # 1. БЫСТРЫЙ ВЫХОД: Пропускаем статику, админку, вебхуки и фавикон
-    # Это экономит CPU, пропуская логику сна для служебных запросов
-    if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico")):
+    # 1. Пропускаем статику, админку, вебхуки, фавикон И BOOTSTRAP (важно!)
+    if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico", "/api/v1/bootstrap")):
         return await call_next(request)
+
+    # 2. Проверка кэша (для остальных запросов, если они пройдут мимо bootstrap)
+    if sleep_cache["is_sleeping"]:
+        # Тут мы не знаем user_id, поэтому просто блокируем.
+        # Админы "проскочат" проверку, потому что их bootstrap вернет нормальный ответ,
+        # а обычные юзеры получат ошибку на этапе bootstrap.
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Maintenance Mode"}
+        )
+
+    return await call_next(request)
 
     # 2. Старая логика проверки кэша (только для обычных пользователей)
     if time.time() - sleep_cache["last_checked"] > CACHE_DURATION_SECONDS:
@@ -7455,6 +7467,36 @@ async def get_sleep_mode_status(request_data: InitDataRequest, supabase: httpx.A
         return {"is_sleeping": False, "wake_up_at": None}
     return settings[0].get('value', {"is_sleeping": False, "wake_up_at": None})
 
+# [Добавляем/Обновляем эндпоинт управления режимом сна]
+@app.post("/api/v1/admin/sleep_mode/set")
+async def set_sleep_mode(
+    request_data: SleepModeUpdate,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    new_settings = {
+        "is_sleeping": request_data.is_sleeping,
+        "wake_up_at": request_data.wake_up_at
+    }
+
+    # Сохраняем в БД
+    await supabase.post(
+        "/settings",
+        json={"key": "sleep_mode", "value": new_settings},
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+
+    # Обновляем кэш мгновенно
+    sleep_cache["is_sleeping"] = request_data.is_sleeping
+    sleep_cache["wake_up_at"] = request_data.wake_up_at
+    sleep_cache["last_checked"] = time.time()
+
+    status = "включен" if request_data.is_sleeping else "выключен"
+    return {"message": f"Режим технических работ {status}."}
+
 @app.post("/api/v1/admin/toggle_sleep_mode")
 async def toggle_sleep_mode(request_data: SleepModeRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -7946,6 +7988,17 @@ async def enter_event(
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
+
+    # --- 🔥 ЛОГИКА ТЕХНИЧЕСКИХ РАБОТ 🔥 ---
+    # Проверяем кэш (он обновляется middleware или вручную)
+    if sleep_cache["is_sleeping"]:
+        # Если это НЕ админ — выдаем ошибку 503
+        if telegram_id not in ADMIN_IDS:
+            raise HTTPException(
+                status_code=503, 
+                detail="MAINTENANCE_MODE" # Специальный код для фронтенда
+            )
+    
     event_id_to_enter = request_data.event_id
 
     # --- НАЧАЛО ИЗМЕНЕНИЯ 1: Проверка на участие в других активных ивентах ---
