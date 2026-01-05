@@ -451,11 +451,31 @@
             </div>
         </div>
 
-        <div id="view-admin-quests" class="view hidden">
+       <div id="view-admin-quests" class="view hidden">
              <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Задания</h1>
                 <button id="go-create-quest" class="admin-menu-button" style="width: auto; padding: 8px 12px; font-size: 14px;">Создать</button>
+            </div>
+
+            <div style="padding: 0 5px 15px 5px;">
+                <a href="/quests" target="_blank" class="admin-action-btn" style="
+                    text-decoration: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    background: linear-gradient(90deg, #9146ff, #6441a5); /* Фиолетовый градиент */
+                    color: white;
+                    font-weight: 600;
+                    font-size: 13px;
+                    padding: 10px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 12px rgba(145, 70, 255, 0.2);
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
+                    <i class="fa-solid fa-vial"></i> Открыть страницу квестов (/quests)
+                </a>
             </div>
             <div id="quests-list" class="quests-container"></div>
         </div>
