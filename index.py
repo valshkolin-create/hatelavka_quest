@@ -4472,8 +4472,15 @@ async def start_quest(request_data: QuestStartRequest, supabase: httpx.AsyncClie
         logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА при активации квеста {quest_id} для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
+# --- ДОБАВЬТЕ ЭТОТ КЛАСС ПЕРЕД ФУНКЦИЕЙ, ЕСЛИ ЕГО НЕТ ---
+class InitDataModel(BaseModel):
+    initData: str
+
+# --- ВАШ НОВЫЙ ЭНДПОИНТ ---
 @app.post("/api/v1/quests/manual")
 async def get_manual_quests(request: Request, body: InitDataModel):
+    # Проверяем, что функция валидации доступна
+    # Если validate_telegram_init_data подчеркивается красным, убедитесь, что она определена выше
     user_data = validate_telegram_init_data(body.initData)
     if not user_data:
         raise HTTPException(status_code=401, detail="Invalid initData")
@@ -4489,6 +4496,11 @@ async def get_manual_quests(request: Request, body: InitDataModel):
 
     # 2. Получаем прогресс пользователя по этим квестам
     manual_quest_ids = [q['id'] for q in manual_quests]
+    
+    # Если квестов нет, пропускаем запрос
+    if not manual_quest_ids:
+        return []
+
     user_quests_response = await supabase.table("user_quests").select("*").in_("quest_id", manual_quest_ids).eq("user_id", user_id).execute()
     user_quests_map = {uq['quest_id']: uq for uq in user_quests_response.data}
 
@@ -4509,17 +4521,13 @@ async def get_manual_quests(request: Request, body: InitDataModel):
             elif uq.get('status') == 'pending':
                  q['is_pending'] = True
         
-        # Для ручных квестов мы отдаем их, даже если они выполнены,
-        # чтобы показать галочку или статус "На проверке"
-        
-        # Подчищаем категории для фронта (как в bootstrap)
+        # Подчищаем категории для фронта (если нужно)
         if q.get('quest_categories'):
-             # Supabase возвращает объект или список, упрощаем если надо
              pass 
         
         final_quests.append(q)
 
-    # Заполняем дефолтные поля (иконки и т.д.)
+    # Заполняем дефолтные поля (убедитесь, что эта функция существует в index.py)
     final_quests = fill_missing_quest_data(final_quests)
     
     return final_quests
