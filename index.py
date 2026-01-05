@@ -4471,6 +4471,58 @@ async def start_quest(request_data: QuestStartRequest, supabase: httpx.AsyncClie
         # ❌ ERROR: Другая ошибка
         logging.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА при активации квеста {quest_id} для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+
+@app.post("/api/v1/quests/manual")
+async def get_manual_quests(request: Request, body: InitDataModel):
+    user_data = validate_telegram_init_data(body.initData)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Invalid initData")
+    
+    user_id = user_data['id']
+
+    # 1. Получаем все активные ручные квесты
+    response = await supabase.table("quests").select("*, quest_categories(name)").eq("is_active", True).eq("quest_type", "manual_check").execute()
+    manual_quests = response.data
+
+    if not manual_quests:
+        return []
+
+    # 2. Получаем прогресс пользователя по этим квестам
+    manual_quest_ids = [q['id'] for q in manual_quests]
+    user_quests_response = await supabase.table("user_quests").select("*").in_("quest_id", manual_quest_ids).eq("user_id", user_id).execute()
+    user_quests_map = {uq['quest_id']: uq for uq in user_quests_response.data}
+
+    # 3. Собираем итоговый список
+    final_quests = []
+    for q in manual_quests:
+        uq = user_quests_map.get(q['id'])
+        
+        # Заполняем статус
+        q['is_completed'] = False
+        q['is_pending'] = False # На проверке
+        q['completed_at'] = None
+        
+        if uq:
+            if uq.get('status') == 'completed':
+                 q['is_completed'] = True
+                 q['completed_at'] = uq.get('completed_at')
+            elif uq.get('status') == 'pending':
+                 q['is_pending'] = True
+        
+        # Для ручных квестов мы отдаем их, даже если они выполнены,
+        # чтобы показать галочку или статус "На проверке"
+        
+        # Подчищаем категории для фронта (как в bootstrap)
+        if q.get('quest_categories'):
+             # Supabase возвращает объект или список, упрощаем если надо
+             pass 
+        
+        final_quests.append(q)
+
+    # Заполняем дефолтные поля (иконки и т.д.)
+    final_quests = fill_missing_quest_data(final_quests)
+    
+    return final_quests
         
 @app.post("/api/v1/user/promocodes/delete")
 async def delete_promocode(request_data: PromocodeDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
