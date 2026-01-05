@@ -779,17 +779,19 @@ try {
                 if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
                 else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
 
-                // --- ИСПРАВЛЕНИЕ: Берем ручные квесты из общего списка allQuests ---
+               // --- РУЧНЫЕ ЗАДАНИЯ ---
                 updateLoading(70);
                 
-                // Фильтруем массив allQuests. Ищем те, у которых тип 'manual_check'
-                // и которые еще не выполнены (или выполнены, если нужно показывать историю)
-                const manualQuests = allQuests.filter(q => 
-                    q.quest_type === 'manual_check' && !q.is_completed
-                );
-                
-                console.log("Найдено ручных квестов:", manualQuests.length); // Для отладки
-                renderManualQuests(manualQuests);
+                // Теперь эндпоинт существует, делаем запрос
+                try {
+                    const manualQuests = await makeApiRequest("/api/v1/quests/manual", {}, 'POST', true);
+                    renderManualQuests(manualQuests);
+                } catch (e) {
+                    console.error("Ошибка получения ручных квестов:", e);
+                    // Если ошибка, пробуем хотя бы из кэша достать (фоллбэк)
+                    const fallbackQuests = allQuests.filter(q => q.quest_type === 'manual_check');
+                    renderManualQuests(fallbackQuests);
+                }
                 
                 // Логика подсветки
                 try {
