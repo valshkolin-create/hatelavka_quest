@@ -1,0 +1,175 @@
+<!DOCTYPE html> 
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Задания</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <script>
+    // Заглушка Telegram, если скрипт не прогрузился
+    if (typeof Telegram === 'undefined') {
+      window.Telegram = {
+        WebApp: {
+          initData: '',
+          initDataUnsafe: {},
+          ready: function() { console.log('Telegram Mock Ready'); },
+          expand: function() { console.log('Telegram Mock Expand'); },
+          close: function() {},
+          showAlert: function(msg) { alert(msg); },
+          showConfirm: function(msg, cb) { if(cb) cb(confirm(msg)); },
+          openLink: function(url) { window.open(url, '_blank'); },
+          openTelegramLink: function(url) { window.open(url, '_blank'); },
+          HapticFeedback: { notificationOccurred: function() {}, impactOccurred: function() {} }
+        }
+      };
+    }
+  </script>
+  <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+  <link rel="stylesheet" href="/menu.css?v=2" />
+</head>
+<body>
+  
+  <div id="loader-overlay" style="display: flex; flex-direction: column; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
+    <div class="spinner"></div>
+    <div id="loading-text" style="color: #fff; margin-top: 15px; font-family: sans-serif; font-weight: bold; font-size: 18px;">0%</div>
+    <div style="width: 200px; height: 4px; background: #333; border-radius: 2px; margin-top: 10px; overflow: hidden;">
+        <div id="loading-bar-fill" style="width: 0%; height: 100%; background: #007aff; transition: width 0.3s ease;"></div>
+    </div>
+  </div>
+
+  <main id="main-content" class="main-content">
+    
+    <div id="pull-to-refresh">
+        <i class="fa-solid fa-rotate-right"></i> 
+    </div>
+
+    <div class="user-profile" style="margin-bottom: 20px;">
+        <div class="user-info">
+          <div id="fullName" class="user-name">Загрузка...</div>
+        </div>
+        <div class="stats-block">
+          <div class="stats-item tickets-item">
+              <span id="ticketStats" class="stats-text">0</span>
+              <div class="stats-icon stats-icon-star"><i class="fa-solid fa-ticket"></i></div>
+              <i class="fa-solid fa-circle-question info-question-icon" id="info-question-icon"></i>
+          </div>
+        </div>
+    </div>
+
+    <div id="view-quests" class="view quests-container">
+        <h2 class="page-title" style="grid-column: 1 / -1; margin-bottom: 5px;">
+            🎯 Испытания
+        </h2>
+        <span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 10px; grid-column: 1 / -1;">
+            Выполняйте, чтобы получать билеты и звезды.
+        </span>
+
+        <div id="challenge-container" style="grid-column: 1 / -1; width: 100%; margin-bottom: 0;"></div>
+        
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
+
+        <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="grid-column: 1 / -1; width: 100%; margin: 0;">
+            НАЧАТЬ ИСПЫТАНИЕ
+        </button>
+        
+        <div id="quest-choose-container" class="quest-choose-container hidden" style="grid-column: 1 / -1; width: 100%; margin-top: 10px;"></div>
+        
+        <div id="active-automatic-quest-container" style="grid-column: 1 / -1; width: 100%; margin-top: 5px;"></div>
+        
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
+
+        <h3 style="grid-column: 1 / -1; font-size: 14px; font-weight: 600; color: #ffcc00; margin: 0 0 8px 0; text-align: center;">
+            📝 Задания с ручной проверкой
+        </h3>
+
+        <div id="manual-quests-list" style="grid-column: 1 / -1; width: 100%;">
+            <div class="spinner"></div>
+        </div>
+
+        <span class="manual-hint" style="display: block; font-size: 11px; color: #666; text-align: center; margin-top: 15px; margin-bottom: 20px; grid-column: 1 / -1;">
+            Награды ищите в разделе <span style="color: #ffc700;">Профиль</span>
+        </span>
+    </div>
+
+  </main>
+
+  <footer class="app-footer">
+    <a href="/leaderboard" id="nav-leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
+    <a href="#" id="nav-quests" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
+    <a href="/menu" id="nav-dashboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
+    <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
+    <a href="/auction" class="footer-item">
+        <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
+        <span>Аукцион</span>
+    </a>
+  </footer>
+
+  <div id="promocode-overlay" class="promocode-overlay hidden"></div>
+
+  <div id="reward-claimed-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal">
+        <h3>Награда получена!</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
+            Промокод добавлен в ваш профиль. Вы можете найти все свои награды там.
+        </p>
+        <div class="prompt-actions">
+            <button id="reward-close-btn" class="cancel-btn">Закрыть</button>
+            <a href="/profile" class="confirm-btn">Профиль</a>
+        </div>
+    </div>
+  </div>
+
+  <div id="tickets-claimed-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal">
+        <h3>Билеты получены!</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
+            Билеты за выполнение задания успешно начислены на ваш баланс.
+        </p>
+        <div class="prompt-actions">
+            <button id="tickets-claim-close-btn" class="confirm-btn">Отлично!</button>
+        </div>
+    </div>
+  </div>
+
+  <div id="info-modal-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal">
+        <h3>Что такое билеты?</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
+            Выполняйте задания и челленджи, чтобы заработать билеты. Используйте их для участия в розыгрышах ценных призов!
+        </p>
+        <div class="prompt-actions">
+            <button class="confirm-btn" id="info-modal-close-btn">Понятно</button>
+        </div>
+    </div>
+  </div>
+
+  <div id="schedule-modal-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal" style="width: 90%; max-width: 400px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 18px;">📅 Расписание стримов</h3>
+            <button id="schedule-modal-close-btn" class="promo-notification-close" style="background: rgba(255,255,255,0.1); width: 30px; height: 30px;">&times;</button>
+        </div>
+        <img src="https://i.postimg.cc/NMw2ByPZ/raspisanie-strimov.jpg" alt="Расписание" style="width: 100%; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+        <button onclick="Telegram.WebApp.openLink('https://www.twitch.tv/hatelove_ttv')" class="confirm-btn" style="width: 100%; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; background-color: #9146ff; color: white; border: none; cursor: pointer; font-size: 14px; font-weight: 600; padding: 12px;">
+            <i class="fa-brands fa-twitch"></i> Перейти на канал
+        </button>
+    </div>
+</div>
+
+  <div id="custom-prompt-overlay" class="prompt-overlay hidden">
+    <div class="prompt-modal">
+        <h3 id="prompt-title">Title</h3>
+        <p>Введите данные для проверки.</p>
+        <input type="text" id="prompt-input" placeholder="Ваш ник или ссылка...">
+        <div class="prompt-actions">
+            <button id="prompt-cancel" class="cancel-btn">Отмена</button>
+            <button id="prompt-confirm" class="confirm-btn">Отправить</button>
+        </div>
+    </div>
+  </div>
+
+  <script src="/public/quests.js"></script>
+</body>
+</html>
