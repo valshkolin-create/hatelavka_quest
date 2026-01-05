@@ -1,0 +1,228 @@
+:root {
+    --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000); 
+    --bg-color: #000000;
+    --text-color: #ffffff;
+    --text-color-muted: #b0b0b0;
+    --quest-icon-color: #ffcc00;
+    --primary-gradient: linear-gradient(90deg, #34c759, #2dbf55);
+    --primary-color: #34c759;
+    --action-color: #007aff;
+    --disabled-color: #666;
+    --surface-glass-bg: rgba(28, 28, 30, 0.75);
+    --twitch-color: #9146ff;
+    --danger-color: #ff3b30;
+    --telegram-color: #0088CC;
+}
+
+/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА === */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    position: fixed; 
+    top: 0; left: 0; right: 0; bottom: 0;
+    overflow: hidden; 
+    background-color: #000;
+    max-width: 100vw;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-color);
+    background-image: var(--bg-gradient);
+}
+
+.main-content {
+    height: 100vh; 
+    overflow-y: auto !important; 
+    -webkit-overflow-scrolling: touch; 
+    position: relative;
+    z-index: 10;
+    display: block;
+    box-sizing: border-box;
+    padding: 0 15px 120px; /* Отступы по бокам и снизу для футера */
+    opacity: 0; 
+    transition: opacity 0.4s ease-in-out;
+}
+
+.main-content.visible { opacity: 1; }
+
+/* === ПРОФИЛЬ (ВЕРХНЯЯ ЧАСТЬ) === */
+.user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 10px; }
+.user-info { display: flex; flex-direction: column; }
+.user-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.stats-block { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.stats-item { display: flex; align-items: center; justify-content: flex-end; }
+.stats-icon { width: 20px; height: 20px; background-color: #ffffff; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-right: 6px; }
+.stats-icon i { color: #000000; font-size: 11px; }
+.stats-text { font-size: 12px; font-weight: 500; }
+
+.tickets-item { 
+    background: rgba(52, 199, 89, 0.15); 
+    border-radius: 12px; 
+    padding: 6px 10px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: flex-end; 
+    gap: 6px; 
+    position: relative;
+    z-index: 1;
+}
+.tickets-item .stats-text { color: var(--primary-color); font-weight: 700; font-size: 14px; }
+.stats-icon-star { background: var(--primary-color); margin-right: 0; }
+.stats-icon-star i { color: #fff; }
+.info-question-icon { font-size: 16px; color: #ffc700; cursor: pointer; margin-left: 4px; }
+
+/* === ОБЩИЕ СТИЛИ КАРТОЧЕК === */
+.page-title { font-size: 18px; font-weight: 600; margin: 0 0 15px 0; text-align: center; }
+
+.quest-card { 
+    background-color: var(--surface-glass-bg); 
+    backdrop-filter: blur(15px); 
+    -webkit-backdrop-filter: blur(15px); 
+    border-radius: 10px; 
+    padding: 10px; 
+    text-align: center; 
+    display: flex; 
+    flex-direction: column; 
+    position: relative; 
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.quest-icon { font-size: 20px; color: var(--quest-icon-color); margin-bottom: 8px; text-shadow: 0 0 12px var(--quest-icon-color); }
+.quest-image-icon { width: 32px; height: 32px; border-radius: 6px; margin: 0 auto 8px; object-fit: cover; }
+.quest-title { font-size: 13px; font-weight: 600; line-height: 1.3; margin: 0 0 5px 0; flex-grow: 1; text-align: center; }
+.quest-subtitle { color: var(--text-color-muted); font-size: 11px; margin-bottom: 8px; text-align: center; }
+
+/* Прогресс бар */
+.progress-bar { width: 100%; height: 30px; background-color: #3a3a3c; border-radius: 15px; overflow: hidden; position: relative; margin-top: 10px; }
+.progress-fill { height: 100%; background: var(--primary-gradient); border-radius: 15px; transition: width 0.5s ease-in-out; }
+.progress-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; padding: 0 8px; box-sizing: border-box; z-index: 1; }
+.progress-text { font-weight: 600; font-size: 11px; color: var(--text-color); }
+
+/* Кнопки */
+.perform-quest-button { width: 100%; background-color: var(--action-color); border: none; padding: 8px; border-radius: 6px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: auto; }
+.claim-reward-button { width: 100%; background: linear-gradient(90deg, #ffdd40, #ffc700); color: #1c1c1e; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; padding: 10px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); }
+.claim-reward-button:disabled { background: var(--disabled-color); color: var(--text-color-muted); box-shadow: none; cursor: not-allowed; }
+.cancel-quest-button { width: 100%; background-color: #555; border: none; padding: 8px; border-radius: 6px; color: white; font-size: 12px; font-weight: 500; cursor: pointer; margin-top: 6px; }
+.cancel-quest-button:disabled { background-color: #333; color: #888; cursor: not-allowed;}
+
+/* === ЧЕЛЛЕНДЖ КАРТОЧКА === */
+.challenge-card { background-color: rgba(44, 44, 46, 0.85); padding: 12px; }
+.challenge-card .quest-icon { font-size: 18px; margin-bottom: 5px; }
+.challenge-card .quest-title { font-size: 14px; margin-bottom: 5px; }
+.challenge-card .quest-subtitle { font-size: 12px; margin-bottom: 8px; }
+.challenge-card .claim-reward-button { font-size: 13px; padding: 9px; margin-top: 8px; }
+.challenge-timer { font-size: 11px; font-weight: 500; color: var(--text-color-muted); margin-top: 6px; text-align: center; margin-bottom: 8px; min-width: 75px; }
+
+/* === РУЛЕТКА ЗАДАНИЙ === */
+.quest-choose-btn-roulette { 
+    display: block; width: 100%; padding: 12px; margin: 15px 0; font-size: 16px; font-weight: 700; border: none; border-radius: 10px; color: #1c1c1e; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 12px rgba(255, 204, 0, 0.5); box-sizing: border-box; 
+}
+.quest-choose-btn-roulette.twitch-theme { background: linear-gradient(90deg, #a97cff, var(--twitch-color)); color: white; box-shadow: 0 0 12px rgba(145, 70, 255, 0.6); }
+.quest-choose-btn-roulette.telegram-theme { background: linear-gradient(90deg, #24a1de, var(--telegram-color)); color: white; box-shadow: 0 0 12px rgba(0, 136, 204, 0.6); }
+
+.quest-choose-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 25px; margin-bottom: 10px; perspective: 1000px; }
+.quest-option-card {
+    min-width: 0; height: 220px; background: var(--surface-glass-bg); border-radius: 12px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transform: rotateY(90deg); opacity: 0; transition: transform 0.6s ease, opacity 0.6s ease; text-align: center; padding: 10px; box-sizing: border-box; gap: 8px;
+}
+.quest-option-card.show { transform: rotateY(0); opacity: 1; }
+.quest-option-card.chosen { animation: questChosen 0.6s forwards; }
+.quest-option-card.fade-out { animation: fadeOut 0.5s forwards; }
+
+@keyframes questChosen { to { transform: scale(0.1) translateY(-100px); opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; transform: scale(0.9); } }
+
+.event-mode-reward-wrapper {
+    width: 100%; box-sizing: border-box; text-align: left; margin-top: auto; padding: 8px; border-radius: 8px; background-color: rgba(40, 32, 18, 0.7); border: 1px solid #FFC837; box-shadow: 0 0 10px rgba(255, 200, 55, 0.3); display: flex; align-items: center; gap: 8px;
+}
+.event-mode-reward-wrapper .icon { font-size: 13px; color: #FFC837; flex-shrink: 0; }
+.event-mode-reward-wrapper .text-content { display: flex; flex-direction: column; }
+.event-mode-reward-wrapper .title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #FFD700; }
+.event-mode-reward-wrapper .subtitle { font-size: 9px; font-weight: 500; color: #EAEAEA; line-height: 1.2; }
+
+/* === МОДАЛЬНЫЕ ОКНА И ЛОАДЕР === */
+.hidden { display: none !important; }
+.loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+.spinner { width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.prompt-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+.prompt-modal { background-color: var(--surface-glass-bg); border: 1px solid rgba(58, 58, 60, 0.6); padding: 15px; border-radius: 12px; width: 85%; max-width: 300px; text-align: center; }
+.prompt-actions { display:flex; gap: 10px; margin-top: 15px; }
+.prompt-actions > * { flex:1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.prompt-actions .confirm-btn { background-color: var(--primary-color); color: white; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.prompt-actions .cancel-btn { background-color: #555; color: white; }
+
+/* === ФУТЕР === */
+.app-footer {
+    display: flex; justify-content: space-around; align-items: center;
+    background-color: rgba(28, 28, 30, 0.85); 
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: fixed; bottom: 0; left: 0; width: 100%; z-index: 9999;
+    padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    box-sizing: border-box; height: auto;
+}
+
+.footer-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    color: #8E8E93; text-decoration: none; flex: 1; cursor: pointer; background: transparent; border: none; padding: 0; margin: 0;
+    font-size: 10px; line-height: 1; font-weight: 500; transition: all 0.2s ease;
+}
+
+.footer-item .icon-wrapper {
+    display: flex; justify-content: center; align-items: center; width: 24px; height: 24px; font-size: 22px; position: relative; transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.footer-item.active { color: #FFFFFF; }
+.footer-item.active span { font-weight: 600; }
+.footer-item.active .icon-wrapper { color: #34c759; transform: translateY(-2px); text-shadow: 0 0 12px rgba(52, 199, 89, 0.6); }
+.footer-item.active .icon-wrapper::before {
+    content: ''; position: absolute; top: -8px; width: 20px; height: 2px; background-color: #34c759; border-radius: 2px; box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
+}
+
+/* === АККОРДЕОН И СПИСКИ РУЧНЫХ КВЕСТОВ === */
+.quest-category-accordion { width: 100%; grid-column: 1 / -1; }
+.quest-category-header { cursor: pointer; font-size: 16px; font-weight: 600; padding: 12px; background-color: rgba(44, 44, 46, 0.85); border-radius: 8px; list-style: none; margin-bottom: 10px; user-select: none; -webkit-tap-highlight-color: transparent; }
+.quest-category-header::-webkit-details-marker { display: none; }
+.quest-category-header::before { content: '▶'; display: inline-block; margin-right: 8px; font-size: 12px; transition: transform 0.2s; }
+.quest-category-accordion[open] > .quest-category-header::before { transform: rotate(90deg); }
+.quest-category-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 5px; }
+
+.manual-quest-actions { margin-top: auto; display: flex; gap: 6px; align-items: center; }
+.manual-quest-actions .action-link-btn { background-color: #5856d6; padding: 5px 8px; font-size: 11px; border-radius: 5px; color: white; text-decoration: none; font-weight: 500; flex-shrink: 0; }
+.manual-quest-actions .perform-quest-button { flex-grow: 1; margin-top: 0; padding: 6px; font-size: 12px; }
+
+/* === ДОП. ЭЛЕМЕНТЫ === */
+.active-quest-indicator { position: absolute; top: 8px; right: 10px; font-size: 10px; font-weight: 600; color: var(--primary-color); background-color: rgba(52, 199, 89, 0.15); padding: 3px 7px; border-radius: 7px; }
+.twitch-update-notice { font-size: 10px; color: var(--text-color-muted); margin-top: 8px; padding: 4px; background-color: rgba(0,0,0,0.2); border-radius: 4px; }
+
+/* PULL TO REFRESH */
+#pull-to-refresh {
+    position: fixed; top: -80px; left: 0; width: 100%; height: 80px; display: flex; justify-content: center; align-items: center; z-index: 2000; background: transparent; pointer-events: none; padding: 0; will-change: transform;
+}
+#pull-to-refresh i { font-size: 24px; color: #FFD700; opacity: 1; transform: scale(1); transition: opacity 0.2s, transform 0.2s; text-shadow: 0 0 15px rgba(255, 215, 0, 0.6); }
+.no-scroll { overflow: hidden !important; touch-action: none; }
+
+/* Статус стрима */
+.stream-status-badge { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 6px; border-radius: 4px; letter-spacing: 0.5px; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+.stream-status-badge.online { background-color: #e91e63; color: white; border: 1px solid rgba(255,255,255,0.2); animation: pulse-live 2s infinite; }
+.stream-status-badge.offline { background-color: rgba(0, 0, 0, 0.4); color: #aaa; border: 1px solid rgba(255,255,255,0.1); }
+@keyframes pulse-live { 0% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0.4); } 70% { box-shadow: 0 0 0 5px rgba(233, 30, 99, 0); } 100% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0); } }
+
+/* Истекшие задания */
+.quest-card.expired .expired-overlay { display: flex; }
+.quest-card.expired .quest-content-wrapper { filter: blur(3px); opacity: 0.5; pointer-events: none; }
+.expired-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 10px; z-index: 2; background-color: rgba(0,0,0,0.5); }
+.expired-overlay-text { font-size: 16px; font-weight: bold; color: var(--danger-color); text-shadow: 0 0 8px black; margin-bottom: 10px; }
+
+/* Фиксы для модалок (ширина) */
+.prompt-modal { width: 90% !important; max-width: 350px !important; margin: 0 auto; }
+button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* Адаптация для ПК */
+@media (min-width: 768px) {
+    .main-content { padding-bottom: 150px !important; overflow-y: scroll !important; }
+    .main-content > div, .main-content > section, .user-profile { max-width: 500px !important; margin-left: auto !important; margin-right: auto !important; width: 100%; }
+}
