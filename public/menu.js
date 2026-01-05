@@ -1201,7 +1201,15 @@ function renderChallenge(challengeData, isGuest) {
         `;
     }
     
-    async function refreshDataSilently() {
+   async function refreshDataSilently() {
+    // --- ВАЖНОЕ ИСПРАВЛЕНИЕ ---
+    // Если Telegram не инициализирован или нет initData (например, открыто в браузере),
+    // мы НЕ делаем запрос, чтобы сервер не ругался на "initData is EMPTY".
+    if (!window.Telegram || !Telegram.WebApp || !Telegram.WebApp.initData) {
+        return; 
+    }
+    // ---------------------------
+
     try {
         // Запрашиваем расширенный heartbeat
         const hbData = await makeApiRequest("/api/v1/user/heartbeat", {}, 'POST', true);
@@ -1212,7 +1220,9 @@ function renderChallenge(challengeData, isGuest) {
 
             // 2. Обновляем баланс в интерфейсе и в памяти
             if (hbData.tickets !== undefined) {
-                userData.tickets = hbData.tickets; // Обновляем память
+                if (typeof userData !== 'undefined') {
+                    userData.tickets = hbData.tickets; // Обновляем память
+                }
                 const ticketEl = document.getElementById('ticketStats');
                 if (ticketEl) ticketEl.textContent = hbData.tickets;
             }
@@ -1220,12 +1230,14 @@ function renderChallenge(challengeData, isGuest) {
             // 3. Обновляем прогресс АВТОМАТИЧЕСКОГО КВЕСТА
             if (hbData.quest_id) {
                 // Обновляем глобальную переменную
-                userData.active_quest_id = hbData.quest_id;
-                userData.active_quest_progress = hbData.quest_progress;
+                if (typeof userData !== 'undefined') {
+                    userData.active_quest_id = hbData.quest_id;
+                    userData.active_quest_progress = hbData.quest_progress;
+                }
 
                 // Находим квест в базе, чтобы точно знать цель (target)
                 // Проверка на существование allQuests
-                if (typeof allQuests !== 'undefined') {
+                if (typeof allQuests !== 'undefined' && Array.isArray(allQuests)) {
                     const activeQuest = allQuests.find(q => q.id === hbData.quest_id);
                     
                     if (activeQuest) {
@@ -1255,7 +1267,7 @@ function renderChallenge(challengeData, isGuest) {
                                 // Если квест выполнен, но кнопки нет -> обновляем UI
                                 if (progress >= target && !claimBtn) {
                                     console.log("Квест выполнен в фоне! Обновляем UI...");
-                                    if (typeof renderActiveAutomaticQuest === 'function') {
+                                    if (typeof renderActiveAutomaticQuest === 'function' && typeof userData !== 'undefined') {
                                         renderActiveAutomaticQuest(activeQuest, userData);
                                     }
                                 }
@@ -1268,9 +1280,11 @@ function renderChallenge(challengeData, isGuest) {
             // 4. Обновляем прогресс ЧЕЛЛЕНДЖА
             if (hbData.has_active_challenge) {
                 // Обновляем память (если объект challenge существует)
-                if (!userData.challenge) userData.challenge = {};
-                userData.challenge.progress_value = hbData.challenge_progress;
-                userData.challenge.target_value = hbData.challenge_target;
+                if (typeof userData !== 'undefined') {
+                    if (!userData.challenge) userData.challenge = {};
+                    userData.challenge.progress_value = hbData.challenge_progress;
+                    userData.challenge.target_value = hbData.challenge_target;
+                }
 
                 const challengeContainer = document.getElementById('challenge-container');
                 if (challengeContainer) {
@@ -1296,7 +1310,7 @@ function renderChallenge(challengeData, isGuest) {
 
                         if (progress >= target && (!claimBtn || claimBtn.disabled)) {
                             console.log("Челлендж выполнен в фоне! Перерисовываем...");
-                            if (typeof renderChallenge === 'function') {
+                            if (typeof renderChallenge === 'function' && typeof userData !== 'undefined') {
                                 renderChallenge(userData.challenge, false);
                             }
                         }
@@ -1305,18 +1319,18 @@ function renderChallenge(challengeData, isGuest) {
             }
 
             // 5. Обновляем ярлыки на ГЛАВНОЙ странице
-            if (typeof updateShortcutStatuses === 'function') {
+            if (typeof updateShortcutStatuses === 'function' && typeof userData !== 'undefined') {
                 updateShortcutStatuses(userData, typeof allQuests !== 'undefined' ? allQuests : []);
             }
 
             // 6. 🔥 ВАЖНО: Обновляем статус кнопки МАГАЗИНА (Trade-It) 🔥
-            // Используем функцию updateShopTile, которую мы добавили ранее
             if (hbData.active_trade_status !== undefined && typeof updateShopTile === 'function') {
                 updateShopTile(hbData.active_trade_status);
             }
         }
     } catch (e) {
-        console.error("Ошибка фонового обновления:", e);
+        // Ошибку логируем тихо, чтобы не пугать юзера, так как это фоновый процесс
+        console.warn("Ошибка фонового обновления (не критично):", e);
     }
 }
 // --- ФУНКЦИЯ: ОБНОВЛЕНИЕ ВИДА КНОПКИ МАГАЗИНА (TRADE-IT ЭТАПЫ) ---
