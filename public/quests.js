@@ -391,16 +391,31 @@ try {
     }
 
     // --- РЕНДЕРИНГ РУЧНЫХ ЗАДАНИЙ ---
-    function renderManualQuests(quests) {
+    function renderManualQuests(questsData) {
         const container = document.getElementById('manual-quests-list');
         if (!container) return;
         container.innerHTML = ''; 
 
+        // 1. Нормализация данных: превращаем всё в массив
+        let quests = [];
+        if (Array.isArray(questsData)) {
+            // Если пришел сразу массив [ ... ]
+            quests = questsData;
+        } else if (questsData && Array.isArray(questsData.quests)) {
+            // Если пришел объект { quests: [ ... ] }
+            quests = questsData.quests;
+        } else if (questsData && Array.isArray(questsData.data)) {
+            // Если пришел объект { data: [ ... ] }
+            quests = questsData.data;
+        }
+
+        // 2. Проверка: если пусто или не массив
         if (!quests || quests.length === 0) {
             container.innerHTML = `<p style="text-align: center; font-size: 12px; color: var(--text-color-muted);">Нет заданий для ручной проверки.</p>`;
             return;
         }
 
+        // 3. Группировка и рендер
         const groupedQuests = new Map();
         quests.forEach(quest => {
             const categoryName = quest.quest_categories ? quest.quest_categories.name : 'Разное';
@@ -433,7 +448,7 @@ try {
             }).join('');
 
             const accordionHtml = `
-                <details class="quest-category-accordion">
+                <details class="quest-category-accordion" open>
                     <summary class="quest-category-header">${escapeHTML(categoryName)}</summary>
                     <div class="quest-category-body">
                         ${questsHtml}
