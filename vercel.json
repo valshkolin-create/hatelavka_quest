@@ -13,6 +13,7 @@
   "routes": [
     { "src": "/public/(.*)", "dest": "/public/$1" },
     { "src": "/menu", "dest": "/public/menu.html" },
+    { "src": "/quests", "dest": "/public/quests.html" },
     { "src": "/leaderboard", "dest": "/public/leaderboard.html" },
     { "src": "/profile", "dest": "/public/profile.html" },
     { "src": "/admin", "dest": "/public/admin.html" },
