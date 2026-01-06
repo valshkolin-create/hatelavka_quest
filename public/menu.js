@@ -3438,7 +3438,33 @@ function initPullToRefresh() {
     setupEventListeners();
     main();
     initPullToRefresh(); // <--- ДОБАВИТЬ ВОТ ЭТУ СТРОЧКУ
-    setInterval(refreshDataSilently, 7000);
+    // --- ЗАМЕНИТЕ СТРОКУ setInterval(refreshDataSilently, 7000); НА ЭТО: ---
+
+let heartbeatInterval = null;
+
+function startHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    // Запускаем обновление раз в 30 секунд (30000 мс)
+    heartbeatInterval = setInterval(() => {
+        // Если вкладка активна — шлем запрос
+        if (!document.hidden) {
+            refreshDataSilently();
+        }
+    }, 30000); 
+}
+
+// Запускаем таймер
+startHeartbeat();
+
+// Если пользователь свернул/развернул приложение — сразу обновляем данные
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        refreshDataSilently(); // Мгновенное обновление при возвращении
+        startHeartbeat();      // Перезапуск таймера
+    } else {
+        clearInterval(heartbeatInterval); // Останавливаем таймер, когда свернуто
+    }
+});
 
 } catch (e) {
     // --- БЛОК ОБРАБОТКИ ОШИБОК (Этого не хватало) ---
