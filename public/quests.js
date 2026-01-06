@@ -793,29 +793,38 @@ try {
         }
     }
 
-    function initUnifiedSwitcher() {
-        const radios = document.querySelectorAll('input[name="view"]');
+    // 1. Логика переключения режимов (Испытания / Задания)
+    function initModeSwitcher() {
+        const radios = document.querySelectorAll('input[name="mode"]');
         
         radios.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if (e.target.checked) {
-                    const view = e.target.value;
+                    const mode = e.target.value;
                     
-                    // Скрываем/показываем секции
-                    if (view === 'manual') {
-                        // Вкладка "Задания"
+                    if (mode === 'manual') {
+                        // Показываем Ручные, Скрываем Авто
                         dom.sectionAuto.classList.add('hidden');
                         dom.sectionManual.classList.remove('hidden');
-                        // Тему можно не менять, оставляем ту, что была (или ставим нейтральную, если нужно)
                     } else {
-                        // Вкладка "Twitch" или "Telegram"
+                        // Показываем Авто, Скрываем Ручные
                         dom.sectionAuto.classList.remove('hidden');
                         dom.sectionManual.classList.add('hidden');
-                        
-                        // Меняем тему и фильтруем квесты
-                        setPlatformTheme(view);
                     }
                     
+                    try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
+                }
+            });
+        });
+    }
+
+    // 2. Логика переключения платформы (Twitch / Telegram)
+    function initPlatformSwitcher() {
+        const radios = document.querySelectorAll('input[name="platform"]');
+        radios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    setPlatformTheme(e.target.value);
                     try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
                 }
             });
@@ -865,22 +874,22 @@ try {
                     // -----------------------------------------
                 }
 
-                // --- НОВАЯ ЛОГИКА СТАРТА (ЕДИНЫЙ ТУМБЛЕР) ---
-                
-                // 1. Запускаем единый слушатель
-                initUnifiedSwitcher(); 
+                // 1. Включаем слушатели обоих тумблеров
+                initPlatformSwitcher();
+                initModeSwitcher();
 
-                // 2. Определяем, что открыть по умолчанию
-                // Если стрим идет -> Twitch, если нет -> Telegram. 
-                // "Manual" по умолчанию не открываем, только если явно захотят.
-                let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
+                // 2. Ставим платформу (Twitch/Telegram)
+                let defaultPlatform = userData.is_stream_online ? 'twitch' : 'telegram';
+                const switchEl = document.getElementById(`switch-${defaultPlatform}`);
+                if (switchEl) switchEl.checked = true;
+                setPlatformTheme(defaultPlatform);
 
-                // 3. Активируем нужную кнопку
-                const switchEl = document.getElementById(`view-${defaultView}`);
-                if (switchEl) {
-                    switchEl.checked = true;
-                    // Принудительно вызываем смену темы, так как событие 'change' программно не всегда срабатывает
-                    setPlatformTheme(defaultView);
+                // 3. Ставим режим по умолчанию (Испытания)
+                // Если вдруг захочешь запоминать выбор пользователя, можно читать из localStorage
+                const autoSwitch = document.getElementById('switch-auto');
+                if (autoSwitch) {
+                    autoSwitch.checked = true;
+                    // Принудительно показываем авто
                     dom.sectionAuto.classList.remove('hidden');
                     dom.sectionManual.classList.add('hidden');
                 }
