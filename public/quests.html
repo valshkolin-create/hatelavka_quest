@@ -89,9 +89,74 @@
         </div>
 
     </div>
+    
     <div id="section-auto-quests" style="grid-column: 1 / -1; width: 100%;">
         <div id="challenge-container" style="width: 100%; margin-bottom: 0;"></div>
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; width: 100%;">
+        
+        <div id="telegram-static-quests" class="hidden" style="width: 100%; margin-top: 10px;">
+            <div class="quest-list">
+                <div class="quest-card" id="tg-item-sub">
+                    <div class="quest-content-wrapper">
+                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-user-plus"></i></div>
+                        <h2 class="quest-title">Подписка на канал</h2>
+                        <p class="quest-subtitle">Подпишись на наш официальный канал.</p>
+                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 5 🎟</div>
+                    </div>
+                    <button class="claim-reward-button" id="btn-tg-sub" onclick="updateTelegramStatus()" style="margin-top: 10px;">Проверить</button>
+                </div>
+
+                <div class="quest-card" id="tg-item-vote">
+                    <div class="quest-content-wrapper">
+                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-square-poll-vertical"></i></div>
+                        <h2 class="quest-title">Голосование</h2>
+                        <p class="quest-subtitle">Голосуй за канал (раз в 30 дней).</p>
+                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 10 🎟</div>
+                        <div class="quest-progress-text hidden" id="tg-vote-timer" style="color: #888; font-size: 12px; margin-top: 4px;"></div>
+                    </div>
+                    <button class="claim-reward-button" id="btn-tg-vote" onclick="doTelegramVote()" style="margin-top: 10px;">Голос</button>
+                </div>
+
+                <div class="quest-card" id="tg-item-surname">
+                    <div class="quest-content-wrapper">
+                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-signature"></i></div>
+                        <h2 class="quest-title">Тег в фамилии</h2>
+                        <p class="quest-subtitle">Добавь тег бота в свою фамилию.</p>
+                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 15 🎟</div>
+                    </div>
+                    <button class="claim-reward-button" id="btn-tg-surname" onclick="checkTelegramProfile()" style="margin-top: 10px;">Проверить</button>
+                </div>
+
+                <div class="quest-card" id="tg-item-bio">
+                    <div class="quest-content-wrapper">
+                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-link"></i></div>
+                        <h2 class="quest-title">Ссылка в профиле</h2>
+                        <p class="quest-subtitle">Поставь нашу ссылку в описание (Bio).</p>
+                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 20 🎟</div>
+                    </div>
+                    <button class="claim-reward-button" id="btn-tg-bio" onclick="checkTelegramProfile()" style="margin-top: 10px;">Проверить</button>
+                </div>
+
+                <div class="quest-card" id="tg-item-reaction">
+                    <div class="quest-content-wrapper">
+                        <div class="quest-icon" style="background: rgba(255, 204, 0, 0.2); color: #ffcc00;"><i class="fa-regular fa-face-smile"></i></div>
+                        <h2 class="quest-title">Реакции на посты</h2>
+                        <p class="quest-subtitle">Ставь реакции на посты в канале.</p>
+                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 1 🎟 / шт</div>
+                        
+                        <div class="progress-bar" style="margin-top: 10px;">
+                            <div class="progress-fill" id="tg-reaction-fill" style="width: 0%; background: #ffcc00;"></div>
+                            <div class="progress-content">
+                                <span class="progress-text" id="tg-reaction-count">0/7 в неделю</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="claim-reward-button completed" style="margin-top: 10px; opacity: 0.7; cursor: default;">Автоматически</button>
+                </div>
+            </div>
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0; width: 100%;">
+        
         <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="width: 100%; margin: 0;">
             НАЧАТЬ ИСПЫТАНИЕ
         </button>
