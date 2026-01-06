@@ -252,10 +252,8 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     gap: 8px;
 }
 
-/* Скрываем сами радио-кнопки */
 .complex-switch-wrapper input { display: none; }
 
-/* Общий стиль для ряда */
 .switch-row {
     position: relative;
     display: flex;
@@ -265,8 +263,6 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     border-radius: 10px;
     padding: 3px;
     box-sizing: border-box;
-    /* Скрываем все, что вылетает за пределы при анимации */
-    overflow: hidden; 
 }
 
 .switch-label {
@@ -277,7 +273,7 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     justify-content: center;
     font-size: 11px;
     font-weight: 700;
-    color: #8e8e93; /* Серый цвет неактивных */
+    color: #8e8e93; 
     cursor: pointer;
     transition: color 0.3s ease;
     gap: 6px;
@@ -285,45 +281,33 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
-.switch-label i { font-size: 14px; transition: transform 0.2s ease, color 0.3s ease; }
+.switch-label i { font-size: 14px; transition: transform 0.2s ease; }
 
 /* === СЛАЙДЕРЫ (ФОН) === */
 .slider-bg {
     position: absolute;
     top: 3px;
     bottom: 3px;
-    background: #fff;
+    background: #fff; /* Белый фон у всех слайдеров */
     border-radius: 8px;
     z-index: 1;
-    /* Используем более пружинистую анимацию */
-    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 3px 8px rgba(0,0,0,0.12);
     opacity: 0; 
+    transform: scale(0.95); /* Чуть меньше, когда скрыт */
     pointer-events: none;
 }
 
-/* Верхний слайдер */
-.slider-top {
-    left: 3px;
-    width: calc(50% - 3px);
-    /* Начальная позиция для анимации */
-    transform: translateX(0) scale(0.95); 
-}
+/* Верхний слайдер (50%) */
+.slider-top { left: 3px; width: calc(50% - 3px); }
 
-/* НИЖНИЙ СЛАЙДЕР (Новая анимация) */
-.slider-bottom {
-    left: 3px;
-    width: calc(100% - 6px);
-    /* Стартовая позиция: чуть ниже и меньше */
-    transform: translateY(100%) scale(0.9);
-    /* Зеленый фон */
-    background-color: #27ae60; 
-}
+/* Нижний слайдер (100%) */
+.slider-bottom { left: 3px; width: calc(100% - 6px); }
 
 
 /* === ЛОГИКА АКТИВАЦИИ === */
 
-/* 1. Если выбран TWITCH */
+/* 1. TWITCH */
 #view-twitch:checked ~ .switch-row-top .slider-top {
     opacity: 1;
     transform: translateX(0%) scale(1);
@@ -332,7 +316,7 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     color: var(--twitch-color, #9146ff);
 }
 
-/* 2. Если выбран TELEGRAM */
+/* 2. TELEGRAM */
 #view-telegram:checked ~ .switch-row-top .slider-top {
     opacity: 1;
     transform: translateX(100%) scale(1);
@@ -341,58 +325,51 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     color: var(--telegram-color, #24a1de);
 }
 
-/* 3. Если выбран MANUAL (ЗАДАНИЯ) - ЗЕЛЕНАЯ КНОПКА */
+/* 3. ЗАДАНИЯ (Зеленый стиль) */
 #view-manual:checked ~ .switch-row-bottom .slider-bottom {
     opacity: 1;
-    /* Конечное положение: на месте и полного размера */
-    transform: translateY(0%) scale(1);
+    transform: scale(1);
 }
-
-/* Текст и иконка становятся белыми на зеленом фоне */
+/* Текст становится зеленым (как у остальных цветным) */
 #view-manual:checked ~ .switch-row-bottom label[for="view-manual"] {
-    color: #ffffff !important; 
+    color: #34c759; 
 }
+/* Иконка увеличивается */
 #view-manual:checked ~ .switch-row-bottom label[for="view-manual"] i {
-    color: #ffffff !important;
     transform: scale(1.15);
 }
 
-/* Эффект увеличения иконки при выборе верхнего ряда */
+/* Эффект увеличения иконок для верхнего ряда */
 #view-twitch:checked ~ .switch-row-top label[for="view-twitch"] i,
 #view-telegram:checked ~ .switch-row-top label[for="view-telegram"] i {
     transform: scale(1.15);
 }
 
-/* === ДИНАМИЧЕСКИЕ ТЕМЫ (Twitch / Telegram) === */
 
-/* --- TWITCH THEME --- */
+/* === ТЕМЫ СТРАНИЦЫ (ФОН И ЭЛЕМЕНТЫ) === */
+
+/* Twitch Theme */
 body[data-theme="twitch"] {
     --primary-color: #9146ff;
     --primary-gradient: linear-gradient(90deg, #9146ff, #772ce8);
-    /* Фиолетовый градиент на фон */
     --bg-gradient: radial-gradient(ellipse at 50% 100%, #1a0b2e, #000000);
-    /* Фиолетовый фон билетов */
     --tickets-bg: rgba(145, 70, 255, 0.15);
 }
-body[data-theme="twitch"] .claim-reward-button {
-    background: linear-gradient(90deg, #a97cff, #9146ff);
-    color: #fff;
-    box-shadow: 0 0 12px rgba(145, 70, 255, 0.5);
-}
 
-/* --- TELEGRAM THEME --- */
+/* Telegram Theme */
 body[data-theme="telegram"] {
     --primary-color: #24a1de;
     --primary-gradient: linear-gradient(90deg, #2AABEE, #229ED9);
-    /* Синий градиент на фон */
     --bg-gradient: radial-gradient(ellipse at 50% 100%, #0b1a2e, #000000);
-    /* Синий фон билетов */
     --tickets-bg: rgba(36, 161, 222, 0.15);
 }
-body[data-theme="telegram"] .claim-reward-button {
-    background: linear-gradient(90deg, #24a1de, #0088cc);
-    color: #fff;
-    box-shadow: 0 0 12px rgba(36, 161, 222, 0.5);
+
+/* Manual Theme (Зеленая - Классика) */
+body[data-theme="manual"] {
+    --primary-color: #34c759;
+    --primary-gradient: linear-gradient(90deg, #34c759, #2dbf55);
+    --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+    --tickets-bg: rgba(52, 199, 89, 0.15);
 }
 
 .quest-choose-btn-roulette {
