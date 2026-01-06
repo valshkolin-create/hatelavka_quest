@@ -1040,7 +1040,7 @@ try {
     setupEventListeners();
     initPullToRefresh();
     main();
-    setInterval(refreshDataSilently, 7000);
+    setInterval(refreshDataSilently, 30000);
 
 } catch (e) {
     console.error("Critical Error:", e);
