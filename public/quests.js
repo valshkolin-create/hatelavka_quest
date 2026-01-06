@@ -801,11 +801,15 @@ try {
                 if (e.target.checked) {
                     const view = e.target.value;
                     
+                    // Убедимся, что элементы существуют, прежде чем менять классы
+                    if (!dom.sectionAuto || !dom.sectionManual) return;
+
                     if (view === 'manual') {
                         // Показываем "Задания", Скрываем "Авто"
                         dom.sectionAuto.classList.add('hidden');
                         dom.sectionManual.classList.remove('hidden');
-                        // Тему можно не менять (останется последняя), или сбросить
+                        
+                        // Можно сбросить тему на нейтральную или оставить как есть
                     } else {
                         // Показываем "Авто" (Twitch/Tg), Скрываем "Задания"
                         dom.sectionAuto.classList.remove('hidden');
