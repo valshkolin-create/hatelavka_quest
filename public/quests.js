@@ -793,38 +793,28 @@ try {
         }
     }
 
-    // 1. Логика переключения режимов (Испытания / Задания)
-    function initModeSwitcher() {
-        const radios = document.querySelectorAll('input[name="mode"]');
+    function initUnifiedSwitcher() {
+        const radios = document.querySelectorAll('input[name="view"]');
         
         radios.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if (e.target.checked) {
-                    const mode = e.target.value;
+                    const view = e.target.value;
                     
-                    if (mode === 'manual') {
-                        // Показываем Ручные, Скрываем Авто
+                    if (view === 'manual') {
+                        // Показываем "Задания", Скрываем "Авто"
                         dom.sectionAuto.classList.add('hidden');
                         dom.sectionManual.classList.remove('hidden');
+                        // Тему можно не менять (останется последняя), или сбросить
                     } else {
-                        // Показываем Авто, Скрываем Ручные
+                        // Показываем "Авто" (Twitch/Tg), Скрываем "Задания"
                         dom.sectionAuto.classList.remove('hidden');
                         dom.sectionManual.classList.add('hidden');
+                        
+                        // Меняем тему (цвета кнопок, фона)
+                        setPlatformTheme(view);
                     }
                     
-                    try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
-                }
-            });
-        });
-    }
-
-    // 2. Логика переключения платформы (Twitch / Telegram)
-    function initPlatformSwitcher() {
-        const radios = document.querySelectorAll('input[name="platform"]');
-        radios.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    setPlatformTheme(e.target.value);
                     try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
                 }
             });
@@ -874,27 +864,21 @@ try {
                     // -----------------------------------------
                 }
 
-                // 1. Включаем слушатели обоих тумблеров
-                initPlatformSwitcher();
-                initModeSwitcher();
+               // --- ЛОГИКА СТАРТА ---
+                initUnifiedSwitcher(); 
 
-                // 2. Ставим платформу (Twitch/Telegram)
-                let defaultPlatform = userData.is_stream_online ? 'twitch' : 'telegram';
-                const switchEl = document.getElementById(`switch-${defaultPlatform}`);
-                if (switchEl) switchEl.checked = true;
-                setPlatformTheme(defaultPlatform);
-
-                // 3. Ставим режим по умолчанию (Испытания)
-                // Если вдруг захочешь запоминать выбор пользователя, можно читать из localStorage
-                const autoSwitch = document.getElementById('switch-auto');
-                if (autoSwitch) {
-                    autoSwitch.checked = true;
-                    // Принудительно показываем авто
+                // Определяем дефолт
+                let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
+                
+                // Программно "нажимаем" кнопку
+                const switchEl = document.getElementById(`view-${defaultView}`);
+                if (switchEl) {
+                    switchEl.checked = true;
+                    setPlatformTheme(defaultView);
                     dom.sectionAuto.classList.remove('hidden');
                     dom.sectionManual.classList.add('hidden');
                 }
-
-                
+    
                 // Челлендж (Рендерим данные, но видимость теперь управляется setPlatformTheme)
                 if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
                 else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
