@@ -793,37 +793,30 @@ try {
         }
     }
 
-    function initModeSwitcher() {
-    const radios = document.querySelectorAll('input[name="mode"]');
-
-    radios.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                const mode = e.target.value;
-
-                if (mode === 'auto') {
-                    // Показываем авто, скрываем ручные
-                    dom.sectionAuto.classList.remove('hidden');
-                    dom.sectionManual.classList.add('hidden');
-                } else {
-                    // Показываем ручные, скрываем авто
-                    dom.sectionAuto.classList.add('hidden');
-                    dom.sectionManual.classList.remove('hidden');
-                }
-
-                // Вибрация при переключении
-                try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
-            }
-        });
-    });
-}
-
-    function initPlatformSwitcher() {
-        const radios = document.querySelectorAll('input[name="platform"]');
+    function initUnifiedSwitcher() {
+        const radios = document.querySelectorAll('input[name="view"]');
+        
         radios.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if (e.target.checked) {
-                    setPlatformTheme(e.target.value);
+                    const view = e.target.value;
+                    
+                    // Скрываем/показываем секции
+                    if (view === 'manual') {
+                        // Вкладка "Задания"
+                        dom.sectionAuto.classList.add('hidden');
+                        dom.sectionManual.classList.remove('hidden');
+                        // Тему можно не менять, оставляем ту, что была (или ставим нейтральную, если нужно)
+                    } else {
+                        // Вкладка "Twitch" или "Telegram"
+                        dom.sectionAuto.classList.remove('hidden');
+                        dom.sectionManual.classList.add('hidden');
+                        
+                        // Меняем тему и фильтруем квесты
+                        setPlatformTheme(view);
+                    }
+                    
+                    try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
                 }
             });
         });
@@ -872,20 +865,25 @@ try {
                     // -----------------------------------------
                 }
 
-                // --- НОВАЯ ЛОГИКА СТАРТА ---
-                // 1. Запускаем слушатели переключателя
-                initPlatformSwitcher();
-                initModeSwitcher();     // <--- ВСТАВИТЬ СЮДА (Слушатель Испытания/Задания)
+                // --- НОВАЯ ЛОГИКА СТАРТА (ЕДИНЫЙ ТУМБЛЕР) ---
+                
+                // 1. Запускаем единый слушатель
+                initUnifiedSwitcher(); 
 
-                // 2. Определяем, какую вкладку открыть первой
-                // ЛОГИКА: Если стрим идет -> Twitch, если нет -> Telegram
-                let defaultPlatform = userData.is_stream_online ? 'twitch' : 'telegram';
+                // 2. Определяем, что открыть по умолчанию
+                // Если стрим идет -> Twitch, если нет -> Telegram. 
+                // "Manual" по умолчанию не открываем, только если явно захотят.
+                let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
 
-                // 3. Применяем выбор (ставим галочку в HTML и запускаем функцию темы)
-                const switchEl = document.getElementById(`switch-${defaultPlatform}`);
-                if (switchEl) switchEl.checked = true;
-                setPlatformTheme(defaultPlatform);
-                // -----------------------------
+                // 3. Активируем нужную кнопку
+                const switchEl = document.getElementById(`view-${defaultView}`);
+                if (switchEl) {
+                    switchEl.checked = true;
+                    // Принудительно вызываем смену темы, так как событие 'change' программно не всегда срабатывает
+                    setPlatformTheme(defaultView);
+                    dom.sectionAuto.classList.remove('hidden');
+                    dom.sectionManual.classList.add('hidden');
+                }
 
                 
                 // Челлендж (Рендерим данные, но видимость теперь управляется setPlatformTheme)
