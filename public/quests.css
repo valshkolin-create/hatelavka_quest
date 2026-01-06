@@ -242,21 +242,30 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
 }
 
 
-/* === ТУМБЛЕР ПЕРЕКЛЮЧЕНИЯ (2 РЯДА) === */
-.platform-switch {
-    position: relative;
-    display: flex;
-    background: rgba(118, 118, 128, 0.12); 
-    border-radius: 32px;
-    padding: 2px;
+/* === СЛОЖНЫЙ ПЕРЕКЛЮЧАТЕЛЬ (3 КНОПКИ - 2 РЯДА) === */
+.complex-switch-wrapper {
     width: 100%;
-    max-width: 280px; /* Ограничиваем ширину, чтобы было красиво */
-    height: 36px;     /* Чуть выше для удобства нажатия */
-    box-sizing: border-box;
-    border: 0.5px solid rgba(255,255,255,0.05);
+    max-width: 300px; /* Чуть шире, чтобы влезли названия */
+    margin: 0 auto 20px auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Отступ между рядами */
 }
 
-.platform-switch input { display: none; }
+/* Скрываем радио-кнопки */
+.complex-switch-wrapper input { display: none; }
+
+/* Общий стиль для рядов */
+.switch-row {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 36px;
+    background: rgba(118, 118, 128, 0.12);
+    border-radius: 10px; /* Скругленные углы */
+    padding: 2px;
+    box-sizing: border-box;
+}
 
 .switch-label {
     flex: 1;
@@ -266,52 +275,80 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     justify-content: center;
     font-size: 11px;
     font-weight: 700;
-    color: #8e8e93; 
+    color: #8e8e93; /* Серый цвет неактивных */
     cursor: pointer;
     transition: color 0.3s ease;
     gap: 6px;
+    text-transform: uppercase;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
-.switch-label i { font-size: 14px; transition: transform 0.2s ease; }
+.switch-label i { font-size: 13px; transition: transform 0.2s ease; }
 
-/* СЛАЙДЕР (Бегунок) */
-.switch-slider {
+/* === СЛАЙДЕРЫ (ФОН) === */
+.slider-bg {
     position: absolute;
     top: 2px;
     bottom: 2px;
-    left: 2px;
-    width: calc(50% - 2px); /* Ровно половина минус отступы */
     background: #fff;
-    border-radius: 30px;
+    border-radius: 8px;
     z-index: 1;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 3px 1px rgba(0,0,0,0.06);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    opacity: 0; /* По умолчанию скрыты */
 }
 
-/* === ЛОГИКА ПЕРВОГО ТУМБЛЕРА (Twitch/Telegram) === */
-#switch-twitch:checked ~ .switch-slider { transform: translateX(0%); }
-#switch-telegram:checked ~ .switch-slider { transform: translateX(100%); }
+/* Верхний слайдер - ширина 50% */
+.slider-top {
+    left: 2px;
+    width: calc(50% - 2px);
+}
 
-#switch-twitch:checked + label { color: var(--twitch-color, #9146ff); }
-#switch-telegram:checked + label { color: var(--telegram-color, #24a1de); }
+/* Нижний слайдер - ширина 100% */
+.slider-bottom {
+    left: 2px;
+    width: calc(100% - 4px);
+}
 
-/* === ЛОГИКА ВТОРОГО ТУМБЛЕРА (Auto/Manual) === */
-#switch-auto:checked ~ .switch-slider { transform: translateX(0%); }
-#switch-manual:checked ~ .switch-slider { transform: translateX(100%); }
 
-/* Для нижнего тумблера делаем цвет текста черным или темным, так как фон слайдера белый */
-#switch-auto:checked + label { color: #000; }
-#switch-manual:checked + label { color: #000; }
+/* === ЛОГИКА АКТИВАЦИИ === */
 
-/* Подсветка иконок в нижнем ряду */
-#switch-auto:checked + label i { color: #ff3b30; } /* Красная кость или цвет темы */
-#switch-manual:checked + label i { color: #ffcc00; } /* Золотая галочка */
+/* 1. Если выбран TWITCH */
+#view-twitch:checked ~ .switch-row-top .slider-top {
+    opacity: 1;
+    transform: translateX(0%);
+}
+#view-twitch:checked ~ .switch-row-top label[for="view-twitch"] {
+    color: var(--twitch-color, #9146ff);
+}
 
-/* Анимация нажатия */
-input:checked + label i { transform: scale(1.2); }
+/* 2. Если выбран TELEGRAM */
+#view-telegram:checked ~ .switch-row-top .slider-top {
+    opacity: 1;
+    transform: translateX(100%);
+}
+#view-telegram:checked ~ .switch-row-top label[for="view-telegram"] {
+    color: var(--telegram-color, #24a1de);
+}
+
+/* 3. Если выбран MANUAL (ЗАДАНИЯ) */
+#view-manual:checked ~ .switch-row-bottom .slider-bottom {
+    opacity: 1;
+}
+#view-manual:checked ~ .switch-row-bottom label[for="view-manual"] {
+    color: #000; /* Черный текст на белом фоне */
+}
+#view-manual:checked ~ .switch-row-bottom label[for="view-manual"] i {
+    color: #ffcc00; /* Золотая иконка */
+    transform: scale(1.1);
+}
+
+/* Анимация иконок при выборе в верхнем ряду */
+#view-twitch:checked ~ .switch-row-top label[for="view-twitch"] i,
+#view-telegram:checked ~ .switch-row-top label[for="view-telegram"] i {
+    transform: scale(1.15);
+}
+
 /* === ДИНАМИЧЕСКИЕ ТЕМЫ (Twitch / Telegram) === */
 
 /* --- TWITCH THEME --- */
