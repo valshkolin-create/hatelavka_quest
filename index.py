@@ -153,14 +153,6 @@ class EventParticipantsRequest(BaseModel):
     initData: str
     event_id: int
 
-class TelegramQuestResponse(BaseModel):
-    subscribed: bool
-    vote_available: bool
-    surname_ok: bool
-    bio_ok: bool
-    reactions_count: int
-    reactions_target: int = TG_REACTION_WEEKLY_LIMIT
-
 # --- Pydantic модели для Админки Аукциона ---
 class AuctionCreateRequest(BaseModel):
     initData: str
@@ -844,12 +836,6 @@ TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
 SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_that_should_be_changed") # Добавь эту переменную в Vercel для безопасности
 WIZEBOT_API_KEY = os.getenv("WIZEBOT_API_KEY")
 
-# 1. Читаем настройки в твоем стиле (данные берем из Vercel)
-TG_QUEST_CHANNEL_ID = int(os.getenv("TG_QUEST_CHANNEL_ID", "0")) 
-TG_QUEST_SURNAME = os.getenv("TG_QUEST_SURNAME", "BotName")           
-TG_QUEST_BIO_LINK = os.getenv("TG_QUEST_BIO_LINK", "t.me/MyBotLink")      
-TG_REACTION_WEEKLY_LIMIT = 7  # Жесткий лимит, как ты просил
-
 # --- Paths ---
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "public"
@@ -1104,6 +1090,7 @@ async def try_send_message(chat_id: int, text: str):
             await bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
     except Exception as e:
         print(f"Ошибка отправки уведомления {chat_id}: {e}")
+        
 
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message):
@@ -1260,6 +1247,24 @@ async def get_grind_settings_async_global() -> GrindSettings:
         grind_settings_cache["settings"] = None
         grind_settings_cache["last_checked"] = 0
         return GrindSettings()
+
+
+async def get_ticket_reward_amount_global(action_type: str) -> int:
+    """(Глобальная) Получает количество билетов для награды из таблицы reward_rules."""
+    try:
+        # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ 'supabase'
+        resp = supabase.table("reward_rules").select("ticket_amount").eq("action_type", action_type).limit(1).execute()
+        
+        data = resp.data # Используем .data
+        if data and 'ticket_amount' in data[0]:
+            return data[0]['ticket_amount']
+        
+        logging.warning(f"(Global) Правило награды для '{action_type}' не найдено в таблице reward_rules. Используется значение по умолчанию: 1.")
+        return 1
+        
+    except Exception as e:
+        logging.error(f"(Global) Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
+        return 1
 
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
@@ -2540,8 +2545,6 @@ async def make_auction_bid(
         raise HTTPException(status_code=400, detail=error_details)
 
 # --- P2P SYSTEM ---
-
-
 
 # 1. Получение списка кейсов и цен (Для магазина и Админки)
 @app.get("/api/v1/p2p/cases")
@@ -11757,6 +11760,272 @@ async def get_advent_pending_list(req: InitDataRequest, supabase: httpx.AsyncCli
             "created_at": item['created_at']
         })
     return formatted
+
+# ==========================================================
+#        МОДУЛЬ TELEGRAM ИСПЫТАНИЙ (FULL FIXED)
+# ==========================================================
+
+# 1. Читаем настройки из Vercel (или берем по умолчанию)
+TG_QUEST_CHANNEL_ID = int(os.getenv("TG_QUEST_CHANNEL_ID", "0")) 
+TG_QUEST_SURNAME = os.getenv("TG_QUEST_SURNAME", "BotName")           
+TG_QUEST_BIO_LINK = os.getenv("TG_QUEST_BIO_LINK", "t.me/MyBotLink")      
+TG_REACTION_WEEKLY_LIMIT = 7  # Лимит реакций
+
+# 2. Вспомогательная функция для парсинга initData
+async def get_user_id_from_init_data(init_data: str) -> Optional[int]:
+    try:
+        if not init_data: return None
+        parsed_data = dict(parse_qsl(init_data))
+        if "user" not in parsed_data: return None
+        return json.loads(parsed_data["user"]).get("id")
+    except Exception:
+        return None
+
+# 3. Модель ответа
+class TelegramQuestResponse(BaseModel):
+    subscribed: bool
+    vote_available: bool
+    surname_ok: bool
+    bio_ok: bool
+    reactions_count: int
+    reactions_target: int = TG_REACTION_WEEKLY_LIMIT
+
+# --- ЭНДПОИНТЫ API ---
+
+@app.post("/api/v1/telegram/status")
+async def get_telegram_status(
+    request: Request,
+    # Используем Depends, если get_supabase_client определен в index.py
+    # Если нет - замените на глобальный supabase, если он AsyncClient
+    supabase_client: httpx.AsyncClient = Depends(get_supabase_client) 
+):
+    """Отдает статус заданий для отрисовки интерфейса (1в1 Twitch)"""
+    try:
+        body = await request.json()
+        user_id = await get_user_id_from_init_data(body.get("initData"))
+        if not user_id: return JSONResponse({"error": "No user"}, status=401)
+        
+        # 1. Запрашиваем состояние из базы
+        res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
+        
+        # Если записи нет — создаем дефолтную
+        if not res.json():
+            record = {
+                "user_id": user_id,
+                "is_subscribed": False,
+                "last_vote_date": None,
+                "has_bot_surname": False,
+                "has_ref_link": False,
+                "reaction_count_weekly": 0,
+                "last_reaction_reset": datetime.now(timezone.utc).isoformat()
+            }
+            await supabase_client.post("/telegram_challenges", json=record)
+        else:
+            record = res.json()[0]
+
+        # 2. Авто-проверка подписки при открытии (если еще не выполнено)
+        is_sub = record.get('is_subscribed', False)
+        if not is_sub and TG_QUEST_CHANNEL_ID != 0:
+            try:
+                member = await bot.get_chat_member(chat_id=TG_QUEST_CHANNEL_ID, user_id=user_id)
+                if member.status in ["member", "administrator", "creator", "restricted"]:
+                    is_sub = True
+                    # Фиксируем в базе
+                    await supabase_client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json={"is_subscribed": True})
+                    # Начисляем 5 билетов через RPC
+                    await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 5})
+            except Exception as e:
+                logging.warning(f"[TG Quest] Sub check fail: {e}")
+
+        # 3. Проверка доступности голосования (30 дней)
+        vote_avail = True
+        last_vote_str = record.get('last_vote_date')
+        if last_vote_str:
+            lv = datetime.fromisoformat(last_vote_str.replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) - lv < timedelta(days=30):
+                vote_avail = False
+
+        # 4. Визуальный сброс счетчика реакций, если неделя прошла
+        r_count = record.get('reaction_count_weekly', 0)
+        last_reset_str = record.get('last_reaction_reset')
+        if last_reset_str:
+            l_reset = datetime.fromisoformat(last_reset_str.replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) - l_reset > timedelta(days=7):
+                r_count = 0
+
+        return JSONResponse({
+            "subscribed": is_sub,
+            "vote_available": vote_avail,
+            "surname_ok": record.get('has_bot_surname', False),
+            "bio_ok": record.get('has_ref_link', False),
+            "reactions_count": r_count,
+            "reactions_target": TG_REACTION_WEEKLY_LIMIT
+        })
+    except Exception as e:
+        logging.error(f"Telegram status error: {e}")
+        return JSONResponse({"error": str(e)}, status=500)
+
+@app.post("/api/v1/telegram/check_profile")
+async def check_telegram_profile(
+    request: Request,
+    supabase_client: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Проверка Фамилии и Био по кнопке"""
+    try:
+        body = await request.json()
+        user_id = await get_user_id_from_init_data(body.get("initData"))
+        if not user_id: return JSONResponse({"error": "Auth failed"}, status=401)
+
+        # Берем текущий статус
+        db_res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
+        if not db_res.json(): return JSONResponse({"error": "No record"}, status=404)
+        curr = db_res.json()[0]
+
+        # Проверяем реальный профиль через API бота
+        try:
+            chat = await bot.get_chat(user_id)
+        except:
+            return JSONResponse({"success": False, "message": "Бот не видит вас. Нажмите /start"}, status=400)
+        
+        last_name = chat.last_name or ""
+        bio = chat.bio or ""
+        
+        # Сравниваем с переменными
+        s_ok = TG_QUEST_SURNAME.lower() in last_name.lower() if TG_QUEST_SURNAME else False
+        b_ok = TG_QUEST_BIO_LINK.lower() in bio.lower() if TG_QUEST_BIO_LINK else False
+        
+        updates = {}
+        # Начисляем, только если выполнено ВПЕРВЫЕ
+        if s_ok and not curr.get('has_bot_surname'):
+            updates['has_bot_surname'] = True
+            await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 15})
+            
+        if b_ok and not curr.get('has_ref_link'):
+            updates['has_ref_link'] = True
+            await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 20})
+            
+        if updates:
+            await supabase_client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json=updates)
+
+        return JSONResponse({
+            "success": True, 
+            "surname": s_ok or curr.get('has_bot_surname'), 
+            "bio": b_ok or curr.get('has_ref_link')
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status=500)
+
+@app.post("/api/v1/telegram/vote")
+async def telegram_vote(
+    request: Request,
+    supabase_client: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Голосование раз в 30 дней"""
+    try:
+        body = await request.json()
+        user_id = await get_user_id_from_init_data(body.get("initData"))
+        
+        # Проверка кулдауна
+        res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
+        if res.json():
+            record = res.json()[0]
+            if record.get('last_vote_date'):
+                lv = datetime.fromisoformat(record['last_vote_date'].replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) - lv < timedelta(days=30):
+                    return JSONResponse({"success": False, "message": "Рано голосовать"}, status=400)
+        
+        # Фиксация
+        await supabase_client.patch(
+            "/telegram_challenges", 
+            params={"user_id": f"eq.{user_id}"},
+            json={"last_vote_date": datetime.now(timezone.utc).isoformat()}
+        )
+        
+        # Награда
+        await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 10})
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status=500)
+
+# --- ХЕНДЛЕР РЕАКЦИЙ ---
+
+@router.message_reaction()
+async def handle_quest_reaction(update: Update):
+    """Ловит реакции в канале квестов (Требует, чтобы бот был админом)"""
+    if TG_QUEST_CHANNEL_ID == 0: return
+    if update.message_reaction.chat.id != TG_QUEST_CHANNEL_ID: return
+    
+    user = update.message_reaction.user
+    if not user: return
+    user_id = user.id
+    
+    # Только добавление реакции
+    if not update.message_reaction.new_reaction: return
+
+    try:
+        # Пытаемся получить клиент: либо глобальный supabase (если он Async), либо через геттер
+        # Для Aiogram лучше использовать отдельный httpx клиент или существующую утилиту
+        # Здесь используем get_background_client(), если он есть в index.py, или создаем свой
+        try:
+             client = await get_background_client() 
+        except NameError:
+             # Если функции нет, используем глобальный supabase (предполагая что он AsyncClient)
+             client = supabase 
+
+        # Проверяем запись пользователя (используя httpx стиль или supabase-py стиль в зависимости от клиента)
+        # Для надежности используем REST API через httpx внутри клиента, если это httpx.AsyncClient
+        # Если client это supabase.Client (async), методы другие.
+        
+        # Предполагаем, что client это httpx.AsyncClient (как в API выше)
+        if isinstance(client, httpx.AsyncClient):
+             res = await client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
+             data = res.json()
+        else:
+             # Supabase native client
+             res = await client.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
+             data = res.data
+
+        if not data:
+            record = {
+                "user_id": user_id,
+                "reaction_count_weekly": 0,
+                "last_reaction_reset": datetime.now(timezone.utc).isoformat()
+            }
+            if isinstance(client, httpx.AsyncClient):
+                await client.post("/telegram_challenges", json=record)
+            else:
+                await client.table("telegram_challenges").insert(record).execute()
+        else:
+            record = data[0]
+            
+        # Логика сброса недели
+        now = datetime.now(timezone.utc)
+        last_reset_str = record.get('last_reaction_reset') or now.isoformat()
+        last_reset = datetime.fromisoformat(last_reset_str.replace('Z', '+00:00'))
+        
+        count = record.get('reaction_count_weekly', 0)
+        
+        if now - last_reset > timedelta(days=7):
+            count = 0 
+            updates = {"last_reaction_reset": now.isoformat(), "reaction_count_weekly": 0}
+            if isinstance(client, httpx.AsyncClient):
+                await client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json=updates)
+            else:
+                await client.table("telegram_challenges").update(updates).eq("user_id", user_id).execute()
+            
+        if count < TG_REACTION_WEEKLY_LIMIT:
+            new_count = count + 1
+            if isinstance(client, httpx.AsyncClient):
+                await client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json={"reaction_count_weekly": new_count})
+                await client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 1})
+            else:
+                await client.table("telegram_challenges").update({"reaction_count_weekly": new_count}).eq("user_id", user_id).execute()
+                await client.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
+            
+            logging.info(f"User {user_id} reaction reward. {new_count}/{TG_REACTION_WEEKLY_LIMIT}")
+            
+    except Exception as e:
+        print(f"Reaction error: {e}")
 
 
 
