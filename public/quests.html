@@ -90,102 +90,97 @@
 
     </div>
     
-    <div id="section-auto-quests" style="grid-column: 1 / -1; width: 100%;">
-        <div id="challenge-container" style="width: 100%; margin-bottom: 0;"></div>
-        
-       <div id="telegram-static-quests" class="hidden" style="width: 100%; margin-top: 5px;">
-        
+    <div id="section-auto-quests" class="auto-quest-section">
+    
+    <div id="challenge-container"></div>
+    
+    <div id="telegram-static-quests" class="hidden">
         <div class="quest-card challenge-card" style="padding: 12px; gap: 0; min-height: auto;">
             
-            <div id="tg-tasks-list" style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+            <div id="tg-tasks-list">
                 
-                <div id="tg-row-sub" class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 8px; min-height: 36px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 22px; height: 22px; background: #0088CC; border-radius: 5px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.15);">
-                            <i class="fa-solid fa-user-plus" style="color: #fff; font-size: 10px;"></i>
+                <div id="tg-row-sub" class="tg-task-item">
+                    <div class="tg-task-header">
+                        <div class="tg-left-col">
+                            <div class="tg-icon-box"><i class="fa-solid fa-user-plus"></i></div>
+                            <span class="tg-title">Подписка</span>
                         </div>
-                        <span style="font-size: 11px; font-weight: 500;">Подписка</span>
-                    </div>
-                    <button id="btn-tg-sub" data-reward="+5 🎟" onclick="updateTelegramStatus()" style="background: #0088CC; border: none; border-radius: 4px; color: #fff; padding: 4px 8px; font-size: 10px; font-weight: 700; cursor: pointer; min-width: 45px;">+5 🎟</button>
-                </div>
-
-                <div id="tg-row-vote" class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 8px; min-height: 36px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 22px; height: 22px; background: #0088CC; border-radius: 5px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.15);">
-                            <i class="fa-solid fa-square-poll-vertical" style="color: #fff; font-size: 10px;"></i>
-                        </div>
-                        <div style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left;">
-                            <span style="font-size: 11px; font-weight: 500; line-height: 1.1;">Голосование за канал</span>
-                            <span style="font-size: 9px; color: #888; line-height: 1;">Награду можно получить каждые 30 дней</span>
-                        </div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
-                        <button id="btn-tg-vote" data-reward="+10 🎟" onclick="doTelegramVote()" style="background: #0088CC; border: none; border-radius: 4px; color: #fff; padding: 4px 8px; font-size: 10px; font-weight: 700; cursor: pointer; min-width: 45px;">+10 🎟</button>
-                        <span id="tg-vote-timer" class="hidden" style="font-size: 8px; color: #666;">таймер...</span>
+                        <button id="btn-tg-sub" class="tg-action-btn" data-reward="+5 🎟" onclick="updateTelegramStatus()">+5 🎟</button>
                     </div>
                 </div>
 
-                <div id="tg-row-surname" class="tg-row" style="display: flex; flex-direction: column; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 8px; gap: 4px; min-height: 36px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 22px; height: 22px; background: #0088CC; border-radius: 5px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.15);">
-                                <i class="fa-solid fa-signature" style="color: #fff; font-size: 10px;"></i>
-                            </div>
-                            <div style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left;">
-                                <span style="font-size: 11px; font-weight: 500;">Имя бота в нике</span>
-                                <span style="font-size: 9px; color: #888;">Можно забирать в течении 7 дней ежедневно.</span>
+                <div id="tg-row-vote" class="tg-task-item">
+                    <div class="tg-task-header">
+                        <div class="tg-left-col">
+                            <div class="tg-icon-box"><i class="fa-solid fa-square-poll-vertical"></i></div>
+                            <div class="tg-text-col">
+                                <span class="tg-title">Голосование за канал</span>
+                                <span class="tg-subtitle">Награда каждые 30 дней</span>
                             </div>
                         </div>
-                        <button id="btn-tg-surname" data-reward="+2 🎟" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 4px; color: #fff; padding: 4px 8px; font-size: 10px; font-weight: 700; cursor: pointer; min-width: 45px;">+2 🎟</button>
-                    </div>
-                    <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; display: flex;">
-                         <div id="tg-surname-fill" style="width: 0%; height: 100%; background: #0088CC;"></div>
+                        <div class="tg-right-col">
+                            <button id="btn-tg-vote" class="tg-action-btn" data-reward="+10 🎟" onclick="doTelegramVote()">+10 🎟</button>
+                            <span id="tg-vote-timer" class="tg-timer-text hidden">таймер...</span>
+                        </div>
                     </div>
                 </div>
 
-                <div id="tg-row-bio" class="tg-row" style="display: flex; flex-direction: column; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 8px; gap: 4px; min-height: 36px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 22px; height: 22px; background: #0088CC; border-radius: 5px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.15);">
-                                <i class="fa-solid fa-link" style="color: #fff; font-size: 10px;"></i>
-                            </div>
-                            <div style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left;">
-                                <span style="font-size: 11px; font-weight: 500;">Реф. ссылка в био</span>
-                                <span style="font-size: 9px; color: #888;">Можно забирать в течении 7 дней ежедневно.</span>
+                <div id="tg-row-surname" class="tg-task-item">
+                    <div class="tg-task-header">
+                        <div class="tg-left-col">
+                            <div class="tg-icon-box"><i class="fa-solid fa-signature"></i></div>
+                            <div class="tg-text-col">
+                                <span class="tg-title">Имя бота в нике</span>
+                                <span class="tg-subtitle">Ежедневно (7 дней)</span>
                             </div>
                         </div>
-                        <button id="btn-tg-bio" data-reward="+2 🎟" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 4px; color: #fff; padding: 4px 8px; font-size: 10px; font-weight: 700; cursor: pointer; min-width: 45px;">+2 🎟</button>
+                        <button id="btn-tg-surname" class="tg-action-btn" data-reward="+2 🎟" onclick="checkTelegramProfile()">+2 🎟</button>
                     </div>
-                    <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; display: flex;">
-                         <div id="tg-bio-fill" style="width: 0%; height: 100%; background: #0088CC;"></div>
+                    <div class="tg-progress-track">
+                        <div id="tg-surname-fill" class="tg-progress-fill"></div>
                     </div>
                 </div>
 
-                <div id="tg-row-reaction" class="tg-row" style="display: flex; flex-direction: column; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 8px; gap: 4px; min-height: 36px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 22px; height: 22px; background: #0088CC; border-radius: 5px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.15);">
-                                <i class="fa-regular fa-face-smile" style="color: #fff; font-size: 10px;"></i>
+                <div id="tg-row-bio" class="tg-task-item">
+                    <div class="tg-task-header">
+                        <div class="tg-left-col">
+                            <div class="tg-icon-box"><i class="fa-solid fa-link"></i></div>
+                            <div class="tg-text-col">
+                                <span class="tg-title">Реф. ссылка в био</span>
+                                <span class="tg-subtitle">Ежедневно (7 дней)</span>
                             </div>
-                            <span style="font-size: 11px; font-weight: 500;">Реакции</span>
                         </div>
-                        <span style="font-size: 10px; color: #fff; font-weight: 700; opacity: 0.9;">+1 🎟 /шт</span>
+                        <button id="btn-tg-bio" class="tg-action-btn" data-reward="+2 🎟" onclick="checkTelegramProfile()">+2 🎟</button>
                     </div>
-                    <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; display: flex;">
-                         <div id="tg-reaction-fill" style="width: 0%; height: 100%; background: #0088CC;"></div>
+                    <div class="tg-progress-track">
+                        <div id="tg-bio-fill" class="tg-progress-fill"></div>
                     </div>
-                    <div style="text-align: right; font-size: 9px; color: #666; font-family: monospace;">
+                </div>
+
+                <div id="tg-row-reaction" class="tg-task-item">
+                    <div class="tg-task-header">
+                        <div class="tg-left-col">
+                            <div class="tg-icon-box"><i class="fa-regular fa-face-smile"></i></div>
+                            <span class="tg-title">Реакции</span>
+                        </div>
+                        <span class="tg-title" style="font-size: 11px; opacity: 0.9;">+1 🎟 /шт</span>
+                    </div>
+                    <div class="tg-progress-track">
+                        <div id="tg-reaction-fill" class="tg-progress-fill"></div>
+                    </div>
+                    <div class="tg-counter-text">
                         <span id="tg-reaction-count">0</span>/7
                     </div>
                 </div>
-                
-                <div id="tg-all-done-msg" class="hidden" style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+
+                <div id="tg-all-done-msg" class="hidden" style="text-align: center; padding: 15px; color: #666; font-size: 12px;">
                     Все задания выполнены! 🎉
                 </div>
 
             </div>
         </div>
     </div>
+</div>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0; width: 100%;">
         
