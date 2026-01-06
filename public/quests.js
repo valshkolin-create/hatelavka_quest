@@ -719,6 +719,89 @@ try {
     }
 
     // --- MAIN ---
+    // --- ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ПЛАТФОРМ (НОВОЕ) ---
+    function setPlatformTheme(platform) {
+        // Устанавливаем атрибут для CSS стилей
+        document.body.setAttribute('data-theme', platform);
+        
+        // Меняем кнопку рулетки (текст и стиль)
+        const questButton = dom.questChooseBtn;
+        if (platform === 'telegram') {
+            questButton.classList.remove('twitch-theme');
+            questButton.classList.add('telegram-theme');
+            questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
+        } else {
+            questButton.classList.remove('telegram-theme');
+            questButton.classList.add('twitch-theme');
+            questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+        }
+
+        // 1. Фильтруем квесты для рулетки под выбранную платформу
+        questsForRoulette = allQuests.filter(q => 
+            q.quest_type && q.quest_type.startsWith(`automatic_${platform}`) && !q.is_completed
+        );
+
+        // 2. Управляем видимостью активного квеста
+        const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+        let isActiveQuestVisible = false;
+
+        if (activeQuest) {
+            const activeType = activeQuest.quest_type || '';
+            // Если тип квеста совпадает с выбранной вкладкой (telegram или twitch)
+            if (activeType.includes(platform)) {
+                isActiveQuestVisible = true;
+            }
+        }
+
+        if (isActiveQuestVisible) {
+            // Если есть активный квест в этой категории -> показываем его
+            renderActiveAutomaticQuest(activeQuest, userData);
+            dom.activeAutomaticQuestContainer.classList.remove('hidden');
+            // Кнопку "Начать" скрываем, так как квест уже идет
+            dom.questChooseBtn.classList.add('hidden');
+            dom.questChooseContainer.classList.add('hidden');
+        } else {
+            // Если активного квеста в этой категории НЕТ
+            dom.activeAutomaticQuestContainer.classList.add('hidden'); 
+            
+            // Проверяем, есть ли доступные квесты для рулетки
+            if (questsForRoulette.length > 0) {
+                dom.questChooseBtn.classList.remove('hidden');
+                dom.questChooseBtn.disabled = false;
+                dom.questChooseBtn.textContent = platform === 'telegram' ? "TELEGRAM ИСПЫТАНИЯ" : "TWITCH ИСПЫТАНИЯ";
+                // Возвращаем иконку, так как textContent её стер
+                if (platform === 'telegram') dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
+                else dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+                
+                dom.questChooseContainer.classList.add('hidden'); 
+            } else {
+                 // Если квестов нет вообще
+                 dom.questChooseBtn.classList.remove('hidden');
+                 dom.questChooseBtn.disabled = true;
+                 dom.questChooseBtn.innerHTML = 'Задания закончились';
+            }
+        }
+        
+        // 3. Управление блоком Челленджа (он только для Twitch)
+        if (platform === 'telegram') {
+            dom.challengeContainer.classList.add('hidden');
+        } else {
+            dom.challengeContainer.classList.remove('hidden');
+        }
+    }
+
+    function initPlatformSwitcher() {
+        const radios = document.querySelectorAll('input[name="platform"]');
+        radios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    setPlatformTheme(e.target.value);
+                }
+            });
+        });
+    }
+
+    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ MAIN ---
     async function main() {
         if (window.Telegram && !Telegram.WebApp.initData) {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
@@ -737,7 +820,7 @@ try {
                 userData = bootstrapData.user;
                 allQuests = bootstrapData.quests;
                 
-                // Рендер Профиля (ФИО и билеты)
+                // Рендер Профиля
                 if (userData) {
                     dom.fullName.textContent = userData.full_name || "Гость";
                     if (document.getElementById('ticketStats')) {
@@ -745,55 +828,45 @@ try {
                     }
                 }
 
-                // Логика кнопки "Тип квестов" (Twitch/Telegram)
-                const menuContent = bootstrapData.menu;
-                let activeQType = 'twitch'; 
-                if (menuContent && menuContent.quest_schedule_override_enabled) {
-                    activeQType = menuContent.quest_schedule_active_type;
-                } else if (new Date().getDay() === 0 || new Date().getDay() === 1) {
-                    activeQType = 'telegram';
-                }
+                // --- НОВАЯ ЛОГИКА СТАРТА ---
+                // 1. Запускаем слушатели переключателя
+                initPlatformSwitcher();
 
-                const questButton = dom.questChooseBtn;
-                if (activeQType === 'telegram') {
-                    questButton.classList.remove('twitch-theme');
-                    questButton.classList.add('telegram-theme');
-                    questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
-                } else {
-                    questButton.classList.remove('telegram-theme');
-                    questButton.classList.add('twitch-theme');
-                    questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
-                }
-
-                // Фильтруем квесты для рулетки
-                questsForRoulette = allQuests.filter(q => 
-                    q.quest_type && q.quest_type.startsWith(`automatic_${activeQType}`) && !q.is_completed
-                );
-
-                // Активный квест
-                const activeAutomaticQuest = allQuests.find(q => q.id === userData.active_quest_id);
-                if (activeAutomaticQuest) renderActiveAutomaticQuest(activeAutomaticQuest, userData);
-                else dom.activeAutomaticQuestContainer.innerHTML = '';
+                // 2. Определяем, какую вкладку открыть первой
+                let defaultPlatform = 'twitch';
                 
-                // Челлендж
+                // Если у юзера уже есть активный квест, смотрим его тип
+                if (userData.active_quest_id) {
+                    const activeQ = allQuests.find(q => q.id === userData.active_quest_id);
+                    if (activeQ && activeQ.quest_type && activeQ.quest_type.includes('telegram')) {
+                        defaultPlatform = 'telegram';
+                    }
+                }
+
+                // 3. Применяем выбор (ставим галочку в HTML и запускаем функцию темы)
+                const switchEl = document.getElementById(`switch-${defaultPlatform}`);
+                if (switchEl) switchEl.checked = true;
+                setPlatformTheme(defaultPlatform);
+                // -----------------------------
+
+                
+                // Челлендж (Рендерим данные, но видимость теперь управляется setPlatformTheme)
                 if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
                 else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
 
                // --- РУЧНЫЕ ЗАДАНИЯ ---
                 updateLoading(70);
                 
-                // Теперь эндпоинт существует, делаем запрос
                 try {
                     const manualQuests = await makeApiRequest("/api/v1/quests/manual", {}, 'POST', true);
                     renderManualQuests(manualQuests);
                 } catch (e) {
                     console.error("Ошибка получения ручных квестов:", e);
-                    // Если ошибка, пробуем хотя бы из кэша достать (фоллбэк)
                     const fallbackQuests = allQuests.filter(q => q.quest_type === 'manual_check');
                     renderManualQuests(fallbackQuests);
                 }
                 
-                // Логика подсветки
+                // Логика подсветки (туториал)
                 try {
                     const questIdToHighlight = localStorage.getItem('highlightQuestId');
                     if (questIdToHighlight) {
