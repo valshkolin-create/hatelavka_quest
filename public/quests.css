@@ -226,3 +226,99 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     .main-content { padding-bottom: 150px !important; overflow-y: scroll !important; }
     .main-content > div, .main-content > section, .user-profile { max-width: 500px !important; margin-left: auto !important; margin-right: auto !important; width: 100%; }
 }
+/* === ТУМБЛЕР ПЕРЕКЛЮЧЕНИЯ === */
+.platform-switch-container {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.platform-switch {
+    position: relative;
+    display: flex;
+    background: rgba(118, 118, 128, 0.24);
+    border-radius: 99px; /* Пилюля */
+    padding: 2px;
+    width: 100%;
+    max-width: 320px;
+    height: 36px;
+    box-sizing: border-box;
+}
+
+.platform-switch input {
+    display: none;
+}
+
+.switch-label {
+    flex: 1;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    gap: 6px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Слайдер (ездящая плашка) */
+.switch-slider {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    background: #fff; /* По дефолту белый, перекрасим JS-ом */
+    border-radius: 99px;
+    z-index: 1;
+    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.3s;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 3px 1px rgba(0,0,0,0.06);
+}
+
+/* Логика движения слайдера и цветов текста */
+#switch-twitch:checked ~ .switch-slider {
+    transform: translateX(0%);
+    background-color: var(--twitch-color); /* Фиолетовый */
+}
+
+#switch-telegram:checked ~ .switch-slider {
+    transform: translateX(100%);
+    background-color: var(--telegram-color); /* Синий */
+}
+
+#switch-twitch:checked + label { color: #fff; }
+#switch-telegram:checked + label { color: #fff; }
+
+/* === ТЕМАТИЗАЦИЯ ИНТЕРФЕЙСА === */
+/* Когда активна тема Twitch */
+body[data-theme="twitch"] {
+    --primary-color: #9146ff; /* Twitch Purple */
+    --primary-gradient: linear-gradient(90deg, #9146ff, #772ce8);
+}
+body[data-theme="twitch"] .claim-reward-button {
+    background: linear-gradient(90deg, #a97cff, #9146ff);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(145, 70, 255, 0.5);
+}
+
+/* Когда активна тема Telegram */
+body[data-theme="telegram"] {
+    --primary-color: #24a1de; /* Telegram Blue */
+    --primary-gradient: linear-gradient(90deg, #2AABEE, #229ED9);
+}
+body[data-theme="telegram"] .claim-reward-button {
+    background: linear-gradient(90deg, #24a1de, #0088cc);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(36, 161, 222, 0.5);
+}
+
+/* Фикс для кнопки выбора квеста, чтобы она слушалась темы */
+.quest-choose-btn-roulette {
+    transition: background 0.3s, box-shadow 0.3s;
+}
