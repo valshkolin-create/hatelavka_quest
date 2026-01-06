@@ -801,21 +801,21 @@ try {
                 if (e.target.checked) {
                     const view = e.target.value;
                     
-                    // Убедимся, что элементы существуют, прежде чем менять классы
                     if (!dom.sectionAuto || !dom.sectionManual) return;
 
                     if (view === 'manual') {
-                        // Показываем "Задания", Скрываем "Авто"
+                        // Показываем Задания
                         dom.sectionAuto.classList.add('hidden');
                         dom.sectionManual.classList.remove('hidden');
                         
-                        // Можно сбросить тему на нейтральную или оставить как есть
+                        // Включаем ЗЕЛЕНУЮ ТЕМУ
+                        setPlatformTheme('manual'); 
                     } else {
-                        // Показываем "Авто" (Twitch/Tg), Скрываем "Задания"
+                        // Показываем Авто
                         dom.sectionAuto.classList.remove('hidden');
                         dom.sectionManual.classList.add('hidden');
                         
-                        // Меняем тему (цвета кнопок, фона)
+                        // Включаем тему Twitch или Telegram
                         setPlatformTheme(view);
                     }
                     
