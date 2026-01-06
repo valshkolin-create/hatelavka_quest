@@ -423,3 +423,34 @@ body[data-theme="manual"] {
 .promo-profile-btn + .promo-profile-btn {
     display: none;
 }
+
+/* --- Стили для кнопок заданий --- */
+
+/* Обычная кнопка (если вдруг стили не заданы глобально) */
+.quest-action-btn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--action-color, #007aff);
+    color: white;
+}
+
+/* Состояние: Выполнено сегодня (галочка) */
+.quest-action-btn.done-today {
+    background: rgba(52, 199, 89, 0.15) !important; /* Полупрозрачный зеленый */
+    color: #34c759 !important; /* Ярко-зеленый текст */
+    border: 1px solid rgba(52, 199, 89, 0.3) !important; /* Тонкая рамка */
+    cursor: default !important;
+    pointer-events: none; /* Запрещаем клик */
+    box-shadow: none !important;
+}
+
+/* Состояние: Полностью завершено (весь квест) */
+.quest-action-btn.fully-completed {
+    background: #333 !important;
+    color: #888 !important;
+    cursor: not-allowed;
+}
