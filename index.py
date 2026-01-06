@@ -11949,54 +11949,45 @@ async def telegram_vote(
 
 # --- ХЕНДЛЕР РЕАКЦИЙ ---
 
+# --- ХЕНДЛЕР РЕАКЦИЙ (ИСПРАВЛЕННЫЙ) ---
 @router.message_reaction()
 async def handle_quest_reaction(update: Update):
     """Ловит реакции в канале квестов (Требует, чтобы бот был админом)"""
-    if TG_QUEST_CHANNEL_ID == 0: return
-    if update.message_reaction.chat.id != TG_QUEST_CHANNEL_ID: return
+    # 1. Проверяем настройки канала
+    if TG_QUEST_CHANNEL_ID == 0: 
+        return
+    
+    # 2. Проверяем, что событие из нужного канала
+    if update.message_reaction.chat.id != TG_QUEST_CHANNEL_ID: 
+        return
     
     user = update.message_reaction.user
-    if not user: return
+    if not user: return # Анонимный админ или канал
     user_id = user.id
     
-    # Только добавление реакции
+    # 3. Реагируем только на ДОБАВЛЕНИЕ реакции (new_reaction не пустой)
     if not update.message_reaction.new_reaction: return
 
     try:
-        # Пытаемся получить клиент: либо глобальный supabase (если он Async), либо через геттер
-        # Для Aiogram лучше использовать отдельный httpx клиент или существующую утилиту
-        # Здесь используем get_background_client(), если он есть в index.py, или создаем свой
-        try:
-             client = await get_background_client() 
-        except NameError:
-             # Если функции нет, используем глобальный supabase (предполагая что он AsyncClient)
-             client = supabase 
-
-        # Проверяем запись пользователя (используя httpx стиль или supabase-py стиль в зависимости от клиента)
-        # Для надежности используем REST API через httpx внутри клиента, если это httpx.AsyncClient
-        # Если client это supabase.Client (async), методы другие.
+        # Использование run_in_threadpool позволяет избежать блокировки и ошибок await с синхронным клиентом
         
-        # Предполагаем, что client это httpx.AsyncClient (как в API выше)
-        if isinstance(client, httpx.AsyncClient):
-             res = await client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
-             data = res.json()
-        else:
-             # Supabase native client
-             res = await client.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
-             data = res.data
-
-        if not data:
+        # Получаем данные пользователя
+        res = await run_in_threadpool(
+            lambda: supabase.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
+        )
+        
+        if not res.data:
+            # Создаем запись, если нет
             record = {
                 "user_id": user_id,
                 "reaction_count_weekly": 0,
                 "last_reaction_reset": datetime.now(timezone.utc).isoformat()
             }
-            if isinstance(client, httpx.AsyncClient):
-                await client.post("/telegram_challenges", json=record)
-            else:
-                await client.table("telegram_challenges").insert(record).execute()
+            await run_in_threadpool(
+                lambda: supabase.table("telegram_challenges").insert(record).execute()
+            )
         else:
-            record = data[0]
+            record = res.data[0]
             
         # Логика сброса недели
         now = datetime.now(timezone.utc)
@@ -12005,28 +11996,36 @@ async def handle_quest_reaction(update: Update):
         
         count = record.get('reaction_count_weekly', 0)
         
+        # Если неделя прошла — сбрасываем
         if now - last_reset > timedelta(days=7):
             count = 0 
-            updates = {"last_reaction_reset": now.isoformat(), "reaction_count_weekly": 0}
-            if isinstance(client, httpx.AsyncClient):
-                await client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json=updates)
-            else:
-                await client.table("telegram_challenges").update(updates).eq("user_id", user_id).execute()
+            await run_in_threadpool(
+                lambda: supabase.table("telegram_challenges").update({
+                    "last_reaction_reset": now.isoformat(), 
+                    "reaction_count_weekly": 0
+                }).eq("user_id", user_id).execute()
+            )
             
+        # Если лимит не достигнут — начисляем
         if count < TG_REACTION_WEEKLY_LIMIT:
             new_count = count + 1
-            if isinstance(client, httpx.AsyncClient):
-                await client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json={"reaction_count_weekly": new_count})
-                await client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 1})
-            else:
-                await client.table("telegram_challenges").update({"reaction_count_weekly": new_count}).eq("user_id", user_id).execute()
-                await client.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
             
-            logging.info(f"User {user_id} reaction reward. {new_count}/{TG_REACTION_WEEKLY_LIMIT}")
+            # Обновляем счетчик
+            await run_in_threadpool(
+                lambda: supabase.table("telegram_challenges").update({
+                    "reaction_count_weekly": new_count
+                }).eq("user_id", user_id).execute()
+            )
+            
+            # Начисляем билет через RPC (безопасно)
+            await run_in_threadpool(
+                lambda: supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
+            )
+            
+            logging.info(f"[Reaction] User {user_id} ticket added. ({new_count}/{TG_REACTION_WEEKLY_LIMIT})")
             
     except Exception as e:
-        print(f"Reaction error: {e}")
-
+        logging.error(f"Reaction handler error: {e}")
 
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
