@@ -344,41 +344,43 @@ body[data-theme="telegram"] .claim-reward-button {
     transition: background 0.3s, box-shadow 0.3s, color 0.3s;
 }
 
-/* --- Кнопка Промокодов в профиле --- */
-.promo-profile-btn {
-    display: flex;
+/* --- Кнопка Промокодов в профиле (ОБНОВЛЕННАЯ МИНИ-ВЕРСИЯ) --- */
+#promo-btn-inject, .promo-profile-btn {
+    display: inline-flex !important;
     align-items: center;
-    justify_content: center;
-    width: 100%; /* Или фиксированную ширину, например 200px */
-    max-width: 240px;
-    margin: 10px auto 0 auto; /* Отступ сверху от имени */
-    padding: 10px 16px;
-    background: linear-gradient(90deg, #6b00ff 0%, #8e2de2 100%); /* Фиолетовый градиент в стиле Twitch */
-    color: #ffffff;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Или твой шрифт */
+    justify-content: center;
+    width: auto !important;
+    min-width: 90px;
+    max-width: 130px;
+    margin: 6px auto 0 auto !important;
+    padding: 4px 10px !important; /* Уменьшенные отступы */
+    background: linear-gradient(90deg, #6441a5 0%, #9146ff 100%);
+    color: white !important;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 10px !important; /* Уменьшенный шрифт */
+    border-radius: 6px !important;
     text-decoration: none;
-    border-radius: 12px;
-    border: none;
-    box-shadow: 0 4px 15px rgba(107, 0, 255, 0.3);
-    transition: transform 0.1s ease, box-shadow 0.2s ease;
-    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(100, 65, 165, 0.3);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    height: 24px !important; /* Фиксированная маленькая высота */
+    line-height: 1;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
 
-.promo-profile-btn:active {
+#promo-btn-inject:active, .promo-profile-btn:active {
     transform: scale(0.96);
-    box-shadow: 0 2px 8px rgba(107, 0, 255, 0.2);
+    box-shadow: 0 1px 3px rgba(100, 65, 165, 0.2);
 }
 
-.promo-profile-btn i, 
-.promo-profile-btn span {
-    margin-right: 8px; /* Отступ для иконки если она есть */
+#promo-btn-inject i, .promo-profile-btn i {
+    margin-right: 5px;
+    font-size: 10px;
 }
 
-/* Скрываем кнопку, если она уже добавлена, чтобы не дублировать */
+/* Скрываем дубликаты если вдруг создадутся */
 .promo-profile-btn + .promo-profile-btn {
     display: none;
 }
