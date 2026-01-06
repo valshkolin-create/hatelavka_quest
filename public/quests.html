@@ -58,15 +58,29 @@
         </div>
     </div>
 
-    <div id="view-quests" class="view quests-container">
-        <h2 class="page-title" style="grid-column: 1 / -1; margin-bottom: 5px;">
-            🎯 Испытания
-        </h2>
-        <span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 10px; grid-column: 1 / -1;">
-            Выполняйте, чтобы получать билеты и звезды.
-        </span>
+    <h2 class="page-title" style="grid-column: 1 / -1; margin-bottom: 5px;">
+    🎯 Испытания
+</h2>
+<span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 15px; grid-column: 1 / -1;">
+    Выполняйте, чтобы получать билеты и звезды.
+</span>
 
-        <div id="challenge-container" style="grid-column: 1 / -1; width: 100%; margin-bottom: 0;"></div>
+<div class="platform-switch-container">
+    <div class="platform-switch">
+        <input type="radio" name="platform" id="switch-twitch" value="twitch" checked>
+        <label for="switch-twitch" class="switch-label">
+            <i class="fa-brands fa-twitch"></i> TWITCH
+        </label>
+
+        <input type="radio" name="platform" id="switch-telegram" value="telegram">
+        <label for="switch-telegram" class="switch-label">
+            <i class="fa-brands fa-telegram"></i> TELEGRAM
+        </label>
+        
+        <div class="switch-slider"></div>
+    </div>
+</div>
+<div id="challenge-container" style="grid-column: 1 / -1; width: 100%; margin-bottom: 0;"></div>
         
         <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
 
