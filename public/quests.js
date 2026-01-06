@@ -833,26 +833,10 @@ try {
                         const btn = document.createElement('a');
                         btn.id = 'promo-btn-inject';
                         btn.href = 'profile.html';
-                        btn.style.cssText = `
-                            display: flex; 
-                            align-items: center; 
-                            justify-content: center; 
-                            width: auto;                  /* Автоматическая ширина, чтобы не растягивалась */
-                            min-width: 120px;            /* Но не слишком узкая */
-                            max-width: 160px;            /* Ограничиваем максимальную ширину */
-                            margin: 6px auto 0 auto;     /* Отступ сверху поменьше */
-                            padding: 6px 12px;           /* Внутренние отступы меньше */
-                            background: linear-gradient(90deg, #6441a5 0%, #9146ff 100%); 
-                            color: white; 
-                            font-weight: 600;            /* Чуть тоньше шрифт (было 700) */
-                            font-size: 11px;             /* Шрифт меньше (было 13px) */
-                            border-radius: 8px;          /* Закругление чуть меньше */
-                            text-decoration: none; 
-                            box-shadow: 0 2px 6px rgba(100, 65, 165, 0.25); /* Тень поменьше */
-                            text-transform: uppercase;
-                            letter-spacing: 0.5px;
-                        `;
-                        // Убрал иконку, или можно оставить, но сделаем её маленькой
+                        
+                        // Просто добавляем класс, все цвета теперь в CSS
+                        btn.className = 'promo-profile-btn'; 
+                        
                         btn.innerHTML = '<i class="fa-solid fa-ticket" style="margin-right: 5px; font-size: 10px;"></i> Промокоды';
                         
                         dom.fullName.insertAdjacentElement('afterend', btn);
