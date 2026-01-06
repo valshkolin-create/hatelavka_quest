@@ -93,85 +93,87 @@
     <div id="section-auto-quests" style="grid-column: 1 / -1; width: 100%;">
         <div id="challenge-container" style="width: 100%; margin-bottom: 0;"></div>
         
-        <div id="telegram-static-quests" class="hidden" style="width: 100%; margin-top: 10px;">
+        <div id="telegram-static-quests" class="hidden" style="width: 100%; margin-top: 5px;">
         
-        <div class="quest-card challenge-card" style="padding: 15px; gap: 10px; min-height: auto;">
+        <div class="quest-card challenge-card" style="padding: 10px; gap: 0; min-height: auto; align-items: stretch;">
             
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <div class="quest-icon" style="width: 42px; height: 42px; font-size: 20px; margin: 0; background: rgba(0, 136, 204, 0.2); color: #0088CC; box-shadow: 0 0 10px rgba(0, 136, 204, 0.1);">
-                    <i class="fa-brands fa-telegram"></i>
-                </div>
-                <div style="flex-grow: 1;">
-                    <h2 class="quest-title" style="margin: 0; font-size: 16px; text-align: left;">Telegram Tasks</h2>
-                    <p class="quest-subtitle" style="margin: 3px 0 0 0; font-size: 11px; text-align: left; opacity: 0.7;">
-                        Выполни задания и залутай билеты
-                    </p>
-                </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+            <div id="tg-tasks-list" style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
                 
-                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                <div id="tg-row-sub" class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 8px; min-height: 40px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fa-solid fa-user-plus" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <div style="width: 24px; height: 24px; background: #0088CC; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.2);">
+                            <i class="fa-solid fa-user-plus" style="color: #fff; font-size: 11px;"></i>
+                        </div>
                         <span style="font-size: 12px; font-weight: 500;">Подписка</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+5</span>
-                        <button id="btn-tg-sub" onclick="updateTelegramStatus()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Check</button>
+                        <span style="font-size: 11px; color: #fff; font-weight: 600; opacity: 0.8;">+5</span>
+                        <button id="btn-tg-sub" onclick="updateTelegramStatus()" style="background: #0088CC; border: none; border-radius: 5px; color: #fff; padding: 4px 10px; font-size: 10px; font-weight: 600; cursor: pointer;">Проверить</button>
                     </div>
                 </div>
 
-                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                <div id="tg-row-vote" class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 8px; min-height: 40px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fa-solid fa-square-poll-vertical" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <div style="width: 24px; height: 24px; background: #0088CC; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.2);">
+                            <i class="fa-solid fa-square-poll-vertical" style="color: #fff; font-size: 11px;"></i>
+                        </div>
                         <div style="display: flex; flex-direction: column;">
                             <span style="font-size: 12px; font-weight: 500;">Голос</span>
-                            <span id="tg-vote-timer" class="hidden" style="font-size: 9px; color: #666;">Жди 30д</span>
+                            <span id="tg-vote-timer" class="hidden" style="font-size: 9px; color: #888;">Жди 30д</span>
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+10</span>
-                        <button id="btn-tg-vote" onclick="doTelegramVote()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Vote</button>
+                        <span style="font-size: 11px; color: #fff; font-weight: 600; opacity: 0.8;">+10</span>
+                        <button id="btn-tg-vote" onclick="doTelegramVote()" style="background: #0088CC; border: none; border-radius: 5px; color: #fff; padding: 4px 10px; font-size: 10px; font-weight: 600; cursor: pointer;">Голос</button>
                     </div>
                 </div>
 
-                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                <div id="tg-row-surname" class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 8px; min-height: 40px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fa-solid fa-signature" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <div style="width: 24px; height: 24px; background: #0088CC; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.2);">
+                            <i class="fa-solid fa-signature" style="color: #fff; font-size: 11px;"></i>
+                        </div>
                         <span style="font-size: 12px; font-weight: 500;">Тег в Ник</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+15</span>
-                        <button id="btn-tg-surname" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Check</button>
+                        <span style="font-size: 11px; color: #fff; font-weight: 600; opacity: 0.8;">+15</span>
+                        <button id="btn-tg-surname" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 5px; color: #fff; padding: 4px 10px; font-size: 10px; font-weight: 600; cursor: pointer;">Проверить</button>
                     </div>
                 </div>
 
-                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                <div id="tg-row-bio" class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 8px; min-height: 40px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fa-solid fa-link" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <div style="width: 24px; height: 24px; background: #0088CC; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.2);">
+                            <i class="fa-solid fa-link" style="color: #fff; font-size: 11px;"></i>
+                        </div>
                         <span style="font-size: 12px; font-weight: 500;">Ссылка Bio</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+20</span>
-                        <button id="btn-tg-bio" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Check</button>
+                        <span style="font-size: 11px; color: #fff; font-weight: 600; opacity: 0.8;">+20</span>
+                        <button id="btn-tg-bio" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 5px; color: #fff; padding: 4px 10px; font-size: 10px; font-weight: 600; cursor: pointer;">Проверить</button>
                     </div>
                 </div>
 
-                <div class="tg-row" style="display: flex; flex-direction: column; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; gap: 6px;">
+                <div id="tg-row-reaction" class="tg-row" style="display: flex; flex-direction: column; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 8px; gap: 4px; min-height: 40px; justify-content: center;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <i class="fa-regular fa-face-smile" style="color: #ffcc00; font-size: 13px; width: 16px; text-align: center;"></i>
+                            <div style="width: 24px; height: 24px; background: #0088CC; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(255,255,255,0.2);">
+                                <i class="fa-regular fa-face-smile" style="color: #fff; font-size: 11px;"></i>
+                            </div>
                             <span style="font-size: 12px; font-weight: 500;">Реакции</span>
                         </div>
-                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">1/шт</span>
+                        <span style="font-size: 11px; color: #fff; font-weight: 600; opacity: 0.8;">1/шт</span>
                     </div>
-                    <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; position: relative;">
-                         <div id="tg-reaction-fill" style="width: 0%; height: 100%; background: #ffcc00; transition: width 0.3s ease;"></div>
+                    <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; display: flex; margin-top: 2px;">
+                         <div id="tg-reaction-fill" style="width: 0%; height: 100%; background: #0088CC;"></div>
                     </div>
-                    <div style="text-align: right; font-size: 10px; color: #888; font-family: monospace;">
-                        <span id="tg-reaction-count">0</span>/7 week
+                    <div style="text-align: right; font-size: 9px; color: #666;">
+                        <span id="tg-reaction-count">0</span>/7 нед
                     </div>
+                </div>
+                
+                <div id="tg-all-done-msg" class="hidden" style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+                    Все задания выполнены! 🎉<br>Ждите обновлений.
                 </div>
 
             </div>
