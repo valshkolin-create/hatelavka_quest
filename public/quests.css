@@ -343,3 +343,42 @@ body[data-theme="telegram"] .claim-reward-button {
 .quest-choose-btn-roulette {
     transition: background 0.3s, box-shadow 0.3s, color 0.3s;
 }
+
+/* --- Кнопка Промокодов в профиле --- */
+.promo-profile-btn {
+    display: flex;
+    align-items: center;
+    justify_content: center;
+    width: 100%; /* Или фиксированную ширину, например 200px */
+    max-width: 240px;
+    margin: 10px auto 0 auto; /* Отступ сверху от имени */
+    padding: 10px 16px;
+    background: linear-gradient(90deg, #6b00ff 0%, #8e2de2 100%); /* Фиолетовый градиент в стиле Twitch */
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Или твой шрифт */
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 15px rgba(107, 0, 255, 0.3);
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.promo-profile-btn:active {
+    transform: scale(0.96);
+    box-shadow: 0 2px 8px rgba(107, 0, 255, 0.2);
+}
+
+.promo-profile-btn i, 
+.promo-profile-btn span {
+    margin-right: 8px; /* Отступ для иконки если она есть */
+}
+
+/* Скрываем кнопку, если она уже добавлена, чтобы не дублировать */
+.promo-profile-btn + .promo-profile-btn {
+    display: none;
+}
