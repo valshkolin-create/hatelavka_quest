@@ -94,66 +94,89 @@
         <div id="challenge-container" style="width: 100%; margin-bottom: 0;"></div>
         
         <div id="telegram-static-quests" class="hidden" style="width: 100%; margin-top: 10px;">
-            <div class="quest-list">
-                <div class="quest-card" id="tg-item-sub">
-                    <div class="quest-content-wrapper">
-                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-user-plus"></i></div>
-                        <h2 class="quest-title">Подписка на канал</h2>
-                        <p class="quest-subtitle">Подпишись на наш официальный канал.</p>
-                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 5 🎟</div>
-                    </div>
-                    <button class="claim-reward-button" id="btn-tg-sub" onclick="updateTelegramStatus()" style="margin-top: 10px;">Проверить</button>
+        
+        <div class="quest-card challenge-card" style="padding: 15px; gap: 10px; min-height: auto;">
+            
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <div class="quest-icon" style="width: 42px; height: 42px; font-size: 20px; margin: 0; background: rgba(0, 136, 204, 0.2); color: #0088CC; box-shadow: 0 0 10px rgba(0, 136, 204, 0.1);">
+                    <i class="fa-brands fa-telegram"></i>
                 </div>
-
-                <div class="quest-card" id="tg-item-vote">
-                    <div class="quest-content-wrapper">
-                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-square-poll-vertical"></i></div>
-                        <h2 class="quest-title">Голосование</h2>
-                        <p class="quest-subtitle">Голосуй за канал (раз в 30 дней).</p>
-                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 10 🎟</div>
-                        <div class="quest-progress-text hidden" id="tg-vote-timer" style="color: #888; font-size: 12px; margin-top: 4px;"></div>
-                    </div>
-                    <button class="claim-reward-button" id="btn-tg-vote" onclick="doTelegramVote()" style="margin-top: 10px;">Голос</button>
-                </div>
-
-                <div class="quest-card" id="tg-item-surname">
-                    <div class="quest-content-wrapper">
-                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-signature"></i></div>
-                        <h2 class="quest-title">Тег в фамилии</h2>
-                        <p class="quest-subtitle">Добавь тег бота в свою фамилию.</p>
-                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 15 🎟</div>
-                    </div>
-                    <button class="claim-reward-button" id="btn-tg-surname" onclick="checkTelegramProfile()" style="margin-top: 10px;">Проверить</button>
-                </div>
-
-                <div class="quest-card" id="tg-item-bio">
-                    <div class="quest-content-wrapper">
-                        <div class="quest-icon" style="background: rgba(0, 136, 204, 0.2); color: #0088CC;"><i class="fa-solid fa-link"></i></div>
-                        <h2 class="quest-title">Ссылка в профиле</h2>
-                        <p class="quest-subtitle">Поставь нашу ссылку в описание (Bio).</p>
-                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 20 🎟</div>
-                    </div>
-                    <button class="claim-reward-button" id="btn-tg-bio" onclick="checkTelegramProfile()" style="margin-top: 10px;">Проверить</button>
-                </div>
-
-                <div class="quest-card" id="tg-item-reaction">
-                    <div class="quest-content-wrapper">
-                        <div class="quest-icon" style="background: rgba(255, 204, 0, 0.2); color: #ffcc00;"><i class="fa-regular fa-face-smile"></i></div>
-                        <h2 class="quest-title">Реакции на посты</h2>
-                        <p class="quest-subtitle">Ставь реакции на посты в канале.</p>
-                        <div style="color: #FFD700; font-size: 12px; margin-top: 5px;">Награда: 1 🎟 / шт</div>
-                        
-                        <div class="progress-bar" style="margin-top: 10px;">
-                            <div class="progress-fill" id="tg-reaction-fill" style="width: 0%; background: #ffcc00;"></div>
-                            <div class="progress-content">
-                                <span class="progress-text" id="tg-reaction-count">0/7 в неделю</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="claim-reward-button completed" style="margin-top: 10px; opacity: 0.7; cursor: default;">Автоматически</button>
+                <div style="flex-grow: 1;">
+                    <h2 class="quest-title" style="margin: 0; font-size: 16px; text-align: left;">Telegram Tasks</h2>
+                    <p class="quest-subtitle" style="margin: 3px 0 0 0; font-size: 11px; text-align: left; opacity: 0.7;">
+                        Выполни задания и залутай билеты
+                    </p>
                 </div>
             </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                
+                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-user-plus" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <span style="font-size: 12px; font-weight: 500;">Подписка</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+5</span>
+                        <button id="btn-tg-sub" onclick="updateTelegramStatus()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Check</button>
+                    </div>
+                </div>
+
+                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-square-poll-vertical" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-size: 12px; font-weight: 500;">Голос</span>
+                            <span id="tg-vote-timer" class="hidden" style="font-size: 9px; color: #666;">Жди 30д</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+10</span>
+                        <button id="btn-tg-vote" onclick="doTelegramVote()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Vote</button>
+                    </div>
+                </div>
+
+                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-signature" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <span style="font-size: 12px; font-weight: 500;">Тег в Ник</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+15</span>
+                        <button id="btn-tg-surname" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Check</button>
+                    </div>
+                </div>
+
+                <div class="tg-row" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-link" style="color: #0088CC; font-size: 13px; width: 16px; text-align: center;"></i>
+                        <span style="font-size: 12px; font-weight: 500;">Ссылка Bio</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">+20</span>
+                        <button id="btn-tg-bio" onclick="checkTelegramProfile()" style="background: #0088CC; border: none; border-radius: 6px; color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Check</button>
+                    </div>
+                </div>
+
+                <div class="tg-row" style="display: flex; flex-direction: column; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; gap: 6px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-regular fa-face-smile" style="color: #ffcc00; font-size: 13px; width: 16px; text-align: center;"></i>
+                            <span style="font-size: 12px; font-weight: 500;">Реакции</span>
+                        </div>
+                        <span style="font-size: 11px; color: #FFD700; font-weight: 700;">1/шт</span>
+                    </div>
+                    <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; position: relative;">
+                         <div id="tg-reaction-fill" style="width: 0%; height: 100%; background: #ffcc00; transition: width 0.3s ease;"></div>
+                    </div>
+                    <div style="text-align: right; font-size: 10px; color: #888; font-family: monospace;">
+                        <span id="tg-reaction-count">0</span>/7 week
+                    </div>
+                </div>
+
+            </div>
         </div>
+    </div>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0; width: 100%;">
         
