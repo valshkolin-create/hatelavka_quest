@@ -779,7 +779,7 @@ try {
                  // Если квестов нет вообще
                  dom.questChooseBtn.classList.remove('hidden');
                  dom.questChooseBtn.disabled = true;
-                 dom.questChooseBtn.innerHTML = 'Задания закончились';
+                 dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-telegram"></i> Задания будут доступны в ВСК и ПН';
             }
         }
         
