@@ -7,6 +7,7 @@ const dom = {
     
     // Элементы квестов
     challengeContainer: document.getElementById('challenge-container'),
+    telegramStaticList: document.getElementById('telegram-static-quests'), // <--- ДОБАВИЛ
     activeAutomaticQuestContainer: document.getElementById('active-automatic-quest-container'),
     questChooseBtn: document.getElementById("quest-choose-btn"),
     questChooseContainer: document.getElementById("quest-choose-container"),
@@ -724,72 +725,72 @@ try {
     // --- MAIN ---
     // --- ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ПЛАТФОРМ (НОВОЕ) ---
     function setPlatformTheme(platform) {
-        // Устанавливаем атрибут для CSS стилей
         document.body.setAttribute('data-theme', platform);
         
-        // Меняем кнопку рулетки (текст и стиль)
         const questButton = dom.questChooseBtn;
         if (platform === 'telegram') {
             questButton.classList.remove('twitch-theme');
             questButton.classList.add('telegram-theme');
             questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
+            
+            // Скрываем Twitch челлендж
+            dom.challengeContainer.classList.add('hidden');
+            
+            // Показываем Telegram статик
+            if(dom.telegramStaticList) {
+                dom.telegramStaticList.classList.remove('hidden');
+                // Подгружаем актуальные данные (галочки и т.д.)
+                if(window.updateTelegramStatus) window.updateTelegramStatus();
+            }
+
         } else {
+            // Twitch режим
             questButton.classList.remove('telegram-theme');
             questButton.classList.add('twitch-theme');
             questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+            
+            // Показываем Twitch челлендж
+            dom.challengeContainer.classList.remove('hidden');
+            
+            // Скрываем Telegram статик
+            if(dom.telegramStaticList) dom.telegramStaticList.classList.add('hidden');
         }
 
-        // 1. Фильтруем квесты для рулетки под выбранную платформу
+        // Фильтр для рулетки
         questsForRoulette = allQuests.filter(q => 
             q.quest_type && q.quest_type.startsWith(`automatic_${platform}`) && !q.is_completed
         );
 
-        // 2. Управляем видимостью активного квеста
+        // Управление активным квестом
         const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
         let isActiveQuestVisible = false;
 
         if (activeQuest) {
             const activeType = activeQuest.quest_type || '';
-            // Если тип квеста совпадает с выбранной вкладкой (telegram или twitch)
             if (activeType.includes(platform)) {
                 isActiveQuestVisible = true;
             }
         }
 
         if (isActiveQuestVisible) {
-            // Если есть активный квест в этой категории -> показываем его
             renderActiveAutomaticQuest(activeQuest, userData);
             dom.activeAutomaticQuestContainer.classList.remove('hidden');
-            // Кнопку "Начать" скрываем, так как квест уже идет
             dom.questChooseBtn.classList.add('hidden');
             dom.questChooseContainer.classList.add('hidden');
         } else {
-            // Если активного квеста в этой категории НЕТ
             dom.activeAutomaticQuestContainer.classList.add('hidden'); 
             
-            // Проверяем, есть ли доступные квесты для рулетки
             if (questsForRoulette.length > 0) {
                 dom.questChooseBtn.classList.remove('hidden');
                 dom.questChooseBtn.disabled = false;
-                dom.questChooseBtn.textContent = platform === 'telegram' ? "TELEGRAM ИСПЫТАНИЯ" : "TWITCH ИСПЫТАНИЯ";
-                // Возвращаем иконку, так как textContent её стер
                 if (platform === 'telegram') dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
                 else dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
-                
                 dom.questChooseContainer.classList.add('hidden'); 
             } else {
-                 // Если квестов нет вообще
                  dom.questChooseBtn.classList.remove('hidden');
                  dom.questChooseBtn.disabled = true;
-                 dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-telegram"></i> Задания будут доступны в ВСК и ПН';
+                 dom.questChooseBtn.innerHTML = '<i class="fa-solid fa-clock"></i> Задания недоступны';
             }
-        }
-        
-        // 3. Управление блоком Челленджа (он только для Twitch)
-        if (platform === 'telegram') {
-            dom.challengeContainer.classList.add('hidden');
-        } else {
-            dom.challengeContainer.classList.remove('hidden');
         }
     }
 
@@ -804,21 +805,14 @@ try {
                     if (!dom.sectionAuto || !dom.sectionManual) return;
 
                     if (view === 'manual') {
-                        // Показываем Задания
                         dom.sectionAuto.classList.add('hidden');
                         dom.sectionManual.classList.remove('hidden');
-                        
-                        // Включаем ЗЕЛЕНУЮ ТЕМУ
                         setPlatformTheme('manual'); 
                     } else {
-                        // Показываем Авто
                         dom.sectionAuto.classList.remove('hidden');
                         dom.sectionManual.classList.add('hidden');
-                        
-                        // Включаем тему Twitch или Telegram
                         setPlatformTheme(view);
                     }
-                    
                     try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
                 }
             });
@@ -836,7 +830,6 @@ try {
         updateLoading(10);
         
         try {
-            // Загружаем данные
             const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
             updateLoading(50);
 
@@ -844,37 +837,24 @@ try {
                 userData = bootstrapData.user;
                 allQuests = bootstrapData.quests;
                 
-               // Рендер Профиля
                 if (userData) {
                     dom.fullName.textContent = userData.full_name || "Гость";
                     if (document.getElementById('ticketStats')) {
                         document.getElementById('ticketStats').textContent = userData.tickets || 0;
                     }
-
-                    // --- [НОВОЕ] ВСТАВКА КНОПКИ ПРОМОКОДОВ ---
-                    // Проверяем, чтобы кнопка не добавилась дважды
                     if (dom.fullName.parentNode && !document.getElementById('promo-btn-inject')) {
                         const btn = document.createElement('a');
                         btn.id = 'promo-btn-inject';
                         btn.href = 'profile.html';
-                        
-                        // Просто добавляем класс, все цвета теперь в CSS
                         btn.className = 'promo-profile-btn'; 
-                        
                         btn.innerHTML = '<i class="fa-solid fa-ticket" style="margin-right: 5px; font-size: 10px;"></i> Промокоды';
-                        
                         dom.fullName.insertAdjacentElement('afterend', btn);
                     }
-                    // -----------------------------------------
                 }
 
-               // --- ЛОГИКА СТАРТА ---
                 initUnifiedSwitcher(); 
 
-                // Определяем дефолт
                 let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
-                
-                // Программно "нажимаем" кнопку
                 const switchEl = document.getElementById(`view-${defaultView}`);
                 if (switchEl) {
                     switchEl.checked = true;
@@ -883,23 +863,19 @@ try {
                     dom.sectionManual.classList.add('hidden');
                 }
     
-                // Челлендж (Рендерим данные, но видимость теперь управляется setPlatformTheme)
                 if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
                 else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
 
-               // --- РУЧНЫЕ ЗАДАНИЯ ---
                 updateLoading(70);
                 
                 try {
                     const manualQuests = await makeApiRequest("/api/v1/quests/manual", {}, 'POST', true);
                     renderManualQuests(manualQuests);
                 } catch (e) {
-                    console.error("Ошибка получения ручных квестов:", e);
                     const fallbackQuests = allQuests.filter(q => q.quest_type === 'manual_check');
                     renderManualQuests(fallbackQuests);
                 }
                 
-                // Логика подсветки (туториал)
                 try {
                     const questIdToHighlight = localStorage.getItem('highlightQuestId');
                     if (questIdToHighlight) {
@@ -946,10 +922,7 @@ try {
                 }
             });
         }
-
-
         
-        // Аккордеон
         document.addEventListener('click', (e) => {
             if (e.target && e.target.classList.contains('quest-category-header')) {
                 e.preventDefault();
@@ -961,7 +934,6 @@ try {
             }
         });
 
-        // Кнопки модалок
         dom.promptCancel.addEventListener('click', hideCustomPrompt);
         dom.promptConfirm.addEventListener('click', async () => {
             const text = dom.promptInput.value.trim();
@@ -988,7 +960,6 @@ try {
             else hideQuestRoulette();
         });
 
-        // Глобальный обработчик кликов по кнопкам
         document.body.addEventListener('click', async (event) => {
             const target = event.target.closest('button');
             if (!target) return;
@@ -1075,4 +1046,155 @@ try {
     console.error("Critical Error:", e);
     if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
     document.body.innerHTML = `<div style="text-align:center; padding:20px; color:#fff;"><h1>Ошибка запуска</h1><p>${e.message}</p></div>`;
+}
+
+// --- ЛОГИКА TELEGRAM ИСПЫТАНИЙ (В САМОМ НИЗУ) ---
+window.updateTelegramStatus = async function() {
+    try {
+        const res = await fetch('/api/v1/telegram/status', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData })
+        });
+        
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // 1. Подписка
+        const subBtn = document.getElementById('btn-tg-sub');
+        if (subBtn) {
+            if (data.subscribed) {
+                markTgAsDone(subBtn);
+                subBtn.closest('.quest-card').classList.add('completed');
+            } else {
+                subBtn.innerText = "Проверить";
+                subBtn.classList.remove('completed');
+                subBtn.disabled = false;
+            }
+        }
+
+        // 2. Голосование
+        const voteBtn = document.getElementById('btn-tg-vote');
+        const voteTimer = document.getElementById('tg-vote-timer');
+        
+        if (voteBtn) {
+            if (!data.vote_available) {
+                voteBtn.disabled = true;
+                voteBtn.classList.add('completed');
+                voteBtn.innerHTML = '<i class="fa-solid fa-check"></i> Ждем';
+                if(voteTimer) {
+                    voteTimer.classList.remove('hidden');
+                    voteTimer.innerText = "Доступно через 30 дней";
+                }
+            } else {
+                voteBtn.disabled = false;
+                voteBtn.classList.remove('completed');
+                voteBtn.innerText = "Голос";
+                if(voteTimer) voteTimer.classList.add('hidden');
+            }
+        }
+
+        // 3. Фамилия
+        const surBtn = document.getElementById('btn-tg-surname');
+        if (surBtn && data.surname_ok) {
+            markTgAsDone(surBtn);
+            surBtn.closest('.quest-card').classList.add('completed');
+        }
+
+        // 4. Био
+        const bioBtn = document.getElementById('btn-tg-bio');
+        if (bioBtn && data.bio_ok) {
+            markTgAsDone(bioBtn);
+            bioBtn.closest('.quest-card').classList.add('completed');
+        }
+
+        // 5. Реакции
+        const rCount = data.reactions_count || 0;
+        const rTarget = data.reactions_target || 7;
+        const percent = Math.min((rCount / rTarget) * 100, 100);
+        
+        const countEl = document.getElementById('tg-reaction-count');
+        const fillEl = document.getElementById('tg-reaction-fill');
+        
+        if (countEl) countEl.innerText = `${rCount}/${rTarget} в неделю`;
+        if (fillEl) fillEl.style.width = percent + "%";
+        
+    } catch (e) {
+        console.error("TG Quest Update Error:", e);
+    }
+};
+
+window.checkTelegramProfile = async function() {
+    const btn1 = document.getElementById('btn-tg-surname');
+    const btn2 = document.getElementById('btn-tg-bio');
+    
+    if(btn1 && !btn1.classList.contains('completed')) btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    if(btn2 && !btn2.classList.contains('completed')) btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+    try {
+        const res = await fetch('/api/v1/telegram/check_profile', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData })
+        });
+        const data = await res.json();
+        
+        if (btn1) {
+            if (data.surname) {
+                markTgAsDone(btn1);
+                btn1.closest('.quest-card').classList.add('completed');
+            } else {
+                btn1.innerText = "Проверить";
+                if(!data.success && !data.bio) Telegram.WebApp.showAlert(data.message || "Ошибка");
+            }
+        }
+        
+        if (btn2) {
+            if (data.bio) {
+                markTgAsDone(btn2);
+                btn2.closest('.quest-card').classList.add('completed');
+            } else btn2.innerText = "Проверить";
+        }
+
+        if (!data.surname && !data.bio && data.success) {
+            Telegram.WebApp.showAlert("Условия не выполнены. Проверьте фамилию и описание.");
+        }
+        
+        await window.updateTelegramStatus();
+
+    } catch (e) {
+        Telegram.WebApp.showAlert("Ошибка проверки");
+        window.updateTelegramStatus();
+    }
+};
+
+window.doTelegramVote = async function() {
+    const btn = document.getElementById('btn-tg-vote');
+    if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    
+    try {
+        const res = await fetch('/api/v1/telegram/vote', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            Telegram.WebApp.showAlert("✅ Голос засчитан! Награда начислена.");
+        } else {
+            Telegram.WebApp.showAlert(data.message || "Ошибка голосования");
+        }
+        await window.updateTelegramStatus();
+        
+    } catch (e) {
+        await window.updateTelegramStatus();
+    }
+};
+
+function markTgAsDone(btn) {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.classList.add('completed');
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
 }
