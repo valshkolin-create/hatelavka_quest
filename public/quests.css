@@ -299,12 +299,25 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.04);
 }
 
+
+/* ЛОГИКА СЛАЙДЕРА ДЛЯ ПЕРВОГО ТУМБЛЕРА (Twitch/Telegram) */
 #switch-twitch:checked ~ .switch-slider { transform: translateX(0%); }
 #switch-telegram:checked ~ .switch-slider { transform: translateX(100%); }
 
 #switch-twitch:checked + label { color: var(--twitch-color, #9146ff); }
 #switch-telegram:checked + label { color: var(--telegram-color, #24a1de); }
 
+/* ЛОГИКА СЛАЙДЕРА ДЛЯ ВТОРОГО ТУМБЛЕРА (Auto/Manual) */
+#switch-auto:checked ~ .switch-slider { transform: translateX(0%); }
+#switch-manual:checked ~ .switch-slider { transform: translateX(100%); }
+
+#switch-auto:checked + label { color: var(--text-color); } /* Или сделать желтым */
+#switch-manual:checked + label { color: var(--text-color); }
+
+/* Небольшая подсветка активного текста во втором тумблере */
+#switch-auto:checked + label i, #switch-manual:checked + label i {
+    color: var(--quest-icon-color); /* Желтый цвет иконки */
+}
 
 /* === ДИНАМИЧЕСКИЕ ТЕМЫ (Twitch / Telegram) === */
 
