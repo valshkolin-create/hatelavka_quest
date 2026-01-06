@@ -62,29 +62,39 @@
         🎯 Центр заданий
     </h2>
     <span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 15px; grid-column: 1 / -1;">
-        Выбирайте платформу или перейдите к заданиям.
+        Настройте платформу и выберите тип заданий.
     </span>
 
-    <div class="platform-switch-container" style="margin-bottom: 20px;">
+    <div class="switches-wrapper" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; align-items: center; width: 100%;">
+        
         <div class="platform-switch">
+            <input type="radio" name="platform" id="switch-twitch" value="twitch" checked>
+            <label for="switch-twitch" class="switch-label">
+                <i class="fa-brands fa-twitch"></i> Twitch
+            </label>
+
+            <input type="radio" name="platform" id="switch-telegram" value="telegram">
+            <label for="switch-telegram" class="switch-label">
+                <i class="fa-brands fa-telegram"></i> Telegram
+            </label>
             
-            <input type="radio" name="view" id="view-twitch" value="twitch" checked>
-            <label for="view-twitch" class="switch-label">
-                <i class="fa-brands fa-twitch"></i>
+            <div class="switch-slider"></div>
+        </div>
+
+        <div class="platform-switch">
+            <input type="radio" name="mode" id="switch-auto" value="auto" checked>
+            <label for="switch-auto" class="switch-label">
+                <i class="fa-solid fa-dice"></i> Испытания
             </label>
 
-            <input type="radio" name="view" id="view-telegram" value="telegram">
-            <label for="view-telegram" class="switch-label">
-                <i class="fa-brands fa-telegram"></i>
-            </label>
-
-            <input type="radio" name="view" id="view-manual" value="manual">
-            <label for="view-manual" class="switch-label">
+            <input type="radio" name="mode" id="switch-manual" value="manual">
+            <label for="switch-manual" class="switch-label">
                 <i class="fa-solid fa-list-check"></i> Задания
             </label>
             
             <div class="switch-slider"></div>
         </div>
+
     </div>
 
     <div id="section-auto-quests" style="grid-column: 1 / -1; width: 100%;">
@@ -106,7 +116,7 @@
     <div id="section-manual-quests" class="hidden" style="grid-column: 1 / -1; width: 100%;">
         
         <div style="text-align: center; margin-bottom: 15px; color: #ffcc00; font-size: 13px; font-weight: 600;">
-             📝 Выполните и отправьте на проверку
+             📝 Список заданий на проверку
         </div>
 
         <div id="manual-quests-list" style="width: 100%;">
