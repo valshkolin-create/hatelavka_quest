@@ -1,20 +1,30 @@
 :root {
-    --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000); 
+    /* --- БАЗОВЫЕ ПЕРЕМЕННЫЕ --- */
     --bg-color: #000000;
     --text-color: #ffffff;
     --text-color-muted: #b0b0b0;
     --quest-icon-color: #ffcc00;
-    --primary-gradient: linear-gradient(90deg, #34c759, #2dbf55);
-    --primary-color: #34c759;
     --action-color: #007aff;
     --disabled-color: #666;
     --surface-glass-bg: rgba(28, 28, 30, 0.75);
-    --twitch-color: #9146ff;
     --danger-color: #ff3b30;
+
+    /* --- ЦВЕТА ПО УМОЛЧАНИЮ (Зеленые) --- */
+    --primary-color: #34c759;
+    --primary-gradient: linear-gradient(90deg, #34c759, #2dbf55);
+    
+    /* Фон страницы (по умолчанию зеленый оттенок снизу) */
+    --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
+    
+    /* Фон плашки билетов (по умолчанию зеленый полупрозрачный) */
+    --tickets-bg: rgba(52, 199, 89, 0.15);
+    
+    /* Цвета платформ */
+    --twitch-color: #9146ff;
     --telegram-color: #0088CC;
 }
 
-/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА === */
+/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА И ФОНА === */
 html, body {
     margin: 0;
     padding: 0;
@@ -23,12 +33,15 @@ html, body {
     position: fixed; 
     top: 0; left: 0; right: 0; bottom: 0;
     overflow: hidden; 
-    background-color: #000;
+    background-color: var(--bg-color);
+    background-image: var(--bg-gradient); /* Теперь это переменная! */
+    background-size: cover;
+    background-repeat: no-repeat;
     max-width: 100vw;
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--text-color);
-    background-image: var(--bg-gradient);
+    transition: background-image 0.5s ease; /* Плавная смена фона */
 }
 
 .main-content {
@@ -57,7 +70,7 @@ html, body {
 .stats-text { font-size: 12px; font-weight: 500; }
 
 .tickets-item { 
-    background: rgba(52, 199, 89, 0.15); 
+    background: var(--tickets-bg); /* Теперь динамический фон */
     border-radius: 12px; 
     padding: 6px 10px; 
     display: flex; 
@@ -66,9 +79,10 @@ html, body {
     gap: 6px; 
     position: relative;
     z-index: 1;
+    transition: background 0.3s ease;
 }
 .tickets-item .stats-text { color: var(--primary-color); font-weight: 700; font-size: 14px; }
-.stats-icon-star { background: var(--primary-color); margin-right: 0; }
+.stats-icon-star { background: var(--primary-color); margin-right: 0; transition: background 0.3s ease; }
 .stats-icon-star i { color: #fff; }
 .info-question-icon { font-size: 16px; color: #ffc700; cursor: pointer; margin-left: 4px; }
 
@@ -241,22 +255,17 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
 .platform-switch {
     position: relative;
     display: flex;
-    /* Фон трека - светло-серый, как в iOS */
     background: rgba(118, 118, 128, 0.12); 
-    border-radius: 32px; /* Полная пилюля */
+    border-radius: 32px;
     padding: 2px;
     width: 100%;
-    /* Сделали поменьше и компактнее */
     max-width: 280px; 
     height: 32px; 
     box-sizing: border-box;
-    /* Тонкая обводка для четкости на разных фонах */
     border: 0.5px solid rgba(0,0,0,0.04);
 }
 
-.platform-switch input {
-    display: none;
-}
+.platform-switch input { display: none; }
 
 .switch-label {
     flex: 1;
@@ -264,65 +273,49 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Шрифт поменьше и жирнее */
     font-size: 12px;
     font-weight: 700;
-    /* Цвет неактивного текста - серый */
     color: #8e8e93; 
     cursor: pointer;
     transition: color 0.3s ease;
-    gap: 4px; /* Расстояние между иконкой и текстом поменьше */
+    gap: 4px;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    text-transform: uppercase; /* Для стиля */
+    text-transform: uppercase;
     letter-spacing: 0.5px;
 }
+.switch-label i { font-size: 13px; }
 
-/* Иконки в переключателе чуть меньше */
-.switch-label i {
-    font-size: 13px;
-}
-
-/* Слайдер (ездящая плашка) - теперь всегда белая с тенью */
 .switch-slider {
     position: absolute;
     top: 2px;
     bottom: 2px;
     left: 2px;
     width: calc(50% - 2px);
-    background: #fff; /* Белая плашка */
+    background: #fff;
     border-radius: 30px;
     z-index: 1;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Пружинящая анимация iOS */
-    /* iOS тень для объема */
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.04);
 }
 
-/* Логика движения слайдера */
-#switch-twitch:checked ~ .switch-slider {
-    transform: translateX(0%);
-}
+#switch-twitch:checked ~ .switch-slider { transform: translateX(0%); }
+#switch-telegram:checked ~ .switch-slider { transform: translateX(100%); }
 
-#switch-telegram:checked ~ .switch-slider {
-    transform: translateX(100%);
-}
-
-/* --- ЦВЕТА АКТИВНОГО ТЕКСТА --- */
-/* Когда выбран Twitch, текст фиолетовый */
-#switch-twitch:checked + label {
-    color: var(--twitch-color, #9146ff);
-}
-
-/* Когда выбран Telegram, текст синий */
-#switch-telegram:checked + label {
-    color: var(--telegram-color, #24a1de);
-}
+#switch-twitch:checked + label { color: var(--twitch-color, #9146ff); }
+#switch-telegram:checked + label { color: var(--telegram-color, #24a1de); }
 
 
-/* === ТЕМАТИЗАЦИЯ ИНТЕРФЕЙСА (Остается прежней) === */
+/* === ДИНАМИЧЕСКИЕ ТЕМЫ (Twitch / Telegram) === */
+
+/* --- TWITCH THEME --- */
 body[data-theme="twitch"] {
     --primary-color: #9146ff;
     --primary-gradient: linear-gradient(90deg, #9146ff, #772ce8);
+    /* Фиолетовый градиент на фон */
+    --bg-gradient: radial-gradient(ellipse at 50% 100%, #1a0b2e, #000000);
+    /* Фиолетовый фон билетов */
+    --tickets-bg: rgba(145, 70, 255, 0.15);
 }
 body[data-theme="twitch"] .claim-reward-button {
     background: linear-gradient(90deg, #a97cff, #9146ff);
@@ -330,9 +323,14 @@ body[data-theme="twitch"] .claim-reward-button {
     box-shadow: 0 0 12px rgba(145, 70, 255, 0.5);
 }
 
+/* --- TELEGRAM THEME --- */
 body[data-theme="telegram"] {
     --primary-color: #24a1de;
     --primary-gradient: linear-gradient(90deg, #2AABEE, #229ED9);
+    /* Синий градиент на фон */
+    --bg-gradient: radial-gradient(ellipse at 50% 100%, #0b1a2e, #000000);
+    /* Синий фон билетов */
+    --tickets-bg: rgba(36, 161, 222, 0.15);
 }
 body[data-theme="telegram"] .claim-reward-button {
     background: linear-gradient(90deg, #24a1de, #0088cc);
@@ -344,30 +342,43 @@ body[data-theme="telegram"] .claim-reward-button {
     transition: background 0.3s, box-shadow 0.3s, color 0.3s;
 }
 
-/* --- Кнопка Промокодов в профиле (ОБНОВЛЕННАЯ МИНИ-ВЕРСИЯ) --- */
+/* === Кнопка Промокодов (ОБНОВЛЕННАЯ) === */
+/* Используем трюк font-size: 0 для скрытия старого текста и псевдоэлемент для нового */
 #promo-btn-inject, .promo-profile-btn {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
     width: auto !important;
-    min-width: 90px;
-    max-width: 130px;
+    min-width: 140px; /* Чуть шире для текста */
     margin: 6px auto 0 auto !important;
-    padding: 4px 10px !important; /* Уменьшенные отступы */
+    padding: 4px 10px !important;
     background: linear-gradient(90deg, #6441a5 0%, #9146ff 100%);
     color: white !important;
     font-weight: 700;
-    font-size: 10px !important; /* Уменьшенный шрифт */
+    font-size: 0 !important; /* Скрываем старый текст JS */
     border-radius: 6px !important;
     text-decoration: none;
     box-shadow: 0 2px 5px rgba(100, 65, 165, 0.3);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    height: 24px !important; /* Фиксированная маленькая высота */
+    height: 24px !important;
     line-height: 1;
     border: none;
     cursor: pointer;
     transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+/* Скрываем иконку, если она есть внутри */
+#promo-btn-inject i, .promo-profile-btn i {
+    display: none !important;
+}
+
+/* Вставляем новый текст через CSS */
+#promo-btn-inject::after, .promo-profile-btn::after {
+    content: "Профиль | Промокоды";
+    font-size: 10px;
+    font-weight: 700;
+    display: block;
 }
 
 #promo-btn-inject:active, .promo-profile-btn:active {
@@ -375,12 +386,6 @@ body[data-theme="telegram"] .claim-reward-button {
     box-shadow: 0 1px 3px rgba(100, 65, 165, 0.2);
 }
 
-#promo-btn-inject i, .promo-profile-btn i {
-    margin-right: 5px;
-    font-size: 10px;
-}
-
-/* Скрываем дубликаты если вдруг создадутся */
 .promo-profile-btn + .promo-profile-btn {
     display: none;
 }
