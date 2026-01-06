@@ -242,7 +242,7 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
 }
 
 
-/* === ТУМБЛЕР ПЕРЕКЛЮЧЕНИЯ (iOS Style) === */
+/* === ТУМБЛЕР ПЕРЕКЛЮЧЕНИЯ (3 ПОЗИЦИИ) === */
 .platform-switch-container {
     grid-column: 1 / -1;
     display: flex;
@@ -284,14 +284,16 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-.switch-label i { font-size: 13px; }
+.switch-label i { font-size: 13px; transition: transform 0.2s ease; }
 
+/* === ЛОГИКА СЛАЙДЕРА (3 ПОЗИЦИИ) === */
 .switch-slider {
     position: absolute;
     top: 2px;
     bottom: 2px;
     left: 2px;
-    width: calc(50% - 2px);
+    /* Ширина 1/3 минус отступы */
+    width: calc(33.333% - 2px); 
     background: #fff;
     border-radius: 30px;
     z-index: 1;
@@ -299,25 +301,24 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.04);
 }
 
+/* 1. Позиция (Twitch) - 0% */
+#view-twitch:checked ~ .switch-slider { transform: translateX(0%); }
 
-/* ЛОГИКА СЛАЙДЕРА ДЛЯ ПЕРВОГО ТУМБЛЕРА (Twitch/Telegram) */
-#switch-twitch:checked ~ .switch-slider { transform: translateX(0%); }
-#switch-telegram:checked ~ .switch-slider { transform: translateX(100%); }
+/* 2. Позиция (Telegram) - 100% */
+#view-telegram:checked ~ .switch-slider { transform: translateX(100%); }
 
-#switch-twitch:checked + label { color: var(--twitch-color, #9146ff); }
-#switch-telegram:checked + label { color: var(--telegram-color, #24a1de); }
+/* 3. Позиция (Manual) - 200% */
+#view-manual:checked ~ .switch-slider { transform: translateX(200%); }
 
-/* ЛОГИКА СЛАЙДЕРА ДЛЯ ВТОРОГО ТУМБЛЕРА (Auto/Manual) */
-#switch-auto:checked ~ .switch-slider { transform: translateX(0%); }
-#switch-manual:checked ~ .switch-slider { transform: translateX(100%); }
+/* === ЦВЕТА АКТИВНЫХ ЭЛЕМЕНТОВ === */
+#view-twitch:checked + label { color: var(--twitch-color, #9146ff); }
+#view-telegram:checked + label { color: var(--telegram-color, #24a1de); }
+#view-manual:checked + label { color: var(--text-color); }
 
-#switch-auto:checked + label { color: var(--text-color); } /* Или сделать желтым */
-#switch-manual:checked + label { color: var(--text-color); }
-
-/* Небольшая подсветка активного текста во втором тумблере */
-#switch-auto:checked + label i, #switch-manual:checked + label i {
-    color: var(--quest-icon-color); /* Желтый цвет иконки */
-}
+/* Анимация иконок при выборе для красоты */
+#view-twitch:checked + label i { transform: scale(1.15); }
+#view-telegram:checked + label i { transform: scale(1.15); }
+#view-manual:checked + label i { transform: scale(1.15); color: #ffcc00; }
 
 /* === ДИНАМИЧЕСКИЕ ТЕМЫ (Twitch / Telegram) === */
 
