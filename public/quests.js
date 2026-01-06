@@ -1157,7 +1157,7 @@ window.checkTelegramProfile = async function() {
     const btn1 = document.getElementById('btn-tg-surname');
     const btn2 = document.getElementById('btn-tg-bio');
     
-    // Анимация спиннера
+    // Ставим спиннеры
     if(btn1 && document.getElementById('tg-row-surname').style.display !== 'none') 
         btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     if(btn2 && document.getElementById('tg-row-bio').style.display !== 'none') 
@@ -1171,10 +1171,9 @@ window.checkTelegramProfile = async function() {
         });
         const data = await res.json();
         
-        // 1. Проверяем, была ли ВЫДАНА награда прямо сейчас (исправление проблемы 1 и 2)
+        // 1. Условия ВЫПОЛНЕНЫ и награда ВЫДАНА ПРЯМО СЕЙЧАС
         if (data.surname_rewarded || data.bio_rewarded) {
-             // 2. Исправление проблемы 3: Показываем окно БИЛЕТОВ, а не промокода
-             // Обновляем счетчик билетов в шапке (визуально)
+             // Обновляем счетчик билетов визуально
              const ticketStatsEl = document.getElementById('ticketStats');
              if(ticketStatsEl) {
                  let added = 0;
@@ -1183,29 +1182,30 @@ window.checkTelegramProfile = async function() {
                  ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + added;
              }
              
+             // Показываем окно БИЛЕТОВ (а не промокода)
              if (typeof showTicketsClaimedModal === 'function') {
                  showTicketsClaimedModal(); 
              } else {
-                 Telegram.WebApp.showAlert("Награда (билеты) получена!");
+                 Telegram.WebApp.showAlert(`Успех! Вы получили ${data.surname_rewarded ? 15 : 0 + data.bio_rewarded ? 20 : 0} билетов.`);
              }
         } 
-        // Если условия выполнены, но награда уже была выдана ранее
-        else if ((data.surname && !data.surname_rewarded) || (data.bio && !data.bio_rewarded)) {
-            // Если оба условия выполнены, но ничего нового не дали - просто обновляем UI молча
-            // Или можно показать алерт, если пользователь нажал кнопку
-            // Но лучше просто обновить статус
+        // 2. Условия ВЫПОЛНЕНЫ, но награда УЖЕ БЫЛА получена раньше
+        else if (data.surname || data.bio) {
+            // Важно: если мы попали сюда, значит условия выполнены, но флаги _rewarded = false.
+            // Просто обновляем кнопки (галочки появятся после updateTelegramStatus)
+            Telegram.WebApp.showAlert("Задание уже выполнено, награда была получена ранее.");
         }
+        // 3. Условия НЕ ВЫПОЛНЕНЫ
         else {
-            // Если ничего не выполнено
-            Telegram.WebApp.showAlert("Условия не выполнены. Проверьте фамилию и описание.");
+            Telegram.WebApp.showAlert("Условия не выполнены. Проверьте, что вы добавили фразу в ник/био и сохранили профиль Telegram.");
         }
         
-        await window.updateTelegramStatus();
-
     } catch (e) {
         console.error(e);
-        Telegram.WebApp.showAlert("Ошибка проверки");
-        window.updateTelegramStatus();
+        Telegram.WebApp.showAlert("Ошибка проверки. Попробуйте позже.");
+    } finally {
+        // В любом случае обновляем внешний вид кнопок (убираем спиннер, ставим галочки)
+        await window.updateTelegramStatus();
     }
 };
 
@@ -1222,22 +1222,22 @@ window.doTelegramVote = async function() {
         const data = await res.json();
         
         if (data.success) {
-             // ИСПРАВЛЕНИЕ: Используем showTicketsClaimedModal вместо rewardClaimedOverlay
+             // Визуально добавим +10 билетов
+             const ticketStatsEl = document.getElementById('ticketStats');
+             if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 10;
+             
+             // Показываем окно БИЛЕТОВ
              if (typeof showTicketsClaimedModal === 'function') {
-                 // Визуально добавим +10 билетов
-                 const ticketStatsEl = document.getElementById('ticketStats');
-                 if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 10;
-                 
                  showTicketsClaimedModal();
              } else {
-                 Telegram.WebApp.showAlert("Награда получена!");
+                 Telegram.WebApp.showAlert("Награда получена! +10 билетов");
              }
         } else {
             Telegram.WebApp.showAlert(data.message || "Ошибка");
         }
-        await window.updateTelegramStatus();
-        
     } catch (e) {
+        Telegram.WebApp.showAlert("Ошибка соединения");
+    } finally {
         await window.updateTelegramStatus();
     }
 };
