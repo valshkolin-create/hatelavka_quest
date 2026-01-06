@@ -59,51 +59,72 @@
     </div>
 
     <h2 class="page-title" style="grid-column: 1 / -1; margin-bottom: 5px;">
-    🎯 Испытания
-</h2>
-<span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 15px; grid-column: 1 / -1;">
-    Выполняйте, чтобы получать билеты и звезды.
-</span>
+        🎯 Центр заданий
+    </h2>
+    <span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 15px; grid-column: 1 / -1;">
+        Выбирайте режим и платформу для заработка наград.
+    </span>
 
-<div class="platform-switch-container">
-    <div class="platform-switch">
-        <input type="radio" name="platform" id="switch-twitch" value="twitch" checked>
-        <label for="switch-twitch" class="switch-label">
-            <i class="fa-brands fa-twitch"></i> Twitch
-        </label>
-
-        <input type="radio" name="platform" id="switch-telegram" value="telegram">
-        <label for="switch-telegram" class="switch-label">
-            <i class="fa-brands fa-telegram"></i> Telegram
-        </label>
+    <div class="switches-wrapper" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; align-items: center;">
         
-        <div class="switch-slider"></div>
+        <div class="platform-switch">
+            <input type="radio" name="platform" id="switch-twitch" value="twitch" checked>
+            <label for="switch-twitch" class="switch-label">
+                <i class="fa-brands fa-twitch"></i> Twitch
+            </label>
+
+            <input type="radio" name="platform" id="switch-telegram" value="telegram">
+            <label for="switch-telegram" class="switch-label">
+                <i class="fa-brands fa-telegram"></i> Telegram
+            </label>
+            
+            <div class="switch-slider"></div>
+        </div>
+
+        <div class="platform-switch">
+            <input type="radio" name="mode" id="switch-auto" value="auto" checked>
+            <label for="switch-auto" class="switch-label">
+                <i class="fa-solid fa-dice"></i> Испытания
+            </label>
+
+            <input type="radio" name="mode" id="switch-manual" value="manual">
+            <label for="switch-manual" class="switch-label">
+                <i class="fa-solid fa-list-check"></i> Задания
+            </label>
+            
+            <div class="switch-slider"></div>
+        </div>
+
     </div>
-</div>
-<div id="challenge-container" style="grid-column: 1 / -1; width: 100%; margin-bottom: 0;"></div>
-        
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
 
-        <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="grid-column: 1 / -1; width: 100%; margin: 0;">
+    <div id="section-auto-quests" style="grid-column: 1 / -1; width: 100%;">
+        
+        <div id="challenge-container" style="width: 100%; margin-bottom: 0;"></div>
+        
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; width: 100%;">
+
+        <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="width: 100%; margin: 0;">
             НАЧАТЬ ИСПЫТАНИЕ
         </button>
         
-        <div id="quest-choose-container" class="quest-choose-container hidden" style="grid-column: 1 / -1; width: 100%; margin-top: 10px;"></div>
+        <div id="quest-choose-container" class="quest-choose-container hidden" style="width: 100%; margin-top: 10px;"></div>
         
-        <div id="active-automatic-quest-container" style="grid-column: 1 / -1; width: 100%; margin-top: 5px;"></div>
+        <div id="active-automatic-quest-container" style="width: 100%; margin-top: 5px;"></div>
+
+    </div>
+
+    <div id="section-manual-quests" class="hidden" style="grid-column: 1 / -1; width: 100%;">
         
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
+        <div style="text-align: center; margin-bottom: 15px; color: #ffcc00; font-size: 13px; font-weight: 600;">
+             📝 Выполните и отправьте на проверку
+        </div>
 
-        <h3 style="grid-column: 1 / -1; font-size: 14px; font-weight: 600; color: #ffcc00; margin: 0 0 8px 0; text-align: center;">
-            📝 Задания с ручной проверкой
-        </h3>
-
-        <div id="manual-quests-list" style="grid-column: 1 / -1; width: 100%;">
+        <div id="manual-quests-list" style="width: 100%;">
             <div class="spinner"></div>
         </div>
 
-        <span class="manual-hint" style="display: block; font-size: 11px; color: #666; text-align: center; margin-top: 15px; margin-bottom: 20px; grid-column: 1 / -1;">
-            Награды ищите в разделе <span style="color: #ffc700;">Профиль</span>
+        <span class="manual-hint" style="display: block; font-size: 11px; color: #666; text-align: center; margin-top: 15px; margin-bottom: 20px;">
+            Статус проверки можно увидеть в <span style="color: #ffc700;">Профиле</span>
         </span>
     </div>
 
