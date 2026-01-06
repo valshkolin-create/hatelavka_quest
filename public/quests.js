@@ -1,3 +1,90 @@
+/* ==========================================
+   ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА (СТРОКА 1)
+   ========================================== */
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+// Глобальные переменные для хранения имен
+let globalTgName = "Gamer";
+let globalTwitchName = "Нет Twitch";
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Получаем ID пользователя
+    const user = tg.initDataUnsafe?.user;
+    const userId = user ? user.id : 646426436; // Тестовый ID если нет телеграма
+
+    // 2. Инициализация: Грузим квесты (по умолчанию Телеграм)
+    loadQuests('telegram'); 
+    
+    // 3. ЗАГРУЖАЕМ ПРОФИЛЬ
+    try {
+        const response = await fetch(`/api/profile/${userId}`);
+        if (response.ok) {
+            const data = await response.json();
+
+            // Сохраняем имя Telegram
+            globalTgName = data.username || user?.username || "Gamer";
+
+            // Сохраняем логин Twitch (если есть)
+            if (data.twitch_login) {
+                globalTwitchName = data.twitch_login;
+            } else {
+                globalTwitchName = "Подключи Twitch"; 
+            }
+
+            // Обновляем билеты
+            const ticketsEl = document.getElementById('tickets-amount');
+            if (ticketsEl) ticketsEl.textContent = data.tickets || 0;
+
+            // Сразу ставим правильное имя (для текущей темы)
+            // По умолчанию у нас стоит Telegram при загрузке
+            updateNicknameDisplay('telegram'); 
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки профиля:', error);
+    }
+
+    // 4. НАСТРОЙКА ПЕРЕКЛЮЧАТЕЛЯ (Твич / Телеграм)
+    const platformInputs = document.querySelectorAll('input[name="platform"]');
+    platformInputs.forEach(input => {
+        input.addEventListener('change', (e) => {
+            const platform = e.target.value;
+            
+            // А. Меняем тему (цвета)
+            document.body.setAttribute('data-theme', platform);
+            
+            // Б. === МЕНЯЕМ НИКНЕЙМ ===
+            updateNicknameDisplay(platform); 
+            
+            // В. Загружаем квесты
+            loadQuests(platform);
+
+            // Г. Меняем стиль кнопки рулетки (если есть)
+            const rouletteBtn = document.getElementById('roulette-btn');
+            if (rouletteBtn) {
+                rouletteBtn.classList.remove('twitch-theme', 'telegram-theme');
+                rouletteBtn.classList.add(`${platform}-theme`);
+            }
+        });
+    });
+});
+
+// Функция смены имени в HTML
+function updateNicknameDisplay(platform) {
+    const nameEl = document.getElementById('fullName');
+    if (!nameEl) return;
+
+    if (platform === 'twitch') {
+        nameEl.textContent = globalTwitchName;
+    } else {
+        nameEl.textContent = globalTgName;
+    }
+}
+
+/* ==========================================
+   ДАЛЕЕ ИДЕТ ТВОЙ СТАРЫЙ КОД (CLICK, и т.д.)
+   ========================================== */
+
 const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
     loadingText: document.getElementById('loading-text'),
@@ -49,6 +136,7 @@ function unlockAppScroll() {
     const content = document.getElementById('main-content');
     if (content) content.classList.remove('no-scroll');
 }
+
 
 async function checkMaintenance() {
     try {
@@ -922,6 +1010,8 @@ try {
                 }
             });
         }
+
+
         
         // Аккордеон
         document.addEventListener('click', (e) => {
@@ -1049,4 +1139,58 @@ try {
     console.error("Critical Error:", e);
     if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
     document.body.innerHTML = `<div style="text-align:center; padding:20px; color:#fff;"><h1>Ошибка запуска</h1><p>${e.message}</p></div>`;
+}
+
+/* ==============================================
+   НОВЫЕ ФУНКЦИИ ДЛЯ ПРОФИЛЯ И СМЕНЫ НИКОВ
+   ============================================== */
+
+// Глобальные переменные для хранения имен
+let globalTgName = "Gamer";
+let globalTwitchName = "Нет Twitch";
+
+// Функция загрузки данных пользователя
+async function fetchUserProfile(userId) {
+    try {
+        const response = await fetch(`/api/profile/${userId}`);
+        if (!response.ok) throw new Error('Ошибка сети при загрузке профиля');
+        
+        const data = await response.json();
+        
+        // 1. Сохраняем имена в глобальные переменные
+        // data.username - это имя из Телеграм (из базы)
+        globalTgName = data.username || "Gamer";
+        
+        // data.twitch_login - это логин Твича (приходит с бекенда)
+        if (data.twitch_login) {
+            globalTwitchName = data.twitch_login;
+        } else {
+            globalTwitchName = "Подключи Twitch"; // Текст, если твич не привязан
+        }
+
+        // 2. Обновляем количество билетов
+        const ticketsEl = document.getElementById('tickets-amount');
+        if (ticketsEl) ticketsEl.textContent = data.tickets || 0;
+
+        // 3. Сразу обновляем имя на экране в зависимости от того, какая вкладка открыта
+        const activePlatform = document.querySelector('input[name="platform"]:checked')?.value || 'telegram';
+        updateNicknameDisplay(activePlatform);
+
+    } catch (error) {
+        console.error('Ошибка получения профиля:', error);
+    }
+}
+
+// Функция переключения отображаемого имени
+function updateNicknameDisplay(platform) {
+    const nameEl = document.getElementById('fullName');
+    if (!nameEl) return;
+
+    if (platform === 'twitch') {
+        nameEl.textContent = globalTwitchName;
+        // Здесь можно добавить стили, если нужно, например: nameEl.style.color = '#9146ff';
+    } else {
+        nameEl.textContent = globalTgName;
+        // nameEl.style.color = '#fff';
+    }
 }
