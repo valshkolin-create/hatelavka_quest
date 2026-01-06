@@ -242,16 +242,7 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
 }
 
 
-/* === ТУМБЛЕР ПЕРЕКЛЮЧЕНИЯ (3 ПОЗИЦИИ) === */
-.platform-switch-container {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 20px;
-    width: 100%;
-}
-
+/* === ТУМБЛЕР ПЕРЕКЛЮЧЕНИЯ (2 РЯДА) === */
 .platform-switch {
     position: relative;
     display: flex;
@@ -259,10 +250,10 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     border-radius: 32px;
     padding: 2px;
     width: 100%;
-    max-width: 280px; 
-    height: 32px; 
+    max-width: 280px; /* Ограничиваем ширину, чтобы было красиво */
+    height: 36px;     /* Чуть выше для удобства нажатия */
     box-sizing: border-box;
-    border: 0.5px solid rgba(0,0,0,0.04);
+    border: 0.5px solid rgba(255,255,255,0.05);
 }
 
 .platform-switch input { display: none; }
@@ -273,53 +264,54 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: #8e8e93; 
     cursor: pointer;
     transition: color 0.3s ease;
-    gap: 4px;
+    gap: 6px;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-.switch-label i { font-size: 13px; transition: transform 0.2s ease; }
+.switch-label i { font-size: 14px; transition: transform 0.2s ease; }
 
-/* === ЛОГИКА СЛАЙДЕРА (3 ПОЗИЦИИ) === */
+/* СЛАЙДЕР (Бегунок) */
 .switch-slider {
     position: absolute;
     top: 2px;
     bottom: 2px;
     left: 2px;
-    /* Ширина 1/3 минус отступы */
-    width: calc(33.333% - 2px); 
+    width: calc(50% - 2px); /* Ровно половина минус отступы */
     background: #fff;
     border-radius: 30px;
     z-index: 1;
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.04);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 3px 1px rgba(0,0,0,0.06);
 }
 
-/* 1. Позиция (Twitch) - 0% */
-#view-twitch:checked ~ .switch-slider { transform: translateX(0%); }
+/* === ЛОГИКА ПЕРВОГО ТУМБЛЕРА (Twitch/Telegram) === */
+#switch-twitch:checked ~ .switch-slider { transform: translateX(0%); }
+#switch-telegram:checked ~ .switch-slider { transform: translateX(100%); }
 
-/* 2. Позиция (Telegram) - 100% */
-#view-telegram:checked ~ .switch-slider { transform: translateX(100%); }
+#switch-twitch:checked + label { color: var(--twitch-color, #9146ff); }
+#switch-telegram:checked + label { color: var(--telegram-color, #24a1de); }
 
-/* 3. Позиция (Manual) - 200% */
-#view-manual:checked ~ .switch-slider { transform: translateX(200%); }
+/* === ЛОГИКА ВТОРОГО ТУМБЛЕРА (Auto/Manual) === */
+#switch-auto:checked ~ .switch-slider { transform: translateX(0%); }
+#switch-manual:checked ~ .switch-slider { transform: translateX(100%); }
 
-/* === ЦВЕТА АКТИВНЫХ ЭЛЕМЕНТОВ === */
-#view-twitch:checked + label { color: var(--twitch-color, #9146ff); }
-#view-telegram:checked + label { color: var(--telegram-color, #24a1de); }
-#view-manual:checked + label { color: var(--text-color); }
+/* Для нижнего тумблера делаем цвет текста черным или темным, так как фон слайдера белый */
+#switch-auto:checked + label { color: #000; }
+#switch-manual:checked + label { color: #000; }
 
-/* Анимация иконок при выборе для красоты */
-#view-twitch:checked + label i { transform: scale(1.15); }
-#view-telegram:checked + label i { transform: scale(1.15); }
-#view-manual:checked + label i { transform: scale(1.15); color: #ffcc00; }
+/* Подсветка иконок в нижнем ряду */
+#switch-auto:checked + label i { color: #ff3b30; } /* Красная кость или цвет темы */
+#switch-manual:checked + label i { color: #ffcc00; } /* Золотая галочка */
 
+/* Анимация нажатия */
+input:checked + label i { transform: scale(1.2); }
 /* === ДИНАМИЧЕСКИЕ ТЕМЫ (Twitch / Telegram) === */
 
 /* --- TWITCH THEME --- */
