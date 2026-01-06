@@ -25,7 +25,7 @@ import asyncio
 import re
 from aiogram import Bot, Dispatcher, types, F, Router
 from aiogram.filters import Command, CommandObject
-from aiogram.types import Update, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Update, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, MessageReactionUpdated
 from aiogram.enums import ParseMode
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
@@ -11915,6 +11915,34 @@ async def check_telegram_profile(
     except Exception as e:
         return JSONResponse({"error": str(e)}, status=500)
 
+# --- СПЕЦИАЛЬНЫЙ ЭНДПОИНТ ДЛЯ ВКЛЮЧЕНИЯ РЕАКЦИЙ ---
+@app.get("/api/v1/admin/fix_webhook")
+async def fix_webhook_settings():
+    """
+    Запусти этот эндпоинт один раз в браузере, чтобы включить реакции.
+    Пример: https://твоя-ссылка.vercel.app/api/v1/admin/fix_webhook
+    """
+    webhook_url = f"{WEB_APP_URL}/api/v1/webhook"
+    
+    # Указываем ВСЕ типы обновлений, включая реакции
+    updates = [
+        "message", 
+        "callback_query", 
+        "chat_member", 
+        "my_chat_member", 
+        "message_reaction",        # <--- ВОТ ОНО
+        "message_reaction_count"
+    ]
+    
+    try:
+        # Сначала удаляем (на всякий случай)
+        await bot.delete_webhook()
+        # Ставим заново с правильными настройками
+        await bot.set_webhook(url=webhook_url, allowed_updates=updates)
+        return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 @app.post("/api/v1/telegram/vote")
 async def telegram_vote(
     request: Request,
@@ -11951,79 +11979,77 @@ async def telegram_vote(
 
 # --- ХЕНДЛЕР РЕАКЦИЙ (ИСПРАВЛЕННЫЙ) ---
 @router.message_reaction()
-async def handle_quest_reaction(update: Update):
-    """Ловит реакции в канале квестов (Требует, чтобы бот был админом)"""
-    # 1. Проверяем настройки канала
-    if TG_QUEST_CHANNEL_ID == 0: 
+async def handle_reaction_update(reaction: MessageReactionUpdated):
+    """
+    Ловит реакции и обновляет еженедельный прогресс.
+    """
+    # 1. Проверки: тот ли чат, добавление ли это реакции
+    if TG_QUEST_CHANNEL_ID == 0 or reaction.chat.id != TG_QUEST_CHANNEL_ID:
         return
-    
-    # 2. Проверяем, что событие из нужного канала
-    if update.message_reaction.chat.id != TG_QUEST_CHANNEL_ID: 
+    if not reaction.new_reaction: # Если реакцию сняли, игнорируем
         return
-    
-    user = update.message_reaction.user
-    if not user: return # Анонимный админ или канал
+
+    user = reaction.user
+    if not user: return
     user_id = user.id
-    
-    # 3. Реагируем только на ДОБАВЛЕНИЕ реакции (new_reaction не пустой)
-    if not update.message_reaction.new_reaction: return
+
+    logging.info(f"❤️ REACT: User {user_id} reacted to msg {reaction.message_id}")
 
     try:
-        # Использование run_in_threadpool позволяет избежать блокировки и ошибок await с синхронным клиентом
-        
-        # Получаем данные пользователя
+        # 2. Получаем данные (используем твою логику с run_in_threadpool)
         res = await run_in_threadpool(
             lambda: supabase.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
         )
         
+        # Если записи нет — создаем
         if not res.data:
-            # Создаем запись, если нет
             record = {
                 "user_id": user_id,
-                "reaction_count_weekly": 0,
+                "reaction_count_weekly": 1,
                 "last_reaction_reset": datetime.now(timezone.utc).isoformat()
             }
             await run_in_threadpool(
                 lambda: supabase.table("telegram_challenges").insert(record).execute()
             )
-        else:
-            record = res.data[0]
-            
-        # Логика сброса недели
+            # Начисляем билет
+            await run_in_threadpool(
+                lambda: supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
+            )
+            return
+
+        # Если запись есть — обновляем
+        record = res.data[0]
+        
+        # Сброс недели
         now = datetime.now(timezone.utc)
         last_reset_str = record.get('last_reaction_reset') or now.isoformat()
         last_reset = datetime.fromisoformat(last_reset_str.replace('Z', '+00:00'))
         
         count = record.get('reaction_count_weekly', 0)
         
-        # Если неделя прошла — сбрасываем
         if now - last_reset > timedelta(days=7):
-            count = 0 
+            count = 0 # Новая неделя
+            # Обновляем дату сброса
             await run_in_threadpool(
                 lambda: supabase.table("telegram_challenges").update({
-                    "last_reaction_reset": now.isoformat(), 
-                    "reaction_count_weekly": 0
+                    "last_reaction_reset": now.isoformat()
                 }).eq("user_id", user_id).execute()
             )
-            
-        # Если лимит не достигнут — начисляем
+
+        # Если лимит не достигнут — засчитываем
         if count < TG_REACTION_WEEKLY_LIMIT:
             new_count = count + 1
-            
-            # Обновляем счетчик
             await run_in_threadpool(
                 lambda: supabase.table("telegram_challenges").update({
                     "reaction_count_weekly": new_count
                 }).eq("user_id", user_id).execute()
             )
-            
-            # Начисляем билет через RPC (безопасно)
+            # Награда
             await run_in_threadpool(
                 lambda: supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
             )
-            
-            logging.info(f"[Reaction] User {user_id} ticket added. ({new_count}/{TG_REACTION_WEEKLY_LIMIT})")
-            
+            logging.info(f"✅ Билет выдан {user_id} ({new_count}/{TG_REACTION_WEEKLY_LIMIT})")
+
     except Exception as e:
         logging.error(f"Reaction handler error: {e}")
 
@@ -12051,6 +12077,8 @@ async def handle_quest_reaction(update: Update):
 # async def roulette_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/roulette.html")
 # @app.get("/halloween")
 # async def halloween_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/halloween.html")
+
+
 
 def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
