@@ -153,6 +153,14 @@ class EventParticipantsRequest(BaseModel):
     initData: str
     event_id: int
 
+class TelegramQuestResponse(BaseModel):
+    subscribed: bool
+    vote_available: bool
+    surname_ok: bool
+    bio_ok: bool
+    reactions_count: int
+    reactions_target: int = TG_REACTION_WEEKLY_LIMIT
+
 # --- Pydantic модели для Админки Аукциона ---
 class AuctionCreateRequest(BaseModel):
     initData: str
@@ -836,6 +844,12 @@ TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
 SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_that_should_be_changed") # Добавь эту переменную в Vercel для безопасности
 WIZEBOT_API_KEY = os.getenv("WIZEBOT_API_KEY")
 
+# 1. Читаем настройки в твоем стиле (данные берем из Vercel)
+TG_QUEST_CHANNEL_ID = int(os.getenv("TG_QUEST_CHANNEL_ID", "0")) 
+TG_QUEST_SURNAME = os.getenv("TG_QUEST_SURNAME", "BotName")           
+TG_QUEST_BIO_LINK = os.getenv("TG_QUEST_BIO_LINK", "t.me/MyBotLink")      
+TG_REACTION_WEEKLY_LIMIT = 7  # Жесткий лимит, как ты просил
+
 # --- Paths ---
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "public"
@@ -1090,6 +1104,52 @@ async def try_send_message(chat_id: int, text: str):
             await bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
     except Exception as e:
         print(f"Ошибка отправки уведомления {chat_id}: {e}")
+
+@dp.message_reaction()
+async def handle_quest_reaction(update: Update):
+    """Ловит реакции в канале квестов"""
+    if TG_QUEST_CHANNEL_ID == 0: return
+    if update.message_reaction.chat.id != TG_QUEST_CHANNEL_ID: return
+    
+    user = update.message_reaction.user
+    if not user: return
+    user_id = user.id
+    
+    # Только добавление реакции
+    if not update.message_reaction.new_reaction: return
+
+    try:
+        # Проверяем запись пользователя
+        res = await supabase.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
+        if not res.data:
+            # Если юзер ставит реакцию, но не заходил в апп — создаем запись
+            await supabase.table("telegram_challenges").insert({"user_id": user_id}).execute()
+            record = {"reaction_count_weekly": 0, "last_reaction_reset": datetime.now(timezone.utc).isoformat()}
+        else:
+            record = res.data[0]
+            
+        # Логика сброса недели
+        now = datetime.now(timezone.utc)
+        last_reset = datetime.fromisoformat(record.get('last_reaction_reset') or now.isoformat())
+        
+        count = record['reaction_count_weekly']
+        
+        if now - last_reset > timedelta(days=7):
+            count = 0 # Сбрасываем
+            await supabase.table("telegram_challenges").update({
+                "last_reaction_reset": now.isoformat(),
+                "reaction_count_weekly": 0
+            }).eq("user_id", user_id).execute()
+            
+        # Начисляем, если лимит не пробит
+        if count < TG_REACTION_WEEKLY_LIMIT:
+            new_count = count + 1
+            await supabase.table("telegram_challenges").update({"reaction_count_weekly": new_count}).eq("user_id", user_id).execute()
+            # Билет
+            await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
+            
+    except Exception as e:
+        print(f"Reaction error: {e}")
         
 
 @router.message(F.text & ~F.command)
@@ -1265,6 +1325,153 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
     except Exception as e:
         logging.error(f"(Global) Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
         return 1
+
+# --- Вспомогательная функция парсинга ---
+async def get_user_id_from_init_data(init_data: str) -> Optional[int]:
+    try:
+        parsed_data = dict(parse_qsl(init_data))
+        if "user" not in parsed_data: return None
+        return json.loads(parsed_data["user"]).get("id")
+    except: return None
+
+# --- ЭНДПОИНТЫ API ---
+
+@app.post("/api/v1/telegram/status")
+async def get_telegram_status(request: Request):
+    """Отдает статус заданий для отрисовки интерфейса (1в1 Twitch)"""
+    try:
+        body = await request.json()
+        user_id = await get_user_id_from_init_data(body.get("initData"))
+        if not user_id: return JSONResponse({"error": "No user"}, status=401)
+        
+        # Запрашиваем состояние из базы
+        res = await supabase.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
+        
+        # Если записи нет — создаем дефолтную
+        if not res.data:
+            record = {
+                "user_id": user_id,
+                "is_subscribed": False,
+                "last_vote_date": None,
+                "has_bot_surname": False,
+                "has_ref_link": False,
+                "reaction_count_weekly": 0,
+                "last_reaction_reset": datetime.now(timezone.utc).isoformat()
+            }
+            await supabase.table("telegram_challenges").insert(record).execute()
+        else:
+            record = res.data[0]
+
+        # Авто-проверка подписки при открытии (если еще не выполнено)
+        is_sub = record['is_subscribed']
+        if not is_sub and TG_QUEST_CHANNEL_ID != 0:
+            try:
+                member = await bot.get_chat_member(TG_QUEST_CHANNEL_ID, user_id)
+                if member.status in ["member", "administrator", "creator", "restricted"]:
+                    is_sub = True
+                    # Фиксируем и даем награду
+                    await supabase.table("telegram_challenges").update({"is_subscribed": True}).eq("user_id", user_id).execute()
+                    # Используем твой RPC для начисления
+                    await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 5}).execute()
+            except Exception as e:
+                print(f"[TG Quest] Sub check fail: {e}")
+
+        # Проверка доступности голосования (30 дней)
+        vote_avail = True
+        if record['last_vote_date']:
+            lv = datetime.fromisoformat(record['last_vote_date'].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) - lv < timedelta(days=30):
+                vote_avail = False
+
+        # Визуальный сброс счетчика реакций, если неделя прошла
+        r_count = record['reaction_count_weekly']
+        if record['last_reaction_reset']:
+            l_reset = datetime.fromisoformat(record['last_reaction_reset'].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) - l_reset > timedelta(days=7):
+                r_count = 0
+
+        return JSONResponse({
+            "subscribed": is_sub,
+            "vote_available": vote_avail,
+            "surname_ok": record['has_bot_surname'],
+            "bio_ok": record['has_ref_link'],
+            "reactions_count": r_count,
+            "reactions_target": TG_REACTION_WEEKLY_LIMIT
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status=500)
+
+@app.post("/api/v1/telegram/check_profile")
+async def check_telegram_profile(request: Request):
+    """Проверка Фамилии и Био по кнопке"""
+    try:
+        body = await request.json()
+        user_id = await get_user_id_from_init_data(body.get("initData"))
+        if not user_id: return JSONResponse({"error": "Auth failed"}, status=401)
+
+        # Берем текущий статус
+        db_res = await supabase.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
+        if not db_res.data: return JSONResponse({"error": "No record"}, status=404)
+        curr = db_res.data[0]
+
+        # Проверяем реальный профиль через API бота
+        try:
+            chat = await bot.get_chat(user_id)
+        except:
+            return JSONResponse({"success": False, "message": "Бот не видит вас. Нажмите /start"}, status=400)
+        
+        last_name = chat.last_name or ""
+        bio = chat.bio or ""
+        
+        # Сравниваем с переменными из Vercel
+        s_ok = TG_QUEST_SURNAME.lower() in last_name.lower() if TG_QUEST_SURNAME else False
+        b_ok = TG_QUEST_BIO_LINK.lower() in bio.lower() if TG_QUEST_BIO_LINK else False
+        
+        updates = {}
+        # Начисляем, только если выполнено впервые
+        if s_ok and not curr['has_bot_surname']:
+            updates['has_bot_surname'] = True
+            await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 15}).execute()
+            
+        if b_ok and not curr['has_ref_link']:
+            updates['has_ref_link'] = True
+            await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 20}).execute()
+            
+        if updates:
+            await supabase.table("telegram_challenges").update(updates).eq("user_id", user_id).execute()
+
+        return JSONResponse({
+            "success": True, 
+            "surname": s_ok or curr['has_bot_surname'], 
+            "bio": b_ok or curr['has_ref_link']
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status=500)
+
+@app.post("/api/v1/telegram/vote")
+async def telegram_vote(request: Request):
+    """Голосование раз в 30 дней"""
+    try:
+        body = await request.json()
+        user_id = await get_user_id_from_init_data(body.get("initData"))
+        
+        # Проверка кулдауна
+        res = await supabase.table("telegram_challenges").select("last_vote_date").eq("user_id", user_id).execute()
+        if res.data and res.data[0]['last_vote_date']:
+            lv = datetime.fromisoformat(res.data[0]['last_vote_date'].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) - lv < timedelta(days=30):
+                return JSONResponse({"success": False, "message": "Рано голосовать"}, status=400)
+        
+        # Фиксация
+        await supabase.table("telegram_challenges").update({
+            "last_vote_date": datetime.now(timezone.utc).isoformat()
+        }).eq("user_id", user_id).execute()
+        
+        # Награда
+        await supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 10}).execute()
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status=500)
 
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
@@ -2545,6 +2752,8 @@ async def make_auction_bid(
         raise HTTPException(status_code=400, detail=error_details)
 
 # --- P2P SYSTEM ---
+
+
 
 # 1. Получение списка кейсов и цен (Для магазина и Админки)
 @app.get("/api/v1/p2p/cases")
