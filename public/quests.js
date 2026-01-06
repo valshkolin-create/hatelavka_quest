@@ -26,6 +26,8 @@ const dom = {
     infoQuestionIcon: document.getElementById('info-question-icon'),
     infoModalOverlay: document.getElementById('info-modal-overlay'),
     infoModalCloseBtn: document.getElementById('info-modal-close-btn'),
+    sectionAuto: document.getElementById('section-auto-quests'),
+    sectionManual: document.getElementById('section-manual-quests'),
     
     scheduleModal: document.getElementById('schedule-modal-overlay'),
     scheduleCloseBtn: document.getElementById('schedule-modal-close-btn')
@@ -791,6 +793,31 @@ try {
         }
     }
 
+    function initModeSwitcher() {
+    const radios = document.querySelectorAll('input[name="mode"]');
+
+    radios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                const mode = e.target.value;
+
+                if (mode === 'auto') {
+                    // Показываем авто, скрываем ручные
+                    dom.sectionAuto.classList.remove('hidden');
+                    dom.sectionManual.classList.add('hidden');
+                } else {
+                    // Показываем ручные, скрываем авто
+                    dom.sectionAuto.classList.add('hidden');
+                    dom.sectionManual.classList.remove('hidden');
+                }
+
+                // Вибрация при переключении
+                try { Telegram.WebApp.HapticFeedback.selectionChanged(); } catch (err) {}
+            }
+        });
+    });
+}
+
     function initPlatformSwitcher() {
         const radios = document.querySelectorAll('input[name="platform"]');
         radios.forEach(radio => {
@@ -848,6 +875,7 @@ try {
                 // --- НОВАЯ ЛОГИКА СТАРТА ---
                 // 1. Запускаем слушатели переключателя
                 initPlatformSwitcher();
+                initModeSwitcher();     // <--- ВСТАВИТЬ СЮДА (Слушатель Испытания/Задания)
 
                 // 2. Определяем, какую вкладку открыть первой
                 // ЛОГИКА: Если стрим идет -> Twitch, если нет -> Telegram
