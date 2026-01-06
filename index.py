@@ -4838,16 +4838,14 @@ async def get_current_user_data(
         
 @app.post("/api/v1/user/heartbeat")
 async def user_heartbeat(
+    request: Request,  # <--- Добавьте request: Request сюда, если его нет
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    💓 Heartbeat v5 (P2P Fix):
-    1. Баланс из users.
-    2. Квесты из user_quest_progress.
-    3. Челленджи из user_challenges.
-    4. 🔥 Статус P2P сделок из p2p_trades.
-    """
+    # --- ЛОГИРОВАНИЕ ЗАПРОСА ---
+    user_agent = request.headers.get("user-agent", "unknown")
+    print(f"💓 HEARTBEAT from: {user_agent} at {datetime.now()}")
+    # ---------------------------
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         return {"is_active": False}
