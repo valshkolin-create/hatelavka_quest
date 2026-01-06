@@ -833,26 +833,28 @@ try {
                         const btn = document.createElement('a');
                         btn.id = 'promo-btn-inject';
                         btn.href = 'profile.html';
-                        // Стили прямо здесь, чтобы было красиво и быстро
                         btn.style.cssText = `
                             display: flex; 
                             align-items: center; 
                             justify-content: center; 
-                            width: 100%; 
-                            max-width: 200px; 
-                            margin: 10px auto 0 auto; 
-                            padding: 8px 12px; 
+                            width: auto;                  /* Автоматическая ширина, чтобы не растягивалась */
+                            min-width: 120px;            /* Но не слишком узкая */
+                            max-width: 160px;            /* Ограничиваем максимальную ширину */
+                            margin: 6px auto 0 auto;     /* Отступ сверху поменьше */
+                            padding: 6px 12px;           /* Внутренние отступы меньше */
                             background: linear-gradient(90deg, #6441a5 0%, #9146ff 100%); 
                             color: white; 
-                            font-weight: 700; 
-                            font-size: 13px; 
-                            border-radius: 12px; 
+                            font-weight: 600;            /* Чуть тоньше шрифт (было 700) */
+                            font-size: 11px;             /* Шрифт меньше (было 13px) */
+                            border-radius: 8px;          /* Закругление чуть меньше */
                             text-decoration: none; 
-                            box-shadow: 0 4px 10px rgba(100, 65, 165, 0.3);
+                            box-shadow: 0 2px 6px rgba(100, 65, 165, 0.25); /* Тень поменьше */
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
                         `;
-                        btn.innerHTML = '<i class="fa-solid fa-ticket" style="margin-right: 6px;"></i> ПРОМОКОДЫ';
+                        // Убрал иконку, или можно оставить, но сделаем её маленькой
+                        btn.innerHTML = '<i class="fa-solid fa-ticket" style="margin-right: 5px; font-size: 10px;"></i> Промокоды';
                         
-                        // Вставляем кнопку сразу после имени
                         dom.fullName.insertAdjacentElement('afterend', btn);
                     }
                     // -----------------------------------------
