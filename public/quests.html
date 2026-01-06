@@ -39,7 +39,7 @@
     </div>
   </div>
 
-  <main id="main-content" class="main-content">
+ <main id="main-content" class="main-content">
     
     <div id="pull-to-refresh">
         <i class="fa-solid fa-rotate-right"></i> 
@@ -62,39 +62,29 @@
         🎯 Центр заданий
     </h2>
     <span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 15px; grid-column: 1 / -1;">
-        Выбирайте режим и платформу для заработка наград.
+        Выбирайте платформу или перейдите к заданиям.
     </span>
 
-    <div class="switches-wrapper" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; align-items: center;">
-        
+    <div class="platform-switch-container" style="margin-bottom: 20px;">
         <div class="platform-switch">
-            <input type="radio" name="platform" id="switch-twitch" value="twitch" checked>
-            <label for="switch-twitch" class="switch-label">
-                <i class="fa-brands fa-twitch"></i> Twitch
-            </label>
-
-            <input type="radio" name="platform" id="switch-telegram" value="telegram">
-            <label for="switch-telegram" class="switch-label">
-                <i class="fa-brands fa-telegram"></i> Telegram
-            </label>
             
-            <div class="switch-slider"></div>
-        </div>
-
-        <div class="platform-switch">
-            <input type="radio" name="mode" id="switch-auto" value="auto" checked>
-            <label for="switch-auto" class="switch-label">
-                <i class="fa-solid fa-dice"></i> Испытания
+            <input type="radio" name="view" id="view-twitch" value="twitch" checked>
+            <label for="view-twitch" class="switch-label">
+                <i class="fa-brands fa-twitch"></i>
             </label>
 
-            <input type="radio" name="mode" id="switch-manual" value="manual">
-            <label for="switch-manual" class="switch-label">
+            <input type="radio" name="view" id="view-telegram" value="telegram">
+            <label for="view-telegram" class="switch-label">
+                <i class="fa-brands fa-telegram"></i>
+            </label>
+
+            <input type="radio" name="view" id="view-manual" value="manual">
+            <label for="view-manual" class="switch-label">
                 <i class="fa-solid fa-list-check"></i> Задания
             </label>
             
             <div class="switch-slider"></div>
         </div>
-
     </div>
 
     <div id="section-auto-quests" style="grid-column: 1 / -1; width: 100%;">
@@ -129,7 +119,7 @@
     </div>
 
   </main>
-
+  
   <footer class="app-footer">
     <a href="/leaderboard" id="nav-leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
     <a href="#" id="nav-quests" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
