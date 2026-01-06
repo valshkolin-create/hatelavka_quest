@@ -1059,72 +1059,59 @@ window.updateTelegramStatus = async function() {
         
         if (!res.ok) return;
         const data = await res.json();
-        let visibleCount = 0;
         
-        // Хелпер для скрытия/показа
-        const handleTask = (rowId, isDone) => {
-            const row = document.getElementById(rowId);
-            if (!row) return;
-            
-            if (isDone) {
-                row.style.display = 'none'; // Скрываем, если готово
-            } else {
-                row.style.display = 'flex'; // Показываем, если нет
-                visibleCount++;
+        // Хелпер: заполнение прогресс бара
+        const setProgress = (fillId, current, total) => {
+            const el = document.getElementById(fillId);
+            if(el) {
+                const percent = Math.min((current / total) * 100, 100);
+                el.style.width = percent + "%";
             }
         };
 
         // 1. Подписка
         const subBtn = document.getElementById('btn-tg-sub');
         if (data.subscribed) {
-            handleTask('tg-row-sub', true);
-        } else {
-            handleTask('tg-row-sub', false);
-            if(subBtn) subBtn.innerText = "Проверить";
+            document.getElementById('tg-row-sub').style.display = 'none';
+        } else if(subBtn) {
+            subBtn.innerText = "ТЫК";
+            resetTgBtn(subBtn);
         }
 
         // 2. Голосование
         const voteBtn = document.getElementById('btn-tg-vote');
         const voteTimer = document.getElementById('tg-vote-timer');
         
-        // Если голосование недоступно (кулдаун), считаем его "выполненным" для скрытия
-        // ИЛИ можно показывать таймер. Ты просил "Те которые выполнены пропадут".
-        // Если человек проголосовал, vote_available = false. Скрываем.
         if (!data.vote_available) {
-             handleTask('tg-row-vote', true);
+             document.getElementById('tg-row-vote').style.display = 'none';
         } else {
-             handleTask('tg-row-vote', false);
-             if(voteBtn) voteBtn.innerText = "Голос";
+             document.getElementById('tg-row-vote').style.display = 'flex';
+             if(voteBtn) voteBtn.innerText = "ТЫК";
              if(voteTimer) voteTimer.classList.add('hidden');
         }
 
-        // 3. Фамилия
-        handleTask('tg-row-surname', data.surname_ok);
+        // 3. Фамилия (7 дней)
+        // Если бэкенд еще не отдает дни, используем заглушку: если surname_ok=true, то 1/7
+        const surnameDays = data.surname_days || (data.surname_ok ? 1 : 0);
+        setProgress('tg-surname-fill', surnameDays, 7);
+        // Если 7 дней собрано - скрываем
+        if (surnameDays >= 7) document.getElementById('tg-row-surname').style.display = 'none';
 
-        // 4. Био
-        handleTask('tg-row-bio', data.bio_ok);
+        // 4. Био (7 дней)
+        const bioDays = data.bio_days || (data.bio_ok ? 1 : 0);
+        setProgress('tg-bio-fill', bioDays, 7);
+        if (bioDays >= 7) document.getElementById('tg-row-bio').style.display = 'none';
 
         // 5. Реакции
-        // Скрываем, если лимит на неделю исчерпан (7/7)
         const rCount = data.reactions_count || 0;
         const rTarget = data.reactions_target || 7;
-        const percent = Math.min((rCount / rTarget) * 100, 100);
         
         if (rCount >= rTarget) {
-            handleTask('tg-row-reaction', true);
+            document.getElementById('tg-row-reaction').style.display = 'none';
         } else {
-            handleTask('tg-row-reaction', false);
             const countEl = document.getElementById('tg-reaction-count');
-            const fillEl = document.getElementById('tg-reaction-fill');
             if (countEl) countEl.innerText = `${rCount}/${rTarget}`;
-            if (fillEl) fillEl.style.width = percent + "%";
-        }
-        
-        // Если всё скрыто - показываем сообщение
-        const doneMsg = document.getElementById('tg-all-done-msg');
-        if (doneMsg) {
-            if (visibleCount === 0) doneMsg.classList.remove('hidden');
-            else doneMsg.classList.add('hidden');
+            setProgress('tg-reaction-fill', rCount, rTarget);
         }
         
     } catch (e) {
@@ -1136,11 +1123,9 @@ window.checkTelegramProfile = async function() {
     const btn1 = document.getElementById('btn-tg-surname');
     const btn2 = document.getElementById('btn-tg-bio');
     
-    // Спиннеры
-    if(btn1 && document.getElementById('tg-row-surname').style.display !== 'none') 
-        btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    if(btn2 && document.getElementById('tg-row-bio').style.display !== 'none') 
-        btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    // Анимация
+    if(btn1) btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    if(btn2) btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
     try {
         const res = await fetch('/api/v1/telegram/check_profile', {
@@ -1150,15 +1135,22 @@ window.checkTelegramProfile = async function() {
         });
         const data = await res.json();
         
+        // Если успешно - показываем модалку награды
+        if (data.success && (data.surname || data.bio)) {
+             // Если функция showRewardClaimedModal доступна глобально (из quests.js)
+             if (typeof dom !== 'undefined' && dom.rewardClaimedOverlay) {
+                 dom.rewardClaimedOverlay.classList.remove('hidden');
+             } else {
+                 Telegram.WebApp.showAlert("Награда получена!");
+             }
+        } 
+        
         if (!data.surname && !data.bio && data.success) {
             Telegram.WebApp.showAlert("Условия не выполнены. Проверьте фамилию и описание.");
-            // Сброс кнопок
-            if(btn1) btn1.innerText = "Проверить";
-            if(btn2) btn2.innerText = "Проверить";
-        } else {
-            // Если что-то выполнилось, обновляем статус (оно само скроется)
-            await window.updateTelegramStatus();
         }
+        
+        // Обновляем UI
+        await window.updateTelegramStatus();
 
     } catch (e) {
         Telegram.WebApp.showAlert("Ошибка проверки");
@@ -1179,11 +1171,15 @@ window.doTelegramVote = async function() {
         const data = await res.json();
         
         if (data.success) {
-            Telegram.WebApp.showAlert("✅ Голос засчитан! Награда начислена.");
+             if (typeof dom !== 'undefined' && dom.rewardClaimedOverlay) {
+                 dom.rewardClaimedOverlay.classList.remove('hidden');
+             } else {
+                 Telegram.WebApp.showAlert("Награда получена!");
+             }
         } else {
-            Telegram.WebApp.showAlert(data.message || "Ошибка голосования");
+            Telegram.WebApp.showAlert(data.message || "Ошибка");
         }
-        await window.updateTelegramStatus(); // Скроет задание
+        await window.updateTelegramStatus();
         
     } catch (e) {
         await window.updateTelegramStatus();
@@ -1214,10 +1210,10 @@ function markTgAsDone(btn) {
 function resetTgBtn(btn) {
     if (!btn) return;
     btn.disabled = false;
-    // Возвращаем синий цвет Telegram
     btn.style.background = '#0088CC';
     btn.style.color = '#fff';
-    btn.style.cursor = 'pointer';
+    btn.innerHTML = 'ТЫК';
+}
     
     const row = btn.closest('.tg-row');
     if(row) row.style.opacity = '1';
