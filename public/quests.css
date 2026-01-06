@@ -245,25 +245,25 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
 /* === СЛОЖНЫЙ ПЕРЕКЛЮЧАТЕЛЬ (3 КНОПКИ - 2 РЯДА) === */
 .complex-switch-wrapper {
     width: 100%;
-    max-width: 300px; /* Чуть шире, чтобы влезли названия */
+    max-width: 320px; /* Ограничиваем ширину */
     margin: 0 auto 20px auto;
     display: flex;
     flex-direction: column;
     gap: 8px; /* Отступ между рядами */
 }
 
-/* Скрываем радио-кнопки */
+/* Скрываем сами радио-кнопки */
 .complex-switch-wrapper input { display: none; }
 
-/* Общий стиль для рядов */
+/* Общий стиль для ряда */
 .switch-row {
     position: relative;
     display: flex;
     width: 100%;
-    height: 36px;
+    height: 38px; /* Чуть выше для удобства */
     background: rgba(118, 118, 128, 0.12);
-    border-radius: 10px; /* Скругленные углы */
-    padding: 2px;
+    border-radius: 10px;
+    padding: 3px; /* Внутренний отступ для слайдера */
     box-sizing: border-box;
 }
 
@@ -283,33 +283,33 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
-.switch-label i { font-size: 13px; transition: transform 0.2s ease; }
+.switch-label i { font-size: 14px; transition: transform 0.2s ease; }
 
 /* === СЛАЙДЕРЫ (ФОН) === */
 .slider-bg {
     position: absolute;
-    top: 2px;
-    bottom: 2px;
+    top: 3px;
+    bottom: 3px;
     background: #fff;
     border-radius: 8px;
     z-index: 1;
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.12);
     opacity: 0; /* По умолчанию скрыты */
+    pointer-events: none; /* Чтобы клики проходили сквозь него */
 }
 
-/* Верхний слайдер - ширина 50% */
+/* Верхний слайдер (50% ширины) */
 .slider-top {
-    left: 2px;
-    width: calc(50% - 2px);
+    left: 3px;
+    width: calc(50% - 3px);
 }
 
-/* Нижний слайдер - ширина 100% */
+/* Нижний слайдер (100% ширины) */
 .slider-bottom {
-    left: 2px;
-    width: calc(100% - 4px);
+    left: 3px;
+    width: calc(100% - 6px);
 }
-
 
 /* === ЛОГИКА АКТИВАЦИИ === */
 
@@ -336,14 +336,14 @@ button, .popup-btn { white-space: nowrap; overflow: hidden; text-overflow: ellip
     opacity: 1;
 }
 #view-manual:checked ~ .switch-row-bottom label[for="view-manual"] {
-    color: #000; /* Черный текст на белом фоне */
+    color: #000; /* Черный текст */
 }
 #view-manual:checked ~ .switch-row-bottom label[for="view-manual"] i {
     color: #ffcc00; /* Золотая иконка */
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
-/* Анимация иконок при выборе в верхнем ряду */
+/* Эффект нажатия (увеличение иконки) */
 #view-twitch:checked ~ .switch-row-top label[for="view-twitch"] i,
 #view-telegram:checked ~ .switch-row-top label[for="view-telegram"] i {
     transform: scale(1.15);
