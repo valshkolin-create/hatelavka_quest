@@ -1059,54 +1059,73 @@ window.updateTelegramStatus = async function() {
         
         if (!res.ok) return;
         const data = await res.json();
+        let visibleCount = 0;
         
+        // Хелпер для скрытия/показа
+        const handleTask = (rowId, isDone) => {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            
+            if (isDone) {
+                row.style.display = 'none'; // Скрываем, если готово
+            } else {
+                row.style.display = 'flex'; // Показываем, если нет
+                visibleCount++;
+            }
+        };
+
         // 1. Подписка
         const subBtn = document.getElementById('btn-tg-sub');
-        if (subBtn) {
-            if (data.subscribed) {
-                markTgAsDone(subBtn);
-            } else {
-                subBtn.innerText = "Check";
-                resetTgBtn(subBtn);
-            }
+        if (data.subscribed) {
+            handleTask('tg-row-sub', true);
+        } else {
+            handleTask('tg-row-sub', false);
+            if(subBtn) subBtn.innerText = "Проверить";
         }
 
         // 2. Голосование
         const voteBtn = document.getElementById('btn-tg-vote');
         const voteTimer = document.getElementById('tg-vote-timer');
         
-        if (voteBtn) {
-            if (!data.vote_available) {
-                markTgAsDone(voteBtn); // Ставим галочку, так как выполнено на сегодня/месяц
-                if(voteTimer) {
-                    voteTimer.classList.remove('hidden');
-                    voteTimer.innerText = "Жди 30д";
-                }
-            } else {
-                voteBtn.innerText = "Vote";
-                resetTgBtn(voteBtn);
-                if(voteTimer) voteTimer.classList.add('hidden');
-            }
+        // Если голосование недоступно (кулдаун), считаем его "выполненным" для скрытия
+        // ИЛИ можно показывать таймер. Ты просил "Те которые выполнены пропадут".
+        // Если человек проголосовал, vote_available = false. Скрываем.
+        if (!data.vote_available) {
+             handleTask('tg-row-vote', true);
+        } else {
+             handleTask('tg-row-vote', false);
+             if(voteBtn) voteBtn.innerText = "Голос";
+             if(voteTimer) voteTimer.classList.add('hidden');
         }
 
         // 3. Фамилия
-        const surBtn = document.getElementById('btn-tg-surname');
-        if (surBtn && data.surname_ok) markTgAsDone(surBtn);
+        handleTask('tg-row-surname', data.surname_ok);
 
         // 4. Био
-        const bioBtn = document.getElementById('btn-tg-bio');
-        if (bioBtn && data.bio_ok) markTgAsDone(bioBtn);
+        handleTask('tg-row-bio', data.bio_ok);
 
         // 5. Реакции
+        // Скрываем, если лимит на неделю исчерпан (7/7)
         const rCount = data.reactions_count || 0;
         const rTarget = data.reactions_target || 7;
         const percent = Math.min((rCount / rTarget) * 100, 100);
         
-        const countEl = document.getElementById('tg-reaction-count');
-        const fillEl = document.getElementById('tg-reaction-fill');
+        if (rCount >= rTarget) {
+            handleTask('tg-row-reaction', true);
+        } else {
+            handleTask('tg-row-reaction', false);
+            const countEl = document.getElementById('tg-reaction-count');
+            const fillEl = document.getElementById('tg-reaction-fill');
+            if (countEl) countEl.innerText = `${rCount}/${rTarget}`;
+            if (fillEl) fillEl.style.width = percent + "%";
+        }
         
-        if (countEl) countEl.innerText = `${rCount}/${rTarget} week`;
-        if (fillEl) fillEl.style.width = percent + "%";
+        // Если всё скрыто - показываем сообщение
+        const doneMsg = document.getElementById('tg-all-done-msg');
+        if (doneMsg) {
+            if (visibleCount === 0) doneMsg.classList.remove('hidden');
+            else doneMsg.classList.add('hidden');
+        }
         
     } catch (e) {
         console.error("TG Quest Update Error:", e);
@@ -1117,8 +1136,11 @@ window.checkTelegramProfile = async function() {
     const btn1 = document.getElementById('btn-tg-surname');
     const btn2 = document.getElementById('btn-tg-bio');
     
-    if(btn1 && !btn1.classList.contains('completed')) btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    if(btn2 && !btn2.classList.contains('completed')) btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    // Спиннеры
+    if(btn1 && document.getElementById('tg-row-surname').style.display !== 'none') 
+        btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    if(btn2 && document.getElementById('tg-row-bio').style.display !== 'none') 
+        btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
     try {
         const res = await fetch('/api/v1/telegram/check_profile', {
@@ -1128,28 +1150,15 @@ window.checkTelegramProfile = async function() {
         });
         const data = await res.json();
         
-        if (btn1) {
-            if (data.surname) {
-                markTgAsDone(btn1);
-                btn1.closest('.quest-card').classList.add('completed');
-            } else {
-                btn1.innerText = "Проверить";
-                if(!data.success && !data.bio) Telegram.WebApp.showAlert(data.message || "Ошибка");
-            }
-        }
-        
-        if (btn2) {
-            if (data.bio) {
-                markTgAsDone(btn2);
-                btn2.closest('.quest-card').classList.add('completed');
-            } else btn2.innerText = "Проверить";
-        }
-
         if (!data.surname && !data.bio && data.success) {
             Telegram.WebApp.showAlert("Условия не выполнены. Проверьте фамилию и описание.");
+            // Сброс кнопок
+            if(btn1) btn1.innerText = "Проверить";
+            if(btn2) btn2.innerText = "Проверить";
+        } else {
+            // Если что-то выполнилось, обновляем статус (оно само скроется)
+            await window.updateTelegramStatus();
         }
-        
-        await window.updateTelegramStatus();
 
     } catch (e) {
         Telegram.WebApp.showAlert("Ошибка проверки");
@@ -1174,7 +1183,7 @@ window.doTelegramVote = async function() {
         } else {
             Telegram.WebApp.showAlert(data.message || "Ошибка голосования");
         }
-        await window.updateTelegramStatus();
+        await window.updateTelegramStatus(); // Скроет задание
         
     } catch (e) {
         await window.updateTelegramStatus();
