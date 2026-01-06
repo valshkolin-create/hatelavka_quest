@@ -11872,11 +11872,13 @@ async def check_telegram_profile(
     try:
         body = await request.json()
         user_id = await get_user_id_from_init_data(body.get("initData"))
-        if not user_id: return JSONResponse({"error": "Auth failed"}, status=401)
+        if not user_id:
+            return JSONResponse({"error": "Auth failed"}, status=401)
 
         # Берем текущий статус
         db_res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
-        if not db_res.json(): return JSONResponse({"error": "No record"}, status=404)
+        if not db_res.json():
+            return JSONResponse({"error": "No record"}, status=404)
         curr = db_res.json()[0]
 
         # Проверяем реальный профиль через API бота
@@ -11887,29 +11889,39 @@ async def check_telegram_profile(
         
         last_name = chat.last_name or ""
         bio = chat.bio or ""
-        
+
         # Сравниваем с переменными
         s_ok = TG_QUEST_SURNAME.lower() in last_name.lower() if TG_QUEST_SURNAME else False
         b_ok = TG_QUEST_BIO_LINK.lower() in bio.lower() if TG_QUEST_BIO_LINK else False
         
         updates = {}
+        # Флаги, выдали ли мы награду ПРЯМО СЕЙЧАС
+        s_rewarded = False
+        b_rewarded = False
+
         # Начисляем, только если выполнено ВПЕРВЫЕ
         if s_ok and not curr.get('has_bot_surname'):
             updates['has_bot_surname'] = True
             await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 15})
-            
+            s_rewarded = True # <--- ЗАПОМИНАЕМ, ЧТО ВЫДАЛИ
+
         if b_ok and not curr.get('has_ref_link'):
             updates['has_ref_link'] = True
             await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 20})
-            
+            b_rewarded = True # <--- ЗАПОМИНАЕМ, ЧТО ВЫДАЛИ
+
         if updates:
             await supabase_client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json=updates)
 
         return JSONResponse({
-            "success": True, 
-            "surname": s_ok or curr.get('has_bot_surname'), 
-            "bio": b_ok or curr.get('has_ref_link')
+            "success": True,
+            "surname": s_ok or curr.get('has_bot_surname'),
+            "bio": b_ok or curr.get('has_ref_link'),
+            # Возвращаем информацию о факте выдачи награды
+            "surname_rewarded": s_rewarded,
+            "bio_rewarded": b_rewarded
         })
+
     except Exception as e:
         return JSONResponse({"error": str(e)}, status=500)
 
