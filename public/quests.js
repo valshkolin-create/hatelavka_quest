@@ -1065,11 +1065,9 @@ window.updateTelegramStatus = async function() {
         if (subBtn) {
             if (data.subscribed) {
                 markTgAsDone(subBtn);
-                subBtn.closest('.quest-card').classList.add('completed');
             } else {
-                subBtn.innerText = "Проверить";
-                subBtn.classList.remove('completed');
-                subBtn.disabled = false;
+                subBtn.innerText = "Check";
+                resetTgBtn(subBtn);
             }
         }
 
@@ -1079,34 +1077,25 @@ window.updateTelegramStatus = async function() {
         
         if (voteBtn) {
             if (!data.vote_available) {
-                voteBtn.disabled = true;
-                voteBtn.classList.add('completed');
-                voteBtn.innerHTML = '<i class="fa-solid fa-check"></i> Ждем';
+                markTgAsDone(voteBtn); // Ставим галочку, так как выполнено на сегодня/месяц
                 if(voteTimer) {
                     voteTimer.classList.remove('hidden');
-                    voteTimer.innerText = "Доступно через 30 дней";
+                    voteTimer.innerText = "Жди 30д";
                 }
             } else {
-                voteBtn.disabled = false;
-                voteBtn.classList.remove('completed');
-                voteBtn.innerText = "Голос";
+                voteBtn.innerText = "Vote";
+                resetTgBtn(voteBtn);
                 if(voteTimer) voteTimer.classList.add('hidden');
             }
         }
 
         // 3. Фамилия
         const surBtn = document.getElementById('btn-tg-surname');
-        if (surBtn && data.surname_ok) {
-            markTgAsDone(surBtn);
-            surBtn.closest('.quest-card').classList.add('completed');
-        }
+        if (surBtn && data.surname_ok) markTgAsDone(surBtn);
 
         // 4. Био
         const bioBtn = document.getElementById('btn-tg-bio');
-        if (bioBtn && data.bio_ok) {
-            markTgAsDone(bioBtn);
-            bioBtn.closest('.quest-card').classList.add('completed');
-        }
+        if (bioBtn && data.bio_ok) markTgAsDone(bioBtn);
 
         // 5. Реакции
         const rCount = data.reactions_count || 0;
@@ -1116,7 +1105,7 @@ window.updateTelegramStatus = async function() {
         const countEl = document.getElementById('tg-reaction-count');
         const fillEl = document.getElementById('tg-reaction-fill');
         
-        if (countEl) countEl.innerText = `${rCount}/${rTarget} в неделю`;
+        if (countEl) countEl.innerText = `${rCount}/${rTarget} week`;
         if (fillEl) fillEl.style.width = percent + "%";
         
     } catch (e) {
@@ -1197,4 +1186,30 @@ function markTgAsDone(btn) {
     btn.disabled = true;
     btn.classList.add('completed');
     btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+}
+
+function markTgAsDone(btn) {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    // Делаем кнопку зеленой и полупрозрачной
+    btn.style.background = 'rgba(52, 199, 89, 0.2)'; 
+    btn.style.color = '#34c759';
+    btn.style.cursor = 'default';
+    
+    // Затемняем всю строку для красоты
+    const row = btn.closest('.tg-row');
+    if(row) row.style.opacity = '0.5';
+}
+
+function resetTgBtn(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    // Возвращаем синий цвет Telegram
+    btn.style.background = '#0088CC';
+    btn.style.color = '#fff';
+    btn.style.cursor = 'pointer';
+    
+    const row = btn.closest('.tg-row');
+    if(row) row.style.opacity = '1';
 }
