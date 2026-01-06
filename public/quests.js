@@ -820,12 +820,42 @@ try {
                 userData = bootstrapData.user;
                 allQuests = bootstrapData.quests;
                 
-                // Рендер Профиля
+               // Рендер Профиля
                 if (userData) {
                     dom.fullName.textContent = userData.full_name || "Гость";
                     if (document.getElementById('ticketStats')) {
                         document.getElementById('ticketStats').textContent = userData.tickets || 0;
                     }
+
+                    // --- [НОВОЕ] ВСТАВКА КНОПКИ ПРОМОКОДОВ ---
+                    // Проверяем, чтобы кнопка не добавилась дважды
+                    if (dom.fullName.parentNode && !document.getElementById('promo-btn-inject')) {
+                        const btn = document.createElement('a');
+                        btn.id = 'promo-btn-inject';
+                        btn.href = 'profile.html';
+                        // Стили прямо здесь, чтобы было красиво и быстро
+                        btn.style.cssText = `
+                            display: flex; 
+                            align-items: center; 
+                            justify-content: center; 
+                            width: 100%; 
+                            max-width: 200px; 
+                            margin: 10px auto 0 auto; 
+                            padding: 8px 12px; 
+                            background: linear-gradient(90deg, #6441a5 0%, #9146ff 100%); 
+                            color: white; 
+                            font-weight: 700; 
+                            font-size: 13px; 
+                            border-radius: 12px; 
+                            text-decoration: none; 
+                            box-shadow: 0 4px 10px rgba(100, 65, 165, 0.3);
+                        `;
+                        btn.innerHTML = '<i class="fa-solid fa-ticket" style="margin-right: 6px;"></i> ПРОМОКОДЫ';
+                        
+                        // Вставляем кнопку сразу после имени
+                        dom.fullName.insertAdjacentElement('afterend', btn);
+                    }
+                    // -----------------------------------------
                 }
 
                 // --- НОВАЯ ЛОГИКА СТАРТА ---
@@ -833,15 +863,8 @@ try {
                 initPlatformSwitcher();
 
                 // 2. Определяем, какую вкладку открыть первой
-                let defaultPlatform = 'twitch';
-                
-                // Если у юзера уже есть активный квест, смотрим его тип
-                if (userData.active_quest_id) {
-                    const activeQ = allQuests.find(q => q.id === userData.active_quest_id);
-                    if (activeQ && activeQ.quest_type && activeQ.quest_type.includes('telegram')) {
-                        defaultPlatform = 'telegram';
-                    }
-                }
+                // ЛОГИКА: Если стрим идет -> Twitch, если нет -> Telegram
+                let defaultPlatform = userData.is_stream_online ? 'twitch' : 'telegram';
 
                 // 3. Применяем выбор (ставим галочку в HTML и запускаем функцию темы)
                 const switchEl = document.getElementById(`switch-${defaultPlatform}`);
