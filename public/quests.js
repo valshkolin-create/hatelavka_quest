@@ -1153,10 +1153,25 @@ window.updateTelegramStatus = async function() {
     }
 };
 
+Понимаю, давай разбираться по порядку. У нас три задачи: исправить «вечную загрузку» кнопок профиля, сделать реальную проверку для голосования и настроить визуализацию ежедневных заданий (галочка на сегодня).
+
+Вот решение для каждого пункта.
+
+1. Исправляем «Вечную загрузку» (Крутится кружок)
+Проблема в том, что функция ждет выполнения updateTelegramStatus(), и если там происходит ошибка или задержка, спиннер не убирается. Кроме того, мы должны принудительно сбрасывать кнопку, если ответ пришел, но глобальное обновление статуса еще не произошло.
+
+Решение: Обнови функцию window.checkTelegramProfile в quests.js. Мы добавим принудительный возврат текста кнопке в блоке finally.
+
+JavaScript
+
 window.checkTelegramProfile = async function() {
     const btn1 = document.getElementById('btn-tg-surname');
     const btn2 = document.getElementById('btn-tg-bio');
     
+    // Сохраним исходный текст, чтобы вернуть его при ошибке
+    const oldText1 = btn1 ? btn1.innerHTML : '';
+    const oldText2 = btn2 ? btn2.innerHTML : '';
+
     // Ставим спиннеры
     if(btn1 && document.getElementById('tg-row-surname').style.display !== 'none') 
         btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -1171,9 +1186,8 @@ window.checkTelegramProfile = async function() {
         });
         const data = await res.json();
         
-        // 1. Условия ВЫПОЛНЕНЫ и награда ВЫДАНА ПРЯМО СЕЙЧАС
+        // Логика выдачи награды
         if (data.surname_rewarded || data.bio_rewarded) {
-             // Обновляем счетчик билетов визуально
              const ticketStatsEl = document.getElementById('ticketStats');
              if(ticketStatsEl) {
                  let added = 0;
@@ -1181,34 +1195,38 @@ window.checkTelegramProfile = async function() {
                  if(data.bio_rewarded) added += 20;
                  ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + added;
              }
-             
-             // Показываем окно БИЛЕТОВ (а не промокода)
              if (typeof showTicketsClaimedModal === 'function') {
                  showTicketsClaimedModal(); 
              } else {
-                 Telegram.WebApp.showAlert(`Успех! Вы получили ${data.surname_rewarded ? 15 : 0 + data.bio_rewarded ? 20 : 0} билетов.`);
+                 Telegram.WebApp.showAlert(`Награда получена!`);
              }
         } 
-        // 2. Условия ВЫПОЛНЕНЫ, но награда УЖЕ БЫЛА получена раньше
         else if (data.surname || data.bio) {
-            // Важно: если мы попали сюда, значит условия выполнены, но флаги _rewarded = false.
-            // Просто обновляем кнопки (галочки появятся после updateTelegramStatus)
-            Telegram.WebApp.showAlert("Задание уже выполнено, награда была получена ранее.");
+             // Если условия выполнены, но награда уже была
+             // Ничего не делаем, updateTelegramStatus поставит галочки
         }
-        // 3. Условия НЕ ВЫПОЛНЕНЫ
         else {
-            Telegram.WebApp.showAlert("Условия не выполнены. Проверьте, что вы добавили фразу в ник/био и сохранили профиль Telegram.");
+            Telegram.WebApp.showAlert("Условия не выполнены. Проверьте профиль.");
         }
         
     } catch (e) {
         console.error(e);
         Telegram.WebApp.showAlert("Ошибка проверки. Попробуйте позже.");
+        // В случае ошибки возвращаем кнопкам старый текст
+        if(btn1) btn1.innerHTML = oldText1 || 'Check';
+        if(btn2) btn2.innerHTML = oldText2 || 'Check';
     } finally {
-        // В любом случае обновляем внешний вид кнопок (убираем спиннер, ставим галочки)
-        await window.updateTelegramStatus();
+        // ОБЯЗАТЕЛЬНО: Вызываем обновление, но не блокируем интерфейс, если оно упадет
+        try {
+            await window.updateTelegramStatus();
+        } catch(err) {
+            console.error("Ошибка обновления статуса:", err);
+            // Если обновление статуса упало, вручную вернем кнопкам вид
+             if(btn1) btn1.innerHTML = 'Check';
+             if(btn2) btn2.innerHTML = 'Check';
+        }
     }
 };
-
 window.doTelegramVote = async function() {
     const btn = document.getElementById('btn-tg-vote');
     if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
