@@ -1048,7 +1048,8 @@ try {
     document.body.innerHTML = `<div style="text-align:center; padding:20px; color:#fff;"><h1>Ошибка запуска</h1><p>${e.message}</p></div>`;
 }
 
-// --- ЛОГИКА TELEGRAM ИСПЫТАНИЙ (В САМОМ НИЗУ) ---
+// --- ЛОГИКА TELEGRAM ИСПЫТАНИЙ (FIXED & REWARD BUTTONS) ---
+
 window.updateTelegramStatus = async function() {
     try {
         const res = await fetch('/api/v1/telegram/status', {
@@ -1059,6 +1060,7 @@ window.updateTelegramStatus = async function() {
         
         if (!res.ok) return;
         const data = await res.json();
+        let visibleCount = 0;
         
         // Хелпер: заполнение прогресс бара
         const setProgress = (fillId, current, total) => {
@@ -1068,50 +1070,82 @@ window.updateTelegramStatus = async function() {
                 el.style.width = percent + "%";
             }
         };
+        
+        // Хелпер: скрытие/показ
+        const handleTask = (rowId, isDone) => {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            if (isDone) {
+                row.style.display = 'none';
+            } else {
+                row.style.display = 'flex';
+                visibleCount++;
+            }
+        };
 
         // 1. Подписка
         const subBtn = document.getElementById('btn-tg-sub');
         if (data.subscribed) {
-            document.getElementById('tg-row-sub').style.display = 'none';
-        } else if(subBtn) {
-            subBtn.innerText = "ТЫК";
-            resetTgBtn(subBtn);
+            handleTask('tg-row-sub', true);
+        } else {
+            handleTask('tg-row-sub', false);
+            if(subBtn) resetTgBtn(subBtn);
         }
 
         // 2. Голосование
         const voteBtn = document.getElementById('btn-tg-vote');
         const voteTimer = document.getElementById('tg-vote-timer');
         
+        // Если кулдаун активен (нельзя голосовать)
         if (!data.vote_available) {
-             document.getElementById('tg-row-vote').style.display = 'none';
+             handleTask('tg-row-vote', true);
         } else {
-             document.getElementById('tg-row-vote').style.display = 'flex';
-             if(voteBtn) voteBtn.innerText = "ТЫК";
+             handleTask('tg-row-vote', false);
+             if(voteBtn) resetTgBtn(voteBtn);
              if(voteTimer) voteTimer.classList.add('hidden');
         }
 
         // 3. Фамилия (7 дней)
-        // Если бэкенд еще не отдает дни, используем заглушку: если surname_ok=true, то 1/7
         const surnameDays = data.surname_days || (data.surname_ok ? 1 : 0);
         setProgress('tg-surname-fill', surnameDays, 7);
-        // Если 7 дней собрано - скрываем
-        if (surnameDays >= 7) document.getElementById('tg-row-surname').style.display = 'none';
+        // Скрываем, только если 7/7 дней собрано
+        if (surnameDays >= 7) {
+            handleTask('tg-row-surname', true);
+        } else {
+            // Если сегодня уже забрал, можно заблокировать кнопку (опционально), но пока оставляем "Проверить"
+            // Чтобы юзер видел прогресс. Если захочешь блокировать на сегодня - скажи.
+            handleTask('tg-row-surname', false);
+            if(document.getElementById('btn-tg-surname')) resetTgBtn(document.getElementById('btn-tg-surname'));
+        }
 
         // 4. Био (7 дней)
         const bioDays = data.bio_days || (data.bio_ok ? 1 : 0);
         setProgress('tg-bio-fill', bioDays, 7);
-        if (bioDays >= 7) document.getElementById('tg-row-bio').style.display = 'none';
+        if (bioDays >= 7) {
+            handleTask('tg-row-bio', true);
+        } else {
+            handleTask('tg-row-bio', false);
+            if(document.getElementById('btn-tg-bio')) resetTgBtn(document.getElementById('btn-tg-bio'));
+        }
 
         // 5. Реакции
         const rCount = data.reactions_count || 0;
         const rTarget = data.reactions_target || 7;
         
         if (rCount >= rTarget) {
-            document.getElementById('tg-row-reaction').style.display = 'none';
+            handleTask('tg-row-reaction', true);
         } else {
+            handleTask('tg-row-reaction', false);
             const countEl = document.getElementById('tg-reaction-count');
             if (countEl) countEl.innerText = `${rCount}/${rTarget}`;
             setProgress('tg-reaction-fill', rCount, rTarget);
+        }
+        
+        // Сообщение "Все выполнено"
+        const doneMsg = document.getElementById('tg-all-done-msg');
+        if (doneMsg) {
+            if (visibleCount === 0) doneMsg.classList.remove('hidden');
+            else doneMsg.classList.add('hidden');
         }
         
     } catch (e) {
@@ -1123,9 +1157,11 @@ window.checkTelegramProfile = async function() {
     const btn1 = document.getElementById('btn-tg-surname');
     const btn2 = document.getElementById('btn-tg-bio');
     
-    // Анимация
-    if(btn1) btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    if(btn2) btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    // Анимация спиннера только для видимых кнопок
+    if(btn1 && document.getElementById('tg-row-surname').style.display !== 'none') 
+        btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    if(btn2 && document.getElementById('tg-row-bio').style.display !== 'none') 
+        btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
     try {
         const res = await fetch('/api/v1/telegram/check_profile', {
@@ -1135,9 +1171,8 @@ window.checkTelegramProfile = async function() {
         });
         const data = await res.json();
         
-        // Если успешно - показываем модалку награды
+        // Если успех - показываем красивую модалку
         if (data.success && (data.surname || data.bio)) {
-             // Если функция showRewardClaimedModal доступна глобально (из quests.js)
              if (typeof dom !== 'undefined' && dom.rewardClaimedOverlay) {
                  dom.rewardClaimedOverlay.classList.remove('hidden');
              } else {
@@ -1149,7 +1184,6 @@ window.checkTelegramProfile = async function() {
             Telegram.WebApp.showAlert("Условия не выполнены. Проверьте фамилию и описание.");
         }
         
-        // Обновляем UI
         await window.updateTelegramStatus();
 
     } catch (e) {
@@ -1186,35 +1220,25 @@ window.doTelegramVote = async function() {
     }
 };
 
-function markTgAsDone(btn) {
-    if (!btn) return;
-    btn.disabled = true;
-    btn.classList.add('completed');
-    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
-}
-
-function markTgAsDone(btn) {
-    if (!btn) return;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
-    // Делаем кнопку зеленой и полупрозрачной
-    btn.style.background = 'rgba(52, 199, 89, 0.2)'; 
-    btn.style.color = '#34c759';
-    btn.style.cursor = 'default';
-    
-    // Затемняем всю строку для красоты
-    const row = btn.closest('.tg-row');
-    if(row) row.style.opacity = '0.5';
-}
-
+// Функция сброса кнопки к исходному виду (берет текст из data-reward)
 function resetTgBtn(btn) {
     if (!btn) return;
     btn.disabled = false;
     btn.style.background = '#0088CC';
     btn.style.color = '#fff';
-    btn.innerHTML = 'ТЫК';
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    // Восстанавливаем текст награды (например, "+5 🎟")
+    const rewardText = btn.getAttribute('data-reward');
+    if (rewardText) btn.innerText = rewardText;
+    else btn.innerText = "Check";
 }
-    
-    const row = btn.closest('.tg-row');
-    if(row) row.style.opacity = '1';
+
+function markTgAsDone(btn) {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    btn.style.background = 'rgba(52, 199, 89, 0.2)'; 
+    btn.style.color = '#34c759';
+    btn.style.cursor = 'default';
 }
