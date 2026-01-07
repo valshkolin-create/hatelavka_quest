@@ -1093,16 +1093,27 @@ window.updateTelegramStatus = async function() {
         }
 
         // 2. Голосование
-        const voteBtn = document.getElementById('btn-tg-vote');
+        onst voteBtn = document.getElementById('btn-tg-vote');
         const voteTimer = document.getElementById('tg-vote-timer');
         
-        // Если кулдаун активен (нельзя голосовать)
-        if (!data.vote_available) {
-             handleTask('tg-row-vote', true);
-        } else {
-             handleTask('tg-row-vote', false);
-             if(voteBtn) resetTgBtn(voteBtn);
-             if(voteTimer) voteTimer.classList.add('hidden');
+        if (voteBtn) {
+            if (!data.vote_available) {
+                // Если Кулдаун
+                voteBtn.disabled = true;
+                voteBtn.classList.add('done-today'); // Зеленая/Серая из CSS
+                voteBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+                
+                if (voteTimer) {
+                    voteTimer.classList.remove('hidden');
+                    voteTimer.innerText = `Доступно через ${data.vote_days_left} дн.`;
+                }
+            } else {
+                // Если доступно
+                voteBtn.disabled = false;
+                voteBtn.classList.remove('done-today');
+                voteBtn.innerHTML = voteBtn.getAttribute('data-reward') || '+10 🎟';
+                if (voteTimer) voteTimer.classList.add('hidden');
+            }
         }
 
         // 3. Фамилия (7 дней)
