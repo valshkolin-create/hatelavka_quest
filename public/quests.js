@@ -54,7 +54,6 @@ function unlockAppScroll() {
 }
 
 // --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
-// --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
 function injectBoostPopup() {
     // Чистим, если вдруг уже есть открытое
     const existing = document.getElementById('boostPopup');
@@ -157,7 +156,7 @@ try {
     Telegram.WebApp.expand();
     
     // Инициализируем попап при старте (скрытым)
-    injectBoostPopup();
+    // injectBoostPopup();
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
@@ -1321,7 +1320,6 @@ window.checkTelegramProfile = async function() {
 
 // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ: КНОПКА ГОЛОСОВАНИЯ ---
 window.doTelegramVote = async function() {
-    // 1. Сначала пытаемся проверить голос ТИХО (без показа окна)
     const btn = document.getElementById('btn-tg-vote');
     if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
@@ -1334,7 +1332,7 @@ window.doTelegramVote = async function() {
         const data = await res.json();
 
         if (data.success) {
-            // УСПЕХ: Голос есть -> Награда -> Окно НЕ показываем
+            // Если голос есть - награждаем
             const ticketStatsEl = document.getElementById('ticketStats');
             if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 10;
 
@@ -1344,14 +1342,10 @@ window.doTelegramVote = async function() {
                 Telegram.WebApp.showAlert("Награда получена! +10 билетов");
             }
         } else {
-            // НЕУДАЧА: Голоса нет -> Показываем окно с просьбой проголосовать
+            // ЕСЛИ ГОЛОСА НЕТ -> ВОТ ТУТ МЫ СОЗДАЕМ И ОТКРЫВАЕМ ОКНО
+            injectBoostPopup(); 
             const popup = document.getElementById('boostPopup');
-            if (popup) {
-                popup.style.display = 'flex';
-            } else {
-                injectBoostPopup();
-                document.getElementById('boostPopup').style.display = 'flex';
-            }
+            if (popup) popup.style.display = 'flex'; // Показываем только здесь!
         }
     } catch (e) {
         Telegram.WebApp.showAlert("Ошибка соединения");
