@@ -55,7 +55,9 @@ function unlockAppScroll() {
 
 // --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
 function injectBoostPopup() {
-    if (document.getElementById('boostPopup')) return; 
+    // 1. Удаляем старое окно, если оно есть (чтобы обновить кнопки и события)
+    const existing = document.getElementById('boostPopup');
+    if (existing) existing.remove();
 
     const popupHtml = `
     <div id="boostPopup" class="popup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
@@ -78,15 +80,15 @@ function injectBoostPopup() {
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    // 1. Кнопка "Проголосовать" - открывает ссылку (приложение НЕ закроется)
+    // 2. Вешаем события заново
     document.getElementById('goToBoostBtn').addEventListener('click', () => {
         Telegram.WebApp.openLink('https://t.me/boost/hatelove_ttv');
     });
 
-    // 2. Кнопка "Буду знать!" - закрывает окно И запускает проверку
     document.getElementById('closePopupBtn').addEventListener('click', () => {
-        document.getElementById('boostPopup').style.display = 'none';
-        performVoteApiCheck(); 
+        const popup = document.getElementById('boostPopup');
+        if (popup) popup.style.display = 'none'; // Закрываем визуально
+        performVoteApiCheck(); // Запускаем проверку
     });
 }
 
