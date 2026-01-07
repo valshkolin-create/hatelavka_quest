@@ -78,12 +78,12 @@ function injectBoostPopup() {
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    // 1. Кнопка "Проголосовать" - открывает ссылку
+    // 1. Кнопка "Проголосовать" - открывает ссылку (приложение НЕ закроется)
     document.getElementById('goToBoostBtn').addEventListener('click', () => {
         Telegram.WebApp.openLink('https://t.me/boost/hatelove_ttv');
     });
 
-    // 2. Кнопка "Буду знать!" - закрывает окно И проверяет выполнение (на случай если пользователь проголосовал)
+    // 2. Кнопка "Буду знать!" - закрывает окно И запускает проверку
     document.getElementById('closePopupBtn').addEventListener('click', () => {
         document.getElementById('boostPopup').style.display = 'none';
         performVoteApiCheck(); 
@@ -92,7 +92,6 @@ function injectBoostPopup() {
 
 // Функция проверки голоса (вызывается из попапа)
 async function performVoteApiCheck() {
-    // Эта функция используется ВНУТРИ попапа, когда человек нажимает "Буду знать"
     const btn = document.getElementById('btn-tg-vote');
     if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     
@@ -114,11 +113,11 @@ async function performVoteApiCheck() {
                  Telegram.WebApp.showAlert("Награда получена! +10 билетов");
              }
         } else {
-            // Если голоса всё еще нет - просто уведомляем или ничего не делаем, так как окно уже закрылось
-            if(data.message) Telegram.WebApp.showAlert(data.message);
+            // Если голоса нет, просто молча обновляем статус (окно уже закрыто)
+            if(data.message && data.message !== "Голос не найден") Telegram.WebApp.showAlert(data.message);
         }
     } catch (e) {
-        Telegram.WebApp.showAlert("Ошибка соединения");
+        // Silent error
     } finally {
         await window.updateTelegramStatus();
     }
@@ -147,7 +146,7 @@ try {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     
-    // Инициализируем попап при старте (но он скрыт)
+    // Инициализируем попап при старте (скрытым)
     injectBoostPopup();
 
     function escapeHTML(str) {
@@ -860,8 +859,15 @@ try {
                 else dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
                 dom.questChooseContainer.classList.add('hidden'); 
             } else {
-                 // УДАЛИЛ ТЕКСТ "ЗАДАНИЯ НЕДОСТУПНЫ" ПО ЗАПРОСУ. ТЕПЕРЬ ПРОСТО СКРЫВАЕМ КНОПКУ.
-                 dom.questChooseBtn.classList.add('hidden');
+                 // --- ИСПРАВЛЕНИЕ: СКРЫВАЕМ КНОПКУ В РУЧНОМ РЕЖИМЕ ---
+                 if (platform === 'manual') {
+                     dom.questChooseBtn.classList.add('hidden');
+                 } else {
+                     // В Telegram/Twitch оставляем "Задания недоступны"
+                     dom.questChooseBtn.classList.remove('hidden');
+                     dom.questChooseBtn.disabled = true;
+                     dom.questChooseBtn.innerHTML = '<i class="fa-solid fa-clock"></i> Задания недоступны';
+                 }
             }
         }
     }
@@ -1120,7 +1126,7 @@ try {
     document.body.innerHTML = `<div style="text-align:center; padding:20px; color:#fff;"><h1>Ошибка запуска</h1><p>${e.message}</p></div>`;
 }
 
-// --- ЛОГИКА TELEGRAM ИСПЫТАНИЙ (FIXED & REWARD BUTTONS) ---
+// --- ЛОГИКА TELEGRAM ИСПЫТАНИЙ ---
 
 window.updateTelegramStatus = async function() {
     try {
@@ -1164,28 +1170,22 @@ window.updateTelegramStatus = async function() {
             if(subBtn) resetTgBtn(subBtn);
         }
 
-        // 2. Голосование (ИСПРАВЛЕННАЯ ЛОГИКА)
+        // 2. Голосование
         const voteBtn = document.getElementById('btn-tg-vote'); 
         const voteTimer = document.getElementById('tg-vote-timer');
         
         if (voteBtn) {
-            // Если сервер говорит, что голосование доступно - мы показываем кнопку
-            // И показываем ПОПАП, чтобы напомнить пользователю
             if (data.vote_available === true) {
                 voteBtn.disabled = false;
                 voteBtn.classList.remove('done-today');
                 voteBtn.innerHTML = voteBtn.getAttribute('data-reward') || '+10 🎟';
                 if (voteTimer) voteTimer.classList.add('hidden');
-                
-                // ЗДЕСЬ БЫЛ АВТО-ПОПАП. ОН УДАЛЕН. ОКНО ТЕПЕРЬ ПОЯВИТСЯ ТОЛЬКО ПРИ НАЖАТИИ.
-
+                // АВТО-ОТКРЫТИЕ ОКНА УДАЛЕНО!
             } else {
-                // Если награда уже получена или недоступно (Кулдаун)
                 voteBtn.disabled = true;
                 voteBtn.classList.add('done-today'); 
                 voteBtn.innerHTML = '<i class="fa-solid fa-check"></i>'; 
                 
-                // Расчет времени вручную, чтобы не было undefined
                 if (voteTimer && data.last_vote_date) {
                     const lastVote = new Date(data.last_vote_date);
                     const now = new Date();
@@ -1193,17 +1193,12 @@ window.updateTelegramStatus = async function() {
                     if (!isNaN(lastVote.getTime())) {
                         const nextVoteDate = new Date(lastVote);
                         nextVoteDate.setDate(lastVote.getDate() + 1); // +1 день
-                        
                         const diffMs = nextVoteDate - now;
                         const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                        
-                        // Если дней <= 0, значит вот-вот откроется, пишем "Скоро" или 0
                         const displayDays = daysLeft > 0 ? daysLeft : 0;
-                        
                         voteTimer.classList.remove('hidden');
                         voteTimer.innerText = `Доступно через ${displayDays} дн.`;
                     } else {
-                        // Если дата кривая, но сервер сказал false
                         voteTimer.classList.remove('hidden');
                         voteTimer.innerText = `Доступно позже`;
                     }
@@ -1214,20 +1209,17 @@ window.updateTelegramStatus = async function() {
             }
         }
 
-        // 3. Фамилия (7 дней)
+        // 3. Фамилия
         const surnameDays = data.surname_days || (data.surname_ok ? 1 : 0);
         setProgress('tg-surname-fill', surnameDays, 7);
-        // Скрываем, только если 7/7 дней собрано
         if (surnameDays >= 7) {
             handleTask('tg-row-surname', true);
         } else {
-            // Если сегодня уже забрал, можно заблокировать кнопку (опционально), но пока оставляем "Проверить"
-            // Чтобы юзер видел прогресс. Если захочешь блокировать на сегодня - скажи.
             handleTask('tg-row-surname', false);
             if(document.getElementById('btn-tg-surname')) resetTgBtn(document.getElementById('btn-tg-surname'));
         }
 
-        // 4. Био (7 дней)
+        // 4. Био
         const bioDays = data.bio_days || (data.bio_ok ? 1 : 0);
         setProgress('tg-bio-fill', bioDays, 7);
         if (bioDays >= 7) {
@@ -1250,7 +1242,6 @@ window.updateTelegramStatus = async function() {
             setProgress('tg-reaction-fill', rCount, rTarget);
         }
         
-        // Сообщение "Все выполнено"
         const doneMsg = document.getElementById('tg-all-done-msg');
         if (doneMsg) {
             if (visibleCount === 0) doneMsg.classList.remove('hidden');
@@ -1265,12 +1256,9 @@ window.updateTelegramStatus = async function() {
 window.checkTelegramProfile = async function() {
     const btn1 = document.getElementById('btn-tg-surname');
     const btn2 = document.getElementById('btn-tg-bio');
-    
-    // Сохраним исходный текст, чтобы вернуть его при ошибке
     const oldText1 = btn1 ? btn1.innerHTML : '';
     const oldText2 = btn2 ? btn2.innerHTML : '';
 
-    // Ставим спиннеры
     if(btn1 && document.getElementById('tg-row-surname').style.display !== 'none') 
         btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     if(btn2 && document.getElementById('tg-row-bio').style.display !== 'none') 
@@ -1284,7 +1272,6 @@ window.checkTelegramProfile = async function() {
         });
         const data = await res.json();
         
-        // Логика выдачи награды
         if (data.surname_rewarded || data.bio_rewarded) {
              const ticketStatsEl = document.getElementById('ticketStats');
              if(ticketStatsEl) {
@@ -1300,36 +1287,30 @@ window.checkTelegramProfile = async function() {
              }
         } 
         else if (data.surname || data.bio) {
-             // Если условия выполнены, но награда уже была
-             // Ничего не делаем, updateTelegramStatus поставит галочки
+             // NOOP
         }
         else {
             Telegram.WebApp.showAlert("Условия не выполнены. Проверьте профиль.");
         }
         
     } catch (e) {
-        console.error(e);
         Telegram.WebApp.showAlert("Ошибка проверки. Попробуйте позже.");
-        // В случае ошибки возвращаем кнопкам старый текст
         if(btn1) btn1.innerHTML = oldText1 || 'Check';
         if(btn2) btn2.innerHTML = oldText2 || 'Check';
     } finally {
-        // ОБЯЗАТЕЛЬНО: Вызываем обновление, но не блокируем интерфейс, если оно упадет
         try {
             await window.updateTelegramStatus();
         } catch(err) {
-            console.error("Ошибка обновления статуса:", err);
-            // Если обновление статуса упало, вручную вернем кнопкам вид
-             if(btn1) btn1.innerHTML = 'Check';
-             if(btn2) btn2.innerHTML = 'Check';
+            if(btn1) btn1.innerHTML = 'Check';
+            if(btn2) btn2.innerHTML = 'Check';
         }
     }
 };
 
-// ИСПРАВЛЕННАЯ ЛОГИКА ГЛАВНОЙ КНОПКИ ГОЛОСОВАНИЯ
+// --- ГЛАВНОЕ ИСПРАВЛЕНИЕ: КНОПКА ГОЛОСОВАНИЯ ---
 window.doTelegramVote = async function() {
+    // 1. Сначала пытаемся проверить голос ТИХО (без показа окна)
     const btn = document.getElementById('btn-tg-vote');
-    // 1. Сначала пробуем проверить голос без лишних окон (вдруг человек уже проголосовал)
     if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
     try {
@@ -1341,7 +1322,7 @@ window.doTelegramVote = async function() {
         const data = await res.json();
 
         if (data.success) {
-            // УСПЕХ: Человек уже проголосовал! Награда выдана. Окно НЕ показываем.
+            // УСПЕХ: Голос есть -> Награда -> Окно НЕ показываем
             const ticketStatsEl = document.getElementById('ticketStats');
             if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 10;
 
@@ -1351,7 +1332,7 @@ window.doTelegramVote = async function() {
                 Telegram.WebApp.showAlert("Награда получена! +10 билетов");
             }
         } else {
-            // НЕУДАЧА: Голоса нет. Вот ТЕПЕРЬ показываем окно с просьбой проголосовать.
+            // НЕУДАЧА: Голоса нет -> Показываем окно с просьбой проголосовать
             const popup = document.getElementById('boostPopup');
             if (popup) {
                 popup.style.display = 'flex';
@@ -1363,12 +1344,10 @@ window.doTelegramVote = async function() {
     } catch (e) {
         Telegram.WebApp.showAlert("Ошибка соединения");
     } finally {
-        // Возвращаем вид кнопке
         await window.updateTelegramStatus();
     }
 };
 
-// Функция сброса кнопки к исходному виду (берет текст из data-reward)
 function resetTgBtn(btn) {
     if (!btn) return;
     btn.disabled = false;
@@ -1376,7 +1355,6 @@ function resetTgBtn(btn) {
     btn.style.color = '#fff';
     btn.style.opacity = '1';
     btn.style.cursor = 'pointer';
-    // Восстанавливаем текст награды (например, "+5 🎟")
     const rewardText = btn.getAttribute('data-reward');
     if (rewardText) btn.innerText = rewardText;
     else btn.innerText = "Check";
