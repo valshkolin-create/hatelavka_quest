@@ -73,7 +73,7 @@ function injectBoostPopup() {
         </button>
 
         <button id="closePopupBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #aaa; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 14px;">
-          Буду знать!
+          Закрыть
         </button>
       </div>
     </div>`;
@@ -118,7 +118,7 @@ function injectProfilePopup(type) {
         titleText = '❌ Ник бота не найден';
         bodyHTML = `
             Добавьте фразу <b style="color: ${tgColor}; background: ${tgBg}; padding: 2px 6px; border-radius: 4px;">@HATElavka_bot</b> 
-            в поле "Фамилия" (Last Name) в настройках Telegram.
+            в поле "Фамилия"  в настройках Telegram.
         `;
     } else {
         // --- ВАРИАНТ 2: БИО (РЕФЕРАЛКА) ---
@@ -135,14 +135,14 @@ function injectProfilePopup(type) {
         const displayRefLink = fullRefLink.replace('https://', '');
 
         bodyHTML = `
-            <div style="margin-bottom: 12px; font-size: 14px; color: #ccc;">
+            <div style="margin-bottom: 12px; font-size: 11px; color: #ccc;">
                 Добавьте вашу реф. ссылку в раздел <b>"О себе" (Bio)</b>:
             </div>
             
             <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); align-items: center;">
                 
                 <input id="popupRefInput" type="text" readonly value="${displayRefLink}" 
-                    style="flex-grow: 1; background: transparent; border: none; color: ${tgColor}; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; outline: none; width: 100%; text-overflow: ellipsis;">
+                    style="flex-grow: 1; background: transparent; border: none; color: ${tgColor}; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; outline: none; width: 100%; text-overflow: ellipsis;">
                 
                 <button id="popupCopyBtn" style="background: ${tgColor}; border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s;">
                     <i class="fa-regular fa-copy"></i>
