@@ -106,8 +106,8 @@ function injectProfilePopup(type) {
 
     let titleText = '';
     let bodyText = '';
-    let btnText = 'Открыть настройки';
-
+    
+    // Текст внутри окна
     if (type === 'surname') {
         titleText = '❌ Фамилия не найдена';
         bodyText = 'Добавьте фразу <b>Hate</b> или <b>Love</b> в вашу фамилию (Last Name) в настройках Telegram.';
@@ -126,7 +126,7 @@ function injectProfilePopup(type) {
         </p>
         
         <button id="goToSettingsBtn" style="width: 100%; background: #0088cc; color: white; border: none; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-           <i class="fa-solid fa-gear"></i> ${btnText}
+           <i class="fa-solid fa-gear"></i> Открыть настройки
         </button>
 
         <button id="closeProfilePopupBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #aaa; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 14px;">
@@ -136,12 +136,12 @@ function injectProfilePopup(type) {
     </div>`;
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
-    
-    // Логика кнопки "Настройки"
+
+    // Логика кнопки "Открыть настройки"
     document.getElementById('goToSettingsBtn').addEventListener('click', () => {
         const popup = document.getElementById('profilePopup');
         if (popup) popup.remove();
-        // ИСПОЛЬЗУЕМ tg://settings — это гарантированно откроет настройки
+        // Используем глубокую ссылку для открытия настроек Telegram
         Telegram.WebApp.openLink('tg://settings'); 
     });
 
@@ -1318,19 +1318,23 @@ window.updateTelegramStatus = async function() {
 };
 
 window.checkTelegramProfile = async function(checkType) {
-    // 1. Определяем кнопки
     const btnSurname = document.getElementById('btn-tg-surname');
     const btnBio = document.getElementById('btn-tg-bio');
     
-    // Получаем оригинальный текст (награду) из атрибута data-reward
-    const rewardSurname = btnSurname ? (btnSurname.getAttribute('data-reward') || '+15 🎟') : '+15 🎟';
-    const rewardBio = btnBio ? (btnBio.getAttribute('data-reward') || '+20 🎟') : '+20 🎟';
+    // 1. ЗАПОМИНАЕМ ОРИГИНАЛЬНЫЙ ВИЗУАЛ КНОПОК
+    // Мы сохраняем HTML код кнопки, чтобы потом его вернуть один в один
+    let originalContent = '';
+    let targetBtn = null;
 
-    // 2. Включаем спиннер ТОЛЬКО на той кнопке, которую нажали
     if (checkType === 'surname' && btnSurname) {
-        btnSurname.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    } else if (checkType === 'bio' && btnBio) {
-        btnBio.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        targetBtn = btnSurname;
+        originalContent = btnSurname.innerHTML; // Сохраняем "+15 🎟" или как там было
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; // Ставим спиннер
+    } 
+    else if (checkType === 'bio' && btnBio) {
+        targetBtn = btnBio;
+        originalContent = btnBio.innerHTML; // Сохраняем "+20 🎟"
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; // Ставим спиннер
     }
 
     try {
@@ -1345,43 +1349,52 @@ window.checkTelegramProfile = async function(checkType) {
         
         if (checkType === 'surname') {
             if (data.surname_rewarded) {
-                // Успех: награда получена
+                // Успех: награда получена (+15)
                 success = true;
                 const ticketStatsEl = document.getElementById('ticketStats');
                 if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 15;
+                
                 if (typeof showTicketsClaimedModal === 'function') showTicketsClaimedModal();
                 else Telegram.WebApp.showAlert(`Награда получена! +15 билетов`);
+                
             } else if (data.surname) {
-                success = true; // Уже выполнено
+                success = true; // Уже выполнено ранее
             } else {
-                // ПРОВАЛ: Показываем окно и возвращаем текст кнопки
+                // ПРОВАЛ: Условие не выполнено
+                // 1. Возвращаем кнопке красивый вид
+                if (targetBtn) targetBtn.innerHTML = originalContent;
+                // 2. Показываем окно
                 injectProfilePopup('surname');
-                if (btnSurname) btnSurname.innerHTML = rewardSurname;
             }
         } 
         else if (checkType === 'bio') {
             if (data.bio_rewarded) {
+                // Успех: награда получена (+20)
                 success = true;
                 const ticketStatsEl = document.getElementById('ticketStats');
                 if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 20;
+                
                 if (typeof showTicketsClaimedModal === 'function') showTicketsClaimedModal();
                 else Telegram.WebApp.showAlert(`Награда получена! +20 билетов`);
+                
             } else if (data.bio) {
-                success = true;
+                success = true; // Уже выполнено ранее
             } else {
-                // ПРОВАЛ: Показываем окно и возвращаем текст кнопки
+                // ПРОВАЛ: Условие не выполнено
+                // 1. Возвращаем кнопке красивый вид
+                if (targetBtn) targetBtn.innerHTML = originalContent;
+                // 2. Показываем окно
                 injectProfilePopup('bio');
-                if (btnBio) btnBio.innerHTML = rewardBio;
             }
         }
         
     } catch (e) {
         console.error(e);
         Telegram.WebApp.showAlert("Ошибка проверки. Попробуйте позже.");
-        // При ошибке сети возвращаем кнопкам их текст с наградой
-        if (checkType === 'surname' && btnSurname) btnSurname.innerHTML = rewardSurname;
-        if (checkType === 'bio' && btnBio) btnBio.innerHTML = rewardBio;
+        // Если ошибка сети — тоже возвращаем кнопку как была
+        if (targetBtn) targetBtn.innerHTML = originalContent;
     } finally {
+        // Обновляем галочки и полоски прогресса
         await window.updateTelegramStatus();
     }
 };
