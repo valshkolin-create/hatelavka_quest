@@ -1093,22 +1093,22 @@ window.updateTelegramStatus = async function() {
         }
 
         // 2. Голосование
-        onst voteBtn = document.getElementById('btn-tg-vote');
+        const voteBtn = document.getElementById('btn-tg-vote'); // БЫЛО onst -> СТАЛО const
         const voteTimer = document.getElementById('tg-vote-timer');
         
         if (voteBtn) {
-            if (!data.vote_available) {
-                // Если Кулдаун
+            if (data.vote_available === false) { // Явная проверка на false
+                // Если награда уже получена (Кулдаун)
                 voteBtn.disabled = true;
-                voteBtn.classList.add('done-today'); // Зеленая/Серая из CSS
-                voteBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+                voteBtn.classList.add('done-today'); // Кнопка станет серой/прозрачной
+                voteBtn.innerHTML = '<i class="fa-solid fa-check"></i>'; // Галочка
                 
                 if (voteTimer) {
                     voteTimer.classList.remove('hidden');
                     voteTimer.innerText = `Доступно через ${data.vote_days_left} дн.`;
                 }
             } else {
-                // Если доступно
+                // Если доступно к выполнению
                 voteBtn.disabled = false;
                 voteBtn.classList.remove('done-today');
                 voteBtn.innerHTML = voteBtn.getAttribute('data-reward') || '+10 🎟';
