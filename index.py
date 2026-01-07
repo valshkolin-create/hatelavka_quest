@@ -38,6 +38,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
 from aiogram.utils.markdown import html_decoration
+from dateutil import parser
 
 sleep_cache = {
     "is_sleeping": False,
@@ -11953,36 +11954,84 @@ async def fix_webhook_settings():
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
+# --- НАСТРОЙКИ ---
+# ID канала для голосования/подписки (обязательно начинается с -100...)
+VOTING_CHANNEL_ID = "-1002144676097"  # <--- ЗАМЕНИ НА СВОЙ ID
+
 @app.post("/api/v1/telegram/vote")
 async def telegram_vote(
     request: Request,
     supabase_client: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Голосование раз в 30 дней"""
+    """
+    Голосование за канал (раз в 30 дней).
+    Проверяет подписку и дату последнего получения.
+    """
     try:
         body = await request.json()
         user_id = await get_user_id_from_init_data(body.get("initData"))
+        if not user_id:
+            return JSONResponse({"error": "Auth failed"}, status=401)
+
+        # 1. Получаем данные пользователя из БД
+        db_res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
         
-        # Проверка кулдауна
-        res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
-        if res.json():
-            record = res.json()[0]
-            if record.get('last_vote_date'):
-                lv = datetime.fromisoformat(record['last_vote_date'].replace('Z', '+00:00'))
-                if datetime.now(timezone.utc) - lv < timedelta(days=30):
-                    return JSONResponse({"success": False, "message": "Рано голосовать"}, status=400)
+        # Если записи нет, создаем
+        if not db_res.json():
+            await supabase_client.post("/telegram_challenges", json={"user_id": user_id})
+            user_data = {}
+        else:
+            user_data = db_res.json()[0]
+
+        # 2. ПРОВЕРКА КУЛДАУНА (30 дней)
+        last_vote_str = user_data.get("last_vote_date")
+        now = datetime.now(timezone.utc)
         
-        # Фиксация
+        if last_vote_str:
+            # Парсим дату из строки (Postgres отдает ISO формат)
+            last_vote_date = parser.isoparse(last_vote_str)
+            # Разница во времени
+            diff = now - last_vote_date
+            
+            if diff.days < 30:
+                days_left = 30 - diff.days
+                return JSONResponse({
+                    "success": False, 
+                    "message": f"Награда доступна через {days_left} дн.",
+                    "days_left": days_left,
+                    "on_cooldown": True
+                })
+
+        # 3. ПРОВЕРКА ПОДПИСКИ (Бот должен быть админом)
+        # Если нужно просто проверить переход (без строгой подписки), закомментируй этот блок
+        if VOTING_CHANNEL_ID:
+            try:
+                member = await bot.get_chat_member(chat_id=VOTING_CHANNEL_ID, user_id=user_id)
+                if member.status in ['left', 'kicked', 'restricted']:
+                    return JSONResponse({
+                        "success": False, 
+                        "message": "Вы не подписаны на канал для голосования."
+                    })
+            except Exception as e:
+                print(f"Ошибка проверки подписки: {e}")
+                # Если бот не админ или ID канала неверен, можно пропустить или вернуть ошибку
+                # return JSONResponse({"success": False, "message": "Ошибка проверки (бот не админ)"})
+
+        # 4. ВЫДАЧА НАГРАДЫ
+        # Начисляем 10 билетов (или сколько нужно)
+        await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 10})
+        
+        # Обновляем дату последнего голосования на СЕЙЧАС
         await supabase_client.patch(
             "/telegram_challenges", 
-            params={"user_id": f"eq.{user_id}"},
-            json={"last_vote_date": datetime.now(timezone.utc).isoformat()}
+            params={"user_id": f"eq.{user_id}"}, 
+            json={"last_vote_date": now.isoformat()}
         )
-        
-        # Награда
-        await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 10})
+
         return JSONResponse({"success": True})
+
     except Exception as e:
+        print(f"Error in vote: {e}")
         return JSONResponse({"error": str(e)}, status=500)
 
 # --- ХЕНДЛЕР РЕАКЦИЙ ---
