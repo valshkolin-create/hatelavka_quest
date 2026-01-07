@@ -564,3 +564,63 @@ body[data-theme="manual"] {
     font-family: monospace;
     align-self: flex-end;
 }
+
+/* Простые стили для окна */
+  .popup-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.7); /* Темный фон */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px); /* Размытие фона */
+  }
+
+  .popup-content {
+    background: #1c1c1e; /* Цвет фона карточки */
+    color: #fff;
+    padding: 25px;
+    border-radius: 16px;
+    text-align: center;
+    width: 85%;
+    max-width: 320px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border: 1px solid #333;
+  }
+
+  .popup-content h3 {
+    margin-top: 0;
+    color: #ff4757; /* Красный цвет заголовка */
+  }
+
+  .boost-link-btn {
+    display: block;
+    background: #0088cc; /* Telegram blue */
+    color: white;
+    text-decoration: none;
+    padding: 12px;
+    border-radius: 10px;
+    margin: 20px 0;
+    font-weight: bold;
+    transition: transform 0.1s;
+  }
+
+  .boost-link-btn:active {
+    transform: scale(0.98);
+  }
+
+  .close-btn {
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+  }
+  
+  .close-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
