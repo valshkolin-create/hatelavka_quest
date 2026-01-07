@@ -136,13 +136,13 @@ function injectProfilePopup(type) {
     </div>`;
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
-
+    
     // Логика кнопки "Настройки"
     document.getElementById('goToSettingsBtn').addEventListener('click', () => {
         const popup = document.getElementById('profilePopup');
         if (popup) popup.remove();
-        // Пытаемся открыть настройки внутри Telegram (это свернет WebApp)
-        Telegram.WebApp.openTelegramLink('https://t.me/settings'); 
+        // ИСПОЛЬЗУЕМ tg://settings — это гарантированно откроет настройки
+        Telegram.WebApp.openLink('tg://settings'); 
     });
 
     // Логика кнопки "Буду знать"
@@ -1322,9 +1322,9 @@ window.checkTelegramProfile = async function(checkType) {
     const btnSurname = document.getElementById('btn-tg-surname');
     const btnBio = document.getElementById('btn-tg-bio');
     
-    // Сохраняем старый текст, чтобы вернуть его при ошибке сети
-    const oldTextSurname = btnSurname ? btnSurname.innerHTML : 'Check';
-    const oldTextBio = btnBio ? btnBio.innerHTML : 'Check';
+    // Получаем оригинальный текст (награду) из атрибута data-reward
+    const rewardSurname = btnSurname ? (btnSurname.getAttribute('data-reward') || '+15 🎟') : '+15 🎟';
+    const rewardBio = btnBio ? (btnBio.getAttribute('data-reward') || '+20 🎟') : '+20 🎟';
 
     // 2. Включаем спиннер ТОЛЬКО на той кнопке, которую нажали
     if (checkType === 'surname' && btnSurname) {
@@ -1341,7 +1341,6 @@ window.checkTelegramProfile = async function(checkType) {
         });
         const data = await res.json();
         
-        // 3. Обработка результатов
         let success = false;
         
         if (checkType === 'surname') {
@@ -1353,38 +1352,36 @@ window.checkTelegramProfile = async function(checkType) {
                 if (typeof showTicketsClaimedModal === 'function') showTicketsClaimedModal();
                 else Telegram.WebApp.showAlert(`Награда получена! +15 билетов`);
             } else if (data.surname) {
-                // Успех: уже выполнено (без награды, т.к. повторно)
-                success = true;
+                success = true; // Уже выполнено
             } else {
-                // ПРОВАЛ: Показываем кастомное окно
+                // ПРОВАЛ: Показываем окно и возвращаем текст кнопки
                 injectProfilePopup('surname');
+                if (btnSurname) btnSurname.innerHTML = rewardSurname;
             }
         } 
         else if (checkType === 'bio') {
             if (data.bio_rewarded) {
-                // Успех: награда получена
                 success = true;
                 const ticketStatsEl = document.getElementById('ticketStats');
                 if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 20;
                 if (typeof showTicketsClaimedModal === 'function') showTicketsClaimedModal();
                 else Telegram.WebApp.showAlert(`Награда получена! +20 билетов`);
             } else if (data.bio) {
-                // Успех: уже выполнено
                 success = true;
             } else {
-                // ПРОВАЛ: Показываем кастомное окно
+                // ПРОВАЛ: Показываем окно и возвращаем текст кнопки
                 injectProfilePopup('bio');
+                if (btnBio) btnBio.innerHTML = rewardBio;
             }
         }
         
     } catch (e) {
         console.error(e);
         Telegram.WebApp.showAlert("Ошибка проверки. Попробуйте позже.");
-        // Возвращаем текст кнопкам, если была ошибка сети
-        if (checkType === 'surname' && btnSurname) btnSurname.innerHTML = oldTextSurname;
-        if (checkType === 'bio' && btnBio) btnBio.innerHTML = oldTextBio;
+        // При ошибке сети возвращаем кнопкам их текст с наградой
+        if (checkType === 'surname' && btnSurname) btnSurname.innerHTML = rewardSurname;
+        if (checkType === 'bio' && btnBio) btnBio.innerHTML = rewardBio;
     } finally {
-        // Обновляем общий статус (галочки и прогресс-бары)
         await window.updateTelegramStatus();
     }
 };
