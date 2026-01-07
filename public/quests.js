@@ -54,31 +54,74 @@ function unlockAppScroll() {
 }
 
 // --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
+// --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
 function injectBoostPopup() {
-    if (document.getElementById('boostPopup')) return; // Если уже есть, не создаем
+    if (document.getElementById('boostPopup')) return; 
 
+    // Обрати внимание: вместо ссылки <a> теперь <button id="goToBoostBtn">
     const popupHtml = `
-    <div id="boostPopup" class="popup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
-      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333;">
-        <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 15px;">⚠️ Внимание!</h3>
-        <p style="font-size: 14px; line-height: 1.5; color: #ddd;">Вы еще не проголосовали за наш канал. Чтобы продолжить и получить бонусы, пожалуйста, отдайте свой голос.</p>
+    <div id="boostPopup" class="popup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; display: flex; flex-direction: column; align-items: center;">
         
-        <a href="https://t.me/boost/hatelove_ttv" target="_blank" class="boost-link-btn" style="display: block; background: #0088cc; color: white; text-decoration: none; padding: 12px; border-radius: 10px; margin: 20px 0; font-weight: bold;">
-          🚀 Проголосовать за канал
-        </a>
+        <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 10px;">⚠️ Внимание!</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: #ddd; margin-bottom: 20px;">
+           Голосование за канал необходимо для получения бонусов.
+        </p>
+        
+        <button id="goToBoostBtn" style="width: 100%; background: #0088cc; color: white; border: none; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+           <i class="fa-solid fa-rocket"></i> Проголосовать
+        </button>
 
-        <button id="closePopupBtn" class="close-btn" style="background: transparent; border: 1px solid #555; color: #aaa; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; width: 100%;">
-          Хорошо, окес
+        <button id="closePopupBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #aaa; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 14px;">
+          Буду знать!
         </button>
       </div>
     </div>`;
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    // Логика закрытия
+    // 1. Кнопка "Проголосовать" - открывает ссылку через нативный метод (приложение не закроется)
+    document.getElementById('goToBoostBtn').addEventListener('click', () => {
+        Telegram.WebApp.openLink('https://t.me/boost/hatelove_ttv');
+    });
+
+    // 2. Кнопка "Хорошо, окес" - закрывает окно И проверяет выполнение
     document.getElementById('closePopupBtn').addEventListener('click', () => {
         document.getElementById('boostPopup').style.display = 'none';
+        performVoteApiCheck(); // <-- Запуск проверки
     });
+}
+
+// Функция реальной проверки (скрытая от прямого вызова)
+async function performVoteApiCheck() {
+    const btn = document.getElementById('btn-tg-vote');
+    if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    
+    try {
+        const res = await fetch('/api/v1/telegram/vote', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+             const ticketStatsEl = document.getElementById('ticketStats');
+             if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 10;
+             
+             if (typeof showTicketsClaimedModal === 'function') {
+                 showTicketsClaimedModal();
+             } else {
+                 Telegram.WebApp.showAlert("Награда получена! +10 билетов");
+             }
+        } else {
+            Telegram.WebApp.showAlert(data.message || "Голос пока не найден. Попробуйте через пару минут.");
+        }
+    } catch (e) {
+        Telegram.WebApp.showAlert("Ошибка соединения");
+    } finally {
+        await window.updateTelegramStatus();
+    }
 }
 
 async function checkMaintenance() {
@@ -1135,9 +1178,9 @@ window.updateTelegramStatus = async function() {
                 voteBtn.innerHTML = voteBtn.getAttribute('data-reward') || '+10 🎟';
                 if (voteTimer) voteTimer.classList.add('hidden');
                 
-                // Показываем попап, так как голосование доступно!
-                const popup = document.getElementById('boostPopup');
-                if (popup) popup.style.display = 'flex';
+                // УДАЛИ ИЛИ ЗАКОММЕНТИРУЙ ЭТИ СТРОКИ НИЖЕ:
+                // const popup = document.getElementById('boostPopup');
+                // if (popup) popup.style.display = 'flex';
 
             } else {
                 // Если награда уже получена или недоступно (Кулдаун)
@@ -1285,36 +1328,13 @@ window.checkTelegramProfile = async function() {
         }
     }
 };
-window.doTelegramVote = async function() {
-    const btn = document.getElementById('btn-tg-vote');
-    if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    
-    try {
-        const res = await fetch('/api/v1/telegram/vote', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ initData: Telegram.WebApp.initData })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-             // Визуально добавим +10 билетов
-             const ticketStatsEl = document.getElementById('ticketStats');
-             if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 10;
-             
-             // Показываем окно БИЛЕТОВ
-             if (typeof showTicketsClaimedModal === 'function') {
-                 showTicketsClaimedModal();
-             } else {
-                 Telegram.WebApp.showAlert("Награда получена! +10 билетов");
-             }
-        } else {
-            Telegram.WebApp.showAlert(data.message || "Ошибка");
-        }
-    } catch (e) {
-        Telegram.WebApp.showAlert("Ошибка соединения");
-    } finally {
-        await window.updateTelegramStatus();
+window.doTelegramVote = function() {
+    const popup = document.getElementById('boostPopup');
+    if (popup) {
+        popup.style.display = 'flex'; // Просто показываем окно
+    } else {
+        injectBoostPopup();
+        document.getElementById('boostPopup').style.display = 'flex';
     }
 };
 
