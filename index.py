@@ -11964,8 +11964,8 @@ async def telegram_vote(
     supabase_client: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Голосование за канал (раз в 30 дней).
-    Проверяет подписку и дату последнего получения.
+    Голосование за канал (Boosts).
+    Проверяет, отдал ли пользователь голос (буст) за канал.
     """
     try:
         body = await request.json()
@@ -11973,67 +11973,63 @@ async def telegram_vote(
         if not user_id:
             return JSONResponse({"error": "Auth failed"}, status=401)
 
-        # 1. Получаем данные пользователя из БД
-        db_res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
-        
-        # Если записи нет, создаем
-        if not db_res.json():
-            await supabase_client.post("/telegram_challenges", json={"user_id": user_id})
-            user_data = {}
-        else:
-            user_data = db_res.json()[0]
+        # 1. Берем ID канала из настроек (или впиши вручную, например -100...)
+        target_channel_id = TG_QUEST_CHANNEL_ID if TG_QUEST_CHANNEL_ID != 0 else -1001234567890 
+        # ЗАМЕНИ -1001234567890 НА СВОЙ ID, ЕСЛИ ПЕРЕМЕННАЯ НЕ РАБОТАЕТ
 
-        # 2. ПРОВЕРКА КУЛДАУНА (30 дней)
-        last_vote_str = user_data.get("last_vote_date")
-        now = datetime.now(timezone.utc)
-        
-        if last_vote_str:
-            # Парсим дату из строки (Postgres отдает ISO формат)
-            last_vote_date = parser.isoparse(last_vote_str)
-            # Разница во времени
-            diff = now - last_vote_date
-            
-            if diff.days < 30:
-                days_left = 30 - diff.days
-                return JSONResponse({
-                    "success": False, 
-                    "message": f"Награда доступна через {days_left} дн.",
-                    "days_left": days_left,
-                    "on_cooldown": True
-                })
-
-        # 3. ПРОВЕРКА ПОДПИСКИ (Бот должен быть админом)
-        # Если нужно просто проверить переход (без строгой подписки), закомментируй этот блок
-        if VOTING_CHANNEL_ID:
-            try:
-                member = await bot.get_chat_member(chat_id=VOTING_CHANNEL_ID, user_id=user_id)
-                if member.status in ['left', 'kicked', 'restricted']:
+        # 2. Проверяем Кулдаун (30 дней) в БД
+        res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
+        if res.json():
+            record = res.json()[0]
+            if record.get('last_vote_date'):
+                lv = datetime.fromisoformat(record['last_vote_date'].replace('Z', '+00:00'))
+                # Если прошло меньше 30 дней
+                if datetime.now(timezone.utc) - lv < timedelta(days=30):
+                    days_left = 30 - (datetime.now(timezone.utc) - lv).days
                     return JSONResponse({
                         "success": False, 
-                        "message": "Вы не подписаны на канал для голосования."
+                        "message": f"Вы уже голосовали. Следующий раз через {days_left} дн.",
+                        "on_cooldown": True
                     })
-            except Exception as e:
-                print(f"Ошибка проверки подписки: {e}")
-                # Если бот не админ или ID канала неверен, можно пропустить или вернуть ошибку
-                # return JSONResponse({"success": False, "message": "Ошибка проверки (бот не админ)"})
+        else:
+            # Если записи нет, создаем
+            await supabase_client.post("/telegram_challenges", json={"user_id": user_id})
 
-        # 4. ВЫДАЧА НАГРАДЫ
-        # Начисляем 10 билетов (или сколько нужно)
-        await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 10})
+        # 3. ПРОВЕРКА БУСТА (Голоса) ЧЕРЕЗ API TELEGRAM
+        try:
+            # Этот метод возвращает список бустов от конкретного юзера
+            user_boosts = await bot.get_user_chat_boosts(chat_id=target_channel_id, user_id=user_id)
+            
+            # Если список пуст или равен None — значит голоса нет
+            if not user_boosts.boosts:
+                 return JSONResponse({
+                    "success": False, 
+                    "message": "⚠️ Вы не проголосовали за канал! Нажмите 'Голосовать' (Boost) в профиле канала."
+                })
+                
+        except Exception as e:
+            print(f"Ошибка проверки бустов: {e}")
+            return JSONResponse({
+                "success": False, 
+                "message": "Бот не может проверить голоса. Убедитесь, что бот — админ канала."
+            })
+
+        # 4. Если голос есть — выдаем награду
         
-        # Обновляем дату последнего голосования на СЕЙЧАС
+        # Обновляем дату в БД
         await supabase_client.patch(
             "/telegram_challenges", 
             params={"user_id": f"eq.{user_id}"}, 
-            json={"last_vote_date": now.isoformat()}
+            json={"last_vote_date": datetime.now(timezone.utc).isoformat()}
         )
+        
+        # Начисляем билеты (10 штук)
+        await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 10})
 
         return JSONResponse({"success": True})
 
     except Exception as e:
-        print(f"Error in vote: {e}")
         return JSONResponse({"error": str(e)}, status=500)
-
 # --- ХЕНДЛЕР РЕАКЦИЙ ---
 
 # --- ХЕНДЛЕР РЕАКЦИЙ (ИСПРАВЛЕННЫЙ) ---
