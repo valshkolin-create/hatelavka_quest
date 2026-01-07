@@ -37,7 +37,7 @@ const dom = {
 let currentQuestId = null;
 let countdownIntervals = {};
 let allQuests = [];
-let userData = {}; // Объявлено здесь, второй раз объявлять нельзя!
+let userData = {};
 let questsForRoulette = [];
 
 // --- ФУНКЦИИ БЛОКИРОВКИ СКРОЛЛА ---
@@ -54,11 +54,9 @@ function unlockAppScroll() {
 }
 
 // --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
-// --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
 function injectBoostPopup() {
     if (document.getElementById('boostPopup')) return; 
 
-    // Обрати внимание: вместо ссылки <a> теперь <button id="goToBoostBtn">
     const popupHtml = `
     <div id="boostPopup" class="popup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
       <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; display: flex; flex-direction: column; align-items: center;">
@@ -80,20 +78,21 @@ function injectBoostPopup() {
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    // 1. Кнопка "Проголосовать" - открывает ссылку через нативный метод (приложение не закроется)
+    // 1. Кнопка "Проголосовать" - открывает ссылку
     document.getElementById('goToBoostBtn').addEventListener('click', () => {
         Telegram.WebApp.openLink('https://t.me/boost/hatelove_ttv');
     });
 
-    // 2. Кнопка "Хорошо, окес" - закрывает окно И проверяет выполнение
+    // 2. Кнопка "Буду знать!" - закрывает окно И проверяет выполнение (на случай если пользователь проголосовал)
     document.getElementById('closePopupBtn').addEventListener('click', () => {
         document.getElementById('boostPopup').style.display = 'none';
-        performVoteApiCheck(); // <-- Запуск проверки
+        performVoteApiCheck(); 
     });
 }
 
-// Функция реальной проверки (скрытая от прямого вызова)
+// Функция проверки голоса (вызывается из попапа)
 async function performVoteApiCheck() {
+    // Эта функция используется ВНУТРИ попапа, когда человек нажимает "Буду знать"
     const btn = document.getElementById('btn-tg-vote');
     if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     
@@ -115,7 +114,8 @@ async function performVoteApiCheck() {
                  Telegram.WebApp.showAlert("Награда получена! +10 билетов");
              }
         } else {
-            Telegram.WebApp.showAlert(data.message || "Голос пока не найден. Попробуйте через пару минут.");
+            // Если голоса всё еще нет - просто уведомляем или ничего не делаем, так как окно уже закрылось
+            if(data.message) Telegram.WebApp.showAlert(data.message);
         }
     } catch (e) {
         Telegram.WebApp.showAlert("Ошибка соединения");
@@ -147,7 +147,7 @@ try {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     
-    // Инициализируем попап при старте
+    // Инициализируем попап при старте (но он скрыт)
     injectBoostPopup();
 
     function escapeHTML(str) {
@@ -860,9 +860,8 @@ try {
                 else dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
                 dom.questChooseContainer.classList.add('hidden'); 
             } else {
-                 dom.questChooseBtn.classList.remove('hidden');
-                 dom.questChooseBtn.disabled = true;
-                 dom.questChooseBtn.innerHTML = '<i class="fa-solid fa-clock"></i> Задания недоступны';
+                 // УДАЛИЛ ТЕКСТ "ЗАДАНИЯ НЕДОСТУПНЫ" ПО ЗАПРОСУ. ТЕПЕРЬ ПРОСТО СКРЫВАЕМ КНОПКУ.
+                 dom.questChooseBtn.classList.add('hidden');
             }
         }
     }
@@ -1178,9 +1177,7 @@ window.updateTelegramStatus = async function() {
                 voteBtn.innerHTML = voteBtn.getAttribute('data-reward') || '+10 🎟';
                 if (voteTimer) voteTimer.classList.add('hidden');
                 
-                // УДАЛИ ИЛИ ЗАКОММЕНТИРУЙ ЭТИ СТРОКИ НИЖЕ:
-                // const popup = document.getElementById('boostPopup');
-                // if (popup) popup.style.display = 'flex';
+                // ЗДЕСЬ БЫЛ АВТО-ПОПАП. ОН УДАЛЕН. ОКНО ТЕПЕРЬ ПОЯВИТСЯ ТОЛЬКО ПРИ НАЖАТИИ.
 
             } else {
                 // Если награда уже получена или недоступно (Кулдаун)
@@ -1328,13 +1325,46 @@ window.checkTelegramProfile = async function() {
         }
     }
 };
-window.doTelegramVote = function() {
-    const popup = document.getElementById('boostPopup');
-    if (popup) {
-        popup.style.display = 'flex'; // Просто показываем окно
-    } else {
-        injectBoostPopup();
-        document.getElementById('boostPopup').style.display = 'flex';
+
+// ИСПРАВЛЕННАЯ ЛОГИКА ГЛАВНОЙ КНОПКИ ГОЛОСОВАНИЯ
+window.doTelegramVote = async function() {
+    const btn = document.getElementById('btn-tg-vote');
+    // 1. Сначала пробуем проверить голос без лишних окон (вдруг человек уже проголосовал)
+    if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+    try {
+        const res = await fetch('/api/v1/telegram/vote', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: Telegram.WebApp.initData })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            // УСПЕХ: Человек уже проголосовал! Награда выдана. Окно НЕ показываем.
+            const ticketStatsEl = document.getElementById('ticketStats');
+            if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 10;
+
+            if (typeof showTicketsClaimedModal === 'function') {
+                showTicketsClaimedModal();
+            } else {
+                Telegram.WebApp.showAlert("Награда получена! +10 билетов");
+            }
+        } else {
+            // НЕУДАЧА: Голоса нет. Вот ТЕПЕРЬ показываем окно с просьбой проголосовать.
+            const popup = document.getElementById('boostPopup');
+            if (popup) {
+                popup.style.display = 'flex';
+            } else {
+                injectBoostPopup();
+                document.getElementById('boostPopup').style.display = 'flex';
+            }
+        }
+    } catch (e) {
+        Telegram.WebApp.showAlert("Ошибка соединения");
+    } finally {
+        // Возвращаем вид кнопке
+        await window.updateTelegramStatus();
     }
 };
 
