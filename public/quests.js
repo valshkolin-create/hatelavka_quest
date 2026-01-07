@@ -99,6 +99,59 @@ function injectBoostPopup() {
     });
 }
 
+// --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ПРОФИЛЯ (ФАМИЛИЯ / БИО) ---
+function injectProfilePopup(type) {
+    const existing = document.getElementById('profilePopup');
+    if (existing) existing.remove();
+
+    let titleText = '';
+    let bodyText = '';
+    let btnText = 'Открыть настройки';
+
+    if (type === 'surname') {
+        titleText = '❌ Фамилия не найдена';
+        bodyText = 'Добавьте фразу <b>Hate</b> или <b>Love</b> в вашу фамилию (Last Name) в настройках Telegram.';
+    } else {
+        titleText = '❌ Ссылка не найдена';
+        bodyText = 'Добавьте ссылку <b>t.me/hatelove_ttv</b> в раздел "О себе" (Bio) в настройках Telegram.';
+    }
+
+    const popupHtml = `
+    <div id="profilePopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; display: flex; flex-direction: column; align-items: center;">
+        
+        <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 10px;">${titleText}</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: #ddd; margin-bottom: 20px;">
+           ${bodyText}
+        </p>
+        
+        <button id="goToSettingsBtn" style="width: 100%; background: #0088cc; color: white; border: none; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+           <i class="fa-solid fa-gear"></i> ${btnText}
+        </button>
+
+        <button id="closeProfilePopupBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #aaa; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 14px;">
+          Буду знать!
+        </button>
+      </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
+
+    // Логика кнопки "Настройки"
+    document.getElementById('goToSettingsBtn').addEventListener('click', () => {
+        const popup = document.getElementById('profilePopup');
+        if (popup) popup.remove();
+        // Пытаемся открыть настройки внутри Telegram (это свернет WebApp)
+        Telegram.WebApp.openTelegramLink('https://t.me/settings'); 
+    });
+
+    // Логика кнопки "Буду знать"
+    document.getElementById('closeProfilePopupBtn').addEventListener('click', () => {
+        const popup = document.getElementById('profilePopup');
+        if (popup) popup.remove();
+    });
+}
+
 // Функция проверки голоса (вызывается из попапа)
 async function performVoteApiCheck() {
     const btn = document.getElementById('btn-tg-vote');
@@ -1264,16 +1317,21 @@ window.updateTelegramStatus = async function() {
     }
 };
 
-window.checkTelegramProfile = async function() {
-    const btn1 = document.getElementById('btn-tg-surname');
-    const btn2 = document.getElementById('btn-tg-bio');
-    const oldText1 = btn1 ? btn1.innerHTML : '';
-    const oldText2 = btn2 ? btn2.innerHTML : '';
+window.checkTelegramProfile = async function(checkType) {
+    // 1. Определяем кнопки
+    const btnSurname = document.getElementById('btn-tg-surname');
+    const btnBio = document.getElementById('btn-tg-bio');
+    
+    // Сохраняем старый текст, чтобы вернуть его при ошибке сети
+    const oldTextSurname = btnSurname ? btnSurname.innerHTML : 'Check';
+    const oldTextBio = btnBio ? btnBio.innerHTML : 'Check';
 
-    if(btn1 && document.getElementById('tg-row-surname').style.display !== 'none') 
-        btn1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    if(btn2 && document.getElementById('tg-row-bio').style.display !== 'none') 
-        btn2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    // 2. Включаем спиннер ТОЛЬКО на той кнопке, которую нажали
+    if (checkType === 'surname' && btnSurname) {
+        btnSurname.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    } else if (checkType === 'bio' && btnBio) {
+        btnBio.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    }
 
     try {
         const res = await fetch('/api/v1/telegram/check_profile', {
@@ -1283,41 +1341,53 @@ window.checkTelegramProfile = async function() {
         });
         const data = await res.json();
         
-        if (data.surname_rewarded || data.bio_rewarded) {
-             const ticketStatsEl = document.getElementById('ticketStats');
-             if(ticketStatsEl) {
-                 let added = 0;
-                 if(data.surname_rewarded) added += 15;
-                 if(data.bio_rewarded) added += 20;
-                 ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + added;
-             }
-             if (typeof showTicketsClaimedModal === 'function') {
-                 showTicketsClaimedModal(); 
-             } else {
-                 Telegram.WebApp.showAlert(`Награда получена!`);
-             }
+        // 3. Обработка результатов
+        let success = false;
+        
+        if (checkType === 'surname') {
+            if (data.surname_rewarded) {
+                // Успех: награда получена
+                success = true;
+                const ticketStatsEl = document.getElementById('ticketStats');
+                if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 15;
+                if (typeof showTicketsClaimedModal === 'function') showTicketsClaimedModal();
+                else Telegram.WebApp.showAlert(`Награда получена! +15 билетов`);
+            } else if (data.surname) {
+                // Успех: уже выполнено (без награды, т.к. повторно)
+                success = true;
+            } else {
+                // ПРОВАЛ: Показываем кастомное окно
+                injectProfilePopup('surname');
+            }
         } 
-        else if (data.surname || data.bio) {
-             // NOOP
-        }
-        else {
-            Telegram.WebApp.showAlert("Условия не выполнены. Проверьте профиль.");
+        else if (checkType === 'bio') {
+            if (data.bio_rewarded) {
+                // Успех: награда получена
+                success = true;
+                const ticketStatsEl = document.getElementById('ticketStats');
+                if(ticketStatsEl) ticketStatsEl.textContent = parseInt(ticketStatsEl.textContent || 0) + 20;
+                if (typeof showTicketsClaimedModal === 'function') showTicketsClaimedModal();
+                else Telegram.WebApp.showAlert(`Награда получена! +20 билетов`);
+            } else if (data.bio) {
+                // Успех: уже выполнено
+                success = true;
+            } else {
+                // ПРОВАЛ: Показываем кастомное окно
+                injectProfilePopup('bio');
+            }
         }
         
     } catch (e) {
+        console.error(e);
         Telegram.WebApp.showAlert("Ошибка проверки. Попробуйте позже.");
-        if(btn1) btn1.innerHTML = oldText1 || 'Check';
-        if(btn2) btn2.innerHTML = oldText2 || 'Check';
+        // Возвращаем текст кнопкам, если была ошибка сети
+        if (checkType === 'surname' && btnSurname) btnSurname.innerHTML = oldTextSurname;
+        if (checkType === 'bio' && btnBio) btnBio.innerHTML = oldTextBio;
     } finally {
-        try {
-            await window.updateTelegramStatus();
-        } catch(err) {
-            if(btn1) btn1.innerHTML = 'Check';
-            if(btn2) btn2.innerHTML = 'Check';
-        }
+        // Обновляем общий статус (галочки и прогресс-бары)
+        await window.updateTelegramStatus();
     }
 };
-
 // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ: КНОПКА ГОЛОСОВАНИЯ ---
 window.doTelegramVote = async function() {
     const btn = document.getElementById('btn-tg-vote');
