@@ -1282,3 +1282,70 @@ function markTgAsDone(btn) {
     btn.style.color = '#34c759';
     btn.style.cursor = 'default';
 }
+
+// 1. Имитация ваших данных (или получение их с сервера)
+const userData = {
+  "idx": 0,
+  "user_id": 477521935,
+  "is_subscribed": true,
+  "last_vote_date": "2026-01-07 03:10:01.490274+03", // Ваш формат даты
+  "reaction_count_weekly": 0
+};
+
+// 2. Функция правильного расчета дней
+function checkVoteStatus() {
+  const lastVote = new Date(userData.last_vote_date);
+  const now = new Date(); // Текущее время
+
+  // Если дата невалидна, считаем, что голосования не было
+  if (isNaN(lastVote.getTime())) {
+    console.error("Ошибка формата даты");
+    return; 
+  }
+
+  // Пример логики: допустим, голосовать можно раз в 7 дней (раз недельный счетчик)
+  // Или раз в 24 часа. Настройте это число под себя.
+  const cooldownDays = 1; // Например, 1 день
+  const nextVoteDate = new Date(lastVote);
+  nextVoteDate.setDate(lastVote.getDate() + cooldownDays);
+
+  const diffMs = nextVoteDate - now; // Разница в миллисекундах
+  
+  // Переводим разницу в дни (округляем вверх)
+  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
+
+  const statusTextElement = document.getElementById('statusText'); // Элемент где пишется текст
+
+  if (diffMs > 0) {
+    // Если время еще не пришло
+    if (statusTextElement) {
+       // Вот тут мы чиним "undefined"
+       statusTextElement.innerText = `Доступно через ${daysLeft} дн.`; 
+    }
+  } else {
+    // Если время пришло ИЛИ пользователь еще не голосовал
+    if (statusTextElement) {
+        statusTextElement.innerText = "Голосование доступно!";
+    }
+    
+    // Показываем наше НОВОЕ окно
+    showPopup();
+  }
+}
+
+// Функции управления окном
+function showPopup() {
+  document.getElementById('boostPopup').style.display = 'flex';
+}
+
+function closePopup() {
+  document.getElementById('boostPopup').style.display = 'none';
+}
+
+// Навешиваем событие на кнопку "Хорошо, окес"
+document.getElementById('closePopupBtn').addEventListener('click', closePopup);
+
+// Запускаем проверку при загрузке
+checkVoteStatus();
