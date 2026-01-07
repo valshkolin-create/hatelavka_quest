@@ -101,54 +101,70 @@ function injectBoostPopup() {
 
 // --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ПРОФИЛЯ (ФАМИЛИЯ / БИО) ---
 function injectProfilePopup(type) {
-    // 1. Удаляем старое окно, если есть
     const existing = document.getElementById('profilePopup');
     if (existing) existing.remove();
 
     let titleText = '';
-    let bodyHTML = ''; // Используем HTML вместо простого текста
+    let bodyHTML = ''; 
     let btnText = 'Открыть настройки';
-    let extraScript = null; // Для логики копирования
+    let extraScript = null; 
+
+    // Основной цвет Telegram (голубой)
+    const tgColor = '#0088cc'; 
+    const tgBg = 'rgba(0, 136, 204, 0.15)'; // Полупрозрачный фон для акцентов
 
     if (type === 'surname') {
         // --- ВАРИАНТ 1: ФАМИЛИЯ ---
-        titleText = '❌ Фамилия не найдена';
+        titleText = '❌ Ник бота не найден';
         bodyHTML = `
-            Добавьте фразу <b style="color: #34c759; background: rgba(52, 199, 89, 0.1); padding: 2px 5px; border-radius: 4px;">@HATElavka_bot</b> 
+            Добавьте фразу <b style="color: ${tgColor}; background: ${tgBg}; padding: 2px 6px; border-radius: 4px;">@HATElavka_bot</b> 
             в поле "Фамилия" (Last Name) в настройках Telegram.
         `;
     } else {
         // --- ВАРИАНТ 2: БИО (РЕФЕРАЛКА) ---
         titleText = '❌ Ссылка не найдена';
         
-        // Генерируем ссылку (берем данные из глобальной userData)
+        // 1. Формируем полную ссылку (для копирования)
         let refPayload = userData.telegram_id;
         if (userData && userData.bott_ref_id) refPayload = `r_${userData.bott_ref_id}`;
         else if (userData && userData.bott_internal_id) refPayload = `r_${userData.bott_internal_id}`;
         
-        const refLink = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+        const fullRefLink = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+        
+        // 2. Формируем красивую ссылку (для отображения) - убираем https://
+        const displayRefLink = fullRefLink.replace('https://', '');
 
         bodyHTML = `
-            <div style="margin-bottom: 10px;">Добавьте вашу реф. ссылку в раздел <b>"О себе" (Bio)</b>:</div>
+            <div style="margin-bottom: 12px; font-size: 14px; color: #ccc;">
+                Добавьте вашу реф. ссылку в раздел <b>"О себе" (Bio)</b>:
+            </div>
             
-            <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                <input id="popupRefInput" type="text" readonly value="${refLink}" 
-                    style="flex-grow: 1; background: transparent; border: none; color: #34c759; font-family: monospace; font-size: 13px; outline: none; width: 100%;">
-                <button id="popupCopyBtn" style="background: #34c759; border: none; border-radius: 6px; color: #fff; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); align-items: center;">
+                
+                <input id="popupRefInput" type="text" readonly value="${displayRefLink}" 
+                    style="flex-grow: 1; background: transparent; border: none; color: ${tgColor}; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; outline: none; width: 100%; text-overflow: ellipsis;">
+                
+                <button id="popupCopyBtn" style="background: ${tgColor}; border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s;">
                     <i class="fa-regular fa-copy"></i>
                 </button>
             </div>
         `;
 
-        // Функция копирования, которая сработает после создания окна
+        // Логика копирования
         extraScript = () => {
-            document.getElementById('popupCopyBtn').addEventListener('click', () => {
-                const input = document.getElementById('popupRefInput');
-                input.select();
-                input.setSelectionRange(0, 99999); // Для мобилок
-                navigator.clipboard.writeText(input.value).then(() => {
-                    Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                    const icon = document.querySelector('#popupCopyBtn i');
+            document.getElementById('popupCopyBtn').addEventListener('click', function() {
+                // ВАЖНО: Копируем fullRefLink (полную с https), а не то, что в input
+                navigator.clipboard.writeText(fullRefLink).then(() => {
+                    // Вибрация
+                    if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    
+                    // Анимация кнопки
+                    const btn = this;
+                    const icon = btn.querySelector('i');
+                    
+                    btn.style.transform = 'scale(0.9)';
+                    setTimeout(() => btn.style.transform = 'scale(1)', 100);
+
                     icon.className = 'fa-solid fa-check';
                     setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
                 });
@@ -157,20 +173,20 @@ function injectProfilePopup(type) {
     }
 
     const popupHtml = `
-    <div id="profilePopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
-      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; display: flex; flex-direction: column; align-items: center;">
+    <div id="profilePopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 24px; border-radius: 16px; text-align: center; width: 85%; max-width: 340px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; align-items: center;">
         
-        <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 15px;">${titleText}</h3>
+        <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 16px; font-weight: 700;">${titleText}</h3>
         
-        <div style="font-size: 14px; line-height: 1.5; color: #ddd; margin-bottom: 20px; width: 100%;">
+        <div style="font-size: 15px; line-height: 1.5; color: #ddd; margin-bottom: 24px; width: 100%;">
            ${bodyHTML}
         </div>
         
-        <button id="goToSettingsBtn" style="width: 100%; background: #0088cc; color: white; border: none; padding: 12px; border-radius: 10px; margin-bottom: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <button id="goToSettingsBtn" style="width: 100%; background: ${tgColor}; color: white; border: none; padding: 14px; border-radius: 12px; margin-bottom: 10px; font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s;">
            <i class="fa-solid fa-gear"></i> ${btnText}
         </button>
 
-        <button id="closeProfilePopupBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #aaa; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 14px;">
+        <button id="closeProfilePopupBtn" style="width: 100%; background: transparent; border: none; color: #8e8e93; padding: 10px; cursor: pointer; font-size: 15px; font-weight: 500;">
           Закрыть
         </button>
       </div>
@@ -178,17 +194,14 @@ function injectProfilePopup(type) {
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
     
-    // Запускаем логику копирования, если это Био
     if (extraScript) extraScript();
 
-    // Логика кнопки "Настройки"
     document.getElementById('goToSettingsBtn').addEventListener('click', () => {
         const popup = document.getElementById('profilePopup');
         if (popup) popup.remove();
         Telegram.WebApp.openLink('tg://settings'); 
     });
 
-    // Логика кнопки "Закрыть"
     document.getElementById('closeProfilePopupBtn').addEventListener('click', () => {
         const popup = document.getElementById('profilePopup');
         if (popup) popup.remove();
