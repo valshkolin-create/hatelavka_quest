@@ -54,13 +54,14 @@ function unlockAppScroll() {
 }
 
 // --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
+// --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
 function injectBoostPopup() {
-    // 1. Удаляем старое окно, если оно есть (чтобы обновить кнопки и события)
+    // Чистим, если вдруг уже есть открытое
     const existing = document.getElementById('boostPopup');
     if (existing) existing.remove();
 
     const popupHtml = `
-    <div id="boostPopup" class="popup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+    <div id="boostPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
       <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; display: flex; flex-direction: column; align-items: center;">
         
         <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 10px;">⚠️ Внимание!</h3>
@@ -80,16 +81,22 @@ function injectBoostPopup() {
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    // 2. Вешаем события заново
+    // СЦЕНАРИЙ 1: ЧЕЛОВЕК НАЖИМАЕТ "ПРОГОЛОСОВАТЬ"
     document.getElementById('goToBoostBtn').addEventListener('click', () => {
-        // ЗАМЕНИ ЭТУ СТРОКУ:
+        // 1. Мгновенно сносим наше окно (человек видит список квестов)
+        const popup = document.getElementById('boostPopup');
+        if (popup) popup.remove();
+
+        // 2. Открываем ссылку на буст
         Telegram.WebApp.openTelegramLink('https://t.me/boost/hatelove_ttv');
     });
 
+    // СЦЕНАРИЙ 2: ЧЕЛОВЕК НАЖИМАЕТ "БУДУ ЗНАТЬ"
     document.getElementById('closePopupBtn').addEventListener('click', () => {
+        // 1. Просто закрываем наше окно.
+        // НИКАКИХ ОТКРЫТИЙ ТЕЛЕГРАМА. НИЧЕГО БОЛЬШЕ.
         const popup = document.getElementById('boostPopup');
-        if (popup) popup.style.display = 'none'; // Закрываем визуально
-        performVoteApiCheck(); // Запускаем проверку
+        if (popup) popup.remove();
     });
 }
 
