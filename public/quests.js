@@ -853,17 +853,19 @@ try {
             dom.activeAutomaticQuestContainer.classList.add('hidden'); 
             
             if (questsForRoulette.length > 0) {
+                // Если есть доступные квесты
                 dom.questChooseBtn.classList.remove('hidden');
                 dom.questChooseBtn.disabled = false;
                 if (platform === 'telegram') dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
                 else dom.questChooseBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
                 dom.questChooseContainer.classList.add('hidden'); 
             } else {
-                 // --- ИСПРАВЛЕНИЕ: СКРЫВАЕМ КНОПКУ В РУЧНОМ РЕЖИМЕ ---
+                 // Если квестов НЕТ
                  if (platform === 'manual') {
+                     // В ручном режиме скрываем кнопку полностью
                      dom.questChooseBtn.classList.add('hidden');
                  } else {
-                     // В Telegram/Twitch оставляем "Задания недоступны"
+                     // В Telegram/Twitch оставляем кнопку, но делаем неактивной "Задания недоступны"
                      dom.questChooseBtn.classList.remove('hidden');
                      dom.questChooseBtn.disabled = true;
                      dom.questChooseBtn.innerHTML = '<i class="fa-solid fa-clock"></i> Задания недоступны';
