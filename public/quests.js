@@ -82,7 +82,8 @@ function injectBoostPopup() {
 
     // 2. Вешаем события заново
     document.getElementById('goToBoostBtn').addEventListener('click', () => {
-        Telegram.WebApp.openLink('https://t.me/boost/hatelove_ttv');
+        // ЗАМЕНИ ЭТУ СТРОКУ:
+        Telegram.WebApp.openTelegramLink('https://t.me/boost/hatelove_ttv');
     });
 
     document.getElementById('closePopupBtn').addEventListener('click', () => {
