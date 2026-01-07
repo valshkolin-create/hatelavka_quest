@@ -7,7 +7,7 @@ const dom = {
     
     // Элементы квестов
     challengeContainer: document.getElementById('challenge-container'),
-    telegramStaticList: document.getElementById('telegram-static-quests'), // <--- ДОБАВИЛ
+    telegramStaticList: document.getElementById('telegram-static-quests'),
     activeAutomaticQuestContainer: document.getElementById('active-automatic-quest-container'),
     questChooseBtn: document.getElementById("quest-choose-btn"),
     questChooseContainer: document.getElementById("quest-choose-container"),
@@ -37,7 +37,7 @@ const dom = {
 let currentQuestId = null;
 let countdownIntervals = {};
 let allQuests = [];
-let userData = {};
+let userData = {}; // Объявлено здесь, второй раз объявлять нельзя!
 let questsForRoulette = [];
 
 // --- ФУНКЦИИ БЛОКИРОВКИ СКРОЛЛА ---
@@ -53,6 +53,33 @@ function unlockAppScroll() {
     if (content) content.classList.remove('no-scroll');
 }
 
+// --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
+function injectBoostPopup() {
+    if (document.getElementById('boostPopup')) return; // Если уже есть, не создаем
+
+    const popupHtml = `
+    <div id="boostPopup" class="popup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333;">
+        <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 15px;">⚠️ Внимание!</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: #ddd;">Вы еще не проголосовали за наш канал. Чтобы продолжить и получить бонусы, пожалуйста, отдайте свой голос.</p>
+        
+        <a href="https://t.me/boost/hatelove_ttv" target="_blank" class="boost-link-btn" style="display: block; background: #0088cc; color: white; text-decoration: none; padding: 12px; border-radius: 10px; margin: 20px 0; font-weight: bold;">
+          🚀 Проголосовать за канал
+        </a>
+
+        <button id="closePopupBtn" class="close-btn" style="background: transparent; border: 1px solid #555; color: #aaa; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; width: 100%;">
+          Хорошо, окес
+        </button>
+      </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
+
+    // Логика закрытия
+    document.getElementById('closePopupBtn').addEventListener('click', () => {
+        document.getElementById('boostPopup').style.display = 'none';
+    });
+}
 
 async function checkMaintenance() {
     try {
@@ -76,6 +103,9 @@ checkMaintenance();
 try {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+    
+    // Инициализируем попап при старте
+    injectBoostPopup();
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
@@ -1092,27 +1122,55 @@ window.updateTelegramStatus = async function() {
             if(subBtn) resetTgBtn(subBtn);
         }
 
-        // 2. Голосование
-        const voteBtn = document.getElementById('btn-tg-vote'); // БЫЛО onst -> СТАЛО const
+        // 2. Голосование (ИСПРАВЛЕННАЯ ЛОГИКА)
+        const voteBtn = document.getElementById('btn-tg-vote'); 
         const voteTimer = document.getElementById('tg-vote-timer');
         
         if (voteBtn) {
-            if (data.vote_available === false) { // Явная проверка на false
-                // Если награда уже получена (Кулдаун)
-                voteBtn.disabled = true;
-                voteBtn.classList.add('done-today'); // Кнопка станет серой/прозрачной
-                voteBtn.innerHTML = '<i class="fa-solid fa-check"></i>'; // Галочка
-                
-                if (voteTimer) {
-                    voteTimer.classList.remove('hidden');
-                    voteTimer.innerText = `Доступно через ${data.vote_days_left} дн.`;
-                }
-            } else {
-                // Если доступно к выполнению
+            // Если сервер говорит, что голосование доступно - мы показываем кнопку
+            // И показываем ПОПАП, чтобы напомнить пользователю
+            if (data.vote_available === true) {
                 voteBtn.disabled = false;
                 voteBtn.classList.remove('done-today');
                 voteBtn.innerHTML = voteBtn.getAttribute('data-reward') || '+10 🎟';
                 if (voteTimer) voteTimer.classList.add('hidden');
+                
+                // Показываем попап, так как голосование доступно!
+                const popup = document.getElementById('boostPopup');
+                if (popup) popup.style.display = 'flex';
+
+            } else {
+                // Если награда уже получена или недоступно (Кулдаун)
+                voteBtn.disabled = true;
+                voteBtn.classList.add('done-today'); 
+                voteBtn.innerHTML = '<i class="fa-solid fa-check"></i>'; 
+                
+                // Расчет времени вручную, чтобы не было undefined
+                if (voteTimer && data.last_vote_date) {
+                    const lastVote = new Date(data.last_vote_date);
+                    const now = new Date();
+                    
+                    if (!isNaN(lastVote.getTime())) {
+                        const nextVoteDate = new Date(lastVote);
+                        nextVoteDate.setDate(lastVote.getDate() + 1); // +1 день
+                        
+                        const diffMs = nextVoteDate - now;
+                        const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                        
+                        // Если дней <= 0, значит вот-вот откроется, пишем "Скоро" или 0
+                        const displayDays = daysLeft > 0 ? daysLeft : 0;
+                        
+                        voteTimer.classList.remove('hidden');
+                        voteTimer.innerText = `Доступно через ${displayDays} дн.`;
+                    } else {
+                        // Если дата кривая, но сервер сказал false
+                        voteTimer.classList.remove('hidden');
+                        voteTimer.innerText = `Доступно позже`;
+                    }
+                } else if (voteTimer) {
+                     voteTimer.classList.remove('hidden');
+                     voteTimer.innerText = `Выполнено`;
+                }
             }
         }
 
@@ -1282,70 +1340,3 @@ function markTgAsDone(btn) {
     btn.style.color = '#34c759';
     btn.style.cursor = 'default';
 }
-
-// 1. Имитация ваших данных (или получение их с сервера)
-const userData = {
-  "idx": 0,
-  "user_id": 477521935,
-  "is_subscribed": true,
-  "last_vote_date": "2026-01-07 03:10:01.490274+03", // Ваш формат даты
-  "reaction_count_weekly": 0
-};
-
-// 2. Функция правильного расчета дней
-function checkVoteStatus() {
-  const lastVote = new Date(userData.last_vote_date);
-  const now = new Date(); // Текущее время
-
-  // Если дата невалидна, считаем, что голосования не было
-  if (isNaN(lastVote.getTime())) {
-    console.error("Ошибка формата даты");
-    return; 
-  }
-
-  // Пример логики: допустим, голосовать можно раз в 7 дней (раз недельный счетчик)
-  // Или раз в 24 часа. Настройте это число под себя.
-  const cooldownDays = 1; // Например, 1 день
-  const nextVoteDate = new Date(lastVote);
-  nextVoteDate.setDate(lastVote.getDate() + cooldownDays);
-
-  const diffMs = nextVoteDate - now; // Разница в миллисекундах
-  
-  // Переводим разницу в дни (округляем вверх)
-  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-  // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
-
-  const statusTextElement = document.getElementById('statusText'); // Элемент где пишется текст
-
-  if (diffMs > 0) {
-    // Если время еще не пришло
-    if (statusTextElement) {
-       // Вот тут мы чиним "undefined"
-       statusTextElement.innerText = `Доступно через ${daysLeft} дн.`; 
-    }
-  } else {
-    // Если время пришло ИЛИ пользователь еще не голосовал
-    if (statusTextElement) {
-        statusTextElement.innerText = "Голосование доступно!";
-    }
-    
-    // Показываем наше НОВОЕ окно
-    showPopup();
-  }
-}
-
-// Функции управления окном
-function showPopup() {
-  document.getElementById('boostPopup').style.display = 'flex';
-}
-
-function closePopup() {
-  document.getElementById('boostPopup').style.display = 'none';
-}
-
-// Навешиваем событие на кнопку "Хорошо, окес"
-document.getElementById('closePopupBtn').addEventListener('click', closePopup);
-
-// Запускаем проверку при загрузке
-checkVoteStatus();
