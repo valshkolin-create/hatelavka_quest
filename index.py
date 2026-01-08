@@ -4705,31 +4705,6 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
 
 # --- ВСТАВИТЬ В index.py (глобальная область видимости, не внутри другой функции) ---
 
-async def validate_event_status():
-    """
-    Проверяет статус ивента (Котел) в таблице settings.
-    Возвращает словарь: {'visible': bool, 'paused': bool}
-    """
-    try:
-        # Запрашиваем настройки из БД
-        response = await supabase.table("settings").select("value").eq("key", "cauldron_settings").single()
-        
-        # Если настроек нет совсем — считаем, что ивент выключен
-        if not response.data:
-            return {"visible": False, "paused": False}
-            
-        settings = response.data.get("value", {})
-        
-        # Возвращаем флаги (по умолчанию False, если ключа нет)
-        return {
-            "visible": settings.get("is_visible_to_users", False),
-            "paused": settings.get("is_paused", False)
-        }
-    except Exception as e:
-        print(f"Error inside validate_event_status: {e}")
-        # В случае ошибки базы данных лучше "закрыть" ивент от греха подальше
-        return {"visible": False, "paused": False}
-
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (GATEKEEPER) ---
 @app.post("/api/v1/user/check_subscription")
 async def check_channel_subscription(
