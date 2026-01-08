@@ -3095,6 +3095,28 @@ async def delete_slay_candidate(
 
 # --- 3. API для Админки (Чтение и Запись) ---
 
+# Функция проверки статуса (принимает клиент supabase)
+async def validate_event_status(db_client):
+    """
+    Проверяет настройки ивента в базе.
+    Возвращает: {'visible': bool, 'paused': bool}
+    """
+    try:
+        # Запрашиваем настройки
+        response = await db_client.table('settings').select('*').in_('key', ['halloween_visible', 'halloween_paused']).execute()
+        
+        # Парсим результат
+        settings = {item['key']: item['value'] for item in response.data}
+        
+        # Возвращаем значения (по умолчанию: виден=True, пауза=False)
+        return {
+            "visible": settings.get('halloween_visible', True),
+            "paused": settings.get('halloween_paused', False)
+        }
+    except Exception as e:
+        print(f"Error checking event status: {e}")
+        return {"visible": True, "paused": False} # Если ошибка, пускаем, чтобы не ломать игру
+
 @app.get("/api/admin/event/status")
 async def get_event_status_admin(request: Request):
     # Тут можно добавить проверку админа
