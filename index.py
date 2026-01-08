@@ -3103,37 +3103,41 @@ def str_to_bool(val):
     return False
 
 # --- Исправленная функция проверки статуса ---
-async def validate_event_status(db_client=None):
+async def validate_event_status():
     """
-    Проверяет настройки ивента в базе.
-    Возвращает чистые boolean значения, даже если в базе записаны строки.
+    Проверяет настройки ивента в таблице settings.
+    Возвращает словарь {"visible": bool, "paused": bool}
     """
-    if db_client is None:
-        db_client = supabase 
-
     try:
-        # Запрашиваем конкретные ключи настроек
-        response = await db_client.from_('settings').select('*').in_('key', ['halloween_visible', 'halloween_paused']).execute()
-        
-        # Собираем словарь из ответа
-        settings = {item['key']: item['value'] for item in response.data}
-        
-        # ВАЖНО: Преобразуем строки из базы ("true"/"false") в реальные булевы значения
-        return {
-            "visible": str_to_bool(settings.get('halloween_visible', True)),
-            "paused": str_to_bool(settings.get('halloween_paused', False))
-        }
-    except Exception as e:
-        print(f"Error checking event status: {e}")
-        # В случае ошибки возвращаем безопасные настройки (ивент работает, не на паузе)
-        return {"visible": True, "paused": False}
+        # 1. Получаем настройку видимости (halloween_visible)
+        response_visible = await supabase.table("settings").select("value").eq("key", "halloween_visible").execute()
+        is_visible = False
+        if response_visible.data:
+            val = response_visible.data[0]['value']
+            # Обработка, если значение записалось как строка "true"/"false" или как булево
+            if isinstance(val, bool):
+                is_visible = val
+            elif isinstance(val, str):
+                is_visible = val.lower() == 'true'
 
-# --- Исправленный эндпоинт админки для переключения тумблеров ---
-@app.get("/api/admin/event/status")
-async def get_event_status_admin(request: Request):
-    # Тут можно добавить проверку админа, если нужно
-    status = await validate_event_status()
-    return status
+        # 2. Получаем настройку паузы (halloween_paused)
+        response_paused = await supabase.table("settings").select("value").eq("key", "halloween_paused").execute()
+        is_paused = False
+        if response_paused.data:
+            val = response_paused.data[0]['value']
+            if isinstance(val, bool):
+                is_paused = val
+            elif isinstance(val, str):
+                is_paused = val.lower() == 'true'
+
+        return {"visible": is_visible, "paused": is_paused}
+
+    except Exception as e:
+        print(f"Error validating event status: {e}")
+        # Если ошибка базы, безопаснее считать ивент закрытым
+        return {"visible": False, "paused": True}
+
+# ---------------------------------------------------------------------------
 
 @app.post("/api/admin/event/status")
 async def set_event_status_admin(state: EventControlState, request: Request):
