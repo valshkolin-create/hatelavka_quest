@@ -190,7 +190,6 @@ async function loadTelegramTasks() {
 
         tasks.forEach(task => {
             const el = document.createElement('div');
-            // Добавляем класс completed, если задание выполнено
             el.className = `tg-task-item ${task.is_completed ? 'completed' : ''}`;
             
             // Иконки
@@ -198,7 +197,7 @@ async function loadTelegramTasks() {
             if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-signature';
             if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
             if (task.task_key === 'tg_sub') iconClass = 'fa-brands fa-telegram';
-            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-rocket'; // 🚀 Ракета для буста
+            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-rocket'; 
 
             let rightColHtml = '';
             let bottomHtml = '';
@@ -213,27 +212,27 @@ async function loadTelegramTasks() {
             } 
             // 2. ЕСЛИ ЗАДАНИЕ АКТИВНО
             else {
-                // Включаем tg_vote в режим "Проверки" (handleDailyClaim)
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
                     
-                    // Ссылка для перехода (Подписка или Голосование)
+                    // Ссылка для перехода
                     let actionLinkHtml = '';
                     if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
                         const linkText = task.task_key === 'tg_vote' ? 'Проголосовать' : 'Открыть канал';
                         actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
                     }
 
-                    // Кнопка "Забрать/Проверить"
+                    // !!! ВАЖНОЕ ИЗМЕНЕНИЕ НИЖЕ !!!
+                    // Передаем task.action_url третьим параметром
                     rightColHtml = `
                         ${actionLinkHtml}
-                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId})">
+                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
                             Забрать (+${rewardText} 🎟)
                         </button>
                     `;
                     
-                    // Прогресс бар (только для многодневных заданий)
+                    // Прогресс бар
                     if (task.is_daily) {
                         const percent = (task.current_day / task.total_days) * 100;
                         bottomHtml = `
@@ -246,7 +245,6 @@ async function loadTelegramTasks() {
                         `;
                     }
                 } 
-                // Остальные типы (обычные клики)
                 else {
                     rightColHtml = `
                         <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
@@ -275,7 +273,7 @@ async function loadTelegramTasks() {
         });
 
     } catch (e) {
-        console.error("Ошибка загрузки TG заданий:", e);
+        console.error("Ошибка TG заданий:", e);
         if (container.children.length === 0) {
              container.innerHTML = '<div style="color:red; text-align:center;">Ошибка сети</div>';
         }
@@ -285,7 +283,8 @@ async function loadTelegramTasks() {
 // Глобальная функция обработки клика по ДЕЙЛИКУ
 // В файле quests.js замени handleDailyClaim на эту версию:
 
-async function handleDailyClaim(taskKey, userId) {
+// Замени старую функцию handleDailyClaim на эту:
+async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
     const fill = document.getElementById(`prog-fill-${taskKey}`);
     const text = document.getElementById(`prog-text-${taskKey}`);
@@ -305,32 +304,21 @@ async function handleDailyClaim(taskKey, userId) {
             // --- УСПЕХ ---
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             
-            // Если задание завершено полностью (сервер вернул is_completed: true)
             if (data.is_completed) {
                 Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
-                setTimeout(() => loadTelegramTasks(), 500); // Обновляем список, чтобы убрать вниз
+                // Обновляем список через полсекунды, чтобы задание улетело вниз
+                setTimeout(() => loadTelegramTasks(), 500); 
             } else {
-                // Если это промежуточный этап дейлика
                 if(fill) {
                     const percent = (data.day / data.total_days) * 100;
                     fill.style.width = `${percent}%`;
                 }
                 if(text) text.innerText = `День ${data.day} из ${data.total_days} (Получено +${data.reward})`;
+                if(btn) btn.innerText = "Забрано ✔";
                 
-                if(btn) {
-                    btn.innerText = "Забрано ✔";
-                }
-                // Хак для показа сообщения
-                if(dom.ticketsClaimedOverlay) {
-                    const modalText = dom.ticketsClaimedOverlay.querySelector('p');
-                    if(modalText) modalText.innerText = data.message;
-                    dom.ticketsClaimedOverlay.classList.remove('hidden');
-                } else {
-                    Telegram.WebApp.showAlert(data.message);
-                }
+                Telegram.WebApp.showAlert(data.message);
             }
             
-            // Обновляем баланс
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
 
@@ -338,18 +326,21 @@ async function handleDailyClaim(taskKey, userId) {
             // --- ОШИБКА ---
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
-            // 1. Проверяем, не ошибка ли это проверки Фамилии/Био
-            // Ищем ключевые слова: "Условие не выполнено" (новый код) или "Тег" (старый код)
-            if (data.error && (data.error.includes("Условие не выполнено") || data.error.includes("Тег"))) {
+            // 1. Если это ГОЛОСОВАНИЕ и ошибка (значит голоса нет) -> открываем попап
+            if (taskKey === 'tg_vote') {
+                injectBoostPopup(actionUrl);
+            }
+            // 2. Если это Фамилия / БИО
+            else if (data.error && (data.error.includes("Условие не выполнено") || data.error.includes("Тег"))) {
                 if (taskKey === 'tg_surname') injectProfilePopup('surname');
                 else if (taskKey === 'tg_bio') injectProfilePopup('bio');
                 else Telegram.WebApp.showAlert(data.error);
-            } 
-            // 2. Проверяем ошибку подписки
+            }
+            // 3. Если Подписка
             else if (data.error && data.error.includes("не подписаны")) {
-                 Telegram.WebApp.showAlert("Вы не подписаны на канал! Ссылка для подписки находится над кнопкой.");
-            } 
-            // 3. Остальные ошибки (таймер и т.д.)
+                 Telegram.WebApp.showAlert("Вы не подписаны на канал! Ссылка для подписки выше кнопки.");
+            }
+            // Остальные ошибки
             else {
                 Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
             }
@@ -367,7 +358,6 @@ async function handleDailyClaim(taskKey, userId) {
         }
     }
 }
-
 
 // Глобальная функция для ОБЫЧНЫХ квестов
 function handleTgTaskClick(key, url) {
