@@ -716,7 +716,7 @@
                 <div style="width: 60px;"></div>
             </div>
 
-            <div class="event-control-panel" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+          <div class="event-control-panel" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
                 <h3 style="margin-top:0; color: #ff9500;"><i class="fa-solid fa-fire-burner"></i> Управление Котлом</h3>
                 
                 <div class="control-row">
@@ -743,6 +743,7 @@
                     </label>
                 </div>
             </div>
+
             <div class="tabs-container" id="cauldron-tabs">
                 <button class="tab-button active" data-tab="cauldron-settings">Настройки</button>
                 <button class="tab-button" data-tab="cauldron-rewards-1">Награды Ур. 1</button>
@@ -755,10 +756,10 @@
             <form id="cauldron-settings-form">
                 
                 <div id="tab-content-cauldron-settings" class="tab-content active">
-                    
                     <div class="quest-card">
                         <div class="admin-form">
-                            <div class="setting-item" style="padding: 0; border: none; display:none;"> <span class="setting-label">Ивент активен (Legacy)</span>
+                            <div class="setting-item" style="padding: 0; border: none;">
+                                <span class="setting-label">Ивент активен (виден пользователям)</span>
                                 <label class="toggle-switch">
                                     <input type="checkbox" name="is_visible_to_users">
                                     <span class="toggle-slider"></span>
@@ -805,26 +806,14 @@
 
                             <label>URL картинки Котла (Уровень 4)</label>
                             <input type="text" name="cauldron_image_url_4" placeholder="https://....png">
-
-                            <div style="margin-top: 25px;">
-                                <button type="submit" class="admin-action-btn" style="width: 100%; padding: 15px; font-size: 16px; background: #34c759; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer;">
-                                    💾 Сохранить настройки
-                                </button>
-                            </div>
                         </div>
                     </div>
 
-                    <div class="quest-card" style="margin-top: 20px; border: 1px solid rgba(255, 77, 77, 0.3);">
-                        <h3 style="margin-top: 0; color: #ff4d4d;">☠️ Опасная зона</h3>
-                        <p style="font-size: 12px; color: #aaa;">Сбрасывает прогресс всех участников. Используйте только перед началом нового сезона.</p>
-                        <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%; background: rgba(255, 77, 77, 0.2); color: #ff4d4d;">
-                            Сбросить весь прогресс
-                        </button>
+                    <div class="quest-card" style="margin-top: 20px;">
+                        <h3 style="margin-top: 0;">Опасная зона</h3>
+                        <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс</button>
                     </div>
-
                 </div>
-            </form>
-        </div>
 
                 <div id="tab-content-cauldron-rewards-1" class="tab-content hidden">
     <div class="quest-card">
