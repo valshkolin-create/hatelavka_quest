@@ -1492,67 +1492,54 @@ async def update_cauldron_reward_status(
     request_data: CauldronRewardStatusRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    Обновляет статус выдачи награды в Котле (галочка в админке).
-    """
-    # 1. Проверка прав админа
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 2. Обновляем статус в таблице cauldron_participants
-        # Используем PATCH запрос к REST API Supabase
+        # Обновляем конкретную запись в таблице участников
         await supabase.patch(
             "/cauldron_participants",
             params={"user_id": f"eq.{request_data.user_id}"},
             json={"is_reward_sent": request_data.is_sent}
         )
-        
-        return {"message": "Статус успешно обновлен"}
+        return {"message": "Статус обновлен"}
 
     except Exception as e:
-        logging.error(f"Ошибка при обновлении статуса награды котла: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+        logging.error(f"Error updating status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка обновления")
 
 @app.post("/api/v1/admin/events/cauldron/participants")
 async def get_cauldron_participants(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    Возвращает список участников Котла с их статусами.
-    """
-    # 1. Проверка прав
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 2. Запрос к базе
-        # Обязательно запрашиваем поле is_reward_sent
+        # Просто запрашиваем готовую таблицу
         response = await supabase.get(
             "/cauldron_participants",
             params={
-                "select": "*, user:users(full_name, username, trade_link, twitch_login, referral_activated_at)"
+                "select": "*, user:users(full_name, username, trade_link, twitch_login, referral_activated_at)",
+                "order": "total_contribution.desc"
             }
         )
-        response.raise_for_status()
+        # response.raise_for_status() # В новой версии supabase-py это может быть не нужно, но для httpx оставь
         
         data = response.json()
         
-        # 3. Формируем ответ для фронтенда
         result = []
         for item in data:
             user = item.get("user", {}) or {}
-            
-            # Определяем подписку (если есть дата активации рефералки — значит подписан)
             is_subscribed = True if user.get("referral_activated_at") else False
 
             result.append({
                 "user_id": item.get("user_id"),
                 "total_contribution": item.get("total_contribution", 0),
-                "is_reward_sent": item.get("is_reward_sent", False), # <--- САМОЕ ВАЖНОЕ: Статус из базы
+                "is_reward_sent": item.get("is_reward_sent", False), # Галочка берется отсюда
                 "full_name": user.get("full_name") or "Unknown",
                 "username": user.get("username"),
                 "trade_link": user.get("trade_link"),
@@ -1563,8 +1550,8 @@ async def get_cauldron_participants(
         return result
 
     except Exception as e:
-        logging.error(f"Ошибка получения участников котла: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка загрузки списка")
+        logging.error(f"Error fetching participants: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка загрузки")
 
 @app.post("/api/v1/admin/actions/list_entities")
 async def admin_list_entities(
