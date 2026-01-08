@@ -12033,6 +12033,119 @@ class TelegramQuestResponse(BaseModel):
 
 # --- ЭНДПОИНТЫ API ---
 
+# --- Вспомогательная функция расчета награды ---
+def calculate_daily_reward(total_amount, total_days, current_day):
+    """
+    Рассчитывает награду на текущий день, чтобы в сумме вышло ровно total_amount.
+    Логика: Размазываем остаток по первым дням.
+    Пример: 15 билетов, 7 дней.
+    База = 2. Остаток = 1.
+    День 1: 3 билета. Дни 2-7: 2 билета. Итого 15.
+    """
+    if current_day > total_days: return 0
+    
+    base_reward = total_amount // total_days
+    remainder = total_amount % total_days
+    
+    # Если текущий день (1-based) попадает в остаток, даем +1
+    if current_day <= remainder:
+        return base_reward + 1
+    return base_reward
+
+@app.post("/api/v1/telegram/claim_daily")
+async def claim_daily_task(
+    request: Request, 
+    data: dict = Body(...), 
+    supabase: AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        user_id = data.get("user_id") # В идеале брать из токена, но пока так
+        task_key = data.get("task_key")
+        
+        # 1. Получаем настройки задания
+        task_resp = await supabase.table("telegram_tasks").select("*").eq("task_key", task_key).single().execute()
+        if not task_resp.data:
+            return JSONResponse({"success": False, "error": "Задание не найдено"})
+        
+        task = task_resp.data
+        
+        # 2. Получаем прогресс пользователя
+        progress_resp = await supabase.table("user_telegram_progress").select("*").eq("user_id", user_id).eq("task_key", task_key).execute()
+        
+        if progress_resp.data:
+            progress = progress_resp.data[0]
+        else:
+            # Создаем запись, если нет
+            progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
+            await supabase.table("user_telegram_progress").insert(progress).execute()
+
+        # 3. Проверки времени (можно забирать раз в 20 часов)
+        if progress.get("last_claimed_at"):
+            last_claim = parser.isoparse(progress["last_claimed_at"])
+            if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
+                return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
+
+        if progress["completed"] or progress["current_day"] >= task["total_days"]:
+            return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
+
+        # 4. ПРОВЕРКА ЧЕРЕЗ TELEGRAM API (Самое важное!)
+        check_passed = False
+        try:
+            # Получаем актуальные данные пользователя от Telegram
+            chat_member = await bot.get_chat(user_id)
+            
+            phrase = task["check_phrase"].lower()
+            
+            if task["check_type"] == "surname":
+                # Проверяем фамилию
+                last_name = (chat_member.last_name or "").lower()
+                if phrase in last_name:
+                    check_passed = True
+                    
+            elif task["check_type"] == "bio":
+                # Проверяем БИО (доступно через get_chat)
+                bio = (chat_member.bio or "").lower()
+                if phrase in bio:
+                    check_passed = True
+            else:
+                check_passed = True # Если тип не задан, пропускаем
+                
+        except Exception as e:
+            print(f"Tg API Error: {e}")
+            return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Убедитесь, что вы не заблокировали бота."})
+
+        if not check_passed:
+            target = "фамилии" if task["check_type"] == "surname" else "описании (BIO)"
+            return JSONResponse({"success": False, "error": f"Тег '{task['check_phrase']}' не найден в {target}! Установите его и попробуйте снова."})
+
+        # 5. Расчет награды
+        next_day = progress["current_day"] + 1
+        reward = calculate_daily_reward(task["reward_amount"], task["total_days"], next_day)
+        
+        # 6. Выдача награды и обновление прогресса
+        # Начисляем билеты
+        await supabase.rpc("add_tickets", {"p_user_id": user_id, "p_amount": reward}).execute()
+        
+        # Обновляем прогресс
+        update_data = {
+            "current_day": next_day,
+            "last_claimed_at": datetime.now(timezone.utc).isoformat(),
+            "completed": next_day >= task["total_days"]
+        }
+        await supabase.table("user_telegram_progress").update(update_data).eq("user_id", user_id).eq("task_key", task_key).execute()
+
+        return JSONResponse({
+            "success": True, 
+            "reward": reward, 
+            "day": next_day, 
+            "total_days": task["total_days"],
+            "message": f"День {next_day}/{task['total_days']}: Получено {reward} билетов!"
+        })
+
+    except Exception as e:
+        print(f"Error claiming daily: {e}")
+        return JSONResponse({"success": False, "error": str(e)})
+
 @app.post("/api/v1/telegram/status")
 async def get_telegram_status(
     request: Request,
