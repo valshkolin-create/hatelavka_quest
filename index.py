@@ -3188,6 +3188,20 @@ async def set_event_status_admin(state: EventControlState, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- ДОБАВИТЬ ЭТОТ БЛОК (Публичный статус для пользователей) ---
+@app.get("/api/event/status")
+async def get_event_status_public(request: Request):
+    """
+    Публичный API для проверки статуса ивента (вызывается из halloween.js).
+    """
+    try:
+        # Используем ту же надежную функцию проверки
+        status = await validate_event_status()
+        return status
+    except Exception as e:
+        # В случае ошибки лучше не показывать ивент
+        return {"visible": False, "paused": True}
+
 @app.post("/api/v1/slay/active")
 async def get_active_slay_nominations(
     request_data: InitDataRequest,
