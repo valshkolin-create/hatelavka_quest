@@ -5,6 +5,8 @@ function formatNumber(num) {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[INIT] DOMContentLoaded сработало. Начинаем инициализацию скрипта.');
+        
+    checkEventStatus();
 
     const RARITY_COLORS = {
         common: '#b0c3d9',      // Ширпотреб
@@ -23,6 +25,55 @@ document.addEventListener('DOMContentLoaded', () => {
         'Well-Worn': 'Поношенное',
         'Battle-Scarred': 'Закаленное в боях'
     }; 
+
+// ==========================================
+// 🎃 НОВАЯ ЛОГИКА: ПРОВЕРКА СТАТУСА ИВЕНТА
+// ==========================================
+window.isEventPaused = false; // Глобальный флаг
+
+async function checkEventStatus() {
+    try {
+        const response = await fetch('/api/event/status');
+        const data = await response.json();
+
+        // 1. ИВЕНТ ВЫКЛЮЧЕН (Полная блокировка)
+        if (!data.visible) {
+            document.body.innerHTML = `
+                <div style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; color:white; font-family:sans-serif; text-align:center; padding:20px;">
+                    <i class="fa-solid fa-door-closed" style="font-size: 50px; color: #555; margin-bottom: 20px;"></i>
+                    <h1 style="margin:0;">Ивент завершен</h1>
+                    <p style="color:#888;">Спасибо за участие! Итоги скоро.</p>
+                    <a href="/menu" style="margin-top:20px; color:#ff9500; text-decoration:none; border:1px solid #333; padding:10px 20px; border-radius:10px;">В главное меню</a>
+                </div>
+            `;
+            return; // Останавливаем выполнение скрипта
+        }
+
+        // 2. ПАУЗА (Видно, но нельзя трогать)
+        if (data.paused) {
+            window.isEventPaused = true;
+            
+            // Блокируем кнопку броска визуально
+            const btn = document.getElementById('contribute-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.innerHTML = '<i class="fa-solid fa-lock"></i> Пауза';
+            }
+
+            // Показываем плашку
+            const notice = document.createElement('div');
+            notice.innerHTML = `<i class="fa-solid fa-lock"></i> Прием билетов приостановлен`;
+            notice.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); background:rgba(200, 0, 0, 0.9); color:white; padding:8px 16px; border-radius:20px; z-index:9999; font-weight:bold; font-size:14px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);";
+            document.body.appendChild(notice);
+        } else {
+            window.isEventPaused = false;
+        }
+
+    } catch (e) {
+        console.error("Ошибка проверки статуса ивента:", e);
+    }
+}
 
 // ==========================================
 // 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА (КЛИЕНТ)
@@ -891,6 +942,18 @@ function renderPage(eventData, leaderboardData = {}) {
 
     dom.contributionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        // 🔥🔥🔥 ВСТАВИТЬ ПРОВЕРКУ СЮДА (НАЧАЛО) 🔥🔥🔥
+        if (window.isEventPaused) {
+            if (window.Telegram?.WebApp) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                Telegram.WebApp.showAlert("Прием билетов сейчас на паузе.");
+            } else {
+                alert("Ивент на паузе.");
+            }
+            return; // ⛔ ОСТАНАВЛИВАЕМ ОТПРАВКУ
+        }
+        // 🔥🔥🔥 КОНЕЦ ВСТАВКИ 🔥🔥🔥
         const submitButton = dom.contributionForm.querySelector('button[type="submit"]');
         dom.errorMessage.classList.add('hidden');
         const amount = parseInt(dom.ticketsInput.value, 10);
