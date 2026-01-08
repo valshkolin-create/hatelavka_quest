@@ -1514,32 +1514,62 @@ async def get_cauldron_participants(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """
+    Возвращает список участников с живой проверкой подписки на канал из ENV.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    # 1. Получаем ID канала из переменных окружения
+    channel_id_env = os.getenv("TG_QUEST_CHANNEL_ID")
+    target_channel_id = None
+    
+    if channel_id_env:
+        try:
+            target_channel_id = int(channel_id_env)
+        except ValueError:
+            logging.error(f"TG_QUEST_CHANNEL_ID должен быть числом! Получено: {channel_id_env}")
+    else:
+        logging.warning("Переменная TG_QUEST_CHANNEL_ID не найдена в настройках Vercel!")
+
     try:
-        # Просто запрашиваем готовую таблицу
+        # 2. Запрашиваем данные из базы
+        # Используем users(*) чтобы вытянуть все данные юзера
         response = await supabase.get(
             "/cauldron_participants",
             params={
-                "select": "*, user:users(full_name, username, trade_link, twitch_login, referral_activated_at)",
+                "select": "*, users(full_name, username, trade_link, twitch_login)", 
                 "order": "total_contribution.desc"
             }
         )
-        # response.raise_for_status() # В новой версии supabase-py это может быть не нужно, но для httpx оставь
-        
         data = response.json()
         
         result = []
+        
+        # 3. Проверяем подписку
         for item in data:
-            user = item.get("user", {}) or {}
-            is_subscribed = True if user.get("referral_activated_at") else False
+            user = item.get("users", {}) or {}
+            user_tg_id = item.get("user_id")
+            
+            is_subscribed = False
+            
+            # Если ID канала и ID юзера есть - проверяем
+            if target_channel_id and user_tg_id:
+                try:
+                    chat_member = await bot.get_chat_member(chat_id=target_channel_id, user_id=user_tg_id)
+                    if chat_member.status in ["member", "administrator", "creator"]:
+                        is_subscribed = True
+                except Exception:
+                    # Ошибки игнорируем (например, юзер заблокировал бота или бот не админ)
+                    # Можно раскомментировать для отладки:
+                    # logging.warning(f"Ошибка проверки подписки юзера {user_tg_id}: {e}")
+                    pass
 
             result.append({
-                "user_id": item.get("user_id"),
+                "user_id": user_tg_id,
                 "total_contribution": item.get("total_contribution", 0),
-                "is_reward_sent": item.get("is_reward_sent", False), # Галочка берется отсюда
+                "is_reward_sent": item.get("is_reward_sent", False),
                 "full_name": user.get("full_name") or "Unknown",
                 "username": user.get("username"),
                 "trade_link": user.get("trade_link"),
@@ -1551,7 +1581,7 @@ async def get_cauldron_participants(
 
     except Exception as e:
         logging.error(f"Error fetching participants: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка загрузки")
+        raise HTTPException(status_code=500, detail="Ошибка загрузки списка")
 
 @app.post("/api/v1/admin/actions/list_entities")
 async def admin_list_entities(
