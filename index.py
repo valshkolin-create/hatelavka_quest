@@ -715,6 +715,15 @@ class GiftSkinDeleteRequest(BaseModel):
     initData: str
     skin_id: int
 
+# --- Модель для Телеграм заданий ---
+class TelegramTaskModel(BaseModel):
+    task_key: str
+    title: str
+    description: Optional[str] = ""
+    reward_amount: int
+    action_url: Optional[str] = None
+    is_active: bool
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2647,6 +2656,19 @@ async def make_auction_bid(
         raise HTTPException(status_code=400, detail=error_details)
 
 # --- P2P SYSTEM ---
+
+@app.get("/api/v1/telegram/tasks")
+async def get_telegram_tasks(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Возвращает список активных статических заданий из базы."""
+    try:
+        resp = await supabase.get(
+            "/telegram_tasks", 
+            params={"is_active": "eq.true", "order": "sort_order.asc"}
+        )
+        return resp.json()
+    except Exception as e:
+        logging.error(f"Error fetching telegram tasks: {e}")
+        return []
 
 # 1. Получение списка кейсов и цен (Для магазина и Админки)
 @app.get("/api/v1/p2p/cases")
