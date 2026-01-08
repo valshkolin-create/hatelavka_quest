@@ -264,6 +264,7 @@ checkMaintenance();
 try {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+    loadTelegramTasks();
     
     // Инициализируем попап при старте (скрытым)
     // injectBoostPopup();
