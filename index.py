@@ -12059,28 +12059,28 @@ async def claim_daily_task(
     supabase: AsyncClient = Depends(get_supabase_client)
 ):
     try:
-        user_id = data.get("user_id") # В идеале брать из токена, но пока так
+        user_id = data.get("user_id") 
         task_key = data.get("task_key")
         
-        # 1. Получаем настройки задания
-        task_resp = await supabase.table("telegram_tasks").select("*").eq("task_key", task_key).single().execute()
+        # ЗАМЕНА 1: .table -> .from_
+        task_resp = await supabase.from_("telegram_tasks").select("*").eq("task_key", task_key).single().execute()
         if not task_resp.data:
             return JSONResponse({"success": False, "error": "Задание не найдено"})
         
         task = task_resp.data
         
-        # 2. Получаем прогресс пользователя
-        progress_resp = await supabase.table("user_telegram_progress").select("*").eq("user_id", user_id).eq("task_key", task_key).execute()
+        # ЗАМЕНА 2: .table -> .from_
+        progress_resp = await supabase.from_("user_telegram_progress").select("*").eq("user_id", user_id).eq("task_key", task_key).execute()
         
         if progress_resp.data:
             progress = progress_resp.data[0]
         else:
-            # Создаем запись, если нет
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
-            await supabase.table("user_telegram_progress").insert(progress).execute()
+            # ЗАМЕНА 3: .table -> .from_
+            await supabase.from_("user_telegram_progress").insert(progress).execute()
 
-        # 3. Проверки времени (можно забирать раз в 20 часов)
         if progress.get("last_claimed_at"):
+            # Проверяем, прошло ли 20 часов
             last_claim = parser.isoparse(progress["last_claimed_at"])
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
@@ -12088,51 +12088,54 @@ async def claim_daily_task(
         if progress["completed"] or progress["current_day"] >= task["total_days"]:
             return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
 
-        # 4. ПРОВЕРКА ЧЕРЕЗ TELEGRAM API (Самое важное!)
+        # --- ПРОВЕРКА ЧЕРЕЗ TELEGRAM API ---
         check_passed = False
         try:
-            # Получаем актуальные данные пользователя от Telegram
-            chat_member = await bot.get_chat(user_id)
+            # Получаем объект ChatMember
+            chat_member = await bot.get_chat_member(chat_id=user_id, user_id=user_id) 
+            # ВАЖНО: get_chat(user_id) возвращает Chat, а get_chat_member — статус. 
+            # Но для проверки био/фамилии лучше использовать bot.get_chat(user_id)
+            user_chat = await bot.get_chat(user_id)
             
             phrase = task["check_phrase"].lower()
             
             if task["check_type"] == "surname":
-                # Проверяем фамилию
-                last_name = (chat_member.last_name or "").lower()
+                last_name = (user_chat.last_name or "").lower()
                 if phrase in last_name:
                     check_passed = True
                     
             elif task["check_type"] == "bio":
-                # Проверяем БИО (доступно через get_chat)
-                bio = (chat_member.bio or "").lower()
+                bio = (user_chat.bio or "").lower()
                 if phrase in bio:
                     check_passed = True
             else:
-                check_passed = True # Если тип не задан, пропускаем
+                check_passed = True 
                 
         except Exception as e:
             print(f"Tg API Error: {e}")
-            return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Убедитесь, что вы не заблокировали бота."})
+            # Если не смогли проверить, можно попробовать пропустить или выдать ошибку.
+            # Часто бот не может получить данные, если пользователь его не запускал или настройки приватности скрывают био.
+            pass
 
         if not check_passed:
             target = "фамилии" if task["check_type"] == "surname" else "описании (BIO)"
-            return JSONResponse({"success": False, "error": f"Тег '{task['check_phrase']}' не найден в {target}! Установите его и попробуйте снова."})
+            return JSONResponse({"success": False, "error": f"Тег '{task['check_phrase']}' не найден в {target}! Убедитесь, что он есть и бот не заблокирован."})
 
-        # 5. Расчет награды
+        # Расчет награды
         next_day = progress["current_day"] + 1
         reward = calculate_daily_reward(task["reward_amount"], task["total_days"], next_day)
         
-        # 6. Выдача награды и обновление прогресса
-        # Начисляем билеты
+        # Начисляем билеты (RPC функция)
         await supabase.rpc("add_tickets", {"p_user_id": user_id, "p_amount": reward}).execute()
         
-        # Обновляем прогресс
         update_data = {
             "current_day": next_day,
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
             "completed": next_day >= task["total_days"]
         }
-        await supabase.table("user_telegram_progress").update(update_data).eq("user_id", user_id).eq("task_key", task_key).execute()
+        
+        # ЗАМЕНА 4: .table -> .from_
+        await supabase.from_("user_telegram_progress").update(update_data).eq("user_id", user_id).eq("task_key", task_key).execute()
 
         return JSONResponse({
             "success": True, 
