@@ -174,19 +174,13 @@ async function loadTelegramTasks() {
     
     // Получаем ID пользователя
     const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
-    
-    // Если тестируете в браузере без Телеграма, можно временно раскомментировать:
-    // const userId = 12345; 
-
     if (!userId) {
         container.innerHTML = '<div style="text-align:center; padding:10px; color:red;">Ошибка: User ID не найден</div>';
         return;
     }
 
     try {
-        // !!! ИСПРАВЛЕНИЕ ЗДЕСЬ: добавляем ?user_id=${userId} в URL !!!
         const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
-        
         container.innerHTML = ''; 
 
         if (!tasks || tasks.length === 0) {
@@ -204,7 +198,7 @@ async function loadTelegramTasks() {
             if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-signature';
             if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
             if (task.task_key === 'tg_sub') iconClass = 'fa-brands fa-telegram';
-            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-square-poll-vertical';
+            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-rocket'; // 🚀 Ракета для буста
 
             let rightColHtml = '';
             let bottomHtml = '';
@@ -219,21 +213,27 @@ async function loadTelegramTasks() {
             } 
             // 2. ЕСЛИ ЗАДАНИЕ АКТИВНО
             else {
-                if (task.is_daily || task.task_key === 'tg_sub') {
+                // Включаем tg_vote в режим "Проверки" (handleDailyClaim)
+                if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
+                    
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
                     
-                    let subLinkHtml = '';
-                    if (task.task_key === 'tg_sub' && task.action_url) {
-                        subLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">Открыть канал <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
+                    // Ссылка для перехода (Подписка или Голосование)
+                    let actionLinkHtml = '';
+                    if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
+                        const linkText = task.task_key === 'tg_vote' ? 'Проголосовать' : 'Открыть канал';
+                        actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
                     }
 
+                    // Кнопка "Забрать/Проверить"
                     rightColHtml = `
-                        ${subLinkHtml}
+                        ${actionLinkHtml}
                         <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId})">
-                            Проверить (+${rewardText} 🎟)
+                            Забрать (+${rewardText} 🎟)
                         </button>
                     `;
                     
+                    // Прогресс бар (только для многодневных заданий)
                     if (task.is_daily) {
                         const percent = (task.current_day / task.total_days) * 100;
                         bottomHtml = `
@@ -246,6 +246,7 @@ async function loadTelegramTasks() {
                         `;
                     }
                 } 
+                // Остальные типы (обычные клики)
                 else {
                     rightColHtml = `
                         <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
@@ -275,12 +276,12 @@ async function loadTelegramTasks() {
 
     } catch (e) {
         console.error("Ошибка загрузки TG заданий:", e);
-        // Не перезаписываем контейнер ошибкой, если он уже был отрисован, просто логируем
         if (container.children.length === 0) {
              container.innerHTML = '<div style="color:red; text-align:center;">Ошибка сети</div>';
         }
     }
 }
+
 // Глобальная функция обработки клика по ДЕЙЛИКУ
 // В файле quests.js замени handleDailyClaim на эту версию:
 
