@@ -2658,17 +2658,56 @@ async def make_auction_bid(
 # --- P2P SYSTEM ---
 
 @app.get("/api/v1/telegram/tasks")
-async def get_telegram_tasks(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """Возвращает список активных статических заданий из базы."""
+async def get_telegram_tasks(
+    request: Request,
+    user_id: int = Query(...),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     try:
-        resp = await supabase.get(
+        # 1. Берем ВСЕ активные задания из таблицы telegram_tasks
+        tasks_resp = await supabase.get(
             "/telegram_tasks", 
-            params={"is_active": "eq.true", "order": "sort_order.asc"}
+            params={"is_active": "eq.true", "select": "*", "order": "sort_order.asc"}
         )
-        return resp.json()
+        tasks = tasks_resp.json()
+
+        # 2. Берем прогресс пользователя по этим заданиям
+        progress_resp = await supabase.get(
+            "/user_telegram_progress",
+            params={"user_id": f"eq.{user_id}", "select": "task_key, completed, current_day"}
+        )
+        # Превращаем прогресс в удобный словарь: {"tg_sub": {"completed": True, ...}}
+        user_progress = {item["task_key"]: item for item in progress_resp.json()}
+
+        result_list = []
+        
+        for task in tasks:
+            # Находим прогресс для этого задания
+            prog = user_progress.get(task["task_key"], {})
+            is_completed = prog.get("completed", False)
+            current_day = prog.get("current_day", 0)
+            
+            # Для ежедневных заданий "выполнено" сегодня, если таймер не прошел? 
+            # Но для простоты UI: если цикл завершен (is_completed=True) - кидаем вниз.
+            
+            task_data = {
+                **task,
+                "is_completed": is_completed, # Флаг для фронтенда (серый цвет)
+                "current_day": current_day
+            }
+            result_list.append(task_data)
+
+        # 3. СОРТИРОВКА:
+        # Сначала те, где is_completed = False (0), потом True (1)
+        # Внутри групп сохраняем sort_order
+        result_list.sort(key=lambda x: x["sort_order"]) # Сначала по порядку админки
+        result_list.sort(key=lambda x: x["is_completed"]) # Потом выполненные ВНИЗ
+
+        return JSONResponse(result_list)
+
     except Exception as e:
-        logging.error(f"Error fetching telegram tasks: {e}")
-        return []
+        print(f"Error fetching tasks: {e}")
+        return JSONResponse({"success": False, "error": str(e)})
 
 # 1. Получение списка кейсов и цен (Для магазина и Админки)
 @app.get("/api/v1/p2p/cases")
@@ -12056,14 +12095,13 @@ def calculate_daily_reward(total_amount, total_days, current_day):
 async def claim_daily_task(
     request: Request, 
     data: dict = Body(...), 
-    supabase: httpx.AsyncClient = Depends(get_supabase_client) # Используем правильный тип
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
         user_id = data.get("user_id")
         task_key = data.get("task_key")
         
-        # 1. Получаем задание (HTTPX Style)
-        # Было: supabase.from_("telegram_tasks")...
+        # 1. Получаем задание
         task_resp = await supabase.get(
             "/telegram_tasks", 
             params={"task_key": f"eq.{task_key}", "select": "*", "limit": 1}
@@ -12075,8 +12113,7 @@ async def claim_daily_task(
         
         task = task_data[0]
 
-        # 2. Получаем прогресс пользователя (HTTPX Style)
-        # Было: supabase.from_("user_telegram_progress")...
+        # 2. Получаем прогресс пользователя
         progress_resp = await supabase.get(
             "/user_telegram_progress", 
             params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}", "select": "*"}
@@ -12087,61 +12124,91 @@ async def claim_daily_task(
             progress = progress_list[0]
         else:
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
-            # Создаем запись (HTTPX Style)
             await supabase.post("/user_telegram_progress", json=progress)
 
-        # Проверка времени (20 часов)
-        if progress.get("last_claimed_at"):
+        # Проверка: если уже выполнено (финальный статус)
+        if progress["completed"]:
+            return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
+
+        # Проверка времени (20 часов) - ТОЛЬКО если задание ежедневное
+        # Если задание разовое (is_daily=False), таймер не важен, так как оно выполнится сразу
+        if task.get("is_daily") and progress.get("last_claimed_at"):
             last_claim = parser.isoparse(progress["last_claimed_at"])
-            # Приводим datetime.now к UTC для корректного сравнения
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
 
-        if progress["completed"] or progress["current_day"] >= task["total_days"]:
-            return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
+        if task.get("is_daily") and progress["current_day"] >= task["total_days"]:
+             return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
 
-        # --- ПРОВЕРКА ЧЕРЕЗ TELEGRAM API ---
+        # --- ПРОВЕРКА (CHECK LOGIC) ---
         check_passed = False
-        try:
-            # Используем глобального бота
-            user_chat = await bot.get_chat(user_id)
-            phrase = task["check_phrase"].lower()
-            
-            if task["check_type"] == "surname":
-                last_name = (user_chat.last_name or "").lower()
-                if phrase in last_name:
+        
+        # === ВСТАВКА: Проверка подписки ===
+        if task_key == "tg_sub":
+            channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+            if not channel_id:
+                print("Error: TG_QUEST_CHANNEL_ID not set in .env")
+                return JSONResponse({"success": False, "error": "Ошибка конфигурации сервера"})
+
+            try:
+                member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
+                # Статусы подписчика: creator, administrator, member, restricted
+                if member.status in ["creator", "administrator", "member", "restricted"]:
                     check_passed = True
-            elif task["check_type"] == "bio":
-                bio = (user_chat.bio or "").lower()
-                if phrase in bio:
+                else:
+                    return JSONResponse({"success": False, "error": "Вы не подписаны на канал!"})
+            except Exception as e:
+                print(f"Bot check error: {e}")
+                return JSONResponse({"success": False, "error": "Бот не смог проверить подписку. Убедитесь, что вы подписаны."})
+
+        # === Стандартная проверка (Фамилия / Био) ===
+        else:
+            try:
+                user_chat = await bot.get_chat(user_id)
+                phrase = (task.get("check_phrase") or "").lower()
+                
+                if task["check_type"] == "surname":
+                    last_name = (user_chat.last_name or "").lower()
+                    if phrase and phrase in last_name:
+                        check_passed = True
+                elif task["check_type"] == "bio":
+                    bio = (user_chat.bio or "").lower()
+                    if phrase and phrase in bio:
+                        check_passed = True
+                else:
+                    # check_type = 'none' или другое
                     check_passed = True
-            else:
-                check_passed = True
-        except Exception as e:
-            print(f"Tg API Error: {e}")
-            # Можно пропустить ошибку или вернуть False, зависит от логики
-            pass
+            except Exception as e:
+                print(f"Tg API Error: {e}")
+                pass
 
         if not check_passed:
             target = "фамилии" if task["check_type"] == "surname" else "описании (BIO)"
-            return JSONResponse({"success": False, "error": f"Тег '{task['check_phrase']}' не найден в {target}! Убедитесь, что он есть и бот не заблокирован."})
+            return JSONResponse({"success": False, "error": f"Условие не выполнено! Проверьте наличие '{task.get('check_phrase')}' в {target}."})
 
         # Расчет награды
         next_day = progress["current_day"] + 1
-        reward = calculate_daily_reward(task["reward_amount"], task["total_days"], next_day)
+        
+        # === ВСТАВКА: Логика завершения ===
+        # Если задание НЕ ежедневное (разовое), оно завершается сразу (completed=True)
+        # Если ежедневное, то завершается только когда дошли до total_days
+        if not task.get("is_daily"):
+            is_done = True
+        else:
+            is_done = next_day >= task["total_days"]
 
-        # 3. Начисляем билеты (RPC через HTTPX)
-        # Было: supabase.rpc("add_tickets", ...).execute()
+        reward = task["reward_amount"] # Для дейликов можно вернуть твою функцию calculate_daily_reward, если нужно
+
+        # 3. Начисляем билеты
         await supabase.post("/rpc/add_tickets", json={"p_user_id": user_id, "p_amount": reward})
 
-        # 4. Обновляем прогресс (HTTPX Style)
+        # 4. Обновляем прогресс
         update_data = {
             "current_day": next_day,
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
-            "completed": next_day >= task["total_days"]
+            "completed": is_done
         }
         
-        # Было: supabase.from_("user_telegram_progress").update...
         await supabase.patch(
             "/user_telegram_progress", 
             params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}"},
@@ -12151,9 +12218,10 @@ async def claim_daily_task(
         return JSONResponse({
             "success": True, 
             "reward": reward, 
-            "day": next_day, 
+            "day": next_day,
             "total_days": task["total_days"],
-            "message": f"День {next_day}/{task['total_days']}: Получено {reward} билетов!"
+            "is_completed": is_done, # Важно для фронта (чтобы сделать серым)
+            "message": f"Задание выполнено! Получено {reward} билетов!"
         })
 
     except Exception as e:
