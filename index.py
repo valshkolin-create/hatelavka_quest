@@ -154,6 +154,10 @@ class EventParticipantsRequest(BaseModel):
     initData: str
     event_id: int
 
+class EventControlState(BaseModel):
+    visible: bool
+    paused: bool
+
 # --- Pydantic модели для Админки Аукциона ---
 class AuctionCreateRequest(BaseModel):
     initData: str
@@ -3089,6 +3093,32 @@ async def delete_slay_candidate(
 
 # 1. Получение активных голосований (Для пользователей)
 
+# --- 3. API для Админки (Чтение и Запись) ---
+
+@app.get("/api/admin/event/status")
+async def get_event_status_admin(request: Request):
+    # Тут можно добавить проверку админа
+    status = await validate_event_status()
+    return status
+
+@app.post("/api/admin/event/status")
+async def set_event_status_admin(state: EventControlState, request: Request):
+    # Тут можно добавить проверку админа
+    try:
+        # Обновляем видимость
+        await async_supabase.table('settings').update({'value': state.visible}).eq('key', 'halloween_visible').execute()
+        # Обновляем паузу
+        await async_supabase.table('settings').update({'value': state.paused}).eq('key', 'halloween_paused').execute()
+        
+        return {"status": "success", "data": state}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- 4. API для Клиента (Проверка при входе) ---
+@app.get("/api/event/status")
+async def get_event_status_public():
+    status = await validate_event_status()
+    return status
 
 
 @app.post("/api/v1/slay/active")
@@ -5662,8 +5692,18 @@ async def contribute_to_cauldron(
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
-
+    
     telegram_id = user_info["id"]
+
+    # 🔥🔥🔥 ВСТАВИТЬ СЮДА (НАЧАЛО) 🔥🔥🔥
+    status = await validate_event_status()
+    
+    if not status['visible']:
+        raise HTTPException(status_code=403, detail="Ивент завершен")
+        
+    if status['paused']:
+        raise HTTPException(status_code=423, detail="Ивент на паузе (подсчет итогов)")
+    # 🔥🔥🔥 ВСТАВИТЬ СЮДА (КОНЕЦ) 🔥🔥🔥
     amount = request_data.amount
     user_display_name = user_info.get("first_name", "User")
 
