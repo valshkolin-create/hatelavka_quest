@@ -6318,18 +6318,18 @@ async function refreshCurrentP2PTradeDetails() {
     }
 }
 // Функция инициализации управления ивентом (ОБНОВЛЕННАЯ)
+// Функция инициализации управления ивентом (ОБНОВЛЕННАЯ)
 async function initEventControls() {
     const visibleToggle = document.getElementById('toggle-event-visible');
     const pausedToggle = document.getElementById('toggle-event-paused');
 
     if (!visibleToggle || !pausedToggle) return;
 
-    // 1. Получаем текущий статус с сервера
+    // 1. Получаем текущий статус с сервера (используем makeApiRequest для авторизации)
     try {
-        // Используем GET, так как в Python у вас @app.get("/api/admin/event/status")
         const data = await makeApiRequest('/api/admin/event/status', {}, 'GET', true);
         
-        // Устанавливаем положение тумблеров согласно данным из базы
+        // Устанавливаем положение тумблеров
         visibleToggle.checked = data.visible;
         pausedToggle.checked = data.paused;
         
@@ -6338,7 +6338,7 @@ async function initEventControls() {
         console.error('Ошибка получения статуса ивента:', err);
     }
 
-    // 2. Функция отправки обновлений (срабатывает при щелчке)
+    // 2. Функция отправки обновлений
     const updateStatus = async () => {
         const payload = {
             visible: visibleToggle.checked,
@@ -6346,25 +6346,22 @@ async function initEventControls() {
         };
 
         try {
-            // Отправляем POST для сохранения
             await makeApiRequest('/api/admin/event/status', payload, 'POST', true);
             
-            // Легкая вибрация для подтверждения (если в Telegram)
+            // Легкая вибрация для тактильного отклика (если в TG)
             if (window.Telegram?.WebApp?.HapticFeedback) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
         } catch (e) {
             tg.showAlert('Ошибка сохранения настроек: ' + e.message);
-            // Если ошибка, можно вернуть тумблер обратно, перезагрузив страницу
+            // Если ошибка, возвращаем тумблер обратно (опционально)
             // location.reload(); 
         }
     };
 
-    // 3. Вешаем слушатели изменений
-    // Сначала удаляем старые (на всякий случай, через cloneNode трюк или просто переопределением), 
-    // но проще просто добавить новые, так как initEventControls вызывается 1 раз.
-    visibleToggle.onchange = updateStatus;
-    pausedToggle.onchange = updateStatus;
+    // 3. Вешаем слушатели
+    visibleToggle.addEventListener('change', updateStatus);
+    pausedToggle.addEventListener('change', updateStatus);
 }
 /* ==========================================
    ЛОГИКА ПЕРЕНОСА НАГРАД (КОТЕЛ)
