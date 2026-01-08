@@ -31,6 +31,40 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 window.isEventPaused = false; // Глобальный флаг
 
+// ==========================================
+// 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА (КЛИЕНТ)
+// ==========================================
+async function checkMaintenance() {
+    try {
+        // Проверяем статус сервера
+        const res = await fetch('/api/v1/bootstrap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            
+            // Если включен режим сна (maintenance: true)
+            if (data.maintenance) {
+                console.warn("⛔ Тех. режим включен. Редирект на главную.");
+                // Убираем всё содержимое, чтобы пользователь не видел интерфейс
+                document.body.innerHTML = ""; 
+                // Перекидываем на заглушку
+                window.location.href = '/'; 
+                return; // Останавливаем выполнение скрипта
+            }
+        }
+    } catch (e) {
+        console.error("Ошибка проверки статуса:", e);
+    }
+}
+
+// Запускаем проверку ПЕРВЫМ ДЕЛОМ
+checkMaintenance();
+// ==========================================
+
 async function checkEventStatus() {
     try {
         const response = await fetch('/api/event/status');
@@ -101,39 +135,7 @@ async function checkEventStatus() {
     }
 }
 
-// ==========================================
-// 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА (КЛИЕНТ)
-// ==========================================
-async function checkMaintenance() {
-    try {
-        // Проверяем статус сервера
-        const res = await fetch('/api/v1/bootstrap', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
-        });
 
-        if (res.ok) {
-            const data = await res.json();
-            
-            // Если включен режим сна (maintenance: true)
-            if (data.maintenance) {
-                console.warn("⛔ Тех. режим включен. Редирект на главную.");
-                // Убираем всё содержимое, чтобы пользователь не видел интерфейс
-                document.body.innerHTML = ""; 
-                // Перекидываем на заглушку
-                window.location.href = '/'; 
-                return; // Останавливаем выполнение скрипта
-            }
-        }
-    } catch (e) {
-        console.error("Ошибка проверки статуса:", e);
-    }
-}
-
-// Запускаем проверку ПЕРВЫМ ДЕЛОМ
-checkMaintenance();
-// ==========================================
 
     const tg = window.Telegram.WebApp;
     if (!tg) {
