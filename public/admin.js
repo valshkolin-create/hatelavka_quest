@@ -6324,11 +6324,12 @@ async function initEventControls() {
 
     if (!visibleToggle || !pausedToggle) return;
 
-    // 1. Получаем текущий статус с сервера (используем makeApiRequest для авторизации)
+    // 1. Получаем текущий статус с сервера
     try {
+        // Используем GET, так как в Python у вас @app.get("/api/admin/event/status")
         const data = await makeApiRequest('/api/admin/event/status', {}, 'GET', true);
         
-        // Устанавливаем положение тумблеров
+        // Устанавливаем положение тумблеров согласно данным из базы
         visibleToggle.checked = data.visible;
         pausedToggle.checked = data.paused;
         
@@ -6337,7 +6338,7 @@ async function initEventControls() {
         console.error('Ошибка получения статуса ивента:', err);
     }
 
-    // 2. Функция отправки обновлений
+    // 2. Функция отправки обновлений (срабатывает при щелчке)
     const updateStatus = async () => {
         const payload = {
             visible: visibleToggle.checked,
@@ -6345,34 +6346,26 @@ async function initEventControls() {
         };
 
         try {
+            // Отправляем POST для сохранения
             await makeApiRequest('/api/admin/event/status', payload, 'POST', true);
             
-            // Легкая вибрация для тактильного отклика (если в TG)
+            // Легкая вибрация для подтверждения (если в Telegram)
             if (window.Telegram?.WebApp?.HapticFeedback) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
         } catch (e) {
             tg.showAlert('Ошибка сохранения настроек: ' + e.message);
-            // Если ошибка, возвращаем тумблер обратно (опционально)
+            // Если ошибка, можно вернуть тумблер обратно, перезагрузив страницу
             // location.reload(); 
         }
     };
 
-    // 3. Вешаем слушатели
-    visibleToggle.addEventListener('change', updateStatus);
-    pausedToggle.addEventListener('change', updateStatus);
+    // 3. Вешаем слушатели изменений
+    // Сначала удаляем старые (на всякий случай, через cloneNode трюк или просто переопределением), 
+    // но проще просто добавить новые, так как initEventControls вызывается 1 раз.
+    visibleToggle.onchange = updateStatus;
+    pausedToggle.onchange = updateStatus;
 }
-
-    // Инициализация приложения
-    document.addEventListener("DOMContentLoaded", () => {
-        console.log("Admin Init Started");
-        tg.ready();
-        setupEventListeners();
-        main();
-        
-        // 👇 ДОБАВИТЬ ЭТУ СТРОКУ 👇
-        initEventControls(); 
-    });
 /* ==========================================
    ЛОГИКА ПЕРЕНОСА НАГРАД (КОТЕЛ)
    Вставить в конец файла admin.js
