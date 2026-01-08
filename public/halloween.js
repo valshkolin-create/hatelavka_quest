@@ -36,7 +36,7 @@ async function checkEventStatus() {
         const response = await fetch('/api/event/status');
         const data = await response.json();
 
-        // 1. ИВЕНТ ВЫКЛЮЧЕН (Полная блокировка)
+        // 1. ИВЕНТ ВЫКЛЮЧЕН (Полная блокировка экрана)
         if (!data.visible) {
             document.body.innerHTML = `
                 <div style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; color:white; font-family:sans-serif; text-align:center; padding:20px;">
@@ -46,28 +46,83 @@ async function checkEventStatus() {
                     <a href="/menu" style="margin-top:20px; color:#ff9500; text-decoration:none; border:1px solid #333; padding:10px 20px; border-radius:10px;">В главное меню</a>
                 </div>
             `;
-            return; // Останавливаем выполнение скрипта
+            return; // Останавливаем выполнение скрипта, дальше ничего не грузим
         }
 
-        // 2. ПАУЗА (Видно, но нельзя трогать)
+        // 2. ПАУЗА (Ивент виден, но действия заблокированы красивым оверлеем)
         if (data.paused) {
             window.isEventPaused = true;
+            console.log("Ивент на паузе. Блокируем интерфейс.");
             
-            // Блокируем кнопку броска визуально
+            // Находим кнопку отправки билетов
+            const btn = document.getElementById('contribute-btn');
+            
+            if (btn) {
+                // 1. Отключаем саму кнопку
+                btn.disabled = true; 
+
+                // 2. Ищем родительский контейнер (где лежат слайдер, инпут и кнопка)
+                // Обычно кнопка лежит внутри div, который нам и нужно перекрыть.
+                const controlsContainer = btn.parentNode; 
+                
+                if (controlsContainer) {
+                    // Делаем контейнер relative, чтобы оверлей встал ровно поверх него
+                    controlsContainer.style.position = 'relative';
+                    
+                    // Считываем скругление углов у родителя, чтобы оверлей был такой же формы
+                    const computedStyle = window.getComputedStyle(controlsContainer);
+                    const borderRadius = computedStyle.borderRadius;
+
+                    // Создаем красивый оверлей
+                    const overlay = document.createElement('div');
+                    overlay.innerHTML = `
+                        <div style="text-align: center; pointer-events: none;">
+                            <i class="fa-solid fa-lock" style="font-size: 28px; margin-bottom: 10px; color: #ff4b4b;"></i>
+                            <div style="font-weight: 700; font-size: 16px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">Прием билетов закрыт</div>
+                            <div style="font-size: 12px; color: #ddd; margin-top: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">Идет подсчет итогов...</div>
+                        </div>
+                    `;
+                    
+                    // Стили оверлея (Blur эффект + затемнение)
+                    overlay.style.cssText = `
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(20, 20, 20, 0.75); /* Темный полупрозрачный фон */
+                        backdrop-filter: blur(5px);          /* Размытие фона под оверлеем */
+                        -webkit-backdrop-filter: blur(5px);  /* Для Safari */
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 100;
+                        border-radius: ${borderRadius !== '0px' ? borderRadius : '16px'};
+                        transition: all 0.3s ease;
+                        user-select: none;
+                    `;
+
+                    // Добавляем оверлей в контейнер
+                    // Проверяем, нет ли там уже оверлея, чтобы не дублировать
+                    if (!controlsContainer.querySelector('.pause-overlay')) {
+                        overlay.classList.add('pause-overlay');
+                        controlsContainer.appendChild(overlay);
+                    }
+                }
+            }
+        } else {
+            // Ивент АКТИВЕН
+            window.isEventPaused = false;
+            
+            // Если вдруг оверлей остался (например, статус сменился без перезагрузки), убираем его
+            const overlays = document.querySelectorAll('.pause-overlay');
+            overlays.forEach(el => el.remove());
+            
             const btn = document.getElementById('contribute-btn');
             if (btn) {
-                btn.disabled = true;
-                btn.style.opacity = '0.5';
-                btn.innerHTML = '<i class="fa-solid fa-lock"></i> Пауза';
+                btn.disabled = false;
+                // Возвращаем стили кнопки, если нужно, или просто оставляем как есть
             }
-
-            // Показываем плашку
-            const notice = document.createElement('div');
-            notice.innerHTML = `<i class="fa-solid fa-lock"></i> Прием билетов приостановлен`;
-            notice.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); background:rgba(200, 0, 0, 0.9); color:white; padding:8px 16px; border-radius:20px; z-index:9999; font-weight:bold; font-size:14px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);";
-            document.body.appendChild(notice);
-        } else {
-            window.isEventPaused = false;
         }
 
     } catch (e) {
