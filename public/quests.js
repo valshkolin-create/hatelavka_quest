@@ -54,7 +54,10 @@ function unlockAppScroll() {
 }
 
 // --- ВНЕДРЕНИЕ МОДАЛЬНОГО ОКНА ГОЛОСОВАНИЯ (BOOST) ---
-function injectBoostPopup() {
+function injectBoostPopup(customUrl) {
+    // Определяем ссылку: если передали из базы - берем её, иначе стандартную
+    const urlToUse = customUrl || 'https://t.me/boost/hatelove_ttv';
+
     // Чистим, если вдруг уже есть открытое
     const existing = document.getElementById('boostPopup');
     if (existing) existing.remove();
@@ -82,18 +85,17 @@ function injectBoostPopup() {
 
     // СЦЕНАРИЙ 1: ЧЕЛОВЕК НАЖИМАЕТ "ПРОГОЛОСОВАТЬ"
     document.getElementById('goToBoostBtn').addEventListener('click', () => {
-        // 1. Мгновенно сносим наше окно (человек видит список квестов)
+        // 1. Мгновенно сносим наше окно
         const popup = document.getElementById('boostPopup');
         if (popup) popup.remove();
 
-        // 2. Открываем ссылку на буст
-        Telegram.WebApp.openTelegramLink('https://t.me/boost/hatelove_ttv');
+        // 2. Открываем ДИНАМИЧЕСКУЮ ссылку (из базы или дефолтную)
+        Telegram.WebApp.openTelegramLink(urlToUse);
     });
 
-    // СЦЕНАРИЙ 2: ЧЕЛОВЕК НАЖИМАЕТ "БУДУ ЗНАТЬ"
+    // СЦЕНАРИЙ 2: ЧЕЛОВЕК НАЖИМАЕТ "ЗАКРЫТЬ"
     document.getElementById('closePopupBtn').addEventListener('click', () => {
         // 1. Просто закрываем наше окно.
-        // НИКАКИХ ОТКРЫТИЙ ТЕЛЕГРАМА. НИЧЕГО БОЛЬШЕ.
         const popup = document.getElementById('boostPopup');
         if (popup) popup.remove();
     });
@@ -265,6 +267,88 @@ try {
     
     // Инициализируем попап при старте (скрытым)
     // injectBoostPopup();
+
+    // Добавьте эту функцию в quests.js
+async function loadTelegramTasks() {
+    const container = document.getElementById('tg-tasks-list');
+    if (!container) return;
+
+    // Показываем лоадер внутри контейнера, если нужно
+    container.innerHTML = '<div style="text-align:center; padding:10px; color:#666;">Загрузка...</div>';
+
+    try {
+        const tasks = await makeApiRequest('/api/v1/telegram/tasks', {}, 'GET', true); // isSilent=true
+        container.innerHTML = ''; // Очищаем
+
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:10px;">Заданий пока нет</div>';
+            return;
+        }
+
+        tasks.forEach(task => {
+            const el = document.createElement('div');
+            el.className = 'tg-task-item';
+            
+            // Выбираем иконку по ключу
+            let iconClass = 'fa-solid fa-star';
+            if (task.task_key === 'tg_sub') iconClass = 'fa-solid fa-user-plus';
+            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-square-poll-vertical';
+            if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-id-card';
+            if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
+
+            // Формируем HTML
+            el.innerHTML = `
+                <div class="tg-task-header">
+                    <div class="tg-left-col">
+                        <div class="tg-icon-box"><i class="${iconClass}"></i></div>
+                        <div class="tg-text-col">
+                            <span class="tg-title">${task.title}</span>
+                            <span class="tg-subtitle">${task.description || ''}</span>
+                        </div>
+                    </div>
+                    <div class="tg-right-col">
+                        <button class="tg-action-btn" id="btn-${task.task_key}">
+                            +${task.reward_amount} 🎟
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(el);
+
+            // Вешаем обработчик клика
+            const btn = el.querySelector(`#btn-${task.task_key}`);
+            btn.addEventListener('click', () => handleTgTaskClick(task));
+        });
+        
+        // После отрисовки обновляем статусы (кто выполнен, кто нет)
+        // Это требует, чтобы ваша функция updateTelegramStatus умела работать с динамическими ID
+        if (window.updateTelegramStatus) window.updateTelegramStatus();
+
+    } catch (e) {
+        console.error("Ошибка загрузки TG заданий:", e);
+        container.innerHTML = '<div style="color:red; text-align:center;">Ошибка загрузки</div>';
+    }
+}
+
+// Универсальный обработчик клика
+function handleTgTaskClick(task) {
+    if (task.task_key === 'tg_sub') {
+        // Логика подписки (переход по ссылке + проверка)
+        Telegram.WebApp.openTelegramLink(task.action_url);
+        // Небольшая задержка перед проверкой
+        setTimeout(() => window.updateTelegramStatus(), 2000);
+    } 
+    else if (task.task_key === 'tg_vote') {
+        // Логика голосования (ваша существующая функция)
+        if (typeof doTelegramVote === 'function') doTelegramVote(task.action_url); // Передаем URL из базы!
+    } 
+    else if (task.task_key === 'tg_surname') {
+        injectProfilePopup('surname');
+    }
+    else if (task.task_key === 'tg_bio') {
+        injectProfilePopup('bio');
+    }
+}
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
