@@ -3096,18 +3096,18 @@ async def delete_slay_candidate(
 # --- 3. API для Админки (Чтение и Запись) ---
 
 # Функция проверки статуса (принимает клиент supabase)
-async def validate_event_status(db_client=None):
+async def validate_event_status(db_client=None): # 1. Добавили =None
     """
     Проверяет настройки ивента в базе.
     Возвращает: {'visible': bool, 'paused': bool}
     """
-    # Добавьте эту проверку:
+    # 2. Если аргумент не передан, берем глобальный клиент
     if db_client is None:
-        db_client = supabase  # Используем глобальную переменную supabase
+        db_client = supabase 
 
     try:
-        # Дальше код остается без изменений...
-        response = await db_client.table('settings').select('*').in_('key', ['halloween_visible', 'halloween_paused']).execute()
+        # 3. ИСПОЛЬЗУЕМ .from_() ВМЕСТО .table()
+        response = await db_client.from_('settings').select('*').in_('key', ['halloween_visible', 'halloween_paused']).execute()
         
         # Парсим результат
         settings = {item['key']: item['value'] for item in response.data}
@@ -3122,16 +3122,19 @@ async def validate_event_status(db_client=None):
         return {"visible": True, "paused": False} # Если ошибка, пускаем, чтобы не ломать игру
 
 @app.get("/api/admin/event/status")
-async def get_event_status_admin(request: Request, supabase: AsyncClient = Depends(get_supabase_client)):
-    status = await validate_event_status(supabase)
+async def get_event_status_admin(request: Request):
+    # Тут можно добавить проверку админа
+    status = await validate_event_status() # Теперь вызов без аргументов сработает
     return status
 
-
 @app.post("/api/admin/event/status")
-async def set_event_status_admin(state: EventControlState, request: Request, supabase: AsyncClient = Depends(get_supabase_client)):
+async def set_event_status_admin(state: EventControlState, request: Request):
+    # Тут можно добавить проверку админа
     try:
-        await supabase.table('settings').update({'value': state.visible}).eq('key', 'halloween_visible').execute()
-        await supabase.table('settings').update({'value': state.paused}).eq('key', 'halloween_paused').execute()
+        # 4. ИСПОЛЬЗУЕМ supabase (глобальный) и .from_()
+        await supabase.from_('settings').update({'value': state.visible}).eq('key', 'halloween_visible').execute()
+        await supabase.from_('settings').update({'value': state.paused}).eq('key', 'halloween_paused').execute()
+        
         return {"status": "success", "data": state}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
