@@ -6317,21 +6317,25 @@ async function refreshCurrentP2PTradeDetails() {
         if (icon) icon.classList.remove('fa-spin');
     }
 }
-// Функция инициализации управления ивентом
-function initEventControls() {
+// Функция инициализации управления ивентом (ОБНОВЛЕННАЯ)
+async function initEventControls() {
     const visibleToggle = document.getElementById('toggle-event-visible');
     const pausedToggle = document.getElementById('toggle-event-paused');
 
     if (!visibleToggle || !pausedToggle) return;
 
-    // 1. Получаем текущий статус с сервера
-    fetch('/api/admin/event/status')
-        .then(res => res.json())
-        .then(data => {
-            visibleToggle.checked = data.visible;
-            pausedToggle.checked = data.paused;
-        })
-        .catch(err => console.error('Ошибка получения статуса ивента:', err));
+    // 1. Получаем текущий статус с сервера (используем makeApiRequest для авторизации)
+    try {
+        const data = await makeApiRequest('/api/admin/event/status', {}, 'GET', true);
+        
+        // Устанавливаем положение тумблеров
+        visibleToggle.checked = data.visible;
+        pausedToggle.checked = data.paused;
+        
+        console.log("Статус ивента загружен:", data);
+    } catch (err) {
+        console.error('Ошибка получения статуса ивента:', err);
+    }
 
     // 2. Функция отправки обновлений
     const updateStatus = async () => {
@@ -6341,22 +6345,16 @@ function initEventControls() {
         };
 
         try {
-            const res = await fetch('/api/admin/event/status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            await makeApiRequest('/api/admin/event/status', payload, 'POST', true);
             
-            if (res.ok) {
-                // Вибрация или уведомление об успехе
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                }
-            } else {
-                alert('Ошибка сохранения настроек');
+            // Легкая вибрация для тактильного отклика (если в TG)
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
         } catch (e) {
-            alert('Ошибка сети: ' + e);
+            tg.showAlert('Ошибка сохранения настроек: ' + e.message);
+            // Если ошибка, возвращаем тумблер обратно (опционально)
+            // location.reload(); 
         }
     };
 
@@ -6371,6 +6369,9 @@ function initEventControls() {
         tg.ready();
         setupEventListeners();
         main();
+        
+        // 👇 ДОБАВИТЬ ЭТУ СТРОКУ 👇
+        initEventControls(); 
     });
 /* ==========================================
    ЛОГИКА ПЕРЕНОСА НАГРАД (КОТЕЛ)
