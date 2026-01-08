@@ -36,7 +36,7 @@ async function checkEventStatus() {
         const response = await fetch('/api/event/status');
         const data = await response.json();
 
-        // 1. ИВЕНТ ВЫКЛЮЧЕН (Полная блокировка экрана)
+        // 1. ИВЕНТ ВЫКЛЮЧЕН (Глобальная заглушка)
         if (!data.visible) {
             document.body.innerHTML = `
                 <div style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; color:white; font-family:sans-serif; text-align:center; padding:20px;">
@@ -46,87 +46,58 @@ async function checkEventStatus() {
                     <a href="/menu" style="margin-top:20px; color:#ff9500; text-decoration:none; border:1px solid #333; padding:10px 20px; border-radius:10px;">В главное меню</a>
                 </div>
             `;
-            return; // Останавливаем выполнение скрипта, дальше ничего не грузим
+            return;
         }
 
-        // 2. ПАУЗА (Ивент виден, но действия заблокированы красивым оверлеем)
+        // 2. ПАУЗА (Красивый оверлей)
         if (data.paused) {
             window.isEventPaused = true;
-            console.log("Ивент на паузе. Блокируем интерфейс.");
+            console.log("Ивент на паузе. Активируем оверлей.");
             
-            // Находим кнопку отправки билетов
             const btn = document.getElementById('contribute-btn');
-            
-            if (btn) {
-                // 1. Отключаем саму кнопку
-                btn.disabled = true; 
+            if (btn) btn.disabled = true;
 
-                // 2. Ищем родительский контейнер (где лежат слайдер, инпут и кнопка)
-                // Обычно кнопка лежит внутри div, который нам и нужно перекрыть.
-                const controlsContainer = btn.parentNode; 
+            // Ищем контейнер формы для перекрытия
+            let controlsContainer = document.getElementById('contribution-form');
+            if (!controlsContainer && btn) {
+                controlsContainer = btn.parentNode; // Запасной вариант
+            }
+
+            if (controlsContainer) {
+                controlsContainer.style.position = 'relative'; // Важно для позиционирования
                 
-                if (controlsContainer) {
-                    // Делаем контейнер relative, чтобы оверлей встал ровно поверх него
-                    controlsContainer.style.position = 'relative';
-                    
-                    // Считываем скругление углов у родителя, чтобы оверлей был такой же формы
-                    const computedStyle = window.getComputedStyle(controlsContainer);
-                    const borderRadius = computedStyle.borderRadius;
-
-                    // Создаем красивый оверлей
+                // Если оверлея еще нет — создаем его
+                if (!controlsContainer.querySelector('.pause-overlay')) {
                     const overlay = document.createElement('div');
+                    overlay.className = 'pause-overlay'; // Используем класс из CSS
+                    
                     overlay.innerHTML = `
-                        <div style="text-align: center; pointer-events: none;">
-                            <i class="fa-solid fa-lock" style="font-size: 28px; margin-bottom: 10px; color: #ff4b4b;"></i>
-                            <div style="font-weight: 700; font-size: 16px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">Прием билетов закрыт</div>
-                            <div style="font-size: 12px; color: #ddd; margin-top: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">Идет подсчет итогов...</div>
+                        <div class="pause-content">
+                            <i class="fa-solid fa-lock pause-icon"></i>
+                            <div class="pause-title">Прием закрыт</div>
+                            <div class="pause-subtitle">Идет подсчет итогов...</div>
                         </div>
                     `;
-                    
-                    // Стили оверлея (Blur эффект + затемнение)
-                    overlay.style.cssText = `
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                        background: rgba(20, 20, 20, 0.75); /* Темный полупрозрачный фон */
-                        backdrop-filter: blur(5px);          /* Размытие фона под оверлеем */
-                        -webkit-backdrop-filter: blur(5px);  /* Для Safari */
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        z-index: 100;
-                        border-radius: ${borderRadius !== '0px' ? borderRadius : '16px'};
-                        transition: all 0.3s ease;
-                        user-select: none;
-                    `;
-
-                    // Добавляем оверлей в контейнер
-                    // Проверяем, нет ли там уже оверлея, чтобы не дублировать
-                    if (!controlsContainer.querySelector('.pause-overlay')) {
-                        overlay.classList.add('pause-overlay');
-                        controlsContainer.appendChild(overlay);
-                    }
+                    controlsContainer.appendChild(overlay);
                 }
             }
         } else {
-            // Ивент АКТИВЕН
+            // ИВЕНТ АКТИВЕН
             window.isEventPaused = false;
             
-            // Если вдруг оверлей остался (например, статус сменился без перезагрузки), убираем его
-            const overlays = document.querySelectorAll('.pause-overlay');
-            overlays.forEach(el => el.remove());
+            // Удаляем оверлей, если он есть
+            const overlay = document.querySelector('.pause-overlay');
+            if (overlay) {
+                overlay.style.opacity = '0'; // Плавное исчезновение
+                setTimeout(() => overlay.remove(), 300);
+            }
             
             const btn = document.getElementById('contribute-btn');
-            if (btn) {
-                btn.disabled = false;
-                // Возвращаем стили кнопки, если нужно, или просто оставляем как есть
-            }
+            if (btn) btn.disabled = false;
         }
 
     } catch (e) {
-        console.error("Ошибка проверки статуса ивента:", e);
+        console.error("Ошибка статуса:", e);
     }
 }
 
