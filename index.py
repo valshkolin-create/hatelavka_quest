@@ -12056,32 +12056,44 @@ def calculate_daily_reward(total_amount, total_days, current_day):
 async def claim_daily_task(
     request: Request, 
     data: dict = Body(...), 
-    supabase: AsyncClient = Depends(get_supabase_client)
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) # Используем правильный тип
 ):
     try:
-        user_id = data.get("user_id") 
+        user_id = data.get("user_id")
         task_key = data.get("task_key")
         
-        # ЗАМЕНА 1: .table -> .from_
-        task_resp = await supabase.from_("telegram_tasks").select("*").eq("task_key", task_key).single().execute()
-        if not task_resp.data:
-            return JSONResponse({"success": False, "error": "Задание не найдено"})
+        # 1. Получаем задание (HTTPX Style)
+        # Было: supabase.from_("telegram_tasks")...
+        task_resp = await supabase.get(
+            "/telegram_tasks", 
+            params={"task_key": f"eq.{task_key}", "select": "*", "limit": 1}
+        )
+        task_data = task_resp.json()
         
-        task = task_resp.data
+        if not task_data:
+             return JSONResponse({"success": False, "error": "Задание не найдено"})
         
-        # ЗАМЕНА 2: .table -> .from_
-        progress_resp = await supabase.from_("user_telegram_progress").select("*").eq("user_id", user_id).eq("task_key", task_key).execute()
-        
-        if progress_resp.data:
-            progress = progress_resp.data[0]
+        task = task_data[0]
+
+        # 2. Получаем прогресс пользователя (HTTPX Style)
+        # Было: supabase.from_("user_telegram_progress")...
+        progress_resp = await supabase.get(
+            "/user_telegram_progress", 
+            params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}", "select": "*"}
+        )
+        progress_list = progress_resp.json()
+
+        if progress_list:
+            progress = progress_list[0]
         else:
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
-            # ЗАМЕНА 3: .table -> .from_
-            await supabase.from_("user_telegram_progress").insert(progress).execute()
+            # Создаем запись (HTTPX Style)
+            await supabase.post("/user_telegram_progress", json=progress)
 
+        # Проверка времени (20 часов)
         if progress.get("last_claimed_at"):
-            # Проверяем, прошло ли 20 часов
             last_claim = parser.isoparse(progress["last_claimed_at"])
+            # Приводим datetime.now к UTC для корректного сравнения
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
 
@@ -12091,30 +12103,23 @@ async def claim_daily_task(
         # --- ПРОВЕРКА ЧЕРЕЗ TELEGRAM API ---
         check_passed = False
         try:
-            # Получаем объект ChatMember
-            chat_member = await bot.get_chat_member(chat_id=user_id, user_id=user_id) 
-            # ВАЖНО: get_chat(user_id) возвращает Chat, а get_chat_member — статус. 
-            # Но для проверки био/фамилии лучше использовать bot.get_chat(user_id)
+            # Используем глобального бота
             user_chat = await bot.get_chat(user_id)
-            
             phrase = task["check_phrase"].lower()
             
             if task["check_type"] == "surname":
                 last_name = (user_chat.last_name or "").lower()
                 if phrase in last_name:
                     check_passed = True
-                    
             elif task["check_type"] == "bio":
                 bio = (user_chat.bio or "").lower()
                 if phrase in bio:
                     check_passed = True
             else:
-                check_passed = True 
-                
+                check_passed = True
         except Exception as e:
             print(f"Tg API Error: {e}")
-            # Если не смогли проверить, можно попробовать пропустить или выдать ошибку.
-            # Часто бот не может получить данные, если пользователь его не запускал или настройки приватности скрывают био.
+            # Можно пропустить ошибку или вернуть False, зависит от логики
             pass
 
         if not check_passed:
@@ -12124,18 +12129,24 @@ async def claim_daily_task(
         # Расчет награды
         next_day = progress["current_day"] + 1
         reward = calculate_daily_reward(task["reward_amount"], task["total_days"], next_day)
-        
-        # Начисляем билеты (RPC функция)
-        await supabase.rpc("add_tickets", {"p_user_id": user_id, "p_amount": reward}).execute()
-        
+
+        # 3. Начисляем билеты (RPC через HTTPX)
+        # Было: supabase.rpc("add_tickets", ...).execute()
+        await supabase.post("/rpc/add_tickets", json={"p_user_id": user_id, "p_amount": reward})
+
+        # 4. Обновляем прогресс (HTTPX Style)
         update_data = {
             "current_day": next_day,
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
             "completed": next_day >= task["total_days"]
         }
         
-        # ЗАМЕНА 4: .table -> .from_
-        await supabase.from_("user_telegram_progress").update(update_data).eq("user_id", user_id).eq("task_key", task_key).execute()
+        # Было: supabase.from_("user_telegram_progress").update...
+        await supabase.patch(
+            "/user_telegram_progress", 
+            params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}"},
+            json=update_data
+        )
 
         return JSONResponse({
             "success": True, 
@@ -12148,7 +12159,7 @@ async def claim_daily_task(
     except Exception as e:
         print(f"Error claiming daily: {e}")
         return JSONResponse({"success": False, "error": str(e)})
-
+        
 @app.post("/api/v1/telegram/status")
 async def get_telegram_status(
     request: Request,
