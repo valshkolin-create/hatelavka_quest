@@ -3118,28 +3118,24 @@ async def validate_event_status(db_client):
         return {"visible": True, "paused": False} # Если ошибка, пускаем, чтобы не ломать игру
 
 @app.get("/api/admin/event/status")
-async def get_event_status_admin(request: Request):
-    # Тут можно добавить проверку админа
-    status = await validate_event_status()
+async def get_event_status_admin(request: Request, supabase: AsyncClient = Depends(get_supabase_client)):
+    status = await validate_event_status(supabase)
     return status
 
+
 @app.post("/api/admin/event/status")
-async def set_event_status_admin(state: EventControlState, request: Request):
-    # Тут можно добавить проверку админа
+async def set_event_status_admin(state: EventControlState, request: Request, supabase: AsyncClient = Depends(get_supabase_client)):
     try:
-        # Обновляем видимость
-        await async_supabase.table('settings').update({'value': state.visible}).eq('key', 'halloween_visible').execute()
-        # Обновляем паузу
-        await async_supabase.table('settings').update({'value': state.paused}).eq('key', 'halloween_paused').execute()
-        
+        await supabase.table('settings').update({'value': state.visible}).eq('key', 'halloween_visible').execute()
+        await supabase.table('settings').update({'value': state.paused}).eq('key', 'halloween_paused').execute()
         return {"status": "success", "data": state}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- 4. API для Клиента (Проверка при входе) ---
 @app.get("/api/event/status")
-async def get_event_status_public():
-    status = await validate_event_status()
+async def get_event_status_public(supabase: AsyncClient = Depends(get_supabase_client)):
+    status = await validate_event_status(supabase)
     return status
 
 
