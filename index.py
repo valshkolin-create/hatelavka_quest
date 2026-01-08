@@ -3102,47 +3102,61 @@ def str_to_bool(val):
         return val.lower() == 'true'
     return False
 
-# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ (убраны await у supabase) ---
+# =======================================================
+# 1. Функция проверки статуса (ИСПРАВЛЕННАЯ)
+# =======================================================
 async def validate_event_status():
     """
     Проверяет настройки ивента в таблице settings.
-    Использует run_in_threadpool, чтобы не блокировать сервер синхронными запросами.
+    Исправлена ошибка 'object APIResponse can't be used in await'.
     """
+    # Внутренняя функция для синхронных запросов (без await!)
     def _fetch_settings_sync():
         try:
-            # Клиент supabase синхронный, поэтому await здесь НЕ нужен
-            vis = supabase.table("settings").select("value").eq("key", "halloween_visible").execute()
-            pau = supabase.table("settings").select("value").eq("key", "halloween_paused").execute()
-            return vis, pau
-        except Exception as e:
-            print(f"DB Error inside threadpool: {e}")
+            # УБРАНЫ await, так как клиент синхронный
+            r_vis = supabase.table("settings").select("value").eq("key", "halloween_visible").execute()
+            r_pau = supabase.table("settings").select("value").eq("key", "halloween_paused").execute()
+            return r_vis, r_pau
+        except Exception as ex:
+            print(f"DB Error inside threadpool: {ex}")
             return None, None
 
-    # Запускаем в отдельном потоке, чтобы не тормозить бота/сайт
-    response_visible, response_paused = await run_in_threadpool(_fetch_settings_sync)
+    try:
+        # Запускаем синхронные запросы в отдельном потоке, чтобы не блокировать бота
+        # Само ожидание потока (await run_in_threadpool) корректно
+        response_visible, response_paused = await run_in_threadpool(_fetch_settings_sync)
 
-    is_visible = False
-    if response_visible and response_visible.data:
-        val = response_visible.data[0]['value']
-        if isinstance(val, bool):
-            is_visible = val
-        elif isinstance(val, str):
-            clean_val = val.strip().replace('"', '').replace("'", "")
-            is_visible = clean_val.lower() == 'true'
+        # Логика обработки visible
+        is_visible = False
+        if response_visible and response_visible.data:
+            val = response_visible.data[0]['value']
+            if isinstance(val, bool):
+                is_visible = val
+            elif isinstance(val, str):
+                clean_val = val.strip().replace('"', '').replace("'", "")
+                is_visible = clean_val.lower() == 'true'
 
-    is_paused = False
-    if response_paused and response_paused.data:
-        val = response_paused.data[0]['value']
-        if isinstance(val, bool):
-            is_paused = val
-        elif isinstance(val, str):
-            clean_val = val.strip().replace('"', '').replace("'", "")
-            is_paused = clean_val.lower() == 'true'
+        # Логика обработки paused
+        is_paused = False
+        if response_paused and response_paused.data:
+            val = response_paused.data[0]['value']
+            if isinstance(val, bool):
+                is_paused = val
+            elif isinstance(val, str):
+                clean_val = val.strip().replace('"', '').replace("'", "")
+                is_paused = clean_val.lower() == 'true'
 
-    return {"visible": is_visible, "paused": is_paused}
+        return {"visible": is_visible, "paused": is_paused}
+
+    except Exception as e:
+        print(f"Error validating event status: {e}")
+        # При ошибке базы безопаснее считать ивент закрытым
+        return {"visible": False, "paused": True}
 
 
-# --- GET ENDPOINT (Для отображения статуса в админке) ---
+# =======================================================
+# 2. GET Endpoint (Для админки, чтобы видеть актуальное состояние)
+# =======================================================
 @app.get("/api/admin/event/status")
 async def get_event_status_admin(request: Request):
     try:
@@ -3152,23 +3166,22 @@ async def get_event_status_admin(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- POST ENDPOINT (Для сохранения настроек) ---
+# =======================================================
+# 3. POST Endpoint (Для сохранения настроек)
+# =======================================================
 @app.post("/api/admin/event/status")
 async def set_event_status_admin(state: EventControlState, request: Request):
-    """
-    Сохраняет статус ивента. 
-    Убраны await, так как клиент supabase синхронный.
-    """
     try:
-        # При записи преобразуем bool обратно в строку "true"/"false"
+        # Преобразуем bool в string для базы
         val_visible = "true" if state.visible else "false"
         val_paused = "true" if state.paused else "false"
 
-        # Запускаем обновление в threadpool, чтобы не блокировать цикл
+        # Внутренняя функция для записи (тоже без await!)
         def _update_settings_sync():
             supabase.from_('settings').update({'value': val_visible}).eq('key', 'halloween_visible').execute()
             supabase.from_('settings').update({'value': val_paused}).eq('key', 'halloween_paused').execute()
 
+        # Запускаем в потоке
         await run_in_threadpool(_update_settings_sync)
         
         return {"status": "success", "data": state}
