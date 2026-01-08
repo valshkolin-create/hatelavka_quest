@@ -3096,13 +3096,17 @@ async def delete_slay_candidate(
 # --- 3. API для Админки (Чтение и Запись) ---
 
 # Функция проверки статуса (принимает клиент supabase)
-async def validate_event_status(db_client):
+async def validate_event_status(db_client=None):
     """
     Проверяет настройки ивента в базе.
     Возвращает: {'visible': bool, 'paused': bool}
     """
+    # Добавьте эту проверку:
+    if db_client is None:
+        db_client = supabase  # Используем глобальную переменную supabase
+
     try:
-        # Запрашиваем настройки
+        # Дальше код остается без изменений...
         response = await db_client.table('settings').select('*').in_('key', ['halloween_visible', 'halloween_paused']).execute()
         
         # Парсим результат
