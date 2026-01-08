@@ -3093,57 +3093,62 @@ async def delete_slay_candidate(
 
 # 1. Получение активных голосований (Для пользователей)
 
-# --- 3. API для Админки (Чтение и Запись) ---
+# --- Вспомогательная функция для перевода строк из базы в True/False ---
+def str_to_bool(val):
+    """Преобразует строку 'true'/'false' или булево значение в Python bool"""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() == 'true'
+    return False
 
-# Функция проверки статуса (принимает клиент supabase)
-async def validate_event_status(db_client=None): # 1. Добавили =None
+# --- Исправленная функция проверки статуса ---
+async def validate_event_status(db_client=None):
     """
     Проверяет настройки ивента в базе.
-    Возвращает: {'visible': bool, 'paused': bool}
+    Возвращает чистые boolean значения, даже если в базе записаны строки.
     """
-    # 2. Если аргумент не передан, берем глобальный клиент
     if db_client is None:
         db_client = supabase 
 
     try:
-        # 3. ИСПОЛЬЗУЕМ .from_() ВМЕСТО .table()
+        # Запрашиваем конкретные ключи настроек
         response = await db_client.from_('settings').select('*').in_('key', ['halloween_visible', 'halloween_paused']).execute()
         
-        # Парсим результат
+        # Собираем словарь из ответа
         settings = {item['key']: item['value'] for item in response.data}
         
-        # Возвращаем значения (по умолчанию: виден=True, пауза=False)
+        # ВАЖНО: Преобразуем строки из базы ("true"/"false") в реальные булевы значения
         return {
-            "visible": settings.get('halloween_visible', True),
-            "paused": settings.get('halloween_paused', False)
+            "visible": str_to_bool(settings.get('halloween_visible', True)),
+            "paused": str_to_bool(settings.get('halloween_paused', False))
         }
     except Exception as e:
         print(f"Error checking event status: {e}")
-        return {"visible": True, "paused": False} # Если ошибка, пускаем, чтобы не ломать игру
+        # В случае ошибки возвращаем безопасные настройки (ивент работает, не на паузе)
+        return {"visible": True, "paused": False}
 
+# --- Исправленный эндпоинт админки для переключения тумблеров ---
 @app.get("/api/admin/event/status")
 async def get_event_status_admin(request: Request):
-    # Тут можно добавить проверку админа
-    status = await validate_event_status() # Теперь вызов без аргументов сработает
+    # Тут можно добавить проверку админа, если нужно
+    status = await validate_event_status()
     return status
 
 @app.post("/api/admin/event/status")
 async def set_event_status_admin(state: EventControlState, request: Request):
-    # Тут можно добавить проверку админа
     try:
-        # 4. ИСПОЛЬЗУЕМ supabase (глобальный) и .from_()
-        await supabase.from_('settings').update({'value': state.visible}).eq('key', 'halloween_visible').execute()
-        await supabase.from_('settings').update({'value': state.paused}).eq('key', 'halloween_paused').execute()
+        # При записи преобразуем bool обратно в строку "true"/"false"
+        # Это гарантирует, что в базе всегда будет понятный текстовый формат
+        val_visible = "true" if state.visible else "false"
+        val_paused = "true" if state.paused else "false"
+
+        await supabase.from_('settings').update({'value': val_visible}).eq('key', 'halloween_visible').execute()
+        await supabase.from_('settings').update({'value': val_paused}).eq('key', 'halloween_paused').execute()
         
         return {"status": "success", "data": state}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# --- 4. API для Клиента (Проверка при входе) ---
-@app.get("/api/event/status")
-async def get_event_status_public(supabase: AsyncClient = Depends(get_supabase_client)):
-    status = await validate_event_status(supabase)
-    return status
 
 
 @app.post("/api/v1/slay/active")
@@ -4697,6 +4702,33 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
         admin_settings_cache["settings"] = None
         admin_settings_cache["last_checked"] = 0
         return AdminSettings()
+
+# --- ВСТАВИТЬ В index.py (глобальная область видимости, не внутри другой функции) ---
+
+async def validate_event_status():
+    """
+    Проверяет статус ивента (Котел) в таблице settings.
+    Возвращает словарь: {'visible': bool, 'paused': bool}
+    """
+    try:
+        # Запрашиваем настройки из БД
+        response = await supabase.table("settings").select("value").eq("key", "cauldron_settings").single()
+        
+        # Если настроек нет совсем — считаем, что ивент выключен
+        if not response.data:
+            return {"visible": False, "paused": False}
+            
+        settings = response.data.get("value", {})
+        
+        # Возвращаем флаги (по умолчанию False, если ключа нет)
+        return {
+            "visible": settings.get("is_visible_to_users", False),
+            "paused": settings.get("is_paused", False)
+        }
+    except Exception as e:
+        print(f"Error inside validate_event_status: {e}")
+        # В случае ошибки базы данных лучше "закрыть" ивент от греха подальше
+        return {"visible": False, "paused": False}
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (GATEKEEPER) ---
 @app.post("/api/v1/user/check_subscription")
