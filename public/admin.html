@@ -716,6 +716,33 @@
                 <div style="width: 60px;"></div>
             </div>
 
+            <div class="event-control-panel" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+                <h3 style="margin-top:0; color: #ff9500;"><i class="fa-solid fa-fire-burner"></i> Управление Котлом</h3>
+                
+                <div class="control-row">
+                    <div class="control-info">
+                        <span class="control-title">Ивент Активен</span>
+                        <span class="control-desc">Выкл = "Ивент завершен"</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-event-visible">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="divider" style="height: 1px; background: rgba(255,255,255,0.1); margin: 10px 0;"></div>
+
+                <div class="control-row">
+                    <div class="control-info">
+                        <span class="control-title">Пауза (Стоп Билеты)</span>
+                        <span class="control-desc">Ивент виден, но нельзя кидать билеты</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-event-paused">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
             <div class="tabs-container" id="cauldron-tabs">
                 <button class="tab-button active" data-tab="cauldron-settings">Настройки</button>
                 <button class="tab-button" data-tab="cauldron-rewards-1">Награды Ур. 1</button>
@@ -731,7 +758,7 @@
                     <div class="quest-card">
                         <div class="admin-form">
                             <div class="setting-item" style="padding: 0; border: none;">
-                                <span class="setting-label">Ивент активен (виден пользователям)</span>
+                                <span class="setting-label">Ивент активен (Legacy)</span>
                                 <label class="toggle-switch">
                                     <input type="checkbox" name="is_visible_to_users">
                                     <span class="toggle-slider"></span>
@@ -786,6 +813,8 @@
                         <button id="reset-cauldron-btn" type="button" class="admin-action-btn reject" style="width: 100%;">Сбросить весь прогресс</button>
                     </div>
                 </div>
+            </form>
+        </div>
 
                 <div id="tab-content-cauldron-rewards-1" class="tab-content hidden">
     <div class="quest-card">
