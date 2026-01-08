@@ -1240,7 +1240,7 @@ body.no-scroll {
 }
 
 /* =========================================
-   СТИЛИ ДЛЯ РЕЖИМА ПАУЗЫ (Оверлей)
+   СТИЛИ ДЛЯ РЕЖИМА ПАУЗЫ (Premium Glass)
    ========================================= */
 
 .pause-overlay {
@@ -1249,69 +1249,84 @@ body.no-scroll {
     left: 0;
     width: 100%;
     height: 100%;
-    /* Темный полупрозрачный фон */
-    background: rgba(15, 14, 25, 0.85);
-    /* Размытие заднего фона */
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    z-index: 100;
+    
+    /* Глубокий градиент вместо простого цвета */
+    background: linear-gradient(135deg, rgba(18, 16, 26, 0.95) 0%, rgba(10, 8, 15, 0.98) 100%);
+    
+    /* Сильное размытие фона */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    z-index: 100;
     
-    /* Наследуем скругление углов от родительского блока */
+    /* Наследуем скругление, чтобы не вылезало за края */
     border-radius: inherit;
     
-    /* Плавное появление */
-    animation: fadeInOverlay 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    /* Тонкая рамка для четкости границ */
+    border: 1px solid rgba(255, 255, 255, 0.08);
     
-    /* Внутренняя тень для глубины */
-    box-shadow: inset 0 0 60px rgba(0,0,0,0.6);
+    /* Внутренняя тень создает объем */
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+    
+    opacity: 0;
+    animation: fadeInGlass 0.4s ease-out forwards;
     user-select: none;
-    pointer-events: all; /* Блокируем клики сквозь оверлей */
 }
 
 .pause-content {
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     transform: translateY(10px);
-    animation: slideUpContent 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: slideUpContent 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards 0.1s;
+}
+
+.pause-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 77, 77, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 77, 77, 0.2);
+    box-shadow: 0 0 15px rgba(255, 77, 77, 0.1);
 }
 
 .pause-icon {
-    font-size: 26px; /* Было 36px, стало меньше */
+    font-size: 18px; /* Аккуратный размер */
     color: #ff4d4d;
-    margin-bottom: 8px; /* Уменьшили отступ снизу */
-    /* Немного уменьшим радиус свечения, чтобы соответствовать размеру */
-    filter: drop-shadow(0 0 10px rgba(255, 77, 77, 0.5));
+    filter: drop-shadow(0 0 5px rgba(255, 77, 77, 0.6));
 }
 
 .pause-title {
     font-family: var(--font-main);
-    font-weight: 800;
-    font-size: 15px; /* Было 18px */
+    font-weight: 700;
+    font-size: 14px;
     color: #fff;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px; /* Уменьшили отступ */
-    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    letter-spacing: 1.5px; /* Делает текст дороже */
+    margin-bottom: 4px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .pause-subtitle {
     font-family: var(--font-main);
-    font-size: 13px;
-    color: #a09cb8; /* Приглушенный текст */
+    font-size: 11px;
+    color: #8885a0;
     font-weight: 500;
 }
 
 /* Анимации */
-@keyframes fadeInOverlay {
-    from { opacity: 0; }
+@keyframes fadeInGlass {
     to { opacity: 1; }
 }
 
 @keyframes slideUpContent {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
+    to { transform: translateY(0); }
 }
