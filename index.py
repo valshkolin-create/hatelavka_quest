@@ -3114,11 +3114,13 @@ async def validate_event_status():
         is_visible = False
         if response_visible.data:
             val = response_visible.data[0]['value']
-            # Обработка, если значение записалось как строка "true"/"false" или как булево
+            # Обработка: bool, string "true"/"false", string с кавычками '"true"'
             if isinstance(val, bool):
                 is_visible = val
             elif isinstance(val, str):
-                is_visible = val.lower() == 'true'
+                # Очищаем от кавычек и пробелов (на случай если в базе записалось как "\"true\"")
+                clean_val = val.strip().replace('"', '').replace("'", "")
+                is_visible = clean_val.lower() == 'true'
 
         # 2. Получаем настройку паузы (halloween_paused)
         response_paused = await supabase.table("settings").select("value").eq("key", "halloween_paused").execute()
@@ -3128,7 +3130,8 @@ async def validate_event_status():
             if isinstance(val, bool):
                 is_paused = val
             elif isinstance(val, str):
-                is_paused = val.lower() == 'true'
+                clean_val = val.strip().replace('"', '').replace("'", "")
+                is_paused = clean_val.lower() == 'true'
 
         return {"visible": is_visible, "paused": is_paused}
 
@@ -3137,23 +3140,16 @@ async def validate_event_status():
         # Если ошибка базы, безопаснее считать ивент закрытым
         return {"visible": False, "paused": True}
 
-# ---------------------------------------------------------------------------
 
-@app.post("/api/admin/event/status")
-async def set_event_status_admin(state: EventControlState, request: Request):
+# --- ДОБАВЛЕННЫЙ ENDPOINT (Исправляет проблему с несохранением переключателей) ---
+@app.get("/api/admin/event/status")
+async def get_event_status_admin(request: Request):
+    """Возвращает текущий статус ивента для админ-панели, чтобы переключатели не сбрасывались."""
     try:
-        # При записи преобразуем bool обратно в строку "true"/"false"
-        # Это гарантирует, что в базе всегда будет понятный текстовый формат
-        val_visible = "true" if state.visible else "false"
-        val_paused = "true" if state.paused else "false"
-
-        await supabase.from_('settings').update({'value': val_visible}).eq('key', 'halloween_visible').execute()
-        await supabase.from_('settings').update({'value': val_paused}).eq('key', 'halloween_paused').execute()
-        
-        return {"status": "success", "data": state}
+        status = await validate_event_status()
+        return status
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/api/v1/slay/active")
 async def get_active_slay_nominations(
