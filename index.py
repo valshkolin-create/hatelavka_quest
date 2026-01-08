@@ -12131,7 +12131,6 @@ async def claim_daily_task(
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
         # Проверка времени (20 часов) - ТОЛЬКО если задание ежедневное
-        # Если задание разовое (is_daily=False), таймер не важен, так как оно выполнится сразу
         if task.get("is_daily") and progress.get("last_claimed_at"):
             last_claim = parser.isoparse(progress["last_claimed_at"])
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
@@ -12160,6 +12159,34 @@ async def claim_daily_task(
             except Exception as e:
                 print(f"Bot check error: {e}")
                 return JSONResponse({"success": False, "error": "Бот не смог проверить подписку. Убедитесь, что вы подписаны."})
+
+        # === ВСТАВКА: Голосование (Бусты) - ЧЕСТНАЯ ПРОВЕРКА ===
+        elif task_key == "tg_vote":
+            channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+            if not channel_id:
+                return JSONResponse({"success": False, "error": "Ошибка настройки (нет ID канала)"})
+
+            try:
+                # Получаем список бустов конкретного юзера в этом канале
+                # Бот обязан быть админом канала!
+                user_boosts = await bot.get_user_chat_boosts(chat_id=channel_id, user_id=user_id)
+                
+                # Если список бустов не пуст — значит проголосовал
+                if user_boosts.boosts:
+                    check_passed = True
+                else:
+                    return JSONResponse({
+                        "success": False, 
+                        "error": "Вы не проголосовали за канал! Голос (Boost) не найден."
+                    })
+                    
+            except Exception as e:
+                print(f"Boost Check Error: {e}")
+                # Если бот не админ или другая ошибка API
+                return JSONResponse({
+                    "success": False, 
+                    "error": "Бот не может проверить голос. Сделайте бота администратором канала!"
+                })
 
         # === Стандартная проверка (Фамилия / Био) ===
         else:
@@ -12190,14 +12217,12 @@ async def claim_daily_task(
         next_day = progress["current_day"] + 1
         
         # === ВСТАВКА: Логика завершения ===
-        # Если задание НЕ ежедневное (разовое), оно завершается сразу (completed=True)
-        # Если ежедневное, то завершается только когда дошли до total_days
         if not task.get("is_daily"):
             is_done = True
         else:
             is_done = next_day >= task["total_days"]
 
-        reward = task["reward_amount"] # Для дейликов можно вернуть твою функцию calculate_daily_reward, если нужно
+        reward = task["reward_amount"] 
 
         # 3. Начисляем билеты
         await supabase.post("/rpc/add_tickets", json={"p_user_id": user_id, "p_amount": reward})
@@ -12220,13 +12245,14 @@ async def claim_daily_task(
             "reward": reward, 
             "day": next_day,
             "total_days": task["total_days"],
-            "is_completed": is_done, # Важно для фронта (чтобы сделать серым)
+            "is_completed": is_done, 
             "message": f"Задание выполнено! Получено {reward} билетов!"
         })
 
     except Exception as e:
         print(f"Error claiming daily: {e}")
         return JSONResponse({"success": False, "error": str(e)})
+
         
 @app.post("/api/v1/telegram/status")
 async def get_telegram_status(
