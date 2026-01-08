@@ -269,166 +269,6 @@ try {
     // Инициализируем попап при старте (скрытым)
     // injectBoostPopup();
 
-    // Добавьте эту функцию в quests.js
-async function loadTelegramTasks() {
-    const container = document.getElementById('tg-tasks-list');
-    if (!container) return;
-    
-    // Получаем user_id из Telegram (или из твоего сохраненного стейта)
-    const userId = Telegram.WebApp.initDataUnsafe.user?.id;
-
-    try {
-        // 1. Загружаем сами задания
-        const tasks = await makeApiRequest('/api/v1/telegram/tasks', {}, 'GET', true);
-        
-        // 2. Загружаем прогресс пользователя (нужен отдельный вызов или join на бэке, 
-        // но для простоты запросим таблицу прогресса через supabase-клиент или отдельный роут.
-        // Давай предположим, что tasks теперь возвращает поле 'user_progress' если мы доработаем API,
-        // НО пока сделаем отдельный запрос к Supabase через JS или новый роут)
-        // Упростим: давай пока рисовать "нулевой" прогресс, а при клике обновлять. 
-        // ИЛИ (лучше) - давай добавим в API /telegram/tasks возврат прогресса сразу.
-        
-        // !!! ДЛЯ ЭТОГО ШАГА: Вернись в Python функцию get_telegram_tasks и добавь туда join с прогрессом,
-        // или просто запроси прогресс отдельным запросом здесь:
-        
-        // (Предполагаем, что backend /api/v1/telegram/tasks мы пока не трогали, 
-        // поэтому просто рендерим, а статус обновится при клике. 
-        // Но для красоты лучше знать статус сразу. 
-        // Я сделаю визуализацию "как есть", а актуальный день покажет сервер при клике).
-
-        container.innerHTML = ''; 
-
-        tasks.forEach(task => {
-            const el = document.createElement('div');
-            el.className = 'tg-task-item'; // Используем тот же класс контейнера
-            
-            // Иконки
-            let iconClass = 'fa-solid fa-star';
-            if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-signature';
-            if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
-            if (task.task_key === 'tg_sub') iconClass = 'fa-solid fa-user-plus';
-            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-square-poll-vertical';
-
-            let buttonHtml = '';
-            let progressHtml = '';
-
-            if (task.is_daily) {
-                // ЭТО ЕЖЕДНЕВНОЕ ЗАДАНИЕ
-                // Считаем примерную награду за день для отображения (среднюю)
-                const avgReward = Math.round(task.reward_amount / task.total_days);
-                
-                buttonHtml = `
-                    <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId})">
-                        Забрать (~${avgReward} 🎟)
-                    </button>
-                `;
-                
-                // Добавляем полоску прогресса
-                progressHtml = `
-                    <div class="tg-progress-track" style="margin-top:8px;">
-                        <div id="prog-fill-${task.task_key}" class="tg-progress-fill" style="width: 0%"></div>
-                    </div>
-                    <div class="tg-counter-text" id="prog-text-${task.task_key}">
-                        Нажми, чтобы проверить
-                    </div>
-                `;
-
-            } else {
-                // ОБЫЧНОЕ ЗАДАНИЕ (как раньше)
-                buttonHtml = `
-                    <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
-                        +${task.reward_amount} 🎟
-                    </button>
-                `;
-            }
-
-            el.innerHTML = `
-                <div class="tg-task-header">
-                    <div class="tg-left-col">
-                        <div class="tg-icon-box"><i class="${iconClass}"></i></div>
-                        <div class="tg-text-col">
-                            <span class="tg-title">${task.title}</span>
-                            <span class="tg-subtitle">${task.description || ''}</span>
-                        </div>
-                    </div>
-                    <div class="tg-right-col">
-                        ${buttonHtml}
-                    </div>
-                </div>
-                ${progressHtml}
-            `;
-            container.appendChild(el);
-        });
-
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-// Универсальный обработчик клика
-async function handleDailyClaim(taskKey, userId) {
-    const btn = document.getElementById(`btn-${taskKey}`);
-    const fill = document.getElementById(`prog-fill-${taskKey}`);
-    const text = document.getElementById(`prog-text-${taskKey}`);
-    
-    if(btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    }
-
-    try {
-        const response = await fetch('/api/v1/telegram/claim_daily', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, task_key: taskKey })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // Успех!
-            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            
-            // Обновляем визуально
-            const percent = (data.day / data.total_days) * 100;
-            if(fill) fill.style.width = `${percent}%`;
-            if(text) text.innerText = `День ${data.day} из ${data.total_days} (Получено +${data.reward})`;
-            
-            if(btn) {
-                btn.innerText = "Забрано ✔";
-                // btn.disabled остается true
-            }
-
-            // Показываем красивый алерт
-            if (typeof showTicketsClaimedModal === 'function') {
-                // Можно немного хакнуть модалку, изменив текст перед показом
-                document.querySelector('#tickets-claimed-overlay p').innerText = data.message;
-                showTicketsClaimedModal();
-            } else {
-                Telegram.WebApp.showAlert(data.message);
-            }
-            
-            // Обновляем общий баланс билетов в шапке
-            const stats = document.getElementById('ticketStats');
-            if(stats) stats.innerText = parseInt(stats.innerText) + data.reward;
-
-        } else {
-            // Ошибка (не стоит тег, или уже забрал)
-            Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            Telegram.WebApp.showAlert(data.error);
-            
-            if(btn) {
-                btn.disabled = false;
-                btn.innerText = "Проверить снова";
-            }
-        }
-    } catch (e) {
-        console.error(e);
-        Telegram.WebApp.showAlert("Ошибка связи с сервером");
-        if(btn) btn.disabled = false;
-    }
-}
-
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
@@ -1658,4 +1498,210 @@ function markTgAsDone(btn) {
     btn.style.background = 'rgba(52, 199, 89, 0.2)'; 
     btn.style.color = '#34c759';
     btn.style.cursor = 'default';
+}
+
+// ==========================================
+// НОВЫЕ ФУНКЦИИ (Вставьте в конец файла)
+// ==========================================
+
+async function loadTelegramTasks() {
+    const container = document.getElementById('tg-tasks-list');
+    if (!container) return;
+
+    // Получаем ID пользователя для API запросов
+    const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
+
+    // Лоадер
+    container.innerHTML = '<div style="text-align:center; padding:10px; color:#666;">Загрузка...</div>';
+
+    try {
+        // 1. Загружаем задания
+        const tasks = await makeApiRequest('/api/v1/telegram/tasks', {}, 'GET', true);
+        container.innerHTML = ''; 
+
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:10px;">Заданий пока нет</div>';
+            return;
+        }
+
+        // 2. Получаем текущий прогресс пользователя по дейликам
+        // (Для оптимизации лучше объединить это в один запрос с tasks, но пока сделаем отдельным, если бэкенд поддерживает,
+        // ИЛИ будем обновлять статус при клике. Ниже вариант с "ленивой" загрузкой статуса при клике, чтобы не ломать старый API)
+        
+        tasks.forEach(task => {
+            const el = document.createElement('div');
+            el.className = 'tg-task-item';
+            
+            // Иконки
+            let iconClass = 'fa-solid fa-star';
+            if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-signature';
+            if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
+            if (task.task_key === 'tg_sub') iconClass = 'fa-solid fa-user-plus';
+            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-square-poll-vertical';
+
+            let rightColHtml = '';
+            let bottomHtml = '';
+
+            if (task.is_daily) {
+                // --- ЛОГИКА ЕЖЕДНЕВНЫХ ЗАДАНИЙ (ФАМИЛИЯ / БИО) ---
+                
+                // Рассчитываем примерную награду для отображения
+                const avgReward = Math.round(task.reward_amount / task.total_days);
+                
+                // Кнопка с вызовом handleDailyClaim
+                rightColHtml = `
+                    <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId})">
+                        Забрать (~${avgReward} 🎟)
+                    </button>
+                `;
+                
+                // Полоска прогресса (изначально пустая, обновится при клике или загрузке)
+                bottomHtml = `
+                    <div class="tg-progress-track" style="margin-top:8px;">
+                        <div id="prog-fill-${task.task_key}" class="tg-progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="tg-counter-text" id="prog-text-${task.task_key}">
+                        Нажми "Забрать" для проверки
+                    </div>
+                `;
+            } else {
+                // --- ЛОГИКА ОБЫЧНЫХ ЗАДАНИЙ (ПОДПИСКА / ГОЛОСОВАНИЕ) ---
+                rightColHtml = `
+                    <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
+                        +${task.reward_amount} 🎟
+                    </button>
+                `;
+            }
+
+            el.innerHTML = `
+                <div class="tg-task-header">
+                    <div class="tg-left-col">
+                        <div class="tg-icon-box"><i class="${iconClass}"></i></div>
+                        <div class="tg-text-col">
+                            <span class="tg-title">${task.title}</span>
+                            <span class="tg-subtitle">${task.description || ''}</span>
+                        </div>
+                    </div>
+                    <div class="tg-right-col">
+                        ${rightColHtml}
+                    </div>
+                </div>
+                ${bottomHtml}
+            `;
+            container.appendChild(el);
+        });
+
+        // После отрисовки обновляем старые статусы (подписки/голоса)
+        if (window.updateTelegramStatus) window.updateTelegramStatus();
+
+    } catch (e) {
+        console.error("Ошибка загрузки TG заданий:", e);
+        container.innerHTML = '<div style="color:red; text-align:center;">Ошибка загрузки</div>';
+    }
+}
+
+// Обработчик для ЕЖЕДНЕВНЫХ заданий (Фамилия / Био)
+async function handleDailyClaim(taskKey, userId) {
+    const btn = document.getElementById(`btn-${taskKey}`);
+    const fill = document.getElementById(`prog-fill-${taskKey}`);
+    const text = document.getElementById(`prog-text-${taskKey}`);
+    
+    // Блокируем кнопку
+    if(btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    }
+
+    try {
+        // Делаем запрос к нашему новому API (из index.py)
+        const response = await fetch('/api/v1/telegram/claim_daily', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                user_id: userId, 
+                task_key: taskKey,
+                initData: Telegram.WebApp.initData 
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // УСПЕХ
+            if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            
+            // 1. Обновляем полоску и текст
+            const percent = (data.day / data.total_days) * 100;
+            if(fill) fill.style.width = `${percent}%`;
+            if(text) text.innerText = `День ${data.day} из ${data.total_days} (Получено +${data.reward})`;
+            
+            // 2. Обновляем кнопку
+            if(btn) {
+                btn.innerText = "Забрано ✔";
+                // Оставляем disabled
+            }
+
+            // 3. Показываем модалку награды
+            if (typeof showTicketsClaimedModal === 'function') {
+                // Хак: меняем текст в модалке перед показом
+                const modalText = document.querySelector('#tickets-claimed-overlay p');
+                if(modalText) modalText.innerText = data.message;
+                showTicketsClaimedModal();
+            } else {
+                Telegram.WebApp.showAlert(data.message);
+            }
+            
+            // 4. Обновляем баланс в шапке
+            const stats = document.getElementById('ticketStats');
+            if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+
+        } else {
+            // ОШИБКА (Тег не стоит или уже забрали)
+            if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            
+            // Показываем ошибку (или открываем попап с инструкцией)
+            if (data.error && data.error.includes("Тег")) {
+                // Если ошибка про тег, открываем нашу инструкцию
+                if (taskKey === 'tg_surname') injectProfilePopup('surname');
+                if (taskKey === 'tg_bio') injectProfilePopup('bio');
+            } else {
+                Telegram.WebApp.showAlert(data.error);
+            }
+            
+            // Разблокируем кнопку, чтобы можно было попробовать снова
+            if(btn) {
+                btn.disabled = false;
+                btn.innerText = "Проверить снова";
+            }
+            
+            // Если сервер вернул текущий прогресс даже при ошибке (опционально)
+            if (data.day !== undefined && data.total_days !== undefined) {
+                 const percent = (data.day / data.total_days) * 100;
+                 if(fill) fill.style.width = `${percent}%`;
+                 if(text) text.innerText = `День ${data.day} из ${data.total_days}`;
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        Telegram.WebApp.showAlert("Ошибка связи с сервером");
+        if(btn) {
+            btn.disabled = false;
+            btn.innerText = "Ошибка";
+        }
+    }
+}
+
+// Обработчик для ОБЫЧНЫХ заданий (Старый функционал)
+function handleTgTaskClick(key, url) {
+    if (key === 'tg_vote') {
+        // Запускаем логику голосования
+        if (typeof injectBoostPopup === 'function') injectBoostPopup(url);
+    } else if (key === 'tg_sub') {
+        // Подписка
+        Telegram.WebApp.openTelegramLink(url);
+        // Через 2 секунды обновляем статус
+        setTimeout(() => {
+            if(window.updateTelegramStatus) window.updateTelegramStatus();
+        }, 2000);
+    }
 }
