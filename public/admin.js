@@ -6472,3 +6472,53 @@ function transferSelectedRewards() {
         targetContainer.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
     }, 300);
 }
+
+// --- Функция переключения статуса награды в Котле ---
+async function toggleRewardStatus(btn, event) {
+    if (event) event.stopPropagation(); // Остановка всплытия, чтобы не кликалось по ряду
+
+    const userId = btn.dataset.userId;
+    const currentStatus = btn.dataset.currentStatus === 'true';
+    const newStatus = !currentStatus;
+
+    // Анимация загрузки
+    const icon = btn.querySelector('i');
+    const originalIconClass = icon.className;
+    icon.className = 'fa-solid fa-spinner fa-spin'; // Крутилка
+    btn.disabled = true;
+
+    try {
+        // Отправляем запрос на сервер
+        await makeApiRequest('/api/v1/admin/events/cauldron/reward_status', {
+            user_id: parseInt(userId),
+            is_sent: newStatus
+        });
+
+        // Если успех - обновляем вид кнопки
+        btn.dataset.currentStatus = newStatus;
+        
+        // Меняем классы цветов (зеленый/серый)
+        btn.classList.toggle('sent', newStatus);
+        btn.classList.toggle('pending', !newStatus);
+        
+        // Меняем иконку
+        btn.innerHTML = `<i class="fa-solid ${newStatus ? 'fa-check' : 'fa-clock'}"></i>`;
+        
+        // Подсвечиваем всю строку зеленым, если выдано
+        const row = btn.closest('.distribution-row');
+        if (row) {
+            row.classList.toggle('row-sent', newStatus);
+        }
+
+    } catch (e) {
+        console.error("Ошибка смены статуса:", e);
+        tg.showAlert('Не удалось изменить статус. Проверьте консоль.');
+        // Возвращаем иконку как было
+        icon.className = originalIconClass;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// Делаем функцию глобальной, чтобы HTML onclick её видел
+window.toggleRewardStatus = toggleRewardStatus;
