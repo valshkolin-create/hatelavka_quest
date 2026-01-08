@@ -6318,7 +6318,6 @@ async function refreshCurrentP2PTradeDetails() {
     }
 }
 // Функция инициализации управления ивентом (ОБНОВЛЕННАЯ)
-// Функция инициализации управления ивентом (ОБНОВЛЕННАЯ)
 async function initEventControls() {
     const visibleToggle = document.getElementById('toggle-event-visible');
     const pausedToggle = document.getElementById('toggle-event-paused');
@@ -6363,6 +6362,17 @@ async function initEventControls() {
     visibleToggle.addEventListener('change', updateStatus);
     pausedToggle.addEventListener('change', updateStatus);
 }
+
+    // Инициализация приложения
+    document.addEventListener("DOMContentLoaded", () => {
+        console.log("Admin Init Started");
+        tg.ready();
+        setupEventListeners();
+        main();
+        
+        // 👇 ДОБАВИТЬ ЭТУ СТРОКУ 👇
+        initEventControls(); 
+    });
 /* ==========================================
    ЛОГИКА ПЕРЕНОСА НАГРАД (КОТЕЛ)
    Вставить в конец файла admin.js
