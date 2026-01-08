@@ -103,13 +103,15 @@ async function checkEventStatus() {
                 // Если оверлея еще нет — создаем его
                 if (!controlsContainer.querySelector('.pause-overlay')) {
                     const overlay = document.createElement('div');
-                    overlay.className = 'pause-overlay'; // Используем класс из CSS
+                    overlay.className = 'pause-overlay';
                     
                     overlay.innerHTML = `
                         <div class="pause-content">
-                            <i class="fa-solid fa-lock pause-icon"></i>
+                            <div class="pause-icon-wrapper">
+                                <i class="fa-solid fa-lock pause-icon"></i>
+                            </div>
                             <div class="pause-title">Прием закрыт</div>
-                            <div class="pause-subtitle">Идет подсчет итогов...</div>
+                            <div class="pause-subtitle">Подсчет итогов...</div>
                         </div>
                     `;
                     controlsContainer.appendChild(overlay);
