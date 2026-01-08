@@ -624,3 +624,28 @@ body[data-theme="manual"] {
   .close-btn:hover {
     background: rgba(255,255,255,0.1);
   }
+/* === ДОБАВИТЬ В КОНЕЦ ФАЙЛА quests.css === */
+
+/* Стили для выполненных заданий (Telegram) */
+.tg-task-item.completed {
+    opacity: 0.5;                /* Делаем полупрозрачным */
+    filter: grayscale(1);        /* Делаем черно-белым */
+    order: 999;                  /* Принудительно кидаем в самый низ */
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    pointer-events: none;        /* Отключаем клики */
+}
+
+/* Зеленая галочка для выполненных */
+.tg-completed-icon {
+    color: #34c759;
+    font-size: 16px;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: rgba(52, 199, 89, 0.1);
+    border-radius: 50%;
+}
