@@ -1515,6 +1515,57 @@ async def update_cauldron_reward_status(
         logging.error(f"Ошибка при обновлении статуса награды котла: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
+@app.post("/api/v1/admin/events/cauldron/participants")
+async def get_cauldron_participants(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Возвращает список участников Котла с их статусами.
+    """
+    # 1. Проверка прав
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # 2. Запрос к базе
+        # Обязательно запрашиваем поле is_reward_sent
+        response = await supabase.get(
+            "/cauldron_participants",
+            params={
+                "select": "*, user:users(full_name, username, trade_link, twitch_login, referral_activated_at)"
+            }
+        )
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # 3. Формируем ответ для фронтенда
+        result = []
+        for item in data:
+            user = item.get("user", {}) or {}
+            
+            # Определяем подписку (если есть дата активации рефералки — значит подписан)
+            is_subscribed = True if user.get("referral_activated_at") else False
+
+            result.append({
+                "user_id": item.get("user_id"),
+                "total_contribution": item.get("total_contribution", 0),
+                "is_reward_sent": item.get("is_reward_sent", False), # <--- САМОЕ ВАЖНОЕ: Статус из базы
+                "full_name": user.get("full_name") or "Unknown",
+                "username": user.get("username"),
+                "trade_link": user.get("trade_link"),
+                "twitch_login": user.get("twitch_login"),
+                "is_subscribed": is_subscribed
+            })
+            
+        return result
+
+    except Exception as e:
+        logging.error(f"Ошибка получения участников котла: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка загрузки списка")
+
 @app.post("/api/v1/admin/actions/list_entities")
 async def admin_list_entities(
     request_data: AdminEntityListRequest,
