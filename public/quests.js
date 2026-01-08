@@ -282,6 +282,8 @@ async function loadTelegramTasks() {
     }
 }
 // Глобальная функция обработки клика по ДЕЙЛИКУ
+// В файле quests.js замени handleDailyClaim на эту версию:
+
 async function handleDailyClaim(taskKey, userId) {
     const btn = document.getElementById(`btn-${taskKey}`);
     const fill = document.getElementById(`prog-fill-${taskKey}`);
@@ -299,16 +301,15 @@ async function handleDailyClaim(taskKey, userId) {
         });
         
         if (data && data.success) {
-            // Успех
+            // --- УСПЕХ ---
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             
-            // Если сервер сказал, что все готово (is_completed: true) — перезагружаем список, чтобы оно улетело вниз
+            // Если задание завершено полностью (сервер вернул is_completed: true)
             if (data.is_completed) {
                 Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
-                // Небольшая задержка и обновление списка
-                setTimeout(() => loadTelegramTasks(), 500); 
+                setTimeout(() => loadTelegramTasks(), 500); // Обновляем список, чтобы убрать вниз
             } else {
-                // Если это просто очередной день дейлика
+                // Если это промежуточный этап дейлика
                 if(fill) {
                     const percent = (data.day / data.total_days) * 100;
                     fill.style.width = `${percent}%`;
@@ -317,26 +318,39 @@ async function handleDailyClaim(taskKey, userId) {
                 
                 if(btn) {
                     btn.innerText = "Забрано ✔";
-                    // Разблокируем завтра, а пока пусть висит так
                 }
-                Telegram.WebApp.showAlert(data.message);
+                // Хак для показа сообщения
+                if(dom.ticketsClaimedOverlay) {
+                    const modalText = dom.ticketsClaimedOverlay.querySelector('p');
+                    if(modalText) modalText.innerText = data.message;
+                    dom.ticketsClaimedOverlay.classList.remove('hidden');
+                } else {
+                    Telegram.WebApp.showAlert(data.message);
+                }
             }
             
-            // Обновляем Баланс
+            // Обновляем баланс
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
 
         } else if (data) {
-            // Ошибка API
+            // --- ОШИБКА ---
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
-            if (data.error && data.error.includes("Тег")) {
+            // 1. Проверяем, не ошибка ли это проверки Фамилии/Био
+            // Ищем ключевые слова: "Условие не выполнено" (новый код) или "Тег" (старый код)
+            if (data.error && (data.error.includes("Условие не выполнено") || data.error.includes("Тег"))) {
                 if (taskKey === 'tg_surname') injectProfilePopup('surname');
-                if (taskKey === 'tg_bio') injectProfilePopup('bio');
-            } else if (data.error && data.error.includes("не подписаны")) {
-                 Telegram.WebApp.showAlert("Вы не подписаны на канал! Ссылка для подписки выше кнопки.");
-            } else {
-                Telegram.WebApp.showAlert(data.error);
+                else if (taskKey === 'tg_bio') injectProfilePopup('bio');
+                else Telegram.WebApp.showAlert(data.error);
+            } 
+            // 2. Проверяем ошибку подписки
+            else if (data.error && data.error.includes("не подписаны")) {
+                 Telegram.WebApp.showAlert("Вы не подписаны на канал! Ссылка для подписки находится над кнопкой.");
+            } 
+            // 3. Остальные ошибки (таймер и т.д.)
+            else {
+                Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
             }
             
             if(btn) {
@@ -352,6 +366,7 @@ async function handleDailyClaim(taskKey, userId) {
         }
     }
 }
+
 
 // Глобальная функция для ОБЫЧНЫХ квестов
 function handleTgTaskClick(key, url) {
