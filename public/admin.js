@@ -6317,6 +6317,53 @@ async function refreshCurrentP2PTradeDetails() {
         if (icon) icon.classList.remove('fa-spin');
     }
 }
+// Функция инициализации управления ивентом
+function initEventControls() {
+    const visibleToggle = document.getElementById('toggle-event-visible');
+    const pausedToggle = document.getElementById('toggle-event-paused');
+
+    if (!visibleToggle || !pausedToggle) return;
+
+    // 1. Получаем текущий статус с сервера
+    fetch('/api/admin/event/status')
+        .then(res => res.json())
+        .then(data => {
+            visibleToggle.checked = data.visible;
+            pausedToggle.checked = data.paused;
+        })
+        .catch(err => console.error('Ошибка получения статуса ивента:', err));
+
+    // 2. Функция отправки обновлений
+    const updateStatus = async () => {
+        const payload = {
+            visible: visibleToggle.checked,
+            paused: pausedToggle.checked
+        };
+
+        try {
+            const res = await fetch('/api/admin/event/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (res.ok) {
+                // Вибрация или уведомление об успехе
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+            } else {
+                alert('Ошибка сохранения настроек');
+            }
+        } catch (e) {
+            alert('Ошибка сети: ' + e);
+        }
+    };
+
+    // 3. Вешаем слушатели
+    visibleToggle.addEventListener('change', updateStatus);
+    pausedToggle.addEventListener('change', updateStatus);
+}
 
     // Инициализация приложения
     document.addEventListener("DOMContentLoaded", () => {
