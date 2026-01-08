@@ -1486,6 +1486,35 @@ async def bootstrap_app(
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
         
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
+
+@app.post("/api/v1/admin/events/cauldron/reward_status")
+async def update_cauldron_reward_status(
+    request_data: CauldronRewardStatusRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Обновляет статус выдачи награды в Котле (галочка в админке).
+    """
+    # 1. Проверка прав админа
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # 2. Обновляем статус в таблице cauldron_participants
+        # Используем PATCH запрос к REST API Supabase
+        await supabase.patch(
+            "/cauldron_participants",
+            params={"user_id": f"eq.{request_data.user_id}"},
+            json={"is_reward_sent": request_data.is_sent}
+        )
+        
+        return {"message": "Статус успешно обновлен"}
+
+    except Exception as e:
+        logging.error(f"Ошибка при обновлении статуса награды котла: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+
 @app.post("/api/v1/admin/actions/list_entities")
 async def admin_list_entities(
     request_data: AdminEntityListRequest,
