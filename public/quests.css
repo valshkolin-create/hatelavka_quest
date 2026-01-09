@@ -1068,3 +1068,63 @@ body[data-theme="manual"] {
     color: #FFD700; /* Золотистый цвет для билета, чтобы выделялся */
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); /* Легкая тень */
 }
+
+/* === СТИЛИ ДЛЯ АККОРДЕОНА ВЫПОЛНЕННЫХ ЗАДАНИЙ === */
+
+/* Сам контейнер аккордеона (растягиваем на всю ширину сетки) */
+.tg-completed-details {
+    grid-column: 1 / -1; /* Важно: заставляет блок занять всю ширину Grid-сетки */
+    margin-top: 15px;
+    background: rgba(255, 255, 255, 0.03); /* Прозрачный серый */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: background 0.3s;
+}
+
+.tg-completed-details[open] {
+    background: rgba(255, 255, 255, 0.05); /* Чуть светлее при открытии */
+}
+
+/* Заголовок (кнопка открытия) */
+.tg-completed-summary {
+    padding: 14px;
+    color: #8e8e93; /* Приятный серый текст */
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none; /* Убираем стандартный треугольник */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.tg-completed-summary:hover {
+    color: #fff;
+}
+
+/* Скрываем стандартный маркер в Webkit */
+.tg-completed-summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Иконка стрелочки */
+.tg-chevron {
+    transition: transform 0.3s ease;
+}
+.tg-completed-details[open] .tg-chevron {
+    transform: rotate(180deg);
+}
+
+/* Внутренняя сетка для выполненных заданий */
+.tg-completed-grid {
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    /* Копируем настройки основной сетки, чтобы карточки были такими же */
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Или как у тебя в основном CSS */
+    gap: 10px;
+}
