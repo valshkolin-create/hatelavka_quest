@@ -216,7 +216,20 @@ html, body {
 .manual-quest-actions .perform-quest-button { flex-grow: 1; margin-top: 0; padding: 6px; font-size: 12px; }
 
 /* === ДОП. ЭЛЕМЕНТЫ === */
-.active-quest-indicator { position: absolute; top: 8px; right: 10px; font-size: 10px; font-weight: 600; color: var(--primary-color); background-color: rgba(52, 199, 89, 0.15); padding: 3px 7px; border-radius: 7px; }
+.active-quest-indicator { 
+    position: absolute; 
+    top: 8px; 
+    right: 10px; 
+    font-size: 10px; 
+    font-weight: 600; 
+    padding: 3px 7px; 
+    border-radius: 7px;
+    
+    /* === ЦВЕТА (ВСЕГДА БЕЛЫЕ) === */
+    color: #ffffff !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Легкая рамочка для красоты */
+}
 .twitch-update-notice { font-size: 10px; color: var(--text-color-muted); margin-top: 8px; padding: 4px; background-color: rgba(0,0,0,0.2); border-radius: 4px; }
 
 /* PULL TO REFRESH */
