@@ -194,6 +194,7 @@ function closeUniversalModal() {
     setTimeout(() => {
         dom.modalOverlay.classList.add('hidden');
         dom.modalContainer.innerHTML = ''; // Очистка памяти
+        dom.modalContainer.classList.remove('grid-mode');
     }, 300); // Ждем окончания анимации CSS (0.3s)
 }
 
@@ -1017,135 +1018,127 @@ async function startQuestRoulette() {
 }
 
 async function openTelegramModal() {
-    // 1. Открываем наше красивое универсальное окно
-    openUniversalModal('Telegram Испытания');
+    // 1. Открываем модалку
+    openUniversalModal('Испытания');
     
     const container = dom.modalContainer;
     
-    // Показываем спиннер загрузки внутри окна
-    container.innerHTML = '<div style="text-align:center; padding:40px; color:#888;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
+    // !!! ВАЖНО: Включаем режим сетки (3 в ряд) !!!
+    container.classList.add('grid-mode'); 
+    
+    // Лоадер
+    container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#888;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
     
     const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
-    
     if (!userId) {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Ошибка: User ID не найден</div>';
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:red;">User ID not found</div>';
         return;
     }
 
     try {
-        // 2. Запрашиваем задачи
+        // 2. Запрашиваем ВСЕ задачи
         const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
-        container.innerHTML = ''; // Убираем спиннер
+        container.innerHTML = ''; // Чистим лоадер
 
         if (!tasks || tasks.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Заданий пока нет</div>';
+            container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#aaa;">Испытаний пока нет</div>';
             return;
         }
 
-        // 3. Рендерим список карточек
+        // 3. Рендерим КАРТОЧКИ
         tasks.forEach((task, index) => {
             const el = document.createElement('div');
             
-            // Добавляем классы:
-            // anim-card: чтобы карточка красиво вылетала
-            // anim-delay-X: чтобы они вылетали по очереди (лесенкой)
-            el.className = `tg-task-item ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 5}`;
+            // Классы: Grid Card + Completed + Animation
+            el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 8}`;
             
-            // Иконки
+            // --- ИКОНКА ---
             let iconClass = 'fa-solid fa-star';
-            if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-signature';
-            if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
-            if (task.task_key === 'tg_sub') iconClass = 'fa-brands fa-telegram';
-            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-rocket';
-
-            let rightColHtml = '';
-            let bottomHtml = '';
-
-            // --- ПРАВАЯ ЧАСТЬ КАРТОЧКИ ---
+            let iconTypeClass = ''; // Для цвета
+            
+            if (task.task_key === 'tg_surname') { iconClass = 'fa-solid fa-signature'; iconTypeClass = 'telegram'; }
+            if (task.task_key === 'tg_bio') { iconClass = 'fa-solid fa-link'; iconTypeClass = 'telegram'; }
+            if (task.task_key === 'tg_sub') { iconClass = 'fa-brands fa-telegram'; iconTypeClass = 'telegram'; }
+            if (task.task_key === 'tg_vote') { iconClass = 'fa-solid fa-rocket'; iconTypeClass = 'rocket'; }
+            
+            // Если выполнено - галочка
             if (task.is_completed) {
-                // Если выполнено — галочка
-                rightColHtml = `
-                    <div class="tg-completed-icon">
-                        <i class="fa-solid fa-check"></i>
-                    </div>
-                `;
+                iconClass = 'fa-solid fa-check';
+                iconTypeClass = 'check';
+            }
+
+            let buttonHtml = '';
+            let progressHtml = '';
+            
+            // --- ЛОГИКА КНОПКИ И ПРОГРЕССА ---
+            if (task.is_completed) {
+                // Если выполнено
+                buttonHtml = `<button class="tg-grid-btn" disabled>Готово</button>`;
             } else {
-                // Если активно
+                // Активно
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
                     
-                    // Маленькая ссылка (Открыть канал / Проголосовать)
-                    let actionLinkHtml = '';
-                    if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
-                        const linkText = task.task_key === 'tg_vote' ? 'Проголосовать' : 'Открыть канал';
-                        actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
-                    }
-
-                    rightColHtml = `
-                        ${actionLinkHtml}
-                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
-                            Забрать (+${rewardText} 🎟)
+                    // Кнопка ЗАБРАТЬ
+                    // При клике открываем ссылку (если есть) и клеймим
+                    // Для карточек удобнее сделать клик по кнопке универсальным
+                    let onClickAction = `handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')`;
+                    
+                    // Если это подписка/голосование, лучше сначала открыть ссылку, потом проверить? 
+                    // Но мы используем логику "Проверить" внутри handleDailyClaim (там есть попапы)
+                    
+                    buttonHtml = `
+                        <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="${onClickAction}">
+                            Забрать
                         </button>
                     `;
-                    
-                    // === ТВОЙ ИДЕАЛЬНЫЙ ПРОГРЕСС БАР (СЕГМЕНТЫ) ===
-                    if (task.is_daily) {
-                        let segmentsHtml = '';
-                        for (let i = 1; i <= task.total_days; i++) {
-                            // Если день пройден — класс filled
-                            const isFilled = i <= task.current_day ? 'filled' : '';
-                            segmentsHtml += `<div class="tg-progress-segment ${isFilled}" id="seg-${task.task_key}-${i}"></div>`;
-                        }
 
-                        bottomHtml = `
-                            <div class="tg-progress-track" style="margin-top:8px;">
-                                ${segmentsHtml}
-                            </div>
-                            <div class="tg-counter-text" id="prog-text-${task.task_key}">
-                                День ${task.current_day}/${task.total_days}
-                            </div>
-                        `;
+                    // Прогресс бар (внизу карточки)
+                    if (task.is_daily) {
+                        let segments = '';
+                        for (let i = 1; i <= task.total_days; i++) {
+                            const filled = i <= task.current_day ? 'filled' : '';
+                            segments += `<div class="tg-grid-segment ${filled}" id="seg-${task.task_key}-${i}"></div>`;
+                        }
+                        progressHtml = `<div class="tg-grid-progress">${segments}</div>`;
                     }
                 } else {
-                    // Обычные клики
-                    rightColHtml = `
-                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
-                            +${task.reward_amount} 🎟
+                    // Обычный клик
+                    buttonHtml = `
+                        <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
+                            +${task.reward_amount}
                         </button>
                     `;
                 }
             }
+            
+            // Если есть action_url, делаем клик по иконке переходом по ссылке (удобно)
+            let iconOnClick = '';
+            if (task.action_url && !task.is_completed) {
+                iconOnClick = `onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')"`;
+            }
 
-            // Форматируем описание (подсветка @bot)
-            const formattedDesc = (task.description || '').replace(/(@[a-zA-Z0-9_]+)/g, '<span class="tg-code-phrase">$1</span>');
-
+            // --- СБОРКА HTML ---
             el.innerHTML = `
-                <div class="tg-task-header">
-                    <div class="tg-left-col">
-                        <div class="tg-icon-box"><i class="${iconClass}"></i></div>
-                        <div class="tg-text-col">
-                            <span class="tg-title">${task.title}</span>
-                            <span class="tg-subtitle">${formattedDesc}</span>
-                        </div>
-                    </div>
-                    <div class="tg-right-col">
-                        ${rightColHtml}
-                    </div>
+                <div class="tg-grid-icon ${iconTypeClass}" ${iconOnClick}>
+                    <i class="${iconClass}"></i>
                 </div>
-                ${bottomHtml}
+                
+                <div class="tg-grid-title">${task.title}</div>
+                <div class="tg-grid-reward">+${task.reward_amount} 🎟</div>
+                
+                ${buttonHtml}
+                ${progressHtml}
             `;
             
             container.appendChild(el);
 
-            // Запуск таймера (если кнопка должна быть серой)
+            // Таймер (если нужен)
             if (task.is_daily && task.last_claimed_at && !task.is_completed) {
                 const last = new Date(task.last_claimed_at).getTime();
                 const now = new Date().getTime();
-                const diff = now - last;
-                const cooldownMs = 20 * 60 * 60 * 1000;
-                
-                if (diff < cooldownMs) {
+                if (now - last < 20 * 3600 * 1000) {
                     startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at);
                 }
             }
@@ -1153,7 +1146,7 @@ async function openTelegramModal() {
 
     } catch (e) {
         console.error(e);
-        container.innerHTML = '<div style="color:#ff4757; text-align:center; padding:20px;">Ошибка загрузки</div>';
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#ff4757;">Ошибка загрузки</div>';
     }
 }
 
