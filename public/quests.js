@@ -304,7 +304,9 @@ async function loadTelegramTasks() {
                         <div class="tg-icon-box"><i class="${iconClass}"></i></div>
                         <div class="tg-text-col">
                             <span class="tg-title">${task.title}</span>
-                            <span class="tg-subtitle">${task.description || ''}</span>
+                            <span class="tg-subtitle">
+    ${(task.description || '').replace(/(@[a-zA-Z0-9_]+)/g, '<span class="tg-code-phrase">$1</span>')}
+</span>
                         </div>
                     </div>
                     <div class="tg-right-col">
