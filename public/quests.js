@@ -249,12 +249,9 @@ async function loadTelegramTasks() {
             let rightColHtml = '';
             let bottomHtml = '';
 
-            // 1. ВЫПОЛНЕНО ПОЛНОСТЬЮ
             if (task.is_completed) {
                 rightColHtml = `<div class="tg-completed-icon"><i class="fa-solid fa-check"></i></div>`;
-            } 
-            // 2. АКТИВНО (ИЛИ НА КУЛДАУНЕ)
-            else {
+            } else {
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
@@ -272,12 +269,20 @@ async function loadTelegramTasks() {
                         </button>
                     `;
                     
-                    // Прогресс бар
+                    // === НОВАЯ ЛОГИКА СЕГМЕНТОВ (ПОЛОСОЧКИ) ===
                     if (task.is_daily) {
-                        const percent = (task.current_day / task.total_days) * 100;
+                        let segmentsHtml = '';
+                        // Генерируем столько div-ов, сколько total_days (например, 7)
+                        for (let i = 1; i <= task.total_days; i++) {
+                            // Если i меньше или равно текущему дню - закрашиваем (class filled)
+                            const isFilled = i <= task.current_day ? 'filled' : '';
+                            // Добавляем ID, чтобы потом найти конкретную палочку и закрасить её
+                            segmentsHtml += `<div class="tg-progress-segment ${isFilled}" id="seg-${task.task_key}-${i}"></div>`;
+                        }
+
                         bottomHtml = `
                             <div class="tg-progress-track" style="margin-top:8px;">
-                                <div id="prog-fill-${task.task_key}" class="tg-progress-fill" style="width: ${percent}%"></div>
+                                ${segmentsHtml}
                             </div>
                             <div class="tg-counter-text" id="prog-text-${task.task_key}">
                                 День ${task.current_day}/${task.total_days}
@@ -310,10 +315,8 @@ async function loadTelegramTasks() {
             `;
             container.appendChild(el);
 
-            // === ЗАПУСК ТАЙМЕРА, ЕСЛИ НУЖНО ===
-            // Проверяем: это дейлик? есть дата клейма? не завершено ли?
+            // Таймер
             if (task.is_daily && task.last_claimed_at && !task.is_completed) {
-                // Проверяем, прошло ли 20 часов
                 const last = new Date(task.last_claimed_at).getTime();
                 const now = new Date().getTime();
                 const diff = now - last;
@@ -334,7 +337,6 @@ async function loadTelegramTasks() {
 // Замени старую функцию handleDailyClaim на эту:
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
-    const fill = document.getElementById(`prog-fill-${taskKey}`);
     const text = document.getElementById(`prog-text-${taskKey}`);
     
     if(btn) {
@@ -356,17 +358,18 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
                 setTimeout(() => loadTelegramTasks(), 500); 
             } else {
-                // ОБНОВЛЯЕМ ПРОГРЕСС
-                if(fill) {
-                    const percent = (data.day / data.total_days) * 100;
-                    fill.style.width = `${percent}%`;
+                // === ОБНОВЛЕНИЕ СЕГМЕНТОВ ===
+                // data.day - это номер дня, который мы только что закрыли (например, 1)
+                const segmentId = `seg-${taskKey}-${data.day}`;
+                const segmentEl = document.getElementById(segmentId);
+                if (segmentEl) {
+                    segmentEl.classList.add('filled'); // Закрашиваем палочку
                 }
+
                 if(text) text.innerText = `День ${data.day} из ${data.total_days} (Получено +${data.reward})`;
                 
                 Telegram.WebApp.showAlert(data.message);
 
-                // !!! ЗАПУСКАЕМ ТАЙМЕР СРАЗУ !!!
-                // Берем текущее время как время клейма
                 const nowIso = new Date().toISOString();
                 startButtonCooldown(`btn-${taskKey}`, nowIso);
             }
@@ -396,7 +399,6 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             if(btn) {
                 btn.disabled = false;
                 btn.innerText = "Проверить снова";
-                // Сбрасываем стили если была ошибка
                 btn.style.background = '';
                 btn.style.color = '';
             }
