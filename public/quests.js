@@ -1071,9 +1071,7 @@ async function startQuestRoulette() {
 function renderTelegramGrid(tasks, container) {
     container.innerHTML = ''; 
 
-    // 1. Сортируем: сначала активные, потом выполненные (для порядка данных)
-    // Но рисовать будем в разные блоки
-    
+    // 1. Сортируем: сначала активные, потом выполненные
     const activeTasks = tasks.filter(t => !t.is_completed);
     const completedTasks = tasks.filter(t => t.is_completed);
 
@@ -1165,13 +1163,13 @@ function renderTelegramGrid(tasks, container) {
     if (completedTasks.length > 0) {
         const detailsEl = document.createElement('details');
         detailsEl.className = 'tg-completed-details';
-        // Принудительно задаем стили, чтобы он растянулся на всю ширину и был закрыт
+        // Принудительно задаем стили
         detailsEl.style.gridColumn = '1 / -1';
         detailsEl.style.width = '100%';
         detailsEl.style.marginTop = '15px';
         detailsEl.style.background = 'rgba(255, 255, 255, 0.03)';
         detailsEl.style.borderRadius = '12px';
-        detailsEl.open = false; // Точно закрыт по умолчанию!
+        detailsEl.open = false; 
 
         const summaryEl = document.createElement('summary');
         summaryEl.className = 'tg-completed-summary';
@@ -1184,14 +1182,14 @@ function renderTelegramGrid(tasks, container) {
         summaryEl.style.fontWeight = '600';
         summaryEl.style.fontSize = '13px';
         
+        // ВАЖНО: Добавлен класс tg-chevron
         summaryEl.innerHTML = `
             <span>Показать выполненные (${completedTasks.length})</span> 
-            <i class="fa-solid fa-chevron-down" style="margin-left: 8px;"></i>
+            <i class="fa-solid fa-chevron-down tg-chevron" style="margin-left: 8px;"></i>
         `;
         
         const innerGrid = document.createElement('div');
         innerGrid.className = 'tg-completed-grid';
-        // Делаем сетку 3 колонки, как и основная!
         innerGrid.style.display = 'grid';
         innerGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
         innerGrid.style.gap = '10px';
@@ -1206,12 +1204,7 @@ function renderTelegramGrid(tasks, container) {
         detailsEl.appendChild(innerGrid);
         container.appendChild(detailsEl);
         
-        // Небольшой скрипт для анимации стрелочки (опционально)
-        summaryEl.addEventListener('click', () => {
-            const icon = summaryEl.querySelector('i');
-            if(detailsEl.open) icon.style.transform = 'rotate(0deg)';
-            else icon.style.transform = 'rotate(180deg)';
-        });
+        // Ручной обработчик click удален, так как CSS теперь работает через [open] .tg-chevron
     }
 }
 
