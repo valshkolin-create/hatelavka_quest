@@ -295,11 +295,12 @@ async function loadTelegramTasks() {
                 rightColHtml = `<div class="tg-completed-icon"><i class="fa-solid fa-check"></i></div>`;
             } else {
                 
-                // === ИСПРАВЛЕНИЕ: Используем FontAwesome иконку, а не картинку ===
+                // === НОВАЯ ЧЕТКАЯ СТРУКТУРА НАГРАДЫ (В БЭЙДЖЕ) ===
                 const rewardHtml = `
-                    <span class="btn-sep"></span>
-                    <span>+${task.reward_amount}</span>
-                    <i class="fa-solid fa-ticket btn-ticket-icon"></i>
+                    <div class="btn-reward-badge">
+                        <span>+${task.reward_amount}</span>
+                        <i class="fa-solid fa-ticket btn-ticket-icon"></i>
+                    </div>
                 `;
 
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
@@ -310,7 +311,7 @@ async function loadTelegramTasks() {
                         actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
                     }
 
-                    // Кнопка (Премиум стиль, компактная)
+                    // Кнопка ЗАБРАТЬ + БЭЙДЖ
                     rightColHtml = `
                         ${actionLinkHtml}
                         <button class="tg-premium-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
@@ -377,7 +378,6 @@ async function loadTelegramTasks() {
 
     } catch (e) { console.error(e); }
 }
-
 // Глобальная функция обработки клика по ДЕЙЛИКУ
 // В файле quests.js замени handleDailyClaim на эту версию:
 
