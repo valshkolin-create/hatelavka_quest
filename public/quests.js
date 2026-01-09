@@ -801,13 +801,14 @@ function renderManualQuests(questsData) {
                 : '';
             const submitButtonText = (quest.action_url && quest.action_url !== "") ? 'Отправить' : 'Выполнить';
             
+            // Здесь монетка 🟡 уже стоит (из прошлого шага)
             return `
                 <div class="quest-card" style="display: flex; flex-direction: column;">
                     <div style="flex-grow: 1;">
                         ${iconHtml}
                         <h2 class="quest-title">${escapeHTML(quest.title || '')}</h2>
                         <p class="quest-subtitle">${escapeHTML(quest.description || '')}</p>
-                        <p class="quest-subtitle">Награда: ${quest.reward_amount || ''} ⭐</p>
+                        <p class="quest-subtitle">Награда: ${quest.reward_amount || ''} <i class="fa-solid fa-coins" style="color: #ffcc00;"></i></p>
                     </div>
                     <div class="manual-quest-actions">
                         ${actionLinkHtml}
@@ -817,8 +818,10 @@ function renderManualQuests(questsData) {
             `;
         }).join('');
 
+        // !!! ИЗМЕНЕНИЕ ЗДЕСЬ: Убрали атрибут 'open' из тега <details> !!!
+        // Теперь списки будут свернуты по умолчанию.
         const accordionHtml = `
-            <details class="quest-category-accordion" open>
+            <details class="quest-category-accordion">
                 <summary class="quest-category-header">${escapeHTML(categoryName)}</summary>
                 <div class="quest-category-body">
                     ${questsHtml}
@@ -960,14 +963,12 @@ async function startChallengeRoulette() {
 }
 
 async function startQuestRoulette() {
-    // 1. Открываем модалку
     openUniversalModal('Twitch Испытания');
     
     const container = dom.modalContainer;
     container.classList.add('grid-mode'); 
     container.innerHTML = ''; 
     
-    // Фильтруем активные Twitch задания
     const quests = allQuests.filter(q => 
         q.quest_type && q.quest_type.startsWith('automatic_twitch') && !q.is_completed
     );
@@ -977,14 +978,13 @@ async function startQuestRoulette() {
         return;
     }
 
-    // 2. Рендерим
     quests.forEach((quest, index) => {
         const el = document.createElement('div');
         el.className = `tg-grid-card anim-card anim-delay-${index % 8}`;
         
-        // !!! ЗАМЕНА ЗДЕСЬ: 🎟 -> 🪙 !!!
+        // !!! ЗАМЕНА: Вставляем <i class="fa-solid fa-coins"></i> с золотым цветом !!!
         const rewardText = userData.quest_rewards_enabled 
-            ? `+${quest.reward_amount} 🪙`
+            ? `+${quest.reward_amount} <i class="fa-solid fa-coins" style="color: #ffcc00;"></i>`
             : `Ивент`;
 
         el.innerHTML = `
@@ -1069,20 +1069,14 @@ async function openTelegramModal() {
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
-                    
-                    // Клик вызывает проверку
                     let onClickAction = `handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')`;
                     
-                    // !!! ЗАМЕНА ЗДЕСЬ: +X 🪙 !!!
+                    // !!! ЗАМЕНА: Иконка монетки в кнопке !!!
                     buttonHtml = `
                         <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="${onClickAction}">
-                            Забрать (+${rewardText} 🪙)
+                            Забрать (+${rewardText} <i class="fa-solid fa-coins"></i>)
                         </button>
                     `;
-
-                    // Если карточка слишком узкая для текста "+X 🪙", можно оставить просто "Забрать"
-                    // buttonHtml = `<button ...>Забрать</button>`; 
-                    // И награду показывать только сверху.
 
                     if (task.is_daily) {
                         let segments = '';
@@ -1093,10 +1087,10 @@ async function openTelegramModal() {
                         progressHtml = `<div class="tg-grid-progress">${segments}</div>`;
                     }
                 } else {
-                    // !!! ЗАМЕНА ЗДЕСЬ: +X 🪙 !!!
+                    // !!! ЗАМЕНА: Иконка монетки в кнопке (обычные) !!!
                     buttonHtml = `
                         <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
-                            +${task.reward_amount} 🪙
+                            +${task.reward_amount} <i class="fa-solid fa-coins"></i>
                         </button>
                     `;
                 }
@@ -1107,14 +1101,14 @@ async function openTelegramModal() {
                 iconOnClick = `onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')"`;
             }
 
-            // !!! ЗАМЕНА ЗДЕСЬ: Награда под заголовком тоже с монеткой !!!
+            // !!! ЗАМЕНА: Иконка монетки в верхней части карточки (золотая) !!!
             el.innerHTML = `
                 <div class="tg-grid-icon ${iconTypeClass}" ${iconOnClick}>
                     <i class="${iconClass}"></i>
                 </div>
                 
                 <div class="tg-grid-title">${task.title}</div>
-                <div class="tg-grid-reward">+${task.reward_amount} 🪙</div>
+                <div class="tg-grid-reward">+${task.reward_amount} <i class="fa-solid fa-coins" style="color: #ffcc00;"></i></div>
                 
                 ${buttonHtml}
                 ${progressHtml}
@@ -1136,7 +1130,6 @@ async function openTelegramModal() {
         container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#ff4757;">Ошибка загрузки</div>';
     }
 }
-
 
 function hideQuestRoulette() {
     const container = dom.questChooseContainer;
