@@ -295,26 +295,22 @@ async function loadTelegramTasks() {
                 rightColHtml = `<div class="tg-completed-icon"><i class="fa-solid fa-check"></i></div>`;
             } else {
                 
-                // === START ИЗМЕНЕНИЙ (Только кнопки) ===
-                // Формируем HTML награды (Разделитель | +100 | Картинка)
+                // === ИСПРАВЛЕНИЕ: Используем FontAwesome иконку, а не картинку ===
                 const rewardHtml = `
                     <span class="btn-sep"></span>
                     <span>+${task.reward_amount}</span>
-                    <img src="/public/blue_ticket.png" class="btn-ticket-img" alt="t">
+                    <i class="fa-solid fa-ticket btn-ticket-icon"></i>
                 `;
-                // === END ИЗМЕНЕНИЙ ===
 
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
-                    const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
                     let actionLinkHtml = '';
-                    
                     if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
                         const linkText = task.task_key === 'tg_vote' ? 'Проголосовать' : 'Открыть канал';
                         actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
                     }
 
-                    // Кнопка с новым классом tg-premium-btn и новой структурой
+                    // Кнопка (Премиум стиль, компактная)
                     rightColHtml = `
                         ${actionLinkHtml}
                         <button class="tg-premium-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
@@ -339,7 +335,7 @@ async function loadTelegramTasks() {
                         `;
                     }
                 } else {
-                    // Обычная кнопка (тоже премиум)
+                    // Обычная кнопка
                     rightColHtml = `
                         <button class="tg-premium-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
                             ЗАБРАТЬ ${rewardHtml}
