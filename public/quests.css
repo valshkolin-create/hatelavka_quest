@@ -725,3 +725,112 @@ body[data-theme="manual"] {
     font-family: monospace;
     font-weight: 600;
 }
+/* === СТИЛИ НОВОГО ОКНА === */
+
+/* Затемнение фона */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8); /* Темный фон */
+    backdrop-filter: blur(8px); /* Сильное размытие заднего фона */
+    z-index: 99999;
+    display: flex;
+    align-items: flex-end; /* Окно выезжает снизу (или center для центра) */
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* Когда окно активно */
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Само окно (Карточка) */
+.modal-content-card {
+    width: 100%;
+    max-width: 500px;
+    height: 85vh; /* Занимает 85% высоты экрана */
+    background: #1c1c1e;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+    transform: translateY(100%); /* Спрятано внизу */
+    transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1); /* Плавный выезд */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Окно выезжает */
+.modal-overlay.active .modal-content-card {
+    transform: translateY(0);
+}
+
+/* Шапка */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    color: #fff;
+}
+
+.modal-close-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+.modal-close-btn:active { background: rgba(255, 255, 255, 0.3); }
+
+/* Сетка/Список внутри окна */
+.modal-grid {
+    flex-grow: 1;
+    overflow-y: auto; /* Скролл внутри окна */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 40px; /* Отступ снизу */
+}
+
+/* === АНИМАЦИЯ ПОЯВЛЕНИЯ КАРТОЧЕК === */
+
+/* Начальное состояние карточки в модалке */
+.anim-card {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+    animation: cardPopUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes cardPopUp {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Задержки для поочередного появления (до 10 элементов) */
+.anim-delay-0 { animation-delay: 0.05s; }
+.anim-delay-1 { animation-delay: 0.1s; }
+.anim-delay-2 { animation-delay: 0.15s; }
+.anim-delay-3 { animation-delay: 0.2s; }
+.anim-delay-4 { animation-delay: 0.25s; }
+.anim-delay-5 { animation-delay: 0.3s; }
