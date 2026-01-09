@@ -294,6 +294,16 @@ async function loadTelegramTasks() {
             if (task.is_completed) {
                 rightColHtml = `<div class="tg-completed-icon"><i class="fa-solid fa-check"></i></div>`;
             } else {
+                
+                // === START ИЗМЕНЕНИЙ (Только кнопки) ===
+                // Формируем HTML награды (Разделитель | +100 | Картинка)
+                const rewardHtml = `
+                    <span class="btn-sep"></span>
+                    <span>+${task.reward_amount}</span>
+                    <img src="/public/blue_ticket.png" class="btn-ticket-img" alt="t">
+                `;
+                // === END ИЗМЕНЕНИЙ ===
+
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
@@ -304,21 +314,18 @@ async function loadTelegramTasks() {
                         actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
                     }
 
+                    // Кнопка с новым классом tg-premium-btn и новой структурой
                     rightColHtml = `
                         ${actionLinkHtml}
-                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
-                            Забрать (+${rewardText} 🎟)
+                        <button class="tg-premium-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
+                            ЗАБРАТЬ ${rewardHtml}
                         </button>
                     `;
                     
-                    // === НОВАЯ ЛОГИКА СЕГМЕНТОВ (ПОЛОСОЧКИ) ===
                     if (task.is_daily) {
                         let segmentsHtml = '';
-                        // Генерируем столько div-ов, сколько total_days (например, 7)
                         for (let i = 1; i <= task.total_days; i++) {
-                            // Если i меньше или равно текущему дню - закрашиваем (class filled)
                             const isFilled = i <= task.current_day ? 'filled' : '';
-                            // Добавляем ID, чтобы потом найти конкретную палочку и закрасить её
                             segmentsHtml += `<div class="tg-progress-segment ${isFilled}" id="seg-${task.task_key}-${i}"></div>`;
                         }
 
@@ -332,9 +339,10 @@ async function loadTelegramTasks() {
                         `;
                     }
                 } else {
+                    // Обычная кнопка (тоже премиум)
                     rightColHtml = `
-                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
-                            +${task.reward_amount} 🎟
+                        <button class="tg-premium-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
+                            ЗАБРАТЬ ${rewardHtml}
                         </button>
                     `;
                 }
@@ -359,7 +367,6 @@ async function loadTelegramTasks() {
             `;
             container.appendChild(el);
 
-            // Таймер
             if (task.is_daily && task.last_claimed_at && !task.is_completed) {
                 const last = new Date(task.last_claimed_at).getTime();
                 const now = new Date().getTime();
@@ -509,8 +516,34 @@ function injectProfilePopup(type) {
 
     if (type === 'surname') {
         titleText = '❌ Ник бота не найден';
-        bodyHTML = `Добавьте фразу <b style="color: ${tgColor}; background: ${tgBg}; padding: 2px 6px; border-radius: 4px;">@HATElavka_bot</b> в поле "Фамилия" в настройках Telegram.`;
+        const botNick = '@HATElavka_bot';
+        
+        // Делаем структуру как у рефералки (Описание + Поле копирования)
+        bodyHTML = `
+            <div style="margin-bottom: 12px; font-size: 11px; color: #ccc;">Добавьте этот ник в поле <b>"Фамилия"</b> в настройках:</div>
+            <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); align-items: center;">
+                <input id="popupRefInput" type="text" readonly value="${botNick}" style="flex-grow: 1; background: transparent; border: none; color: ${tgColor}; font-weight: 600; font-size: 11px; outline: none; width: 100%;">
+                <button id="popupCopyBtn" style="background: ${tgColor}; border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i class="fa-regular fa-copy"></i>
+                </button>
+            </div>
+            <div style="margin-top: 10px; font-size: 11px; color: #666;">После сохранения вернитесь и нажмите "Проверить".</div>
+        `;
+        
+        // Логика копирования для Ника
+        setTimeout(() => {
+            const copyBtn = document.getElementById('popupCopyBtn');
+            if(copyBtn) copyBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(botNick).then(() => {
+                     if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                     this.innerHTML = '<i class="fa-solid fa-check"></i>';
+                     setTimeout(() => this.innerHTML = '<i class="fa-regular fa-copy"></i>', 2000);
+                });
+            });
+        }, 100);
+
     } else {
+        // ЭТУ ЧАСТЬ Я НЕ ТРОГАЛ, КАК ТЫ И ПРОСИЛ
         titleText = '❌ Ссылка не найдена';
         let refPayload = userData.telegram_id;
         if (userData && userData.bott_ref_id) refPayload = `r_${userData.bott_ref_id}`;
@@ -528,7 +561,7 @@ function injectProfilePopup(type) {
                 </button>
             </div>
         `;
-        // Копирование
+        // Копирование (оставил как было у тебя)
         setTimeout(() => {
             const copyBtn = document.getElementById('popupCopyBtn');
             if(copyBtn) copyBtn.addEventListener('click', function() {
