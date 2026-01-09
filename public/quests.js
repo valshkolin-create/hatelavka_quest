@@ -492,14 +492,14 @@ function injectBoostPopup(customUrl) {
     if (existing) existing.remove();
 
     const popupHtml = `
-    <div id="boostPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
-      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; display: flex; flex-direction: column; align-items: center;">
+    <div id="boostPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; align-items: center;">
         <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 10px;">⚠️ Внимание!</h3>
         <p style="font-size: 14px; line-height: 1.5; color: #ddd; margin-bottom: 20px;">Голосование за канал необходимо для получения бонусов.</p>
         <button id="goToBoostBtn" style="width: 100%; background: #0088cc; color: white; border: none; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
            <i class="fa-solid fa-rocket"></i> Проголосовать
         </button>
-        <button id="closePopupBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #aaa; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 14px;">Закрыть</button>
+        <button id="closePopupBtn" style="width: 100%; background: transparent; border: none; color: #8e8e93; padding: 10px; cursor: pointer; font-size: 15px;">Закрыть</button>
       </div>
     </div>`;
 
@@ -1068,16 +1068,18 @@ async function startQuestRoulette() {
 }
 
 // === ФУНКЦИЯ ОТРИСОВКИ СЕТКИ (ИЗ КЭША) ===
+// === ФУНКЦИЯ ОТРИСОВКИ СЕТКИ (С АККОРДЕОНОМ) ===
 function renderTelegramGrid(tasks, container) {
     container.innerHTML = ''; 
-    
-    // Сортировка: Сначала активные, выполненные вниз
-    tasks.sort((a, b) => (a.is_completed === b.is_completed) ? 0 : a.is_completed ? 1 : -1);
 
-    tasks.forEach((task, index) => {
+    // 1. Разделяем на активные и выполненные
+    const activeTasks = tasks.filter(t => !t.is_completed);
+    const completedTasks = tasks.filter(t => t.is_completed);
+
+    // Вспомогательная функция для создания HTML карточки (чтобы не дублировать код)
+    const createCardHtml = (task, index) => {
         const el = document.createElement('div');
-        // Добавляем anim-card только если карточки еще не было в DOM (опционально)
-        // Но для красоты оставим анимацию всегда
+        // Добавляем класс completed, если нужно, но в аккордеоне они и так отдельно
         el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 8}`;
         
         let iconClass = 'fa-solid fa-star';
@@ -1142,17 +1144,47 @@ function renderTelegramGrid(tasks, container) {
             ${progressHtml}
         `;
         
-        container.appendChild(el);
-
-        // Таймер
+        // Таймер (только для активных)
         if (task.is_daily && task.last_claimed_at && !task.is_completed) {
             const last = new Date(task.last_claimed_at).getTime();
             const now = new Date().getTime();
             if (now - last < 20 * 3600 * 1000) {
-                startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at);
+                // Небольшой таймаут, чтобы элемент успел попасть в DOM
+                setTimeout(() => startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at), 50);
             }
         }
+
+        return el;
+    };
+
+    // 2. Рендерим АКТИВНЫЕ задания (просто в контейнер)
+    activeTasks.forEach((task, index) => {
+        container.appendChild(createCardHtml(task, index));
     });
+
+    // 3. Рендерим ВЫПОЛНЕННЫЕ (если есть) в аккордеон
+    if (completedTasks.length > 0) {
+        const detailsEl = document.createElement('details');
+        detailsEl.className = 'tg-completed-details';
+        
+        const summaryEl = document.createElement('summary');
+        summaryEl.className = 'tg-completed-summary';
+        summaryEl.innerHTML = `
+            <span>Выполненные (${completedTasks.length})</span> 
+            <i class="fa-solid fa-chevron-down tg-chevron"></i>
+        `;
+        
+        const innerGrid = document.createElement('div');
+        innerGrid.className = 'tg-completed-grid';
+        
+        completedTasks.forEach((task, index) => {
+            innerGrid.appendChild(createCardHtml(task, index));
+        });
+
+        detailsEl.appendChild(summaryEl);
+        detailsEl.appendChild(innerGrid);
+        container.appendChild(detailsEl);
+    }
 }
 
 async function openTelegramModal() {
