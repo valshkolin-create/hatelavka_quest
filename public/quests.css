@@ -1008,62 +1008,63 @@ body[data-theme="manual"] {
 
 /* === ПРЕМИУМ КНОПКИ (КОМПАКТНЫЕ) === */
 .tg-premium-btn {
-    /* Градиент оставляем */
+    /* Синий градиент */
     background: linear-gradient(92deg, #0088cc 0%, #29b6f6 100%);
-    /* Тени чуть мягче */
-    box-shadow: 0 2px 10px rgba(0, 136, 204, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 136, 204, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     
     border: none;
-    border-radius: 6px; /* Чуть меньше радиус */
+    border-radius: 6px; 
     color: #fff;
     
-    /* Уменьшили шрифт */
+    /* Шрифт кнопки "ЗАБРАТЬ" */
     font-size: 10px; 
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.3px;
     
+    /* Флекс для выравнивания текста и бэйджа */
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px; /* Меньше отступ между элементами */
+    gap: 6px; 
     
-    /* КОМПАКТНЫЕ РАЗМЕРЫ */
-    padding: 0 10px; /* Отступы только по бокам */
-    height: 28px;    /* Фиксированная высота (было намного больше) */
-    min-width: 90px; /* Уменьшили минимальную ширину */
+    /* Компактные размеры */
+    padding: 0 4px 0 8px; /* Слева отступ под текст, справа меньше (там бэйдж) */
+    height: 26px;         /* Фиксированная высота */
+    min-width: 80px;      
     
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
-    line-height: 1; /* Чтобы текст стоял ровно по центру */
 }
 
-.tg-premium-btn:active { 
-    transform: scale(0.96); 
-    box-shadow: 0 1px 3px rgba(0, 136, 204, 0.3); 
+.tg-premium-btn:active { transform: scale(0.96); }
+.tg-premium-btn:disabled { background: #333; color: #777; box-shadow: none; cursor: not-allowed; }
+
+/* === БЭЙДЖ С НАГРАДОЙ (Внутри кнопки) === */
+.btn-reward-badge {
+    /* Полупрозрачный черный фон для контраста */
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    padding: 2px 5px;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px; /* Отступ между цифрой и билетиком */
+    
+    /* Шрифт цифр */
+    font-family: 'Roboto', sans-serif; /* Или системный */
+    font-weight: 700;
+    font-size: 10px;
+    color: #fff;
+    line-height: 1;
 }
 
-.tg-premium-btn:disabled { 
-    background: #2c2c2e; 
-    box-shadow: none; 
-    color: #666; 
-    cursor: not-allowed; 
-}
-
-/* Разделитель (тонкая полоска) */
-.btn-sep { 
-    width: 1px; 
-    height: 10px; /* Чуть меньше */
-    background: rgba(255,255,255,0.4); 
-    display: inline-block; 
-}
-
-/* Иконка билета (FontAwesome) внутри кнопки */
+/* Иконка билета */
 .btn-ticket-icon {
-    font-size: 11px; /* Размер иконки */
-    color: #fff;     /* Белый цвет */
-    /* Можно добавить легкое свечение, если хочешь */
-    filter: drop-shadow(0 0 2px rgba(255,255,255,0.5));
+    font-size: 10px;
+    color: #FFD700; /* Золотистый цвет для билета, чтобы выделялся */
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); /* Легкая тень */
 }
