@@ -695,3 +695,33 @@ body[data-theme="manual"] {
 .tg-progress-fill {
     display: none;
 }
+
+/* === ФИКС ВЫРАВНИВАНИЯ ТЕКСТА === */
+
+.tg-text-col {
+    /* Принудительно выравниваем элементы по левому краю */
+    align-items: flex-start !important; 
+    /* Принудительно выравниваем текст по левому краю */
+    text-align: left !important;
+    /* Убедимся, что колонка занимает все доступное место */
+    flex-grow: 1;
+    /* Добавим небольшой отступ справа, чтобы текст не прилипал к кнопке */
+    padding-right: 8px;
+}
+
+.tg-title, .tg-subtitle {
+    /* На всякий случай дублируем выравнивание для самих элементов */
+    text-align: left !important;
+    display: block; /* Чтобы занимали всю ширину */
+    width: 100%;
+}
+
+/* Красивая подсветка для "кодовой фразы" в описании */
+.tg-code-phrase {
+    background: rgba(0, 136, 204, 0.2);
+    color: #64b5f6;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-weight: 600;
+}
