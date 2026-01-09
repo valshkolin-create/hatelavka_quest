@@ -76,7 +76,7 @@ async function checkEventStatus() {
                 <div style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; color:white; font-family:sans-serif; text-align:center; padding:20px;">
                     <i class="fa-solid fa-door-closed" style="font-size: 50px; color: #555; margin-bottom: 20px;"></i>
                     <h1 style="margin:0;">Ивент завершен</h1>
-                    <p style="color:#888;">Спасибо за участие! Итоги скоро.</p>
+                    <p style="color:#888;">Спасибо за участие!</p>
                     <a href="/menu" style="margin-top:20px; color:#ff9500; text-decoration:none; border:1px solid #333; padding:10px 20px; border-radius:10px;">В главное меню</a>
                 </div>
             `;
