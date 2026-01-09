@@ -599,8 +599,9 @@ function injectProfilePopup(type) {
     document.body.insertAdjacentHTML('beforeend', popupHtml);
     document.getElementById('goToSettingsBtn').addEventListener('click', () => {
         document.getElementById('profilePopup').remove();
-        // Используем openLink и прямой протокол tg://
-        Telegram.WebApp.openLink('tg://settings'); 
+        // Используем прямой переход через window.location
+        // Это единственный способ запустить системную команду tg://
+        window.location.href = 'tg://settings';
     });
     document.getElementById('closeProfilePopupBtn').addEventListener('click', () => {
         document.getElementById('profilePopup').remove();
