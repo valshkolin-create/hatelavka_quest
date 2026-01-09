@@ -1071,36 +1071,34 @@ async function startQuestRoulette() {
 function renderTelegramGrid(tasks, container) {
     container.innerHTML = ''; 
 
-    // 1. Сортируем: сначала активные, потом выполненные
+    // 1. Разделяем задачи
     const activeTasks = tasks.filter(t => !t.is_completed);
     const completedTasks = tasks.filter(t => t.is_completed);
 
-    // Вспомогательная функция (карточка)
+    // Вспомогательная функция создания карточки
     const createCardHtml = (task, index) => {
         const el = document.createElement('div');
         el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 5}`;
         
+        // --- Логика иконок ---
         let iconClass = 'fa-solid fa-star';
         let iconTypeClass = ''; 
-        
         if (task.task_key === 'tg_surname') { iconClass = 'fa-solid fa-signature'; iconTypeClass = 'telegram'; }
         if (task.task_key === 'tg_bio') { iconClass = 'fa-solid fa-link'; iconTypeClass = 'telegram'; }
         if (task.task_key === 'tg_sub') { iconClass = 'fa-brands fa-telegram'; iconTypeClass = 'telegram'; }
         if (task.task_key === 'tg_vote') { iconClass = 'fa-solid fa-rocket'; iconTypeClass = 'rocket'; }
-        
-        if (task.is_completed) {
-            iconClass = 'fa-solid fa-check';
-            iconTypeClass = 'check';
-        }
+        if (task.is_completed) { iconClass = 'fa-solid fa-check'; iconTypeClass = 'check'; }
 
+        // --- Логика кнопки ---
         let buttonHtml = '';
         let progressHtml = '';
         const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
 
         if (task.is_completed) {
-            // Кнопка для выполненных
-            buttonHtml = `<button class="tg-grid-btn" disabled style="background:#444; color:#888;">Готово</button>`;
+            // Серая кнопка для готовых
+            buttonHtml = `<button class="tg-grid-btn" disabled style="background: rgba(255,255,255,0.1); color: #aaa; cursor: default;">Выполнено</button>`;
         } else {
+            // Активные кнопки
             if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                 const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
                 let onClickAction = `handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')`;
@@ -1143,6 +1141,7 @@ function renderTelegramGrid(tasks, container) {
             ${progressHtml}
         `;
         
+        // Таймер для активных дейликов
         if (task.is_daily && task.last_claimed_at && !task.is_completed) {
             const last = new Date(task.last_claimed_at).getTime();
             const now = new Date().getTime();
@@ -1150,51 +1149,61 @@ function renderTelegramGrid(tasks, container) {
                 setTimeout(() => startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at), 50);
             }
         }
-
         return el;
     };
 
-    // 2. Рендерим АКТИВНЫЕ (Сразу в контейнер)
+    // 2. Рендерим АКТИВНЫЕ (сразу в общий контейнер)
     activeTasks.forEach((task, index) => {
         container.appendChild(createCardHtml(task, index));
     });
 
-    // 3. Рендерим ВЫПОЛНЕННЫЕ (В аккордеон)
+    // 3. Рендерим ВЫПОЛНЕННЫЕ (В АККОРДЕОН С ВШИТЫМИ СТИЛЯМИ)
     if (completedTasks.length > 0) {
         const detailsEl = document.createElement('details');
-        detailsEl.className = 'tg-completed-details';
-        // Принудительно задаем стили
-        detailsEl.style.gridColumn = '1 / -1';
-        detailsEl.style.width = '100%';
-        detailsEl.style.marginTop = '15px';
-        detailsEl.style.background = 'rgba(255, 255, 255, 0.03)';
-        detailsEl.style.borderRadius = '12px';
+        
+        // ВАЖНО: Принудительные стили, чтобы аккордеон точно работал
+        detailsEl.style.cssText = `
+            grid-column: 1 / -1; 
+            width: 100%; 
+            margin-top: 15px; 
+            background: rgba(255, 255, 255, 0.05); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 1px solid rgba(255,255,255,0.05);
+        `;
+        
+        // Гарантированно закрыт при создании
         detailsEl.open = false; 
 
         const summaryEl = document.createElement('summary');
-        summaryEl.className = 'tg-completed-summary';
-        summaryEl.style.padding = '14px';
-        summaryEl.style.cursor = 'pointer';
-        summaryEl.style.display = 'flex';
-        summaryEl.style.alignItems = 'center';
-        summaryEl.style.justifyContent = 'center';
-        summaryEl.style.color = '#8e8e93';
-        summaryEl.style.fontWeight = '600';
-        summaryEl.style.fontSize = '13px';
-        
-        // ВАЖНО: Добавлен класс tg-chevron
-        summaryEl.innerHTML = `
-            <span>Показать выполненные (${completedTasks.length})</span> 
-            <i class="fa-solid fa-chevron-down tg-chevron" style="margin-left: 8px;"></i>
+        summaryEl.style.cssText = `
+            padding: 14px; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: #8e8e93; 
+            font-weight: 600; 
+            font-size: 13px; 
+            user-select: none;
+            list-style: none; /* Убираем стандартный треугольник */
         `;
         
+        summaryEl.innerHTML = `
+            <span>Показать выполненные (${completedTasks.length})</span> 
+            <i class="fa-solid fa-chevron-down" style="margin-left: 8px; transition: transform 0.3s;"></i>
+        `;
+
+        // Внутренний контейнер для сетки (делаем его таким же, как основной - 3 колонки)
         const innerGrid = document.createElement('div');
-        innerGrid.className = 'tg-completed-grid';
-        innerGrid.style.display = 'grid';
-        innerGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-        innerGrid.style.gap = '10px';
-        innerGrid.style.padding = '10px';
-        innerGrid.style.borderTop = '1px solid rgba(255,255,255,0.05)';
+        innerGrid.style.cssText = `
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 10px; 
+            padding: 15px 10px; 
+            border-top: 1px solid rgba(255,255,255,0.05);
+            background: rgba(0,0,0,0.1);
+        `;
 
         completedTasks.forEach((task, index) => {
             innerGrid.appendChild(createCardHtml(task, index));
@@ -1204,7 +1213,15 @@ function renderTelegramGrid(tasks, container) {
         detailsEl.appendChild(innerGrid);
         container.appendChild(detailsEl);
         
-        // Ручной обработчик click удален, так как CSS теперь работает через [open] .tg-chevron
+        // Скрипт для поворота стрелочки
+        summaryEl.addEventListener('click', () => {
+            const icon = summaryEl.querySelector('i');
+            // Небольшой таймаут, чтобы состояние open успело переключиться
+            setTimeout(() => {
+                if(detailsEl.open) icon.style.transform = 'rotate(180deg)';
+                else icon.style.transform = 'rotate(0deg)';
+            }, 10);
+        });
     }
 }
 
