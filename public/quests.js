@@ -524,23 +524,21 @@ function injectProfilePopup(type) {
     const tgColor = '#0088cc'; 
     const tgBg = 'rgba(0, 136, 204, 0.15)'; 
 
+    // === БЛОК ФАМИЛИИ ===
     if (type === 'surname') {
         titleText = '❌ Ник бота не найден';
         const botNick = '@HATElavka_bot';
         
-        // Делаем структуру как у рефералки (Описание + Поле копирования)
         bodyHTML = `
-            <div style="margin-bottom: 12px; font-size: 11px; color: #ccc;">Добавьте этот ник в поле <b>"Фамилия"</b> в настройках:</div>
+            <div style="margin-bottom: 12px; font-size: 11px; color: #ccc;">Скопируйте ник и вставьте в поле <b>"Фамилия"</b>:</div>
             <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); align-items: center;">
                 <input id="popupRefInput" type="text" readonly value="${botNick}" style="flex-grow: 1; background: transparent; border: none; color: ${tgColor}; font-weight: 600; font-size: 11px; outline: none; width: 100%;">
                 <button id="popupCopyBtn" style="background: ${tgColor}; border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i class="fa-regular fa-copy"></i>
                 </button>
             </div>
-            <div style="margin-top: 10px; font-size: 11px; color: #666;">После сохранения вернитесь и нажмите "Проверить".</div>
         `;
         
-        // Логика копирования для Ника
         setTimeout(() => {
             const copyBtn = document.getElementById('popupCopyBtn');
             if(copyBtn) copyBtn.addEventListener('click', function() {
@@ -552,8 +550,8 @@ function injectProfilePopup(type) {
             });
         }, 100);
 
+    // === БЛОК БИО (ССЫЛКА) ===
     } else {
-        // ЭТУ ЧАСТЬ Я НЕ ТРОГАЛ, КАК ТЫ И ПРОСИЛ
         titleText = '❌ Ссылка не найдена';
         let refPayload = userData.telegram_id;
         if (userData && userData.bott_ref_id) refPayload = `r_${userData.bott_ref_id}`;
@@ -563,7 +561,7 @@ function injectProfilePopup(type) {
         const displayRefLink = fullRefLink.replace('https://', '');
 
         bodyHTML = `
-            <div style="margin-bottom: 12px; font-size: 11px; color: #ccc;">Добавьте вашу реф. ссылку в раздел <b>"О себе" (Bio)</b>:</div>
+            <div style="margin-bottom: 12px; font-size: 11px; color: #ccc;">Скопируйте ссылку и вставьте в раздел <b>"О себе" (Bio)</b>:</div>
             <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); align-items: center;">
                 <input id="popupRefInput" type="text" readonly value="${displayRefLink}" style="flex-grow: 1; background: transparent; border: none; color: ${tgColor}; font-weight: 600; font-size: 11px; outline: none; width: 100%;">
                 <button id="popupCopyBtn" style="background: ${tgColor}; border: none; border-radius: 8px; color: #fff; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
@@ -571,7 +569,7 @@ function injectProfilePopup(type) {
                 </button>
             </div>
         `;
-        // Копирование (оставил как было у тебя)
+
         setTimeout(() => {
             const copyBtn = document.getElementById('popupCopyBtn');
             if(copyBtn) copyBtn.addEventListener('click', function() {
@@ -584,25 +582,29 @@ function injectProfilePopup(type) {
         }, 100);
     }
 
+    // Вместо сломанной кнопки делаем красивый блок с инструкцией
+    const instructionHtml = `
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; font-size: 13px; color: #aaa; margin-bottom: 15px; text-align: left; line-height: 1.4; border: 1px dashed #444;">
+            <i class="fa-solid fa-circle-info" style="color: ${tgColor}; margin-right: 5px;"></i>
+            Перейдите в <b>Настройки</b> → <b>Изменить профиль</b> и вставьте скопированный текст в нужное поле.
+        </div>
+    `;
+
     const popupHtml = `
     <div id="profilePopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
       <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 24px; border-radius: 16px; text-align: center; width: 85%; max-width: 340px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; align-items: center;">
         <h3 style="margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 16px; font-weight: 700;">${titleText}</h3>
         <div style="font-size: 15px; line-height: 1.5; color: #ddd; margin-bottom: 24px; width: 100%;">${bodyHTML}</div>
-        <button id="goToSettingsBtn" style="width: 100%; background: ${tgColor}; color: white; border: none; padding: 14px; border-radius: 12px; margin-bottom: 10px; font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-           <i class="fa-solid fa-gear"></i> Открыть настройки
-        </button>
+        
+        ${instructionHtml}
+
         <button id="closeProfilePopupBtn" style="width: 100%; background: transparent; border: none; color: #8e8e93; padding: 10px; cursor: pointer; font-size: 15px;">Закрыть</button>
       </div>
     </div>`;
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
-    document.getElementById('goToSettingsBtn').addEventListener('click', () => {
-        document.getElementById('profilePopup').remove();
-        // Используем прямой переход через window.location
-        // Это единственный способ запустить системную команду tg://
-        window.location.href = 'tg://settings';
-    });
+    
+    // Обработчик остался только для кнопки "Закрыть", так как кнопка перехода удалена
     document.getElementById('closeProfilePopupBtn').addEventListener('click', () => {
         document.getElementById('profilePopup').remove();
     });
