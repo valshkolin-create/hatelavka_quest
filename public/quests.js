@@ -739,6 +739,24 @@ function renderChallenge(challengeData, isGuest) {
     const percent = target > 0 ? Math.min(100, (currentProgress / target) * 100) : 0;
     const canClaim = currentProgress >= target && !challenge.claimed_at;
     const isCompleted = currentProgress >= target;
+    // === ФИКС НАЧАЛО: Логика кнопки ===
+    let claimButtonHtml = '';
+
+    if (challenge.claimed_at) {
+        // Если награда уже получена — показываем заглушку, которую НЕЛЬЗЯ нажать
+        claimButtonHtml = `
+            <button class="claim-reward-button" disabled style="background: #2c2c2e; color: #666; cursor: default; box-shadow: none; border: 1px solid rgba(255,255,255,0.05);">
+                <i class="fa-solid fa-check"></i> <span>Выполнено</span>
+            </button>
+        `;
+    } else {
+        // Если еще не забрали — показываем обычную кнопку
+        claimButtonHtml = `
+            <button id="claim-challenge-btn" data-challenge-id="${challenge.challenge_id}" class="claim-reward-button" ${!canClaim ? 'disabled' : ''}>
+                <i class="fa-solid fa-gift"></i> <span>Забрать награду</span>
+            </button>
+        `;
+    }
     let statusText = '';
     if (challenge.claimed_at) {
         statusText = '<div style="color: #34C759; font-size: 12px; margin: 5px 0;">✅ Награда получена</div>';
@@ -771,7 +789,7 @@ function renderChallenge(challengeData, isGuest) {
                 </div>
             </div>
             ${twitchNotice}
-            ${claimButton}
+            ${claimButtonHtml} </div>`;
         </div>`;
     
     if (challenge.expires_at) {
@@ -1512,26 +1530,46 @@ function setupEventListeners() {
 
         if (target.id === 'get-challenge-btn') {
             await startChallengeRoulette();
-        } else if (target.id === 'claim-challenge-btn') {
+       } else if (target.id === 'claim-challenge-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            
+            // === ФИКС: Сразу блокируем повторные нажатия на уровне данных ===
+            if(userData.challenge) {
+                userData.challenge.claimed_at = new Date().toISOString(); // Ставим "забрано" локально
+            }
+            
             try {
                 const challengeId = target.dataset.challengeId; 
                 const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
+                
                 if (result.success) {
+                    // Визуально превращаем кнопку в "Выполнено" прямо сейчас
+                    target.innerHTML = '<i class="fa-solid fa-check"></i> <span>Выполнено</span>';
+                    target.style.background = '#2c2c2e';
+                    target.style.color = '#666';
+                    target.style.boxShadow = 'none';
+
                     if (result.promocode) {
                         dom.rewardClaimedOverlay.classList.remove('hidden'); 
                     } else {
                         await main();
                     }
                 } else {
+                    // Если ошибка — возвращаем кнопку к жизни
                     Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
                     target.disabled = false;
+                    target.style.background = ''; // Сброс цвета
+                    target.style.color = '';
                     target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
+                    
+                    // Если ошибка, снимаем локальную блокировку
+                    if(userData.challenge) delete userData.challenge.claimed_at;
                 }
             } catch (e) {
                 target.disabled = false;
                 target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
+                if(userData.challenge) delete userData.challenge.claimed_at;
             }
         } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
             const questId = target.dataset.questId;
