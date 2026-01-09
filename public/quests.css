@@ -385,41 +385,40 @@ body[data-theme="manual"] {
 
 /* === Кнопка Промокодов (МИКРО-ВЕРСИЯ) === */
 #promo-btn-inject, .promo-profile-btn {
-    /* --- ПОЗИЦИЯ (Слева под ником) --- */
-    position: absolute !important;
-    left: 0 !important;
-    top: 32px !important; /* Опустили чуть ниже, т.к. кнопка стала больше */
-    z-index: 20;
-    margin: 0 !important;
-    width: auto !important; /* Ширина по содержимому */
-    
-    /* --- ВОЗВРАЩАЕМ СТАРЫЙ ВИЗУАЛ --- */
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
+    width: auto !important;
+    min-width: auto !important;
     
-    /* Вернули оригинальные отступы, шрифт и скругление */
-    padding: 10px 16px !important; 
-    font-size: 13px !important;
-    border-radius: 12px !important;
-    height: auto !important;
-    
-    /* Оригинальные цвета и тень */
+    /* --- НАЧАЛО ИЗМЕНЕНИЙ (ПОЗИЦИЯ) --- */
+    margin: 0 !important;           /* Убрали авто-отступы (центровку) */
+    position: absolute !important;  /* Включаем фиксированную позицию */
+    left: 0 !important;             /* Прижимаем влево */
+    top: 25px !important;           /* Отступ сверху (ровно под ник) */
+    z-index: 20;
+    /* --- КОНЕЦ ИЗМЕНЕНИЙ --- */
+
+    padding: 3px 8px !important;
     background: linear-gradient(90deg, #6441a5 0%, #9146ff 100%);
-    box-shadow: 0 4px 15px rgba(145, 70, 255, 0.3); /* Вернули красивую тень */
     color: white !important;
     font-weight: 700;
+    font-size: 0 !important;
+    border-radius: 5px !important;
     text-decoration: none;
+    box-shadow: 0 1px 3px rgba(100, 65, 165, 0.2);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+    height: auto !important;
+    line-height: 1;
     border: none;
     cursor: pointer;
     transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
+
 /* Скрываем иконку, если она есть внутри */
-#promo-btn-inject:hover, .promo-profile-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(145, 70, 255, 0.4);
+#promo-btn-inject i, .promo-profile-btn i {
+    display: none !important;
 }
 
 /* Вставляем новый микро-текст */
