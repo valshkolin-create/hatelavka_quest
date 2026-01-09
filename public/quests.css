@@ -848,89 +848,104 @@ body[data-theme="manual"] {
 
 /* === КАРТОЧКА В СЕТКЕ (Rich Card) === */
 .tg-grid-card {
+    /* 1. Жесткая высота и ширина */
+    height: 230px !important; /* Достаточно места для 4 строк текста */
+    width: 100%;
+    box-sizing: border-box;
+
+    /* 2. Распределение контента */
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between; /* Распределяем контент по высоте */
-    background: rgba(255, 255, 255, 0.05); /* Легкая стеклянная подложка */
+    justify-content: space-between; /* Раскидываем: Иконка-верх, Кнопка-низ */
+    
+    padding: 16px 8px; /* Внутренние отступы */
+    
+    /* 3. Богатый стиль (Rich Glass) */
+    background: rgba(255, 255, 255, 0.07);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px; /* Закругленные углы */
-    padding: 12px 8px;
-    min-height: 160px; /* Фиксированная высота для красоты */
-    text-align: center;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.25);
     position: relative;
     overflow: hidden;
-    transition: transform 0.2s, background 0.2s;
+    transition: transform 0.2s;
 }
 
-/* Эффект при нажатии/наведении */
+/* При нажатии */
 .tg-grid-card:active {
     transform: scale(0.96);
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.12);
 }
 
-/* Если выполнено */
-.tg-grid-card.completed {
-    opacity: 0.6;
-    filter: grayscale(1);
-    order: 999; /* Все выполненные улетают в самый конец сетки */
-    border-color: transparent;
+/* 4. Заголовок с фиксированным местом (под 4 строки) */
+.tg-grid-title {
+    /* Фиксируем высоту блока текста (11px * 1.35 * 4 строки ≈ 60px) */
+    height: 60px !important; 
+    width: 100%;
+    
+    /* Типографика */
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #fff;
+    text-align: center;
+    
+    /* Центруем текст внутри блока, если он короткий */
+    display: flex;
+    align-items: center;     /* Центр по вертикали */
+    justify-content: center; /* Центр по горизонтали */
+    
+    /* Если текста ОЧЕНЬ много - обрезаем */
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    
+    margin: 8px 0; /* Отступ от иконки и награды */
 }
 
-/* Иконка в карточке (большая и красивая) */
+/* 5. Иконка */
 .tg-grid-icon {
-    font-size: 28px;
-    margin-bottom: 8px;
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+    /* Фиксируем размер, чтобы не сжималась */
+    flex-shrink: 0; 
+    
     display: flex;
     align-items: center;
     justify-content: center;
+    
     background: rgba(0, 0, 0, 0.3);
     border-radius: 50%;
-    color: #ffcc00; /* Золотой по умолчанию */
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    
+    margin-top: 4px; /* Чуть отступа сверху */
 }
 
-/* Цвета иконок */
-.tg-grid-icon.telegram { color: #0088cc; }
-.tg-grid-icon.rocket { color: #ff4757; }
-.tg-grid-icon.check { color: #34c759; }
-
-/* Текст заголовка */
-.tg-grid-title {
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1.3;
-    color: #fff;
-    margin-bottom: 4px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2; /* Максимум 2 строки */
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    height: 28px; /* Фиксируем высоту текста */
-}
-
-/* Награда (мелкий текст) */
+/* 6. Награда */
 .tg-grid-reward {
     font-size: 10px;
-    color: #ffd700;
-    margin-bottom: 8px;
     font-weight: 600;
+    color: #ffd700;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-bottom: auto; /* Толкает кнопку вниз, если остается место */
 }
 
-/* Кнопка внутри карточки (компактная) */
+/* 7. Кнопка (Прижата к низу) */
 .tg-grid-btn {
     width: 100%;
-    font-size: 10px;
-    padding: 8px 0;
+    height: 32px; /* Фиксированная высота кнопки */
+    font-size: 11px;
+    font-weight: 700;
     border-radius: 8px;
     border: none;
-    background: var(--primary-color);
     color: #fff;
-    font-weight: 700;
     cursor: pointer;
-    margin-top: auto; /* Прижимаем к низу */
+    margin-top: 8px;
+    flex-shrink: 0; /* Не даем кнопке сжиматься */
 }
 
 .tg-grid-btn:disabled {
