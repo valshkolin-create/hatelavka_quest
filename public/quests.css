@@ -1003,3 +1003,72 @@ body[data-theme="manual"] {
     height: 44px !important;
     font-size: 22px !important;
 }
+
+/* === PREMIUM BUTTON STYLES === */
+
+/* Общий класс для премиум кнопок */
+.tg-premium-btn {
+    /* Сочный градиент (Telegram Blue -> Bright Blue) */
+    background: linear-gradient(92deg, #0088cc 0%, #29b6f6 100%);
+    
+    /* Тени: внешняя для объема, внутренняя (inset) для блика сверху */
+    box-shadow: 
+        0 4px 15px rgba(0, 136, 204, 0.35), 
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    
+    border: none;
+    border-radius: 8px; /* Чуть более скругленные углы */
+    color: #fff;
+    
+    /* Типографика */
+    font-size: 11px;
+    font-weight: 800; /* Жирный шрифт */
+    text-transform: uppercase; /* Капсом выглядит дороже */
+    letter-spacing: 0.5px;
+    
+    /* Выравнивание */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px; /* Отступ между текстом и иконкой */
+    
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+    min-width: 110px; /* Фиксированная ширина, как ты хотел */
+}
+
+/* Эффект нажатия */
+.tg-premium-btn:active {
+    transform: scale(0.96);
+    box-shadow: 0 2px 5px rgba(0, 136, 204, 0.3);
+}
+
+/* Стиль для твоей новой картинки-иконки внутри кнопки */
+.btn-ticket-img {
+    width: 18px; 
+    height: 18px;
+    object-fit: contain;
+    /* Небольшая тень для самой иконки, чтобы она не сливалась */
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+    display: block;
+}
+
+/* Разделитель (вертикальная черта) */
+.btn-sep {
+    width: 1px;
+    height: 12px;
+    background: rgba(255,255,255,0.3);
+    display: inline-block;
+}
+
+/* Состояние Disabled (таймер или загрузка) */
+.tg-premium-btn:disabled {
+    background: #2c2c2e;
+    box-shadow: none;
+    color: #666;
+    cursor: not-allowed;
+    background-image: none;
+}
