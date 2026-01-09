@@ -1085,15 +1085,27 @@ async function startChallengeRoulette() {
     }
 }
 
-async function startQuestRoulette() {
-    openUniversalModal('Twitch Испытания');
+async function openQuestSelectionModal() {
+    // 1. Определяем платформу (Twitch или Telegram)
+    const currentTheme = document.body.getAttribute('data-theme');
+    const isTelegram = currentTheme === 'telegram';
+    
+    // 2. Настраиваем заголовки и цвета
+    const modalTitle = isTelegram ? 'Telegram Испытания' : 'Twitch Испытания';
+    const accentColor = isTelegram ? '#0088cc' : '#9146ff';
+    const bgIconColor = isTelegram ? 'rgba(0, 136, 204, 0.2)' : 'rgba(145, 70, 255, 0.2)';
+    const iconClass = isTelegram ? 'fa-brands fa-telegram' : 'fa-brands fa-twitch';
+    const filterPrefix = isTelegram ? 'automatic_telegram' : 'automatic_twitch';
+
+    openUniversalModal(modalTitle);
     
     const container = dom.modalContainer;
     container.classList.add('grid-mode'); 
     container.innerHTML = ''; 
     
+    // 3. Фильтруем квесты по префиксу (automatic_twitch или automatic_telegram)
     const quests = allQuests.filter(q => 
-        q.quest_type && q.quest_type.startsWith('automatic_twitch') && !q.is_completed
+        q.quest_type && q.quest_type.startsWith(filterPrefix) && !q.is_completed
     );
 
     if (!quests || quests.length === 0) {
@@ -1101,37 +1113,41 @@ async function startQuestRoulette() {
         return;
     }
 
+    // 4. Рендерим карточки
     quests.forEach((quest, index) => {
         const el = document.createElement('div');
         el.className = `tg-grid-card anim-card anim-delay-${index % 8}`;
         
-        // !!! ЗАМЕНА: Вставляем <i class="fa-solid fa-coins"></i> с золотым цветом !!!
         const rewardText = userData.quest_rewards_enabled 
             ? `+${quest.reward_amount} <i class="fa-solid fa-coins" style="color: #ffcc00;"></i>`
             : `Ивент`;
 
+        // Генерируем HTML карточки (1в1 как Twitch, но с переменными цветов)
         el.innerHTML = `
-            <div class="tg-grid-icon" style="color: #9146ff; background: rgba(145, 70, 255, 0.2); box-shadow: 0 4px 10px rgba(145, 70, 255, 0.2);">
-                <i class="fa-brands fa-twitch"></i>
+            <div class="tg-grid-icon" style="color: ${accentColor}; background: ${bgIconColor}; box-shadow: 0 4px 10px ${bgIconColor};">
+                <i class="${iconClass}"></i>
             </div>
             
             <div class="tg-grid-title">${quest.title}</div>
             <div class="tg-grid-reward">${rewardText}</div>
             
-            <button class="tg-grid-btn" style="background: #9146ff;" id="btn-start-${quest.id}">
+            <button class="tg-grid-btn" style="background: ${accentColor};" id="btn-start-${quest.id}">
                 Начать
             </button>
         `;
 
+        // Логика кнопки "Начать" (Одинаковая для всех)
         const btn = el.querySelector(`#btn-start-${quest.id}`);
         btn.addEventListener('click', async () => {
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             try {
+                // Вызываем тот же API метод, что и для Twitch. 
+                // Бэкенд сам разберется по ID квеста, что это Telegram-квест.
                 await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
                 closeUniversalModal();
                 Telegram.WebApp.showAlert(`✅ Испытание принято: ${quest.title}`);
-                await main(); 
+                await main(); // Обновляем главную страницу
             } catch(e) {
                 Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
                 btn.disabled = false;
@@ -1505,23 +1521,16 @@ function setupEventListeners() {
 
     if (dom.questChooseBtn) {
         dom.questChooseBtn.addEventListener("click", () => {
-            // Проверяем, какая тема сейчас активна (Twitch или Telegram)
-            const currentTheme = document.body.getAttribute('data-theme');
-
-            if (currentTheme === 'telegram') {
-                // Если Telegram — открываем наше новое красивое окно с сеткой
-                openTelegramModal();
+            // Больше не нужно разделять логику через if/else
+            // Мы просто вызываем универсальную функцию открытия
+            if (dom.questChooseContainer.classList.contains('hidden')) {
+                openQuestSelectionModal();
             } else {
-                // Если Twitch — запускаем старую рулетку
-                if (dom.questChooseContainer.classList.contains('hidden')) {
-                    startQuestRoulette();
-                } else {
-                    hideQuestRoulette();
-                }
+                hideQuestRoulette();
             }
         });
     }
-
+    
     document.body.addEventListener('click', async (event) => {
         const target = event.target.closest('button');
         if (!target) return;
