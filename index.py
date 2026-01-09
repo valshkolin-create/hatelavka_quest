@@ -78,6 +78,38 @@ SHOP_CACHE_TTL = 600  # Хранить товары 10 минут (600 секу�
 # --- Глобальный клиент для фоновых задач (ВСТАВИТЬ В НАЧАЛО ФАЙЛА) ---
 _background_supabase_client: Optional[httpx.AsyncClient] = None
 
+# --- УПРАВЛЕНИЕ CRON-JOB.ORG (ЭКОНОМИЯ РЕСУРСОВ) ---
+async def toggle_cron_job(enable: bool):
+    """
+    Включает или выключает задачу на cron-job.org через API.
+    """
+    api_key = os.getenv("CRON_API_KEY")
+    job_id = os.getenv("CRON_JOB_ID")
+    
+    if not api_key or not job_id:
+        logging.warning("⚠️ CRON_API_KEY или CRON_JOB_ID не настроены. Пропуск переключения Cron.")
+        return
+
+    url = f"https://api.cron-job.org/jobs/{job_id}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    # Для API v1 cron-job.org используем PATCH для обновления статуса
+    payload = {"job": {"enabled": enable}}
+
+    # Используем отдельный клиент, так как это внешний запрос
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.patch(url, json=payload, headers=headers)
+            if resp.status_code == 200:
+                status_text = "ВКЛЮЧЕН (Стрим начался)" if enable else "ВЫКЛЮЧЕН (Стрим окончен)"
+                logging.info(f"✅ Cron-job успешно {status_text}.")
+            else:
+                logging.error(f"❌ Ошибка переключения Cron-job: {resp.text}")
+        except Exception as e:
+            logging.error(f"❌ Ошибка соединения с Cron-job API: {e}")
+
 async def get_background_client():
     """Возвращает живучий клиент для фоновых задач"""
     global _background_supabase_client
@@ -2023,6 +2055,9 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         # 1. Сохраняем статус в settings
         await supabase.post("/settings", json={"key": "twitch_stream_status", "value": True}, headers={"Prefer": "resolution=merge-duplicates"})
 
+        # 🔥 [НОВОЕ] ВКЛЮЧАЕМ CRON-ЗАДАЧУ
+        await toggle_cron_job(True)
+
         # --- АВТО-СИНХРОНИЗАЦИЯ VIP ---
         try:
             logging.info("🔄 Запуск авто-обновления VIP-ов...")
@@ -2045,6 +2080,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     elif event_type == "stream.offline":
         logging.info("⚫ Стрим OFFLINE.")
         await supabase.post("/settings", json={"key": "twitch_stream_status", "value": False}, headers={"Prefer": "resolution=merge-duplicates"})
+        # 🔥 [НОВОЕ] ВЫКЛЮЧАЕМ CRON-ЗАДАЧУ
+        await toggle_cron_job(False)
         return
 
     # 2. ОПТИМИЗАЦИЯ: Обновляем и читаем кэш
