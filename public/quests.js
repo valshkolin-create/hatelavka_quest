@@ -166,13 +166,61 @@ function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
 // 3. TELEGRAM ЗАДАНИЯ И ЛОГИКА (НОВОЕ)
 // ==========================================
 
+// Хранилище для интервалов таймеров, чтобы не плодить их
+let cooldownIntervalsMap = {};
+
+// Функция запуска таймера на кнопке
+function startButtonCooldown(btnId, lastClaimedIso, cooldownHours = 20) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+
+    // Очищаем старый таймер, если был
+    if (cooldownIntervalsMap[btnId]) clearInterval(cooldownIntervalsMap[btnId]);
+
+    const lastClaimTime = new Date(lastClaimedIso).getTime();
+    const cooldownMs = cooldownHours * 60 * 60 * 1000;
+    const targetTime = lastClaimTime + cooldownMs;
+
+    const updateTimer = () => {
+        const now = new Date().getTime();
+        const diff = targetTime - now;
+
+        if (diff <= 0) {
+            // Время вышло — активируем кнопку
+            clearInterval(cooldownIntervalsMap[btnId]);
+            btn.disabled = false;
+            btn.style.background = ''; // Возвращаем родной цвет
+            btn.style.opacity = '1';
+            // Возвращаем текст "Забрать" (можно усложнить, но пока так)
+            // Чтобы текст вернулся корректным, лучше просто перезагрузить список или оставить "Доступно"
+            btn.innerHTML = 'Забрать'; 
+            return;
+        }
+
+        // Форматируем время ЧЧ:ММ:СС
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+        const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        
+        // Делаем кнопку серой
+        btn.disabled = true;
+        btn.style.background = '#444'; // Серый фон
+        btn.style.color = '#aaa';      // Серый текст
+        btn.innerHTML = `<i class="fa-regular fa-clock"></i> ${timeStr}`;
+    };
+
+    updateTimer(); // Запуск сразу
+    cooldownIntervalsMap[btnId] = setInterval(updateTimer, 1000);
+}
+
 async function loadTelegramTasks() {
     const container = document.getElementById('tg-tasks-list');
     if (!container) return;
 
     container.innerHTML = '<div style="text-align:center; padding:10px; color:#666;">Загрузка...</div>';
     
-    // Получаем ID пользователя
     const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
     if (!userId) {
         container.innerHTML = '<div style="text-align:center; padding:10px; color:red;">Ошибка: User ID не найден</div>';
@@ -192,39 +240,31 @@ async function loadTelegramTasks() {
             const el = document.createElement('div');
             el.className = `tg-task-item ${task.is_completed ? 'completed' : ''}`;
             
-            // Иконки
             let iconClass = 'fa-solid fa-star';
             if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-signature';
             if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
             if (task.task_key === 'tg_sub') iconClass = 'fa-brands fa-telegram';
-            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-rocket'; 
+            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-rocket';
 
             let rightColHtml = '';
             let bottomHtml = '';
 
-            // 1. ЕСЛИ ЗАДАНИЕ ВЫПОЛНЕНО
+            // 1. ВЫПОЛНЕНО ПОЛНОСТЬЮ
             if (task.is_completed) {
-                rightColHtml = `
-                    <div class="tg-completed-icon">
-                        <i class="fa-solid fa-check"></i>
-                    </div>
-                `;
+                rightColHtml = `<div class="tg-completed-icon"><i class="fa-solid fa-check"></i></div>`;
             } 
-            // 2. ЕСЛИ ЗАДАНИЕ АКТИВНО
+            // 2. АКТИВНО (ИЛИ НА КУЛДАУНЕ)
             else {
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
-                    
-                    // Ссылка для перехода
                     let actionLinkHtml = '';
+                    
                     if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
                         const linkText = task.task_key === 'tg_vote' ? 'Проголосовать' : 'Открыть канал';
                         actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
                     }
 
-                    // !!! ВАЖНОЕ ИЗМЕНЕНИЕ НИЖЕ !!!
-                    // Передаем task.action_url третьим параметром
                     rightColHtml = `
                         ${actionLinkHtml}
                         <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
@@ -244,8 +284,7 @@ async function loadTelegramTasks() {
                             </div>
                         `;
                     }
-                } 
-                else {
+                } else {
                     rightColHtml = `
                         <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
                             +${task.reward_amount} 🎟
@@ -270,14 +309,23 @@ async function loadTelegramTasks() {
                 ${bottomHtml}
             `;
             container.appendChild(el);
+
+            // === ЗАПУСК ТАЙМЕРА, ЕСЛИ НУЖНО ===
+            // Проверяем: это дейлик? есть дата клейма? не завершено ли?
+            if (task.is_daily && task.last_claimed_at && !task.is_completed) {
+                // Проверяем, прошло ли 20 часов
+                const last = new Date(task.last_claimed_at).getTime();
+                const now = new Date().getTime();
+                const diff = now - last;
+                const cooldownMs = 20 * 60 * 60 * 1000;
+                
+                if (diff < cooldownMs) {
+                    startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at);
+                }
+            }
         });
 
-    } catch (e) {
-        console.error("Ошибка TG заданий:", e);
-        if (container.children.length === 0) {
-             container.innerHTML = '<div style="color:red; text-align:center;">Ошибка сети</div>';
-        }
-    }
+    } catch (e) { console.error(e); }
 }
 
 // Глобальная функция обработки клика по ДЕЙЛИКУ
@@ -301,46 +349,46 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         });
         
         if (data && data.success) {
-            // --- УСПЕХ ---
+            // УСПЕХ
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             
             if (data.is_completed) {
                 Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
-                // Обновляем список через полсекунды, чтобы задание улетело вниз
                 setTimeout(() => loadTelegramTasks(), 500); 
             } else {
+                // ОБНОВЛЯЕМ ПРОГРЕСС
                 if(fill) {
                     const percent = (data.day / data.total_days) * 100;
                     fill.style.width = `${percent}%`;
                 }
                 if(text) text.innerText = `День ${data.day} из ${data.total_days} (Получено +${data.reward})`;
-                if(btn) btn.innerText = "Забрано ✔";
                 
                 Telegram.WebApp.showAlert(data.message);
+
+                // !!! ЗАПУСКАЕМ ТАЙМЕР СРАЗУ !!!
+                // Берем текущее время как время клейма
+                const nowIso = new Date().toISOString();
+                startButtonCooldown(`btn-${taskKey}`, nowIso);
             }
             
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
 
         } else if (data) {
-            // --- ОШИБКА ---
+            // ОШИБКА
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
-            // 1. Если это ГОЛОСОВАНИЕ и ошибка (значит голоса нет) -> открываем попап
             if (taskKey === 'tg_vote') {
                 injectBoostPopup(actionUrl);
             }
-            // 2. Если это Фамилия / БИО
             else if (data.error && (data.error.includes("Условие не выполнено") || data.error.includes("Тег"))) {
                 if (taskKey === 'tg_surname') injectProfilePopup('surname');
                 else if (taskKey === 'tg_bio') injectProfilePopup('bio');
                 else Telegram.WebApp.showAlert(data.error);
             }
-            // 3. Если Подписка
             else if (data.error && data.error.includes("не подписаны")) {
                  Telegram.WebApp.showAlert("Вы не подписаны на канал! Ссылка для подписки выше кнопки.");
             }
-            // Остальные ошибки
             else {
                 Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
             }
@@ -348,6 +396,9 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             if(btn) {
                 btn.disabled = false;
                 btn.innerText = "Проверить снова";
+                // Сбрасываем стили если была ошибка
+                btn.style.background = '';
+                btn.style.color = '';
             }
         }
     } catch (e) {
