@@ -49,6 +49,7 @@ let countdownIntervals = {};
 let allQuests = [];
 let userData = {};
 let questsForRoulette = [];
+let telegramTasksCache = null;
 
 // ==========================================
 // 2. УТИЛИТЫ И API (Глобальные)
@@ -380,7 +381,6 @@ async function loadTelegramTasks() {
 // Замени старую функцию handleDailyClaim на эту:
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
-    const text = document.getElementById(`prog-text-${taskKey}`);
     
     if(btn) {
         btn.disabled = true;
@@ -396,27 +396,26 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         if (data && data.success) {
             // УСПЕХ
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            
-            if (data.is_completed) {
-                Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
-                setTimeout(() => loadTelegramTasks(), 500); 
-            } else {
-                // === ОБНОВЛЕНИЕ СЕГМЕНТОВ ===
-                // data.day - это номер дня, который мы только что закрыли (например, 1)
-                const segmentId = `seg-${taskKey}-${data.day}`;
-                const segmentEl = document.getElementById(segmentId);
-                if (segmentEl) {
-                    segmentEl.classList.add('filled'); // Закрашиваем палочку
+            Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
+
+            // !!! ОБНОВЛЯЕМ КЭШ ЛОКАЛЬНО !!!
+            if (telegramTasksCache) {
+                const task = telegramTasksCache.find(t => t.task_key === taskKey);
+                if (task) {
+                    task.current_day = data.day;
+                    task.total_days = data.total_days; // на всякий случай
+                    task.is_completed = data.is_completed;
+                    task.last_claimed_at = new Date().toISOString(); // Ставим текущее время для таймера
                 }
+            }
 
-                if(text) text.innerText = `День ${data.day} из ${data.total_days} (Получено +${data.reward})`;
-                
-                Telegram.WebApp.showAlert(data.message);
-
-                const nowIso = new Date().toISOString();
-                startButtonCooldown(`btn-${taskKey}`, nowIso);
+            // Мгновенная перерисовка без запроса к серверу
+            const container = dom.modalContainer;
+            if (container && telegramTasksCache) {
+                renderTelegramGrid(telegramTasksCache, container);
             }
             
+            // Обновляем баланс в шапке
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
 
@@ -439,11 +438,11 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
             }
             
+            // Сбрасываем кнопку обратно
             if(btn) {
                 btn.disabled = false;
-                btn.innerText = "Проверить снова";
-                btn.style.background = '';
-                btn.style.color = '';
+                btn.innerText = "Проверить снова"; // Можно вернуть "Забрать" если хочешь
+                btn.innerHTML = `Забрать`; // Или вернуть исходный текст
             }
         }
     } catch (e) {
@@ -454,6 +453,7 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         }
     }
 }
+
 
 // Глобальная функция для ОБЫЧНЫХ квестов
 function handleTgTaskClick(key, url) {
@@ -1020,12 +1020,107 @@ async function startQuestRoulette() {
     });
 }
 
+// === ФУНКЦИЯ ОТРИСОВКИ СЕТКИ (ИЗ КЭША) ===
+function renderTelegramGrid(tasks, container) {
+    container.innerHTML = ''; 
+    
+    // Сортировка: Сначала активные, выполненные вниз
+    tasks.sort((a, b) => (a.is_completed === b.is_completed) ? 0 : a.is_completed ? 1 : -1);
+
+    tasks.forEach((task, index) => {
+        const el = document.createElement('div');
+        // Добавляем anim-card только если карточки еще не было в DOM (опционально)
+        // Но для красоты оставим анимацию всегда
+        el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 8}`;
+        
+        let iconClass = 'fa-solid fa-star';
+        let iconTypeClass = ''; 
+        
+        if (task.task_key === 'tg_surname') { iconClass = 'fa-solid fa-signature'; iconTypeClass = 'telegram'; }
+        if (task.task_key === 'tg_bio') { iconClass = 'fa-solid fa-link'; iconTypeClass = 'telegram'; }
+        if (task.task_key === 'tg_sub') { iconClass = 'fa-brands fa-telegram'; iconTypeClass = 'telegram'; }
+        if (task.task_key === 'tg_vote') { iconClass = 'fa-solid fa-rocket'; iconTypeClass = 'rocket'; }
+        
+        if (task.is_completed) {
+            iconClass = 'fa-solid fa-check';
+            iconTypeClass = 'check';
+        }
+
+        let buttonHtml = '';
+        let progressHtml = '';
+        const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
+
+        if (task.is_completed) {
+            buttonHtml = `<button class="tg-grid-btn" disabled>Готово</button>`;
+        } else {
+            if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
+                const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
+                let onClickAction = `handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')`;
+                
+                buttonHtml = `
+                    <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="${onClickAction}">
+                        Забрать (+${rewardText} <i class="fa-solid fa-coins"></i>)
+                    </button>
+                `;
+
+                if (task.is_daily) {
+                    let segments = '';
+                    for (let i = 1; i <= task.total_days; i++) {
+                        const filled = i <= task.current_day ? 'filled' : '';
+                        segments += `<div class="tg-grid-segment ${filled}" id="seg-${task.task_key}-${i}"></div>`;
+                    }
+                    progressHtml = `<div class="tg-grid-progress">${segments}</div>`;
+                }
+            } else {
+                buttonHtml = `
+                    <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
+                        +${task.reward_amount} <i class="fa-solid fa-coins"></i>
+                    </button>
+                `;
+            }
+        }
+        
+        let iconOnClick = '';
+        if (task.action_url && !task.is_completed) {
+            iconOnClick = `onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')"`;
+        }
+
+        el.innerHTML = `
+            <div class="tg-grid-icon ${iconTypeClass}" ${iconOnClick}>
+                <i class="${iconClass}"></i>
+            </div>
+            <div class="tg-grid-title">${task.title}</div>
+            <div class="tg-grid-reward">+${task.reward_amount} <i class="fa-solid fa-coins" style="color: #ffcc00;"></i></div>
+            ${buttonHtml}
+            ${progressHtml}
+        `;
+        
+        container.appendChild(el);
+
+        // Таймер
+        if (task.is_daily && task.last_claimed_at && !task.is_completed) {
+            const last = new Date(task.last_claimed_at).getTime();
+            const now = new Date().getTime();
+            if (now - last < 20 * 3600 * 1000) {
+                startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at);
+            }
+        }
+    });
+}
+
 async function openTelegramModal() {
     openUniversalModal('Telegram Испытания');
     
     const container = dom.modalContainer;
     container.classList.add('grid-mode'); 
     
+    // 1. ЕСЛИ ЕСТЬ КЭШ — РИСУЕМ СРАЗУ (МГНОВЕННО)
+    if (telegramTasksCache) {
+        renderTelegramGrid(telegramTasksCache, container);
+        return; // Не делаем запрос, экономим время
+    }
+
+    // 2. Если кэша нет — показываем спиннер и грузим
     container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#888;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
     
     const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
@@ -1036,94 +1131,17 @@ async function openTelegramModal() {
 
     try {
         const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
-        container.innerHTML = ''; 
-
+        
         if (!tasks || tasks.length === 0) {
             container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#aaa;">Испытаний пока нет</div>';
             return;
         }
 
-        tasks.forEach((task, index) => {
-            const el = document.createElement('div');
-            el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 8}`;
-            
-            let iconClass = 'fa-solid fa-star';
-            let iconTypeClass = ''; 
-            
-            if (task.task_key === 'tg_surname') { iconClass = 'fa-solid fa-signature'; iconTypeClass = 'telegram'; }
-            if (task.task_key === 'tg_bio') { iconClass = 'fa-solid fa-link'; iconTypeClass = 'telegram'; }
-            if (task.task_key === 'tg_sub') { iconClass = 'fa-brands fa-telegram'; iconTypeClass = 'telegram'; }
-            if (task.task_key === 'tg_vote') { iconClass = 'fa-solid fa-rocket'; iconTypeClass = 'rocket'; }
-            
-            if (task.is_completed) {
-                iconClass = 'fa-solid fa-check';
-                iconTypeClass = 'check';
-            }
-
-            let buttonHtml = '';
-            let progressHtml = '';
-            
-            if (task.is_completed) {
-                buttonHtml = `<button class="tg-grid-btn" disabled>Готово</button>`;
-            } else {
-                if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
-                    
-                    const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
-                    let onClickAction = `handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')`;
-                    
-                    // !!! ЗАМЕНА: Иконка монетки в кнопке !!!
-                    buttonHtml = `
-                        <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="${onClickAction}">
-                            Забрать (+${rewardText} <i class="fa-solid fa-coins"></i>)
-                        </button>
-                    `;
-
-                    if (task.is_daily) {
-                        let segments = '';
-                        for (let i = 1; i <= task.total_days; i++) {
-                            const filled = i <= task.current_day ? 'filled' : '';
-                            segments += `<div class="tg-grid-segment ${filled}" id="seg-${task.task_key}-${i}"></div>`;
-                        }
-                        progressHtml = `<div class="tg-grid-progress">${segments}</div>`;
-                    }
-                } else {
-                    // !!! ЗАМЕНА: Иконка монетки в кнопке (обычные) !!!
-                    buttonHtml = `
-                        <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
-                            +${task.reward_amount} <i class="fa-solid fa-coins"></i>
-                        </button>
-                    `;
-                }
-            }
-            
-            let iconOnClick = '';
-            if (task.action_url && !task.is_completed) {
-                iconOnClick = `onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')"`;
-            }
-
-            // !!! ЗАМЕНА: Иконка монетки в верхней части карточки (золотая) !!!
-            el.innerHTML = `
-                <div class="tg-grid-icon ${iconTypeClass}" ${iconOnClick}>
-                    <i class="${iconClass}"></i>
-                </div>
-                
-                <div class="tg-grid-title">${task.title}</div>
-                <div class="tg-grid-reward">+${task.reward_amount} <i class="fa-solid fa-coins" style="color: #ffcc00;"></i></div>
-                
-                ${buttonHtml}
-                ${progressHtml}
-            `;
-            
-            container.appendChild(el);
-
-            if (task.is_daily && task.last_claimed_at && !task.is_completed) {
-                const last = new Date(task.last_claimed_at).getTime();
-                const now = new Date().getTime();
-                if (now - last < 20 * 3600 * 1000) {
-                    startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at);
-                }
-            }
-        });
+        // Сохраняем в кэш
+        telegramTasksCache = tasks;
+        
+        // Рисуем через нашу новую функцию
+        renderTelegramGrid(telegramTasksCache, container);
 
     } catch (e) {
         console.error(e);
