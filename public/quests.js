@@ -257,6 +257,92 @@ function startButtonCooldown(btnId, lastClaimedIso, cooldownHours = 20) {
     cooldownIntervalsMap[btnId] = setInterval(updateTimer, 1000);
 }
 
+Проблема с пропажей билетов возникает потому, что когда скрипт меняет текст кнопки (например, на "Ошибка" или возвращает "Забрать"), он использует команду .innerText, которая стирает всю нашу красоту (иконки и цифры), оставляя только голый текст.
+
+Чтобы это исправить, нам нужно:
+
+CSS: Сделать темную подложку под цифры, чтобы они читались на любом фоне.
+
+JS: Научить кнопку «помнить» свою награду, чтобы при возврате состояния мы могли заново отрисовать иконку и цифры.
+
+Вот решение.
+
+1. Обновляем CSS (quests.css)
+Замени стили кнопок на этот блок. Я сделал подложку (бэйдж) темнее, а кнопку компактнее.
+
+CSS
+
+/* === ПРЕМИУМ КНОПКИ (FIXED) === */
+.tg-premium-btn {
+    /* Синий градиент */
+    background: linear-gradient(92deg, #0088cc 0%, #29b6f6 100%);
+    box-shadow: 0 2px 8px rgba(0, 136, 204, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    
+    border: none;
+    border-radius: 6px; 
+    color: #fff;
+    
+    /* Шрифт текста "ЗАБРАТЬ" */
+    font-size: 10px; 
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    
+    /* Флекс для выравнивания */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px; 
+    
+    /* Компактные размеры */
+    padding: 0 4px 0 8px; /* Слева чуть больше для текста, справа для бэйджа */
+    height: 28px;         /* Фиксированная высота */
+    min-width: 90px;      
+    
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.tg-premium-btn:active { transform: scale(0.96); }
+.tg-premium-btn:disabled { background: #333; color: #777; box-shadow: none; cursor: not-allowed; }
+
+/* === БЭЙДЖ С НАГРАДОЙ (Темная капсула) === */
+.btn-reward-badge {
+    /* Темный фон для контраста (40% черного) */
+    background: rgba(0, 0, 0, 0.4); 
+    border-radius: 4px;
+    padding: 2px 6px;
+    height: 18px; /* Фикс высоты */
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px; 
+    
+    /* Шрифт цифр */
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    color: #fff;
+    white-space: nowrap;
+}
+
+/* Иконка билета */
+.btn-ticket-icon {
+    font-size: 10px;
+    color: #FFD700; /* Золотой цвет */
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+2. Обновляем JS (quests.js)
+Здесь два шага. Сначала обновляем loadTelegramTasks (чтобы кнопки создавались правильно), а затем обновляем handleDailyClaim (чтобы кнопки восстанавливались правильно после диалогового окна).
+
+Шаг А: Функция loadTelegramTasks
+Вставь этот код вместо старой функции. Что я добавил: Я добавил атрибут data-reward="${task.reward_amount}" в саму кнопку. Теперь кнопка "знает", сколько она стоит.
+
+JavaScript
+
 async function loadTelegramTasks() {
     const container = document.getElementById('tg-tasks-list');
     if (!container) return;
@@ -295,13 +381,16 @@ async function loadTelegramTasks() {
                 rightColHtml = `<div class="tg-completed-icon"><i class="fa-solid fa-check"></i></div>`;
             } else {
                 
-                // === НОВАЯ ЧЕТКАЯ СТРУКТУРА НАГРАДЫ (В БЭЙДЖЕ) ===
+                // HTML Награды (Бэйдж)
                 const rewardHtml = `
                     <div class="btn-reward-badge">
                         <span>+${task.reward_amount}</span>
                         <i class="fa-solid fa-ticket btn-ticket-icon"></i>
                     </div>
                 `;
+
+                // Сохраняем награду в data-reward, чтобы потом восстановить
+                const btnDataAttr = `data-reward="${task.reward_amount}"`;
 
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
@@ -311,10 +400,9 @@ async function loadTelegramTasks() {
                         actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
                     }
 
-                    // Кнопка ЗАБРАТЬ + БЭЙДЖ
                     rightColHtml = `
                         ${actionLinkHtml}
-                        <button class="tg-premium-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
+                        <button class="tg-premium-btn" id="btn-${task.task_key}" ${btnDataAttr} onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
                             ЗАБРАТЬ ${rewardHtml}
                         </button>
                     `;
@@ -336,9 +424,8 @@ async function loadTelegramTasks() {
                         `;
                     }
                 } else {
-                    // Обычная кнопка
                     rightColHtml = `
-                        <button class="tg-premium-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
+                        <button class="tg-premium-btn" id="btn-${task.task_key}" ${btnDataAttr} onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
                             ЗАБРАТЬ ${rewardHtml}
                         </button>
                     `;
@@ -385,6 +472,18 @@ async function loadTelegramTasks() {
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
     
+    // Получаем сумму награды из атрибута, который мы добавили при рендере
+    const rewardAmount = btn ? btn.getAttribute('data-reward') : '';
+    
+    // Шаблон HTML для восстановления кнопки (Забрать + Бэйдж)
+    const restoreBtnHtml = `
+        ЗАБРАТЬ 
+        <div class="btn-reward-badge">
+            <span>+${rewardAmount}</span>
+            <i class="fa-solid fa-ticket btn-ticket-icon"></i>
+        </div>
+    `;
+
     if(btn) {
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -401,29 +500,29 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
 
-            // !!! ОБНОВЛЯЕМ КЭШ ЛОКАЛЬНО !!!
             if (telegramTasksCache) {
                 const task = telegramTasksCache.find(t => t.task_key === taskKey);
                 if (task) {
                     task.current_day = data.day;
-                    task.total_days = data.total_days; // на всякий случай
+                    task.total_days = data.total_days;
                     task.is_completed = data.is_completed;
-                    task.last_claimed_at = new Date().toISOString(); // Ставим текущее время для таймера
+                    task.last_claimed_at = new Date().toISOString();
                 }
             }
 
-            // Мгновенная перерисовка без запроса к серверу
             const container = dom.modalContainer;
             if (container && telegramTasksCache) {
                 renderTelegramGrid(telegramTasksCache, container);
             }
             
-            // Обновляем баланс в шапке
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+            
+            // Если мы тут, то список скорее всего перезагрузится, но на всякий случай
+            // кнопку обновлять не нужно, она либо исчезнет, либо станет галочкой
 
         } else if (data) {
-            // ОШИБКА
+            // ОШИБКА (или проверка не прошла)
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
             if (taskKey === 'tg_vote') {
@@ -435,28 +534,29 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 else Telegram.WebApp.showAlert(data.error);
             }
             else if (data.error && data.error.includes("не подписаны")) {
-                 Telegram.WebApp.showAlert("Вы не подписаны на канал! Ссылка для подписки выше кнопки.");
+                 Telegram.WebApp.showAlert("Вы не подписаны на канал!");
             }
             else {
                 Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
             }
             
-            // Сбрасываем кнопку обратно
+            // === ВОССТАНОВЛЕНИЕ КНОПКИ ===
             if(btn) {
                 btn.disabled = false;
-                btn.innerText = "Проверить снова"; // Можно вернуть "Забрать" если хочешь
-                btn.innerHTML = `Забрать`; // Или вернуть исходный текст
+                // ВОТ ЗДЕСЬ БЫЛ БАГ. Мы возвращали просто текст.
+                // Теперь мы возвращаем полный HTML с бэйджем.
+                btn.innerHTML = restoreBtnHtml; 
             }
         }
     } catch (e) {
         console.error(e);
         if(btn) {
             btn.disabled = false;
-            btn.innerText = "Ошибка";
+            // Даже при критической ошибке пытаемся вернуть красоту
+            btn.innerHTML = restoreBtnHtml || "Ошибка"; 
         }
     }
 }
-
 
 // Глобальная функция для ОБЫЧНЫХ квестов
 function handleTgTaskClick(key, url) {
