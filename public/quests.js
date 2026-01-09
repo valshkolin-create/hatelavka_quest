@@ -1068,19 +1068,19 @@ async function startQuestRoulette() {
 }
 
 // === ФУНКЦИЯ ОТРИСОВКИ СЕТКИ (ИЗ КЭША) ===
-// === ФУНКЦИЯ ОТРИСОВКИ СЕТКИ (С АККОРДЕОНОМ) ===
 function renderTelegramGrid(tasks, container) {
     container.innerHTML = ''; 
 
-    // 1. Разделяем на активные и выполненные
+    // 1. Сортируем: сначала активные, потом выполненные (для порядка данных)
+    // Но рисовать будем в разные блоки
+    
     const activeTasks = tasks.filter(t => !t.is_completed);
     const completedTasks = tasks.filter(t => t.is_completed);
 
-    // Вспомогательная функция для создания HTML карточки (чтобы не дублировать код)
+    // Вспомогательная функция (карточка)
     const createCardHtml = (task, index) => {
         const el = document.createElement('div');
-        // Добавляем класс completed, если нужно, но в аккордеоне они и так отдельно
-        el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 8}`;
+        el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 5}`;
         
         let iconClass = 'fa-solid fa-star';
         let iconTypeClass = ''; 
@@ -1100,7 +1100,8 @@ function renderTelegramGrid(tasks, container) {
         const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
 
         if (task.is_completed) {
-            buttonHtml = `<button class="tg-grid-btn" disabled>Готово</button>`;
+            // Кнопка для выполненных
+            buttonHtml = `<button class="tg-grid-btn" disabled style="background:#444; color:#888;">Готово</button>`;
         } else {
             if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                 const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
@@ -1144,12 +1145,10 @@ function renderTelegramGrid(tasks, container) {
             ${progressHtml}
         `;
         
-        // Таймер (только для активных)
         if (task.is_daily && task.last_claimed_at && !task.is_completed) {
             const last = new Date(task.last_claimed_at).getTime();
             const now = new Date().getTime();
             if (now - last < 20 * 3600 * 1000) {
-                // Небольшой таймаут, чтобы элемент успел попасть в DOM
                 setTimeout(() => startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at), 50);
             }
         }
@@ -1157,26 +1156,48 @@ function renderTelegramGrid(tasks, container) {
         return el;
     };
 
-    // 2. Рендерим АКТИВНЫЕ задания (просто в контейнер)
+    // 2. Рендерим АКТИВНЫЕ (Сразу в контейнер)
     activeTasks.forEach((task, index) => {
         container.appendChild(createCardHtml(task, index));
     });
 
-    // 3. Рендерим ВЫПОЛНЕННЫЕ (если есть) в аккордеон
+    // 3. Рендерим ВЫПОЛНЕННЫЕ (В аккордеон)
     if (completedTasks.length > 0) {
         const detailsEl = document.createElement('details');
         detailsEl.className = 'tg-completed-details';
-        
+        // Принудительно задаем стили, чтобы он растянулся на всю ширину и был закрыт
+        detailsEl.style.gridColumn = '1 / -1';
+        detailsEl.style.width = '100%';
+        detailsEl.style.marginTop = '15px';
+        detailsEl.style.background = 'rgba(255, 255, 255, 0.03)';
+        detailsEl.style.borderRadius = '12px';
+        detailsEl.open = false; // Точно закрыт по умолчанию!
+
         const summaryEl = document.createElement('summary');
         summaryEl.className = 'tg-completed-summary';
+        summaryEl.style.padding = '14px';
+        summaryEl.style.cursor = 'pointer';
+        summaryEl.style.display = 'flex';
+        summaryEl.style.alignItems = 'center';
+        summaryEl.style.justifyContent = 'center';
+        summaryEl.style.color = '#8e8e93';
+        summaryEl.style.fontWeight = '600';
+        summaryEl.style.fontSize = '13px';
+        
         summaryEl.innerHTML = `
-            <span>Выполненные (${completedTasks.length})</span> 
-            <i class="fa-solid fa-chevron-down tg-chevron"></i>
+            <span>Показать выполненные (${completedTasks.length})</span> 
+            <i class="fa-solid fa-chevron-down" style="margin-left: 8px;"></i>
         `;
         
         const innerGrid = document.createElement('div');
         innerGrid.className = 'tg-completed-grid';
-        
+        // Делаем сетку 3 колонки, как и основная!
+        innerGrid.style.display = 'grid';
+        innerGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        innerGrid.style.gap = '10px';
+        innerGrid.style.padding = '10px';
+        innerGrid.style.borderTop = '1px solid rgba(255,255,255,0.05)';
+
         completedTasks.forEach((task, index) => {
             innerGrid.appendChild(createCardHtml(task, index));
         });
@@ -1184,47 +1205,13 @@ function renderTelegramGrid(tasks, container) {
         detailsEl.appendChild(summaryEl);
         detailsEl.appendChild(innerGrid);
         container.appendChild(detailsEl);
-    }
-}
-
-async function openTelegramModal() {
-    openUniversalModal('Telegram Испытания');
-    
-    const container = dom.modalContainer;
-    container.classList.add('grid-mode'); 
-    
-    // 1. ЕСЛИ ЕСТЬ КЭШ — РИСУЕМ СРАЗУ (МГНОВЕННО)
-    if (telegramTasksCache) {
-        renderTelegramGrid(telegramTasksCache, container);
-        return; // Не делаем запрос, экономим время
-    }
-
-    // 2. Если кэша нет — показываем спиннер и грузим
-    container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#888;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
-    
-    const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
-    if (!userId) {
-        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:red;">User ID not found</div>';
-        return;
-    }
-
-    try {
-        const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
         
-        if (!tasks || tasks.length === 0) {
-            container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#aaa;">Испытаний пока нет</div>';
-            return;
-        }
-
-        // Сохраняем в кэш
-        telegramTasksCache = tasks;
-        
-        // Рисуем через нашу новую функцию
-        renderTelegramGrid(telegramTasksCache, container);
-
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#ff4757;">Ошибка загрузки</div>';
+        // Небольшой скрипт для анимации стрелочки (опционально)
+        summaryEl.addEventListener('click', () => {
+            const icon = summaryEl.querySelector('i');
+            if(detailsEl.open) icon.style.transform = 'rotate(0deg)';
+            else icon.style.transform = 'rotate(180deg)';
+        });
     }
 }
 
