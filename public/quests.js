@@ -270,7 +270,6 @@ async function loadTelegramTasks() {
     }
 
     try {
-        // Запрос за задачами
         const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
         container.innerHTML = ''; 
 
@@ -279,15 +278,18 @@ async function loadTelegramTasks() {
             return;
         }
 
-        // 1. Разделяем задачи на Активные и Выполненные
+        // 1. Разделяем задачи
         const activeTasks = tasks.filter(t => !t.is_completed);
         const completedTasks = tasks.filter(t => t.is_completed);
 
-        // Функция для создания HTML одной задачи (чтобы не дублировать код)
+        // !!! ВАЖНО: Список для отложенного запуска таймеров !!!
+        const timersToStart = [];
+
+        // Функция создания HTML
         const createTaskElement = (task) => {
             const el = document.createElement('div');
             el.className = `tg-task-item ${task.is_completed ? 'completed' : ''}`;
-            // Принудительные стили для выполненных, чтобы они выглядели тусклее
+            
             if (task.is_completed) {
                 el.style.opacity = '0.6';
                 el.style.filter = 'grayscale(1)';
@@ -313,7 +315,6 @@ async function loadTelegramTasks() {
                 `;
                 const btnDataAttr = `data-reward="${task.reward_amount}"`;
 
-                // ИЗМЕНЕНИЕ 1: Добавил проверку на tg_surname и tg_bio в условие "сложной" кнопки
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote' || task.task_key === 'tg_surname' || task.task_key === 'tg_bio') {
                     let actionLinkHtml = '';
                     if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
@@ -370,81 +371,50 @@ async function loadTelegramTasks() {
                 ${bottomHtml}
             `;
 
-            // ИЗМЕНЕНИЕ 2: Принудительно включаем таймер для tg_surname и tg_bio
+            // !!! ИСПРАВЛЕНИЕ: Не запускаем таймер здесь, а добавляем в очередь !!!
+            // (Потому что кнопки еще нет в DOM, и getElementById вернет null)
             if ((task.is_daily || task.task_key === 'tg_surname' || task.task_key === 'tg_bio') && task.last_claimed_at && !task.is_completed) {
                 const last = new Date(task.last_claimed_at).getTime();
                 const now = new Date().getTime();
                 const diff = now - last;
-                const cooldownMs = 20 * 60 * 60 * 1000;
+                const cooldownMs = 20 * 60 * 60 * 1000; // 20 часов
+                
                 if (diff < cooldownMs) {
-                    startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at);
+                    timersToStart.push({
+                        id: `btn-${task.task_key}`,
+                        time: task.last_claimed_at
+                    });
                 }
             }
             return el;
         };
 
-        // 2. Рендерим АКТИВНЫЕ задачи (сразу в список)
+        // 2. Рендерим АКТИВНЫЕ задачи (они добавляются в DOM)
         activeTasks.forEach(task => {
             container.appendChild(createTaskElement(task));
         });
 
-        // 3. Рендерим ВЫПОЛНЕННЫЕ задачи (в аккордеон)
+        // 3. Рендерим ВЫПОЛНЕННЫЕ
         if (completedTasks.length > 0) {
-            // Создаем сам аккордеон
             const detailsEl = document.createElement('details');
-            
-            // Вшитые стили для контейнера аккордеона
-            detailsEl.style.cssText = `
-                width: 100%;
-                margin-top: 15px;
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 12px;
-                overflow: hidden;
-                border: 1px solid rgba(255, 255, 255, 0.05);
-            `;
-            detailsEl.open = false; // Закрыт по умолчанию
+            detailsEl.style.cssText = `width: 100%; margin-top: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.05);`;
+            detailsEl.open = false;
 
-            // Заголовок аккордеона (summary)
             const summaryEl = document.createElement('summary');
-            summaryEl.style.cssText = `
-                padding: 12px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #8e8e93;
-                font-weight: 600;
-                font-size: 13px;
-                list-style: none;
-                user-select: none;
-            `;
-            summaryEl.innerHTML = `
-                <span>Показать выполненные (${completedTasks.length})</span> 
-                <i class="fa-solid fa-chevron-down" style="margin-left: 8px; transition: transform 0.3s;"></i>
-            `;
+            summaryEl.style.cssText = `padding: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #8e8e93; font-weight: 600; font-size: 13px; list-style: none; user-select: none;`;
+            summaryEl.innerHTML = `<span>Показать выполненные (${completedTasks.length})</span> <i class="fa-solid fa-chevron-down" style="margin-left: 8px; transition: transform 0.3s;"></i>`;
 
-            // Внутренний контейнер списка (вертикальный список)
             const innerList = document.createElement('div');
-            innerList.style.cssText = `
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                padding: 10px;
-                border-top: 1px solid rgba(255, 255, 255, 0.05);
-                background: rgba(0, 0, 0, 0.1);
-            `;
+            innerList.style.cssText = `display: flex; flex-direction: column; gap: 4px; padding: 10px; border-top: 1px solid rgba(255, 255, 255, 0.05); background: rgba(0, 0, 0, 0.1);`;
 
-            // Добавляем выполненные задачи внутрь
             completedTasks.forEach(task => {
                 innerList.appendChild(createTaskElement(task));
             });
 
-            // Собираем всё вместе
             detailsEl.appendChild(summaryEl);
             detailsEl.appendChild(innerList);
             container.appendChild(detailsEl);
 
-            // Анимация стрелочки
             summaryEl.addEventListener('click', () => {
                 const icon = summaryEl.querySelector('i');
                 setTimeout(() => {
@@ -454,11 +424,14 @@ async function loadTelegramTasks() {
             });
         }
 
+        // !!! ГЛАВНОЕ ИСПРАВЛЕНИЕ !!!
+        // Запускаем таймеры ТОЛЬКО ТЕПЕРЬ, когда все кнопки точно есть на странице
+        timersToStart.forEach(data => {
+            startButtonCooldown(data.id, data.time);
+        });
+
     } catch (e) { console.error(e); }
 }
-
-// Глобальная функция обработки клика по ДЕЙЛИКУ
-// В файле quests.js замени handleDailyClaim на эту версию:
 
 // Замени старую функцию handleDailyClaim на эту:
 async function handleDailyClaim(taskKey, userId, actionUrl) {
