@@ -313,7 +313,8 @@ async function loadTelegramTasks() {
                 `;
                 const btnDataAttr = `data-reward="${task.reward_amount}"`;
 
-                if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
+                // ИЗМЕНЕНИЕ 1: Добавил проверку на tg_surname и tg_bio в условие "сложной" кнопки
+                if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote' || task.task_key === 'tg_surname' || task.task_key === 'tg_bio') {
                     let actionLinkHtml = '';
                     if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
                         const linkText = task.task_key === 'tg_vote' ? 'Проголосовать' : 'Открыть канал';
@@ -369,8 +370,8 @@ async function loadTelegramTasks() {
                 ${bottomHtml}
             `;
 
-            // Таймер для активных
-            if (task.is_daily && task.last_claimed_at && !task.is_completed) {
+            // ИЗМЕНЕНИЕ 2: Принудительно включаем таймер для tg_surname и tg_bio
+            if ((task.is_daily || task.task_key === 'tg_surname' || task.task_key === 'tg_bio') && task.last_claimed_at && !task.is_completed) {
                 const last = new Date(task.last_claimed_at).getTime();
                 const now = new Date().getTime();
                 const diff = now - last;
@@ -455,6 +456,7 @@ async function loadTelegramTasks() {
 
     } catch (e) { console.error(e); }
 }
+
 // Глобальная функция обработки клика по ДЕЙЛИКУ
 // В файле quests.js замени handleDailyClaim на эту версию:
 
