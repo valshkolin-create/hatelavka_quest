@@ -970,3 +970,36 @@ body[data-theme="manual"] {
     background: #34c759;
     box-shadow: 0 0 5px #34c759;
 }
+
+/* === ФИКС ОТСТУПОВ (ПОДНИМАЕМ КАРТОЧКИ ВЫШЕ) === */
+
+/* Уменьшаем отступ у заголовка окна */
+.modal-header {
+    margin-bottom: 10px !important; /* Было 20 */
+    padding-bottom: 10px !important; /* Было 15 */
+    min-height: auto;
+}
+
+/* Убираем верхний отступ у сетки, чтобы она прилипла к заголовку */
+.modal-grid.grid-mode {
+    padding-top: 0 !important;
+    gap: 8px !important; /* Чуть плотнее сетка */
+}
+
+/* Чуть уменьшим высоту карточки, чтобы 2 ряда точно влезли с запасом */
+.tg-grid-card {
+    height: 220px !important; /* Было 230px, сэкономим 20px на двух рядах */
+    padding: 12px 6px !important;
+}
+
+/* Компактный заголовок внутри карточки */
+.tg-grid-title {
+    margin: 4px 0 6px 0 !important;
+}
+
+/* Иконка в карточке чуть поменьше */
+.tg-grid-icon {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 22px !important;
+}
