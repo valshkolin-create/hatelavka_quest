@@ -1388,14 +1388,6 @@ function setupEventListeners() {
         });
     }
 
-    const tgBtn = document.getElementById('open-tg-tasks-btn');
-if (tgBtn) {
-    tgBtn.addEventListener('click', () => {
-        openUniversalModal('Telegram Задания');
-        loadTelegramTasksToModal(); // Новая функция (см. ниже)
-    });
-}
-    
     document.addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('quest-category-header')) {
             e.preventDefault();
@@ -1430,10 +1422,24 @@ if (tgBtn) {
         });
     }
 
-    if(dom.questChooseBtn) dom.questChooseBtn.addEventListener("click", () => {
-        if (dom.questChooseContainer.classList.contains('hidden')) startQuestRoulette();
-        else hideQuestRoulette();
-    });
+    if (dom.questChooseBtn) {
+        dom.questChooseBtn.addEventListener("click", () => {
+            // Проверяем, какая тема сейчас активна (Twitch или Telegram)
+            const currentTheme = document.body.getAttribute('data-theme');
+
+            if (currentTheme === 'telegram') {
+                // Если Telegram — открываем наше новое красивое окно с сеткой
+                openTelegramModal();
+            } else {
+                // Если Twitch — запускаем старую рулетку
+                if (dom.questChooseContainer.classList.contains('hidden')) {
+                    startQuestRoulette();
+                } else {
+                    hideQuestRoulette();
+                }
+            }
+        });
+    }
 
     document.body.addEventListener('click', async (event) => {
         const target = event.target.closest('button');
