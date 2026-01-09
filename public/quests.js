@@ -960,60 +960,75 @@ async function startChallengeRoulette() {
 }
 
 async function startQuestRoulette() {
-    dom.questChooseBtn.disabled = true;
+    // 1. Открываем модалку
+    openUniversalModal('Twitch Испытания');
     
-    if (questsForRoulette.length === 0) {
-        Telegram.WebApp.showAlert("Сейчас нет доступных испытаний.");
-        dom.questChooseBtn.disabled = false;
+    const container = dom.modalContainer;
+    
+    // Включаем режим сетки (3 в ряд)
+    container.classList.add('grid-mode'); 
+    
+    // Очищаем контейнер
+    container.innerHTML = ''; 
+    
+    // Берем квесты (они обновляются в setPlatformTheme)
+    // Либо фильтруем заново для надежности
+    const quests = allQuests.filter(q => 
+        q.quest_type && q.quest_type.startsWith('automatic_twitch') && !q.is_completed
+    );
+
+    if (!quests || quests.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#aaa;">Нет доступных испытаний</div>';
         return;
     }
 
-    // 1. Открываем модалку
-    openUniversalModal('Выбор испытания');
-    dom.questChooseBtn.disabled = false;
-
-    // 2. Готовим карточки
-    const shuffled = [...questsForRoulette].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 3);
-
-    selected.forEach((quest, index) => {
-        const card = document.createElement("div");
-        // Добавляем класс анимации и задержку
-        card.className = `quest-option-card anim-card anim-delay-${index}`;
+    // 2. Рендерим ВСЕ карточки
+    quests.forEach((quest, index) => {
+        const el = document.createElement('div');
+        // Добавляем классы для сетки и анимации вылета
+        el.className = `tg-grid-card anim-card anim-delay-${index % 8}`;
         
-        // Сбрасываем стили трансформации, так как они теперь управляются классом anim-card
-        card.style.transform = 'none'; 
-        card.style.opacity = '1';
+        // Награда
+        const rewardText = userData.quest_rewards_enabled 
+            ? `+${quest.reward_amount} 🎟`
+            : `Ивент`;
 
-        const rewardHtml = userData.quest_rewards_enabled
-            ? `<div class="quest-subtitle">Награда: ${quest.reward_amount} ⭐</div>`
-            : `<div class="event-mode-reward-wrapper"><i class="icon fa-solid fa-trophy"></i><div class="text-content"><span class="title">Ивент!</span></div></div>`;
+        el.innerHTML = `
+            <div class="tg-grid-icon" style="color: #9146ff; background: rgba(145, 70, 255, 0.2); box-shadow: 0 4px 10px rgba(145, 70, 255, 0.2);">
+                <i class="fa-brands fa-twitch"></i>
+            </div>
             
-        card.innerHTML = `
-            <div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>
-            <div class="quest-title">${quest.title}</div>
-            ${rewardHtml}
+            <div class="tg-grid-title">${quest.title}</div>
+            <div class="tg-grid-reward">${rewardText}</div>
+            
+            <button class="tg-grid-btn" style="background: #9146ff;" id="btn-start-${quest.id}">
+                Начать
+            </button>
         `;
 
-        // Клик по карточке
-        card.addEventListener("click", async () => {
-            // Эффект выбора
-            card.style.transform = 'scale(0.95)';
-            card.style.background = 'var(--primary-color)';
-            
+        // Обработка клика (Начать квест)
+        const btn = el.querySelector(`#btn-start-${quest.id}`);
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             try {
+                // Отправляем запрос на старт
                 await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
-                closeUniversalModal(); // Закрываем окно
-                Telegram.WebApp.showAlert(`✅ Вы выбрали: ${quest.title}`);
-                await main(); // Перезагружаем главную
+                
+                // При успехе - закрываем окно
+                closeUniversalModal();
+                Telegram.WebApp.showAlert(`✅ Испытание принято: ${quest.title}`);
+                
+                // Обновляем главную страницу
+                await main(); 
             } catch(e) {
                 Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
-                card.style.transform = 'none';
-                card.style.background = '';
+                btn.disabled = false;
+                btn.innerText = 'Начать';
             }
         });
-
-        dom.modalContainer.appendChild(card);
+        
+        container.appendChild(el);
     });
 }
 
