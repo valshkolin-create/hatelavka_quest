@@ -649,3 +649,49 @@ body[data-theme="manual"] {
     background: rgba(52, 199, 89, 0.1);
     border-radius: 50%;
 }
+
+/* === НОВЫЕ СТИЛИ (Кнопки и Сегменты) === */
+
+/* 1. КНОПКИ ФИКСИРОВАННОГО РАЗМЕРА */
+.tg-action-btn {
+    /* Фиксированная ширина, чтобы кнопка не скакала при смене текста на таймер */
+    min-width: 110px; 
+    text-align: center;
+    justify-content: center;
+    /* Если текст длинный, он не должен ломать кнопку */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 2. РАЗДЕЛЕННЫЙ ПРОГРЕСС БАР (SEGMENTS) */
+.tg-progress-track {
+    /* Отключаем старый фон и делаем флекс */
+    background: transparent !important; 
+    display: flex !important;
+    gap: 4px; /* Расстояние между "днями" */
+    height: 6px !important; /* Чуть толще, чтобы было видно */
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+
+/* Сами полосочки (сегменты) */
+.tg-progress-segment {
+    flex: 1; /* Растягиваются равномерно */
+    background: rgba(255, 255, 255, 0.15); /* Цвет невыполненного дня */
+    border-radius: 2px;
+    transition: background 0.3s ease;
+    height: 100%;
+}
+
+/* Закрашенный сегмент */
+.tg-progress-segment.filled {
+    background: var(--telegram-color, #0088CC);
+    box-shadow: 0 0 5px rgba(0, 136, 204, 0.5); /* Небольшое свечение */
+}
+
+/* Старый класс fill нам больше не нужен, скрываем его на всякий случай, 
+   если где-то остался в HTML, но мы его заменим в JS */
+.tg-progress-fill {
+    display: none;
+}
