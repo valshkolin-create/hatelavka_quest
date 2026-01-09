@@ -964,15 +964,10 @@ async function startQuestRoulette() {
     openUniversalModal('Twitch Испытания');
     
     const container = dom.modalContainer;
-    
-    // Включаем режим сетки (3 в ряд)
     container.classList.add('grid-mode'); 
-    
-    // Очищаем контейнер
     container.innerHTML = ''; 
     
-    // Берем квесты (они обновляются в setPlatformTheme)
-    // Либо фильтруем заново для надежности
+    // Фильтруем активные Twitch задания
     const quests = allQuests.filter(q => 
         q.quest_type && q.quest_type.startsWith('automatic_twitch') && !q.is_completed
     );
@@ -982,15 +977,14 @@ async function startQuestRoulette() {
         return;
     }
 
-    // 2. Рендерим ВСЕ карточки
+    // 2. Рендерим
     quests.forEach((quest, index) => {
         const el = document.createElement('div');
-        // Добавляем классы для сетки и анимации вылета
         el.className = `tg-grid-card anim-card anim-delay-${index % 8}`;
         
-        // Награда
+        // !!! ЗАМЕНА ЗДЕСЬ: 🎟 -> 🪙 !!!
         const rewardText = userData.quest_rewards_enabled 
-            ? `+${quest.reward_amount} 🎟`
+            ? `+${quest.reward_amount} 🪙`
             : `Ивент`;
 
         el.innerHTML = `
@@ -1006,20 +1000,14 @@ async function startQuestRoulette() {
             </button>
         `;
 
-        // Обработка клика (Начать квест)
         const btn = el.querySelector(`#btn-start-${quest.id}`);
         btn.addEventListener('click', async () => {
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             try {
-                // Отправляем запрос на старт
                 await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
-                
-                // При успехе - закрываем окно
                 closeUniversalModal();
                 Telegram.WebApp.showAlert(`✅ Испытание принято: ${quest.title}`);
-                
-                // Обновляем главную страницу
                 await main(); 
             } catch(e) {
                 Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
@@ -1033,15 +1021,11 @@ async function startQuestRoulette() {
 }
 
 async function openTelegramModal() {
-    // 1. Открываем модалку
-    openUniversalModal('Испытания');
+    openUniversalModal('Telegram Испытания');
     
     const container = dom.modalContainer;
-    
-    // !!! ВАЖНО: Включаем режим сетки (3 в ряд) !!!
     container.classList.add('grid-mode'); 
     
-    // Лоадер
     container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#888;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
     
     const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
@@ -1051,32 +1035,26 @@ async function openTelegramModal() {
     }
 
     try {
-        // 2. Запрашиваем ВСЕ задачи
         const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
-        container.innerHTML = ''; // Чистим лоадер
+        container.innerHTML = ''; 
 
         if (!tasks || tasks.length === 0) {
             container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#aaa;">Испытаний пока нет</div>';
             return;
         }
 
-        // 3. Рендерим КАРТОЧКИ
         tasks.forEach((task, index) => {
             const el = document.createElement('div');
-            
-            // Классы: Grid Card + Completed + Animation
             el.className = `tg-grid-card ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 8}`;
             
-            // --- ИКОНКА ---
             let iconClass = 'fa-solid fa-star';
-            let iconTypeClass = ''; // Для цвета
+            let iconTypeClass = ''; 
             
             if (task.task_key === 'tg_surname') { iconClass = 'fa-solid fa-signature'; iconTypeClass = 'telegram'; }
             if (task.task_key === 'tg_bio') { iconClass = 'fa-solid fa-link'; iconTypeClass = 'telegram'; }
             if (task.task_key === 'tg_sub') { iconClass = 'fa-brands fa-telegram'; iconTypeClass = 'telegram'; }
             if (task.task_key === 'tg_vote') { iconClass = 'fa-solid fa-rocket'; iconTypeClass = 'rocket'; }
             
-            // Если выполнено - галочка
             if (task.is_completed) {
                 iconClass = 'fa-solid fa-check';
                 iconTypeClass = 'check';
@@ -1085,31 +1063,27 @@ async function openTelegramModal() {
             let buttonHtml = '';
             let progressHtml = '';
             
-            // --- ЛОГИКА КНОПКИ И ПРОГРЕССА ---
             if (task.is_completed) {
-                // Если выполнено
                 buttonHtml = `<button class="tg-grid-btn" disabled>Готово</button>`;
             } else {
-                // Активно
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
                     
                     const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
                     
-                    // Кнопка ЗАБРАТЬ
-                    // При клике открываем ссылку (если есть) и клеймим
-                    // Для карточек удобнее сделать клик по кнопке универсальным
+                    // Клик вызывает проверку
                     let onClickAction = `handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')`;
                     
-                    // Если это подписка/голосование, лучше сначала открыть ссылку, потом проверить? 
-                    // Но мы используем логику "Проверить" внутри handleDailyClaim (там есть попапы)
-                    
+                    // !!! ЗАМЕНА ЗДЕСЬ: +X 🪙 !!!
                     buttonHtml = `
                         <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="${onClickAction}">
-                            Забрать
+                            Забрать (+${rewardText} 🪙)
                         </button>
                     `;
 
-                    // Прогресс бар (внизу карточки)
+                    // Если карточка слишком узкая для текста "+X 🪙", можно оставить просто "Забрать"
+                    // buttonHtml = `<button ...>Забрать</button>`; 
+                    // И награду показывать только сверху.
+
                     if (task.is_daily) {
                         let segments = '';
                         for (let i = 1; i <= task.total_days; i++) {
@@ -1119,29 +1093,28 @@ async function openTelegramModal() {
                         progressHtml = `<div class="tg-grid-progress">${segments}</div>`;
                     }
                 } else {
-                    // Обычный клик
+                    // !!! ЗАМЕНА ЗДЕСЬ: +X 🪙 !!!
                     buttonHtml = `
                         <button class="tg-grid-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
-                            +${task.reward_amount}
+                            +${task.reward_amount} 🪙
                         </button>
                     `;
                 }
             }
             
-            // Если есть action_url, делаем клик по иконке переходом по ссылке (удобно)
             let iconOnClick = '';
             if (task.action_url && !task.is_completed) {
                 iconOnClick = `onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')"`;
             }
 
-            // --- СБОРКА HTML ---
+            // !!! ЗАМЕНА ЗДЕСЬ: Награда под заголовком тоже с монеткой !!!
             el.innerHTML = `
                 <div class="tg-grid-icon ${iconTypeClass}" ${iconOnClick}>
                     <i class="${iconClass}"></i>
                 </div>
                 
                 <div class="tg-grid-title">${task.title}</div>
-                <div class="tg-grid-reward">+${task.reward_amount} 🎟</div>
+                <div class="tg-grid-reward">+${task.reward_amount} 🪙</div>
                 
                 ${buttonHtml}
                 ${progressHtml}
@@ -1149,7 +1122,6 @@ async function openTelegramModal() {
             
             container.appendChild(el);
 
-            // Таймер (если нужен)
             if (task.is_daily && task.last_claimed_at && !task.is_completed) {
                 const last = new Date(task.last_claimed_at).getTime();
                 const now = new Date().getTime();
@@ -1164,6 +1136,7 @@ async function openTelegramModal() {
         container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#ff4757;">Ошибка загрузки</div>';
     }
 }
+
 
 function hideQuestRoulette() {
     const container = dom.questChooseContainer;
