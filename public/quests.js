@@ -33,6 +33,12 @@ const dom = {
     infoModalCloseBtn: document.getElementById('info-modal-close-btn'),
     sectionAuto: document.getElementById('section-auto-quests'),
     sectionManual: document.getElementById('section-manual-quests'),
+
+    // === НОВЫЕ ПЕРЕМЕННЫЕ МОДАЛКИ ===
+    modalOverlay: document.getElementById('universal-modal-overlay'),
+    modalTitle: document.getElementById('modal-title'),
+    modalCloseBtn: document.getElementById('modal-close-btn'),
+    modalContainer: document.getElementById('modal-cards-container'),
     
     scheduleModal: document.getElementById('schedule-modal-overlay'),
     scheduleCloseBtn: document.getElementById('schedule-modal-close-btn')
@@ -160,6 +166,40 @@ function startCountdown(timerElement, expiresAt, intervalKey, onEndCallback) {
     };
     countdownIntervals[intervalKey] = setInterval(updateTimer, 1000);
     updateTimer();
+}
+
+// === УПРАВЛЕНИЕ КРАСИВЫМ ОКНОМ ===
+function openUniversalModal(title, contentHTML = '') {
+    // 1. Ставим заголовок
+    dom.modalTitle.textContent = title;
+    
+    // 2. Очищаем и заполняем контент (если передан HTML строкой)
+    // Если мы будем заполнять элементами через appendChild, contentHTML можно не передавать
+    if (contentHTML) {
+        dom.modalContainer.innerHTML = contentHTML;
+    } else {
+        dom.modalContainer.innerHTML = '';
+    }
+
+    // 3. Показываем окно
+    dom.modalOverlay.classList.remove('hidden');
+    // Небольшая задержка для CSS анимации (чтобы класс active сработал после remove hidden)
+    requestAnimationFrame(() => {
+        dom.modalOverlay.classList.add('active');
+    });
+}
+
+function closeUniversalModal() {
+    dom.modalOverlay.classList.remove('active');
+    setTimeout(() => {
+        dom.modalOverlay.classList.add('hidden');
+        dom.modalContainer.innerHTML = ''; // Очистка памяти
+    }, 300); // Ждем окончания анимации CSS (0.3s)
+}
+
+// Слушатель закрытия (добавь это в setupEventListeners или просто внизу)
+if (dom.modalCloseBtn) {
+    dom.modalCloseBtn.addEventListener('click', closeUniversalModal);
 }
 
 // ==========================================
@@ -920,51 +960,201 @@ async function startChallengeRoulette() {
 
 async function startQuestRoulette() {
     dom.questChooseBtn.disabled = true;
+    
     if (questsForRoulette.length === 0) {
         Telegram.WebApp.showAlert("Сейчас нет доступных испытаний.");
         dom.questChooseBtn.disabled = false;
         return;
     }
-    const container = dom.questChooseContainer;
-    container.innerHTML = "";
-    dom.questChooseContainer.classList.remove('hidden');
+
+    // 1. Открываем модалку
+    openUniversalModal('Выбор испытания');
+    dom.questChooseBtn.disabled = false;
+
+    // 2. Готовим карточки
     const shuffled = [...questsForRoulette].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 3);
+
     selected.forEach((quest, index) => {
         const card = document.createElement("div");
-        card.className = "quest-option-card";
+        // Добавляем класс анимации и задержку
+        card.className = `quest-option-card anim-card anim-delay-${index}`;
+        
+        // Сбрасываем стили трансформации, так как они теперь управляются классом anim-card
+        card.style.transform = 'none'; 
+        card.style.opacity = '1';
+
         const rewardHtml = userData.quest_rewards_enabled
             ? `<div class="quest-subtitle">Награда: ${quest.reward_amount} ⭐</div>`
-            : `<div class="event-mode-reward-wrapper">
-                   <i class="icon fa-solid fa-trophy"></i>
-                   <div class="text-content">
-                       <span class="title">Идет ивент!</span>
-                       <span class="subtitle">Звёзды отключены, награда - только билеты</span>
-                   </div>
-               </div>`;
+            : `<div class="event-mode-reward-wrapper"><i class="icon fa-solid fa-trophy"></i><div class="text-content"><span class="title">Ивент!</span></div></div>`;
+            
         card.innerHTML = `
             <div class="quest-icon"><i class="fa-solid fa-bolt"></i></div>
             <div class="quest-title">${quest.title}</div>
             ${rewardHtml}
         `;
-        setTimeout(() => card.classList.add("show"), index * 200);
+
+        // Клик по карточке
         card.addEventListener("click", async () => {
-            card.classList.add("chosen");
-            Array.from(container.children).forEach(otherCard => {
-                if (otherCard !== card) otherCard.classList.add("fade-out");
-            });
-            setTimeout(async () => {
-                try {
-                    await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
-                    Telegram.WebApp.showAlert(`✅ Вы выбрали задание: ${quest.title}`);
-                    await main();
-                } catch(e) {
-                    Telegram.WebApp.showAlert(`Не удалось взять задание. Ошибка: ${e.message}`);
-                }
-            }, 600);
+            // Эффект выбора
+            card.style.transform = 'scale(0.95)';
+            card.style.background = 'var(--primary-color)';
+            
+            try {
+                await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
+                closeUniversalModal(); // Закрываем окно
+                Telegram.WebApp.showAlert(`✅ Вы выбрали: ${quest.title}`);
+                await main(); // Перезагружаем главную
+            } catch(e) {
+                Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
+                card.style.transform = 'none';
+                card.style.background = '';
+            }
         });
-        container.appendChild(card);
+
+        dom.modalContainer.appendChild(card);
     });
+}
+
+async function openTelegramModal() {
+    // 1. Открываем наше красивое универсальное окно
+    openUniversalModal('Telegram Испытания');
+    
+    const container = dom.modalContainer;
+    
+    // Показываем спиннер загрузки внутри окна
+    container.innerHTML = '<div style="text-align:center; padding:40px; color:#888;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
+    
+    const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
+    
+    if (!userId) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Ошибка: User ID не найден</div>';
+        return;
+    }
+
+    try {
+        // 2. Запрашиваем задачи
+        const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
+        container.innerHTML = ''; // Убираем спиннер
+
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Заданий пока нет</div>';
+            return;
+        }
+
+        // 3. Рендерим список карточек
+        tasks.forEach((task, index) => {
+            const el = document.createElement('div');
+            
+            // Добавляем классы:
+            // anim-card: чтобы карточка красиво вылетала
+            // anim-delay-X: чтобы они вылетали по очереди (лесенкой)
+            el.className = `tg-task-item ${task.is_completed ? 'completed' : ''} anim-card anim-delay-${index % 5}`;
+            
+            // Иконки
+            let iconClass = 'fa-solid fa-star';
+            if (task.task_key === 'tg_surname') iconClass = 'fa-solid fa-signature';
+            if (task.task_key === 'tg_bio') iconClass = 'fa-solid fa-link';
+            if (task.task_key === 'tg_sub') iconClass = 'fa-brands fa-telegram';
+            if (task.task_key === 'tg_vote') iconClass = 'fa-solid fa-rocket';
+
+            let rightColHtml = '';
+            let bottomHtml = '';
+
+            // --- ПРАВАЯ ЧАСТЬ КАРТОЧКИ ---
+            if (task.is_completed) {
+                // Если выполнено — галочка
+                rightColHtml = `
+                    <div class="tg-completed-icon">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                `;
+            } else {
+                // Если активно
+                if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote') {
+                    
+                    const rewardText = task.is_daily ? `~${Math.round(task.reward_amount / task.total_days)}` : task.reward_amount;
+                    
+                    // Маленькая ссылка (Открыть канал / Проголосовать)
+                    let actionLinkHtml = '';
+                    if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
+                        const linkText = task.task_key === 'tg_vote' ? 'Проголосовать' : 'Открыть канал';
+                        actionLinkHtml = `<div style="font-size:9px; color:#0088cc; margin-bottom:4px; text-align:right; cursor:pointer;" onclick="Telegram.WebApp.openTelegramLink('${task.action_url}')">${linkText} <i class="fa-solid fa-arrow-up-right-from-square"></i></div>`;
+                    }
+
+                    rightColHtml = `
+                        ${actionLinkHtml}
+                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
+                            Забрать (+${rewardText} 🎟)
+                        </button>
+                    `;
+                    
+                    // === ТВОЙ ИДЕАЛЬНЫЙ ПРОГРЕСС БАР (СЕГМЕНТЫ) ===
+                    if (task.is_daily) {
+                        let segmentsHtml = '';
+                        for (let i = 1; i <= task.total_days; i++) {
+                            // Если день пройден — класс filled
+                            const isFilled = i <= task.current_day ? 'filled' : '';
+                            segmentsHtml += `<div class="tg-progress-segment ${isFilled}" id="seg-${task.task_key}-${i}"></div>`;
+                        }
+
+                        bottomHtml = `
+                            <div class="tg-progress-track" style="margin-top:8px;">
+                                ${segmentsHtml}
+                            </div>
+                            <div class="tg-counter-text" id="prog-text-${task.task_key}">
+                                День ${task.current_day}/${task.total_days}
+                            </div>
+                        `;
+                    }
+                } else {
+                    // Обычные клики
+                    rightColHtml = `
+                        <button class="tg-action-btn" id="btn-${task.task_key}" onclick="handleTgTaskClick('${task.task_key}', '${task.action_url}')">
+                            +${task.reward_amount} 🎟
+                        </button>
+                    `;
+                }
+            }
+
+            // Форматируем описание (подсветка @bot)
+            const formattedDesc = (task.description || '').replace(/(@[a-zA-Z0-9_]+)/g, '<span class="tg-code-phrase">$1</span>');
+
+            el.innerHTML = `
+                <div class="tg-task-header">
+                    <div class="tg-left-col">
+                        <div class="tg-icon-box"><i class="${iconClass}"></i></div>
+                        <div class="tg-text-col">
+                            <span class="tg-title">${task.title}</span>
+                            <span class="tg-subtitle">${formattedDesc}</span>
+                        </div>
+                    </div>
+                    <div class="tg-right-col">
+                        ${rightColHtml}
+                    </div>
+                </div>
+                ${bottomHtml}
+            `;
+            
+            container.appendChild(el);
+
+            // Запуск таймера (если кнопка должна быть серой)
+            if (task.is_daily && task.last_claimed_at && !task.is_completed) {
+                const last = new Date(task.last_claimed_at).getTime();
+                const now = new Date().getTime();
+                const diff = now - last;
+                const cooldownMs = 20 * 60 * 60 * 1000;
+                
+                if (diff < cooldownMs) {
+                    startButtonCooldown(`btn-${task.task_key}`, task.last_claimed_at);
+                }
+            }
+        });
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<div style="color:#ff4757; text-align:center; padding:20px;">Ошибка загрузки</div>';
+    }
 }
 
 function hideQuestRoulette() {
@@ -1204,6 +1394,14 @@ function setupEventListeners() {
             }
         });
     }
+
+    const tgBtn = document.getElementById('open-tg-tasks-btn');
+if (tgBtn) {
+    tgBtn.addEventListener('click', () => {
+        openUniversalModal('Telegram Задания');
+        loadTelegramTasksToModal(); // Новая функция (см. ниже)
+    });
+}
     
     document.addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('quest-category-header')) {
