@@ -2672,11 +2672,12 @@ async def get_telegram_tasks(
         tasks = tasks_resp.json()
 
         # 2. Берем прогресс пользователя по этим заданиям
+        # !!! ВАЖНО: Добавил last_claimed_at в select, чтобы работал таймер !!!
         progress_resp = await supabase.get(
             "/user_telegram_progress",
-            params={"user_id": f"eq.{user_id}", "select": "task_key, completed, current_day"}
+            params={"user_id": f"eq.{user_id}", "select": "task_key, completed, current_day, last_claimed_at"}
         )
-        # Превращаем прогресс в удобный словарь: {"tg_sub": {"completed": True, ...}}
+        # Превращаем прогресс в удобный словарь
         user_progress = {item["task_key"]: item for item in progress_resp.json()}
 
         result_list = []
@@ -2687,13 +2688,12 @@ async def get_telegram_tasks(
             is_completed = prog.get("completed", False)
             current_day = prog.get("current_day", 0)
             
-            # Для ежедневных заданий "выполнено" сегодня, если таймер не прошел? 
-            # Но для простоты UI: если цикл завершен (is_completed=True) - кидаем вниз.
-            
             task_data = {
                 **task,
                 "is_completed": is_completed, # Флаг для фронтенда (серый цвет)
-                "current_day": current_day
+                "current_day": current_day,
+                # !!! ВАЖНО: Передаем дату последнего клейма для таймера !!!
+                "last_claimed_at": prog.get("last_claimed_at")
             }
             result_list.append(task_data)
 
