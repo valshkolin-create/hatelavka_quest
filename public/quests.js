@@ -599,7 +599,8 @@ function injectProfilePopup(type) {
     document.body.insertAdjacentHTML('beforeend', popupHtml);
     document.getElementById('goToSettingsBtn').addEventListener('click', () => {
         document.getElementById('profilePopup').remove();
-        Telegram.WebApp.openLink('tg://settings'); 
+        // Используем openTelegramLink и https-аналог ссылки
+        Telegram.WebApp.openTelegramLink('https://t.me/settings'); 
     });
     document.getElementById('closeProfilePopupBtn').addEventListener('click', () => {
         document.getElementById('profilePopup').remove();
