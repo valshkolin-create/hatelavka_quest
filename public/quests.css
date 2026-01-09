@@ -60,7 +60,14 @@ html, body {
 .main-content.visible { opacity: 1; }
 
 /* === ПРОФИЛЬ (ВЕРХНЯЯ ЧАСТЬ) === */
-.user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 10px; }
+.user-profile { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 10px; 
+    margin-top: 10px; 
+    position: relative; /* <--- ВАЖНО */
+}
 .user-info { display: flex; flex-direction: column; }
 .user-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .stats-block { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
@@ -377,31 +384,38 @@ body[data-theme="manual"] {
 }
 
 /* === Кнопка Промокодов (МИКРО-ВЕРСИЯ) === */
-/* Используем трюк font-size: 0 для скрытия старого текста и псевдоэлемент для нового */
 #promo-btn-inject, .promo-profile-btn {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
     width: auto !important;
-    min-width: auto !important; /* Убираем min-width */
-    margin: 4px auto 0 auto !important;
-    padding: 3px 8px !important; /* Очень маленькие отступы */
+    min-width: 80px !important;
+    padding: 4px 8px !important;
+    
+    /* --- ИЗМЕНЕНИЯ ДЛЯ ЛЕВОЙ СТОРОНЫ --- */
+    position: absolute !important; 
+    left: 0 !important;            /* Прижимаем влево */
+    right: auto !important;        /* Отменяем привязку справа */
+    top: 26px !important;          /* Отступ сверху (под именем). Если имя перекрывается, увеличьте до 28px */
+    margin: 0 !important;
+    z-index: 20;
+    /* ---------------------------------- */
+
     background: linear-gradient(90deg, #6441a5 0%, #9146ff 100%);
     color: white !important;
     font-weight: 700;
-    font-size: 0 !important; /* Скрываем старый текст JS */
-    border-radius: 5px !important;
+    font-size: 0 !important;
+    border-radius: 6px !important;
     text-decoration: none;
-    box-shadow: 0 1px 3px rgba(100, 65, 165, 0.2);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    height: auto !important; /* Высота по содержимому */
+    height: 24px !important;
     line-height: 1;
     border: none;
     cursor: pointer;
     transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
-
 /* Скрываем иконку, если она есть внутри */
 #promo-btn-inject i, .promo-profile-btn i {
     display: none !important;
