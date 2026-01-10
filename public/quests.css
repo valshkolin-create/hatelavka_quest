@@ -1042,7 +1042,7 @@ body[data-theme="manual"] {
 
 /* === PREMIUM BUTTON STYLES === */
 
-/* === ПРЕМИУМ КНОПКИ (КОМПАКТНЫЕ) === */
+/* === ПРЕМИУМ КНОПКИ (КОМПАКТНЫЕ 70px) === */
 .tg-premium-btn {
     /* Синий градиент */
     background: linear-gradient(92deg, #0088cc 0%, #29b6f6 100%);
@@ -1053,57 +1053,56 @@ body[data-theme="manual"] {
     color: #fff;
     
     /* Шрифт кнопки "ЗАБРАТЬ" */
-    font-size: 10px; 
-    font-weight: 800;
+    font-size: 9px;       /* Уменьшили до 9px */
+    font-weight: 700;     /* Чуть тоньше (было 800) */
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0;    /* Убрали межбуквенный интервал */
     
-    /* Флекс для выравнивания текста и бэйджа */
+    /* Флекс */
     display: inline-flex;
     align-items: center;
-    justify-content: center; /* Центруем контент */
-    gap: 4px; /* Чуть уменьшил отступ между текстом и цифрой для компактности */
+    justify-content: center;
+    gap: 2px;             /* Минимальный отступ между текстом и цифрой */
     
-    /* === ИЗМЕНЕНИЯ ЗДЕСЬ === */
-    padding: 0;           /* Убрали отступы, так как ширина фиксированная */
-    height: 26px;         /* Высота как была */
-    width: 70px;          /* ЖЕСТКАЯ ШИРИНА (было min-width: 80px) */
+    /* Размеры */
+    padding: 0;           /* Ноль отступов */
+    height: 26px;
+    width: 70px;          /* ЖЕСТКАЯ ШИРИНА */
     
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
-    flex-shrink: 0;       /* Запрещаем кнопке сжиматься, если места мало */
+    flex-shrink: 0;
 }
 
 .tg-premium-btn:active { transform: scale(0.96); }
 .tg-premium-btn:disabled { background: #333; color: #777; box-shadow: none; cursor: not-allowed; }
 
-/* === БЭЙДЖ С НАГРАДОЙ (Внутри кнопки) === */
+/* === БЭЙДЖ С НАГРАДОЙ (СЖАТЫЙ) === */
 .btn-reward-badge {
-    /* Полупрозрачный черный фон для контраста */
-    background: rgba(0, 0, 0, 0.25);
-    border-radius: 4px;
-    padding: 2px 5px;
+    background: rgba(0, 0, 0, 0.2); /* Чуть прозрачнее */
+    border-radius: 3px;
+    padding: 1px 3px;     /* Сжали внутренние отступы */
     
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px; /* Отступ между цифрой и билетиком */
+    gap: 2px;             /* Сжали отступ иконки */
     
     /* Шрифт цифр */
-    font-family: 'Roboto', sans-serif; /* Или системный */
+    font-family: 'Roboto', sans-serif;
     font-weight: 700;
-    font-size: 10px;
+    font-size: 9px;       /* Тоже 9px */
     color: #fff;
     line-height: 1;
 }
 
 /* Иконка билета */
 .btn-ticket-icon {
-    font-size: 10px;
-    color: #FFD700; /* Золотистый цвет для билета, чтобы выделялся */
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); /* Легкая тень */
+    font-size: 9px;       /* Уменьшили иконку */
+    color: #FFD700;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));
 }
 
 /* === СТИЛИ ДЛЯ АККОРДЕОНА ВЫПОЛНЕННЫХ ЗАДАНИЙ === */
