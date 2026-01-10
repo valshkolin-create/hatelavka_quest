@@ -8,6 +8,14 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   
   <script>
+
+    // Предварительная загрузка данных, пока грузится основной тяжелый JS
+    window.bootstrapPromise = fetch('/api/v1/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
+    }).then(r => r.json()).catch(e => null);
+    
     // Заглушка Telegram, если скрипт не прогрузился
     if (typeof Telegram === 'undefined') {
       window.Telegram = {
