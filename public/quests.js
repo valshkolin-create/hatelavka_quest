@@ -1816,42 +1816,60 @@ document.addEventListener('visibilitychange', async () => {
         const target = event.target.closest('button');
         if (!target) return;
 
+        // 1. ПОЛУЧЕНИЕ ЧЕЛЛЕНДЖА (Рулетка)
         if (target.id === 'get-challenge-btn') {
             await startChallengeRoulette();
-       } else if (target.id === 'claim-challenge-btn') {
+        } 
+        
+        // 2. ЗАБРАТЬ НАГРАДУ ЗА ЧЕЛЛЕНДЖ
+        else if (target.id === 'claim-challenge-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             
-            // === ФИКС: Сразу блокируем повторные нажатия на уровне данных ===
-            if(userData.challenge) {
-                userData.challenge.claimed_at = new Date().toISOString(); // Ставим "забрано" локально
-            }
+            // Локальная блокировка
+            if(userData.challenge) userData.challenge.claimed_at = new Date().toISOString();
             
             try {
                 const challengeId = target.dataset.challengeId; 
                 const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
                 
                 if (result.success) {
-                    // Визуально превращаем кнопку в "Выполнено" прямо сейчас
+                    // Визуально меняем кнопку
                     target.innerHTML = '<i class="fa-solid fa-check"></i> <span>Выполнено</span>';
                     target.style.background = '#2c2c2e';
                     target.style.color = '#666';
                     target.style.boxShadow = 'none';
 
-                    if (result.promocode) {
+                    // Если есть награда в билетах/монетах
+                    if (result.reward_amount || result.reward) {
+                        const amount = result.reward_amount || result.reward;
+                        
+                        // 1. Обновляем баланс
+                        const stats = document.getElementById('ticketStats');
+                        if(stats) {
+                            const newVal = parseInt(stats.innerText || '0') + amount;
+                            stats.innerText = newVal;
+                            if(typeof userData !== 'undefined') userData.tickets = newVal;
+                        }
+
+                        // 2. Показываем красивое окно
+                        showBeautifulReward(amount, "Челлендж завершен!");
+                    } 
+                    else if (result.promocode) {
+                        // Если это промокод — показываем старое окно (или можно переделать)
                         dom.rewardClaimedOverlay.classList.remove('hidden'); 
-                    } else {
+                    } 
+                    else {
+                        // Если ничего не вернулось, просто обновляем
                         await main();
                     }
                 } else {
-                    // Если ошибка — возвращаем кнопку к жизни
+                    // Ошибка
                     Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
                     target.disabled = false;
-                    target.style.background = ''; // Сброс цвета
+                    target.style.background = '';
                     target.style.color = '';
                     target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
-                    
-                    // Если ошибка, снимаем локальную блокировку
                     if(userData.challenge) delete userData.challenge.claimed_at;
                 }
             } catch (e) {
@@ -1859,35 +1877,55 @@ document.addEventListener('visibilitychange', async () => {
                 target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
                 if(userData.challenge) delete userData.challenge.claimed_at;
             }
-        } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
+        } 
+        
+        // 3. ЗАБРАТЬ НАГРАДУ ЗА АКТИВНЫЙ КВЕСТ
+        else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
             const questId = target.dataset.questId;
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             try {
                 const result = await makeApiRequest('/api/v1/promocode', { quest_id: parseInt(questId) });
+                
                 if (result && result.promocode) {
                     dom.rewardClaimedOverlay.classList.remove('hidden');
-                } else if (result && result.tickets_only) {
+                } 
+                else if (result && result.tickets_only) {
+                    // === ТУТ ТЕПЕРЬ ТОЖЕ КРАСИВО ===
+                    const reward = result.tickets_awarded || 0;
+
+                    // 1. Обновляем баланс
                     const ticketStatsEl = document.getElementById('ticketStats');
                     if (ticketStatsEl) {
                         const current = parseInt(ticketStatsEl.textContent, 10);
-                        ticketStatsEl.textContent = current + (result.tickets_awarded || 0);
+                        const newVal = current + reward;
+                        ticketStatsEl.textContent = newVal;
+                        if(typeof userData !== 'undefined') userData.tickets = newVal; // Сохраняем!
                     }
-                    dom.ticketsClaimedOverlay.classList.remove('hidden');
-                } else {
+
+                    // 2. Показываем красивое окно вместо старого
+                    showBeautifulReward(reward, "Квест выполнен!");
+                } 
+                else {
                     await main();
                 }
             } catch (e) {
                 target.disabled = false;
                 target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать</span>';
             }
-        } else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
+        } 
+        
+        // 4. РУЧНОЕ ЗАДАНИЕ (Prompt)
+        else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
             currentQuestId = target.dataset.id;
             dom.promptTitle.textContent = target.dataset.title;
             dom.promptInput.value = '';
             dom.promptOverlay.classList.remove('hidden');
             dom.promptInput.focus();
-        } else if (target.id === 'check-challenge-progress-btn' || target.id === 'complete-expired-quest-btn') {
+        } 
+        
+        // 5. ДРУГИЕ КНОПКИ (Закрыть квест / Отменить)
+        else if (target.id === 'check-challenge-progress-btn' || target.id === 'complete-expired-quest-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             try {
@@ -1897,7 +1935,8 @@ document.addEventListener('visibilitychange', async () => {
             } catch (e) {
                 await main();
             }
-        } else if (target.id === 'cancel-quest-btn') {
+        } 
+        else if (target.id === 'cancel-quest-btn') {
             Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания можно лишь раз в сутки.", async (ok) => {
                 if (ok) {
                     try {
@@ -1909,7 +1948,6 @@ document.addEventListener('visibilitychange', async () => {
             });
         }
     });
-}
 
 // ==========================================
 // 8. ЗАПУСК
