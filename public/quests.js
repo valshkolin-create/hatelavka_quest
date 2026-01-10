@@ -501,8 +501,12 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
             
-            // Если мы тут, то список скорее всего перезагрузится, но на всякий случай
-            // кнопку обновлять не нужно, она либо исчезнет, либо станет галочкой
+            // === ХИРУРГИЧЕСКАЯ ВСТАВКА: АВТО-ПЕРЕЗАГРУЗКА ===
+            // Ждем немного, чтобы юзер увидел уведомление, и обновляем страницу
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+            // ===============================================
 
         } else if (data) {
             // ОШИБКА (или проверка не прошла)
