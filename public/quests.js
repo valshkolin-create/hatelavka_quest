@@ -1342,17 +1342,81 @@ function initUnifiedSwitcher() {
 }
 
 async function main() {
+    // 1. Проверка окружения Telegram
     if (window.Telegram && !Telegram.WebApp.initData) {
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
         return; 
     }
 
-    if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
-    updateLoading(10);
+    // === БЛОК 1: МГНОВЕННЫЙ РЕНДЕР ИЗ КЭША (Stale-While-Revalidate) ===
+    const cachedRaw = localStorage.getItem('quests_cache_v1');
+    let isRenderedFromCache = false;
+
+    if (cachedRaw) {
+        try {
+            const cachedData = JSON.parse(cachedRaw);
+            if (cachedData && cachedData.user) {
+                console.log("🚀 Restoring from cache...");
+                
+                // Применяем данные из кэша
+                userData = cachedData.user;
+                allQuests = cachedData.quests || [];
+                
+                // Обновляем UI
+                dom.fullName.textContent = userData.full_name || "Гость";
+                if (document.getElementById('ticketStats')) {
+                    document.getElementById('ticketStats').textContent = userData.tickets || 0;
+                }
+
+                // Кнопка промокодов
+                if (dom.fullName.parentNode && !document.getElementById('promo-btn-inject')) {
+                    const btn = document.createElement('a');
+                    btn.id = 'promo-btn-inject';
+                    btn.href = 'profile.html';
+                    btn.className = 'promo-profile-btn'; 
+                    // Иконку убираем стилями, оставляем текст для читалки
+                    btn.innerHTML = 'Промокоды'; 
+                    dom.fullName.insertAdjacentElement('afterend', btn);
+                }
+
+                // Инициализация переключателя и темы
+                initUnifiedSwitcher();
+                
+                // Важно: если пользователь был в сети, ставим твитч, иначе телеграм
+                let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
+                const switchEl = document.getElementById(`view-${defaultView}`);
+                if (switchEl) {
+                    switchEl.checked = true;
+                    setPlatformTheme(defaultView);
+                    dom.sectionAuto.classList.remove('hidden');
+                    dom.sectionManual.classList.add('hidden');
+                }
+
+                // Рендер челленджа из кэша
+                if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
+                else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+                
+                // Скрываем загрузчик СРАЗУ, так как контент уже есть
+                if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+                dom.mainContent.style.opacity = 1;
+                isRenderedFromCache = true;
+            }
+        } catch (e) {
+            console.error("Cache parsing error", e);
+        }
+    }
+
+    // Если кэша нет, показываем загрузку
+    if (!isRenderedFromCache && dom.loaderOverlay) {
+        dom.loaderOverlay.classList.remove('hidden');
+        updateLoading(10);
+    }
     
+    // === БЛОК 2: ЗАГРУЗКА СВЕЖИХ ДАННЫХ (Сеть) ===
     try {
-        // Проверяем, запустилась ли загрузка в HTML (window.bootstrapPromise)
         let bootstrapData;
+        
+        // Проверяем предзагрузку из HTML (window.bootstrapPromise)
         if (window.bootstrapPromise) {
             try {
                 bootstrapData = await window.bootstrapPromise;
@@ -1361,12 +1425,17 @@ async function main() {
                 bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
             }
         } else {
-            // Если предзагрузки нет, делаем обычный запрос
+            // Обычный запрос, если предзагрузки нет
             bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
         }
+        
         updateLoading(50);
 
         if (bootstrapData) {
+            // === СОХРАНЯЕМ В КЭШ ===
+            localStorage.setItem('quests_cache_v1', JSON.stringify(bootstrapData));
+            // ======================
+
             userData = bootstrapData.user;
             allQuests = bootstrapData.quests;
             
@@ -1380,20 +1449,37 @@ async function main() {
                     btn.id = 'promo-btn-inject';
                     btn.href = 'profile.html';
                     btn.className = 'promo-profile-btn'; 
-                    btn.innerHTML = '<i class="fa-solid fa-ticket" style="margin-right: 5px; font-size: 10px;"></i> Промокоды';
+                    btn.innerHTML = 'Промокоды';
                     dom.fullName.insertAdjacentElement('afterend', btn);
                 }
             }
 
+            // Переинициализация с новыми данными
             initUnifiedSwitcher(); 
 
+            // Если это первый запуск (без кэша), ставим дефолтную тему
+            // Если с кэшем, то мы не меняем вкладку, чтобы не сбить пользователя,
+            // но обновляем контент внутри текущей вкладки (через setPlatformTheme)
             let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
-            const switchEl = document.getElementById(`view-${defaultView}`);
-            if (switchEl) {
-                switchEl.checked = true;
-                setPlatformTheme(defaultView);
-                dom.sectionAuto.classList.remove('hidden');
-                dom.sectionManual.classList.add('hidden');
+            
+            // Если рендерили из кэша, проверяем текущий выбор пользователя
+            if (isRenderedFromCache) {
+                 const currentChecked = document.querySelector('input[name="view"]:checked');
+                 if (currentChecked) defaultView = currentChecked.value;
+            } else {
+                 const switchEl = document.getElementById(`view-${defaultView}`);
+                 if (switchEl) switchEl.checked = true;
+            }
+            
+            setPlatformTheme(defaultView);
+            
+            // Логика отображения секций
+            if (defaultView === 'manual') {
+                 dom.sectionAuto.classList.add('hidden');
+                 dom.sectionManual.classList.remove('hidden');
+            } else {
+                 dom.sectionAuto.classList.remove('hidden');
+                 dom.sectionManual.classList.add('hidden');
             }
 
             if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
@@ -1402,6 +1488,7 @@ async function main() {
             updateLoading(70);
             
             try {
+                // Загружаем ручные квесты
                 const manualQuests = await makeApiRequest("/api/v1/quests/manual", {}, 'POST', true);
                 renderManualQuests(manualQuests);
             } catch (e) {
@@ -1411,6 +1498,8 @@ async function main() {
         }
 
         updateLoading(100);
+        
+        // Плавное скрытие лоадера (если он был виден)
         setTimeout(() => {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             dom.mainContent.style.opacity = 1; 
@@ -1418,7 +1507,10 @@ async function main() {
 
     } catch (e) {
         console.error(e);
-        Telegram.WebApp.showAlert("Ошибка загрузки. Обновите страницу.");
+        // Показываем ошибку только если нет кэша, иначе пользователь видит старые данные и ок
+        if (!isRenderedFromCache) {
+            Telegram.WebApp.showAlert("Ошибка загрузки. Обновите страницу.");
+        }
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
     }
 }
