@@ -789,7 +789,7 @@ function renderChallenge(challengeData, isGuest) {
                 </div>
             </div>
             ${twitchNotice}
-            ${claimButtonHtml} </div>`;
+            ${claimButtonHtml}
         </div>`;
     
     if (challenge.expires_at) {
