@@ -1515,15 +1515,22 @@ async function main() {
         const urlParams = new URLSearchParams(window.location.search);
         // Если пришли с параметром ?open=roulette
         if (urlParams.get('open') === 'roulette') {
-            console.log("🚀 Switching to Twitch tab by URL request...");
+            console.log("🚀 Авто-запуск окна испытания...");
+            
+            // 1. Принудительно включаем вкладку Twitch
             const twitchSwitch = document.getElementById('view-twitch');
             if (twitchSwitch) {
-                // 1. Имитируем клик, чтобы сработали все обработчики (смена цвета и т.д.)
                 twitchSwitch.click();
-                // 2. На всякий случай явно применяем тему
                 if (typeof setPlatformTheme === 'function') setPlatformTheme('twitch');
             }
-            // АВТО-СТАРТА (startBtn.click) НЕТ - окно не откроется само, только вкладка!
+
+            // 2. Ждем полсекунды (чтобы вкладка отрисовалась) и ЖМЕМ КНОПКУ
+            setTimeout(() => {
+                const startBtn = document.getElementById('quest-choose-btn');
+                if (startBtn) {
+                    startBtn.click(); // <--- ЭТО ОТКРОЕТ КРАСИВОЕ ОКНО
+                }
+            }, 500);
         }
         // =========================================================================
 
