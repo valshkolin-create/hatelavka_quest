@@ -2056,16 +2056,14 @@ function setupEventListeners() {
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
         chalShortcut.addEventListener('click', () => {
-            // Просто переходим, откроется вкладка по умолчанию (или последняя активная)
-            window.location.href = '/quests'; 
+            // Добавляем параметр twitch_only — просто переключить вкладку
+            window.location.href = '/quests?open=twitch_only'; 
         });
     }
     // Клик на Испытания
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.addEventListener('click', () => {
-            // Передаем параметр ?open=roulette
-            // quests.js увидит его и сразу нажмет кнопку "Начать"
             window.location.href = '/quests?open=roulette';
         });
     }
