@@ -1175,3 +1175,17 @@ body[data-theme="manual"] {
 .skeleton-title { height: 20px; margin-bottom: 10px; width: 50%; border-radius: 6px; }
 .skeleton-icon { width: 40px; height: 40px; border-radius: 50%; }
 .skeleton-btn { height: 36px; width: 100%; border-radius: 8px; margin-top: auto; }
+
+/* Оставьте blur только для устройств, которые это хорошо поддерживают */
+.quest-card, .app-footer, .user-profile, .prompt-modal {
+    /* Фоллбэк (для слабых телефонов просто непрозрачный фон) */
+    background-color: rgba(28, 28, 30, 0.95); 
+}
+
+@supports ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+    .quest-card, .app-footer, .user-profile, .prompt-modal {
+        background-color: var(--surface-glass-bg); /* Ваш полупрозрачный цвет */
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+    }
+}
