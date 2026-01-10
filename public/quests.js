@@ -1110,10 +1110,11 @@ async function openQuestSelectionModal() {
     container.classList.add('grid-mode'); 
     container.innerHTML = ''; 
     
-    // 3. Фильтруем квесты по префиксу (automatic_twitch или automatic_telegram)
-    const quests = allQuests.filter(q => 
-        q.quest_type && q.quest_type.startsWith(filterPrefix) && !q.is_completed
-    );
+    // 3. Фильтруем квесты по префиксу и СОРТИРУЕМ ПО НАГРАДЕ (Больше -> Меньше)
+    const quests = allQuests
+        .filter(q => q.quest_type && q.quest_type.startsWith(filterPrefix) && !q.is_completed)
+        // 🔥 СОРТИРОВКА: b - a (от большего к меньшему)
+        .sort((a, b) => (b.reward_amount || 0) - (a.reward_amount || 0));
 
     if (!quests || quests.length === 0) {
         container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#aaa;">Нет доступных испытаний</div>';
@@ -1129,7 +1130,6 @@ async function openQuestSelectionModal() {
             ? `+${quest.reward_amount} <i class="fa-solid fa-coins" style="color: #ffcc00;"></i>`
             : `Ивент`;
 
-        // Генерируем HTML карточки (1в1 как Twitch, но с переменными цветов)
         el.innerHTML = `
             <div class="tg-grid-icon" style="color: ${accentColor}; background: ${bgIconColor}; box-shadow: 0 4px 10px ${bgIconColor};">
                 <i class="${iconClass}"></i>
@@ -1143,18 +1143,15 @@ async function openQuestSelectionModal() {
             </button>
         `;
 
-        // Логика кнопки "Начать" (Одинаковая для всех)
         const btn = el.querySelector(`#btn-start-${quest.id}`);
         btn.addEventListener('click', async () => {
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             try {
-                // Вызываем тот же API метод, что и для Twitch. 
-                // Бэкенд сам разберется по ID квеста, что это Telegram-квест.
                 await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
                 closeUniversalModal();
                 Telegram.WebApp.showAlert(`✅ Испытание принято: ${quest.title}`);
-                await main(); // Обновляем главную страницу
+                await main(); 
             } catch(e) {
                 Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
                 btn.disabled = false;
