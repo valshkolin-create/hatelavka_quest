@@ -2056,7 +2056,7 @@ function setupEventListeners() {
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
         chalShortcut.addEventListener('click', () => {
-            // Добавляем параметр twitch_only — просто переключить вкладку
+            // Передаем команду "twitch_only"
             window.location.href = '/quests?open=twitch_only'; 
         });
     }
@@ -2064,6 +2064,7 @@ function setupEventListeners() {
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.addEventListener('click', () => {
+            // Передаем команду "roulette"
             window.location.href = '/quests?open=roulette';
         });
     }
