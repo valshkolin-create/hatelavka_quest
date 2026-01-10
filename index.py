@@ -12026,30 +12026,10 @@ async def claim_daily_task(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
-        # === 1. ВАЛИДАЦИЯ (ИСПРАВЛЕНИЕ ОШИБКИ 500) ===
-        # Получаем initData из тела запроса (фронт должен его присылать)
-        init_data = data.get("initData")
-        
-        # ВАЖНО: Передаем список токенов вторым аргументом!
-        # Замени settings.BOT_TOKEN на свою переменную с токеном
-        token = os.getenv("BOT_TOKEN") 
-        if not init_data:
-             return JSONResponse({"success": False, "error": "Нет данных авторизации (initData)"})
-
-        # Вот здесь была ошибка: добавил список [token]
-        auth_data = is_valid_init_data(init_data, [token])
-        
-        if not auth_data:
-             return JSONResponse({"success": False, "error": "Ошибка валидации данных Telegram"})
-
-        # === 2. ОСНОВНАЯ ЛОГИКА ===
         user_id = data.get("user_id")
         task_key = data.get("task_key")
         
-        if not user_id or not task_key:
-            return JSONResponse({"success": False, "error": "Не переданы user_id или task_key"})
-
-        # --- Получаем задание ---
+        # 1. Получаем задание
         task_resp = await supabase.get(
             "/telegram_tasks", 
             params={"task_key": f"eq.{task_key}", "select": "*", "limit": 1}
@@ -12061,7 +12041,7 @@ async def claim_daily_task(
         
         task = task_data[0]
 
-        # --- Получаем прогресс пользователя ---
+        # 2. Получаем прогресс
         progress_resp = await supabase.get(
             "/user_telegram_progress", 
             params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}", "select": "*"}
@@ -12071,15 +12051,15 @@ async def claim_daily_task(
         if progress_list:
             progress = progress_list[0]
         else:
-            # Создаем начальный прогресс, если его нет
+            # Создаем запись, если её нет
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
             await supabase.post("/user_telegram_progress", json=progress)
 
-        # Проверка: если уже выполнено (финальный статус)
+        # Базовые проверки статуса
         if progress["completed"]:
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
-        # Проверка времени (20 часов) - ТОЛЬКО если задание ежедневное
+        # Проверка кулдауна (20 часов), если задание ежедневное
         if task.get("is_daily") and progress.get("last_claimed_at"):
             last_claim = parser.isoparse(progress["last_claimed_at"])
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
@@ -12088,83 +12068,82 @@ async def claim_daily_task(
         if task.get("is_daily") and progress["current_day"] >= task["total_days"]:
              return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
 
-        # === 3. СПЕЦИФИЧЕСКИЕ ПРОВЕРКИ (Подписка, Голосование, Био) ===
+        # --- ЛОГИКА ПРОВЕРКИ (CHECK LOGIC) ---
         check_passed = False
         
-        # --- Проверка подписки ---
+        # А. Проверка подписки (канал)
         if task_key == "tg_sub":
             channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-            if not channel_id:
-                return JSONResponse({"success": False, "error": "Ошибка конфигурации сервера (нет ID канала)"})
-
             try:
                 member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
                 if member.status in ["creator", "administrator", "member", "restricted"]:
                     check_passed = True
                 else:
                     return JSONResponse({"success": False, "error": "Вы не подписаны на канал!"})
-            except Exception as e:
-                print(f"Bot check error: {e}")
-                return JSONResponse({"success": False, "error": "Бот не смог проверить подписку. Убедитесь, что вы подписаны."})
+            except Exception:
+                return JSONResponse({"success": False, "error": "Не удалось проверить подписку. Убедитесь, что вы подписаны."})
 
-        # --- Проверка голосования (Бусты) ---
+        # Б. Проверка бустов
         elif task_key == "tg_vote":
             channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-            if not channel_id:
-                return JSONResponse({"success": False, "error": "Ошибка настройки (нет ID канала)"})
-
             try:
                 user_boosts = await bot.get_user_chat_boosts(chat_id=channel_id, user_id=user_id)
                 if user_boosts.boosts:
                     check_passed = True
                 else:
-                    return JSONResponse({"success": False, "error": "Вы не проголосовали за канал! Голос (Boost) не найден."})
-            except Exception as e:
-                print(f"Boost Check Error: {e}")
-                return JSONResponse({"success": False, "error": "Бот не может проверить голос. Сделайте бота админом!"})
+                    return JSONResponse({"success": False, "error": "Голос не найден!"})
+            except Exception:
+                 return JSONResponse({"success": False, "error": "Бот не может проверить голос (нужны права админа)."})
 
-        # --- Стандартная проверка (Фамилия / Био) ---
+        # В. Текстовые проверки (Ник / Био)
         else:
             try:
-                # Если проверки нет (check_type == none), то сразу True
-                if task.get("check_type") == "none" or not task.get("check_phrase"):
-                    check_passed = True
+                # Получаем объект чата (юзера)
+                user_chat = await bot.get_chat(user_id)
+                phrase = (task.get("check_phrase") or "").lower().strip()
+                check_type = task.get("check_type")
+
+                if check_type == "surname":
+                    # FIX: Проверяем полное имя, а не только фамилию, так надежнее
+                    full_name = (user_chat.full_name or "").lower()
+                    if phrase and phrase in full_name:
+                        check_passed = True
+                        
+                elif check_type == "bio":
+                    # Проверяем описание
+                    bio = (user_chat.bio or "").lower()
+                    if phrase and phrase in bio:
+                        check_passed = True
                 else:
-                    user_chat = await bot.get_chat(user_id)
-                    phrase = (task.get("check_phrase") or "").lower()
+                    # Если типа нет — считаем, что просто клик
+                    check_passed = True
                     
-                    if task["check_type"] == "surname":
-                        last_name = (user_chat.last_name or "").lower()
-                        if phrase and phrase in last_name:
-                            check_passed = True
-                    elif task["check_type"] == "bio":
-                        bio = (user_chat.bio or "").lower()
-                        if phrase and phrase in bio:
-                            check_passed = True
             except Exception as e:
-                print(f"Tg API Error: {e}")
-                # Если API упал, но проверка не требовалась, можно пропустить, иначе ошибка
-                pass
+                print(f"Check Error: {e}")
+                # Если не смогли получить данные юзера, но это не спец.задание - иногда можно пропустить, 
+                # но лучше вернуть ошибку, чтобы юзер проверил приватность.
+                return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Проверьте настройки приватности."})
 
         if not check_passed:
-            target = "фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
-            return JSONResponse({"success": False, "error": f"Условие не выполнено! Проверьте наличие '{task.get('check_phrase')}' в {target}."})
+            target = "имени/фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
+            return JSONResponse({"success": False, "error": f"Фраза '{task.get('check_phrase')}' не найдена в {target}!"})
 
-        # === 4. НАЧИСЛЕНИЕ НАГРАДЫ ===
-        next_day = progress["current_day"] + 1
+        # --- НАЧИСЛЕНИЕ НАГРАДЫ ---
         
-        # Логика завершения
-        if not task.get("is_daily"):
-            is_done = True
-        else:
-            is_done = next_day >= task["total_days"]
-
+        # Расчет следующего дня
+        next_day = progress["current_day"] + 1
+        is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
         reward = task["reward_amount"] 
 
-        # Начисляем билеты через RPC (самый надежный способ для Supabase)
-        await supabase.post("/rpc/add_tickets", json={"p_user_id": user_id, "p_amount": reward})
+        # 3. Начисляем билеты (ТВОЙ ФИКС: через RPC)
+        try:
+            await supabase.post("/rpc/add_tickets", json={"p_user_id": user_id, "p_amount": reward})
+        except Exception as e:
+            print(f"RPC Error: {e}")
+            # Если RPC упал, можно попробовать фоллбек, но пока оставим ошибку
+            return JSONResponse({"success": False, "error": "Ошибка начисления билетов"})
 
-        # Обновляем прогресс
+        # 4. Обновляем прогресс
         update_data = {
             "current_day": next_day,
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
@@ -12183,14 +12162,12 @@ async def claim_daily_task(
             "day": next_day,
             "total_days": task["total_days"],
             "is_completed": is_done, 
-            "message": f"Задание выполнено! Получено {reward} билетов!"
+            "message": f"Начислено {reward} билетов!"
         })
 
     except Exception as e:
-        # Логируем ошибку, чтобы видеть в консоли Vercel
-        print(f"Error claiming daily: {str(e)}")
-        # Возвращаем JSON даже при ошибке, чтобы фронтенд не падал с Unexpected token
-        return JSONResponse(status_code=500, content={"success": False, "error": f"Internal Error: {str(e)}"})
+        print(f"Global Error: {e}")
+        return JSONResponse({"success": False, "error": str(e)})
         
 @app.post("/api/v1/telegram/status")
 async def get_telegram_status(
