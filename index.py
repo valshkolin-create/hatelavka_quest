@@ -345,12 +345,7 @@ class AdminFreezeStarsRequest(BaseModel):
 class AdminAuctionFinishRequest(BaseModel):
     initData: str
     id: int
-
-class TelegramClaimRequest(BaseModel):
-    initData: str
-    user_id: int
-    task_key: str
-    
+   
 class AdminSettings(BaseModel):
     skin_race_enabled: bool = True
     slider_order: List[str] = Field(default_factory=lambda: ["skin_race", "cauldron", "auction", "checkpoint"])
@@ -4473,6 +4468,11 @@ class QuestCreateRequest(BaseModel):
     action_url: Optional[str] = None
     category_id: Optional[int] = None
     is_repeatable: bool = False
+
+class TelegramClaimRequest(BaseModel):
+    initData: str
+    user_id: int
+    task_key: str
 
 class QuestUpdateRequest(BaseModel):
     initData: str
