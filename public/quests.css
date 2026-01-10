@@ -1052,28 +1052,30 @@ body[data-theme="manual"] {
     border-radius: 6px; 
     color: #fff;
     
-    /* Шрифт кнопки "ЗАБРАТЬ" */
-    font-size: 9px;       /* Уменьшили до 9px */
-    font-weight: 700;     /* Чуть тоньше (было 800) */
-    text-transform: uppercase;
-    letter-spacing: 0;    /* Убрали межбуквенный интервал */
-    
-    /* Флекс */
+    /* === 2 РЯДА (ГЛАВНОЕ ИЗМЕНЕНИЕ) === */
     display: inline-flex;
+    flex-direction: column; /* Элементы друг под другом */
     align-items: center;
     justify-content: center;
-    gap: 2px;             /* Минимальный отступ между текстом и цифрой */
+    gap: 1px;               /* Минимальный зазор между строками */
     
-    /* Размеры */
-    padding: 0;           /* Ноль отступов */
-    height: 26px;
-    width: 80px;          /* ЖЕСТКАЯ ШИРИНА */
+    /* === РАЗМЕРЫ === */
+    width: 80px;            /* Твоя ширина */
+    height: 32px;           /* Чуть увеличил высоту (было 26), чтобы влезло 2 этажа */
+    padding: 2px 0;         /* Небольшие отступы сверху/снизу */
+    flex-shrink: 0;
+    
+    /* Шрифт для верхнего текста "ЗАБРАТЬ" */
+    font-size: 8px;         /* Чуть меньше, это лейбл */
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
     
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
-    flex-shrink: 0;
 }
 
 .tg-premium-btn:active { transform: scale(0.96); }
@@ -1081,21 +1083,23 @@ body[data-theme="manual"] {
 
 /* === БЭЙДЖ С НАГРАДОЙ (СЖАТЫЙ) === */
 .btn-reward-badge {
-    background: rgba(0, 0, 0, 0.2); /* Чуть прозрачнее */
+    /* Фон делаем чуть темнее или убираем, если хочешь чисто цифры */
+    background: rgba(0, 0, 0, 0.15); 
     border-radius: 3px;
-    padding: 1px 3px;     /* Сжали внутренние отступы */
+    padding: 1px 6px;       /* Чуть шире фон */
     
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;             /* Сжали отступ иконки */
+    gap: 3px;
     
-    /* Шрифт цифр */
+    /* Шрифт цифр (покрупнее верхнего текста) */
     font-family: 'Roboto', sans-serif;
     font-weight: 700;
-    font-size: 9px;       /* Тоже 9px */
+    font-size: 10px;        /* Цифры видны хорошо */
     color: #fff;
     line-height: 1;
+    margin-top: 1px;        /* Микро-отступ от текста */
 }
 
 /* Иконка билета */
