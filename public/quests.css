@@ -1067,7 +1067,7 @@ body[data-theme="manual"] {
     /* Размеры */
     padding: 0;           /* Ноль отступов */
     height: 26px;
-    width: 70px;          /* ЖЕСТКАЯ ШИРИНА */
+    width: 80px;          /* ЖЕСТКАЯ ШИРИНА */
     
     cursor: pointer;
     transition: all 0.2s ease;
