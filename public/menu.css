@@ -132,8 +132,10 @@ html, body {
 }
 .stats-block { 
     display: flex; 
-    align-items: center; /* Центрируем по вертикали относительно имени */
-    height: 100%; 
+    flex-direction: column; /* Ставим элементы друг НАД другом */
+    align-items: flex-end;  /* Прижимаем всё к правому краю */
+    justify-content: center;
+    gap: 0; /* Убираем лишние зазоры, регулируем отступами ниже */
 }
     .stats-link { text-decoration: none; color: inherit; }
     .stats-item { display: flex; align-items: center; justify-content: flex-end; }
@@ -225,44 +227,53 @@ html, body {
     .stats-link { text-decoration: none; color: inherit; }
 .social-stats-wrapper { 
     display: flex; 
-    flex-direction: row; /* ВАЖНО: Выстраиваем в строку, чтобы баланс поднялся */
-    align-items: center; 
-    gap: 8px; /* Отступ между соцсетями и билетами */
+    flex-direction: column; 
+    align-items: flex-end; 
 }
 .social-links { 
     display: flex; 
     gap: 6px; 
     align-items: center;
+    justify-content: flex-end;
+    
+    /* Чуть приподнимаем иконки или оставляем как есть, 
+       главное - они сверху */
+    margin-bottom: 4px; 
 }
+
+/* Уменьшенные кружочки */
 .social-icon-wrapper { 
-    width: 22px !important;  /* Уменьшили с 28px до 22px */
-    height: 22px !important; 
+    width: 20px !important;  
+    height: 20px !important; 
     border-radius: 50%; 
     display: flex; 
     justify-content: center; 
     align-items: center; 
-    transition: transform 0.2s ease-in-out;
 }
+
 .social-icon-wrapper i { 
-    font-size: 11px !important; /* Уменьшили шрифт иконки */
+    font-size: 10px !important; 
     color: white; 
 }
     #twitch-icon { background-color: var(--twitch-color); }
     #telegram-icon { background-color: #0088CC; }
 
     /* --- ОПТИМИЗАЦИЯ АНИМАЦИИ БИЛЕТОВ --- */
-    .tickets-item { 
-    background: rgba(52, 199, 89, 0.15); /* Фон как в Quests */
+   .tickets-item { 
+    background: rgba(52, 199, 89, 0.15); 
     border-radius: 12px; 
-    padding: 4px 10px; /* Компактные отступы */
+    padding: 3px 8px; 
     display: flex; 
     align-items: center; 
     justify-content: flex-end; 
-    gap: 6px; 
+    gap: 5px; 
     position: relative;
     z-index: 1;
-    margin: 0 !important; /* Убираем внешние отступы, чтобы не ехал вниз */
-    height: 26px; /* Фиксируем высоту, чтобы было ровно с иконками */
+    
+    /* ВАЖНО: Сдвигаем чуток ниже, чтобы выровнять с левой кнопкой */
+    margin-top: 2px !important; 
+    
+    height: 24px; /* Компактная высота */
 }
     .tickets-item::after {
         content: '';
@@ -277,12 +288,24 @@ html, body {
     }
 .tickets-item .stats-text { 
     color: var(--primary-color); 
-    font-weight: 800; /* Жирный шрифт как в Quests */
-    font-size: 14px; 
+    font-weight: 800; 
+    font-size: 13px; /* Чуть меньше шрифт, чтобы влезло */
     line-height: 1;
 }
-    .stats-icon-star { background: var(--primary-color); margin-right: 0; }
-    .stats-icon-star i { color: #fff; }
+    .stats-icon-star { 
+    background: var(--primary-color); 
+    width: 16px; 
+    height: 16px;
+    margin-right: 0; 
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+    .stats-icon-star i { 
+    color: #fff; 
+    font-size: 9px;
+}
 .info-question-icon { 
     font-size: 14px; 
     color: #ffc700; 
