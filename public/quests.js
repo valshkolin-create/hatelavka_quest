@@ -270,10 +270,20 @@ async function loadTelegramTasks() {
     }
 
     try {
-        const tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
+        // === ИСПРАВЛЕНИЕ: Используем let вместо const, чтобы можно было исправить данные ===
+        let tasks = await makeApiRequest(`/api/v1/telegram/tasks?user_id=${userId}`, {}, 'GET', true);
+        
+        // === ИСПРАВЛЕНИЕ: Защита от краша tasks.filter ===
+        // Если сервер вернул null, undefined или объект ошибки — делаем пустой массив
+        if (!Array.isArray(tasks)) {
+            console.warn("loadTelegramTasks: API вернул не массив, сбрасываем в []", tasks);
+            tasks = [];
+        }
+        // =================================================
+
         container.innerHTML = ''; 
 
-        if (!tasks || tasks.length === 0) {
+        if (tasks.length === 0) {
             container.innerHTML = '<div style="text-align:center; padding:10px;">Заданий пока нет</div>';
             return;
         }
@@ -427,10 +437,14 @@ async function loadTelegramTasks() {
         // !!! ГЛАВНОЕ ИСПРАВЛЕНИЕ !!!
         // Запускаем таймеры ТОЛЬКО ТЕПЕРЬ, когда все кнопки точно есть на странице
         timersToStart.forEach(data => {
-            startButtonCooldown(data.id, data.time);
+            if (typeof startButtonCooldown === 'function') {
+                startButtonCooldown(data.id, data.time);
+            }
         });
 
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("Ошибка в loadTelegramTasks:", e); 
+    }
 }
 
 // Замени старую функцию handleDailyClaim на эту:
@@ -1458,8 +1472,6 @@ async function main() {
             initUnifiedSwitcher(); 
 
             // Если это первый запуск (без кэша), ставим дефолтную тему
-            // Если с кэшем, то мы не меняем вкладку, чтобы не сбить пользователя,
-            // но обновляем контент внутри текущей вкладки (через setPlatformTheme)
             let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
             
             // Если рендерили из кэша, проверяем текущий выбор пользователя
@@ -1496,6 +1508,24 @@ async function main() {
                 renderManualQuests(fallbackQuests);
             }
         }
+
+        // =========================================================================
+        // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
+        // =========================================================================
+        const urlParams = new URLSearchParams(window.location.search);
+        // Если пришли с параметром ?open=roulette
+        if (urlParams.get('open') === 'roulette') {
+            console.log("🚀 Switching to Twitch tab by URL request...");
+            const twitchSwitch = document.getElementById('view-twitch');
+            if (twitchSwitch) {
+                // 1. Имитируем клик, чтобы сработали все обработчики (смена цвета и т.д.)
+                twitchSwitch.click();
+                // 2. На всякий случай явно применяем тему
+                if (typeof setPlatformTheme === 'function') setPlatformTheme('twitch');
+            }
+            // АВТО-СТАРТА (startBtn.click) НЕТ - окно не откроется само, только вкладка!
+        }
+        // =========================================================================
 
         updateLoading(100);
         
