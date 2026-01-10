@@ -1513,43 +1513,69 @@ async function main() {
         // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
         // =========================================================================
         const urlParams = new URLSearchParams(window.location.search);
-        // Если пришли с параметром ?open=roulette
-        if (urlParams.get('open') === 'roulette') {
-            console.log("🚀 Авто-запуск окна испытания...");
-            
-            // 1. Принудительно включаем вкладку Twitch
-            const twitchSwitch = document.getElementById('view-twitch');
-            if (twitchSwitch) {
-                twitchSwitch.click();
-                if (typeof setPlatformTheme === 'function') setPlatformTheme('twitch');
-            }
+    const openCommand = urlParams.get('open');
 
-            // 2. Ждем полсекунды (чтобы вкладка отрисовалась) и ЖМЕМ КНОПКУ
-            setTimeout(() => {
-                const startBtn = document.getElementById('quest-choose-btn');
-                if (startBtn) {
-                    startBtn.click(); // <--- ЭТО ОТКРОЕТ КРАСИВОЕ ОКНО
-                }
-            }, 500);
+    // 1. Получаем настройки, которые пришли из index.py (bootstrap)
+    // bootstrapData мы сохранили в кэш/переменные выше в этой же функции
+    const menuConfig = (typeof bootstrapData !== 'undefined' && bootstrapData.menu) ? bootstrapData.menu : {};
+    const isStreamOnline = userData ? userData.is_stream_online : false;
+
+    // Функция для определения актуальной платформы (Дублирует логику расписания)
+    function getActivePlatform() {
+        // 1. Если стрим идет -> Всегда Twitch
+        if (isStreamOnline) return 'twitch';
+
+        // 2. Если Админ включил "Принудительное расписание" в index.py
+        if (menuConfig.quest_schedule_override_enabled) {
+            return menuConfig.quest_schedule_active_type || 'twitch';
         }
-        // =========================================================================
 
-        updateLoading(100);
-        
-        // Плавное скрытие лоадера (если он был виден)
-        setTimeout(() => {
-            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-            dom.mainContent.style.opacity = 1; 
-        }, 300);
-
-    } catch (e) {
-        console.error(e);
-        // Показываем ошибку только если нет кэша, иначе пользователь видит старые данные и ок
-        if (!isRenderedFromCache) {
-            Telegram.WebApp.showAlert("Ошибка загрузки. Обновите страницу.");
+        // 3. Иначе стандартное расписание по дням
+        const day = new Date().getDay(); // 0=Вс, 1=Пн
+        if (day === 0 || day === 1) {
+            return 'telegram';
         }
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+        return 'twitch';
     }
+
+    // --- СЦЕНАРИЙ 1: Нажали "ИСПЫТАНИЕ" (?open=roulette) ---
+    if (openCommand === 'roulette') {
+        const targetPlatform = getActivePlatform();
+        console.log(`🚀 Кнопка Испытание: Определена платформа -> ${targetPlatform}`);
+
+        // 1. Переключаем вкладку на нужную (Twitch или Telegram)
+        const switchEl = document.getElementById(`view-${targetPlatform}`);
+        if (switchEl) {
+            switchEl.click(); 
+            if (typeof setPlatformTheme === 'function') setPlatformTheme(targetPlatform);
+        }
+
+        // 2. Ждем и открываем окно
+        setTimeout(() => {
+            const startBtn = document.getElementById('quest-choose-btn');
+            if (startBtn) {
+                startBtn.click(); // <--- ОТКРЫВАЕТ ОКНО (Рулетку или Список ТГ)
+            }
+        }, 500);
+    } 
+    
+    // --- СЦЕНАРИЙ 2: Нажали "ЧЕЛЛЕНДЖ" (?open=twitch_only) ---
+    else if (openCommand === 'twitch_only') {
+        console.log("🚀 Кнопка Челлендж: Принудительно Twitch вкладка...");
+        
+        // Просто открываем вкладку Twitch (без окна)
+        const twitchSwitch = document.getElementById('view-twitch');
+        if (twitchSwitch) {
+            twitchSwitch.click(); 
+            if (typeof setPlatformTheme === 'function') setPlatformTheme('twitch');
+        }
+    }
+
+    // =========================================================================
+
+    // Скрываем лоадер
+    if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    dom.mainContent.style.opacity = 1;
 }
 
 function initPullToRefresh() {
