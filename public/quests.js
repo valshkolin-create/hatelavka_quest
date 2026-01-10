@@ -1545,25 +1545,36 @@ async function main() {
         return 'twitch';
     }
 
-    // --- СЦЕНАРИЙ 1: Нажали "ИСПЫТАНИЕ" (?open=roulette) ---
+   // --- СЦЕНАРИЙ 1: Нажали "ИСПЫТАНИЕ" (?open=roulette) ---
     if (openCommand === 'roulette') {
         const targetPlatform = getActivePlatform();
         console.log(`🚀 Кнопка Испытание: Определена платформа -> ${targetPlatform}`);
 
-        // 1. Переключаем вкладку на нужную
+        // 1. Переключаем вкладку на нужную (Делаем это ВСЕГДА, чтобы юзер увидел экран заданий)
         const switchEl = document.getElementById(`view-${targetPlatform}`);
         if (switchEl) {
             switchEl.click(); 
             if (typeof setPlatformTheme === 'function') setPlatformTheme(targetPlatform);
         }
 
-        // 2. Ждем и открываем окно
-        setTimeout(() => {
-            const startBtn = document.getElementById('quest-choose-btn');
-            if (startBtn) {
-                startBtn.click(); 
-            }
-        }, 500);
+        // 2. Ждем и открываем окно (ТОЛЬКО ЕСЛИ НЕТ АКТИВНОГО КВЕСТА)
+        // 🔥 Если квест уже взят, мы просто остаемся на вкладке с прогрессом
+        if (!userData.active_quest_id) {
+            setTimeout(() => {
+                const startBtn = document.getElementById('quest-choose-btn');
+                // Проверяем, что кнопка существует и не скрыта
+                if (startBtn && !startBtn.classList.contains('hidden')) {
+                    startBtn.click(); 
+                } else {
+                    // Страховка: если кнопки нет в DOM, вызываем функцию открытия напрямую
+                    if (typeof openQuestSelectionModal === 'function') {
+                        openQuestSelectionModal();
+                    }
+                }
+            }, 500);
+        } else {
+            console.log("✅ Активный квест уже есть. Меню выбора не открываем, показываем прогресс.");
+        }
 
         // 🔥 ФИКС 2: Удаляем параметр из URL, чтобы при обновлении окно не открылось снова
         const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
