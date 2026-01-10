@@ -12019,40 +12019,6 @@ def calculate_daily_reward(total_amount, total_days, current_day):
         return base_reward + 1
     return base_reward
 
-Я понял. Ты хочешь вернуть старую рабочую логику (проверки подписок, голосования и т.д.), но исправить ошибку, из-за которой сервер падает (is_valid_init_data).
-
-Ошибка Internal Server Error (и та, что в логах) возникает не из-за логики начисления, а из-за того, что ты вызываешь валидацию initData без токена бота.
-
-Вот полный, исправленный код. Я взял за основу твою "рабочую логику" (Snippet 1), добавил туда исправление для валидации и оставил правильное начисление через RPC (так как это безопаснее для Supabase).
-
-Вставь этот код вместо своего эндпоинта:
-
-Python
-
-import os
-import json
-from datetime import datetime, timedelta, timezone
-from dateutil import parser
-from fastapi import Request, Body, Depends
-from fastapi.responses import JSONResponse
-import httpx
-
-# Убедись, что у тебя импортированы твои настройки и функции
-# from core.config import settings (или как у тебя называется файл с токеном)
-# from utils.telegram import is_valid_init_data (твоя функция валидации)
-
-import os
-import json
-from datetime import datetime, timedelta, timezone
-from dateutil import parser
-from fastapi import Request, Body, Depends
-from fastapi.responses import JSONResponse
-import httpx
-
-# Убедись, что у тебя импортированы твои настройки и функции
-# from core.config import settings (или как у тебя называется файл с токеном)
-# from utils.telegram import is_valid_init_data (твоя функция валидации)
-
 @app.post("/api/v1/telegram/claim_daily")
 async def claim_daily_task(
     request: Request, 
