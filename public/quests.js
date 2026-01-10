@@ -50,6 +50,7 @@ let allQuests = [];
 let userData = {};
 let questsForRoulette = [];
 let telegramTasksCache = null;
+let activeProfileCheck = null;
 
 // ==========================================
 // 2. УТИЛИТЫ И API (Глобальные)
@@ -279,7 +280,10 @@ async function loadTelegramTasks() {
             console.warn("loadTelegramTasks: API вернул не массив, сбрасываем в []", tasks);
             tasks = [];
         }
-        // =================================================
+
+        // === ВАЖНОЕ ДОБАВЛЕНИЕ ДЛЯ АВТО-ОБНОВЛЕНИЯ ===
+        telegramTasksCache = tasks; 
+        // ==============================================
 
         container.innerHTML = ''; 
 
@@ -581,6 +585,9 @@ function injectBoostPopup(customUrl) {
 }
 
 function injectProfilePopup(type) {
+    // === 1. ЗАПОМИНАЕМ ТИП ПРОВЕРКИ ДЛЯ АВТО-ОБНОВЛЕНИЯ ===
+    activeProfileCheck = type; 
+
     const existing = document.getElementById('profilePopup');
     if (existing) existing.remove();
 
@@ -672,9 +679,10 @@ function injectProfilePopup(type) {
     // Обработчик остался только для кнопки "Закрыть", так как кнопка перехода удалена
     document.getElementById('closeProfilePopupBtn').addEventListener('click', () => {
         document.getElementById('profilePopup').remove();
+        // === 2. СБРАСЫВАЕМ ТИП ПРОВЕРКИ ===
+        activeProfileCheck = null; 
     });
 }
-
 // ==========================================
 // 5. РЕНДЕРИНГ
 // ==========================================
@@ -1647,6 +1655,68 @@ function setupEventListeners() {
             }
         });
     }
+    // === АВТО-ПРОВЕРКА ПРИ ВОЗВРАЩЕНИИ В ПРИЛОЖЕНИЕ ===
+document.addEventListener('visibilitychange', async () => {
+    // Если пользователь вернулся в приложение И у него открыт попап проверки профиля
+    if (document.visibilityState === 'visible' && activeProfileCheck) {
+        console.log("🔄 Пользователь вернулся, проверяем:", activeProfileCheck);
+        
+        const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
+        if (!userId) return;
+
+        // Ключ задания в зависимости от типа попапа
+        const taskKey = activeProfileCheck === 'surname' ? 'tg_surname' : 'tg_bio';
+
+        // Небольшая задержка, чтобы Telegram успел синхронизировать данные
+        await new Promise(r => setTimeout(r, 1500));
+
+        try {
+            // Делаем "тихий" запрос проверки (без лоадера на весь экран)
+            const data = await makeApiRequest('/api/v1/telegram/claim_daily', { 
+                user_id: userId, 
+                task_key: taskKey 
+            }, 'POST', true);
+            
+            if (data && data.success) {
+                // УСПЕХ!
+                
+                // 1. Закрываем попап
+                const popup = document.getElementById('profilePopup');
+                if (popup) popup.remove();
+                activeProfileCheck = null; // Сбрасываем слежение
+
+                // 2. Показываем радость
+                Telegram.WebApp.showAlert("✅ Отлично! Профиль обновлен, награда получена.");
+                if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+
+                // 3. Обновляем данные в кэше интерфейса
+                if (telegramTasksCache) {
+                    const task = telegramTasksCache.find(t => t.task_key === taskKey);
+                    if (task) {
+                        task.is_completed = true;
+                        if (data.day) task.current_day = data.day;
+                    }
+                }
+
+                // 4. Перерисовуем сетку заданий
+                const container = dom.modalContainer;
+                if (container && telegramTasksCache) {
+                    renderTelegramGrid(telegramTasksCache, container);
+                }
+                
+                // 5. Начисляем билеты в шапке
+                const stats = document.getElementById('ticketStats');
+                if(stats && data.reward) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+
+            } else {
+                // Если всё еще не выполнено — ничего не делаем, попап остается висеть
+                console.log("Проверка не прошла, ждем следующей попытки...");
+            }
+        } catch (e) {
+            console.error("Ошибка авто-проверки:", e);
+        }
+    }
+});
 
     document.addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('quest-category-header')) {
