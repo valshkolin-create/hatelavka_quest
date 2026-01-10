@@ -12016,111 +12016,178 @@ def calculate_daily_reward(total_amount, total_days, current_day):
     return base_reward
 
 @app.post("/api/v1/telegram/claim_daily")
-async def claim_daily_task(
-    request: Request, 
-    data: dict = Body(...), 
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    try:
-        # 1. Жесткая валидация ID
-        try:
-            user_id = int(data.get("user_id"))
-        except (ValueError, TypeError):
-            return JSONResponse({"success": False, "error": "Некорректный user_id"})
+async def claim_telegram_daily(req: TelegramClaimRequest):
+    # 1. Валидация initData
+    auth_data = validate_init_data(req.initData)
+    if not auth_data:
+        raise HTTPException(status_code=401, detail="Invalid initData")
 
-        task_key = data.get("task_key")
+    user_id = req.user_id
+    task_key = req.task_key
+    
+    # !!! БЕРЕМ ID КАНАЛА ИЗ VERCEL !!!
+    # Переменная должна называться CHANNEL_ID в настройках Vercel
+    CHANNEL_ID = os.getenv("CHANNEL_ID")
+    if not CHANNEL_ID:
+        print("❌ ОШИБКА: Не найден CHANNEL_ID в переменных окружения!")
+        return JSONResponse(content={"success": False, "error": "Ошибка конфигурации сервера"}, status_code=500)
+
+    # 2. Проверяем прогресс в БД
+    query = "SELECT * FROM public.user_telegram_progress WHERE user_id = :uid AND task_key = :tk"
+    progress = await database.fetch_one(query=query, values={"uid": user_id, "tk": task_key})
+
+    current_day = 0
+    last_claimed_at = None
+    is_completed = False
+
+    if progress:
+        current_day = progress['current_day'] or 0
+        last_claimed_at = progress['last_claimed_at']
+        is_completed = progress['completed']
+
+    # Если задание одноразовое и уже выполнено (кроме ежедневного входа)
+    if is_completed and task_key != 'tg_daily':
+        return JSONResponse(content={"success": False, "error": "Уже выполнено"}, status_code=400)
+
+    # 3. Проверка таймера (Кулдаун 20 часов для всех, кроме tg_daily - там своя логика)
+    if last_claimed_at and task_key != 'tg_daily':
+        if last_claimed_at.tzinfo is None:
+            last_claimed_at = last_claimed_at.replace(tzinfo=timezone.utc)
         
-        # 2. Получаем данные задания
-        task_resp = await supabase.get(
-            "/telegram_tasks", 
-            params={"task_key": f"eq.{task_key}", "select": "*", "limit": 1}
-        )
-        task_data = task_resp.json()
-        if not task_data:
-             return JSONResponse({"success": False, "error": "Задание не найдено"})
-        task = task_data[0]
+        now = datetime.now(timezone.utc)
+        if (now - last_claimed_at) < timedelta(hours=20):
+            return JSONResponse(content={"success": False, "error": "Приходите позже (Кулдаун)"}, status_code=400)
 
-        # 3. Получаем прогресс
-        progress_resp = await supabase.get(
-            "/user_telegram_progress", 
-            params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}", "select": "*"}
-        )
-        progress_list = progress_resp.json()
+    # ==================================================================================
+    # ЛОГИКА ЗАДАНИЙ (СТАРАЯ СТРУКТУРА + НОВЫЕ ПРОВЕРКИ)
+    # ==================================================================================
+    reward_amount = 0
+    new_day = current_day
+    mark_completed = False
 
-        if progress_list:
-            progress = progress_list[0]
+    # --- 1. Ежедневный вход (tg_daily) ---
+    if task_key == 'tg_daily':
+        # Ваша старая логика стриков
+        if last_claimed_at:
+            if last_claimed_at.tzinfo is None: last_claimed_at = last_claimed_at.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            diff = now - last_claimed_at
+
+            if diff < timedelta(hours=20):
+                 return JSONResponse(content={"success": False, "error": "Награда уже получена сегодня"}, status_code=400)
+            elif diff > timedelta(hours=48):
+                 new_day = 1 # Сброс стрика, если пропустил день
+            else:
+                 new_day += 1
         else:
-            # Инициализация, если записи нет
-            progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
-            await supabase.post("/user_telegram_progress", json=progress)
-
-        # --- БЛОК ПРОВЕРОК ---
-        if progress.get("completed"):
-            return JSONResponse({"success": False, "error": "Уже выполнено!"})
-
-        # Проверка времени (20 часов) для ежедневных
-        if task.get("is_daily") and progress.get("last_claimed_at"):
-            last_claim = parser.isoparse(progress["last_claimed_at"])
-            if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
-                return JSONResponse({"success": False, "error": "Рано! Приходите завтра."})
+            new_day = 1
         
-        if task.get("is_daily") and progress.get("current_day", 0) >= task.get("total_days", 1):
-             return JSONResponse({"success": False, "error": "Цикл завершен!"})
+        rewards_map = {1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 6: 60, 7: 100}
+        reward_amount = rewards_map.get(new_day, 50) 
+        if new_day >= 7: new_day = 0 
 
-        # --- ПРОВЕРКА УСЛОВИЙ (ПОДПИСКИ И Т.Д.) ---
-        # (Код проверок оставляем тот же, для краткости здесь пропущен, вставьте свои проверки tg_sub/tg_vote)
-        check_passed = True 
-        # ... Тут должен быть ваш блок if task_key == "tg_sub": ...
-        # Если вы не меняли логику проверок, она сработает. 
-        # Если нужно, я могу продублировать блок проверок сюда, но проблема не в них.
-
-        # --- НАЧИСЛЕНИЕ НАГРАДЫ (ИСПРАВЛЕННАЯ ЧАСТЬ) ---
-        reward = task.get("reward_amount", 0)
+    # --- 2. Подписка (tg_sub) ---
+    elif task_key == 'tg_sub':
+        reward_amount = 50
+        try:
+            # Живая проверка подписки через бота
+            member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
+            if member.status in ['left', 'kicked', 'restricted']:
+                return JSONResponse(content={"success": False, "error": "Вы не подписаны на канал!"}, status_code=400)
+        except Exception as e:
+            print(f"Error checking tg_sub: {e}")
+            return JSONResponse(content={"success": False, "error": "Не удалось проверить подписку"}, status_code=400)
         
-        # 1. Получаем АКТУАЛЬНЫЙ баланс пользователя прямо сейчас
-        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
-        current_tickets = 0
-        if user_resp.json():
-            current_tickets = user_resp.json()[0].get("tickets", 0)
+        mark_completed = True
+
+    # --- 3. Голосование (tg_vote) ---
+    elif task_key == 'tg_vote':
+        reward_amount = 100
+        # Проверка: только подписчики могут голосовать
+        try:
+            member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
+            if member.status in ['left', 'kicked', 'restricted']:
+                return JSONResponse(content={"success": False, "error": "Для голосования нужно быть подписчиком!"}, status_code=400)
+        except Exception as e:
+            print(f"Error checking tg_vote: {e}")
+            return JSONResponse(content={"success": False, "error": "Ошибка проверки доступа"}, status_code=400)
         
-        new_balance = current_tickets + reward
+        # Если хотите, чтобы можно было забирать раз в 24 часа, НЕ ставьте mark_completed = True
+        # Если это одноразовое - раскомментируйте:
+        # mark_completed = True 
 
-        # 2. Явно обновляем баланс в базе
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{user_id}"},
-            json={"tickets": new_balance}
-        )
-
-        # 3. Обновляем прогресс задания
-        next_day = progress.get("current_day", 0) + 1
-        is_done = True if not task.get("is_daily") else (next_day >= task.get("total_days", 1))
-
-        update_data = {
-            "current_day": next_day,
-            "last_claimed_at": datetime.now(timezone.utc).isoformat(),
-            "completed": is_done
-        }
+    # --- 4. Фамилия (tg_surname) ---
+    elif task_key == 'tg_surname':
+        reward_amount = 150
+        target_phrase = "@HATElavka_bot"
         
-        await supabase.patch(
-            "/user_telegram_progress", 
-            params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}"},
-            json=update_data
-        )
+        try:
+            # Живой запрос профиля
+            chat_info = await bot.get_chat(user_id)
+            current_last_name = chat_info.last_name or ""
+            
+            if target_phrase.lower() not in current_last_name.lower():
+                return JSONResponse(content={"success": False, "error": f"Фраза '{target_phrase}' не найдена в фамилии"}, status_code=400)
+        except Exception as e:
+            return JSONResponse(content={"success": False, "error": "Не удалось проверить профиль"}, status_code=400)
+            
+        mark_completed = True
 
-        return JSONResponse({
-            "success": True, 
-            "reward": reward, 
-            "day": next_day,
-            "total_days": task.get("total_days", 1),
-            "is_completed": is_done, 
-            "message": f"Награда получена: {reward}",
-            "tickets": new_balance # Возвращаем реальный новый баланс
-        })
+    # --- 5. Bio (tg_bio) ---
+    elif task_key == 'tg_bio':
+        reward_amount = 150
+        target_link = "t.me/HATElavka_bot"
+        
+        try:
+            # Живой запрос профиля (Bio)
+            chat_info = await bot.get_chat(user_id)
+            current_bio = chat_info.bio or ""
+            
+            if target_link.lower() not in current_bio.lower():
+                return JSONResponse(content={"success": False, "error": "Ссылка на бота не найдена в Bio (О себе)"}, status_code=400)
+        except Exception as e:
+            return JSONResponse(content={"success": False, "error": "Не удалось проверить Bio"}, status_code=400)
+            
+        mark_completed = True
 
-    except Exception as e:
-        print(f"Global Error: {e}")
-        return JSONResponse({"success": False, "error": f"Ошибка сервера: {str(e)}"})
+    else:
+        return JSONResponse(content={"success": False, "error": "Неизвестное задание"}, status_code=400)
+
+
+    # ==================================================================================
+    # ЗАПИСЬ В БД (Ваша рабочая логика)
+    # ==================================================================================
+    
+    # 1. Начисляем билеты
+    update_tickets_query = "UPDATE public.users SET tickets = tickets + :rew WHERE telegram_id = :uid RETURNING tickets"
+    new_balance_row = await database.fetch_one(query=update_tickets_query, values={"rew": reward_amount, "uid": user_id})
+    
+    # 2. Обновляем статус задания (UPSERT)
+    # Используем current_day для сохранения стрика (tg_daily) или статуса
+    upsert_query = """
+        INSERT INTO public.user_telegram_progress (user_id, task_key, current_day, last_claimed_at, completed)
+        VALUES (:uid, :tk, :day, NOW(), :comp)
+        ON CONFLICT (user_id, task_key) DO UPDATE SET
+            current_day = :day,
+            last_claimed_at = NOW(),
+            completed = :comp
+    """
+    await database.execute(query=upsert_query, values={
+        "uid": user_id, 
+        "tk": task_key, 
+        "day": new_day, 
+        "comp": mark_completed
+    })
+
+    return {
+        "success": True, 
+        "message": f"Получено {reward_amount} билетов!", 
+        "reward": reward_amount,
+        "day": new_day,
+        "total_days": 7,
+        "is_completed": mark_completed,
+        "new_balance": new_balance_row['tickets'] if new_balance_row else 0
+    }
         
 @app.post("/api/v1/telegram/status")
 async def get_telegram_status(
