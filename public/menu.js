@@ -2056,33 +2056,16 @@ function setupEventListeners() {
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
         chalShortcut.addEventListener('click', () => {
-            switchView('view-quests');
-            setTimeout(() => {
-                const el = document.getElementById('challenge-container');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 50);
-            openQuestsTab(true).catch(console.error);
-            refreshDataSilently().catch(console.error);
+            // Просто переходим на страницу квестов
+            window.location.href = '/quests'; 
         });
     }
-
     // Клик на Испытания
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.addEventListener('click', () => {
-            switchView('view-quests');
-            setTimeout(() => {
-                const activeEl = document.getElementById('active-automatic-quest-container');
-                const startBtn = document.getElementById('quest-choose-btn');
-                
-                if (activeEl && activeEl.innerHTML.trim() !== "") {
-                     activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else if (startBtn) {
-                     startBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 50);
-            openQuestsTab(true).catch(console.error);
-            refreshDataSilently().catch(console.error);
+            // Просто переходим на страницу квестов
+            window.location.href = '/quests';
         });
     }
 
@@ -2149,11 +2132,6 @@ function setupEventListeners() {
             e.preventDefault(); 
             switchView('view-dashboard');
             await main();
-        });
-        document.getElementById('nav-quests').addEventListener('click', async (e) => { 
-    e.preventDefault(); 
-    // false означает "показать спиннер", так как пользователь нажал кнопку сам
-    await openQuestsTab(true);
         });
     // --- ФИКС АККОРДЕОНА (Вставь это в setupEventListeners) ---
     // Используем делегирование, так как элементы создаются динамически
