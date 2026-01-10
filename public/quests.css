@@ -1061,18 +1061,19 @@ body[data-theme="manual"] {
     /* Флекс для выравнивания текста и бэйджа */
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px; 
+    justify-content: center; /* Центруем контент */
+    gap: 4px; /* Чуть уменьшил отступ между текстом и цифрой для компактности */
     
-    /* Компактные размеры */
-    padding: 0 4px 0 8px; /* Слева отступ под текст, справа меньше (там бэйдж) */
-    height: 26px;         /* Фиксированная высота */
-    min-width: 80px;      
+    /* === ИЗМЕНЕНИЯ ЗДЕСЬ === */
+    padding: 0;           /* Убрали отступы, так как ширина фиксированная */
+    height: 26px;         /* Высота как была */
+    width: 70px;          /* ЖЕСТКАЯ ШИРИНА (было min-width: 80px) */
     
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;       /* Запрещаем кнопке сжиматься, если места мало */
 }
 
 .tg-premium-btn:active { transform: scale(0.96); }
