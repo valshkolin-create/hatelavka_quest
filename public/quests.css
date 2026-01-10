@@ -68,8 +68,17 @@ html, body {
     margin-top: 10px; 
     position: relative; /* <--- ВАЖНО */
 }
-.user-info { display: flex; flex-direction: column; }
-.user-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.user-info { display: flex; flex-direction: column; }.user-name { 
+    font-size: 12px;      /* Уменьшили с 16px до 13px */
+    font-weight: 800;     /* Сделали жирнее, чтобы читалось */
+    margin-bottom: 4px; 
+    
+    /* Гарантия, что длинный ник не сломает верстку */
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+    max-width: 220px;     /* Ограничение ширины */
+}
 .stats-block { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .stats-item { display: flex; align-items: center; justify-content: flex-end; }
 .stats-icon { width: 20px; height: 20px; background-color: #ffffff; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-right: 6px; }
@@ -1177,13 +1186,14 @@ body[data-theme="manual"] {
 .skeleton-btn { height: 36px; width: 100%; border-radius: 8px; margin-top: auto; }
 
 /* Оставьте blur только для устройств, которые это хорошо поддерживают */
-.quest-card, .app-footer, .user-profile, .prompt-modal {
+.quest-card, .app-footer, .prompt-modal {
     /* Фоллбэк (для слабых телефонов просто непрозрачный фон) */
     background-color: rgba(28, 28, 30, 0.95); 
 }
 
 @supports ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
-    .quest-card, .app-footer, .user-profile, .prompt-modal {
+    /* И здесь тоже УБРАЛИ .user-profile */
+    .quest-card, .app-footer, .prompt-modal {
         background-color: var(--surface-glass-bg); /* Ваш полупрозрачный цвет */
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
