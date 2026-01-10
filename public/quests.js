@@ -1516,14 +1516,12 @@ async function main() {
     const openCommand = urlParams.get('open');
 
     // 1. Получаем настройки, которые пришли из index.py (bootstrap)
-    // bootstrapData мы сохранили в кэш/переменные выше в этой же функции
     const menuConfig = (typeof bootstrapData !== 'undefined' && bootstrapData.menu) ? bootstrapData.menu : {};
-    const isStreamOnline = userData ? userData.is_stream_online : false;
-
+    
     // Функция для определения актуальной платформы (Дублирует логику расписания)
     function getActivePlatform() {
         // 1. Если стрим идет -> Всегда Twitch
-        if (isStreamOnline) return 'twitch';
+        if (userData.is_stream_online) return 'twitch';
 
         // 2. Если Админ включил "Принудительное расписание" в index.py
         if (menuConfig.quest_schedule_override_enabled) {
@@ -1543,7 +1541,7 @@ async function main() {
         const targetPlatform = getActivePlatform();
         console.log(`🚀 Кнопка Испытание: Определена платформа -> ${targetPlatform}`);
 
-        // 1. Переключаем вкладку на нужную (Twitch или Telegram)
+        // 1. Переключаем вкладку на нужную
         const switchEl = document.getElementById(`view-${targetPlatform}`);
         if (switchEl) {
             switchEl.click(); 
@@ -1554,7 +1552,7 @@ async function main() {
         setTimeout(() => {
             const startBtn = document.getElementById('quest-choose-btn');
             if (startBtn) {
-                startBtn.click(); // <--- ОТКРЫВАЕТ ОКНО (Рулетку или Список ТГ)
+                startBtn.click(); 
             }
         }, 500);
     } 
@@ -1563,20 +1561,28 @@ async function main() {
     else if (openCommand === 'twitch_only') {
         console.log("🚀 Кнопка Челлендж: Принудительно Twitch вкладка...");
         
-        // Просто открываем вкладку Twitch (без окна)
         const twitchSwitch = document.getElementById('view-twitch');
         if (twitchSwitch) {
             twitchSwitch.click(); 
             if (typeof setPlatformTheme === 'function') setPlatformTheme('twitch');
         }
     }
-
     // =========================================================================
 
     // Скрываем лоадер
     if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
     dom.mainContent.style.opacity = 1;
-}
+
+    // 👇👇👇 ВОТ ЭТОГО НЕ ХВАТАЛО (ЗАКРЫВАЕМ БЛОК TRY) 👇👇👇
+    } catch (e) {
+        console.error("Ошибка в main:", e);
+        // Показываем ошибку пользователю, только если нет кэша (чтобы не пугать зря)
+        if (!isRenderedFromCache) {
+            Telegram.WebApp.showAlert("Ошибка загрузки. Обновите страницу.");
+        }
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    }
+} // <--- Конец функции main
 
 function initPullToRefresh() {
     const content = document.getElementById('main-content');
