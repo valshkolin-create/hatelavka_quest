@@ -1091,7 +1091,9 @@ async function startChallengeRoulette() {
             inner.style.transform = `translateY(-${centeredPosition}px)`;
             setTimeout(() => {
                 overlay.remove();
-                main();
+                // 🔥 ФИКС 1: Чистим кэш и перезагружаем для отображения активного челленджа
+                localStorage.removeItem('quests_cache_v1');
+                window.location.reload();
             }, 7000);
         }
     } catch (e) {
@@ -1158,8 +1160,10 @@ async function openQuestSelectionModal() {
             try {
                 await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
                 closeUniversalModal();
-                Telegram.WebApp.showAlert(`✅ Испытание принято: ${quest.title}`);
-                await main(); 
+                
+                // 🔥 ФИКС 1: Чистим кэш и перезагружаем страницу, чтобы сразу показать активный квест
+                localStorage.removeItem('quests_cache_v1');
+                window.location.reload(); 
             } catch(e) {
                 Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
                 btn.disabled = false;
@@ -1560,7 +1564,11 @@ async function main() {
                 startBtn.click(); 
             }
         }, 500);
-    } 
+
+        // 🔥 ФИКС 2: Удаляем параметр из URL, чтобы при обновлении окно не открылось снова
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
     
     // --- СЦЕНАРИЙ 2: Нажали "ЧЕЛЛЕНДЖ" (?open=twitch_only) ---
     else if (openCommand === 'twitch_only') {
