@@ -1351,7 +1351,19 @@ async function main() {
     updateLoading(10);
     
     try {
-        const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
+        // Проверяем, запустилась ли загрузка в HTML (window.bootstrapPromise)
+        let bootstrapData;
+        if (window.bootstrapPromise) {
+            try {
+                bootstrapData = await window.bootstrapPromise;
+            } catch (e) {
+                console.warn("Предзагрузка не удалась, пробуем снова...", e);
+                bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
+            }
+        } else {
+            // Если предзагрузки нет, делаем обычный запрос
+            bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
+        }
         updateLoading(50);
 
         if (bootstrapData) {
