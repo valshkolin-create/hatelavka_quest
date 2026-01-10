@@ -12026,7 +12026,7 @@ async def claim_daily_task(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
-        # Валидация ID как у тебя
+        # === 1. ВАЛИДАЦИЯ ID ===
         try:
             user_id = int(data.get("user_id"))
         except (ValueError, TypeError):
@@ -12034,7 +12034,7 @@ async def claim_daily_task(
 
         task_key = data.get("task_key")
         
-        # 1. Получаем задание
+        # === 2. ПОЛУЧАЕМ ЗАДАНИЕ ===
         task_resp = await supabase.get(
             "/telegram_tasks", 
             params={"task_key": f"eq.{task_key}", "select": "*", "limit": 1}
@@ -12046,7 +12046,7 @@ async def claim_daily_task(
         
         task = task_data[0]
 
-        # 2. Получаем прогресс
+        # === 3. ПОЛУЧАЕМ ПРОГРЕСС ===
         progress_resp = await supabase.get(
             "/user_telegram_progress", 
             params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}", "select": "*"}
@@ -12059,7 +12059,7 @@ async def claim_daily_task(
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
             await supabase.post("/user_telegram_progress", json=progress)
 
-        # Базовые проверки
+        # === 4. БАЗОВЫЕ ПРОВЕРКИ (ВРЕМЯ / СТАТУС) ===
         if progress["completed"]:
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
@@ -12071,7 +12071,7 @@ async def claim_daily_task(
         if task.get("is_daily") and progress["current_day"] >= task["total_days"]:
              return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
 
-        # --- БЛОК ПРОВЕРОК (МОЙ ИСПРАВЛЕННЫЙ КОД) ---
+        # === 5. ЛОГИКА ПРОВЕРКИ (ИМЕННО ТУТ ОТКРЫВАЮТСЯ ОКНА) ===
         check_passed = False
         
         # А. Проверка подписки
@@ -12098,7 +12098,7 @@ async def claim_daily_task(
             except Exception:
                  return JSONResponse({"success": False, "error": "Бот не может проверить голос."})
 
-        # В. Текстовые проверки (Имя / Био)
+        # В. Текстовые проверки (Фамилия / Био) -> ТУТ КРАСИВЫЕ ОКНА
         else:
             try:
                 user_chat = await bot.get_chat(user_id)
@@ -12106,7 +12106,7 @@ async def claim_daily_task(
                 check_type = task.get("check_type")
 
                 if check_type == "surname":
-                    # Проверяем полное имя (Name + Lastname), так надежнее для ников
+                    # Ищем во всем имени (Name + Lastname), чтобы работало надежнее
                     full_name = (user_chat.full_name or "").lower()
                     if phrase and phrase in full_name:
                         check_passed = True
@@ -12116,22 +12116,25 @@ async def claim_daily_task(
                     if phrase and phrase in bio:
                         check_passed = True
                 else:
-                    check_passed = True # Просто клик
+                    check_passed = True # Обычный клик
                     
             except Exception as e:
-                print(f"Check Error: {e}")
-                # Если не удалось получить данные (приватность), возвращаем ошибку
+                # Если настройки приватности скрывают данные
                 return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Проверьте настройки приватности."})
 
         if not check_passed:
-            target = "имени" if task.get("check_type") == "surname" else "описании (BIO)"
-            return JSONResponse({"success": False, "error": f"Фраза '{task.get('check_phrase')}' не найдена в {target}!"})
+            target = "фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
+            # ВАЖНО: Фраза "Условие не выполнено" триггерит твой JS на открытие красивого попапа
+            return JSONResponse({
+                "success": False, 
+                "error": f"Условие не выполнено! Проверьте наличие '{task.get('check_phrase')}' в {target}."
+            })
 
 
-        # --- НАЧИСЛЕНИЕ НАГРАДЫ (ТВОЙ КОД: ХИРУРГИЧЕСКАЯ ВСТАВКА) ---
+        # === 6. НАЧИСЛЕНИЕ НАГРАДЫ (ТВОЙ КОД) ===
         reward = task.get("reward_amount", 0)
 
-        # 1. Получаем АКТУАЛЬНЫЙ баланс (как ты просил)
+        # 1. Получаем АКТУАЛЬНЫЙ баланс
         user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
         current_tickets = 0
         if user_resp.json():
@@ -12139,16 +12142,15 @@ async def claim_daily_task(
         
         new_balance = current_tickets + reward
 
-        # 2. Явно обновляем баланс в базе
+        # 2. Обновляем баланс в базе
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{user_id}"},
             json={"tickets": new_balance}
         )
-        # --- КОНЕЦ ТВОЕЙ ВСТАВКИ ---
 
-
-        # 4. Обновляем прогресс задания
+        # === 7. ОБНОВЛЕНИЕ ПРОГРЕССА И БАРОВ ===
+        # Вычисляем следующий день
         next_day = progress["current_day"] + 1
         is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
         
@@ -12166,17 +12168,18 @@ async def claim_daily_task(
 
         return JSONResponse({
             "success": True, 
-            "reward": reward, 
-            "day": next_day,
-            "total_days": task["total_days"],
+            "reward": reward,
+            # ВОТ ЭТО ОБНОВЛЯЕТ НИЖНИЕ ЧЕРТОЧКИ (ПРОГРЕСС БАР):
+            "day": next_day, 
+            "total_days": task.get("total_days", 1),
             "is_completed": is_done, 
-            "tickets": new_balance, # Возвращаем новый баланс
-            "message": f"Начислено {reward} билетов!"
+            "tickets": new_balance, 
+            "message": f"Задание выполнено! +{reward} билетов"
         })
 
     except Exception as e:
         print(f"Global Error: {e}")
-        return JSONResponse({"success": False, "error": str(e)})
+        return JSONResponse({"success": False, "error": f"Ошибка сервера: {str(e)}"})
         
 @app.post("/api/v1/telegram/status")
 async def get_telegram_status(
