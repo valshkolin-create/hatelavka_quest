@@ -479,10 +479,9 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         });
         
         if (data && data.success) {
-            // УСПЕХ
-            if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
-
+            // === УСПЕХ ===
+            
+            // 1. Обновляем кэш заданий
             if (telegramTasksCache) {
                 const task = telegramTasksCache.find(t => t.task_key === taskKey);
                 if (task) {
@@ -493,19 +492,30 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 }
             }
 
+            // 2. Перерисовываем список (чтобы обновились галочки/прогресс)
             const container = dom.modalContainer;
             if (container && telegramTasksCache) {
                 renderTelegramGrid(telegramTasksCache, container);
             }
             
+            // 3. Обновляем билеты (Визуально + В памяти)
             const stats = document.getElementById('ticketStats');
-            if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
-            
-            // Если мы тут, то список скорее всего перезагрузится, но на всякий случай
-            // кнопку обновлять не нужно, она либо исчезнет, либо станет галочкой
+            if(stats && data.reward) {
+                const newVal = parseInt(stats.innerText || '0') + data.reward;
+                stats.innerText = newVal;
+                // !!! ВАЖНО: Сохраняем в глобальную переменную, чтобы не сбрасывалось
+                if(typeof userData !== 'undefined') userData.tickets = newVal;
+            }
+
+            // 4. ПОКАЗЫВАЕМ КРАСИВУЮ НАГРАДУ
+            if (typeof showBeautifulReward === 'function') {
+                showBeautifulReward(data.reward, "Вы успешно выполнили задание!");
+            } else {
+                Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
+            }
 
         } else if (data) {
-            // ОШИБКА (или проверка не прошла)
+            // === ОШИБКА (или проверка не прошла) ===
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
             if (taskKey === 'tg_vote') {
@@ -526,8 +536,6 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             // === ВОССТАНОВЛЕНИЕ КНОПКИ ===
             if(btn) {
                 btn.disabled = false;
-                // ВОТ ЗДЕСЬ БЫЛ БАГ. Мы возвращали просто текст.
-                // Теперь мы возвращаем полный HTML с бэйджем.
                 btn.innerHTML = restoreBtnHtml; 
             }
         }
@@ -535,7 +543,6 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         console.error(e);
         if(btn) {
             btn.disabled = false;
-            // Даже при критической ошибке пытаемся вернуть красоту
             btn.innerHTML = restoreBtnHtml || "Ошибка"; 
         }
     }
@@ -1358,6 +1365,47 @@ function initUnifiedSwitcher() {
             }
         });
     });
+}
+
+// Функция для показа красивой модалки
+function showBeautifulReward(amount, message = "Награда получена!") {
+    const overlay = document.getElementById('new-reward-overlay');
+    const valueText = document.getElementById('new-reward-value');
+    const subtitle = document.getElementById('new-reward-subtitle');
+    const closeBtn = document.getElementById('new-reward-close-btn');
+
+    if (!overlay) return;
+
+    // Устанавливаем данные
+    valueText.textContent = `+${amount}`;
+    subtitle.textContent = message;
+
+    // Показываем с анимацией
+    overlay.classList.remove('hidden'); // На всякий случай, если есть класс hidden
+    // Небольшой таймаут для срабатывания CSS transition (opacity)
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+    });
+
+    // Звук успеха (Haptic)
+    if(Telegram.WebApp.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+
+    // Обработчик закрытия
+    const closeHandler = () => {
+        overlay.classList.remove('visible');
+        setTimeout(() => {
+            overlay.classList.add('hidden'); // Прячем совсем после анимации
+        }, 300);
+        // Важно: удаляем слушатель, чтобы не дублировались клики
+        closeBtn.removeEventListener('click', closeHandler);
+        
+        // Обновляем страницу/данные (как было в старом коде)
+        main(); 
+    };
+
+    closeBtn.addEventListener('click', closeHandler);
 }
 
 async function main() {
