@@ -141,30 +141,27 @@
 
   <div id="promocode-overlay" class="promocode-overlay hidden"></div>
 
-  <div id="reward-claimed-overlay" class="prompt-overlay hidden">
-    <div class="prompt-modal">
-        <h3>Награда получена!</h3>
-        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
-            Промокод добавлен в ваш профиль. Вы можете найти все свои награды там.
-        </p>
-        <div class="prompt-actions">
-            <button id="reward-close-btn" class="cancel-btn">Закрыть</button>
-            <a href="/profile" class="confirm-btn">Профиль</a>
+  <div id="new-reward-overlay" class="reward-overlay">
+    <div class="reward-card">
+        <div class="reward-glow-bg"></div>
+        
+        <div class="reward-icon-wrapper">
+            <i class="fa-solid fa-gift"></i>
         </div>
-    </div>
-  </div>
 
-  <div id="tickets-claimed-overlay" class="prompt-overlay hidden">
-    <div class="prompt-modal">
-        <h3>Билеты получены!</h3>
-        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
-            Билеты за выполнение задания успешно начислены на ваш баланс.
-        </p>
-        <div class="prompt-actions">
-            <button id="tickets-claim-close-btn" class="confirm-btn">Отлично!</button>
+        <h3 class="reward-title">Поздравляем!</h3>
+        <p class="reward-subtitle" id="new-reward-subtitle">Вы успешно выполнили задание.</p>
+
+        <div class="reward-amount-box">
+            <span id="new-reward-value" class="reward-amount-text">+100</span>
+            <i class="fa-solid fa-ticket" style="color: #FFD700; font-size: 20px;"></i>
         </div>
+
+        <button id="new-reward-close-btn" class="reward-confirm-btn">
+            Отлично!
+        </button>
     </div>
-  </div>
+</div>
 
   <div id="info-modal-overlay" class="prompt-overlay hidden">
     <div class="prompt-modal">
