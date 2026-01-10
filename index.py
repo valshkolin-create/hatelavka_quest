@@ -12021,8 +12021,8 @@ def calculate_daily_reward(total_amount, total_days, current_day):
 
 @app.post("/api/v1/telegram/claim_daily")
 async def claim_telegram_daily(req: TelegramClaimRequest):
-    # 1. Валидация initData
-    auth_data = validate_init_data(req.initData)
+    # 1. Валидация initData (ИСПРАВЛЕНО ИМЯ ФУНКЦИИ)
+    auth_data = is_valid_init_data(req.initData)
     if not auth_data:
         raise HTTPException(status_code=401, detail="Invalid initData")
 
@@ -12030,7 +12030,6 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
     task_key = req.task_key
     
     # !!! БЕРЕМ ID КАНАЛА ИЗ VERCEL !!!
-    # Переменная должна называться CHANNEL_ID в настройках Vercel
     CHANNEL_ID = os.getenv("CHANNEL_ID")
     if not CHANNEL_ID:
         print("❌ ОШИБКА: Не найден CHANNEL_ID в переменных окружения!")
@@ -12053,7 +12052,7 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
     if is_completed and task_key != 'tg_daily':
         return JSONResponse(content={"success": False, "error": "Уже выполнено"}, status_code=400)
 
-    # 3. Проверка таймера (Кулдаун 20 часов для всех, кроме tg_daily - там своя логика)
+    # 3. Проверка таймера (Кулдаун 20 часов для всех, кроме tg_daily)
     if last_claimed_at and task_key != 'tg_daily':
         if last_claimed_at.tzinfo is None:
             last_claimed_at = last_claimed_at.replace(tzinfo=timezone.utc)
@@ -12063,15 +12062,14 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
             return JSONResponse(content={"success": False, "error": "Приходите позже (Кулдаун)"}, status_code=400)
 
     # ==================================================================================
-    # ЛОГИКА ЗАДАНИЙ (СТАРАЯ СТРУКТУРА + НОВЫЕ ПРОВЕРКИ)
+    # ЛОГИКА ЗАДАНИЙ
     # ==================================================================================
     reward_amount = 0
     new_day = current_day
     mark_completed = False
 
-    # --- 1. Ежедневный вход (tg_daily) ---
+    # --- 1. Ежедневный вход ---
     if task_key == 'tg_daily':
-        # Ваша старая логика стриков
         if last_claimed_at:
             if last_claimed_at.tzinfo is None: last_claimed_at = last_claimed_at.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
@@ -12080,7 +12078,7 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
             if diff < timedelta(hours=20):
                  return JSONResponse(content={"success": False, "error": "Награда уже получена сегодня"}, status_code=400)
             elif diff > timedelta(hours=48):
-                 new_day = 1 # Сброс стрика, если пропустил день
+                 new_day = 1 
             else:
                  new_day += 1
         else:
@@ -12090,11 +12088,10 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
         reward_amount = rewards_map.get(new_day, 50) 
         if new_day >= 7: new_day = 0 
 
-    # --- 2. Подписка (tg_sub) ---
+    # --- 2. Подписка ---
     elif task_key == 'tg_sub':
         reward_amount = 50
         try:
-            # Живая проверка подписки через бота
             member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
             if member.status in ['left', 'kicked', 'restricted']:
                 return JSONResponse(content={"success": False, "error": "Вы не подписаны на канал!"}, status_code=400)
@@ -12104,10 +12101,9 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
         
         mark_completed = True
 
-    # --- 3. Голосование (tg_vote) ---
+    # --- 3. Голосование ---
     elif task_key == 'tg_vote':
         reward_amount = 100
-        # Проверка: только подписчики могут голосовать
         try:
             member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
             if member.status in ['left', 'kicked', 'restricted']:
@@ -12116,17 +12112,14 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
             print(f"Error checking tg_vote: {e}")
             return JSONResponse(content={"success": False, "error": "Ошибка проверки доступа"}, status_code=400)
         
-        # Если хотите, чтобы можно было забирать раз в 24 часа, НЕ ставьте mark_completed = True
-        # Если это одноразовое - раскомментируйте:
-        # mark_completed = True 
+        # mark_completed = True # Раскомментируйте, если одноразовое
 
-    # --- 4. Фамилия (tg_surname) ---
+    # --- 4. Фамилия ---
     elif task_key == 'tg_surname':
         reward_amount = 150
         target_phrase = "@HATElavka_bot"
         
         try:
-            # Живой запрос профиля
             chat_info = await bot.get_chat(user_id)
             current_last_name = chat_info.last_name or ""
             
@@ -12137,13 +12130,12 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
             
         mark_completed = True
 
-    # --- 5. Bio (tg_bio) ---
+    # --- 5. Bio ---
     elif task_key == 'tg_bio':
         reward_amount = 150
         target_link = "t.me/HATElavka_bot"
         
         try:
-            # Живой запрос профиля (Bio)
             chat_info = await bot.get_chat(user_id)
             current_bio = chat_info.bio or ""
             
@@ -12159,15 +12151,14 @@ async def claim_telegram_daily(req: TelegramClaimRequest):
 
 
     # ==================================================================================
-    # ЗАПИСЬ В БД (Ваша рабочая логика)
+    # ЗАПИСЬ В БД
     # ==================================================================================
     
     # 1. Начисляем билеты
     update_tickets_query = "UPDATE public.users SET tickets = tickets + :rew WHERE telegram_id = :uid RETURNING tickets"
     new_balance_row = await database.fetch_one(query=update_tickets_query, values={"rew": reward_amount, "uid": user_id})
     
-    # 2. Обновляем статус задания (UPSERT)
-    # Используем current_day для сохранения стрика (tg_daily) или статуса
+    # 2. Обновляем статус задания
     upsert_query = """
         INSERT INTO public.user_telegram_progress (user_id, task_key, current_day, last_claimed_at, completed)
         VALUES (:uid, :tk, :day, NOW(), :comp)
