@@ -1199,3 +1199,172 @@ body[data-theme="manual"] {
         -webkit-backdrop-filter: blur(15px);
     }
 }
+/* === НОВАЯ КРАСИВАЯ МОДАЛКА НАГРАДЫ === */
+
+/* Фон-затемнение с блюром */
+.reward-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(12px); /* Сильное размытие фона */
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.reward-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Карточка модалки */
+.reward-card {
+    position: relative;
+    width: 85%;
+    max-width: 320px;
+    background: linear-gradient(165deg, rgba(35, 35, 40, 0.95) 0%, rgba(20, 20, 25, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 30px 20px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    transform: scale(0.8) translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Эффект пружины */
+    overflow: hidden;
+}
+
+.reward-overlay.visible .reward-card {
+    transform: scale(1) translateY(0);
+}
+
+/* Эффект свечения позади иконки (вращающиеся лучи) */
+.reward-glow-bg {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        rgba(255, 215, 0, 0.1) 60deg,
+        transparent 120deg,
+        rgba(255, 215, 0, 0.1) 180deg,
+        transparent 240deg,
+        rgba(255, 215, 0, 0.1) 300deg,
+        transparent 360deg
+    );
+    animation: rotateGlow 10s linear infinite;
+    z-index: 0;
+    pointer-events: none;
+}
+
+@keyframes rotateGlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Контейнер иконки */
+.reward-icon-wrapper {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+/* Сама иконка */
+.reward-icon-wrapper i {
+    font-size: 50px;
+    color: #FFD700;
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+    animation: iconBounce 1s infinite alternate ease-in-out;
+}
+
+@keyframes iconBounce {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.8)); }
+}
+
+/* Тексты */
+.reward-title {
+    position: relative;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 8px 0;
+    z-index: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.reward-subtitle {
+    position: relative;
+    font-size: 13px;
+    color: #8e8e93;
+    margin: 0 0 20px 0;
+    z-index: 1;
+    line-height: 1.4;
+}
+
+/* Блок с суммой награды */
+.reward-amount-box {
+    position: relative;
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 25px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reward-amount-text {
+    font-size: 24px;
+    font-weight: 900;
+    color: #FFD700; /* Золотой */
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+/* Кнопка */
+.reward-confirm-btn {
+    position: relative;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(92deg, #FFD700 0%, #FFA500 100%);
+    color: #000;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 1;
+    box-shadow: 0 5px 15px rgba(255, 165, 0, 0.3);
+    transition: transform 0.1s;
+}
+
+.reward-confirm-btn:active {
+    transform: scale(0.96);
+}
+
+/* Конфетти (упрощенное на CSS) */
+.confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #ffd700;
+    top: -10px;
+    z-index: 2;
+    opacity: 0;
+}
+/* Анимация конфетти будет добавляться через JS, но база здесь */
