@@ -12026,7 +12026,12 @@ async def claim_daily_task(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
-        user_id = data.get("user_id")
+        # Валидация ID как у тебя
+        try:
+            user_id = int(data.get("user_id"))
+        except (ValueError, TypeError):
+            return JSONResponse({"success": False, "error": "Некорректный user_id"})
+
         task_key = data.get("task_key")
         
         # 1. Получаем задание
@@ -12051,15 +12056,13 @@ async def claim_daily_task(
         if progress_list:
             progress = progress_list[0]
         else:
-            # Создаем запись, если её нет
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
             await supabase.post("/user_telegram_progress", json=progress)
 
-        # Базовые проверки статуса
+        # Базовые проверки
         if progress["completed"]:
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
-        # Проверка кулдауна (20 часов), если задание ежедневное
         if task.get("is_daily") and progress.get("last_claimed_at"):
             last_claim = parser.isoparse(progress["last_claimed_at"])
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
@@ -12068,10 +12071,10 @@ async def claim_daily_task(
         if task.get("is_daily") and progress["current_day"] >= task["total_days"]:
              return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
 
-        # --- ЛОГИКА ПРОВЕРКИ (CHECK LOGIC) ---
+        # --- БЛОК ПРОВЕРОК (МОЙ ИСПРАВЛЕННЫЙ КОД) ---
         check_passed = False
         
-        # А. Проверка подписки (канал)
+        # А. Проверка подписки
         if task_key == "tg_sub":
             channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
             try:
@@ -12081,7 +12084,7 @@ async def claim_daily_task(
                 else:
                     return JSONResponse({"success": False, "error": "Вы не подписаны на канал!"})
             except Exception:
-                return JSONResponse({"success": False, "error": "Не удалось проверить подписку. Убедитесь, что вы подписаны."})
+                return JSONResponse({"success": False, "error": "Не удалось проверить подписку."})
 
         # Б. Проверка бустов
         elif task_key == "tg_vote":
@@ -12093,57 +12096,62 @@ async def claim_daily_task(
                 else:
                     return JSONResponse({"success": False, "error": "Голос не найден!"})
             except Exception:
-                 return JSONResponse({"success": False, "error": "Бот не может проверить голос (нужны права админа)."})
+                 return JSONResponse({"success": False, "error": "Бот не может проверить голос."})
 
-        # В. Текстовые проверки (Ник / Био)
+        # В. Текстовые проверки (Имя / Био)
         else:
             try:
-                # Получаем объект чата (юзера)
                 user_chat = await bot.get_chat(user_id)
                 phrase = (task.get("check_phrase") or "").lower().strip()
                 check_type = task.get("check_type")
 
                 if check_type == "surname":
-                    # FIX: Проверяем полное имя, а не только фамилию, так надежнее
+                    # Проверяем полное имя (Name + Lastname), так надежнее для ников
                     full_name = (user_chat.full_name or "").lower()
                     if phrase and phrase in full_name:
                         check_passed = True
                         
                 elif check_type == "bio":
-                    # Проверяем описание
                     bio = (user_chat.bio or "").lower()
                     if phrase and phrase in bio:
                         check_passed = True
                 else:
-                    # Если типа нет — считаем, что просто клик
-                    check_passed = True
+                    check_passed = True # Просто клик
                     
             except Exception as e:
                 print(f"Check Error: {e}")
-                # Если не смогли получить данные юзера, но это не спец.задание - иногда можно пропустить, 
-                # но лучше вернуть ошибку, чтобы юзер проверил приватность.
+                # Если не удалось получить данные (приватность), возвращаем ошибку
                 return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Проверьте настройки приватности."})
 
         if not check_passed:
-            target = "имени/фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
+            target = "имени" if task.get("check_type") == "surname" else "описании (BIO)"
             return JSONResponse({"success": False, "error": f"Фраза '{task.get('check_phrase')}' не найдена в {target}!"})
 
-        # --- НАЧИСЛЕНИЕ НАГРАДЫ ---
+
+        # --- НАЧИСЛЕНИЕ НАГРАДЫ (ТВОЙ КОД: ХИРУРГИЧЕСКАЯ ВСТАВКА) ---
+        reward = task.get("reward_amount", 0)
+
+        # 1. Получаем АКТУАЛЬНЫЙ баланс (как ты просил)
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
+        current_tickets = 0
+        if user_resp.json():
+            current_tickets = user_resp.json()[0].get("tickets", 0)
         
-        # Расчет следующего дня
+        new_balance = current_tickets + reward
+
+        # 2. Явно обновляем баланс в базе
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id}"},
+            json={"tickets": new_balance}
+        )
+        # --- КОНЕЦ ТВОЕЙ ВСТАВКИ ---
+
+
+        # 4. Обновляем прогресс задания
         next_day = progress["current_day"] + 1
         is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
-        reward = task["reward_amount"] 
-
-        # 3. Начисляем билеты (ТВОЙ ФИКС: через RPC)
-        try:
-            await supabase.post("/rpc/add_tickets", json={"p_user_id": user_id, "p_amount": reward})
-        except Exception as e:
-            print(f"RPC Error: {e}")
-            # Если RPC упал, можно попробовать фоллбек, но пока оставим ошибку
-            return JSONResponse({"success": False, "error": "Ошибка начисления билетов"})
-
-        # 4. Обновляем прогресс
+        
         update_data = {
             "current_day": next_day,
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
@@ -12162,6 +12170,7 @@ async def claim_daily_task(
             "day": next_day,
             "total_days": task["total_days"],
             "is_completed": is_done, 
+            "tickets": new_balance, # Возвращаем новый баланс
             "message": f"Начислено {reward} билетов!"
         })
 
