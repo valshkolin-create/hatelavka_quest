@@ -1155,3 +1155,23 @@ body[data-theme="manual"] {
     grid-template-columns: repeat(2, 1fr); /* Или как у тебя в основном CSS */
     gap: 10px;
 }
+
+/* Анимация мерцания */
+@keyframes skeleton-loading {
+    0% { background-color: rgba(255, 255, 255, 0.05); }
+    50% { background-color: rgba(255, 255, 255, 0.1); }
+    100% { background-color: rgba(255, 255, 255, 0.05); }
+}
+
+.skeleton {
+    animation: skeleton-loading 1.5s infinite ease-in-out;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.skeleton-text { height: 14px; margin-bottom: 6px; width: 70%; border-radius: 4px; }
+.skeleton-title { height: 20px; margin-bottom: 10px; width: 50%; border-radius: 6px; }
+.skeleton-icon { width: 40px; height: 40px; border-radius: 50%; }
+.skeleton-btn { height: 36px; width: 100%; border-radius: 8px; margin-top: auto; }
