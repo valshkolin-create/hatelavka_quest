@@ -2056,7 +2056,7 @@ function setupEventListeners() {
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
         chalShortcut.addEventListener('click', () => {
-            // Просто переходим на страницу квестов
+            // Просто переходим, откроется вкладка по умолчанию (или последняя активная)
             window.location.href = '/quests'; 
         });
     }
@@ -2064,8 +2064,9 @@ function setupEventListeners() {
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.addEventListener('click', () => {
-            // Просто переходим на страницу квестов
-            window.location.href = '/quests';
+            // Передаем параметр ?open=roulette
+            // quests.js увидит его и сразу нажмет кнопку "Начать"
+            window.location.href = '/quests?open=roulette';
         });
     }
 
