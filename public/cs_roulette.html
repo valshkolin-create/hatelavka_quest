@@ -44,8 +44,9 @@
             z-index: -1;
         }
         
-        .bg-agent { background-image: url('https://i.postimg.cc/HkZDFGn4/kartinka-bez-knopki.png'); }
-        .bg-street { background-image: url('https://i.postimg.cc/SxKH6ZdC/3.png'); }
+        /* 2. ЗАМЕНА КАРТИНОК */
+        .bg-agent { background-image: url('https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png'); }
+        .bg-street { background-image: url('https://i.postimg.cc/x1sjLfJL/3.png'); }
 
         /* --- SCREENS CONFIG --- */
         .screen {
@@ -60,9 +61,17 @@
         #screen-input, #screen-action {
             justify-content: flex-end;
             align-items: center;
-            /* Фиксируем отступ, чтобы было одинаково везде */
             padding-bottom: 150px;
             padding-bottom: calc(150px + env(safe-area-inset-bottom));
+        }
+
+        /* 1. ИЗМЕНЕНИЕ ПОЗИЦИИ ТОЛЬКО ДЛЯ ТЕЛЕФОНА */
+        @media (max-width: 768px) {
+            #screen-input {
+                justify-content: flex-start !important; /* Переносим наверх */
+                padding-top: 20vh; /* Отступ 20% от верха экрана */
+                padding-bottom: 0 !important;
+            }
         }
 
         #screen-roulette {
@@ -89,10 +98,9 @@
             display: block;
         }
         
-        /* Стиль для кликабельного дива (фейк инпут) */
         div.custom-input {
             cursor: pointer;
-            color: rgba(255, 255, 255, 0.7); /* Цвет плейсхолдера */
+            color: rgba(255, 255, 255, 0.7);
             user-select: none;
         }
 
@@ -223,7 +231,7 @@
             border-radius: 6px;
             margin-bottom: 10px;
             border: 1px solid #eb4b4b;
-            display: none; /* Скрыто по умолчанию */
+            display: none; 
         }
 
         /* Inputs & Buttons */
@@ -255,6 +263,54 @@
             margin-left: 5px;
         }
         .copy-link-btn:active { background: #444; }
+
+        /* 3. PREMIUM ADMIN GRID STYLES */
+        .admin-skins-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 в ряд */
+            gap: 8px;
+            max-height: 350px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+        .admin-skin-card {
+            background: #252525;
+            border: 2px solid transparent; /* Цвет задается JS */
+            border-radius: 10px;
+            padding: 8px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.1s;
+        }
+        .admin-skin-card:active { transform: scale(0.95); }
+        .admin-skin-img {
+            width: 100%;
+            height: 60px;
+            object-fit: contain;
+            margin-bottom: 5px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+        .admin-skin-name {
+            font-size: 9px;
+            color: #ddd;
+            text-align: center;
+            line-height: 1.2;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .admin-add-card {
+            border: 2px dashed #555;
+            background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center;
+            color: #888;
+            font-size: 24px;
+        }
 
     </style>
 </head>
@@ -347,16 +403,25 @@
             </div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-item-modal')"><i class="fa-solid fa-plus"></i> Скин</button>
+                <button class="modal-btn btn-gold" style="margin:0;" onclick="openSkinsManager()"><i class="fa-solid fa-gift"></i> Управление скинами</button>
                 <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-code-modal')"><i class="fa-solid fa-ticket"></i> Код</button>
                 <button class="modal-btn btn-grey" style="margin:0; grid-column: span 2;" onclick="loadWinners()"><i class="fa-solid fa-trophy"></i> История побед</button>
             </div>
         </div>
     </div>
 
+    <div id="skins-manage-modal" class="modal">
+        <div class="modal-box" style="max-width: 380px;">
+            <h3 style="margin-bottom: 10px;">Скины в кейсе</h3>
+            <div id="admin-skins-grid" class="admin-skins-grid">
+                </div>
+            <button class="modal-btn btn-grey" onclick="closeModal('skins-manage-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
+        </div>
+    </div>
+
     <div id="add-item-modal" class="modal">
         <div class="modal-box">
-            <h3>Добавить Скин</h3>
+            <h3 id="item-modal-title">Настроить Скин</h3>
             
             <div class="admin-input-group">
                 <label>Название скина</label>
@@ -369,7 +434,7 @@
             </div>
             
             <div class="admin-input-group">
-                <label>Редкость</label>
+                <label>Редкость (Цвет)</label>
                 <select id="adm-rarity">
                     <option value="blue">🔵 Армейское (Blue)</option>
                     <option value="purple">🟣 Запрещенное (Purple)</option>
@@ -390,8 +455,8 @@
                 </select>
             </div>
 
-            <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal')">Назад</button>
+            <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
         </div>
     </div>
 
@@ -422,12 +487,11 @@
     // --- ПЕРЕМЕННЫЕ ---
     let itemsCache = [];
     let savedCode = "";
-    let currentUser = null; // Храним данные юзера
+    let currentUser = null; 
     const CARD_WIDTH = 140; 
     const TRACK = document.getElementById('track');
     const bgLayer = document.getElementById('bg-layer');
 
-    // --- УВЕДОМЛЕНИЯ (ВМЕСТО ALERT) ---
     function notify(msg) {
         tg.showPopup({
             title: 'Info',
@@ -438,14 +502,14 @@
 
     // --- ИНИЦИАЛИЗАЦИЯ ---
     async function init() {
+        // Предзагрузка фонов
         const img = new Image();
-        img.src = "https://i.postimg.cc/SxKH6ZdC/3.png";
-
+        img.src = "https://i.postimg.cc/x1sjLfJL/3.png";
+        
         try {
-            // Запрашиваем данные юзера и сохраняем их
             const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
             const me = await meRes.json();
-            currentUser = me; // Сохраняем глобально
+            currentUser = me; 
 
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
         } catch(e) {}
@@ -466,8 +530,6 @@
         if(val.length > 0) {
             savedCode = val;
             document.getElementById('real-user-code').value = ''; 
-            
-            // ВАЖНО: Убираем фокус с инпута перед закрытием, чтобы клавиатура ушла
             document.getElementById('real-user-code').blur();
             
             closeModal('entry-modal');
@@ -555,7 +617,6 @@
             const data = await res.json();
 
             if (!res.ok) {
-                // ЗАМЕНА ALERT НА NOTIFY
                 notify(data.detail || "Неверный код или ошибка");
                 claimPrize(); 
                 return;
@@ -602,9 +663,7 @@
         document.getElementById('win-rarity').innerText = rarityText;
         document.getElementById('win-rarity').style.color = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity}`);
         
-        // --- ПРОВЕРКА ТРЕЙД ССЫЛКИ ---
         const warnEl = document.getElementById('trade-warning');
-        // Если юзер загружен и у него НЕТ трейд ссылки
         if (currentUser && !currentUser.trade_link) {
             warnEl.style.display = 'block';
         } else {
@@ -644,6 +703,65 @@
         }
     }
 
+    // 3. ФУНКЦИИ УПРАВЛЕНИЯ СКИНАМИ
+    function openSkinsManager() {
+        document.getElementById('admin-panel').classList.remove('active');
+        document.getElementById('skins-manage-modal').classList.add('active');
+        renderAdminSkins();
+    }
+
+    function renderAdminSkins() {
+        const grid = document.getElementById('admin-skins-grid');
+        grid.innerHTML = '';
+        
+        // Кнопка "Добавить"
+        const addBtn = document.createElement('div');
+        addBtn.className = 'admin-skin-card admin-add-card';
+        addBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+        addBtn.onclick = () => openEditModal(null); // Null значит новый
+        grid.appendChild(addBtn);
+
+        // Рендерим существующие скины из itemsCache
+        itemsCache.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'admin-skin-card';
+            // Получаем цвет редкости из CSS переменных
+            const colorVar = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity || 'blue'}`);
+            card.style.borderColor = colorVar;
+            // Легкая подсветка фона
+            card.style.background = `linear-gradient(180deg, rgba(30,30,30,1) 0%, ${colorVar}10 100%)`;
+
+            card.innerHTML = `
+                <img src="${item.image_url}" class="admin-skin-img">
+                <div class="admin-skin-name" style="color:${colorVar}">${item.name}</div>
+            `;
+            // При клике открываем настройки этого скина
+            card.onclick = () => openEditModal(item);
+            grid.appendChild(card);
+        });
+    }
+
+    function openEditModal(item) {
+        document.getElementById('skins-manage-modal').classList.remove('active');
+        document.getElementById('add-item-modal').classList.add('active');
+
+        if (item) {
+            // Режим редактирования
+            document.getElementById('item-modal-title').innerText = "Настроить Скин";
+            document.getElementById('adm-name').value = item.name;
+            document.getElementById('adm-img').value = item.image_url;
+            document.getElementById('adm-rarity').value = item.rarity;
+            document.getElementById('adm-quality').value = item.condition || 'FN';
+        } else {
+            // Режим добавления
+            document.getElementById('item-modal-title').innerText = "Добавить Новый";
+            document.getElementById('adm-name').value = '';
+            document.getElementById('adm-img').value = '';
+            document.getElementById('adm-rarity').value = 'blue';
+            document.getElementById('adm-quality').value = 'FN';
+        }
+    }
+
     // --- API АДМИНКИ ---
     async function apiAddItem() {
         const payload = {
@@ -660,10 +778,12 @@
 
         try {
             await fetch('/api/admin/cs/item/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-            notify("Скин добавлен!"); 
+            notify("Скин сохранен!"); 
             closeModal('add-item-modal'); 
-            loadItems();
-        } catch(e) { notify("Ошибка"); }
+            // Перезагружаем список и возвращаемся в меню
+            await loadItems();
+            openSkinsManager();
+        } catch(e) { notify("Ошибка сохранения"); }
     }
 
     async function apiAddCode() {
@@ -677,7 +797,6 @@
         closeModal('add-code-modal');
     }
 
-    // Функция для копирования ссылки
     function copyLink(link) {
         navigator.clipboard.writeText(link).then(() => {
             notify("Трейд ссылка скопирована!");
@@ -703,7 +822,6 @@
             let html = '';
             list.forEach(w => {
                 const tl = w.user?.trade_link;
-                // Кнопка ссылки (если ссылка есть)
                 const linkBtn = tl 
                     ? `<button class="copy-link-btn" onclick="copyLink('${tl}')"><i class="fa-solid fa-link"></i></button>` 
                     : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
