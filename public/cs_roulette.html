@@ -57,7 +57,6 @@
         }
         .screen.active { opacity: 1; pointer-events: auto; }
 
-        /* --- 1. ВЕРНУЛИ ИДЕАЛЬНУЮ ПОЗИЦИЮ (Центр экрана на мобилках) --- */
         #screen-input {
             justify-content: flex-end;
             align-items: center;
@@ -68,7 +67,7 @@
         @media (max-width: 768px) {
             #screen-input {
                 justify-content: flex-start !important; 
-                padding-top: 50vh; /* ТА САМАЯ ПОЗИЦИЯ */
+                padding-top: 50vh; 
                 padding-bottom: 0 !important;
             }
         }
@@ -113,7 +112,7 @@
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
         }
 
-        /* --- НОВЫЙ БЛОК БУСТОВ (По ТЗ) --- */
+        /* --- БЛОК БУСТОВ (Твой дизайн) --- */
         .boost-container {
             width: 100%;
             margin-top: 30px;
@@ -134,7 +133,7 @@
         .boost-minimal-wrapper {
             display: flex;
             justify-content: center;
-            gap: 15px; /* Расстояние между иконками */
+            gap: 15px;
         }
         
         .boost-item {
@@ -147,16 +146,14 @@
             position: relative;
         }
         
-        /* Иконки */
         .boost-icon {
             font-size: 26px;
             margin-bottom: 10px;
-            color: rgba(255,255,255,0.3); /* Неактивный цвет */
+            color: rgba(255,255,255,0.3);
             transition: 0.3s;
             filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
         }
 
-        /* Текст названия */
         .boost-label {
             font-size: 9px;
             font-weight: 700;
@@ -167,30 +164,26 @@
             transition: 0.3s;
         }
         
-        /* Проценты */
         .boost-percent {
             font-size: 9px;
             font-weight: 800;
-            color: #444; /* Скрыто/темно пока не активно */
+            color: #444;
             margin-top: 3px;
             transition: 0.3s;
         }
 
-        /* АКТИВНОЕ СОСТОЯНИЕ (Золотое/Зеленое) */
+        /* АКТИВНОЕ СОСТОЯНИЕ */
         .boost-item.active .boost-icon {
             color: #ffd700;
             filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
             transform: scale(1.1);
         }
-        .boost-item.active .boost-label {
-            color: #fff;
-        }
+        .boost-item.active .boost-label { color: #fff; }
         .boost-item.active .boost-percent {
-            color: #55ff55; /* Ярко-зеленый для процентов */
+            color: #55ff55;
             text-shadow: 0 0 5px rgba(85, 255, 85, 0.3);
         }
 
-        /* Галочка */
         .boost-check-mini {
             position: absolute;
             top: -2px; right: 20px;
@@ -200,6 +193,60 @@
             align-items: center; justify-content: center;
         }
         .boost-item.active .boost-check-mini { display: flex; }
+
+        /* --- КРАСИВОЕ МОДАЛЬНОЕ ОКНО ПРОВЕРКИ (ИЗ QUESTS.JS) --- */
+        .check-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 99999;
+            display: none; 
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(10px);
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .check-overlay.active { display: flex; opacity: 1; }
+
+        .check-content {
+            background: #1c1c1e;
+            color: #fff;
+            padding: 25px;
+            border-radius: 16px;
+            text-align: center;
+            width: 85%; max-width: 320px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex; flex-direction: column; align-items: center;
+            transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+        .check-overlay.active .check-content { transform: scale(1); }
+
+        .check-close {
+            position: absolute; top: 10px; right: 10px;
+            width: 30px; height: 30px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+            cursor: pointer; color: #aaa;
+        }
+
+        .check-icon { font-size: 40px; margin-bottom: 15px; color: #ff4757; }
+        .check-title { margin-top: 0; color: #fff; font-size: 18px; font-weight: 800; margin-bottom: 10px; text-transform: uppercase; }
+        .check-text { font-size: 13px; line-height: 1.5; color: #bbb; margin-bottom: 20px; }
+
+        .check-btn {
+            width: 100%;
+            background: #0088cc;
+            color: white; border: none;
+            padding: 14px; border-radius: 12px;
+            margin-bottom: 10px;
+            font-weight: 700; font-size: 14px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: 0.2s;
+        }
+        .check-btn:active { transform: scale(0.96); opacity: 0.9; }
+        .check-btn.secondary { background: rgba(255,255,255,0.1); color: #ccc; }
 
 
         /* --- BUTTON STYLES --- */
@@ -396,14 +443,14 @@
                     <div class="boost-percent" id="val-twitch">+15%</div>
                 </div>
 
-                <div id="boost-tg" class="boost-item" onclick="handleTgClick()">
+                <div id="boost-tg" class="boost-item" onclick="handleBoostClick('tg')">
                     <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
                     <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
                     <div class="boost-label">TG<br>Канал</div>
                     <div class="boost-percent" id="val-tg">+15%</div>
                 </div>
 
-                <div id="boost-hash" class="boost-item" onclick="checkBoostsServer()">
+                <div id="boost-hash" class="boost-item" onclick="handleBoostClick('hashtag')">
                     <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
                     <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
                     <div class="boost-label">HATELAVKA<br>BOT</div>
@@ -412,7 +459,26 @@
 
             </div>
         </div>
+    </div>
+
+    <div id="checkModal" class="check-overlay">
+        <div class="check-content">
+            <div class="check-close" onclick="closeCheckModal()"><i class="fa-solid fa-xmark"></i></div>
+            
+            <div class="check-icon" id="checkModalIcon"><i class="fa-solid fa-lock"></i></div>
+            <h3 class="check-title" id="checkModalTitle">БОНУС</h3>
+            <p class="check-text" id="checkModalText">Текст описания.</p>
+            
+            <button id="checkActionBtn" class="check-btn">
+                <i class="fa-brands fa-telegram"></i> <span>Действие</span>
+            </button>
+            
+            <button id="checkRetryBtn" class="check-btn secondary">
+                <i class="fa-solid fa-rotate-right"></i> Проверить
+            </button>
         </div>
+    </div>
+
 
     <div id="entry-modal" class="modal">
         <div class="modal-box">
@@ -521,43 +587,51 @@
             <h3 id="item-modal-title">Настроить Скин</h3>
             <div class="admin-input-group"><label>Название скина</label><input id="adm-name" placeholder="Например: AWP | Asiimov"></div>
             <div class="admin-input-group"><label>Ссылка на картинку (URL)</label><input id="adm-img" placeholder="https://..."></div>
-            <div class="admin-input-group"><label>Редкость (Цвет)</label><select id="adm-rarity"><option value="blue">🔵 Армейское (Blue)</option><option value="purple">🟣 Запрещенное (Purple)</option><option value="pink">🌸 Засекреченное (Pink)</option><option value="red">🔴 Тайное (Red)</option><option value="gold">🟡 Особое (Gold)</option></select></div>
-            <div class="admin-input-group"><label>Качество</label><select id="adm-quality"><option value="FN">Прямо с завода (FN)</option><option value="MW">Немного поношенное (MW)</option><option value="FT">После полевых (FT)</option><option value="WW">Поношенное (WW)</option><option value="BS">Закаленное в боях (BS)</option></select></div>
-            <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
+            <div class="admin-input-group"><label>Редкость (Цвет)</label><select id="adm-rarity"><option value="blue">Blue</option><option value="purple">Purple</option><option value="pink">Pink</option><option value="red">Red</option><option value="gold">Gold</option></select></div>
+            <div class="admin-input-group"><label>Качество (FN/MW...)</label><input id="adm-quality" placeholder="FN"></div>
+            
+            <button class="modal-btn btn-gold" onclick="apiAddItem()">СОХРАНИТЬ</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">ОТМЕНА</button>
         </div>
     </div>
 
     <div id="add-code-modal" class="modal">
         <div class="modal-box">
-            <h3>Создать Коды</h3>
-            <div class="admin-input-group"><label>Текст кода (Каждый с новой строки)</label><textarea id="adm-code-val" placeholder="CODE1&#10;CODE2&#10;CODE3"></textarea></div>
-            <div class="admin-input-group"><label>Лимит использований (на каждый код)</label><input id="adm-code-max" type="number" value="1"></div>
-            <button class="modal-btn btn-gold" onclick="apiAddCode()">Создать</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-code-modal')">Назад</button>
+            <h3>Добавить Код</h3>
+            <div class="admin-input-group"><label>Коды (каждый с новой строки)</label><textarea id="adm-code-val" placeholder="CODE1&#10;CODE2..."></textarea></div>
+            <div class="admin-input-group"><label>Кол-во использований</label><input type="number" id="adm-code-max" value="1"></div>
+            <button class="modal-btn btn-gold" onclick="apiAddCode()">СОЗДАТЬ</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('add-code-modal'); document.getElementById('admin-panel').classList.add('active');">НАЗАД</button>
         </div>
     </div>
 
     <div id="winners-modal" class="modal">
         <div class="modal-box">
-            <h3>Победители</h3>
+            <h3>Последние победы</h3>
             <div id="winners-list" class="admin-list">Загрузка...</div>
-            <button class="modal-btn btn-grey" onclick="closeModal('winners-modal')">Закрыть</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('winners-modal'); document.getElementById('admin-panel').classList.add('active');">НАЗАД</button>
         </div>
     </div>
-
 
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
     const initData = tg.initData;
 
+    // === КОНФИГ БОНУСОВ ===
+    const TG_CHANNEL_URL = 'https://t.me/hatelove_ttv'; 
+    const BOT_TAG_NAME = '@HATElavka_bot';
+
     // --- ПЕРЕМЕННЫЕ ---
     let itemsCache = [];
     let savedCode = "";
     let currentUser = null; 
     let debounceTimer;
+    // Изначально статусы false
     let boostStatus = { twitch: false, tg: false, hashtag: false };
+    // Какая модалка сейчас открыта? (tg или hashtag)
+    let currentCheckType = null; 
+
     const CARD_WIDTH = 140; 
     const TRACK = document.getElementById('track');
     const bgLayer = document.getElementById('bg-layer');
@@ -578,7 +652,7 @@
 
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             
-            // ВЫЗЫВАЕМ ПРОВЕРКУ БУСТОВ С СЕРВЕРА
+            // Проверяем статусы при старте
             await checkBoostsServer();
 
         } catch(e) {}
@@ -586,7 +660,7 @@
         loadItems();
     }
 
-    // --- ЛОГИКА БУСТОВ (СЕРВЕРНАЯ) ---
+    // --- ЛОГИКА БУСТОВ (ОБНОВЛЕННАЯ) ---
     async function checkBoostsServer() {
         try {
             const res = await fetch('/api/cs/boost_status', { 
@@ -598,50 +672,98 @@
             boostStatus = data;
             
             updateBoostUI();
+            
+            // Если модальное окно открыто, и мы успешно прошли проверку - закрываем его
+            if (currentCheckType) {
+                if (currentCheckType === 'tg' && boostStatus.tg) closeCheckModal();
+                if (currentCheckType === 'hashtag' && boostStatus.hashtag) closeCheckModal();
+            }
+
         } catch (e) { console.error("Boost check failed", e); }
     }
 
     function updateBoostUI() {
-        // 1. Twitch
-        const twitchEl = document.getElementById('boost-twitch');
-        if (boostStatus.twitch) {
-            twitchEl.classList.add('active');
-            twitchEl.onclick = null;
-        }
+        // Функция хелпер
+        const setStatus = (id, isActive) => {
+            const el = document.getElementById(id);
+            if (isActive) el.classList.add('active');
+            else el.classList.remove('active');
+        };
 
-        // 2. Hashtag
-        const hashEl = document.getElementById('boost-hash');
-        if (boostStatus.hashtag) {
-            hashEl.classList.add('active');
-            hashEl.onclick = null;
-        }
-
-        // 3. Telegram
-        const tgEl = document.getElementById('boost-tg');
-        if (boostStatus.tg) {
-            tgEl.classList.add('active');
-            // Если активно - клик ничего не делает или просто сообщает что ок
-            tgEl.onclick = () => tg.HapticFeedback.notificationOccurred('success');
-        } else {
-            // Если не активно - клик обрабатывается handleTgClick
-            tgEl.classList.remove('active');
-            tgEl.onclick = handleTgClick;
-        }
+        setStatus('boost-twitch', boostStatus.twitch);
+        setStatus('boost-hash', boostStatus.hashtag);
+        setStatus('boost-tg', boostStatus.tg);
     }
 
-    // Обработка клика на ТГ:
-    // 1. Открываем канал
-    // 2. Когда юзер вернется (через секунду или по фокусу) - проверяем снова сервер
-    function handleTgClick() {
-        tg.openTelegramLink('https://t.me/HATElavka'); 
-        
-        // Даем время подписаться, потом проверяем снова
-        setTimeout(() => {
-            checkBoostsServer();
-        }, 3000); 
+    // КЛИК ПО БУСТУ (ВЫЗЫВАЕТ МОДАЛКУ ИЛИ НИЧЕГО НЕ ДЕЛАЕТ ЕСЛИ АКТИВНО)
+    function handleBoostClick(type) {
+        // Если уже активно — ничего не делаем (или легкая вибрация успеха)
+        if (type === 'tg' && boostStatus.tg) {
+            tg.HapticFeedback.notificationOccurred('success');
+            return;
+        }
+        if (type === 'hashtag' && boostStatus.hashtag) {
+            tg.HapticFeedback.notificationOccurred('success');
+            return;
+        }
+
+        // Если не активно — открываем красивое окно
+        openBoostModal(type);
     }
 
+    // ЛОГИКА МОДАЛЬНОГО ОКНА БОНУСОВ
+    function openBoostModal(type) {
+        currentCheckType = type;
+        const modal = document.getElementById('checkModal');
+        const titleEl = document.getElementById('checkModalTitle');
+        const textEl = document.getElementById('checkModalText');
+        const actionBtn = document.getElementById('checkActionBtn');
+        const iconEl = document.getElementById('checkModalIcon');
+        const retryBtn = document.getElementById('checkRetryBtn');
+
+        // Настраиваем содержимое под тип
+        if (type === 'tg') {
+            iconEl.innerHTML = '<i class="fa-brands fa-telegram" style="color:#0088cc"></i>';
+            titleEl.innerText = "ПОДПИСКА НА КАНАЛ";
+            textEl.innerHTML = "Подпишись на наш Telegram канал и получи <b>+15%</b> к удаче в рулетке.";
+            
+            // Кнопка действия - открыть ссылку
+            actionBtn.innerHTML = '<i class="fa-brands fa-telegram"></i> <span>ПОДПИСАТЬСЯ</span>';
+            actionBtn.onclick = () => { tg.openTelegramLink(TG_CHANNEL_URL); };
+
+        } else if (type === 'hashtag') {
+            iconEl.innerHTML = '<i class="fa-solid fa-signature" style="color:#ffd700"></i>';
+            titleEl.innerText = "ТЕГ В НИКЕЙМЕ";
+            textEl.innerHTML = `Добавь тег <b>${BOT_TAG_NAME}</b> в свое имя или фамилию в Telegram и получи <b>+15%</b> к удаче.`;
+            
+            // Кнопка действия - копировать тег
+            actionBtn.innerHTML = '<i class="fa-regular fa-copy"></i> <span>СКОПИРОВАТЬ ТЕГ</span>';
+            actionBtn.onclick = () => { 
+                navigator.clipboard.writeText(BOT_TAG_NAME);
+                tg.showAlert("Тег скопирован! Теперь вставь его в настройках профиля.");
+            };
+        }
+
+        // Кнопка повторной проверки
+        retryBtn.onclick = async () => {
+            const originalHtml = retryBtn.innerHTML;
+            retryBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ПРОВЕРЯЮ...';
+            await checkBoostsServer(); // Делаем запрос на сервер
+            setTimeout(() => { retryBtn.innerHTML = originalHtml; }, 500);
+        };
+
+        modal.classList.add('active');
+        tg.HapticFeedback.impactOccurred('medium');
+    }
+
+    function closeCheckModal() {
+        document.getElementById('checkModal').classList.remove('active');
+        currentCheckType = null;
+    }
+
+    // Для Twitch оставляем просто переход
     function openTwitch() {
+        if (boostStatus.twitch) return; // Если уже есть, ничего не делаем
         window.location.href = 'profile.html';
     }
 
