@@ -52,20 +52,21 @@
             flex-grow: 1; 
         }
         .back-button { 
-            background: none; 
-            border: none; 
-            color: var(--action-color); 
-            font-size: 12px; 
-            cursor: pointer; 
-            padding: 5px; 
-            font-weight: 500; 
-            text-decoration: none; 
-        }
-        .card-container { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-        }
+    /* --- Добавляем эти 3 строчки для выравнивания в ряд: --- */
+    display: flex;
+    align-items: center;
+    gap: 6px; /* Расстояние между стрелкой и текстом */
+    
+    /* --- Остальные стили оставляем как были (с уменьшенным шрифтом): --- */
+    background: none; 
+    border: none; 
+    color: var(--action-color); 
+    font-size: 12px; 
+    cursor: pointer; 
+    padding: 5px 0; /* Чуть убрал боковые отступы, чтобы было ближе к краю */
+    font-weight: 500; 
+    text-decoration: none; 
+}
 
         /* --- Карточки настроек --- */
         .settings-card {
