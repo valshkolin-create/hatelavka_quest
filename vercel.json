@@ -26,6 +26,7 @@
     { "src": "/slay", "dest": "/public/slay.html" },
     { "src": "/shop", "dest": "/public/shop.html" },
     { "src": "/advent", "dest": "/public/advent.html" },
+    { "src": "/cs", "dest": "/public/cs_roulette.html" },
     { "src": "/", "dest": "/public/index.html" },
     { "src": "/api/(.*)", "dest": "/index.py" },
     { "src": "/(.*)", "dest": "/public/$1" }
