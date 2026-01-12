@@ -70,10 +70,9 @@
             align-items: center;
         }
 
-        /* --- INPUT STYLES (Обновленные для "фейк" инпута) --- */
+        /* --- INPUT STYLES --- */
         .input-wrapper { width: 90%; max-width: 380px; text-align: center;}
         
-        /* Это теперь и DIV и INPUT выглядит одинаково */
         .custom-input {
             width: 100%;
             background: rgba(10, 10, 10, 0.6);
@@ -86,7 +85,7 @@
             text-align: center; text-transform: uppercase; letter-spacing: 1px;
             outline: none; backdrop-filter: blur(10px);
             transition: all 0.3s;
-            box-sizing: border-box; /* Важно чтобы padding не менял размер */
+            box-sizing: border-box; 
             display: block;
         }
         
@@ -118,7 +117,7 @@
         }
         .main-btn:active { transform: scale(0.97); }
 
-        /* --- PREMIUM ROULETTE STYLES (UPDATED) --- */
+        /* --- ROULETTE STYLES --- */
         .roulette-container {
             width: 100%;
             position: relative;
@@ -127,7 +126,7 @@
 
         .roulette-window {
             width: 100%;
-            height: 160px; /* Сделали компактнее */
+            height: 160px;
             background: #0e1621;
             border-top: 2px solid #333;
             border-bottom: 2px solid #333;
@@ -137,7 +136,6 @@
             display: flex; align-items: center;
         }
         
-        /* Золотая линия */
         .center-marker {
             position: absolute; left: 50%; top: 0; bottom: 0;
             width: 4px; background: #ffd700;
@@ -159,16 +157,14 @@
             padding-left: 50vw;
         }
 
-        /* Premium Card (С ГРАДИЕНТОМ РЕДКОСТИ) */
         .card {
-            width: 130px; height: 130px; /* Компактнее */
+            width: 130px; height: 130px;
             margin: 0 5px;
             background-color: #1f2936;
             border-radius: 12px;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             position: relative; flex-shrink: 0;
-            /* Нижняя граница будет цветом */
             border-bottom: 3px solid transparent; 
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             overflow: hidden;
@@ -187,27 +183,11 @@
             font-weight: 700; z-index: 2;
         }
 
-        /* Цвета редкости и градиенты */
-        .card.blue {
-            border-bottom-color: var(--rarity-blue);
-            background: radial-gradient(circle at bottom, rgba(75, 105, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
-        }
-        .card.purple {
-            border-bottom-color: var(--rarity-purple);
-            background: radial-gradient(circle at bottom, rgba(136, 71, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
-        }
-        .card.pink {
-            border-bottom-color: var(--rarity-pink);
-            background: radial-gradient(circle at bottom, rgba(211, 44, 230, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
-        }
-        .card.red {
-            border-bottom-color: var(--rarity-red);
-            background: radial-gradient(circle at bottom, rgba(235, 75, 75, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
-        }
-        .card.gold {
-            border-bottom-color: var(--rarity-gold);
-            background: radial-gradient(circle at bottom, rgba(228, 174, 57, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
-        }
+        .card.blue { border-bottom-color: var(--rarity-blue); background: radial-gradient(circle at bottom, rgba(75, 105, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
+        .card.purple { border-bottom-color: var(--rarity-purple); background: radial-gradient(circle at bottom, rgba(136, 71, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
+        .card.pink { border-bottom-color: var(--rarity-pink); background: radial-gradient(circle at bottom, rgba(211, 44, 230, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
+        .card.red { border-bottom-color: var(--rarity-red); background: radial-gradient(circle at bottom, rgba(235, 75, 75, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
+        .card.gold { border-bottom-color: var(--rarity-gold); background: radial-gradient(circle at bottom, rgba(228, 174, 57, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
 
         /* --- ADMIN FAB & MODALS --- */
         .admin-wrapper {
@@ -233,6 +213,19 @@
         .win-title { font-size: 32px; font-weight: 900; color: #ffd700; text-transform: uppercase; margin: 0; text-shadow: 0 0 20px rgba(255,215,0,0.5); }
         .win-desc { color: #888; font-size: 12px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
 
+        /* WARNING NO TRADE LINK */
+        .trade-warning {
+            color: #eb4b4b;
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(235, 75, 75, 0.15);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #eb4b4b;
+            display: none; /* Скрыто по умолчанию */
+        }
+
         /* Inputs & Buttons */
         .pass-input { width: 100%; padding: 12px; background: #2c2c2e; border: 1px solid #444; color: #fff; border-radius: 8px; text-align: center; margin: 15px 0; font-size: 18px; outline: none; box-sizing: border-box; }
         .modal-btn { padding: 12px; width: 100%; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
@@ -250,6 +243,18 @@
 
         .admin-row { padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; text-align: left; }
         .admin-list { max-height: 250px; overflow-y: auto; }
+        
+        .copy-link-btn {
+            background: #222;
+            color: var(--rarity-gold);
+            border: 1px solid #444;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 10px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .copy-link-btn:active { background: #444; }
 
     </style>
 </head>
@@ -305,6 +310,11 @@
             <img id="win-image" src="" class="win-img">
             <div id="win-name" style="font-size: 20px; font-weight: bold; margin-bottom: 5px;"></div>
             <div id="win-rarity" class="win-desc"></div>
+            
+            <div id="trade-warning" class="trade-warning">
+                ⚠️ ВНИМАНИЕ: У тебя не установлена Trade Link! Добавь её в профиле, чтобы получить предмет.
+            </div>
+
             <button class="modal-btn btn-gold" onclick="claimPrize()">ЗАБРАТЬ</button>
         </div>
     </div>
@@ -412,50 +422,58 @@
     // --- ПЕРЕМЕННЫЕ ---
     let itemsCache = [];
     let savedCode = "";
-    const CARD_WIDTH = 140; // 130px card + 10px margin
+    let currentUser = null; // Храним данные юзера
+    const CARD_WIDTH = 140; 
     const TRACK = document.getElementById('track');
     const bgLayer = document.getElementById('bg-layer');
 
+    // --- УВЕДОМЛЕНИЯ (ВМЕСТО ALERT) ---
+    function notify(msg) {
+        tg.showPopup({
+            title: 'Info',
+            message: msg,
+            buttons: [{type: 'ok'}]
+        });
+    }
+
     // --- ИНИЦИАЛИЗАЦИЯ ---
     async function init() {
-        // Предзагрузка фона улицы
         const img = new Image();
         img.src = "https://i.postimg.cc/SxKH6ZdC/3.png";
 
-        // Проверка админа
         try {
-            const me = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}}).then(r => r.json());
+            // Запрашиваем данные юзера и сохраняем их
+            const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
+            const me = await meRes.json();
+            currentUser = me; // Сохраняем глобально
+
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
         } catch(e) {}
 
-        // Загрузка скинов
         loadItems();
     }
 
-    // --- НАВИГАЦИЯ & INPUT LOGIC ---
-    
-    // Новая функция: Открытие модалки ввода
+    // --- НАВИГАЦИЯ ---
     function openCodeEntry() {
         document.getElementById('entry-modal').classList.add('active');
-        // Небольшая задержка, чтобы модалка успела появиться перед фокусом
         setTimeout(() => {
             document.getElementById('real-user-code').focus();
         }, 100);
     }
 
-    // Новая функция: Подтверждение кода
     function confirmCode() {
         const val = document.getElementById('real-user-code').value;
         if(val.length > 0) {
             savedCode = val;
-            document.getElementById('real-user-code').value = ''; // Очистка
-            closeModal('entry-modal');
+            document.getElementById('real-user-code').value = ''; 
             
-            // Переход на следующий экран
+            // ВАЖНО: Убираем фокус с инпута перед закрытием, чтобы клавиатура ушла
+            document.getElementById('real-user-code').blur();
+            
+            closeModal('entry-modal');
             document.getElementById('screen-input').classList.remove('active');
             document.getElementById('screen-action').classList.add('active');
         } else {
-            // Вибрация ошибки, если пусто
             tg.HapticFeedback.notificationOccurred('warning');
         }
     }
@@ -463,8 +481,6 @@
     function handleEnter(e) {
         if(e.key === 'Enter') {
             confirmCode();
-            // Убираем фокус (клавиатуру)
-            document.getElementById('real-user-code').blur();
         }
     }
 
@@ -484,17 +500,14 @@
 
     function claimPrize() {
         closeModal('win-modal');
-        // Возврат на старт
         bgLayer.classList.remove('bg-street');
         bgLayer.classList.add('bg-agent');
         document.getElementById('screen-roulette').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
         savedCode = "";
         
-        // Сброс ленты
         TRACK.style.transition = 'none';
         TRACK.style.transform = 'translateX(0)';
-        // Обновляем ленту новыми рандомными предметами
         generateStrip(itemsCache, null);
     }
 
@@ -510,7 +523,7 @@
     function generateStrip(items, winnerItem) {
         TRACK.innerHTML = '';
         const cardsCount = 80; 
-        const winnerIndex = 60; // Выигрышная позиция
+        const winnerIndex = 60; 
 
         let html = '';
         for (let i = 0; i < cardsCount; i++) {
@@ -522,7 +535,6 @@
             }
             if(!item) item = {name: "Загрузка...", image_url: "https://placehold.co/100", rarity: "blue"};
 
-            // Применяем классы редкости для CSS градиентов
             html += `
                 <div class="card ${item.rarity}">
                     <img src="${item.image_url}" alt="skin">
@@ -530,8 +542,6 @@
                 </div>
             `;
         }
-        
-        // Используем insertAdjacentHTML для безопасности
         TRACK.insertAdjacentHTML('beforeend', html);
     }
 
@@ -545,7 +555,8 @@
             const data = await res.json();
 
             if (!res.ok) {
-                alert(data.detail || "Неверный код или ошибка");
+                // ЗАМЕНА ALERT НА NOTIFY
+                notify(data.detail || "Неверный код или ошибка");
                 claimPrize(); 
                 return;
             }
@@ -553,7 +564,6 @@
             const winner = data.winner;
             generateStrip(itemsCache, winner);
 
-            // АНИМАЦИЯ СПИНА
             setTimeout(() => {
                 const cardCenter = CARD_WIDTH / 2;
                 const screenCenter = window.innerWidth / 2;
@@ -571,7 +581,7 @@
             }, 100);
 
         } catch (e) {
-            alert("Ошибка сети");
+            notify("Ошибка сети");
             claimPrize();
         }
     }
@@ -580,7 +590,6 @@
         document.getElementById('win-image').src = item.image_url;
         document.getElementById('win-name').innerText = item.name;
         
-        // Перевод редкости для отображения
         const ruRarity = {
             'blue': 'Армейское качество',
             'purple': 'Запрещенное',
@@ -593,10 +602,18 @@
         document.getElementById('win-rarity').innerText = rarityText;
         document.getElementById('win-rarity').style.color = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity}`);
         
+        // --- ПРОВЕРКА ТРЕЙД ССЫЛКИ ---
+        const warnEl = document.getElementById('trade-warning');
+        // Если юзер загружен и у него НЕТ трейд ссылки
+        if (currentUser && !currentUser.trade_link) {
+            warnEl.style.display = 'block';
+        } else {
+            warnEl.style.display = 'none';
+        }
+
         document.getElementById('win-modal').classList.add('active');
         tg.HapticFeedback.notificationOccurred('success');
     }
-
 
     // --- АДМИН УТИЛИТЫ ---
     function toggleAdminMenu() {
@@ -639,14 +656,14 @@
             quantity: 1
         };
         
-        if(!payload.name) return alert("Введите название");
+        if(!payload.name) return notify("Введите название");
 
         try {
             await fetch('/api/admin/cs/item/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-            alert("Скин добавлен!"); 
+            notify("Скин добавлен!"); 
             closeModal('add-item-modal'); 
             loadItems();
-        } catch(e) { alert("Ошибка"); }
+        } catch(e) { notify("Ошибка"); }
     }
 
     async function apiAddCode() {
@@ -656,11 +673,19 @@
             max_uses: parseInt(document.getElementById('adm-code-max').value)
         };
         await fetch('/api/admin/cs/code/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-        alert("Код создан!"); 
+        notify("Код создан!"); 
         closeModal('add-code-modal');
     }
 
-    // FIX: Исправленная функция загрузки победителей
+    // Функция для копирования ссылки
+    function copyLink(link) {
+        navigator.clipboard.writeText(link).then(() => {
+            notify("Трейд ссылка скопирована!");
+        }).catch(() => {
+            notify("Ошибка копирования");
+        });
+    }
+
     async function loadWinners() {
         openSubModal('winners-modal');
         const listContainer = document.getElementById('winners-list');
@@ -670,22 +695,22 @@
             const res = await fetch('/api/admin/cs/winners', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'} });
             const list = await res.json();
             
-            // Проверка, что пришел массив
-            if (!Array.isArray(list)) {
-                listContainer.innerHTML = "<div style='padding:20px; color:#666; text-align:center'>Ошибка данных</div>";
-                return;
-            }
-
-            if (list.length === 0) {
+            if (!Array.isArray(list) || list.length === 0) {
                 listContainer.innerHTML = "<div style='padding:20px; color:#666; text-align:center'>Список пуст</div>";
                 return;
             }
 
             let html = '';
             list.forEach(w => {
+                const tl = w.user?.trade_link;
+                // Кнопка ссылки (если ссылка есть)
+                const linkBtn = tl 
+                    ? `<button class="copy-link-btn" onclick="copyLink('${tl}')"><i class="fa-solid fa-link"></i></button>` 
+                    : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
+
                 html += `<div class="admin-row">
                     <div style="font-size:12px;">
-                        <b style="color:#fff">${w.user?.full_name || 'User'}</b><br>
+                        <b style="color:#fff">${w.user?.full_name || 'User'}</b> ${linkBtn}<br>
                         <span style="color:gold">${w.item?.name || 'Item'}</span>
                     </div>
                     <div style="font-size:10px; color:#666;">Код: ${w.code_used}</div>
