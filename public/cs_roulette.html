@@ -9,7 +9,7 @@
     
     <style>
         /* --- GLOBAL & FONTS --- */
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
 
         :root {
             --gold-gradient: linear-gradient(180deg, #FFD700 0%, #E6AC00 100%);
@@ -33,20 +33,17 @@
             height: 100vh;
             display: flex; flex-direction: column;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
 
         /* --- BACKGROUND MANAGER --- */
         #bg-layer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-size: cover;
-            background-position: center center; /* Центрирование для телефонов */
+            background-position: center top; 
             background-repeat: no-repeat;
-            transition: background-image 0.5s ease-in-out;
             z-index: -1;
-            /* Улучшение качества картинки на мобильных */
-            image-rendering: -webkit-optimize-contrast;
-            transform: translateZ(0); /* Аппаратное ускорение */
+            /* Убраны переходы для мгновенной смены */
+            /* Убраны хаки рендеринга, чтобы вернуть сглаживание */
         }
         
         /* 2. ЗАМЕНА КАРТИНОК */
@@ -58,7 +55,7 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column;
             opacity: 0; pointer-events: none;
-            transition: opacity 0.4s ease;
+            transition: opacity 0.4s ease; /* Плавность только для элементов интерфейса, не для фона */
             box-sizing: border-box;
         }
         .screen.active { opacity: 1; pointer-events: auto; }
@@ -70,11 +67,10 @@
             padding-bottom: calc(150px + env(safe-area-inset-bottom));
         }
 
-        /* 1. ИЗМЕНЕНИЕ ПОЗИЦИИ ТОЛЬКО ДЛЯ ТЕЛЕФОНА */
         @media (max-width: 768px) {
             #screen-input {
-                justify-content: flex-start !important; /* Переносим наверх */
-                padding-top: 50vh; /* Отступ 20% от верха экрана */
+                justify-content: flex-start !important; 
+                padding-top: 50vh; 
                 padding-bottom: 0 !important;
             }
         }
@@ -101,15 +97,12 @@
             transition: all 0.3s;
             box-sizing: border-box; 
             display: block;
-        }
-        
-        div.custom-input {
             cursor: pointer;
-            color: rgba(255, 255, 255, 0.7);
             user-select: none;
+            color: rgba(255, 255, 255, 0.7);
         }
 
-        .custom-input:focus {
+        .custom-input:focus, .custom-input:active {
             background: rgba(0, 0, 0, 0.9);
             border-color: #fff;
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
@@ -218,13 +211,31 @@
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
-        .modal-box { background: #1c1c1e; padding: 25px; border-radius: 16px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #333; position: relative; }
+        .modal-box { background: #1c1c1e; padding: 25px; border-radius: 16px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #333; position: relative; box-sizing: border-box;}
 
-        /* Win Modal */
-        .win-img { width: 220px; height: 150px; object-fit: contain; margin: 15px 0; filter: drop-shadow(0 0 25px rgba(255,215,0,0.4)); animation: floatItem 3s infinite ease-in-out; }
+        /* --- UPDATED WIN MODAL --- */
+        /* Убрали заголовок YOU WON, подняли картинку, сделали имя большим */
+        .win-img { width: 100%; height: 160px; object-fit: contain; margin: 0 0 15px 0; filter: drop-shadow(0 0 25px rgba(255,215,0,0.4)); animation: floatItem 3s infinite ease-in-out; }
         @keyframes floatItem { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .win-title { font-size: 32px; font-weight: 900; color: #ffd700; text-transform: uppercase; margin: 0; text-shadow: 0 0 20px rgba(255,215,0,0.5); }
-        .win-desc { color: #888; font-size: 12px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .win-name-large { 
+            font-size: 26px; 
+            font-weight: 900; 
+            color: #ffd700; 
+            text-transform: uppercase; 
+            line-height: 1.1;
+            margin-bottom: 5px;
+            text-shadow: 0 0 25px rgba(255,215,0,0.4);
+        }
+        
+        .win-details {
+            font-size: 13px;
+            color: #bbb;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
 
         /* WARNING NO TRADE LINK */
         .trade-warning {
@@ -239,39 +250,47 @@
             display: none; 
         }
 
-        /* Inputs & Buttons */
-        .pass-input { width: 100%; padding: 12px; background: #2c2c2e; border: 1px solid #444; color: #fff; border-radius: 8px; text-align: center; margin: 15px 0; font-size: 18px; outline: none; box-sizing: border-box; }
+        /* --- INPUTS & BUTTONS --- */
+        /* 1. КНОПКА ВСТАВКИ ВНУТРИ INPUT */
+        .input-inner-wrapper {
+            position: relative;
+            width: 100%;
+            margin: 15px 0;
+        }
+        .pass-input { 
+            width: 100%; padding: 12px 45px 12px 12px; /* Место справа для кнопки */
+            background: #2c2c2e; border: 1px solid #444; 
+            color: #fff; border-radius: 8px; 
+            text-align: center; 
+            font-size: 18px; outline: none; 
+            box-sizing: border-box; 
+        }
+        
+        /* Маленькая кнопка вставки внутри */
+        .paste-btn-inside {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 215, 0, 0.1);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+            z-index: 10;
+        }
+        .paste-btn-inside:active {
+            background: rgba(255, 215, 0, 0.3);
+            transform: translateY(-50%) scale(0.9);
+        }
+
         .modal-btn { padding: 12px; width: 100%; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .btn-gold { background: var(--orange-btn); color: #000; }
         .btn-grey { background: #333; color: #fff; margin-top: 10px; }
-
-        /* PREMIUM PASTE BUTTON */
-        .paste-premium-btn {
-            background: rgba(255, 215, 0, 0.08);
-            border: 1px solid rgba(255, 215, 0, 0.4);
-            color: #ffd700;
-            padding: 10px 15px;
-            border-radius: 25px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            margin: 5px auto 15px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            width: fit-content;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.05);
-        }
-        .paste-premium-btn:active {
-            background: rgba(255, 215, 0, 0.2);
-            transform: scale(0.96);
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
-        }
-        .paste-premium-btn i { font-size: 14px; }
 
         /* Admin Form Styles */
         .admin-input-group { margin-bottom: 12px; text-align: left; }
@@ -299,14 +318,17 @@
         }
         .copy-link-btn:active { background: #444; }
 
-        /* 3. PREMIUM ADMIN GRID STYLES (UPDATED: 2 columns, smaller) */
+        /* 2. ADMIN GRID: FIXED WIDTH ISSUE */
         .admin-skins-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 2 в ряд */
+            grid-template-columns: repeat(2, 1fr); 
             gap: 8px;
             max-height: 350px;
             overflow-y: auto;
             padding: 5px;
+            /* Уменьшаем размер сетки чтобы влезала */
+            box-sizing: border-box;
+            width: 100%;
         }
         .admin-skin-card {
             background: #252525;
@@ -320,11 +342,13 @@
             cursor: pointer;
             position: relative;
             transition: transform 0.1s;
+            /* Фикс переполнения */
+            min-width: 0; 
         }
         .admin-skin-card:active { transform: scale(0.95); }
         .admin-skin-img {
             width: 100%;
-            height: 50px; /* Уменьшено */
+            height: 50px; 
             object-fit: contain;
             margin-bottom: 5px;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
@@ -367,12 +391,13 @@
 
     <div id="entry-modal" class="modal">
         <div class="modal-box">
-            <h3 style="margin: 0 0 15px 0; color: #fff;">ВВЕДИТЕ КОД</h3>
+            <h3 style="margin: 0 0 5px 0; color: #fff;">ВВЕДИТЕ КОД</h3>
             
-            <input type="text" id="real-user-code" class="pass-input" placeholder="Код здесь..." onkeypress="handleEnter(event)">
-            
-            <div class="paste-premium-btn" onclick="pasteFromClipboard()">
-                <i class="fa-regular fa-clipboard"></i> Вставить код
+            <div class="input-inner-wrapper">
+                <input type="text" id="real-user-code" class="pass-input" placeholder="Код здесь..." onkeypress="handleEnter(event)">
+                <div class="paste-btn-inside" onclick="pasteFromClipboard()">
+                    <i class="fa-regular fa-clipboard"></i>
+                </div>
             </div>
 
             <button class="modal-btn btn-gold" onclick="confirmCode()">ГОТОВО</button>
@@ -403,17 +428,29 @@
     </div>
 
     <div id="win-modal" class="modal">
-        <div class="modal-box" style="border: 2px solid #ffd700; background: radial-gradient(circle, #222 0%, #000 100%);">
-            <div class="win-title">YOU WON!</div>
+        <div class="modal-box" style="border: 2px solid #ffd700; background: radial-gradient(circle, #222 0%, #000 100%); padding-top: 40px;">
+            
             <img id="win-image" src="" class="win-img">
-            <div id="win-name" style="font-size: 20px; font-weight: bold; margin-bottom: 5px;"></div>
-            <div id="win-rarity" class="win-desc"></div>
+            
+            <div id="win-name" class="win-name-large">NAME</div>
+            <div id="win-details" class="win-details">RARITY • CONDITION</div>
             
             <div id="trade-warning" class="trade-warning">
                 ⚠️ ВНИМАНИЕ: У тебя не установлена Trade Link! Добавь её в профиле, чтобы получить предмет.
             </div>
 
             <button class="modal-btn btn-gold" onclick="claimPrize()">ЗАБРАТЬ</button>
+        </div>
+    </div>
+
+    <div id="final-modal" class="modal">
+        <div class="modal-box" style="text-align: center; padding: 40px 20px;">
+            <i class="fa-solid fa-check-circle" style="font-size: 50px; color: #ffd700; margin-bottom: 20px;"></i>
+            <h3 style="color: #fff; margin: 0 0 10px 0; text-transform: uppercase;">Заявка принята!</h3>
+            <p style="color: #aaa; font-size: 13px; line-height: 1.5; margin-bottom: 25px;">
+                Администратор скоро отправит вам обмен.<br>Ожидайте предложения в Steam.
+            </p>
+            <button class="modal-btn btn-gold" onclick="finishFlow()">ОТЛИЧНО</button>
         </div>
     </div>
 
@@ -453,8 +490,7 @@
     </div>
 
     <div id="skins-manage-modal" class="modal">
-        <div class="modal-box" style="max-width: 380px;">
-            <h3 style="margin-bottom: 10px;">Скины в кейсе</h3>
+        <div class="modal-box" style="max-width: 320px;"> <h3 style="margin-bottom: 10px;">Скины в кейсе</h3>
             <div id="admin-skins-grid" class="admin-skins-grid">
                 </div>
             <button class="modal-btn btn-grey" onclick="closeModal('skins-manage-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
@@ -545,11 +581,11 @@
         });
     }
 
-    // --- ИНИЦИАЛИЗАЦИЯ ---
+    // --- ИНИЦИАЛИЗАЦИЯ (6. PRELOAD IMAGES) ---
     async function init() {
-        // Предзагрузка фонов
-        const img = new Image();
-        img.src = "https://i.postimg.cc/x1sjLfJL/3.png";
+        // Предзагрузка, чтобы смена была мгновенной
+        const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
+        const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
         
         try {
             const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
@@ -570,26 +606,23 @@
         }, 100);
     }
 
-    // --- PREMIUM PASTE FUNCTION ---
+    // --- 1. SMALL PASTE BUTTON ---
     async function pasteFromClipboard() {
         try {
             const text = await navigator.clipboard.readText();
             if (text) {
                 document.getElementById('real-user-code').value = text;
                 tg.HapticFeedback.notificationOccurred('selection');
-                // Визуальный отклик
-                const btn = document.querySelector('.paste-premium-btn');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-check"></i> Вставлено!';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                }, 1500);
+                
+                // Visual feedback icon change
+                const icon = document.querySelector('.paste-btn-inside i');
+                icon.className = 'fa-solid fa-check';
+                setTimeout(() => { icon.className = 'fa-regular fa-clipboard'; }, 1000);
             } else {
-                notify("Буфер обмена пуст");
+                notify("Буфер пуст");
             }
         } catch (err) {
-            console.error('Failed to read clipboard', err);
-            notify("Не удалось получить доступ к буферу. Вставьте вручную.");
+            notify("Нет доступа к буферу");
         }
     }
 
@@ -621,17 +654,28 @@
     }
 
     function goToRoulette() {
+        // 6. INSTANT CHANGE (NO ANIMATION)
         bgLayer.classList.remove('bg-agent');
         bgLayer.classList.add('bg-street');
+        
         document.getElementById('screen-action').classList.remove('active');
         document.getElementById('screen-roulette').classList.add('active');
         startSpinAPI();
     }
 
+    // 4. SHOW SUCCESS MODAL
     function claimPrize() {
         closeModal('win-modal');
+        document.getElementById('final-modal').classList.add('active');
+    }
+
+    function finishFlow() {
+        closeModal('final-modal');
+        
+        // Return to start
         bgLayer.classList.remove('bg-street');
         bgLayer.classList.add('bg-agent');
+        
         document.getElementById('screen-roulette').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
         savedCode = "";
@@ -686,7 +730,7 @@
 
             if (!res.ok) {
                 notify(data.detail || "Неверный код или ошибка");
-                claimPrize(); 
+                finishFlow(); // Go back to start
                 return;
             }
 
@@ -711,25 +755,31 @@
 
         } catch (e) {
             notify("Ошибка сети");
-            claimPrize();
+            finishFlow();
         }
     }
 
     function showWinModal(item) {
         document.getElementById('win-image').src = item.image_url;
+        // 5. NEW LAYOUT DATA
         document.getElementById('win-name').innerText = item.name;
         
         const ruRarity = {
-            'blue': 'Армейское качество',
+            'blue': 'Армейское',
             'purple': 'Запрещенное',
             'pink': 'Засекреченное',
             'red': 'Тайное',
             'gold': 'Особое'
         };
         
+        const condition = item.condition || 'FN'; // fallback if api doesn't send it
         const rarityText = ruRarity[item.rarity] || item.rarity;
-        document.getElementById('win-rarity').innerText = rarityText;
-        document.getElementById('win-rarity').style.color = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity}`);
+        
+        // Format: РЕДКОСТЬ • СОСТОЯНИЕ
+        const detailsText = `${rarityText} • ${condition}`;
+        const detailsEl = document.getElementById('win-details');
+        detailsEl.innerText = detailsText;
+        detailsEl.style.color = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity}`);
         
         const warnEl = document.getElementById('trade-warning');
         if (currentUser && !currentUser.trade_link) {
