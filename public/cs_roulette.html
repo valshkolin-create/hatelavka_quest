@@ -32,16 +32,21 @@
             overflow: hidden;
             height: 100vh;
             display: flex; flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         /* --- BACKGROUND MANAGER --- */
         #bg-layer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-size: cover;
-            background-position: center top;
+            background-position: center center; /* Центрирование для телефонов */
             background-repeat: no-repeat;
             transition: background-image 0.5s ease-in-out;
             z-index: -1;
+            /* Улучшение качества картинки на мобильных */
+            image-rendering: -webkit-optimize-contrast;
+            transform: translateZ(0); /* Аппаратное ускорение */
         }
         
         /* 2. ЗАМЕНА КАРТИНОК */
@@ -240,14 +245,44 @@
         .btn-gold { background: var(--orange-btn); color: #000; }
         .btn-grey { background: #333; color: #fff; margin-top: 10px; }
 
+        /* PREMIUM PASTE BUTTON */
+        .paste-premium-btn {
+            background: rgba(255, 215, 0, 0.08);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 10px 15px;
+            border-radius: 25px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            margin: 5px auto 15px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: fit-content;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.05);
+        }
+        .paste-premium-btn:active {
+            background: rgba(255, 215, 0, 0.2);
+            transform: scale(0.96);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+        .paste-premium-btn i { font-size: 14px; }
+
         /* Admin Form Styles */
         .admin-input-group { margin-bottom: 12px; text-align: left; }
         .admin-input-group label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block; }
-        .admin-input-group input, .admin-input-group select {
+        .admin-input-group input, .admin-input-group select, .admin-input-group textarea {
             width: 100%; background: #252525; border: 1px solid #444; padding: 10px; color: #fff; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none;
         }
+        .admin-input-group textarea { resize: vertical; min-height: 80px; font-family: monospace; }
+
         .admin-input-group select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 20px; }
-        .admin-input-group input:focus, .admin-input-group select:focus { border-color: #ffd700; }
+        .admin-input-group input:focus, .admin-input-group select:focus, .admin-input-group textarea:focus { border-color: #ffd700; }
 
         .admin-row { padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; text-align: left; }
         .admin-list { max-height: 250px; overflow-y: auto; }
@@ -264,10 +299,10 @@
         }
         .copy-link-btn:active { background: #444; }
 
-        /* 3. PREMIUM ADMIN GRID STYLES */
+        /* 3. PREMIUM ADMIN GRID STYLES (UPDATED: 2 columns, smaller) */
         .admin-skins-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 3 в ряд */
+            grid-template-columns: repeat(2, 1fr); /* 2 в ряд */
             gap: 8px;
             max-height: 350px;
             overflow-y: auto;
@@ -275,7 +310,7 @@
         }
         .admin-skin-card {
             background: #252525;
-            border: 2px solid transparent; /* Цвет задается JS */
+            border: 2px solid transparent; 
             border-radius: 10px;
             padding: 8px 4px;
             display: flex;
@@ -289,7 +324,7 @@
         .admin-skin-card:active { transform: scale(0.95); }
         .admin-skin-img {
             width: 100%;
-            height: 60px;
+            height: 50px; /* Уменьшено */
             object-fit: contain;
             margin-bottom: 5px;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
@@ -310,6 +345,7 @@
             display: flex; align-items: center; justify-content: center;
             color: #888;
             font-size: 24px;
+            min-height: 80px;
         }
 
     </style>
@@ -332,7 +368,13 @@
     <div id="entry-modal" class="modal">
         <div class="modal-box">
             <h3 style="margin: 0 0 15px 0; color: #fff;">ВВЕДИТЕ КОД</h3>
+            
             <input type="text" id="real-user-code" class="pass-input" placeholder="Код здесь..." onkeypress="handleEnter(event)">
+            
+            <div class="paste-premium-btn" onclick="pasteFromClipboard()">
+                <i class="fa-regular fa-clipboard"></i> Вставить код
+            </div>
+
             <button class="modal-btn btn-gold" onclick="confirmCode()">ГОТОВО</button>
             <button class="modal-btn btn-grey" onclick="closeModal('entry-modal')">ОТМЕНА</button>
         </div>
@@ -462,9 +504,12 @@
 
     <div id="add-code-modal" class="modal">
         <div class="modal-box">
-            <h3>Создать Код</h3>
-            <div class="admin-input-group"><label>Текст кода</label><input id="adm-code-val"></div>
-            <div class="admin-input-group"><label>Лимит использований</label><input id="adm-code-max" type="number" value="1"></div>
+            <h3>Создать Коды</h3>
+            <div class="admin-input-group">
+                <label>Текст кода (Каждый с новой строки)</label>
+                <textarea id="adm-code-val" placeholder="CODE1&#10;CODE2&#10;CODE3"></textarea>
+            </div>
+            <div class="admin-input-group"><label>Лимит использований (на каждый код)</label><input id="adm-code-max" type="number" value="1"></div>
             <button class="modal-btn btn-gold" onclick="apiAddCode()">Создать</button>
             <button class="modal-btn btn-grey" onclick="closeModal('add-code-modal')">Назад</button>
         </div>
@@ -523,6 +568,29 @@
         setTimeout(() => {
             document.getElementById('real-user-code').focus();
         }, 100);
+    }
+
+    // --- PREMIUM PASTE FUNCTION ---
+    async function pasteFromClipboard() {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+                document.getElementById('real-user-code').value = text;
+                tg.HapticFeedback.notificationOccurred('selection');
+                // Визуальный отклик
+                const btn = document.querySelector('.paste-premium-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Вставлено!';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                }, 1500);
+            } else {
+                notify("Буфер обмена пуст");
+            }
+        } catch (err) {
+            console.error('Failed to read clipboard', err);
+            notify("Не удалось получить доступ к буферу. Вставьте вручную.");
+        }
     }
 
     function confirmCode() {
@@ -786,15 +854,43 @@
         } catch(e) { notify("Ошибка сохранения"); }
     }
 
+    // ОБНОВЛЕННАЯ ФУНКЦИЯ МАССОВОГО ДОБАВЛЕНИЯ КОДОВ
     async function apiAddCode() {
-        const payload = {
-            initData,
-            code: document.getElementById('adm-code-val').value,
-            max_uses: parseInt(document.getElementById('adm-code-max').value)
-        };
-        await fetch('/api/admin/cs/code/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-        notify("Код создан!"); 
+        const rawText = document.getElementById('adm-code-val').value;
+        const maxUses = parseInt(document.getElementById('adm-code-max').value);
+        
+        // Разбиваем текст на строки, убираем пустые
+        const codes = rawText.split('\n').map(c => c.trim()).filter(c => c !== '');
+        
+        if(codes.length === 0) return notify("Введите хотя бы один код");
+        
+        notify(`Начато создание ${codes.length} кодов...`);
+        
+        let successCount = 0;
+        
+        // Цикл отправки каждого кода отдельно
+        for (const code of codes) {
+            const payload = {
+                initData,
+                code: code,
+                max_uses: maxUses
+            };
+            
+            try {
+                await fetch('/api/admin/cs/code/add', { 
+                    method: 'POST', 
+                    body: JSON.stringify(payload), 
+                    headers: {'Content-Type': 'application/json'} 
+                });
+                successCount++;
+            } catch(e) {
+                console.error("Ошибка при создании кода: " + code);
+            }
+        }
+
+        notify(`Готово! Создано кодов: ${successCount}`); 
         closeModal('add-code-modal');
+        document.getElementById('adm-code-val').value = ''; // Очистить поле
     }
 
     function copyLink(link) {
