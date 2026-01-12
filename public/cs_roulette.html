@@ -60,6 +60,7 @@
         #screen-input, #screen-action {
             justify-content: flex-end;
             align-items: center;
+            /* Фиксируем отступ, чтобы было одинаково везде */
             padding-bottom: 150px;
             padding-bottom: calc(150px + env(safe-area-inset-bottom));
         }
@@ -69,9 +70,10 @@
             align-items: center;
         }
 
-        /* --- INPUT STYLES --- */
+        /* --- INPUT STYLES (Обновленные для "фейк" инпута) --- */
         .input-wrapper { width: 90%; max-width: 380px; text-align: center;}
         
+        /* Это теперь и DIV и INPUT выглядит одинаково */
         .custom-input {
             width: 100%;
             background: rgba(10, 10, 10, 0.6);
@@ -84,11 +86,15 @@
             text-align: center; text-transform: uppercase; letter-spacing: 1px;
             outline: none; backdrop-filter: blur(10px);
             transition: all 0.3s;
+            box-sizing: border-box; /* Важно чтобы padding не менял размер */
+            display: block;
         }
         
-        /* FIX: Плейсхолдер исчезает при фокусе */
-        .custom-input:focus::placeholder {
-            color: transparent;
+        /* Стиль для кликабельного дива (фейк инпут) */
+        div.custom-input {
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.7); /* Цвет плейсхолдера */
+            user-select: none;
         }
 
         .custom-input:focus {
@@ -253,10 +259,21 @@
 
     <div id="screen-input" class="screen active">
         <div class="input-wrapper">
-            <input type="text" id="user-code" class="custom-input" placeholder="ВВЕДИ СЕКРЕТНЫЙ КОД" onkeypress="handleEnter(event)">
+            <div class="custom-input" onclick="openCodeEntry()">
+                ВВЕДИ СЕКРЕТНЫЙ КОД
+            </div>
         </div>
         <div style="margin-top: 15px; color: rgba(255,255,255,0.5); font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
-            Нажми Enter или "Готово"
+            Нажми, чтобы ввести код
+        </div>
+    </div>
+
+    <div id="entry-modal" class="modal">
+        <div class="modal-box">
+            <h3 style="margin: 0 0 15px 0; color: #fff;">ВВЕДИТЕ КОД</h3>
+            <input type="text" id="real-user-code" class="pass-input" placeholder="Код здесь..." onkeypress="handleEnter(event)">
+            <button class="modal-btn btn-gold" onclick="confirmCode()">ГОТОВО</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('entry-modal')">ОТМЕНА</button>
         </div>
     </div>
 
@@ -415,23 +432,45 @@
         loadItems();
     }
 
-    // --- НАВИГАЦИЯ ---
+    // --- НАВИГАЦИЯ & INPUT LOGIC ---
+    
+    // Новая функция: Открытие модалки ввода
+    function openCodeEntry() {
+        document.getElementById('entry-modal').classList.add('active');
+        // Небольшая задержка, чтобы модалка успела появиться перед фокусом
+        setTimeout(() => {
+            document.getElementById('real-user-code').focus();
+        }, 100);
+    }
+
+    // Новая функция: Подтверждение кода
+    function confirmCode() {
+        const val = document.getElementById('real-user-code').value;
+        if(val.length > 0) {
+            savedCode = val;
+            document.getElementById('real-user-code').value = ''; // Очистка
+            closeModal('entry-modal');
+            
+            // Переход на следующий экран
+            document.getElementById('screen-input').classList.remove('active');
+            document.getElementById('screen-action').classList.add('active');
+        } else {
+            // Вибрация ошибки, если пусто
+            tg.HapticFeedback.notificationOccurred('warning');
+        }
+    }
+
     function handleEnter(e) {
         if(e.key === 'Enter') {
-            const val = document.getElementById('user-code').value;
-            if(val.length > 0) {
-                savedCode = val;
-                document.getElementById('user-code').blur(); // Убрать клавиатуру
-                document.getElementById('screen-input').classList.remove('active');
-                document.getElementById('screen-action').classList.add('active');
-            }
+            confirmCode();
+            // Убираем фокус (клавиатуру)
+            document.getElementById('real-user-code').blur();
         }
     }
 
     function resetToInput() {
         document.getElementById('screen-action').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
-        document.getElementById('user-code').value = '';
         savedCode = "";
     }
 
@@ -450,7 +489,6 @@
         bgLayer.classList.add('bg-agent');
         document.getElementById('screen-roulette').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
-        document.getElementById('user-code').value = '';
         savedCode = "";
         
         // Сброс ленты
