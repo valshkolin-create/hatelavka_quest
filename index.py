@@ -2840,16 +2840,27 @@ async def get_cs_boost_status(
     # 3. Проверяем Хэштег
     has_hashtag = '@hatelavka_bot' in (current_user.get('full_name') or "")
 
-    # 4. Проверяем Telegram (Live Check через бота)
+    # 4. Проверяем Telegram (КАК В QUESTS)
     has_tg = False
-    target_channel_id = os.getenv("CHANNEL_ID")
-    if target_channel_id:
+    
+    # Пытаемся взять ID канала из разных источников
+    # Сначала ищем переменную CHANNEL_ID, если нет - берем основной чат ALLOWED_CHAT_ID
+    target_chat_id = os.getenv("CHANNEL_ID")
+    if not target_chat_id:
+        target_chat_id = os.getenv("ALLOWED_CHAT_ID")
+        
+    if target_chat_id:
         try:
-            chat_member = await bot.get_chat_member(chat_id=target_channel_id, user_id=user_id)
+            # Превращаем в int, убираем пробелы если есть
+            chat_id_int = int(str(target_chat_id).strip())
+            
+            chat_member = await bot.get_chat_member(chat_id=chat_id_int, user_id=user_id)
+            # member = участник, administrator = админ, creator = владелец
             if chat_member.status in ["member", "administrator", "creator"]:
                 has_tg = True
         except Exception as e:
-            logging.error(f"TG Check Error: {e}")
+            # Если бот не админ в канале или канал не найден, пишем в лог, но не крашимся
+            logging.error(f"Roulette TG Check Error (User: {user_id}): {e}")
 
     return {
         "twitch": has_twitch,
@@ -2867,10 +2878,7 @@ async def spin_cs_roulette(
     user_id = user_info['id']
     code = req.code.strip()
 
-    # 1. Данные юзера (Trade Link + данные для шансов)
-    # trade_link - для проверки выдачи
-    # twitch_login - для буста Twitch
-    # full_name - для буста Хэштега
+    # 1. Данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "trade_link,twitch_login,full_name"})
     user_data = user_res.json()
     if not user_data: raise HTTPException(400, "Пользователь не найден")
@@ -2893,14 +2901,12 @@ async def spin_cs_roulette(
         raise HTTPException(400, "⛔ Вы уже активировали этот код!")
 
     # 3. Предметы
-    # Забираем предметы, предполагаем, что колонка boost_percent уже добавлена в Supabase
     items_res = await supabase.get("/cs_items", params={"is_active": "eq.true", "quantity": "gt.0"})
     items = items_res.json()
     if not items: raise HTTPException(400, "Склад пуст!")
 
-    # --- 🔥 ЛОГИКА ШАНСОВ (DATABASE BOOST) 🔥 ---
+    # --- 🔥 ЛОГИКА ШАНСОВ (DATABASE BOOST + ROBUST CHECK) 🔥 ---
     
-    # 1. Считаем, сколько "галочек" собрал юзер (Множитель активности)
     user_activity_score = 0
     
     # А. Twitch
@@ -2911,26 +2917,27 @@ async def spin_cs_roulette(
     if '@hatelavka_bot' in (current_user.get('full_name') or ""):
         user_activity_score += 1
         
-    # В. Telegram подписка
-    target_channel_id = os.getenv("CHANNEL_ID")
-    if target_channel_id:
+    # В. Telegram (УЛУЧШЕННАЯ ПРОВЕРКА)
+    target_chat_id = os.getenv("CHANNEL_ID")
+    if not target_chat_id:
+        target_chat_id = os.getenv("ALLOWED_CHAT_ID")
+
+    if target_chat_id:
         try:
-            chat_member = await bot.get_chat_member(chat_id=target_channel_id, user_id=user_id)
+            chat_id_int = int(str(target_chat_id).strip())
+            chat_member = await bot.get_chat_member(chat_id=chat_id_int, user_id=user_id)
             if chat_member.status in ["member", "administrator", "creator"]:
                  user_activity_score += 1
         except Exception as e:
-            logging.error(f"Error checking TG boost: {e}")
+            logging.error(f"Spin TG Check Error: {e}")
 
-    # 2. Применяем буст индивидуально к каждому предмету
-    # Формула: Вес = Базовый_Вес * (1 + (Процент_Предмета * Счет_Активности))
+    # Применяем буст
     weights = []
     for item in items:
         base_weight = item['chance_weight']
-        # Берем процент буста из базы (например, 0.15). Если не задан - 0.0
         item_boost_percent = item.get('boost_percent', 0.0) 
         
         if item_boost_percent > 0 and user_activity_score > 0:
-            # Пример: 0.15 (15%) * 2 (активности) = 0.30. Множитель 1.30.
             multiplier = 1.0 + (item_boost_percent * user_activity_score)
             final_weight = base_weight * multiplier
         else:
@@ -2942,14 +2949,10 @@ async def spin_cs_roulette(
     # ---------------------------------------
 
     # 4. Транзакция
-    # +1 использование кода
     await supabase.patch("/cs_codes", params={"code": f"eq.{code}"}, json={"current_uses": promo['current_uses'] + 1})
-
-    # -1 предмет
     new_qty = winner_item['quantity'] - 1
     await supabase.patch("/cs_items", params={"id": f"eq.{winner_item['id']}"}, json={"quantity": new_qty})
     
-    # Запись в историю
     await supabase.post("/cs_history", json={
         "user_id": user_id,
         "item_id": winner_item['id'],
@@ -2957,7 +2960,6 @@ async def spin_cs_roulette(
         "status": "pending"
     })
 
-    # Уведомление админу
     if os.getenv("ADMIN_NOTIFY_CHAT_ID"):
         msg = f"🎰 <b>WIN!</b>\nUser: {user_id}\nItem: {winner_item['name']}\nCode: {code}"
         try: await bot.send_message(int(os.getenv("ADMIN_NOTIFY_CHAT_ID")), msg, parse_mode=ParseMode.HTML)
