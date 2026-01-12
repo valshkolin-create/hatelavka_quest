@@ -68,8 +68,25 @@
             text-decoration: none; 
         }
 
-        /* --- Карточки настроек --- */
+        
+
+        /* 1. ДОБАВЛЯЕМ ЭТОТ КЛАСС (ЕГО НЕ БЫЛО) */
+        .card-container { 
+            display: flex; 
+            flex-direction: column; /* Элементы строго в столбик */
+            gap: 15px;              /* Отступ между карточками */
+            width: 100%; 
+            margin-bottom: 20px;
+        }
+
+        /* 2. ОБНОВЛЯЕМ ЭТОТ КЛАСС (ДОБАВЛЯЕМ ЗАЩИТУ ОТ СЖАТИЯ) */
         .settings-card {
+            position: relative;     /* Важно для позиционирования */
+            flex-shrink: 0;         /* ❗ ГЛАВНОЕ: Запрещает карточке сжиматься */
+            width: 100%;            /* Растягиваем на всю ширину */
+            box-sizing: border-box; /* Чтобы отступы не ломали ширину */
+            
+            /* Остальные твои стили без изменений: */
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
