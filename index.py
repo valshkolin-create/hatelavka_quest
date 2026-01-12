@@ -2837,29 +2837,26 @@ async def get_cs_boost_status(
     # 2. Проверяем Twitch
     has_twitch = bool(current_user.get('twitch_login'))
 
-    # 3. Проверяем Хэштег
-    has_hashtag = '@hatelavka_bot' in (current_user.get('full_name') or "")
+    # 3. Проверяем Хэштег (Через переменную TG_QUEST_SURNAME)
+    target_surname = os.getenv("TG_QUEST_SURNAME")
+    if not target_surname:
+        target_surname = "@hatelavka_bot" # Fallback если переменная не задана
+        
+    has_hashtag = target_surname in (current_user.get('full_name') or "")
 
-    # 4. Проверяем Telegram (КАК В QUESTS)
+    # 4. Проверяем Telegram (TG_QUEST_CHANNEL_ID)
     has_tg = False
-    
-    # Пытаемся взять ID канала из разных источников
-    # Сначала ищем переменную CHANNEL_ID, если нет - берем основной чат ALLOWED_CHAT_ID
-    target_chat_id = os.getenv("CHANNEL_ID")
+    target_chat_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if not target_chat_id:
         target_chat_id = os.getenv("ALLOWED_CHAT_ID")
         
     if target_chat_id:
         try:
-            # Превращаем в int, убираем пробелы если есть
             chat_id_int = int(str(target_chat_id).strip())
-            
             chat_member = await bot.get_chat_member(chat_id=chat_id_int, user_id=user_id)
-            # member = участник, administrator = админ, creator = владелец
             if chat_member.status in ["member", "administrator", "creator"]:
                 has_tg = True
         except Exception as e:
-            # Если бот не админ в канале или канал не найден, пишем в лог, но не крашимся
             logging.error(f"Roulette TG Check Error (User: {user_id}): {e}")
 
     return {
@@ -2905,7 +2902,7 @@ async def spin_cs_roulette(
     items = items_res.json()
     if not items: raise HTTPException(400, "Склад пуст!")
 
-    # --- 🔥 ЛОГИКА ШАНСОВ (DATABASE BOOST + ROBUST CHECK) 🔥 ---
+    # --- 🔥 ЛОГИКА ШАНСОВ (ВСЕ ПЕРЕМЕННЫЕ) 🔥 ---
     
     user_activity_score = 0
     
@@ -2913,12 +2910,16 @@ async def spin_cs_roulette(
     if current_user.get('twitch_login'):
         user_activity_score += 1
         
-    # Б. Hashtag
-    if '@hatelavka_bot' in (current_user.get('full_name') or ""):
+    # Б. Hashtag (TG_QUEST_SURNAME)
+    target_surname = os.getenv("TG_QUEST_SURNAME")
+    if not target_surname:
+        target_surname = "@hatelavka_bot"
+        
+    if target_surname in (current_user.get('full_name') or ""):
         user_activity_score += 1
         
-    # В. Telegram (УЛУЧШЕННАЯ ПРОВЕРКА)
-    target_chat_id = os.getenv("CHANNEL_ID")
+    # В. Telegram (TG_QUEST_CHANNEL_ID)
+    target_chat_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if not target_chat_id:
         target_chat_id = os.getenv("ALLOWED_CHAT_ID")
 
