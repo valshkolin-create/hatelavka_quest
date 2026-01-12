@@ -68,7 +68,7 @@
         @media (max-width: 768px) {
             #screen-input {
                 justify-content: flex-start !important; 
-                padding-top: 50vh; /* Идеальная позиция */
+                padding-top: 50vh; /* ТА САМАЯ ПОЗИЦИЯ */
                 padding-bottom: 0 !important;
             }
         }
@@ -190,7 +190,7 @@
             text-shadow: 0 0 5px rgba(85, 255, 85, 0.3);
         }
 
-        /* Галочка (по желанию, можно убрать для чистого минимализма, но оставлю маленькую) */
+        /* Галочка */
         .boost-check-mini {
             position: absolute;
             top: -2px; right: 20px;
@@ -396,14 +396,14 @@
                     <div class="boost-percent" id="val-twitch">+15%</div>
                 </div>
 
-                <div id="boost-tg" class="boost-item" onclick="openTg()">
+                <div id="boost-tg" class="boost-item" onclick="handleTgClick()">
                     <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
                     <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
                     <div class="boost-label">TG<br>Канал</div>
                     <div class="boost-percent" id="val-tg">+15%</div>
                 </div>
 
-                <div id="boost-hash" class="boost-item" onclick="checkHashtag()">
+                <div id="boost-hash" class="boost-item" onclick="checkBoostsServer()">
                     <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
                     <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
                     <div class="boost-label">HATELAVKA<br>BOT</div>
@@ -557,6 +557,7 @@
     let savedCode = "";
     let currentUser = null; 
     let debounceTimer;
+    let boostStatus = { twitch: false, tg: false, hashtag: false };
     const CARD_WIDTH = 140; 
     const TRACK = document.getElementById('track');
     const bgLayer = document.getElementById('bg-layer');
@@ -577,49 +578,71 @@
 
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             
-            updateTaskStatus(); // Проверка заданий
+            // ВЫЗЫВАЕМ ПРОВЕРКУ БУСТОВ С СЕРВЕРА
+            await checkBoostsServer();
 
         } catch(e) {}
 
         loadItems();
     }
 
-    // --- ЛОГИКА ЗАДАНИЙ (МИНИМАЛИЗМ + ДАННЫЕ ИЗ БАЗЫ) ---
-    function updateTaskStatus() {
-        if (!currentUser) return;
+    // --- ЛОГИКА БУСТОВ (СЕРВЕРНАЯ) ---
+    async function checkBoostsServer() {
+        try {
+            const res = await fetch('/api/cs/boost_status', { 
+                method: 'POST', 
+                body: JSON.stringify({initData}), 
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            boostStatus = data;
+            
+            updateBoostUI();
+        } catch (e) { console.error("Boost check failed", e); }
+    }
 
-        // 1. Twitch (Проверка по login)
-        if (currentUser.twitch_login) {
-            document.getElementById('boost-twitch').classList.add('active');
-            document.getElementById('boost-twitch').onclick = null;
+    function updateBoostUI() {
+        // 1. Twitch
+        const twitchEl = document.getElementById('boost-twitch');
+        if (boostStatus.twitch) {
+            twitchEl.classList.add('active');
+            twitchEl.onclick = null;
         }
 
-        // 2. Hashtag (Проверка имени)
-        if (currentUser.full_name && currentUser.full_name.includes('@hatelavka_bot')) {
-            document.getElementById('boost-hash').classList.add('active');
-            document.getElementById('boost-hash').onclick = null;
+        // 2. Hashtag
+        const hashEl = document.getElementById('boost-hash');
+        if (boostStatus.hashtag) {
+            hashEl.classList.add('active');
+            hashEl.onclick = null;
         }
+
+        // 3. Telegram
+        const tgEl = document.getElementById('boost-tg');
+        if (boostStatus.tg) {
+            tgEl.classList.add('active');
+            // Если активно - клик ничего не делает или просто сообщает что ок
+            tgEl.onclick = () => tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            // Если не активно - клик обрабатывается handleTgClick
+            tgEl.classList.remove('active');
+            tgEl.onclick = handleTgClick;
+        }
+    }
+
+    // Обработка клика на ТГ:
+    // 1. Открываем канал
+    // 2. Когда юзер вернется (через секунду или по фокусу) - проверяем снова сервер
+    function handleTgClick() {
+        tg.openTelegramLink('https://t.me/HATElavka'); 
         
-        // 3. Telegram: Оставляем кликабельным (Call to Action)
-        // Реальная проверка происходит на сервере при спинe
+        // Даем время подписаться, потом проверяем снова
+        setTimeout(() => {
+            checkBoostsServer();
+        }, 3000); 
     }
 
     function openTwitch() {
         window.location.href = 'profile.html';
-    }
-
-    function openTg() {
-        tg.openTelegramLink('https://t.me/HATElavka'); 
-    }
-    
-    function checkHashtag() {
-        if (currentUser.full_name && currentUser.full_name.includes('@hatelavka_bot')) {
-             updateTaskStatus();
-             tg.HapticFeedback.notificationOccurred('success');
-        } else {
-            notify("Добавьте @hatelavka_bot в имя вашего профиля Telegram!");
-            tg.HapticFeedback.notificationOccurred('error');
-        }
     }
 
     // --- PROMO CODE VALIDATION ---
@@ -730,7 +753,7 @@
         TRACK.style.transition = 'none';
         TRACK.style.transform = 'translateX(0)';
         generateStrip(itemsCache, null);
-        updateTaskStatus(); 
+        checkBoostsServer(); // Обновляем статусы при возврате
     }
 
     // --- LOGIC ---
@@ -739,17 +762,14 @@
             const res = await fetch('/api/cs/items');
             itemsCache = await res.json();
             
-            // --- ТЯНЕМ ПРОЦЕНТЫ ИЗ БАЗЫ (SUPABASE) ---
-            // Ищем любой предмет, у которого есть boost_percent > 0 (обычно редкие)
+            // --- ПРОЦЕНТЫ ИЗ БАЗЫ ---
             const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
             if (boostItem) {
-                // Если в базе 0.15 -> будет +15%
                 const percentText = `+${Math.round(boostItem.boost_percent * 100)}%`;
                 document.getElementById('val-twitch').innerText = percentText;
                 document.getElementById('val-tg').innerText = percentText;
                 document.getElementById('val-hash').innerText = percentText;
             }
-            // ------------------------------------------
 
             generateStrip(itemsCache, null);
         } catch(e) { console.error(e); }
