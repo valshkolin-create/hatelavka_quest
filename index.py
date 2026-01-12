@@ -765,6 +765,10 @@ class CSRouletteSpinRequest(BaseModel):
     initData: str
     code: str
 
+class CSCheckCodeRequest(BaseModel):
+    initData: str
+    code: str
+
 class CSItemCreateRequest(BaseModel):
     initData: str
     name: str
@@ -2777,9 +2781,11 @@ async def get_cs_items(supabase: httpx.AsyncClient = Depends(get_supabase_client
     return resp.json()
 
 # --- 2. Публичный API: КРУТИТЬ РУЛЕТКУ ---
-@app.post("/api/cs/spin")
-async def spin_cs_roulette(
-    req: CSRouletteSpinRequest, 
+
+# --- ПРОВЕРКА КОДА (REAL-TIME) ---
+@app.post("/api/cs/check_code")
+async def check_cs_code(
+    req: CSCheckCodeRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
@@ -2787,50 +2793,122 @@ async def spin_cs_roulette(
     user_id = user_info['id']
     code = req.code.strip()
 
-    # А. Проверка Трейд-ссылки
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "trade_link"})
-    user_data = user_res.json()
-    if not user_data or not user_data[0].get("trade_link"):
-        raise HTTPException(400, "⚠️ Сначала укажите Trade Link в профиле!")
+    if not code:
+        return {"valid": False, "message": ""}
 
-    # Б. Проверка Кода
+    # 1. Проверяем сам код
     code_res = await supabase.get("/cs_codes", params={"code": f"eq.{code}", "is_active": "eq.true"})
     code_data = code_res.json()
-    
+
     if not code_data:
-        raise HTTPException(400, "⛔ Неверный код!")
+        return {"valid": False, "message": "Неверный код"}
+
+    promo = code_data[0]
     
+    # 2. Проверяем лимиты
+    if promo['current_uses'] >= promo['max_uses']:
+        return {"valid": False, "message": "Код закончился"}
+
+    # 3. Проверяем, вводил ли юзер его раньше
+    history_check = await supabase.get("/cs_history", params={"user_id": f"eq.{user_id}", "code_used": f"eq.{code}"})
+    if history_check.json():
+        return {"valid": False, "message": "Вы уже вводили этот код"}
+
+    return {"valid": True, "message": "Код активен!"}
+
+@app.post("/api/cs/spin")
+async def spin_cs_roulette(
+    req: CSRouletteSpinRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(401, "Unauthorized")
+    user_id = user_info['id']
+    code = req.code.strip()
+
+    # 1. Данные юзера (Trade Link + данные для шансов)
+    # trade_link - для проверки выдачи
+    # twitch_login - для буста Twitch
+    # full_name - для буста Хэштега
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "trade_link,twitch_login,full_name"})
+    user_data = user_res.json()
+    if not user_data: raise HTTPException(400, "Пользователь не найден")
+    current_user = user_data[0]
+
+    if not current_user.get("trade_link"):
+        raise HTTPException(400, "⚠️ Укажите Trade Link в профиле!")
+
+    # 2. Проверка Кода
+    code_res = await supabase.get("/cs_codes", params={"code": f"eq.{code}", "is_active": "eq.true"})
+    code_data = code_res.json()
+    if not code_data: raise HTTPException(400, "⛔ Неверный код!")
+
     promo = code_data[0]
     if promo['current_uses'] >= promo['max_uses']:
         raise HTTPException(400, "⛔ Этот код закончился!")
 
-    # В. Проверка: Пользователь уже использовал этот код?
-    # (Опционально: если код одноразовый для юзера)
     history_check = await supabase.get("/cs_history", params={"user_id": f"eq.{user_id}", "code_used": f"eq.{code}"})
     if history_check.json():
         raise HTTPException(400, "⛔ Вы уже активировали этот код!")
 
-    # Г. Выбор победителя (Weighted Random)
+    # 3. Предметы
+    # Забираем предметы, предполагаем, что колонка boost_percent уже добавлена в Supabase
     items_res = await supabase.get("/cs_items", params={"is_active": "eq.true", "quantity": "gt.0"})
     items = items_res.json()
-    
-    if not items:
-        raise HTTPException(400, "Склад пуст!")
+    if not items: raise HTTPException(400, "Склад пуст!")
 
-    # Логика весов
-    weights = [item['chance_weight'] for item in items]
+    # --- 🔥 ЛОГИКА ШАНСОВ (DATABASE BOOST) 🔥 ---
+    
+    # 1. Считаем, сколько "галочек" собрал юзер (Множитель активности)
+    user_activity_score = 0
+    
+    # А. Twitch
+    if current_user.get('twitch_login'):
+        user_activity_score += 1
+        
+    # Б. Hashtag
+    if '@hatelavka_bot' in (current_user.get('full_name') or ""):
+        user_activity_score += 1
+        
+    # В. Telegram подписка
+    target_channel_id = os.getenv("CHANNEL_ID")
+    if target_channel_id:
+        try:
+            chat_member = await bot.get_chat_member(chat_id=target_channel_id, user_id=user_id)
+            if chat_member.status in ["member", "administrator", "creator"]:
+                 user_activity_score += 1
+        except Exception as e:
+            logging.error(f"Error checking TG boost: {e}")
+
+    # 2. Применяем буст индивидуально к каждому предмету
+    # Формула: Вес = Базовый_Вес * (1 + (Процент_Предмета * Счет_Активности))
+    weights = []
+    for item in items:
+        base_weight = item['chance_weight']
+        # Берем процент буста из базы (например, 0.15). Если не задан - 0.0
+        item_boost_percent = item.get('boost_percent', 0.0) 
+        
+        if item_boost_percent > 0 and user_activity_score > 0:
+            # Пример: 0.15 (15%) * 2 (активности) = 0.30. Множитель 1.30.
+            multiplier = 1.0 + (item_boost_percent * user_activity_score)
+            final_weight = base_weight * multiplier
+        else:
+            final_weight = base_weight
+            
+        weights.append(final_weight)
+
     winner_item = random.choices(items, weights=weights, k=1)[0]
+    # ---------------------------------------
 
-    # Д. Транзакция (Списание кода, Списание предмета, Запись истории)
-    # 1. +1 использование кода
+    # 4. Транзакция
+    # +1 использование кода
     await supabase.patch("/cs_codes", params={"code": f"eq.{code}"}, json={"current_uses": promo['current_uses'] + 1})
-    
-    # 2. -1 предмет (используем RPC или просто patch, если нет гонки)
-    # Лучше создать RPC decrement_cs_item_quantity, но пока сделаем просто:
+
+    # -1 предмет
     new_qty = winner_item['quantity'] - 1
     await supabase.patch("/cs_items", params={"id": f"eq.{winner_item['id']}"}, json={"quantity": new_qty})
-
-    # 3. Запись в историю
+    
+    # Запись в историю
     await supabase.post("/cs_history", json={
         "user_id": user_id,
         "item_id": winner_item['id'],
@@ -2838,10 +2916,11 @@ async def spin_cs_roulette(
         "status": "pending"
     })
 
-    # 4. Уведомление админу (если нужно)
-    if ADMIN_NOTIFY_CHAT_ID:
-        msg = f"🎰 <b>CS Roulette Win!</b>\nUser: {user_id}\nItem: {winner_item['name']} ({winner_item['rarity']})\nCode: {code}"
-        await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), msg)
+    # Уведомление админу
+    if os.getenv("ADMIN_NOTIFY_CHAT_ID"):
+        msg = f"🎰 <b>WIN!</b>\nUser: {user_id}\nItem: {winner_item['name']}\nCode: {code}"
+        try: await bot.send_message(int(os.getenv("ADMIN_NOTIFY_CHAT_ID")), msg, parse_mode=ParseMode.HTML)
+        except: pass
 
     return {"success": True, "winner": winner_item}
 
