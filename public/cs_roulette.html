@@ -42,8 +42,6 @@
             background-position: center top; 
             background-repeat: no-repeat;
             z-index: -1;
-            /* Убраны переходы для мгновенной смены */
-            /* Убраны хаки рендеринга, чтобы вернуть сглаживание */
         }
         
         /* 2. ЗАМЕНА КАРТИНОК */
@@ -55,12 +53,19 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column;
             opacity: 0; pointer-events: none;
-            transition: opacity 0.4s ease; /* Плавность только для элементов интерфейса, не для фона */
+            transition: opacity 0.4s ease;
             box-sizing: border-box;
         }
         .screen.active { opacity: 1; pointer-events: auto; }
 
-        #screen-input, #screen-action {
+        #screen-input {
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 100px;
+            padding-bottom: calc(100px + env(safe-area-inset-bottom));
+        }
+
+        #screen-action {
             justify-content: flex-end;
             align-items: center;
             padding-bottom: 150px;
@@ -69,9 +74,10 @@
 
         @media (max-width: 768px) {
             #screen-input {
-                justify-content: flex-start !important; 
-                padding-top: 50vh; 
-                padding-bottom: 0 !important;
+                justify-content: center !important; /* Центрируем всё */
+                padding-top: 0 !important;
+                padding-bottom: 50px !important;
+                gap: 15px;
             }
         }
 
@@ -107,6 +113,80 @@
             border-color: #fff;
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
         }
+
+        /* --- BOOST SECTION (PREMIUM) --- */
+        .boost-section {
+            width: 90%; max-width: 380px;
+            margin-top: 10px;
+            background: rgba(18, 18, 20, 0.85);
+            border-radius: 16px;
+            padding: 15px;
+            border: 1px solid rgba(255, 215, 0, 0.15);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .boost-header {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin-bottom: 12px;
+        }
+        .boost-title {
+            color: #ffd700;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+        
+        .boost-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: 0.2s;
+        }
+        .boost-row:last-child { margin-bottom: 0; }
+        
+        .boost-info { display: flex; align-items: center; gap: 12px; }
+        .boost-icon { 
+            width: 24px; height: 24px; 
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; 
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+        }
+        .boost-name { font-size: 11px; font-weight: 700; color: #eee; text-transform: uppercase; }
+        
+        .boost-action {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 6px 10px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 70px;
+            text-align: center;
+        }
+        
+        /* Статусы кнопок */
+        .status-active { 
+            color: #111; 
+            background: linear-gradient(90deg, #55ff55, #33cc33);
+            border: none;
+            cursor: default; 
+            box-shadow: 0 0 10px rgba(85, 255, 85, 0.3);
+        }
+        .status-wait { 
+            color: #111;
+            background: var(--gold-gradient);
+            border: none;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+        .status-wait:active { transform: scale(0.95); opacity: 0.9; }
 
         /* --- BUTTON STYLES --- */
         .main-btn {
@@ -195,192 +275,84 @@
         .card.red { border-bottom-color: var(--rarity-red); background: radial-gradient(circle at bottom, rgba(235, 75, 75, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
         .card.gold { border-bottom-color: var(--rarity-gold); background: radial-gradient(circle at bottom, rgba(228, 174, 57, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
 
-        /* --- ADMIN FAB & MODALS --- */
-        .admin-wrapper {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            z-index: 10000; display: flex; flex-direction: column-reverse; align-items: center; gap: 12px;
+        /* --- MODAL INPUT ERROR --- */
+        #code-error {
+            color: #ff5555;
+            font-size: 10px;
+            margin-top: 5px;
+            font-weight: 700;
+            height: 12px;
+            text-transform: uppercase;
         }
-        .admin-fab-btn {
-            width: 40px; height: 40px; border-radius: 50%;
-            background: rgba(20, 20, 20, 0.8); border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff; display: flex; align-items: center; justify-content: center;
-            font-size: 16px; cursor: pointer; transition: 0.3s;
-        }
-        .admin-menu-items { opacity: 0; transform: translateY(10px); pointer-events: none; transition: 0.3s; display: flex; flex-direction: column; gap: 10px; }
-        .admin-menu-items.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-        
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
-        .modal.active { display: flex; }
-        .modal-box { background: #1c1c1e; padding: 25px; border-radius: 16px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #333; position: relative; box-sizing: border-box;}
+        .valid-code { border-color: #55ff55 !important; box-shadow: 0 0 10px rgba(85,255,85,0.2) !important; }
+        .invalid-code { border-color: #ff5555 !important; box-shadow: 0 0 10px rgba(255,85,85,0.2) !important; }
 
-        /* --- UPDATED WIN MODAL --- */
-        /* Убрали заголовок YOU WON, подняли картинку, сделали имя большим */
+        /* --- UPDATED INPUTS --- */
+        .input-inner-wrapper { position: relative; width: 100%; margin: 10px 0; }
+        .pass-input { 
+            width: 100%; height: 40px; 
+            padding: 0 40px 0 10px; 
+            background: #2c2c2e; border: 1px solid #444; 
+            color: #fff; border-radius: 8px; 
+            text-align: center; font-size: 14px; font-weight: 700;
+            outline: none; box-sizing: border-box; transition: 0.3s;
+        }
+        .paste-btn-inside {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            background: rgba(255, 215, 0, 0.1); color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            width: 28px; height: 28px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 12px; transition: 0.2s; z-index: 10;
+        }
+        .paste-btn-inside:active { background: rgba(255, 215, 0, 0.3); transform: translateY(-50%) scale(0.9); }
+
+        /* --- WIN MODAL --- */
         .win-img { width: 100%; height: 160px; object-fit: contain; margin: 0 0 15px 0; filter: drop-shadow(0 0 25px rgba(255,215,0,0.4)); animation: floatItem 3s infinite ease-in-out; }
         @keyframes floatItem { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         
         .win-name-large { 
-            font-size: 26px; 
-            font-weight: 900; 
-            color: #ffd700; 
-            text-transform: uppercase; 
-            line-height: 1.1;
-            margin-bottom: 5px;
+            font-size: 26px; font-weight: 900; color: #ffd700; 
+            text-transform: uppercase; line-height: 1.1; margin-bottom: 5px;
             text-shadow: 0 0 25px rgba(255,215,0,0.4);
         }
+        .win-details { font-size: 13px; color: #bbb; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 20px; }
         
-        .win-details {
-            font-size: 13px;
-            color: #bbb;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-
-        /* WARNING NO TRADE LINK */
         .trade-warning {
-            color: #eb4b4b;
-            font-size: 11px;
-            font-weight: 700;
-            background: rgba(235, 75, 75, 0.15);
-            padding: 8px;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            border: 1px solid #eb4b4b;
-            display: none; 
+            color: #eb4b4b; font-size: 11px; font-weight: 700;
+            background: rgba(235, 75, 75, 0.15); padding: 8px;
+            border-radius: 6px; margin-bottom: 10px;
+            border: 1px solid #eb4b4b; display: none; 
         }
 
-        /* --- INPUTS & BUTTONS --- */
-        /* 1. КНОПКА ВСТАВКИ ВНУТРИ INPUT */
-        .input-inner-wrapper {
-            position: relative;
-            width: 100%;
-            margin: 15px 0;
-        }
-        .pass-input { 
-    width: 100%; 
-    height: 34px; /* Фиксированная маленькая высота */
-    padding: 0 35px 0 10px; /* Отступы: справа место под кнопку */
-    background: #2c2c2e; 
-    border: 1px solid #444; 
-    color: #fff; 
-    border-radius: 8px; 
-    text-align: center; 
-    font-size: 11px; /* Маленький шрифт */
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    outline: none; 
-    box-sizing: border-box; 
-}
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-box { background: #1c1c1e; padding: 25px; border-radius: 16px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #333; position: relative; box-sizing: border-box;}
         
-        /* Маленькая кнопка вставки внутри */
-        .paste-btn-inside {
-    position: absolute;
-    right: 4px; /* Ближе к краю */
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(255, 215, 0, 0.1);
-    color: #ffd700;
-    border: 1px solid rgba(255, 215, 0, 0.3);
-    width: 24px;  /* Маленький квадрат */
-    height: 24px; /* Маленький квадрат */
-    border-radius: 6px;
-    display: flex; 
-    align-items: center; 
-    justify-content: center;
-    cursor: pointer;
-    font-size: 11px; /* Маленькая иконка */
-    transition: 0.2s;
-    z-index: 10;
-}
-        .paste-btn-inside:active {
-            background: rgba(255, 215, 0, 0.3);
-            transform: translateY(-50%) scale(0.9);
-        }
-
         .modal-btn { padding: 12px; width: 100%; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .btn-gold { background: var(--orange-btn); color: #000; }
         .btn-grey { background: #333; color: #fff; margin-top: 10px; }
-
-        /* Admin Form Styles */
+        
+        /* ADMIN */
+        .admin-wrapper { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column-reverse; align-items: center; gap: 12px; }
+        .admin-fab-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(20, 20, 20, 0.8); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .admin-menu-items { opacity: 0; transform: translateY(10px); pointer-events: none; transition: 0.3s; display: flex; flex-direction: column; gap: 10px; }
+        .admin-menu-items.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        
+        .admin-skins-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 350px; overflow-y: auto; padding: 5px; box-sizing: border-box; width: 100%; }
+        .admin-skin-card { background: #252525; border: 2px solid transparent; border-radius: 10px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: transform 0.1s; min-width: 0; }
+        .admin-skin-card:active { transform: scale(0.95); }
+        .admin-skin-img { width: 100%; height: 50px; object-fit: contain; margin-bottom: 5px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+        .admin-skin-name { font-size: 9px; color: #ddd; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .admin-add-card { border: 2px dashed #555; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; color: #888; font-size: 24px; min-height: 80px; }
+        
         .admin-input-group { margin-bottom: 12px; text-align: left; }
         .admin-input-group label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block; }
-        .admin-input-group input, .admin-input-group select, .admin-input-group textarea {
-            width: 100%; background: #252525; border: 1px solid #444; padding: 10px; color: #fff; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none;
-        }
+        .admin-input-group input, .admin-input-group select, .admin-input-group textarea { width: 100%; background: #252525; border: 1px solid #444; padding: 10px; color: #fff; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none; }
         .admin-input-group textarea { resize: vertical; min-height: 80px; font-family: monospace; }
-
-        .admin-input-group select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 20px; }
-        .admin-input-group input:focus, .admin-input-group select:focus, .admin-input-group textarea:focus { border-color: #ffd700; }
-
         .admin-row { padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; text-align: left; }
         .admin-list { max-height: 250px; overflow-y: auto; }
-        
-        .copy-link-btn {
-            background: #222;
-            color: var(--rarity-gold);
-            border: 1px solid #444;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 10px;
-            cursor: pointer;
-            margin-left: 5px;
-        }
-        .copy-link-btn:active { background: #444; }
-
-        /* 2. ADMIN GRID: FIXED WIDTH ISSUE */
-        .admin-skins-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 8px;
-            max-height: 350px;
-            overflow-y: auto;
-            padding: 5px;
-            /* Уменьшаем размер сетки чтобы влезала */
-            box-sizing: border-box;
-            width: 100%;
-        }
-        .admin-skin-card {
-            background: #252525;
-            border: 2px solid transparent; 
-            border-radius: 10px;
-            padding: 8px 4px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            position: relative;
-            transition: transform 0.1s;
-            /* Фикс переполнения */
-            min-width: 0; 
-        }
-        .admin-skin-card:active { transform: scale(0.95); }
-        .admin-skin-img {
-            width: 100%;
-            height: 50px; 
-            object-fit: contain;
-            margin-bottom: 5px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-        }
-        .admin-skin-name {
-            font-size: 9px;
-            color: #ddd;
-            text-align: center;
-            line-height: 1.2;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .admin-add-card {
-            border: 2px dashed #555;
-            background: rgba(255,255,255,0.05);
-            display: flex; align-items: center; justify-content: center;
-            color: #888;
-            font-size: 24px;
-            min-height: 80px;
-        }
+        .copy-link-btn { background: #222; color: var(--rarity-gold); border: 1px solid #444; padding: 5px 10px; border-radius: 5px; font-size: 10px; cursor: pointer; margin-left: 5px; }
 
     </style>
 </head>
@@ -397,18 +369,50 @@
         <div style="margin-top: 15px; color: rgba(255,255,255,0.5); font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
             Нажми, чтобы ввести код
         </div>
-    </div>
+
+        <div class="boost-section">
+            <div class="boost-header">
+                <i class="fa-solid fa-fire" style="color: #ffd700;"></i>
+                <div class="boost-title">ПОВЫСИТЬ ШАНС ДРОПА</div>
+            </div>
+            
+            <div class="boost-row">
+                <div class="boost-info">
+                    <div class="boost-icon" style="color:#a970ff"><i class="fa-brands fa-twitch"></i></div>
+                    <div class="boost-name">TWITCH ПОДПИСКА</div>
+                </div>
+                <div id="task-twitch" class="boost-action status-wait" onclick="openTwitch()">ПРИВЯЗАТЬ</div>
+            </div>
+
+            <div class="boost-row">
+                <div class="boost-info">
+                    <div class="boost-icon" style="color:#229ED9"><i class="fa-brands fa-telegram"></i></div>
+                    <div class="boost-name">ТГ КАНАЛ</div>
+                </div>
+                <div id="task-tg" class="boost-action status-wait" onclick="openTg()">ВСТУПИТЬ</div>
+            </div>
+
+            <div class="boost-row">
+                <div class="boost-info">
+                    <div class="boost-icon" style="color:#fff"><i class="fa-solid fa-hashtag"></i></div>
+                    <div class="boost-name">#hatelavka_bot</div>
+                </div>
+                <div id="task-hashtag" class="boost-action status-wait" onclick="checkHashtag()">ПРОВЕРИТЬ</div>
+            </div>
+        </div>
+        </div>
 
     <div id="entry-modal" class="modal">
         <div class="modal-box">
             <h3 style="margin: 0 0 5px 0; color: #fff;">ВВЕДИТЕ КОД</h3>
             
-            <div class="input-inner-wrapper" style="max-width: 220px; margin: 10px auto;">
-    <input type="text" id="real-user-code" class="pass-input" placeholder="ВВЕДИТЕ КОД" onkeypress="handleEnter(event)">
-    <div class="paste-btn-inside" onclick="pasteFromClipboard()">
-        <i class="fa-regular fa-clipboard"></i>
-    </div>
-</div>
+            <div class="input-inner-wrapper">
+                <input type="text" id="real-user-code" class="pass-input" placeholder="КОД..." oninput="debouncedCheckCode()" onkeypress="handleEnter(event)">
+                <div class="paste-btn-inside" onclick="pasteFromClipboard()">
+                    <i class="fa-regular fa-clipboard"></i>
+                </div>
+            </div>
+            <div id="code-error"></div>
 
             <button class="modal-btn btn-gold" onclick="confirmCode()">ГОТОВО</button>
             <button class="modal-btn btn-grey" onclick="closeModal('entry-modal')">ОТМЕНА</button>
@@ -419,7 +423,7 @@
         <button class="main-btn" onclick="goToRoulette()">
             ОТКРЫТЬ КЕЙС
         </button>
-        <div style="margin-top: 20px; color: #aaa; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="resetToInput()">
+        <div style="margin-top: 20px; color: #aaa; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; margin-bottom: 20px;" onclick="resetToInput()">
             <i class="fa-solid fa-arrow-rotate-left"></i> <span>Ввести другой код</span>
         </div>
     </div>
@@ -432,16 +436,14 @@
                 <div class="track" id="track"></div>
             </div>
             <div style="text-align: center; margin-top: 25px; color: #fff; text-shadow: 0 2px 10px #000;">
-                <h2 style="margin: 0; font-size: 24px; letter-spacing: 2px;">ОТКРЫВАЕМ...</h2>
+                <h2 style="margin: 0; font-size: 24px; letter-spacing: 2px;">ROLLING...</h2>
             </div>
         </div>
     </div>
 
     <div id="win-modal" class="modal">
         <div class="modal-box" style="border: 2px solid #ffd700; background: radial-gradient(circle, #222 0%, #000 100%); padding-top: 40px;">
-            
             <img id="win-image" src="" class="win-img">
-            
             <div id="win-name" class="win-name-large">NAME</div>
             <div id="win-details" class="win-details">RARITY • CONDITION</div>
             
@@ -465,13 +467,9 @@
     </div>
 
     <div id="admin-fab" class="admin-wrapper" style="display: none;">
-        <div class="admin-fab-btn toggle" onclick="toggleAdminMenu()">
-            <i class="fa-solid fa-chevron-up"></i>
-        </div>
+        <div class="admin-fab-btn toggle" onclick="toggleAdminMenu()"><i class="fa-solid fa-chevron-up"></i></div>
         <div class="admin-menu-items" id="admin-menu-items">
-            <div class="admin-fab-btn" onclick="openPassModal()">
-                <i class="fa-solid fa-gear"></i>
-            </div>
+            <div class="admin-fab-btn" onclick="openPassModal()"><i class="fa-solid fa-gear"></i></div>
         </div>
     </div>
 
@@ -490,7 +488,6 @@
                 <h3 style="margin:0; text-transform: uppercase;">Настройки</h3>
                 <i class="fa-solid fa-xmark" onclick="closeModal('admin-panel')" style="cursor:pointer; font-size:20px; color:#666;"></i>
             </div>
-            
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <button class="modal-btn btn-gold" style="margin:0;" onclick="openSkinsManager()"><i class="fa-solid fa-gift"></i> Управление скинами</button>
                 <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-code-modal')"><i class="fa-solid fa-ticket"></i> Код</button>
@@ -500,9 +497,9 @@
     </div>
 
     <div id="skins-manage-modal" class="modal">
-        <div class="modal-box" style="max-width: 320px;"> <h3 style="margin-bottom: 10px;">Скины в кейсе</h3>
-            <div id="admin-skins-grid" class="admin-skins-grid">
-                </div>
+        <div class="modal-box" style="max-width: 320px;">
+            <h3 style="margin-bottom: 10px;">Скины в кейсе</h3>
+            <div id="admin-skins-grid" class="admin-skins-grid"></div>
             <button class="modal-btn btn-grey" onclick="closeModal('skins-manage-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
         </div>
     </div>
@@ -510,39 +507,10 @@
     <div id="add-item-modal" class="modal">
         <div class="modal-box">
             <h3 id="item-modal-title">Настроить Скин</h3>
-            
-            <div class="admin-input-group">
-                <label>Название скина</label>
-                <input id="adm-name" placeholder="Например: AWP | Asiimov">
-            </div>
-            
-            <div class="admin-input-group">
-                <label>Ссылка на картинку (URL)</label>
-                <input id="adm-img" placeholder="https://...">
-            </div>
-            
-            <div class="admin-input-group">
-                <label>Редкость (Цвет)</label>
-                <select id="adm-rarity">
-                    <option value="blue">🔵 Армейское (Blue)</option>
-                    <option value="purple">🟣 Запрещенное (Purple)</option>
-                    <option value="pink">🌸 Засекреченное (Pink)</option>
-                    <option value="red">🔴 Тайное (Red)</option>
-                    <option value="gold">🟡 Особое (Gold)</option>
-                </select>
-            </div>
-
-            <div class="admin-input-group">
-                <label>Качество</label>
-                <select id="adm-quality">
-                    <option value="FN">Прямо с завода (FN)</option>
-                    <option value="MW">Немного поношенное (MW)</option>
-                    <option value="FT">После полевых (FT)</option>
-                    <option value="WW">Поношенное (WW)</option>
-                    <option value="BS">Закаленное в боях (BS)</option>
-                </select>
-            </div>
-
+            <div class="admin-input-group"><label>Название скина</label><input id="adm-name" placeholder="Например: AWP | Asiimov"></div>
+            <div class="admin-input-group"><label>Ссылка на картинку (URL)</label><input id="adm-img" placeholder="https://..."></div>
+            <div class="admin-input-group"><label>Редкость (Цвет)</label><select id="adm-rarity"><option value="blue">🔵 Армейское (Blue)</option><option value="purple">🟣 Запрещенное (Purple)</option><option value="pink">🌸 Засекреченное (Pink)</option><option value="red">🔴 Тайное (Red)</option><option value="gold">🟡 Особое (Gold)</option></select></div>
+            <div class="admin-input-group"><label>Качество</label><select id="adm-quality"><option value="FN">Прямо с завода (FN)</option><option value="MW">Немного поношенное (MW)</option><option value="FT">После полевых (FT)</option><option value="WW">Поношенное (WW)</option><option value="BS">Закаленное в боях (BS)</option></select></div>
             <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
             <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
         </div>
@@ -551,10 +519,7 @@
     <div id="add-code-modal" class="modal">
         <div class="modal-box">
             <h3>Создать Коды</h3>
-            <div class="admin-input-group">
-                <label>Текст кода (Каждый с новой строки)</label>
-                <textarea id="adm-code-val" placeholder="CODE1&#10;CODE2&#10;CODE3"></textarea>
-            </div>
+            <div class="admin-input-group"><label>Текст кода (Каждый с новой строки)</label><textarea id="adm-code-val" placeholder="CODE1&#10;CODE2&#10;CODE3"></textarea></div>
             <div class="admin-input-group"><label>Лимит использований (на каждый код)</label><input id="adm-code-max" type="number" value="1"></div>
             <button class="modal-btn btn-gold" onclick="apiAddCode()">Создать</button>
             <button class="modal-btn btn-grey" onclick="closeModal('add-code-modal')">Назад</button>
@@ -579,21 +544,17 @@
     let itemsCache = [];
     let savedCode = "";
     let currentUser = null; 
+    let debounceTimer;
     const CARD_WIDTH = 140; 
     const TRACK = document.getElementById('track');
     const bgLayer = document.getElementById('bg-layer');
 
     function notify(msg) {
-        tg.showPopup({
-            title: 'Info',
-            message: msg,
-            buttons: [{type: 'ok'}]
-        });
+        tg.showPopup({ title: 'Info', message: msg, buttons: [{type: 'ok'}] });
     }
 
-    // --- ИНИЦИАЛИЗАЦИЯ (6. PRELOAD IMAGES) ---
+    // --- ИНИЦИАЛИЗАЦИЯ ---
     async function init() {
-        // Предзагрузка, чтобы смена была мгновенной
         const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
         const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
         
@@ -603,45 +564,124 @@
             currentUser = me; 
 
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
+            
+            updateTaskStatus(); // Проверка заданий
+
         } catch(e) {}
 
         loadItems();
     }
 
-    // --- НАВИГАЦИЯ ---
-    function openCodeEntry() {
-        document.getElementById('entry-modal').classList.add('active');
-        setTimeout(() => {
-            document.getElementById('real-user-code').focus();
-        }, 100);
+    // --- ЛОГИКА ЗАДАНИЙ ---
+    function updateTaskStatus() {
+        if (!currentUser) return;
+
+        // 1. Twitch
+        const twitchBtn = document.getElementById('task-twitch');
+        if (currentUser.twitch_login) {
+            twitchBtn.innerHTML = '<i class="fa-solid fa-check"></i> АКТИВНО';
+            twitchBtn.className = 'boost-action status-active';
+            twitchBtn.onclick = null;
+        }
+
+        // 2. Hashtag
+        const hashtagBtn = document.getElementById('task-hashtag');
+        if (currentUser.full_name && currentUser.full_name.includes('@hatelavka_bot')) {
+            hashtagBtn.innerHTML = '<i class="fa-solid fa-check"></i> АКТИВНО';
+            hashtagBtn.className = 'boost-action status-active';
+            hashtagBtn.onclick = null;
+        }
+        
+        // 3. Telegram: Тут мы просто показываем ссылку, так как реальная проверка на сервере
     }
 
-    // --- 1. SMALL PASTE BUTTON ---
+    function openTwitch() {
+        window.location.href = 'profile.html';
+    }
+
+    function openTg() {
+        // Укажи здесь ссылку на твой канал
+        tg.openTelegramLink('https://t.me/HATElavka'); 
+    }
+    
+    function checkHashtag() {
+        if (currentUser.full_name && currentUser.full_name.includes('@hatelavka_bot')) {
+             updateTaskStatus();
+             tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            notify("Добавьте @hatelavka_bot в имя вашего профиля Telegram!");
+            tg.HapticFeedback.notificationOccurred('error');
+        }
+    }
+
+    // --- PROMO CODE VALIDATION ---
+    function openCodeEntry() {
+        document.getElementById('entry-modal').classList.add('active');
+        setTimeout(() => { document.getElementById('real-user-code').focus(); }, 100);
+    }
+    
+    function debouncedCheckCode() {
+        clearTimeout(debounceTimer);
+        const code = document.getElementById('real-user-code').value.trim();
+        const errEl = document.getElementById('code-error');
+        const inputEl = document.getElementById('real-user-code');
+
+        if (code.length < 2) {
+            errEl.innerText = "";
+            inputEl.classList.remove('valid-code', 'invalid-code');
+            return;
+        }
+
+        debounceTimer = setTimeout(async () => {
+            try {
+                const res = await fetch('/api/cs/check_code', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData, code })
+                });
+                const data = await res.json();
+                
+                if (data.valid) {
+                    inputEl.classList.remove('invalid-code');
+                    inputEl.classList.add('valid-code');
+                    errEl.innerText = "";
+                } else {
+                    inputEl.classList.remove('valid-code');
+                    inputEl.classList.add('invalid-code');
+                    errEl.innerText = data.message || "Неверный код";
+                }
+            } catch(e) { console.error(e); }
+        }, 500);
+    }
+
     async function pasteFromClipboard() {
         try {
             const text = await navigator.clipboard.readText();
             if (text) {
-                document.getElementById('real-user-code').value = text;
-                tg.HapticFeedback.notificationOccurred('selection');
+                const input = document.getElementById('real-user-code');
+                input.value = text;
+                debouncedCheckCode(); 
                 
-                // Visual feedback icon change
                 const icon = document.querySelector('.paste-btn-inside i');
                 icon.className = 'fa-solid fa-check';
                 setTimeout(() => { icon.className = 'fa-regular fa-clipboard'; }, 1000);
-            } else {
-                notify("Буфер пуст");
             }
-        } catch (err) {
-            notify("Нет доступа к буферу");
-        }
+        } catch (err) { notify("Нет доступа к буферу"); }
     }
 
     function confirmCode() {
-        const val = document.getElementById('real-user-code').value;
+        const inputEl = document.getElementById('real-user-code');
+        const val = inputEl.value.trim();
+        
+        if(inputEl.classList.contains('invalid-code')) {
+             tg.HapticFeedback.notificationOccurred('error');
+             return;
+        }
+
         if(val.length > 0) {
             savedCode = val;
-            document.getElementById('real-user-code').value = ''; 
-            document.getElementById('real-user-code').blur();
+            inputEl.value = ''; inputEl.blur(); inputEl.classList.remove('valid-code', 'invalid-code');
+            document.getElementById('code-error').innerText = '';
             
             closeModal('entry-modal');
             document.getElementById('screen-input').classList.remove('active');
@@ -651,12 +691,8 @@
         }
     }
 
-    function handleEnter(e) {
-        if(e.key === 'Enter') {
-            confirmCode();
-        }
-    }
-
+    function handleEnter(e) { if(e.key === 'Enter') confirmCode(); }
+    
     function resetToInput() {
         document.getElementById('screen-action').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
@@ -664,16 +700,14 @@
     }
 
     function goToRoulette() {
-        // 6. INSTANT CHANGE (NO ANIMATION)
+        // Убрали анимацию (мгновенно)
         bgLayer.classList.remove('bg-agent');
         bgLayer.classList.add('bg-street');
-        
         document.getElementById('screen-action').classList.remove('active');
         document.getElementById('screen-roulette').classList.add('active');
         startSpinAPI();
     }
 
-    // 4. SHOW SUCCESS MODAL
     function claimPrize() {
         closeModal('win-modal');
         document.getElementById('final-modal').classList.add('active');
@@ -681,21 +715,18 @@
 
     function finishFlow() {
         closeModal('final-modal');
-        
-        // Return to start
         bgLayer.classList.remove('bg-street');
         bgLayer.classList.add('bg-agent');
-        
         document.getElementById('screen-roulette').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
         savedCode = "";
-        
         TRACK.style.transition = 'none';
         TRACK.style.transform = 'translateX(0)';
         generateStrip(itemsCache, null);
+        updateTaskStatus(); 
     }
 
-    // --- ЛОГИКА ИГРЫ ---
+    // --- LOGIC ---
     async function loadItems() {
         try {
             const res = await fetch('/api/cs/items');
@@ -706,25 +737,15 @@
 
     function generateStrip(items, winnerItem) {
         TRACK.innerHTML = '';
-        const cardsCount = 80; 
-        const winnerIndex = 60; 
-
+        const cardsCount = 80; const winnerIndex = 60; 
         let html = '';
         for (let i = 0; i < cardsCount; i++) {
             let item;
-            if (i === winnerIndex && winnerItem) {
-                item = winnerItem;
-            } else {
-                item = items.length ? items[Math.floor(Math.random() * items.length)] : null;
-            }
+            if (i === winnerIndex && winnerItem) item = winnerItem;
+            else item = items.length ? items[Math.floor(Math.random() * items.length)] : null;
             if(!item) item = {name: "Загрузка...", image_url: "https://placehold.co/100", rarity: "blue"};
 
-            html += `
-                <div class="card ${item.rarity}">
-                    <img src="${item.image_url}" alt="skin">
-                    <div class="card-name">${item.name}</div>
-                </div>
-            `;
+            html += `<div class="card ${item.rarity}"><img src="${item.image_url}" alt="skin"><div class="card-name">${item.name}</div></div>`;
         }
         TRACK.insertAdjacentHTML('beforeend', html);
     }
@@ -732,16 +753,14 @@
     async function startSpinAPI() {
         try {
             const res = await fetch('/api/cs/spin', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData, code: savedCode })
             });
             const data = await res.json();
 
             if (!res.ok) {
-                notify(data.detail || "Неверный код или ошибка");
-                finishFlow(); // Go back to start
-                return;
+                notify(data.detail || "Ошибка");
+                finishFlow(); return;
             }
 
             const winner = data.winner;
@@ -751,16 +770,13 @@
                 const cardCenter = CARD_WIDTH / 2;
                 const screenCenter = window.innerWidth / 2;
                 const baseOffset = (60 * CARD_WIDTH) + cardCenter - screenCenter; 
-                
                 const randomOffset = Math.floor(Math.random() * 80) - 40; 
                 const finalPosition = baseOffset + randomOffset;
                 
                 TRACK.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.05, 1)'; 
                 TRACK.style.transform = `translateX(-${finalPosition}px)`;
                 
-                setTimeout(() => {
-                    showWinModal(winner);
-                }, 8500); 
+                setTimeout(() => { showWinModal(winner); }, 8500); 
             }, 100);
 
         } catch (e) {
@@ -771,43 +787,29 @@
 
     function showWinModal(item) {
         document.getElementById('win-image').src = item.image_url;
-        // 5. NEW LAYOUT DATA
         document.getElementById('win-name').innerText = item.name;
         
-        const ruRarity = {
-            'blue': 'Армейское',
-            'purple': 'Запрещенное',
-            'pink': 'Засекреченное',
-            'red': 'Тайное',
-            'gold': 'Особое'
-        };
-        
-        const condition = item.condition || 'FN'; // fallback if api doesn't send it
+        const ruRarity = { 'blue': 'Армейское', 'purple': 'Запрещенное', 'pink': 'Засекреченное', 'red': 'Тайное', 'gold': 'Особое' };
+        const condition = item.condition || 'FN';
         const rarityText = ruRarity[item.rarity] || item.rarity;
         
-        // Format: РЕДКОСТЬ • СОСТОЯНИЕ
-        const detailsText = `${rarityText} • ${condition}`;
         const detailsEl = document.getElementById('win-details');
-        detailsEl.innerText = detailsText;
+        detailsEl.innerText = `${rarityText} • ${condition}`;
         detailsEl.style.color = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity}`);
         
         const warnEl = document.getElementById('trade-warning');
-        if (currentUser && !currentUser.trade_link) {
-            warnEl.style.display = 'block';
-        } else {
-            warnEl.style.display = 'none';
-        }
+        if (currentUser && !currentUser.trade_link) warnEl.style.display = 'block';
+        else warnEl.style.display = 'none';
 
         document.getElementById('win-modal').classList.add('active');
         tg.HapticFeedback.notificationOccurred('success');
     }
 
-    // --- АДМИН УТИЛИТЫ ---
+    // --- ADMIN ---
     function toggleAdminMenu() {
         document.getElementById('admin-menu-items').classList.toggle('show');
         const icon = document.querySelector('.admin-fab-btn.toggle i');
-        icon.classList.toggle('fa-chevron-up');
-        icon.classList.toggle('fa-xmark');
+        icon.classList.toggle('fa-chevron-up'); icon.classList.toggle('fa-xmark');
     }
 
     function openPassModal() { 
@@ -817,21 +819,14 @@
     }
 
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-    function openSubModal(id) {
-        document.getElementById('admin-panel').classList.remove('active');
-        document.getElementById(id).classList.add('active');
-    }
+    function openSubModal(id) { document.getElementById('admin-panel').classList.remove('active'); document.getElementById(id).classList.add('active'); }
 
     function checkPass() {
         if(document.getElementById('admin-pass-input').value === '6971') {
-            closeModal('password-modal');
-            document.getElementById('admin-panel').classList.add('active');
-        } else {
-            tg.HapticFeedback.notificationOccurred('error');
-        }
+            closeModal('password-modal'); document.getElementById('admin-panel').classList.add('active');
+        } else { tg.HapticFeedback.notificationOccurred('error'); }
     }
 
-    // 3. ФУНКЦИИ УПРАВЛЕНИЯ СКИНАМИ
     function openSkinsManager() {
         document.getElementById('admin-panel').classList.remove('active');
         document.getElementById('skins-manage-modal').classList.add('active');
@@ -839,31 +834,17 @@
     }
 
     function renderAdminSkins() {
-        const grid = document.getElementById('admin-skins-grid');
-        grid.innerHTML = '';
-        
-        // Кнопка "Добавить"
+        const grid = document.getElementById('admin-skins-grid'); grid.innerHTML = '';
         const addBtn = document.createElement('div');
-        addBtn.className = 'admin-skin-card admin-add-card';
-        addBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
-        addBtn.onclick = () => openEditModal(null); // Null значит новый
+        addBtn.className = 'admin-skin-card admin-add-card'; addBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+        addBtn.onclick = () => openEditModal(null);
         grid.appendChild(addBtn);
 
-        // Рендерим существующие скины из itemsCache
         itemsCache.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'admin-skin-card';
-            // Получаем цвет редкости из CSS переменных
+            const card = document.createElement('div'); card.className = 'admin-skin-card';
             const colorVar = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity || 'blue'}`);
-            card.style.borderColor = colorVar;
-            // Легкая подсветка фона
-            card.style.background = `linear-gradient(180deg, rgba(30,30,30,1) 0%, ${colorVar}10 100%)`;
-
-            card.innerHTML = `
-                <img src="${item.image_url}" class="admin-skin-img">
-                <div class="admin-skin-name" style="color:${colorVar}">${item.name}</div>
-            `;
-            // При клике открываем настройки этого скина
+            card.style.borderColor = colorVar; card.style.background = `linear-gradient(180deg, rgba(30,30,30,1) 0%, ${colorVar}10 100%)`;
+            card.innerHTML = `<img src="${item.image_url}" class="admin-skin-img"><div class="admin-skin-name" style="color:${colorVar}">${item.name}</div>`;
             card.onclick = () => openEditModal(item);
             grid.appendChild(card);
         });
@@ -872,133 +853,61 @@
     function openEditModal(item) {
         document.getElementById('skins-manage-modal').classList.remove('active');
         document.getElementById('add-item-modal').classList.add('active');
-
         if (item) {
-            // Режим редактирования
             document.getElementById('item-modal-title').innerText = "Настроить Скин";
-            document.getElementById('adm-name').value = item.name;
-            document.getElementById('adm-img').value = item.image_url;
-            document.getElementById('adm-rarity').value = item.rarity;
-            document.getElementById('adm-quality').value = item.condition || 'FN';
+            document.getElementById('adm-name').value = item.name; document.getElementById('adm-img').value = item.image_url;
+            document.getElementById('adm-rarity').value = item.rarity; document.getElementById('adm-quality').value = item.condition || 'FN';
         } else {
-            // Режим добавления
             document.getElementById('item-modal-title').innerText = "Добавить Новый";
-            document.getElementById('adm-name').value = '';
-            document.getElementById('adm-img').value = '';
-            document.getElementById('adm-rarity').value = 'blue';
-            document.getElementById('adm-quality').value = 'FN';
+            document.getElementById('adm-name').value = ''; document.getElementById('adm-img').value = '';
+            document.getElementById('adm-rarity').value = 'blue'; document.getElementById('adm-quality').value = 'FN';
         }
     }
 
-    // --- API АДМИНКИ ---
     async function apiAddItem() {
         const payload = {
-            initData,
-            name: document.getElementById('adm-name').value,
-            image_url: document.getElementById('adm-img').value,
-            rarity: document.getElementById('adm-rarity').value, 
-            condition: document.getElementById('adm-quality').value,
-            chance_weight: 10, 
-            quantity: 1
+            initData, name: document.getElementById('adm-name').value,
+            image_url: document.getElementById('adm-img').value, rarity: document.getElementById('adm-rarity').value, 
+            condition: document.getElementById('adm-quality').value, chance_weight: 10, quantity: 1
         };
-        
         if(!payload.name) return notify("Введите название");
-
         try {
             await fetch('/api/admin/cs/item/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-            notify("Скин сохранен!"); 
-            closeModal('add-item-modal'); 
-            // Перезагружаем список и возвращаемся в меню
-            await loadItems();
-            openSkinsManager();
+            notify("Скин сохранен!"); closeModal('add-item-modal'); await loadItems(); openSkinsManager();
         } catch(e) { notify("Ошибка сохранения"); }
     }
 
-    // ОБНОВЛЕННАЯ ФУНКЦИЯ МАССОВОГО ДОБАВЛЕНИЯ КОДОВ
     async function apiAddCode() {
         const rawText = document.getElementById('adm-code-val').value;
         const maxUses = parseInt(document.getElementById('adm-code-max').value);
-        
-        // Разбиваем текст на строки, убираем пустые
         const codes = rawText.split('\n').map(c => c.trim()).filter(c => c !== '');
-        
         if(codes.length === 0) return notify("Введите хотя бы один код");
-        
-        notify(`Начато создание ${codes.length} кодов...`);
-        
-        let successCount = 0;
-        
-        // Цикл отправки каждого кода отдельно
+        notify(`Создание ${codes.length} кодов...`);
         for (const code of codes) {
-            const payload = {
-                initData,
-                code: code,
-                max_uses: maxUses
-            };
-            
-            try {
-                await fetch('/api/admin/cs/code/add', { 
-                    method: 'POST', 
-                    body: JSON.stringify(payload), 
-                    headers: {'Content-Type': 'application/json'} 
-                });
-                successCount++;
-            } catch(e) {
-                console.error("Ошибка при создании кода: " + code);
-            }
+            try { await fetch('/api/admin/cs/code/add', { method: 'POST', body: JSON.stringify({ initData, code, max_uses: maxUses }), headers: {'Content-Type': 'application/json'} }); } catch(e) {}
         }
-
-        notify(`Готово! Создано кодов: ${successCount}`); 
-        closeModal('add-code-modal');
-        document.getElementById('adm-code-val').value = ''; // Очистить поле
+        notify(`Готово!`); closeModal('add-code-modal'); document.getElementById('adm-code-val').value = '';
     }
 
-    function copyLink(link) {
-        navigator.clipboard.writeText(link).then(() => {
-            notify("Трейд ссылка скопирована!");
-        }).catch(() => {
-            notify("Ошибка копирования");
-        });
-    }
+    function copyLink(link) { navigator.clipboard.writeText(link).then(() => { notify("Ссылка скопирована!"); }); }
 
     async function loadWinners() {
-        openSubModal('winners-modal');
-        const listContainer = document.getElementById('winners-list');
-        listContainer.innerHTML = 'Загрузка...';
-
+        openSubModal('winners-modal'); document.getElementById('winners-list').innerHTML = 'Загрузка...';
         try {
             const res = await fetch('/api/admin/cs/winners', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'} });
             const list = await res.json();
-            
-            if (!Array.isArray(list) || list.length === 0) {
-                listContainer.innerHTML = "<div style='padding:20px; color:#666; text-align:center'>Список пуст</div>";
-                return;
-            }
-
+            if (!Array.isArray(list) || list.length === 0) { document.getElementById('winners-list').innerHTML = "<div style='padding:20px; color:#666; text-align:center'>Список пуст</div>"; return; }
             let html = '';
             list.forEach(w => {
                 const tl = w.user?.trade_link;
-                const linkBtn = tl 
-                    ? `<button class="copy-link-btn" onclick="copyLink('${tl}')"><i class="fa-solid fa-link"></i></button>` 
-                    : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
-
-                html += `<div class="admin-row">
-                    <div style="font-size:12px;">
-                        <b style="color:#fff">${w.user?.full_name || 'User'}</b> ${linkBtn}<br>
-                        <span style="color:gold">${w.item?.name || 'Item'}</span>
-                    </div>
-                    <div style="font-size:10px; color:#666;">Код: ${w.code_used}</div>
-                </div>`;
+                const linkBtn = tl ? `<button class="copy-link-btn" onclick="copyLink('${tl}')"><i class="fa-solid fa-link"></i></button>` : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
+                html += `<div class="admin-row"><div style="font-size:12px;"><b style="color:#fff">${w.user?.full_name || 'User'}</b> ${linkBtn}<br><span style="color:gold">${w.item?.name || 'Item'}</span></div><div style="font-size:10px; color:#666;">Код: ${w.code_used}</div></div>`;
             });
-            listContainer.innerHTML = html;
-        } catch(e) {
-            console.error(e);
-            listContainer.innerHTML = "<div style='padding:20px; color:#red; text-align:center'>Ошибка сети</div>";
-        }
+            document.getElementById('winners-list').innerHTML = html;
+        } catch(e) { document.getElementById('winners-list').innerHTML = "<div style='padding:20px; color:#red; text-align:center'>Ошибка сети</div>"; }
     }
 
     init();
-
 </script>
 </body>
 </html>
