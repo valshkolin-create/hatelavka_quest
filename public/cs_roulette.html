@@ -16,6 +16,7 @@
             --orange-btn: linear-gradient(180deg, #FFB800 0%, #FF8A00 100%);
             --orange-shadow: 0px 0px 25px rgba(255, 138, 0, 0.4);
             
+            /* Цвета редкости */
             --rarity-blue: #4b69ff;
             --rarity-purple: #8847ff;
             --rarity-pink: #d32ce6;
@@ -43,7 +44,6 @@
             z-index: -1;
         }
         
-        /* Ссылки на картинки (Агент и Улица) */
         .bg-agent { background-image: url('https://i.postimg.cc/HkZDFGn4/kartinka-bez-knopki.png'); }
         .bg-street { background-image: url('https://i.postimg.cc/SxKH6ZdC/3.png'); }
 
@@ -57,16 +57,13 @@
         }
         .screen.active { opacity: 1; pointer-events: auto; }
 
-        /* Экраны Ввода и Кнопки - прижаты к низу */
         #screen-input, #screen-action {
-            justify-content: flex-end; /* Прижать контент к низу */
+            justify-content: flex-end;
             align-items: center;
-            padding-bottom: 150px; /* Отступ от нижнего края (поднимаем на уровень ног) */
-            /* На iPhone с челкой добавим учет безопасной зоны */
+            padding-bottom: 150px;
             padding-bottom: calc(150px + env(safe-area-inset-bottom));
         }
 
-        /* Экран Рулетки - по центру */
         #screen-roulette {
             justify-content: center;
             align-items: center;
@@ -88,6 +85,12 @@
             outline: none; backdrop-filter: blur(10px);
             transition: all 0.3s;
         }
+        
+        /* FIX: Плейсхолдер исчезает при фокусе */
+        .custom-input:focus::placeholder {
+            color: transparent;
+        }
+
         .custom-input:focus {
             background: rgba(0, 0, 0, 0.9);
             border-color: #fff;
@@ -109,7 +112,7 @@
         }
         .main-btn:active { transform: scale(0.97); }
 
-        /* --- PREMIUM ROULETTE STYLES --- */
+        /* --- PREMIUM ROULETTE STYLES (UPDATED) --- */
         .roulette-container {
             width: 100%;
             position: relative;
@@ -118,74 +121,87 @@
 
         .roulette-window {
             width: 100%;
-            height: 180px; /* Чуть выше */
-            background: radial-gradient(circle at center, #2b2b2b 0%, #1a1a1a 100%);
-            border-top: 3px solid #ffd700;
-            border-bottom: 3px solid #ffd700;
-            box-shadow: 0 0 50px rgba(0,0,0,0.9), inset 0 0 30px rgba(0,0,0,0.8);
+            height: 160px; /* Сделали компактнее */
+            background: #0e1621;
+            border-top: 2px solid #333;
+            border-bottom: 2px solid #333;
+            box-shadow: 0 0 50px rgba(0,0,0,0.9);
             overflow: hidden;
             position: relative;
             display: flex; align-items: center;
         }
         
-        /* Золотая линия по центру */
+        /* Золотая линия */
         .center-marker {
             position: absolute; left: 50%; top: 0; bottom: 0;
             width: 4px; background: #ffd700;
             z-index: 20; transform: translateX(-50%);
-            box-shadow: 0 0 15px #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
         }
-        /* Треугольник сверху маркера */
         .marker-arrow {
-            position: absolute; top: -5px; left: 50%;
+            position: absolute; top: -1px; left: 50%;
             transform: translateX(-50%);
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-top: 15px solid #ffd700;
-            z-index: 21; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.8));
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #ffd700;
+            z-index: 21;
         }
 
         .track {
             display: flex; height: 100%; align-items: center;
             will-change: transform;
-            padding-left: 50vw; /* Начинаем с центра */
+            padding-left: 50vw;
         }
 
-        /* Premium Card */
+        /* Premium Card (С ГРАДИЕНТОМ РЕДКОСТИ) */
         .card {
-            width: 140px; height: 140px;
-            margin: 0 6px;
-            background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
-            border-radius: 8px;
+            width: 130px; height: 130px; /* Компактнее */
+            margin: 0 5px;
+            background-color: #1f2936;
+            border-radius: 12px;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             position: relative; flex-shrink: 0;
-            border: 1px solid rgba(255,255,255,0.05);
+            /* Нижняя граница будет цветом */
+            border-bottom: 3px solid transparent; 
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-        /* Нижняя полоса редкости */
-        .card::after {
-            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
-            height: 4px; border-radius: 0 0 8px 8px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
-        }
-        
-        .card img {
-            width: 100px; height: 70px; object-fit: contain;
-            margin-bottom: 15px; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.6));
-            transition: transform 0.2s;
-        }
-        .card-name {
-            font-size: 11px; color: #ccc; text-align: center;
-            width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            font-weight: 600;
+            overflow: hidden;
         }
 
-        .card.blue::after { background: var(--rarity-blue); box-shadow: 0 -5px 15px rgba(75, 105, 255, 0.4); }
-        .card.purple::after { background: var(--rarity-purple); box-shadow: 0 -5px 15px rgba(136, 71, 255, 0.4); }
-        .card.pink::after { background: var(--rarity-pink); box-shadow: 0 -5px 15px rgba(211, 44, 230, 0.4); }
-        .card.red::after { background: var(--rarity-red); box-shadow: 0 -5px 15px rgba(235, 75, 75, 0.4); }
-        .card.gold::after { background: var(--rarity-gold); box-shadow: 0 -5px 15px rgba(228, 174, 57, 0.4); }
+        .card img {
+            width: 90px; height: auto; 
+            max-height: 70px; object-fit: contain;
+            margin-bottom: 10px; z-index: 2;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+        
+        .card-name {
+            font-size: 10px; color: #ccc; text-align: center;
+            width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-weight: 700; z-index: 2;
+        }
+
+        /* Цвета редкости и градиенты */
+        .card.blue {
+            border-bottom-color: var(--rarity-blue);
+            background: radial-gradient(circle at bottom, rgba(75, 105, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
+        }
+        .card.purple {
+            border-bottom-color: var(--rarity-purple);
+            background: radial-gradient(circle at bottom, rgba(136, 71, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
+        }
+        .card.pink {
+            border-bottom-color: var(--rarity-pink);
+            background: radial-gradient(circle at bottom, rgba(211, 44, 230, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
+        }
+        .card.red {
+            border-bottom-color: var(--rarity-red);
+            background: radial-gradient(circle at bottom, rgba(235, 75, 75, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
+        }
+        .card.gold {
+            border-bottom-color: var(--rarity-gold);
+            background: radial-gradient(circle at bottom, rgba(228, 174, 57, 0.25) 0%, rgba(31, 41, 54, 1) 70%);
+        }
 
         /* --- ADMIN FAB & MODALS --- */
         .admin-wrapper {
@@ -379,7 +395,7 @@
     // --- ПЕРЕМЕННЫЕ ---
     let itemsCache = [];
     let savedCode = "";
-    const CARD_WIDTH = 152; // 140px card + 12px margin
+    const CARD_WIDTH = 140; // 130px card + 10px margin
     const TRACK = document.getElementById('track');
     const bgLayer = document.getElementById('bg-layer');
 
@@ -456,7 +472,7 @@
     function generateStrip(items, winnerItem) {
         TRACK.innerHTML = '';
         const cardsCount = 80; 
-        const winnerIndex = 60; // Выигрышная позиция дальше для долгого спина
+        const winnerIndex = 60; // Выигрышная позиция
 
         let html = '';
         for (let i = 0; i < cardsCount; i++) {
@@ -468,6 +484,7 @@
             }
             if(!item) item = {name: "Загрузка...", image_url: "https://placehold.co/100", rarity: "blue"};
 
+            // Применяем классы редкости для CSS градиентов
             html += `
                 <div class="card ${item.rarity}">
                     <img src="${item.image_url}" alt="skin">
@@ -475,7 +492,9 @@
                 </div>
             `;
         }
-        TRACK.innerHTML = html;
+        
+        // Используем insertAdjacentHTML для безопасности
+        TRACK.insertAdjacentHTML('beforeend', html);
     }
 
     async function startSpinAPI() {
@@ -498,21 +517,16 @@
 
             // АНИМАЦИЯ СПИНА
             setTimeout(() => {
-                // Вычисляем центр: 60 карточек * ширину - половина экрана
-                // + добавляем случайный сдвиг внутри карточки (jitter) для реализма
                 const cardCenter = CARD_WIDTH / 2;
                 const screenCenter = window.innerWidth / 2;
                 const baseOffset = (60 * CARD_WIDTH) + cardCenter - screenCenter; 
                 
-                // Рандомный сдвиг +/- 40px внутри карточки
                 const randomOffset = Math.floor(Math.random() * 80) - 40; 
                 const finalPosition = baseOffset + randomOffset;
                 
-                // Используем cubic-bezier для эффекта "разгон -> долгое торможение"
                 TRACK.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.05, 1)'; 
                 TRACK.style.transform = `translateX(-${finalPosition}px)`;
                 
-                // Показываем окно победы через 8.5 сек
                 setTimeout(() => {
                     showWinModal(winner);
                 }, 8500); 
@@ -581,7 +595,6 @@
             initData,
             name: document.getElementById('adm-name').value,
             image_url: document.getElementById('adm-img').value,
-            // Берем значения из Select
             rarity: document.getElementById('adm-rarity').value, 
             condition: document.getElementById('adm-quality').value,
             chance_weight: 10, 
@@ -609,21 +622,42 @@
         closeModal('add-code-modal');
     }
 
+    // FIX: Исправленная функция загрузки победителей
     async function loadWinners() {
         openSubModal('winners-modal');
-        const res = await fetch('/api/admin/cs/winners', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'} });
-        const list = await res.json();
-        let html = '';
-        list.forEach(w => {
-            html += `<div class="admin-row">
-                <div style="font-size:12px;">
-                    <b style="color:#fff">${w.user?.full_name}</b><br>
-                    <span style="color:gold">${w.item?.name}</span>
-                </div>
-                <div style="font-size:10px; color:#666;">Код: ${w.code_used}</div>
-            </div>`;
-        });
-        document.getElementById('winners-list').innerHTML = html || "<div style='padding:20px; color:#666; text-align:center'>Список пуст</div>";
+        const listContainer = document.getElementById('winners-list');
+        listContainer.innerHTML = 'Загрузка...';
+
+        try {
+            const res = await fetch('/api/admin/cs/winners', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'} });
+            const list = await res.json();
+            
+            // Проверка, что пришел массив
+            if (!Array.isArray(list)) {
+                listContainer.innerHTML = "<div style='padding:20px; color:#666; text-align:center'>Ошибка данных</div>";
+                return;
+            }
+
+            if (list.length === 0) {
+                listContainer.innerHTML = "<div style='padding:20px; color:#666; text-align:center'>Список пуст</div>";
+                return;
+            }
+
+            let html = '';
+            list.forEach(w => {
+                html += `<div class="admin-row">
+                    <div style="font-size:12px;">
+                        <b style="color:#fff">${w.user?.full_name || 'User'}</b><br>
+                        <span style="color:gold">${w.item?.name || 'Item'}</span>
+                    </div>
+                    <div style="font-size:10px; color:#666;">Код: ${w.code_used}</div>
+                </div>`;
+            });
+            listContainer.innerHTML = html;
+        } catch(e) {
+            console.error(e);
+            listContainer.innerHTML = "<div style='padding:20px; color:#red; text-align:center'>Ошибка сети</div>";
+        }
     }
 
     init();
