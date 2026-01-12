@@ -2816,6 +2816,47 @@ async def check_cs_code(
 
     return {"valid": True, "message": "Код активен!"}
 
+# --- ПОЛУЧЕНИЕ СТАТУСА БУСТОВ (Для красивых кнопок) ---
+@app.post("/api/cs/boost_status")
+async def get_cs_boost_status(
+    req: Request,
+    initData: str = Body(..., embed=True),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(401, "Unauthorized")
+    user_id = user_info['id']
+
+    # 1. Берем данные юзера
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_login,full_name"})
+    user_data = user_res.json()
+    if not user_data: return {"twitch": False, "hashtag": False, "tg": False}
+    
+    current_user = user_data[0]
+
+    # 2. Проверяем Twitch
+    has_twitch = bool(current_user.get('twitch_login'))
+
+    # 3. Проверяем Хэштег
+    has_hashtag = '@hatelavka_bot' in (current_user.get('full_name') or "")
+
+    # 4. Проверяем Telegram (Live Check через бота)
+    has_tg = False
+    target_channel_id = os.getenv("CHANNEL_ID")
+    if target_channel_id:
+        try:
+            chat_member = await bot.get_chat_member(chat_id=target_channel_id, user_id=user_id)
+            if chat_member.status in ["member", "administrator", "creator"]:
+                has_tg = True
+        except Exception as e:
+            logging.error(f"TG Check Error: {e}")
+
+    return {
+        "twitch": has_twitch,
+        "hashtag": has_hashtag,
+        "tg": has_tg
+    }
+
 @app.post("/api/cs/spin")
 async def spin_cs_roulette(
     req: CSRouletteSpinRequest,
