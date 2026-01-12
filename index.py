@@ -755,6 +755,29 @@ class TelegramTaskModel(BaseModel):
     action_url: Optional[str] = None
     is_active: bool
 
+# ==========================================
+# 🔫 CS:GO STYLE ROULETTE SYSTEM (NEW)
+# ==========================================
+
+# --- Модели данных ---
+class CSRouletteSpinRequest(BaseModel):
+    initData: str
+    code: str
+
+class CSItemCreateRequest(BaseModel):
+    initData: str
+    name: str
+    image_url: str
+    rarity: str # blue, purple, pink, red, gold
+    condition: str
+    chance_weight: float
+    quantity: int
+
+class CSCodeCreateRequest(BaseModel):
+    initData: str
+    code: str
+    max_uses: int
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2744,6 +2767,109 @@ async def get_telegram_tasks(
     except Exception as e:
         print(f"Error fetching tasks: {e}")
         return JSONResponse({"success": False, "error": str(e)})
+
+# --- 1. Публичный API: Получить список предметов (для прокрутки) ---
+@app.get("/api/cs/items")
+async def get_cs_items(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Берем только активные предметы, которые есть в наличии
+    resp = await supabase.get("/cs_items", params={"is_active": "eq.true", "quantity": "gt.0", "order": "chance_weight.desc"})
+    return resp.json()
+
+# --- 2. Публичный API: КРУТИТЬ РУЛЕТКУ ---
+@app.post("/api/cs/spin")
+async def spin_cs_roulette(
+    req: CSRouletteSpinRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(401, "Unauthorized")
+    user_id = user_info['id']
+    code = req.code.strip()
+
+    # А. Проверка Трейд-ссылки
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "trade_link"})
+    user_data = user_res.json()
+    if not user_data or not user_data[0].get("trade_link"):
+        raise HTTPException(400, "⚠️ Сначала укажите Trade Link в профиле!")
+
+    # Б. Проверка Кода
+    code_res = await supabase.get("/cs_codes", params={"code": f"eq.{code}", "is_active": "eq.true"})
+    code_data = code_res.json()
+    
+    if not code_data:
+        raise HTTPException(400, "⛔ Неверный код!")
+    
+    promo = code_data[0]
+    if promo['current_uses'] >= promo['max_uses']:
+        raise HTTPException(400, "⛔ Этот код закончился!")
+
+    # В. Проверка: Пользователь уже использовал этот код?
+    # (Опционально: если код одноразовый для юзера)
+    history_check = await supabase.get("/cs_history", params={"user_id": f"eq.{user_id}", "code_used": f"eq.{code}"})
+    if history_check.json():
+        raise HTTPException(400, "⛔ Вы уже активировали этот код!")
+
+    # Г. Выбор победителя (Weighted Random)
+    items_res = await supabase.get("/cs_items", params={"is_active": "eq.true", "quantity": "gt.0"})
+    items = items_res.json()
+    
+    if not items:
+        raise HTTPException(400, "Склад пуст!")
+
+    # Логика весов
+    weights = [item['chance_weight'] for item in items]
+    winner_item = random.choices(items, weights=weights, k=1)[0]
+
+    # Д. Транзакция (Списание кода, Списание предмета, Запись истории)
+    # 1. +1 использование кода
+    await supabase.patch("/cs_codes", params={"code": f"eq.{code}"}, json={"current_uses": promo['current_uses'] + 1})
+    
+    # 2. -1 предмет (используем RPC или просто patch, если нет гонки)
+    # Лучше создать RPC decrement_cs_item_quantity, но пока сделаем просто:
+    new_qty = winner_item['quantity'] - 1
+    await supabase.patch("/cs_items", params={"id": f"eq.{winner_item['id']}"}, json={"quantity": new_qty})
+
+    # 3. Запись в историю
+    await supabase.post("/cs_history", json={
+        "user_id": user_id,
+        "item_id": winner_item['id'],
+        "code_used": code,
+        "status": "pending"
+    })
+
+    # 4. Уведомление админу (если нужно)
+    if ADMIN_NOTIFY_CHAT_ID:
+        msg = f"🎰 <b>CS Roulette Win!</b>\nUser: {user_id}\nItem: {winner_item['name']} ({winner_item['rarity']})\nCode: {code}"
+        await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), msg)
+
+    return {"success": True, "winner": winner_item}
+
+# --- 3. Админка: Добавить Скин ---
+@app.post("/api/admin/cs/item/add")
+async def add_cs_item(req: CSItemCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    
+    await supabase.post("/cs_items", json=req.dict(exclude={"initData"}))
+    return {"message": "Скин добавлен"}
+
+# --- 4. Админка: Создать Код ---
+@app.post("/api/admin/cs/code/add")
+async def add_cs_code(req: CSCodeCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    
+    await supabase.post("/cs_codes", json={"code": req.code, "max_uses": req.max_uses})
+    return {"message": "Код создан"}
+
+# --- 5. Админка: Список победителей ---
+@app.post("/api/admin/cs/winners")
+async def get_cs_winners(req: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    
+    res = await supabase.get("/cs_history", params={"select": "*, item:cs_items(*), user:users(full_name, username, trade_link)", "order": "created_at.desc", "limit": 50})
+    return res.json()
 
 # 1. Получение списка кейсов и цен (Для магазина и Админки)
 @app.get("/api/v1/p2p/cases")
