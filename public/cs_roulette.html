@@ -9,11 +9,13 @@
     
     <style>
         /* --- GLOBAL & FONTS --- */
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap');
 
         :root {
+            --gold-gradient: linear-gradient(180deg, #FFD700 0%, #E6AC00 100%);
             --orange-btn: linear-gradient(180deg, #FFB800 0%, #FF8A00 100%);
-            --orange-shadow: 0px 4px 20px rgba(255, 138, 0, 0.5);
+            --orange-shadow: 0px 0px 25px rgba(255, 138, 0, 0.4);
+            
             --rarity-blue: #4b69ff;
             --rarity-purple: #8847ff;
             --rarity-pink: #d32ce6;
@@ -22,21 +24,18 @@
         }
 
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             font-family: 'Montserrat', sans-serif;
             background-color: #000;
             color: #fff;
             overflow: hidden;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
+            display: flex; flex-direction: column;
         }
 
         /* --- BACKGROUND MANAGER --- */
         #bg-layer {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-size: cover;
             background-position: center top;
             background-repeat: no-repeat;
@@ -44,133 +43,151 @@
             z-index: -1;
         }
         
-        /* Классы для смены фона через JS */
+        /* Ссылки на картинки (Агент и Улица) */
         .bg-agent { background-image: url('https://i.postimg.cc/HkZDFGn4/kartinka-bez-knopki.png'); }
         .bg-street { background-image: url('https://i.postimg.cc/SxKH6ZdC/3.png'); }
 
-        /* --- SCREENS --- */
+        /* --- SCREENS CONFIG --- */
         .screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex;
-            flex-direction: column;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.4s ease;
+            box-sizing: border-box;
+        }
+        .screen.active { opacity: 1; pointer-events: auto; }
+
+        /* Экраны Ввода и Кнопки - прижаты к низу */
+        #screen-input, #screen-action {
+            justify-content: flex-end; /* Прижать контент к низу */
+            align-items: center;
+            padding-bottom: 80px; /* Отступ от нижнего края (поднимаем на уровень ног) */
+            /* На iPhone с челкой добавим учет безопасной зоны */
+            padding-bottom: calc(80px + env(safe-area-inset-bottom));
+        }
+
+        /* Экран Рулетки - по центру */
+        #screen-roulette {
             justify-content: center;
             align-items: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.4s ease;
-        }
-        .screen.active {
-            opacity: 1;
-            pointer-events: auto;
         }
 
-        /* --- SCREEN 1: INPUT --- */
-        .input-wrapper {
-            width: 80%;
-            max-width: 350px;
-        }
-
+        /* --- INPUT STYLES --- */
+        .input-wrapper { width: 90%; max-width: 380px; text-align: center;}
+        
         .custom-input {
             width: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.7);
-            border-radius: 30px;
-            padding: 18px 0;
+            background: rgba(10, 10, 10, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 20px 0;
             color: #fff;
             font-family: 'Montserrat', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            text-align: center;
-            text-transform: uppercase;
-            outline: none;
-            backdrop-filter: blur(5px);
+            font-size: 16px; font-weight: 700;
+            text-align: center; text-transform: uppercase; letter-spacing: 1px;
+            outline: none; backdrop-filter: blur(10px);
             transition: all 0.3s;
         }
-        
-        .custom-input::placeholder { color: rgba(255, 255, 255, 0.8); }
-        .custom-input:focus { 
-            background: rgba(0, 0, 0, 0.8); 
+        .custom-input:focus {
+            background: rgba(0, 0, 0, 0.9);
             border-color: #fff;
-            box-shadow: 0 0 15px rgba(255,255,255,0.2);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
         }
 
-        /* --- SCREEN 2: ORANGE BUTTON --- */
+        /* --- BUTTON STYLES --- */
         .main-btn {
             background: var(--orange-btn);
             box-shadow: var(--orange-shadow);
-            border: none;
-            border-radius: 30px;
-            padding: 20px 0;
-            width: 80%;
-            max-width: 350px;
-            color: #000;
+            border: none; border-radius: 16px;
+            padding: 22px 0;
+            width: 90%; max-width: 380px;
+            color: #111;
             font-family: 'Montserrat', sans-serif;
-            font-size: 18px;
-            font-weight: 800;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: transform 0.1s;
+            font-size: 18px; font-weight: 900;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            cursor: pointer; transition: transform 0.1s;
         }
-        .main-btn:active { transform: scale(0.96); }
+        .main-btn:active { transform: scale(0.97); }
 
-        /* --- SCREEN 3: ROULETTE --- */
+        /* --- PREMIUM ROULETTE STYLES --- */
         .roulette-container {
             width: 100%;
-            margin-top: 100px; /* Сдвигаем чуть ниже, чтобы было как на улице */
             position: relative;
+            transform: translateY(20px);
         }
 
         .roulette-window {
             width: 100%;
-            height: 160px;
-            background: rgba(0, 0, 0, 0.6);
-            border-top: 2px solid #444;
-            border-bottom: 2px solid #444;
+            height: 180px; /* Чуть выше */
+            background: radial-gradient(circle at center, #2b2b2b 0%, #1a1a1a 100%);
+            border-top: 3px solid #ffd700;
+            border-bottom: 3px solid #ffd700;
+            box-shadow: 0 0 50px rgba(0,0,0,0.9), inset 0 0 30px rgba(0,0,0,0.8);
             overflow: hidden;
             position: relative;
-            backdrop-filter: blur(3px);
-            box-shadow: 0 0 50px rgba(0,0,0,0.8) inset;
+            display: flex; align-items: center;
         }
-
+        
+        /* Золотая линия по центру */
         .center-marker {
-            position: absolute;
-            left: 50%; top: 0; bottom: 0; width: 4px;
-            background: #ffd700;
+            position: absolute; left: 50%; top: 0; bottom: 0;
+            width: 4px; background: #ffd700;
+            z-index: 20; transform: translateX(-50%);
             box-shadow: 0 0 15px #ffd700;
-            z-index: 10;
+        }
+        /* Треугольник сверху маркера */
+        .marker-arrow {
+            position: absolute; top: -5px; left: 50%;
             transform: translateX(-50%);
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 15px solid #ffd700;
+            z-index: 21; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.8));
         }
 
         .track {
-            display: flex;
-            height: 100%;
-            align-items: center;
+            display: flex; height: 100%; align-items: center;
             will-change: transform;
+            padding-left: 50vw; /* Начинаем с центра */
         }
 
-        /* CARD STYLES */
+        /* Premium Card */
         .card {
-            width: 130px; height: 130px;
-            margin: 0 5px;
-            background: linear-gradient(135deg, #252525, #1a1a1a);
-            flex-shrink: 0;
+            width: 140px; height: 140px;
+            margin: 0 6px;
+            background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
+            border-radius: 8px;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            border-bottom: 4px solid #555;
-            border-radius: 4px;
-            position: relative;
+            position: relative; flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        .card img { width: 90px; height: 60px; object-fit: contain; margin-bottom: 5px; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5)); }
-        .card-name { font-size: 10px; color: #ddd; text-align: center; width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Нижняя полоса редкости */
+        .card::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 4px; border-radius: 0 0 8px 8px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+        }
         
-        .card.blue { border-bottom-color: var(--rarity-blue); }
-        .card.purple { border-bottom-color: var(--rarity-purple); }
-        .card.pink { border-bottom-color: var(--rarity-pink); }
-        .card.red { border-bottom-color: var(--rarity-red); }
-        .card.gold { border-bottom-color: var(--rarity-gold); }
+        .card img {
+            width: 100px; height: 70px; object-fit: contain;
+            margin-bottom: 15px; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.6));
+            transition: transform 0.2s;
+        }
+        .card-name {
+            font-size: 11px; color: #ccc; text-align: center;
+            width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-weight: 600;
+        }
 
-        /* --- ADMIN & MODALS (From previous code) --- */
+        .card.blue::after { background: var(--rarity-blue); box-shadow: 0 -5px 15px rgba(75, 105, 255, 0.4); }
+        .card.purple::after { background: var(--rarity-purple); box-shadow: 0 -5px 15px rgba(136, 71, 255, 0.4); }
+        .card.pink::after { background: var(--rarity-pink); box-shadow: 0 -5px 15px rgba(211, 44, 230, 0.4); }
+        .card.red::after { background: var(--rarity-red); box-shadow: 0 -5px 15px rgba(235, 75, 75, 0.4); }
+        .card.gold::after { background: var(--rarity-gold); box-shadow: 0 -5px 15px rgba(228, 174, 57, 0.4); }
+
+        /* --- ADMIN FAB & MODALS --- */
         .admin-wrapper {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
             z-index: 10000; display: flex; flex-direction: column-reverse; align-items: center; gap: 12px;
@@ -187,24 +204,30 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
         .modal-box { background: #1c1c1e; padding: 25px; border-radius: 16px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #333; position: relative; }
-        
-        /* Win Modal Specifics */
-        .win-img { width: 200px; height: 140px; object-fit: contain; margin: 15px 0; filter: drop-shadow(0 0 20px rgba(255,215,0,0.3)); }
-        .win-title { font-size: 28px; font-weight: 900; color: #ffd700; text-transform: uppercase; margin: 0; }
-        .win-desc { color: #aaa; margin-bottom: 20px; }
 
-        /* Password Modal */
+        /* Win Modal */
+        .win-img { width: 220px; height: 150px; object-fit: contain; margin: 15px 0; filter: drop-shadow(0 0 25px rgba(255,215,0,0.4)); animation: floatItem 3s infinite ease-in-out; }
+        @keyframes floatItem { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .win-title { font-size: 32px; font-weight: 900; color: #ffd700; text-transform: uppercase; margin: 0; text-shadow: 0 0 20px rgba(255,215,0,0.5); }
+        .win-desc { color: #888; font-size: 12px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Inputs & Buttons */
         .pass-input { width: 100%; padding: 12px; background: #2c2c2e; border: 1px solid #444; color: #fff; border-radius: 8px; text-align: center; margin: 15px 0; font-size: 18px; outline: none; box-sizing: border-box; }
         .modal-btn { padding: 12px; width: 100%; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .btn-gold { background: var(--orange-btn); color: #000; }
         .btn-grey { background: #333; color: #fff; margin-top: 10px; }
 
-        /* Admin Panel styles */
-        .admin-list { text-align: left; max-height: 300px; overflow-y: auto; }
-        .admin-row { padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .admin-input-group { margin-bottom: 10px; text-align: left; }
-        .admin-input-group label { font-size: 12px; color: #888; }
-        .admin-input-group input { width: 100%; background: #222; border: 1px solid #444; padding: 8px; color: #fff; border-radius: 4px; box-sizing: border-box;}
+        /* Admin Form Styles */
+        .admin-input-group { margin-bottom: 12px; text-align: left; }
+        .admin-input-group label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block; }
+        .admin-input-group input, .admin-input-group select {
+            width: 100%; background: #252525; border: 1px solid #444; padding: 10px; color: #fff; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none;
+        }
+        .admin-input-group select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 20px; }
+        .admin-input-group input:focus, .admin-input-group select:focus { border-color: #ffd700; }
+
+        .admin-row { padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+        .admin-list { max-height: 250px; overflow-y: auto; }
 
     </style>
 </head>
@@ -216,8 +239,8 @@
         <div class="input-wrapper">
             <input type="text" id="user-code" class="custom-input" placeholder="ВВЕДИ СЕКРЕТНЫЙ КОД" onkeypress="handleEnter(event)">
         </div>
-        <div style="margin-top: 20px; color: #888; font-size: 12px; text-align: center;">
-            Нажми Enter или "Готово" после ввода
+        <div style="margin-top: 15px; color: rgba(255,255,255,0.5); font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+            Нажми Enter или "Готово"
         </div>
     </div>
 
@@ -225,29 +248,29 @@
         <button class="main-btn" onclick="goToRoulette()">
             ОТКРЫТЬ КЕЙС
         </button>
-        <div style="margin-top: 15px; color: #aaa; font-size: 12px; cursor: pointer;" onclick="resetToInput()">
-            <i class="fa-solid fa-arrow-left"></i> Изменить код
+        <div style="margin-top: 20px; color: #aaa; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="resetToInput()">
+            <i class="fa-solid fa-arrow-rotate-left"></i> <span>Ввести другой код</span>
         </div>
     </div>
 
     <div id="screen-roulette" class="screen">
         <div class="roulette-container">
             <div class="roulette-window">
+                <div class="marker-arrow"></div>
                 <div class="center-marker"></div>
                 <div class="track" id="track"></div>
             </div>
-            <div style="text-align: center; margin-top: 20px; color: #fff; text-shadow: 0 2px 4px #000;">
-                <h2 style="margin: 0;">OPENING CASE...</h2>
-                <p id="status-text" style="color: #ccc; font-size: 12px;">Удачи, агент.</p>
+            <div style="text-align: center; margin-top: 25px; color: #fff; text-shadow: 0 2px 10px #000;">
+                <h2 style="margin: 0; font-size: 24px; letter-spacing: 2px;">OPENING CASE...</h2>
             </div>
         </div>
     </div>
 
     <div id="win-modal" class="modal">
-        <div class="modal-box">
+        <div class="modal-box" style="border: 2px solid #ffd700; background: radial-gradient(circle, #222 0%, #000 100%);">
             <div class="win-title">YOU WON!</div>
             <img id="win-image" src="" class="win-img">
-            <div id="win-name" style="font-size: 18px; font-weight: bold;"></div>
+            <div id="win-name" style="font-size: 20px; font-weight: bold; margin-bottom: 5px;"></div>
             <div id="win-rarity" class="win-desc"></div>
             <button class="modal-btn btn-gold" onclick="claimPrize()">ЗАБРАТЬ</button>
         </div>
@@ -267,23 +290,23 @@
     <div id="password-modal" class="modal">
         <div class="modal-box">
             <h3>Admin Access</h3>
-            <input type="password" id="admin-pass-input" class="pass-input" placeholder="Code" inputmode="numeric">
-            <button class="modal-btn btn-gold" onclick="checkPass()">ENTER</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('password-modal')">CANCEL</button>
+            <input type="password" id="admin-pass-input" class="pass-input" placeholder="Пароль" inputmode="numeric">
+            <button class="modal-btn btn-gold" onclick="checkPass()">ВОЙТИ</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('password-modal')">ОТМЕНА</button>
         </div>
     </div>
 
     <div id="admin-panel" class="modal">
         <div class="modal-box" style="max-width: 400px; text-align: left;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-                <h3 style="margin:0;">Settings</h3>
-                <i class="fa-solid fa-xmark" onclick="closeModal('admin-panel')" style="cursor:pointer; font-size:20px;"></i>
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items: center;">
+                <h3 style="margin:0; text-transform: uppercase;">Настройки</h3>
+                <i class="fa-solid fa-xmark" onclick="closeModal('admin-panel')" style="cursor:pointer; font-size:20px; color:#666;"></i>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-item-modal')">+ Скин</button>
-                <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-code-modal')">+ Код</button>
-                <button class="modal-btn btn-grey" style="margin:0; grid-column: span 2;" onclick="loadWinners()">История побед</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-item-modal')"><i class="fa-solid fa-plus"></i> Скин</button>
+                <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-code-modal')"><i class="fa-solid fa-ticket"></i> Код</button>
+                <button class="modal-btn btn-grey" style="margin:0; grid-column: span 2;" onclick="loadWinners()"><i class="fa-solid fa-trophy"></i> История побед</button>
             </div>
         </div>
     </div>
@@ -291,28 +314,58 @@
     <div id="add-item-modal" class="modal">
         <div class="modal-box">
             <h3>Добавить Скин</h3>
-            <div class="admin-input-group"><label>Название</label><input id="adm-name"></div>
-            <div class="admin-input-group"><label>URL Картинки</label><input id="adm-img"></div>
-            <div class="admin-input-group"><label>Редкость (blue, purple, pink, red, gold)</label><input id="adm-rarity"></div>
+            
+            <div class="admin-input-group">
+                <label>Название скина</label>
+                <input id="adm-name" placeholder="Например: AWP | Asiimov">
+            </div>
+            
+            <div class="admin-input-group">
+                <label>Ссылка на картинку (URL)</label>
+                <input id="adm-img" placeholder="https://...">
+            </div>
+            
+            <div class="admin-input-group">
+                <label>Редкость</label>
+                <select id="adm-rarity">
+                    <option value="blue">🔵 Армейское (Blue)</option>
+                    <option value="purple">🟣 Запрещенное (Purple)</option>
+                    <option value="pink">🌸 Засекреченное (Pink)</option>
+                    <option value="red">🔴 Тайное (Red)</option>
+                    <option value="gold">🟡 Особое (Gold)</option>
+                </select>
+            </div>
+
+            <div class="admin-input-group">
+                <label>Качество</label>
+                <select id="adm-quality">
+                    <option value="FN">Прямо с завода (FN)</option>
+                    <option value="MW">Немного поношенное (MW)</option>
+                    <option value="FT">После полевых (FT)</option>
+                    <option value="WW">Поношенное (WW)</option>
+                    <option value="BS">Закаленное в боях (BS)</option>
+                </select>
+            </div>
+
             <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal')">Отмена</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal')">Назад</button>
         </div>
     </div>
 
     <div id="add-code-modal" class="modal">
         <div class="modal-box">
             <h3>Создать Код</h3>
-            <div class="admin-input-group"><label>Код</label><input id="adm-code-val"></div>
-            <div class="admin-input-group"><label>Использований</label><input id="adm-code-max" type="number" value="1"></div>
+            <div class="admin-input-group"><label>Текст кода</label><input id="adm-code-val"></div>
+            <div class="admin-input-group"><label>Лимит использований</label><input id="adm-code-max" type="number" value="1"></div>
             <button class="modal-btn btn-gold" onclick="apiAddCode()">Создать</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-code-modal')">Отмена</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('add-code-modal')">Назад</button>
         </div>
     </div>
 
     <div id="winners-modal" class="modal">
         <div class="modal-box">
             <h3>Победители</h3>
-            <div id="winners-list" class="admin-list">Loading...</div>
+            <div id="winners-list" class="admin-list">Загрузка...</div>
             <button class="modal-btn btn-grey" onclick="closeModal('winners-modal')">Закрыть</button>
         </div>
     </div>
@@ -323,38 +376,36 @@
     tg.expand();
     const initData = tg.initData;
 
-    // --- STATE & VARIABLES ---
+    // --- ПЕРЕМЕННЫЕ ---
     let itemsCache = [];
     let savedCode = "";
-    const CARD_WIDTH = 140; // 130 width + 10 margin
+    const CARD_WIDTH = 152; // 140px card + 12px margin
     const TRACK = document.getElementById('track');
     const bgLayer = document.getElementById('bg-layer');
 
-    // --- INITIALIZATION ---
+    // --- ИНИЦИАЛИЗАЦИЯ ---
     async function init() {
-        // Preload Street Image
+        // Предзагрузка фона улицы
         const img = new Image();
         img.src = "https://i.postimg.cc/SxKH6ZdC/3.png";
 
-        // Check Admin
+        // Проверка админа
         try {
             const me = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}}).then(r => r.json());
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
         } catch(e) {}
 
-        // Load Items for Roulette Visuals
+        // Загрузка скинов
         loadItems();
     }
 
-    // --- NAVIGATION LOGIC ---
+    // --- НАВИГАЦИЯ ---
     function handleEnter(e) {
         if(e.key === 'Enter') {
             const val = document.getElementById('user-code').value;
             if(val.length > 0) {
                 savedCode = val;
-                // Hide keyboard
-                document.getElementById('user-code').blur();
-                // Transition to Screen 2
+                document.getElementById('user-code').blur(); // Убрать клавиатуру
                 document.getElementById('screen-input').classList.remove('active');
                 document.getElementById('screen-action').classList.add('active');
             }
@@ -369,21 +420,16 @@
     }
 
     function goToRoulette() {
-        // 1. Change Background
         bgLayer.classList.remove('bg-agent');
         bgLayer.classList.add('bg-street');
-
-        // 2. Change UI
         document.getElementById('screen-action').classList.remove('active');
         document.getElementById('screen-roulette').classList.add('active');
-
-        // 3. Start Spin Logic
         startSpinAPI();
     }
 
     function claimPrize() {
         closeModal('win-modal');
-        // Reset everything to start
+        // Возврат на старт
         bgLayer.classList.remove('bg-street');
         bgLayer.classList.add('bg-agent');
         document.getElementById('screen-roulette').classList.remove('active');
@@ -391,13 +437,14 @@
         document.getElementById('user-code').value = '';
         savedCode = "";
         
-        // Reset Track
+        // Сброс ленты
         TRACK.style.transition = 'none';
         TRACK.style.transform = 'translateX(0)';
+        // Обновляем ленту новыми рандомными предметами
         generateStrip(itemsCache, null);
     }
 
-    // --- GAME LOGIC ---
+    // --- ЛОГИКА ИГРЫ ---
     async function loadItems() {
         try {
             const res = await fetch('/api/cs/items');
@@ -408,8 +455,8 @@
 
     function generateStrip(items, winnerItem) {
         TRACK.innerHTML = '';
-        const cardsCount = 70; 
-        const winnerIndex = 50; 
+        const cardsCount = 80; 
+        const winnerIndex = 60; // Выигрышная позиция дальше для долгого спина
 
         let html = '';
         for (let i = 0; i < cardsCount; i++) {
@@ -417,9 +464,9 @@
             if (i === winnerIndex && winnerItem) {
                 item = winnerItem;
             } else {
-                item = items.length ? items[Math.floor(Math.random() * items.length)] : {name:"Loading", rarity:"blue"};
+                item = items.length ? items[Math.floor(Math.random() * items.length)] : null;
             }
-            if(!item) item = {name: "Unknown", image_url: "https://placehold.co/100", rarity: "blue"};
+            if(!item) item = {name: "Загрузка...", image_url: "https://placehold.co/100", rarity: "blue"};
 
             html += `
                 <div class="card ${item.rarity}">
@@ -442,28 +489,37 @@
 
             if (!res.ok) {
                 alert(data.detail || "Неверный код или ошибка");
-                claimPrize(); // Return to start
+                claimPrize(); 
                 return;
             }
 
             const winner = data.winner;
             generateStrip(itemsCache, winner);
 
-            // SPIN ANIMATION
+            // АНИМАЦИЯ СПИНА
             setTimeout(() => {
-                const offset = (50 * CARD_WIDTH) - (window.innerWidth / 2) + (CARD_WIDTH / 2);
-                const randomOffset = Math.floor(Math.random() * 40) - 20;
+                // Вычисляем центр: 60 карточек * ширину - половина экрана
+                // + добавляем случайный сдвиг внутри карточки (jitter) для реализма
+                const cardCenter = CARD_WIDTH / 2;
+                const screenCenter = window.innerWidth / 2;
+                const baseOffset = (60 * CARD_WIDTH) + cardCenter - screenCenter; 
                 
-                TRACK.style.transition = 'transform 6s cubic-bezier(0.15, 0, 0.10, 1)'; 
-                TRACK.style.transform = `translateX(-${offset + randomOffset}px)`;
+                // Рандомный сдвиг +/- 40px внутри карточки
+                const randomOffset = Math.floor(Math.random() * 80) - 40; 
+                const finalPosition = baseOffset + randomOffset;
                 
+                // Используем cubic-bezier для эффекта "разгон -> долгое торможение"
+                TRACK.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.05, 1)'; 
+                TRACK.style.transform = `translateX(-${finalPosition}px)`;
+                
+                // Показываем окно победы через 8.5 сек
                 setTimeout(() => {
                     showWinModal(winner);
-                }, 6500); 
+                }, 8500); 
             }, 100);
 
         } catch (e) {
-            alert("Network Error");
+            alert("Ошибка сети");
             claimPrize();
         }
     }
@@ -471,14 +527,26 @@
     function showWinModal(item) {
         document.getElementById('win-image').src = item.image_url;
         document.getElementById('win-name').innerText = item.name;
-        document.getElementById('win-rarity').innerText = item.rarity;
+        
+        // Перевод редкости для отображения
+        const ruRarity = {
+            'blue': 'Армейское качество',
+            'purple': 'Запрещенное',
+            'pink': 'Засекреченное',
+            'red': 'Тайное',
+            'gold': 'Особое'
+        };
+        
+        const rarityText = ruRarity[item.rarity] || item.rarity;
+        document.getElementById('win-rarity').innerText = rarityText;
         document.getElementById('win-rarity').style.color = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity}`);
+        
         document.getElementById('win-modal').classList.add('active');
         tg.HapticFeedback.notificationOccurred('success');
     }
 
 
-    // --- ADMIN UTILS ---
+    // --- АДМИН УТИЛИТЫ ---
     function toggleAdminMenu() {
         document.getElementById('admin-menu-items').classList.toggle('show');
         const icon = document.querySelector('.admin-fab-btn.toggle i');
@@ -489,6 +557,7 @@
     function openPassModal() { 
         toggleAdminMenu();
         document.getElementById('password-modal').classList.add('active');
+        document.getElementById('admin-pass-input').value = '';
     }
 
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -506,17 +575,27 @@
         }
     }
 
-    // --- ADMIN API CALLS (Simplified for brevity, same logic as before) ---
+    // --- API АДМИНКИ ---
     async function apiAddItem() {
         const payload = {
             initData,
             name: document.getElementById('adm-name').value,
             image_url: document.getElementById('adm-img').value,
-            rarity: document.getElementById('adm-rarity').value,
-            chance_weight: 10, quantity: 1 // Defaults
+            // Берем значения из Select
+            rarity: document.getElementById('adm-rarity').value, 
+            condition: document.getElementById('adm-quality').value,
+            chance_weight: 10, 
+            quantity: 1
         };
-        await fetch('/api/admin/cs/item/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-        alert("Saved"); closeModal('add-item-modal'); loadItems();
+        
+        if(!payload.name) return alert("Введите название");
+
+        try {
+            await fetch('/api/admin/cs/item/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
+            alert("Скин добавлен!"); 
+            closeModal('add-item-modal'); 
+            loadItems();
+        } catch(e) { alert("Ошибка"); }
     }
 
     async function apiAddCode() {
@@ -526,7 +605,8 @@
             max_uses: parseInt(document.getElementById('adm-code-max').value)
         };
         await fetch('/api/admin/cs/code/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-        alert("Created"); closeModal('add-code-modal');
+        alert("Код создан!"); 
+        closeModal('add-code-modal');
     }
 
     async function loadWinners() {
@@ -536,14 +616,16 @@
         let html = '';
         list.forEach(w => {
             html += `<div class="admin-row">
-                <div style="font-size:12px;"><b>${w.user?.full_name}</b><br>${w.item?.name}</div>
-                <div style="font-size:10px; color:#666;">${w.code_used}</div>
+                <div style="font-size:12px;">
+                    <b style="color:#fff">${w.user?.full_name}</b><br>
+                    <span style="color:gold">${w.item?.name}</span>
+                </div>
+                <div style="font-size:10px; color:#666;">Код: ${w.code_used}</div>
             </div>`;
         });
-        document.getElementById('winners-list').innerHTML = html || "Пусто";
+        document.getElementById('winners-list').innerHTML = html || "<div style='padding:20px; color:#666; text-align:center'>Список пуст</div>";
     }
 
-    // START
     init();
 
 </script>
