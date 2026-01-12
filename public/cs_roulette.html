@@ -590,45 +590,41 @@
 
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             
-            // ВЫЗЫВАЕМ ПРОВЕРКУ БУСТОВ С СЕРВЕРА
             await checkBoostsServer();
 
         } catch(e) {}
 
-        loadItems();
+        await loadItems();
+
+        // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
+        const draftCode = localStorage.getItem('cs_draft_code');
+        if (draftCode) {
+            // Если код был сохранен, сразу переходим к этапу открытия
+            savedCode = draftCode;
+            document.getElementById('screen-input').classList.remove('active');
+            document.getElementById('screen-action').classList.add('active');
+        }
     }
 
-    // --- ЛОГИКА БУСТОВ (СЕРВЕРНАЯ) ---
+    // --- ЛОГИКА БУСТОВ ---
     async function checkBoostsServer() {
         try {
             const res = await fetch('/api/cs/boost_status', { 
-                method: 'POST', 
-                body: JSON.stringify({initData}), 
-                headers: {'Content-Type': 'application/json'}
+                method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
             });
             const data = await res.json();
             boostStatus = data;
-            
             updateBoostUI();
         } catch (e) { console.error("Boost check failed", e); }
     }
 
     function updateBoostUI() {
-        // 1. Twitch
         const twitchEl = document.getElementById('boost-twitch');
-        if (boostStatus.twitch) {
-            twitchEl.classList.add('active');
-            twitchEl.onclick = null;
-        }
+        if (boostStatus.twitch) { twitchEl.classList.add('active'); twitchEl.onclick = null; }
 
-        // 2. Hashtag
         const hashEl = document.getElementById('boost-hash');
-        if (boostStatus.hashtag) {
-            hashEl.classList.add('active');
-            hashEl.onclick = null;
-        }
+        if (boostStatus.hashtag) { hashEl.classList.add('active'); hashEl.onclick = null; }
 
-        // 3. Telegram
         const tgEl = document.getElementById('boost-tg');
         if (boostStatus.tg) {
             tgEl.classList.add('active');
@@ -647,7 +643,7 @@
     function openTwitch() { window.location.href = 'profile.html'; }
     function goToProfile() { window.location.href = 'profile.html'; }
 
-    // --- PROMO CODE VALIDATION ---
+    // --- ВВОД КОДА ---
     function openCodeEntry() {
         document.getElementById('entry-modal').classList.add('active');
         setTimeout(() => { document.getElementById('real-user-code').focus(); }, 100);
@@ -668,8 +664,7 @@
         debounceTimer = setTimeout(async () => {
             try {
                 const res = await fetch('/api/cs/check_code', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData, code })
                 });
                 const data = await res.json();
@@ -683,7 +678,7 @@
                     inputEl.classList.add('invalid-code');
                     errEl.innerText = data.message || "Неверный код";
                 }
-            } catch(e) { console.error(e); }
+            } catch(e) {}
         }, 500);
     }
 
@@ -694,7 +689,6 @@
                 const input = document.getElementById('real-user-code');
                 input.value = text;
                 debouncedCheckCode(); 
-                
                 const icon = document.querySelector('.paste-btn-inside i');
                 icon.className = 'fa-solid fa-check';
                 setTimeout(() => { icon.className = 'fa-regular fa-clipboard'; }, 1000);
@@ -707,12 +701,14 @@
         const val = inputEl.value.trim();
         
         if(inputEl.classList.contains('invalid-code')) {
-             tg.HapticFeedback.notificationOccurred('error');
-             return;
+             tg.HapticFeedback.notificationOccurred('error'); return;
         }
 
         if(val.length > 0) {
             savedCode = val;
+            // СОХРАНЯЕМ В ПАМЯТЬ ТЕЛЕФОНА
+            localStorage.setItem('cs_draft_code', val);
+            
             inputEl.value = ''; inputEl.blur(); inputEl.classList.remove('valid-code', 'invalid-code');
             document.getElementById('code-error').innerText = '';
             
@@ -727,21 +723,22 @@
     function handleEnter(e) { if(e.key === 'Enter') confirmCode(); }
     
     function resetToInput() {
+        // ОЧИЩАЕМ ПАМЯТЬ ПРИ ОТМЕНЕ
+        localStorage.removeItem('cs_draft_code');
+        savedCode = "";
+        
         document.getElementById('screen-action').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
-        savedCode = "";
     }
 
     function goToRoulette() {
-        // --- НОВАЯ ПРОВЕРКА ТРЕЙД ССЫЛКИ ---
-        // Проверяем локально (быстро)
+        // ПРОВЕРКА ТРЕЙД ССЫЛКИ
         if (!currentUser || !currentUser.trade_link) {
             document.getElementById('tradelink-modal').classList.add('active');
             tg.HapticFeedback.notificationOccurred('warning');
-            return; // СТОП! Дальше не идем
+            return; 
         }
         
-        // Если ссылка есть - продолжаем
         bgLayer.classList.remove('bg-agent');
         bgLayer.classList.add('bg-street');
         document.getElementById('screen-action').classList.remove('active');
@@ -755,12 +752,16 @@
     }
 
     function finishFlow() {
+        // ОЧИЩАЕМ ПАМЯТЬ ПРИ УСПЕХЕ
+        localStorage.removeItem('cs_draft_code');
+        savedCode = "";
+
         closeModal('final-modal');
         bgLayer.classList.remove('bg-street');
         bgLayer.classList.add('bg-agent');
         document.getElementById('screen-roulette').classList.remove('active');
         document.getElementById('screen-input').classList.add('active');
-        savedCode = "";
+        
         TRACK.style.transition = 'none';
         TRACK.style.transform = 'translateX(0)';
         generateStrip(itemsCache, null);
@@ -809,11 +810,9 @@
             const data = await res.json();
 
             if (!res.ok) {
-                // Если вдруг на сервере что-то пошло не так (например, ссылка удалена в процессе)
-                // Сервер вернет 400. Мы можем проверить текст ошибки.
+                // Если ошибка Трейд Ссылки (на всякий случай, если на сервере проверка прошла раньше)
                 if (data.detail && data.detail.includes("Trade Link")) {
                      document.getElementById('tradelink-modal').classList.add('active');
-                     // Возвращаемся визуально назад
                      bgLayer.classList.remove('bg-street');
                      bgLayer.classList.add('bg-agent');
                      document.getElementById('screen-roulette').classList.remove('active');
@@ -822,7 +821,13 @@
                 }
                 
                 notify(data.detail || "Ошибка");
-                finishFlow(); return;
+                // Если ошибка кода (он истек, пока мы ходили в профиль) - сбрасываем
+                if(data.detail && (data.detail.includes("код") || data.detail.includes("Code"))) {
+                    resetToInput();
+                } else {
+                    finishFlow(); 
+                }
+                return;
             }
 
             const winner = data.winner;
@@ -962,7 +967,7 @@
             let html = '';
             list.forEach(w => {
                 const tl = w.user?.trade_link;
-                const linkBtn = tl ? `<button class="copy-link-btn" onclick="copyLink('${tl}')\"><i class="fa-solid fa-link"></i></button>` : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
+                const linkBtn = tl ? `<button class="copy-link-btn" onclick="copyLink('${tl}')\"><i class=\"fa-solid fa-link\"></i></button>` : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
                 html += `<div class="admin-row"><div style="font-size:12px;"><b style="color:#fff">${w.user?.full_name || 'User'}</b> ${linkBtn}<br><span style="color:gold">${w.item?.name || 'Item'}</span></div><div style="font-size:10px; color:#666;">Код: ${w.code_used}</div></div>`;
             });
             document.getElementById('winners-list').innerHTML = html;
