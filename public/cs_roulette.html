@@ -258,31 +258,41 @@
             margin: 15px 0;
         }
         .pass-input { 
-            width: 100%; padding: 12px 45px 12px 12px; /* Место справа для кнопки */
-            background: #2c2c2e; border: 1px solid #444; 
-            color: #fff; border-radius: 8px; 
-            text-align: center; 
-            font-size: 18px; outline: none; 
-            box-sizing: border-box; 
-        }
+    width: 100%; 
+    height: 34px; /* Фиксированная маленькая высота */
+    padding: 0 35px 0 10px; /* Отступы: справа место под кнопку */
+    background: #2c2c2e; 
+    border: 1px solid #444; 
+    color: #fff; 
+    border-radius: 8px; 
+    text-align: center; 
+    font-size: 11px; /* Маленький шрифт */
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    outline: none; 
+    box-sizing: border-box; 
+}
         
         /* Маленькая кнопка вставки внутри */
         .paste-btn-inside {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(255, 215, 0, 0.1);
-            color: #ffd700;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            width: 32px; height: 32px;
-            border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-            font-size: 14px;
-            transition: 0.2s;
-            z-index: 10;
-        }
+    position: absolute;
+    right: 4px; /* Ближе к краю */
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 215, 0, 0.1);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    width: 24px;  /* Маленький квадрат */
+    height: 24px; /* Маленький квадрат */
+    border-radius: 6px;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    cursor: pointer;
+    font-size: 11px; /* Маленькая иконка */
+    transition: 0.2s;
+    z-index: 10;
+}
         .paste-btn-inside:active {
             background: rgba(255, 215, 0, 0.3);
             transform: translateY(-50%) scale(0.9);
@@ -393,12 +403,12 @@
         <div class="modal-box">
             <h3 style="margin: 0 0 5px 0; color: #fff;">ВВЕДИТЕ КОД</h3>
             
-            <div class="input-inner-wrapper">
-                <input type="text" id="real-user-code" class="pass-input" placeholder="Код здесь..." onkeypress="handleEnter(event)">
-                <div class="paste-btn-inside" onclick="pasteFromClipboard()">
-                    <i class="fa-regular fa-clipboard"></i>
-                </div>
-            </div>
+            <div class="input-inner-wrapper" style="max-width: 220px; margin: 10px auto;">
+    <input type="text" id="real-user-code" class="pass-input" placeholder="ВВЕДИТЕ КОД" onkeypress="handleEnter(event)">
+    <div class="paste-btn-inside" onclick="pasteFromClipboard()">
+        <i class="fa-regular fa-clipboard"></i>
+    </div>
+</div>
 
             <button class="modal-btn btn-gold" onclick="confirmCode()">ГОТОВО</button>
             <button class="modal-btn btn-grey" onclick="closeModal('entry-modal')">ОТМЕНА</button>
@@ -422,7 +432,7 @@
                 <div class="track" id="track"></div>
             </div>
             <div style="text-align: center; margin-top: 25px; color: #fff; text-shadow: 0 2px 10px #000;">
-                <h2 style="margin: 0; font-size: 24px; letter-spacing: 2px;">OPENING CASE...</h2>
+                <h2 style="margin: 0; font-size: 24px; letter-spacing: 2px;">ОТКРЫВАЕМ...</h2>
             </div>
         </div>
     </div>
