@@ -1,5 +1,6 @@
 const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
+        giftContainer: document.getElementById('gift-container'),
         loadingText: document.getElementById('loading-text'),
         loadingBarFill: document.getElementById('loading-bar-fill'),
         mainContent: document.getElementById('main-content'),
@@ -83,7 +84,7 @@ const dom = {
 // --- ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА ---
     async function checkMaintenance() {
         try {
-            // Стучимся на сервер, передавая данные телеграма (чтобы админа НЕ выкинуло)
+            // Запрашиваем настройки с сервера
             const res = await fetch('/api/v1/bootstrap', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -93,16 +94,30 @@ const dom = {
             if (res.ok) {
                 const data = await res.json();
                 
-                // Если сервер ответил, что сейчас тех. работы (maintenance: true)
+                // 1. Сначала проверяем техработы (как и было)
                 if (data.maintenance) {
-                    // Мгновенно перекидываем пользователя на главную (index.html)
                     window.location.href = '/'; 
+                    return;
+                }
+
+                // 👇 2. А ВОТ ТУТ МЫ УПРАВЛЯЕМ ПОДАРКОМ
+                // Мы используем те данные, которые уже пришли в этом запросе
+                if (dom.giftContainer && data.menu) {
+                    
+                    // Если в базе включено (true) -> убираем скрытие
+                    if (data.menu.bonus_gift_enabled) {
+                        dom.giftContainer.classList.remove('hidden');
+                    } 
+                    // Если в базе выключено (false) -> добавляем скрытие
+                    else {
+                        dom.giftContainer.classList.add('hidden');
+                    }
                 }
             }
         } catch (e) {
-            console.error("Ошибка проверки статуса:", e);
+            console.error("Ошибка загрузки настроек:", e);
         }
-    }
+    }}
 
     // Запускаем проверку при загрузке страницы
     checkMaintenance();
