@@ -52,21 +52,21 @@
             flex-grow: 1; 
         }
         .back-button { 
-    /* --- Добавляем эти 3 строчки для выравнивания в ряд: --- */
-    display: flex;
-    align-items: center;
-    gap: 6px; /* Расстояние между стрелкой и текстом */
-    
-    /* --- Остальные стили оставляем как были (с уменьшенным шрифтом): --- */
-    background: none; 
-    border: none; 
-    color: var(--action-color); 
-    font-size: 12px; 
-    cursor: pointer; 
-    padding: 5px 0; /* Чуть убрал боковые отступы, чтобы было ближе к краю */
-    font-weight: 500; 
-    text-decoration: none; 
-}
+            /* Новые свойства для выравнивания */
+            display: flex;
+            align-items: center;
+            gap: 6px; 
+
+            /* Остальные стили */
+            background: none; 
+            border: none; 
+            color: var(--action-color); 
+            font-size: 16px; 
+            cursor: pointer; 
+            padding: 5px 0; /* Убрал отступ слева, чтобы было ровно у края */
+            font-weight: 500; 
+            text-decoration: none; 
+        }
 
         /* --- Карточки настроек --- */
         .settings-card {
