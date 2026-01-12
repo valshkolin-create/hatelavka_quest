@@ -57,7 +57,7 @@
         }
         .screen.active { opacity: 1; pointer-events: auto; }
 
-        /* ВОЗВРАЩАЕМ ИДЕАЛЬНУЮ ПОЗИЦИЮ ВВОДА */
+        /* --- 1. ВЕРНУЛИ ИДЕАЛЬНУЮ ПОЗИЦИЮ (Центр экрана на мобилках) --- */
         #screen-input {
             justify-content: flex-end;
             align-items: center;
@@ -68,7 +68,7 @@
         @media (max-width: 768px) {
             #screen-input {
                 justify-content: flex-start !important; 
-                padding-top: 50vh; /* ТА САМАЯ ПОЗИЦИЯ */
+                padding-top: 50vh; /* Идеальная позиция */
                 padding-bottom: 0 !important;
             }
         }
@@ -113,66 +113,94 @@
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
         }
 
-        /* --- NEW MINIMAL BOOST SECTION --- */
-        .boost-minimal-wrapper {
-            margin-top: 40px; /* Отступ от кнопки ввода вниз */
+        /* --- НОВЫЙ БЛОК БУСТОВ (По ТЗ) --- */
+        .boost-container {
             width: 100%;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .boost-title-main {
+            font-size: 10px;
+            font-weight: 800;
+            color: #ffd700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+            opacity: 0.9;
+        }
+
+        .boost-minimal-wrapper {
             display: flex;
             justify-content: center;
-            gap: 25px; /* Расстояние между иконками */
+            gap: 15px; /* Расстояние между иконками */
         }
         
         .boost-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             cursor: pointer;
-            opacity: 0.7;
-            transition: 0.3s;
-            text-align: center;
-            width: 80px;
+            width: 85px;
+            position: relative;
         }
-        .boost-item:active { opacity: 1; transform: scale(0.95); }
-        .boost-item.active { opacity: 1; }
-
+        
+        /* Иконки */
         .boost-icon {
-            font-size: 24px;
-            margin-bottom: 8px;
-            color: #fff;
-            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+            font-size: 26px;
+            margin-bottom: 10px;
+            color: rgba(255,255,255,0.3); /* Неактивный цвет */
             transition: 0.3s;
+            filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
         }
-        .boost-item.active .boost-icon { color: #ffd700; text-shadow: 0 0 15px rgba(255, 215, 0, 0.6); }
 
+        /* Текст названия */
         .boost-label {
             font-size: 9px;
             font-weight: 700;
-            color: #ccc;
+            color: #888;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            line-height: 1.2;
+            line-height: 1.3;
+            transition: 0.3s;
         }
         
+        /* Проценты */
         .boost-percent {
             font-size: 9px;
             font-weight: 800;
-            color: #55ff55; /* Зеленый цвет процентов */
-            margin-top: 2px;
+            color: #444; /* Скрыто/темно пока не активно */
+            margin-top: 3px;
+            transition: 0.3s;
         }
-        
-        .boost-check-mark {
-            display: none;
-            font-size: 8px;
-            color: #000;
-            background: #ffd700;
-            border-radius: 50%;
-            width: 12px; height: 12px;
-            align-items: center; justify-content: center;
+
+        /* АКТИВНОЕ СОСТОЯНИЕ (Золотое/Зеленое) */
+        .boost-item.active .boost-icon {
+            color: #ffd700;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
+            transform: scale(1.1);
+        }
+        .boost-item.active .boost-label {
+            color: #fff;
+        }
+        .boost-item.active .boost-percent {
+            color: #55ff55; /* Ярко-зеленый для процентов */
+            text-shadow: 0 0 5px rgba(85, 255, 85, 0.3);
+        }
+
+        /* Галочка (по желанию, можно убрать для чистого минимализма, но оставлю маленькую) */
+        .boost-check-mini {
             position: absolute;
-            top: -2px; right: 15px;
+            top: -2px; right: 20px;
+            background: #ffd700; color: #000;
+            width: 12px; height: 12px; border-radius: 50%;
+            font-size: 8px; display: none;
+            align-items: center; justify-content: center;
         }
-        .boost-item.active .boost-check-mark { display: flex; }
+        .boost-item.active .boost-check-mini { display: flex; }
+
 
         /* --- BUTTON STYLES --- */
         .main-btn {
@@ -356,29 +384,33 @@
             Нажми, чтобы ввести код
         </div>
 
-        <div class="boost-minimal-wrapper">
+        <div class="boost-container">
+            <div class="boost-title-main">УВЕЛИЧЬ СЕБЕ ШАНСЫ НА ДРОП</div>
             
-            <div id="boost-twitch" class="boost-item" onclick="openTwitch()">
-                <div class="boost-check-mark"><i class="fa-solid fa-check"></i></div>
-                <div class="boost-icon"><i class="fa-brands fa-twitch"></i></div>
-                <div class="boost-label">TWITCH<br>ПОДПИСКА</div>
-                <div class="boost-percent">+15%</div>
-            </div>
+            <div class="boost-minimal-wrapper">
+                
+                <div id="boost-twitch" class="boost-item" onclick="openTwitch()">
+                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+                    <div class="boost-icon"><i class="fa-brands fa-twitch"></i></div>
+                    <div class="boost-label">Twitch<br>Подписка</div>
+                    <div class="boost-percent" id="val-twitch">+15%</div>
+                </div>
 
-            <div id="boost-tg" class="boost-item" onclick="openTg()">
-                <div class="boost-check-mark"><i class="fa-solid fa-check"></i></div>
-                <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
-                <div class="boost-label">ТГ<br>КАНАЛ</div>
-                <div class="boost-percent">+15%</div>
-            </div>
+                <div id="boost-tg" class="boost-item" onclick="openTg()">
+                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+                    <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
+                    <div class="boost-label">TG<br>Канал</div>
+                    <div class="boost-percent" id="val-tg">+15%</div>
+                </div>
 
-            <div id="boost-hash" class="boost-item" onclick="checkHashtag()">
-                <div class="boost-check-mark"><i class="fa-solid fa-check"></i></div>
-                <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
-                <div class="boost-label">HATELAVKA<br>BOT</div>
-                <div class="boost-percent">+15%</div>
-            </div>
+                <div id="boost-hash" class="boost-item" onclick="checkHashtag()">
+                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+                    <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
+                    <div class="boost-label">HATELAVKA<br>BOT</div>
+                    <div class="boost-percent" id="val-hash">+15%</div>
+                </div>
 
+            </div>
         </div>
         </div>
 
@@ -552,25 +584,24 @@
         loadItems();
     }
 
-    // --- ЛОГИКА ЗАДАНИЙ (МИНИМАЛИЗМ) ---
+    // --- ЛОГИКА ЗАДАНИЙ (МИНИМАЛИЗМ + ДАННЫЕ ИЗ БАЗЫ) ---
     function updateTaskStatus() {
         if (!currentUser) return;
 
-        // 1. Twitch
+        // 1. Twitch (Проверка по login)
         if (currentUser.twitch_login) {
             document.getElementById('boost-twitch').classList.add('active');
-            // Убираем onclick, чтобы не кликалось
             document.getElementById('boost-twitch').onclick = null;
         }
 
-        // 2. Hashtag
+        // 2. Hashtag (Проверка имени)
         if (currentUser.full_name && currentUser.full_name.includes('@hatelavka_bot')) {
             document.getElementById('boost-hash').classList.add('active');
             document.getElementById('boost-hash').onclick = null;
         }
         
-        // 3. Telegram: Считаем активным для визуала после клика (сервер проверит реально)
-        // Но сейчас оставим просто кликабельным
+        // 3. Telegram: Оставляем кликабельным (Call to Action)
+        // Реальная проверка происходит на сервере при спинe
     }
 
     function openTwitch() {
@@ -578,7 +609,6 @@
     }
 
     function openTg() {
-        // Укажи здесь ссылку на твой канал
         tg.openTelegramLink('https://t.me/HATElavka'); 
     }
     
@@ -678,7 +708,6 @@
     }
 
     function goToRoulette() {
-        // Убрали анимацию (мгновенно)
         bgLayer.classList.remove('bg-agent');
         bgLayer.classList.add('bg-street');
         document.getElementById('screen-action').classList.remove('active');
@@ -709,6 +738,19 @@
         try {
             const res = await fetch('/api/cs/items');
             itemsCache = await res.json();
+            
+            // --- ТЯНЕМ ПРОЦЕНТЫ ИЗ БАЗЫ (SUPABASE) ---
+            // Ищем любой предмет, у которого есть boost_percent > 0 (обычно редкие)
+            const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
+            if (boostItem) {
+                // Если в базе 0.15 -> будет +15%
+                const percentText = `+${Math.round(boostItem.boost_percent * 100)}%`;
+                document.getElementById('val-twitch').innerText = percentText;
+                document.getElementById('val-tg').innerText = percentText;
+                document.getElementById('val-hash').innerText = percentText;
+            }
+            // ------------------------------------------
+
             generateStrip(itemsCache, null);
         } catch(e) { console.error(e); }
     }
