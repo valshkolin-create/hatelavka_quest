@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CS:GO Case Roulette</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- CS:GO STYLE CSS --- */
+        :root {
+            --bg-dark: #1b1b1b;
+            --bg-panel: #2d2d2d;
+            --rarity-blue: #4b69ff;
+            --rarity-purple: #8847ff;
+            --rarity-pink: #d32ce6;
+            --rarity-red: #eb4b4b;
+            --rarity-gold: #e4ae39;
+            --text-main: #e1e1e1;
+            --accent: #ffd700;
+            --gold-gradient: linear-gradient(135deg, #FFD700 0%, #E6AC00 100%);
+            --border: rgba(255, 215, 0, 0.15);
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* --- ROULETTE CONTAINER --- */
+        .roulette-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 200px;
+            background: #121212;
+            margin-top: 50px;
+            border-top: 2px solid #333;
+            border-bottom: 2px solid #333;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8) inset;
+        }
+        
+        .center-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #ffd700;
+            z-index: 10;
+            transform: translateX(-50%);
+            box-shadow: 0 0 10px #ffd700;
+        }
+
+        .roulette-track {
+            display: flex;
+            height: 100%;
+            align-items: center;
+            will-change: transform;
+        }
+
+        /* --- CARD STYLE --- */
+        .card {
+            width: 140px;
+            height: 140px;
+            margin: 0 5px;
+            background: #252525;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 4px solid transparent;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .card img {
+            width: 100px;
+            height: 70px;
+            object-fit: contain;
+            margin-bottom: 10px;
+        }
+        .card-name {
+            font-size: 10px;
+            text-align: center;
+            padding: 0 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+        /* RARITY COLORS */
+        .card.blue { border-bottom-color: var(--rarity-blue); box-shadow: 0 10px 20px -10px rgba(75, 105, 255, 0.3); }
+        .card.purple { border-bottom-color: var(--rarity-purple); box-shadow: 0 10px 20px -10px rgba(136, 71, 255, 0.3); }
+        .card.pink { border-bottom-color: var(--rarity-pink); box-shadow: 0 10px 20px -10px rgba(211, 44, 230, 0.3); }
+        .card.red { border-bottom-color: var(--rarity-red); box-shadow: 0 10px 20px -10px rgba(235, 75, 75, 0.3); }
+        .card.gold { border-bottom-color: var(--rarity-gold); box-shadow: 0 10px 20px -10px rgba(228, 174, 57, 0.3); }
+
+        /* --- CONTROLS --- */
+        .controls {
+            margin-top: 30px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        input.code-input {
+            width: 100%;
+            padding: 15px;
+            background: #222;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input.code-input:focus { border-color: var(--accent); }
+
+        .btn-spin {
+            background: linear-gradient(45deg, #ffb700, #ff8c00);
+            border: none;
+            padding: 15px 40px;
+            color: #000;
+            font-weight: bold;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            box-shadow: 0 5px 15px rgba(255, 140, 0, 0.4);
+            transition: transform 0.1s;
+        }
+        .btn-spin:active { transform: scale(0.98); }
+        .btn-spin:disabled { background: #444; color: #888; cursor: not-allowed; box-shadow: none; }
+
+        /* --- MODAL GLOBAL --- */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--bg-panel);
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #444;
+        }
+
+        /* --- NEW ADMIN BUTTON & PASSWORD STYLES (FROM SLAY.HTML) --- */
+        .admin-wrapper {
+            position: fixed;
+            bottom: 30px; /* Отступ снизу */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .admin-fab-btn {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(28, 28, 30, 0.4); 
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            flex-shrink: 0; 
+        }
+
+        .admin-fab-btn:active { transform: scale(0.9); background: rgba(255, 204, 0, 0.2); color: #ffcc00; }
+        .admin-fab-btn.toggle.active { transform: rotate(180deg); background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+        .admin-menu-items {
+            display: flex; flex-direction: column; gap: 8px;
+            opacity: 0; transform: translateY(10px); pointer-events: none;
+            transition: all 0.3s ease; align-items: center;
+        }
+        .admin-menu-items.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+        .admin-action-btn {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(255, 215, 0, 0.15); color: var(--accent);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; cursor: pointer; backdrop-filter: blur(5px);
+            transition: transform 0.2s;
+        }
+        .admin-action-btn:hover { transform: scale(1.1); }
+
+        /* --- PASSWORD MODAL STYLES --- */
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px);
+            z-index: 10001; display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .custom-modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .pass-modal {
+            background: #1c1c1e; border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 80%; max-width: 300px; padding: 20px; border-radius: 16px;
+            text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform: scale(0.9); transition: transform 0.2s;
+        }
+        .custom-modal-overlay.active .pass-modal { transform: scale(1); }
+
+        .pass-input {
+            width: 100%; background: #2c2c2e; border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px; border-radius: 8px; color: #fff; margin: 15px 0;
+            text-align: center; font-size: 16px; outline: none; box-sizing: border-box; 
+        }
+        .pass-input:focus { border-color: var(--accent); }
+
+        .modal-buttons { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn {
+            flex: 1; padding: 10px; border-radius: 8px; border: none;
+            font-weight: 600; cursor: pointer; font-size: 14px;
+        }
+        .btn-cancel { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .btn-confirm { background: var(--gold-gradient); color: #000; }
+
+        /* --- INTERNAL ADMIN STYLES --- */
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .shortcut {
+            background: #3a3a3a;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid #555;
+        }
+        .shortcut:hover { background: #444; border-color: var(--accent); }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 12px; color: #aaa; margin-bottom: 5px; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px;
+        }
+
+        /* --- WINNER MODAL --- */
+        #win-modal .modal-content {
+            text-align: center;
+            border: 2px solid var(--accent);
+            background: radial-gradient(circle at center, #2a2a2a, #111);
+        }
+        #win-image { width: 150px; height: 100px; object-fit: contain; margin: 20px 0; }
+        #win-name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+        #win-rarity { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; }
+
+    </style>
+</head>
+<body>
+
+    <div style="margin-top: 20px; text-align: center;">
+        <h1 style="margin: 0; font-style: italic; letter-spacing: -1px;">CASE <span style="color: var(--accent);">OPENING</span></h1>
+        <p style="color: #666; font-size: 12px;">Введите код и испытайте удачу</p>
+    </div>
+
+    <div class="roulette-wrapper">
+        <div class="center-line"></div>
+        <div class="roulette-track" id="track">
+            </div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="promo-code" class="code-input" placeholder="Введи секретный код...">
+        <button id="spin-btn" class="btn-spin" onclick="startSpin()">ОТКРЫТЬ КЕЙС</button>
+        <p id="status-msg" style="color: #eb4b4b; font-size: 14px; min-height: 20px;"></p>
+    </div>
+
+    <div id="admin-fab" class="admin-wrapper" style="display: none;">
+        <div class="admin-fab-btn toggle" onclick="toggleAdminMenu()">
+            <i class="fa-solid fa-chevron-up"></i>
+        </div>
+        
+        <div class="admin-menu-items" id="admin-menu-items">
+            <div class="admin-action-btn" onclick="openPassModal()">
+                <i class="fa-solid fa-gear"></i>
+            </div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="custom-modal-overlay">
+        <div class="pass-modal">
+            <h3 style="margin: 0 0 5px 0; color: #fff;">Admin Access</h3>
+            <p style="margin: 0; color: #8e8e93; font-size: 12px;">Введите код доступа</p>
+            <input type="password" id="admin-pass-input" class="pass-input" placeholder="••••" inputmode="numeric">
+            <div class="modal-buttons">
+                <button class="modal-btn btn-cancel" onclick="closePassModal()">Отмена</button>
+                <button class="modal-btn btn-confirm" onclick="checkPass()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="win-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--accent);">YOU WON!</h2>
+            <img id="win-image" src="" alt="">
+            <div id="win-name"></div>
+            <div id="win-rarity"></div>
+            <button class="btn-spin" style="margin-top: 20px;" onclick="closeModal('win-modal')">ЗАБРАТЬ</button>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="modal">
+        <div class="modal-content">
+            <h2>Админ Панель</h2>
+            <div class="admin-grid">
+                <div class="shortcut" onclick="openSubModal('add-item-modal')">➕ Добавить Скин</div>
+                <div class="shortcut" onclick="openSubModal('add-code-modal')">🎟️ Создать Код</div>
+                <div class="shortcut" onclick="loadWinners()">🏆 Победители</div>
+            </div>
+            <button style="margin-top: 15px; width: 100%; padding: 10px;" onclick="closeModal('admin-modal')">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="add-item-modal" class="modal">
+        <div class="modal-content">
+            <h3>Добавить Скин</h3>
+            <div class="form-group"><label>Название</label><input id="adm-name" type="text" placeholder="AWP | Asiimov"></div>
+            <div class="form-group"><label>Картинка (URL)</label><input id="adm-img" type="text"></div>
+            <div class="form-group"><label>Редкость</label>
+                <select id="adm-rarity">
+                    <option value="blue">Blue (Mil-Spec)</option>
+                    <option value="purple">Purple (Restricted)</option>
+                    <option value="pink">Pink (Classified)</option>
+                    <option value="red">Red (Covert)</option>
+                    <option value="gold">Gold (Special)</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Качество</label><input id="adm-cond" type="text" value="FN"></div>
+            <div class="form-group"><label>Шанс (вес)</label><input id="adm-chance" type="number" value="10"></div>
+            <div class="form-group"><label>Количество</label><input id="adm-qty" type="number" value="1"></div>
+            <button class="btn-spin" onclick="apiAddItem()">Сохранить</button>
+            <button onclick="closeModal('add-item-modal')" style="width:100%; margin-top:5px; padding:10px;">Отмена</button>
+        </div>
+    </div>
+
+    <div id="add-code-modal" class="modal">
+        <div class="modal-content">
+            <h3>Создать Код</h3>
+            <div class="form-group"><label>Код</label><input id="adm-code-val" type="text"></div>
+            <div class="form-group"><label>Макс. использований</label><input id="adm-code-max" type="number" value="1"></div>
+            <button class="btn-spin" onclick="apiAddCode()">Создать</button>
+            <button onclick="closeModal('add-code-modal')" style="width:100%; margin-top:5px; padding:10px;">Отмена</button>
+        </div>
+    </div>
+
+    <div id="winners-modal" class="modal">
+        <div class="modal-content">
+            <h3>История Побед</h3>
+            <div id="winners-list" style="font-size: 12px; text-align: left;">Loading...</div>
+            <button onclick="closeModal('winners-modal')" style="width:100%; margin-top:10px; padding:10px;">Закрыть</button>
+        </div>
+    </div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    const initData = tg.initData;
+    
+    // --- VARIABLES ---
+    let itemsCache = [];
+    const CARD_WIDTH = 150; 
+    const TRACK = document.getElementById('track');
+    
+    // --- INIT ---
+    async function init() {
+        // Проверка админа
+        try {
+            const me = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}}).then(r => r.json());
+            // Если админ - показываем кнопку входа (стрелочку)
+            if (me.is_admin) {
+                document.getElementById('admin-fab').style.display = 'flex';
+            }
+        } catch(e) {}
+
+        // Загрузка предметов для визуала
+        loadItems();
+    }
+
+    // --- ADMIN BUTTON LOGIC (LIKE REFERENCE) ---
+    function toggleAdminMenu() {
+        const toggleBtn = document.querySelector('.admin-fab-btn.toggle');
+        const menuItems = document.getElementById('admin-menu-items');
+        
+        toggleBtn.classList.toggle('active');
+        menuItems.classList.toggle('show');
+        
+        const icon = toggleBtn.querySelector('i');
+        if (toggleBtn.classList.contains('active')) {
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-xmark');
+        } else {
+            icon.classList.remove('fa-xmark');
+            icon.classList.add('fa-chevron-up');
+        }
+    }
+
+    function openPassModal() { 
+        toggleAdminMenu(); // Свернуть меню
+        document.getElementById('password-modal').classList.add('active'); 
+        document.getElementById('admin-pass-input').value = '';
+        document.getElementById('admin-pass-input').focus(); 
+    }
+    
+    function closePassModal() { 
+        document.getElementById('password-modal').classList.remove('active'); 
+    }
+    
+    function checkPass() {
+        // ПАРОЛЬ 6971
+        if(document.getElementById('admin-pass-input').value === '6971') {
+            closePassModal();
+            // Открываем основную админку CS:GO
+            document.getElementById('admin-modal').style.display = 'flex';
+        } else { 
+            tg.HapticFeedback.notificationOccurred('error');
+            alert("Неверный пароль");
+        }
+    }
+
+    // --- CS:GO LOGIC (UNCHANGED) ---
+    async function loadItems() {
+        const res = await fetch('/api/cs/items');
+        itemsCache = await res.json();
+        generateStrip(itemsCache, null);
+    }
+
+    function generateStrip(items, winnerItem) {
+        TRACK.innerHTML = '';
+        const cardsCount = 70; 
+        const winnerIndex = 50; 
+
+        let html = '';
+        for (let i = 0; i < cardsCount; i++) {
+            let item;
+            if (i === winnerIndex && winnerItem) {
+                item = winnerItem;
+            } else {
+                item = items[Math.floor(Math.random() * items.length)];
+            }
+            if(!item) item = {name: "Loading...", image_url: "https://placehold.co/100", rarity: "blue"};
+
+            html += `
+                <div class="card ${item.rarity}" id="card-${i}">
+                    <img src="${item.image_url}" alt="skin">
+                    <div class="card-name">${item.name}</div>
+                    <div style="font-size:8px; color:#666;">${item.condition || 'FN'}</div>
+                </div>
+            `;
+        }
+        TRACK.innerHTML = html;
+        TRACK.style.transition = 'none';
+        TRACK.style.transform = 'translateX(0px)';
+    }
+
+    async function startSpin() {
+        const code = document.getElementById('promo-code').value;
+        if (!code) return showMsg("Введите код!");
+
+        document.getElementById('spin-btn').disabled = true;
+        showMsg("");
+
+        try {
+            const res = await fetch('/api/cs/spin', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ initData, code })
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.detail || "Ошибка");
+
+            const winner = data.winner;
+            generateStrip(itemsCache, winner);
+
+            setTimeout(() => {
+                const offset = (50 * CARD_WIDTH) - (window.innerWidth / 2) + (CARD_WIDTH / 2);
+                const randomOffset = Math.floor(Math.random() * 60) - 30;
+                
+                TRACK.style.transition = 'transform 6s cubic-bezier(0.15, 0, 0.10, 1)'; 
+                TRACK.style.transform = `translateX(-${offset + randomOffset}px)`;
+                
+                setTimeout(() => {
+                    showWinModal(winner);
+                    document.getElementById('spin-btn').disabled = false;
+                    document.getElementById('promo-code').value = ''; 
+                }, 6000); 
+            }, 50);
+
+        } catch (e) {
+            showMsg(e.message);
+            document.getElementById('spin-btn').disabled = false;
+        }
+    }
+
+    function showWinModal(item) {
+        document.getElementById('win-image').src = item.image_url;
+        document.getElementById('win-name').innerText = item.name;
+        document.getElementById('win-rarity').innerText = item.rarity;
+        document.getElementById('win-rarity').style.color = getComputedStyle(document.body).getPropertyValue(`--rarity-${item.rarity}`);
+        document.getElementById('win-modal').style.display = 'flex';
+    }
+
+    function showMsg(text) {
+        document.getElementById('status-msg').innerText = text;
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openSubModal(id) {
+        document.getElementById('admin-modal').style.display = 'none'; 
+        document.getElementById(id).style.display = 'flex';
+    }
+
+    async function apiAddItem() {
+        const payload = {
+            initData,
+            name: document.getElementById('adm-name').value,
+            image_url: document.getElementById('adm-img').value,
+            rarity: document.getElementById('adm-rarity').value,
+            condition: document.getElementById('adm-cond').value,
+            chance_weight: parseFloat(document.getElementById('adm-chance').value),
+            quantity: parseInt(document.getElementById('adm-qty').value)
+        };
+        await fetch('/api/admin/cs/item/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
+        alert("Скин добавлен!");
+        closeModal('add-item-modal');
+        loadItems();
+    }
+
+    async function apiAddCode() {
+        const payload = {
+            initData,
+            code: document.getElementById('adm-code-val').value,
+            max_uses: parseInt(document.getElementById('adm-code-max').value)
+        };
+        await fetch('/api/admin/cs/code/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
+        alert("Код создан!");
+        closeModal('add-code-modal');
+    }
+
+    async function loadWinners() {
+        openSubModal('winners-modal');
+        const res = await fetch('/api/admin/cs/winners', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'} });
+        const list = await res.json();
+        
+        let html = '';
+        list.forEach(w => {
+            html += `<div style="border-bottom:1px solid #333; padding:5px;">
+                <b>${w.user?.full_name || w.user_id}</b> выиграл <span style="color:gold">${w.item?.name}</span><br>
+                <span style="color:#666; font-size:10px;">${w.created_at} | Код: ${w.code_used} | Трейд: ${w.user?.trade_link || 'НЕТ'}</span>
+            </div>`;
+        });
+        document.getElementById('winners-list').innerHTML = html || "Нет победителей";
+    }
+
+    init();
+</script>
+</body>
+</html>
