@@ -68,6 +68,7 @@ const dom = {
 
     let lastShopStatus = null; // <--- ДОБАВИТЬ ЭТУ ПЕРЕМЕННУЮ ДЛЯ ЗАПОМИНАНИЯ
     let originalShopHTML = null;
+    let bonusGiftEnabled = true; // Глобальный флаг для подарка
 
 // --- ФУНКЦИИ БЛОКИРОВКИ СКРОЛЛА ---
     function lockAppScroll() {
@@ -117,7 +118,7 @@ const dom = {
         } catch (e) {
             console.error("Ошибка загрузки настроек:", e);
         }
-    }}
+    }
 
     // Запускаем проверку при загрузке страницы
     checkMaintenance();
@@ -2793,6 +2794,9 @@ async function renderFullInterface(bootstrapData) {
     // Слайдеры
     if (menuContent) {
         // Баннер целей
+        if (menuContent.bonus_gift_enabled !== undefined) {
+            bonusGiftEnabled = menuContent.bonus_gift_enabled;
+        }    
         if (menuContent.weekly_goals_banner_url) {
             const wImg = document.getElementById('weekly-goals-banner-img');
             if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
@@ -3004,13 +3008,19 @@ function updateShopTile(status) {
 }
         // --- 🎄 GIFT LOGIC 🎄 ---
     async function checkGift() {
+        // 👇 ДОБАВЛЯЕМ ПРОВЕРКУ: Если выключено админом — сразу выходим
+        if (!bonusGiftEnabled) {
+            if(dom.giftContainer) dom.giftContainer.classList.add('hidden');
+            return; 
+        }
+        // 👆 КОНЕЦ ДОБАВЛЕНИЯ
+
         try {
             const res = await makeApiRequest('/api/v1/gift/check', {}, 'POST', true);
             if (res && res.available) {
                 if(dom.giftContainer) dom.giftContainer.classList.remove('hidden');
                 
-                // Рандомная позиция по X (чтобы не было скучно)
-                const randomRight = Math.floor(Math.random() * 40) + 10; // 10px - 50px
+                const randomRight = Math.floor(Math.random() * 40) + 10; 
                 if(dom.giftContainer) dom.giftContainer.style.right = `${randomRight}px`;
             } else {
                 if(dom.giftContainer) dom.giftContainer.classList.add('hidden');
