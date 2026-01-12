@@ -2866,17 +2866,16 @@ async def add_cs_code(req: CSCodeCreateRequest, supabase: httpx.AsyncClient = De
 @app.post("/api/admin/cs/winners")
 async def get_cs_winners(request: Request):
     """
-    Возвращает историю открытий с данными пользователя (включая trade_link) и предмета.
+    Возвращает историю открытий.
+    ВАЖНО: execute() здесь синхронный, поэтому await не нужен.
     """
     try:
         body = await request.json()
-        # Тут должна быть проверка initData для безопасности (пропускаю для краткости)
+        # Проверка initData пропущена для краткости
         
-        # Запрос к базе:
-        # 1. Берем историю
-        # 2. Джойним items (чтобы показать, что выиграл)
-        # 3. Джойним users (чтобы взять имя и trade_link)
-        res = await supabase.table("cs_history")\
+        # 1. Запрос к базе (без await перед вызовом цепочки)
+        # Мы запрашиваем данные из cs_history и "подтягиваем" данные из users и cs_items
+        res = supabase.table("cs_history")\
             .select("*, item:cs_items(*), user:users(full_name, username, trade_link)")\
             .order("created_at", desc=True)\
             .limit(50)\
@@ -2885,6 +2884,7 @@ async def get_cs_winners(request: Request):
         return JSONResponse(content=res.data)
     except Exception as e:
         logging.error(f"Error getting winners: {e}")
+        # Возвращаем пустой список, чтобы фронтенд не падал
         return JSONResponse(content=[], status_code=500)
 
 # 1. Получение списка кейсов и цен (Для магазина и Админки)
