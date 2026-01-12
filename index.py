@@ -359,6 +359,7 @@ class AdminSettings(BaseModel):
     auction_enabled: bool = False # <-- ДОБАВЛЕНО
     auction_banner_url: Optional[str] = "https://i.postimg.cc/6qpWq0dW/aukcion.png" # <-- ДОБАВЛЕНО
     weekly_goals_banner_url: Optional[str] = "https://i.postimg.cc/T1j6hQGP/1200-324.png"
+    bonus_gift_enabled: bool = True
     # --- 🔽 ВОТ ЭТУ СТРОКУ НУЖНО ДОБАВИТЬ 🔽 ---
     weekly_goals_enabled: bool = False # (Отступ 8 пробелов)
     quest_schedule_override_enabled: bool = False # (Отступ 8 пробелов)
@@ -5029,15 +5030,26 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
 
     logging.info("⚙️ Кэш настроек админа истек или пуст, запрашиваем из БД (глобальный клиент)...")
     try:
-        # --- ИЗМЕНЕНИЕ: Используем глобальный клиент supabase и новый синтаксис ---
-        response = supabase.table("settings").select("value").eq("key", "admin_controls").execute()
-        # execute() вызывается без await
+        # --- 1. ИЗМЕНЕНИЕ: Запрашиваем ВСЮ таблицу (key и value), а не одну строку ---
+        response = supabase.table("settings").select("key, value").execute()
+        data = response.data 
 
-        data = response.data # Данные теперь в response.data
+        if data:
+            # --- 2. ИЗМЕНЕНИЕ: Превращаем список строк БД в словарь ---
+            # Было: [ {key: 'admin_controls', value: {...}}, {key: 'bonus_gift_enabled', value: 'false'} ]
+            # Стало: { 'admin_controls': {...}, 'bonus_gift_enabled': 'false' }
+            settings_map = {item['key']: item['value'] for item in data}
 
-        if data and data[0].get('value'):
-            settings_data = data[0]['value']
-            # --- Логика парсинга boolean значений (остается без изменений) ---
+            # Берем основной JSON со старыми настройками
+            settings_data = settings_map.get('admin_controls', {})
+
+            # --- 3. ИЗМЕНЕНИЕ: Достаем твою ОТДЕЛЬНУЮ строку ---
+            bonus_gift_raw = settings_map.get('bonus_gift_enabled', True) 
+            # Превращаем в true/false (на случай если в базе это строка "true")
+            bonus_gift_bool = str(bonus_gift_raw).lower() == 'true' if isinstance(bonus_gift_raw, str) else bool(bonus_gift_raw)
+
+
+            # --- Логика парсинга старых boolean значений (остается без изменений) ---
             quest_rewards_raw = settings_data.get('quest_promocodes_enabled', False)
             quest_rewards_bool = quest_rewards_raw if isinstance(quest_rewards_raw, bool) else str(quest_rewards_raw).lower() == 'true'
 
@@ -5056,6 +5068,9 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
 
             # Создаем объект настроек
             loaded_settings = AdminSettings(
+                # 👇 ВОТ ТУТ МЫ ПЕРЕДАЕМ НАШУ НОВУЮ ПЕРЕМЕННУЮ
+                bonus_gift_enabled=bonus_gift_bool,
+                
                 skin_race_enabled=settings_data.get('skin_race_enabled', True),
                 slider_order=settings_data.get('slider_order', ["skin_race", "cauldron", "auction"]),
                 challenge_promocodes_enabled=challenge_rewards_bool,
@@ -5065,14 +5080,12 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
                 checkpoint_enabled=checkpoint_bool,
                 menu_banner_url=settings_data.get('menu_banner_url', "https://i.postimg.cc/1Xkj2RRY/sagluska-1200h600.png"),
                 checkpoint_banner_url=settings_data.get('checkpoint_banner_url', "https://i.postimg.cc/9046s7W0/cekpoint.png"),
-                auction_enabled=settings_data.get('auction_enabled', False), # <-- ДОБАВЛЕНО
-                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), # <-- ДОБАВЛЕНО
-                weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), # <-- 🔽 ДОБАВИТЬ
+                auction_enabled=settings_data.get('auction_enabled', False), 
+                auction_banner_url=settings_data.get('auction_banner_url', "https://i.postimg.cc/6qpWq0dW/aukcion.png"), 
+                weekly_goals_banner_url=settings_data.get('weekly_goals_banner_url', "https://i.postimg.cc/T1j6hQGP/1200-324.png"), 
                 weekly_goals_enabled=settings_data.get('weekly_goals_enabled', False),
-               # --- 🔽 ДОБАВЛЯЕМ СЮДА 🔽 ---
                 quest_schedule_override_enabled=settings_data.get('quest_schedule_override_enabled', False),
                 quest_schedule_active_type=settings_data.get('quest_schedule_active_type', 'twitch')
-                # --- 🔼 БЕЗ ЭТОГО ФРОНТЕНД НЕ ВИДИТ НАСТРОЙКИ 🔼 ---
             )
 
             # Сохраняем в кэш
@@ -5081,8 +5094,7 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
             logging.info("✅ Настройки админа загружены и закэшированы (глобальный).")
             return loaded_settings
         else:
-            logging.warning("Настройки 'admin_controls' не найдены в БД (глобальный), используем дефолтные и кэшируем их.")
-            # Если в базе нет, кэшируем дефолтные
+            logging.warning("Настройки не найдены в БД...")
             default_settings = AdminSettings()
             admin_settings_cache["settings"] = default_settings
             admin_settings_cache["last_checked"] = now
@@ -5090,7 +5102,6 @@ async def get_admin_settings_async_global() -> AdminSettings: # Убрали а�
 
     except Exception as e:
         logging.error(f"Не удалось получить admin_settings (глобальный клиент): {e}", exc_info=True)
-        # Возвращаем дефолтные настройки и НЕ кэшируем при ошибке
         admin_settings_cache["settings"] = None
         admin_settings_cache["last_checked"] = 0
         return AdminSettings()
