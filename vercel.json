@@ -12,6 +12,9 @@
   ],
   "routes": [
     { "src": "/public/(.*)", "dest": "/public/$1" },
+    
+    { "src": "/static/(.*)", "dest": "/public/static/$1" }, 
+
     { "src": "/menu", "dest": "/public/menu.html" },
     { "src": "/quests", "dest": "/public/quests.html" },
     { "src": "/leaderboard", "dest": "/public/leaderboard.html" },
