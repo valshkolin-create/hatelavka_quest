@@ -3013,37 +3013,48 @@ class MarkCopiedRequest(BaseModel):
     code: str
 
 @app.post("/api/admin/cs/codes/list")
-async def api_admin_codes_list(payload: UserInitRequest):
+async def api_admin_codes_list(
+    payload: UserInitRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     """Возвращает список всех кодов для админки"""
-    try:
-        # ИСПРАВЛЕНО: используем get_user и await
-        user = await get_user(payload.initData)
-        
-        if not user or not user.get("is_admin"):
-            return JSONResponse(status_code=403, content={"detail": "Admin only"})
+    # 1. Используем правильную функцию валидации
+    user_info = is_valid_init_data(payload.initData, ALL_VALID_TOKENS)
+    
+    # 2. Проверяем, есть ли юзер в списке админов
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        return JSONResponse(status_code=403, content={"detail": "Admin only"})
 
-        # Запрос к Supabase (сортируем от новых к старым)
-        res = supabase.table("cs_codes").select("*").order("id", desc=True).execute()
-        return res.data
+    try:
+        # 3. Делаем запрос через HTTP клиент (как во всем остальном коде)
+        res = await supabase.get("/cs_codes", params={"select": "*", "order": "id.desc"})
+        # .get возвращает Response объект, берем из него .json()
+        return res.json()
 
     except Exception as e:
         print(f"Error listing codes: {e}")
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
-# 3. Функция пометки кода как скопированного
 @app.post("/api/admin/cs/code/mark_copied")
-async def api_admin_mark_copied(payload: MarkCopiedRequest):
+async def api_admin_mark_copied(
+    payload: MarkCopiedRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     """Помечает код как скопированный (синий цвет)"""
-    try:
-        # ИСПРАВЛЕНО: используем get_user и await
-        user = await get_user(payload.initData)
-        
-        if not user or not user.get("is_admin"):
-            return JSONResponse(status_code=403, content={"detail": "Admin only"})
+    # 1. Валидация
+    user_info = is_valid_init_data(payload.initData, ALL_VALID_TOKENS)
+    
+    # 2. Проверка админа
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        return JSONResponse(status_code=403, content={"detail": "Admin only"})
 
-        # Обновляем поле is_copied
-        supabase.table("cs_codes").update({"is_copied": True}).eq("code", payload.code).execute()
-        
+    try:
+        # 3. Обновление через patch
+        await supabase.patch(
+            "/cs_codes", 
+            params={"code": f"eq.{payload.code}"}, 
+            json={"is_copied": True}
+        )
         return {"success": True}
 
     except Exception as e:
