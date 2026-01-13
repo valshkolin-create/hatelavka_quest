@@ -1298,15 +1298,12 @@ async function loadCodesListAPI() {
         });
         const codes = await res.json();
 
-        // 1. ПРОВЕРКА НА ОШИБКУ (Самое важное исправление)
         if (!Array.isArray(codes)) {
-            console.error("Server error:", codes);
             const errorMsg = codes.detail || JSON.stringify(codes);
-            container.innerHTML = `<div style="text-align:center; color:red; padding:20px;">Ошибка сервера: ${errorMsg}</div>`;
+            container.innerHTML = `<div style="text-align:center; color:red; padding:20px;">Ошибка: ${errorMsg}</div>`;
             return;
         }
 
-        // 2. Если массив пустой
         if (codes.length === 0) {
             container.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Кодов нет</div>';
             return;
@@ -1314,11 +1311,14 @@ async function loadCodesListAPI() {
 
         let html = '';
         codes.forEach(c => {
+            // ИСПРАВЛЕНИЕ: Используем current_uses вместо uses
+            const uses = c.current_uses !== undefined ? c.current_uses : (c.uses || 0);
+            
             let statusClass = '';
             let statusText = 'Свободен';
             let icon = '<i class="fa-regular fa-copy"></i>';
 
-            if (c.uses >= c.max_uses) {
+            if (uses >= c.max_uses) {
                 statusClass = 'used'; 
                 statusText = 'АКТИВИРОВАН';
                 icon = '<i class="fa-solid fa-check"></i>';
@@ -1333,7 +1333,7 @@ async function loadCodesListAPI() {
             <div class="code-item ${statusClass}" id="code-card-${c.code}">
                 <div>
                     <div class="code-text" style="${statusClass === 'used' ? 'text-decoration:line-through; opacity:0.6' : 'color:#ffd700'}">${c.code}</div>
-                    <div class="code-info">${c.uses}/${c.max_uses} • ${statusText}</div>
+                    <div class="code-info">${uses}/${c.max_uses} • ${statusText}</div>
                 </div>
                 <button class="copy-btn-mini" onclick="copyAndMarkCode('${c.code}', this)">
                     ${icon}
@@ -1345,7 +1345,7 @@ async function loadCodesListAPI() {
 
     } catch (e) {
         console.error(e);
-        container.innerHTML = `<div style="text-align:center; color:red;">Ошибка сети: ${e.message}</div>`;
+        container.innerHTML = `<div style="text-align:center; color:red;">Ошибка JS: ${e.message}</div>`;
     }
 }
 
