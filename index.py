@@ -3002,6 +3002,12 @@ async def spin_cs_roulette(
 # --- ВСТАВИТЬ ПОСЛЕ api_admin_add_code (строка ~517) ---
 
 # Модель для запроса пометки
+
+# --- ДОБАВИТЬ ЭТОТ КЛАСС ---
+class UserInitRequest(BaseModel):
+    initData: str
+# ---------------------------
+
 class MarkCopiedRequest(BaseModel):
     initData: str
     code: str
