@@ -385,34 +385,33 @@
         </div>
 
         <div class="boost-container">
-            <div class="boost-title-main">УВЕЛИЧЬ СЕБЕ ШАНСЫ НА ДРОП</div>
-            
-            <div class="boost-minimal-wrapper">
-                
-                <div id="boost-twitch" class="boost-item" onclick="openTwitch()">
-                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
-                    <div class="boost-icon"><i class="fa-brands fa-twitch"></i></div>
-                    <div class="boost-label">Twitch<br>Подписка</div>
-                    <div class="boost-percent" id="val-twitch">+15%</div>
-                </div>
-
-                <div id="boost-tg" class="boost-item" onclick="handleTgClick()">
-                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
-                    <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
-                    <div class="boost-label">TG<br>Канал</div>
-                    <div class="boost-percent" id="val-tg">+15%</div>
-                </div>
-
-                <div id="boost-hash" class="boost-item" onclick="checkBoostsServer()">
-                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
-                    <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
-                    <div class="boost-label">HATELAVKA<br>BOT</div>
-                    <div class="boost-percent" id="val-hash">+15%</div>
-                </div>
-
-            </div>
+    <div class="boost-title-main">УВЕЛИЧЬ СЕБЕ ШАНСЫ НА ДРОП</div>
+    
+    <div class="boost-minimal-wrapper">
+        
+        <div id="boost-twitch" class="boost-item" onclick="openTwitch()">
+            <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+            <div class="boost-icon"><i class="fa-brands fa-twitch"></i></div>
+            <div class="boost-label">Twitch<br>фоллов</div>
+            <div class="boost-percent" id="val-twitch">...</div>
         </div>
+
+        <div id="boost-tg" class="boost-item" onclick="handleTgClick()">
+            <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+            <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
+            <div class="boost-label">TG<br>Канал</div>
+            <div class="boost-percent" id="val-tg">...</div>
         </div>
+
+        <div id="boost-hash" class="boost-item" onclick="checkBoostsServer()">
+            <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+            <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
+            <div class="boost-label">HATELAVKA<br>BOT</div>
+            <div class="boost-percent" id="val-hash">...</div>
+        </div>
+
+    </div>
+</div>
 
     <div id="entry-modal" class="modal">
         <div class="modal-box">
@@ -649,60 +648,65 @@
 
     // --- ИНИЦИАЛИЗАЦИЯ ---
     async function init() {
-        const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
-        const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
+    const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
+    const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
+    
+    // 👇 1. ВАЖНО: Сначала грузим предметы, чтобы знать базовый % буста
+    await loadItems(); 
+
+    try {
+        const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
+        const me = await meRes.json();
+        currentUser = me; 
+
+        if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
         
-        try {
-            const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
-            const me = await meRes.json();
-            currentUser = me; 
+        // 👇 2. Теперь, когда предметы есть, грузим настройки и обновляем текст
+        await checkBoostsServer();
 
-            if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
-            
-            await checkBoostsServer();
+    } catch(e) { console.error(e); }
 
-        } catch(e) {}
-
-        await loadItems();
-
-        // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
-        const draftCode = localStorage.getItem('cs_draft_code');
-        if (draftCode) {
-            // Если код был сохранен, сразу переходим к этапу открытия
-            savedCode = draftCode;
-            document.getElementById('screen-input').classList.remove('active');
-            document.getElementById('screen-action').classList.add('active');
-        }
+    // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
+    const draftCode = localStorage.getItem('cs_draft_code');
+    if (draftCode) {
+        // Если код был сохранен, сразу переходим к этапу открытия
+        savedCode = draftCode;
+        document.getElementById('screen-input').classList.remove('active');
+        document.getElementById('screen-action').classList.add('active');
     }
-
+}
     // --- ЛОГИКА БУСТОВ ---
     async function checkBoostsServer() {
-        try {
-            const res = await fetch('/api/cs/boost_status', { 
-                method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
-            });
-            const data = await res.json();
-            boostStatus = data;
-            updateBoostUI();
-        } catch (e) { console.error("Boost check failed", e); }
-    }
-
-    function updateBoostUI() {
-        const twitchEl = document.getElementById('boost-twitch');
-        if (boostStatus.twitch) { twitchEl.classList.add('active'); twitchEl.onclick = null; }
-
-        const hashEl = document.getElementById('boost-hash');
-        if (boostStatus.hashtag) { hashEl.classList.add('active'); hashEl.onclick = null; }
-
-        const tgEl = document.getElementById('boost-tg');
-        if (boostStatus.tg) {
-            tgEl.classList.add('active');
-            tgEl.onclick = () => tg.HapticFeedback.notificationOccurred('success');
-        } else {
-            tgEl.classList.remove('active');
-            tgEl.onclick = handleTgClick;
+    try {
+        const res = await fetch('/api/cs/boost_status', { 
+            method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
+        });
+        const data = await res.json();
+        boostStatus = data;
+        
+        // 👇 НОВАЯ МАТЕМАТИКА: Считаем (БустСкина * ТвойКоэфф)
+        if (itemsCache.length > 0 && data.points) {
+            // Берем любой предмет с бустом, чтобы узнать базовый %
+            const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
+            
+            if (boostItem) {
+                const base = boostItem.boost_percent; // например 0.05
+                
+                // Округляем до целых
+                const tVal = Math.round(base * data.points.twitch * 100);
+                const gVal = Math.round(base * data.points.tg * 100);
+                const nVal = Math.round(base * data.points.name * 100);
+                
+                // Обновляем текст на кнопках
+                document.getElementById('val-twitch').innerText = `+${tVal}%`;
+                document.getElementById('val-tg').innerText = `+${gVal}%`;
+                document.getElementById('val-hash').innerText = `+${nVal}%`;
+            }
         }
-    }
+
+        updateBoostUI();
+    } catch (e) { console.error("Boost check failed", e); }
+}
 
     function handleTgClick() {
         tg.openTelegramLink('https://t.me/HATElavka'); 
@@ -839,22 +843,16 @@
 
     // --- LOGIC ---
     async function loadItems() {
-        try {
-            const res = await fetch('/api/cs/items');
-            itemsCache = await res.json();
-            
-            const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
-            if (boostItem) {
-                const percentText = `+${Math.round(boostItem.boost_percent * 100)}%`;
-                document.getElementById('val-twitch').innerText = percentText;
-                document.getElementById('val-tg').innerText = percentText;
-                document.getElementById('val-hash').innerText = percentText;
-            }
+    try {
+        const res = await fetch('/api/cs/items');
+        itemsCache = await res.json();
+        
+        // Мы убрали отсюда установку текста (+15%), 
+        // теперь это делает функция checkBoostsServer() с учетом коэффициентов.
 
-            generateStrip(itemsCache, null);
-        } catch(e) { console.error(e); }
-    }
-
+        generateStrip(itemsCache, null);
+    } catch(e) { console.error(e); }
+}
     function generateStrip(items, winnerItem) {
         TRACK.innerHTML = '';
         const cardsCount = 80; const winnerIndex = 60; 
