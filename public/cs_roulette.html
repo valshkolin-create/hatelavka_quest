@@ -516,7 +516,9 @@
                 <button class="modal-btn btn-gold" style="margin:0;" onclick="openSkinsManager()"><i class="fa-solid fa-gift"></i> Управление скинами</button>
                 <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-code-modal')"><i class="fa-solid fa-ticket"></i> Код</button>
                 <button class="modal-btn btn-grey" style="margin:0; grid-column: span 2;" onclick="loadWinners()"><i class="fa-solid fa-trophy"></i> История побед</button>
-            </div>
+                
+                <button class="modal-btn btn-gold" style="margin:0; grid-column: span 2; background: #333; color: #fff; border: 1px solid #555;" onclick="openSettingsModal()"><i class="fa-solid fa-sliders"></i> Настройки</button>
+                </div>
         </div>
     </div>
 
@@ -599,8 +601,34 @@
         </div>
     </div>
 
+    <div id="settings-modal" class="modal">
+        <div class="modal-box">
+            <h3>Глобальные настройки</h3>
+            <p style="font-size: 11px; color: #aaa; margin-bottom: 15px; line-height: 1.4;">
+                Укажите баллы за каждое условие.<br>
+                Формула: 1 + (БустСкина * СуммаБаллов)
+            </p>
 
-<script>
+            <div class="admin-input-group">
+                <label>Баллы за Twitch Sub</label>
+                <input type="number" id="cfg-twitch" placeholder="1.0" step="0.1">
+            </div>
+            
+            <div class="admin-input-group">
+                <label>Баллы за TG Канал</label>
+                <input type="number" id="cfg-tg" placeholder="1.0" step="0.1">
+            </div>
+
+            <div class="admin-input-group">
+                <label>Баллы за Фамилию / Бота</label>
+                <input type="number" id="cfg-name" placeholder="1.0" step="0.1">
+            </div>
+
+            <button class="modal-btn btn-gold" onclick="saveSettings()">Сохранить настройки</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
+        </div>
+    </div>
+    <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
     const initData = tg.initData;
@@ -1046,6 +1074,45 @@
             document.getElementById('winners-list').innerHTML = html;
         } catch(e) { document.getElementById('winners-list').innerHTML = "<div style='padding:20px; color:#red; text-align:center'>Ошибка сети</div>"; }
     }
+
+    // --- 👇 ФУНКЦИИ ДЛЯ НАСТРОЕК 👇 ---
+    async function openSettingsModal() {
+        openSubModal('settings-modal');
+        try {
+            const res = await fetch('/api/admin/cs/config/get', {
+                method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (data) {
+                document.getElementById('cfg-twitch').value = data.twitch_points || 1.0;
+                document.getElementById('cfg-tg').value = data.tg_points || 1.0;
+                document.getElementById('cfg-name').value = data.name_points || 1.0;
+            }
+        } catch (e) {
+            console.error(e);
+            notify("Ошибка загрузки настроек");
+        }
+    }
+
+    async function saveSettings() {
+        const twitch = parseFloat(document.getElementById('cfg-twitch').value) || 0;
+        const tg = parseFloat(document.getElementById('cfg-tg').value) || 0;
+        const name = parseFloat(document.getElementById('cfg-name').value) || 0;
+
+        try {
+            await fetch('/api/admin/cs/config/save', {
+                method: 'POST',
+                body: JSON.stringify({ initData, twitch_points: twitch, tg_points: tg, name_points: name }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            notify("Настройки сохранены!");
+            closeModal('settings-modal');
+            document.getElementById('admin-panel').classList.add('active');
+        } catch (e) {
+            notify("Ошибка сохранения");
+        }
+    }
+    // --- 👆 ---------------------- 👆 ---
 
     init();
 </script>
