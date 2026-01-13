@@ -396,7 +396,7 @@
                     <div class="boost-percent" id="val-tg">...</div>
                 </div>
 
-                <div id="boost-hash" class="boost-item" onclick="checkBoostsServer()">
+                <div id="boost-hash" class="boost-item" onclick="handleHashClick()">
                     <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
                     <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
                     <div class="boost-label">HATELAVKA<br>BOT</div>
@@ -509,8 +509,9 @@
                 <button class="modal-btn btn-gold" style="margin:0;" onclick="openSkinsManager()"><i class="fa-solid fa-gift"></i> Управление скинами</button>
                 <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-code-modal')"><i class="fa-solid fa-ticket"></i> Код</button>
                 <button class="modal-btn btn-grey" style="margin:0; grid-column: span 2;" onclick="loadWinners()"><i class="fa-solid fa-trophy"></i> История побед</button>
+                
                 <button class="modal-btn btn-gold" style="margin:0; grid-column: span 2; background: #333; color: #fff; border: 1px solid #555;" onclick="openSettingsModal()"><i class="fa-solid fa-sliders"></i> Настройки</button>
-            </div>
+                </div>
         </div>
     </div>
 
@@ -523,58 +524,57 @@
     </div>
 
     <div id="add-item-modal" class="modal">
-        <div class="modal-box">
-            <h3 id="item-modal-title">Настроить Скин</h3>
-            
-            <div class="admin-input-group">
-                <label>Название скина</label>
-                <input id="adm-name" placeholder="Например: AWP | Asiimov">
-            </div>
-            
-            <div class="admin-input-group">
-                <label>Ссылка на картинку (URL)</label>
-                <input id="adm-img" placeholder="https://...">
-            </div>
-            
-            <div class="admin-input-group">
-                <label>Редкость (Цвет)</label>
-                <select id="adm-rarity">
-                    <option value="blue">🔵 Армейское (Blue)</option>
-                    <option value="purple">🟣 Запрещенное (Purple)</option>
-                    <option value="pink">🌸 Засекреченное (Pink)</option>
-                    <option value="red">🔴 Тайное (Red)</option>
-                    <option value="gold">🟡 Особое (Gold)</option>
-                </select>
-            </div>
-            
-            <div class="admin-input-group">
-                <label>Качество</label>
-                <select id="adm-quality">
-                    <option value="FN">Прямо с завода (FN)</option>
-                    <option value="MW">Немного поношенное (MW)</option>
-                    <option value="FT">После полевых (FT)</option>
-                    <option value="WW">Поношенное (WW)</option>
-                    <option value="BS">Закаленное в боях (BS)</option>
-                </select>
-            </div>
-
-            <div class="admin-input-group">
-                <label>Шанс выпадения (%)</label>
-                <input type="number" id="adm-chance" placeholder="0.1" step="0.01">
-            </div>
-
-            <div class="admin-input-group">
-                <label>Буст за условие (xMultiplier)</label>
-                <input type="number" id="adm-boost" placeholder="0.2" step="0.01">
-                <div style="font-size: 10px; color: #888; margin-top: 5px; line-height: 1.2;">
-                    Например: 0.5 увеличит шанс на 50% за каждое выполненное условие (Twitch, TG, Фамилия).
-                </div>
-            </div>
-
-            <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
+    <div class="modal-box">
+        <h3 id="item-modal-title">Настроить Скин</h3>
+        
+        <div class="admin-input-group">
+            <label>Название скина</label>
+            <input id="adm-name" placeholder="Например: AWP | Asiimov">
         </div>
+        
+        <div class="admin-input-group">
+            <label>Ссылка на картинку (URL)</label>
+            <input id="adm-img" placeholder="https://...">
+        </div>
+        
+        <div class="admin-input-group">
+            <label>Редкость (Цвет)</label>
+            <select id="adm-rarity">
+                <option value="blue">🔵 Армейское (Blue)</option>
+                <option value="purple">🟣 Запрещенное (Purple)</option>
+                <option value="pink">🌸 Засекреченное (Pink)</option>
+                <option value="red">🔴 Тайное (Red)</option>
+                <option value="gold">🟡 Особое (Gold)</option>
+            </select>
+        </div>
+        
+        <div class="admin-input-group">
+            <label>Качество</label>
+            <select id="adm-quality">
+                <option value="FN">Прямо с завода (FN)</option>
+                <option value="MW">Немного поношенное (MW)</option>
+                <option value="FT">После полевых (FT)</option>
+                <option value="WW">Поношенное (WW)</option>
+                <option value="BS">Закаленное в боях (BS)</option>
+            </select>
+        </div>
+
+        <div class="admin-input-group">
+            <label>Шанс выпадения (%)</label>
+            <input type="number" id="adm-chance" placeholder="0.1" step="0.01">
+        </div>
+
+        <div class="admin-input-group">
+            <label>Буст за условие (xMultiplier)</label>
+            <input type="number" id="adm-boost" placeholder="0.2" step="0.01">
+            <div style="font-size: 10px; color: #888; margin-top: 5px; line-height: 1.2;">
+                Например: 0.5 увеличит шанс на 50% за каждое выполненное условие (Twitch, TG, Фамилия).
+            </div>
+        </div>
+        <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
+        <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
     </div>
+</div>
 
     <div id="add-code-modal" class="modal">
         <div class="modal-box">
@@ -621,9 +621,7 @@
             <button class="modal-btn btn-grey" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
         </div>
     </div>
-
-
-<script>
+    <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
     const initData = tg.initData;
@@ -647,7 +645,7 @@
         const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
         const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
         
-        // 1. Сначала грузим предметы (чтобы знать базу для процентов)
+        // 1. Сначала грузим предметы (чтобы знать базу)
         await loadItems();
 
         try {
@@ -683,7 +681,7 @@
             
             // 👇 РАСЧЕТ ПРОЦЕНТОВ (МАТЕМАТИКА) 👇
             if (itemsCache.length > 0 && data.points) {
-                // Ищем любой предмет с бустом > 0, чтобы узнать базовый %
+                // Берем любой предмет с бустом, чтобы узнать базовый %
                 const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
                 
                 if (boostItem) {
@@ -694,55 +692,52 @@
                     const gVal = Math.round(base * data.points.tg * 100);
                     const nVal = Math.round(base * data.points.name * 100);
                     
-                    // Обновляем текст
+                    // Обновляем текст на кнопках
                     document.getElementById('val-twitch').innerText = `+${tVal}%`;
                     document.getElementById('val-tg').innerText = `+${gVal}%`;
                     document.getElementById('val-hash').innerText = `+${nVal}%`;
                 }
             }
-            
-            // Обновляем визуальные галочки (зеленые рамки)
-            updateBoostUI();
 
+            updateBoostUI();
         } catch (e) { console.error("Boost check failed", e); }
     }
 
-    // --- ЛОГИКА КНОПОК БУСТОВ (ИСПРАВЛЕНА) ---
     function updateBoostUI() {
-        // Twitch
         const twitchEl = document.getElementById('boost-twitch');
-        if (boostStatus.twitch) { 
-            twitchEl.classList.add('active'); 
-            twitchEl.onclick = null; // Если выполнено - клик отключаем
-        } else {
-            twitchEl.classList.remove('active');
-            twitchEl.onclick = openTwitch; // Если НЕТ - клик работает
-        }
-        
-        // Hashtag / Bot
-        const hashEl = document.getElementById('boost-hash');
-        if (boostStatus.hashtag) { 
-            hashEl.classList.add('active'); 
-            hashEl.onclick = null; 
-        } else {
-            hashEl.classList.remove('active');
-            hashEl.onclick = checkBoostsServer; // Просто проверяем
-        }
+        if (boostStatus.twitch) { twitchEl.classList.add('active'); twitchEl.onclick = null; }
+        else { twitchEl.classList.remove('active'); twitchEl.onclick = openTwitch; }
 
-        // Telegram
+        const hashEl = document.getElementById('boost-hash');
+        if (boostStatus.hashtag) { hashEl.classList.add('active'); hashEl.onclick = null; }
+        else { hashEl.classList.remove('active'); hashEl.onclick = handleHashClick; }
+
         const tgEl = document.getElementById('boost-tg');
         if (boostStatus.tg) {
             tgEl.classList.add('active');
             tgEl.onclick = () => tg.HapticFeedback.notificationOccurred('success');
         } else {
             tgEl.classList.remove('active');
-            tgEl.onclick = handleTgClick; // Ссылка на канал
+            tgEl.onclick = handleTgClick;
         }
     }
 
+    // 👇 ФУНКЦИЯ ДЛЯ КЛИКА ПО TG (ИСПРАВЛЕНО)
     function handleTgClick() {
-        tg.openTelegramLink('https://t.me/HATElavka'); 
+        tg.openTelegramLink('https://t.me/hatelove_ttv'); // <-- ИСПРАВЛЕНА ССЫЛКА
         setTimeout(() => { checkBoostsServer(); }, 3000); 
+    }
+
+    // 👇 ФУНКЦИЯ ДЛЯ КЛИКА ПО ХЭШТЕГУ (ИСПРАВЛЕНО)
+    function handleHashClick() {
+        if (!boostStatus.hashtag) {
+            tg.showPopup({ 
+                title: 'HATElavka BOT', 
+                message: 'Добавь @hatelavka_bot в свой никнейм Telegram (Фамилию), чтобы получить бонус!', 
+                buttons: [{type: 'ok'}] 
+            });
+        }
+        checkBoostsServer();
     }
 
     function openTwitch() { window.location.href = 'profile.html'; }
@@ -801,28 +796,44 @@
         } catch (err) { notify("Нет доступа к буферу"); }
     }
 
-    function confirmCode() {
+    // 👇 ГЛАВНАЯ ФУНКЦИЯ ПРОВЕРКИ КОДА (ИСПРАВЛЕНО) 👇
+    async function confirmCode() {
         const inputEl = document.getElementById('real-user-code');
         const val = inputEl.value.trim();
+        const errEl = document.getElementById('code-error');
         
-        if(inputEl.classList.contains('invalid-code')) {
-             tg.HapticFeedback.notificationOccurred('error'); 
-             return;
-        }
+        if (!val) return;
 
-        if(val.length > 0) {
+        // 1. ПРОВЕРЯЕМ КОД НА СЕРВЕРЕ ПЕРЕД ЗАКРЫТИЕМ
+        try {
+            const res = await fetch('/api/cs/check_code', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ initData, code: val })
+            });
+            const data = await res.json();
+
+            if (!data.valid) {
+                // ЕСЛИ НЕВЕРНО - ПОКАЗЫВАЕМ ОШИБКУ И ОСТАЕМСЯ ТУТ
+                inputEl.classList.add('invalid-code');
+                errEl.innerText = data.message || "Неверный код";
+                tg.HapticFeedback.notificationOccurred('error');
+                return; // ⛔ СТОП
+            }
+
+            // ЕСЛИ ВЕРНО:
             savedCode = val;
             // СОХРАНЯЕМ В ПАМЯТЬ ТЕЛЕФОНА
             localStorage.setItem('cs_draft_code', val);
             
             inputEl.value = ''; inputEl.blur(); inputEl.classList.remove('valid-code', 'invalid-code');
-            document.getElementById('code-error').innerText = '';
+            errEl.innerText = '';
             
             closeModal('entry-modal');
             document.getElementById('screen-input').classList.remove('active');
             document.getElementById('screen-action').classList.add('active');
-        } else {
-            tg.HapticFeedback.notificationOccurred('warning');
+
+        } catch(e) {
+            notify("Ошибка сети");
         }
     }
 
@@ -837,22 +848,21 @@
         document.getElementById('screen-input').classList.add('active');
     }
 
-    // --- ОТКРЫТИЕ КЕЙСА (С ПРОВЕРКАМИ) ---
+    // --- ОТКРЫТИЕ КЕЙСА ---
     function goToRoulette() {
-        // 1. ПРОВЕРКА ТРЕЙД ССЫЛКИ (ИСПРАВЛЕНО)
+        // 1. ПРОВЕРКА ТРЕЙД ССЫЛКИ
         if (!currentUser || !currentUser.trade_link) {
             document.getElementById('tradelink-modal').classList.add('active');
             tg.HapticFeedback.notificationOccurred('warning');
-            return; // Прерываем функцию, никуда не идем
+            return; // ⛔ СТОП
         }
-
-        // 2. ПРОВЕРКА КОДА (если вдруг пустой)
+        
+        // 2. ПРОВЕРКА КОДА (НА ВСЯКИЙ СЛУЧАЙ)
         if (!savedCode) {
             resetToInput();
             return;
         }
-        
-        // Если все ок - идем на рулетку
+
         bgLayer.classList.remove('bg-agent');
         bgLayer.classList.add('bg-street');
         document.getElementById('screen-action').classList.remove('active');
@@ -887,7 +897,6 @@
         try {
             const res = await fetch('/api/cs/items');
             itemsCache = await res.json();
-            // Генерация ленты без победителя (заглушка)
             generateStrip(itemsCache, null);
         } catch(e) { console.error(e); }
     }
@@ -898,10 +907,8 @@
         let html = '';
         for (let i = 0; i < cardsCount; i++) {
             let item;
-            // Вставляем победителя ровно на 60-й индекс
             if (i === winnerIndex && winnerItem) item = winnerItem;
             else item = items.length ? items[Math.floor(Math.random() * items.length)] : null;
-            
             if(!item) item = {name: "Загрузка...", image_url: "https://placehold.co/100", rarity: "blue"};
 
             html += `<div class="card ${item.rarity}"><img src="${item.image_url}" alt="skin"><div class="card-name">${item.name}</div></div>`;
@@ -917,7 +924,6 @@
             });
             const data = await res.json();
 
-            // ОБРАБОТКА ОШИБОК С СЕРВЕРА
             if (!res.ok) {
                 // Если ошибка Трейд Ссылки
                 if (data.detail && data.detail.includes("Trade Link")) {
@@ -930,27 +936,23 @@
                 }
                 
                 notify(data.detail || "Ошибка");
-                
-                // Если ошибка кода (истек, неверный) -> Сбрасываем в начало
+                // Если ошибка кода
                 if(data.detail && (data.detail.includes("код") || data.detail.includes("Code"))) {
                     resetToInput();
                 } else {
-                    // Другая ошибка - просто завершаем
                     finishFlow(); 
                 }
                 return;
             }
 
-            // ЕСЛИ ВСЕ ОК
             const winner = data.winner;
-            generateStrip(itemsCache, winner); // Перегенерируем ленту с реальным победителем
+            generateStrip(itemsCache, winner);
 
             setTimeout(() => {
                 const cardCenter = CARD_WIDTH / 2;
                 const screenCenter = window.innerWidth / 2;
-                // Расчет смещения: идем к 60-му элементу
                 const baseOffset = (60 * CARD_WIDTH) + cardCenter - screenCenter; 
-                const randomOffset = Math.floor(Math.random() * 80) - 40; // Немного рандома +/-
+                const randomOffset = Math.floor(Math.random() * 80) - 40; 
                 const finalPosition = baseOffset + randomOffset;
                 
                 TRACK.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.05, 1)'; 
@@ -1037,7 +1039,6 @@
             document.getElementById('item-modal-title').innerText = "Настроить Скин";
             document.getElementById('adm-name').value = item.name; document.getElementById('adm-img').value = item.image_url;
             document.getElementById('adm-rarity').value = item.rarity; document.getElementById('adm-quality').value = item.condition || 'FN';
-            // Подгружаем старые значения если есть
             document.getElementById('adm-chance').value = item.chance_weight || '';
             document.getElementById('adm-boost').value = item.boost_percent || '';
         } else {
