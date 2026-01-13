@@ -479,7 +479,35 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         });
         
         if (data && data.success) {
-            // УСПЕХ
+            
+            // === 🔥 НОВОЕ: ПРОВЕРКА НА СГОРАНИЕ СЕРИИ 🔥 ===
+            if (data.streak_reset) {
+                // 1. Сначала обновляем интерфейс на фоне (тикеты и прогресс), чтобы за окном было красиво
+                const stats = document.getElementById('ticketStats');
+                if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+
+                if (telegramTasksCache) {
+                    const task = telegramTasksCache.find(t => t.task_key === taskKey);
+                    if (task) {
+                        task.current_day = data.day;
+                        task.total_days = data.total_days;
+                        task.is_completed = data.is_completed;
+                        task.last_claimed_at = new Date().toISOString();
+                    }
+                }
+                const container = dom.modalContainer;
+                if (container && telegramTasksCache) renderTelegramGrid(telegramTasksCache, container);
+
+                // 2. Вызываем окно "СЕРИЯ СГОРЕЛА" (оно перезагрузит страницу при закрытии)
+                // Убедись, что функция injectBurnedPopup добавлена в файл!
+                injectBurnedPopup(data.reward);
+                
+                // 3. Прерываем функцию (return), чтобы НЕ сработал стандартный алерт и таймер ниже
+                return; 
+            }
+            // =================================================
+
+            // УСПЕХ (Обычный сценарий, если серия сохранена)
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
 
@@ -544,7 +572,6 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         }
     }
 }
-
 // Глобальная функция для ОБЫЧНЫХ квестов
 function handleTgTaskClick(key, url) {
     if (key === 'tg_vote') {
@@ -685,6 +712,56 @@ function injectProfilePopup(type) {
         document.getElementById('profilePopup').remove();
         // === 2. СБРАСЫВАЕМ ТИП ПРОВЕРКИ ===
         activeProfileCheck = null; 
+    });
+}
+
+// === НОВАЯ ФУНКЦИЯ: ОКНО СГОРАНИЯ СЕРИИ ===
+function injectBurnedPopup(rewardAmount) {
+    const existing = document.getElementById('burnedPopup');
+    if (existing) existing.remove();
+
+    const popupHtml = `
+    <div id="burnedPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 30px 20px; border-radius: 24px; text-align: center; width: 85%; max-width: 320px; border: 2px solid #ff3b30; box-shadow: 0 0 40px rgba(255, 59, 48, 0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+        
+        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(255, 69, 58, 0.5));">🔥💔</div>
+        
+        <h3 style="margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; color: #ff3b30; letter-spacing: 1px;">СЕРИЯ ПРЕРВАНА</h3>
+        
+        <p style="font-size: 15px; color: #e0e0e0; line-height: 1.5; margin: 15px 0 20px 0;">
+            Ты пропустил день, и твой стрик сгорел.<br>
+            <span style="color: #8e8e93; font-size: 13px;">Начинаем заново с 1-го дня.</span>
+        </p>
+        
+        <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 16px; padding: 12px; margin-bottom: 25px; display: inline-block; min-width: 140px;">
+            <div style="font-size: 12px; color: #FFD700; opacity: 0.8; text-transform: uppercase; margin-bottom: 2px;">Твоя награда</div>
+            <span style="font-size: 26px; font-weight: 900; color: #FFD700;">+${rewardAmount} 🎟</span>
+        </div>
+        
+        <button id="closeBurnedBtn" style="width: 100%; background: #ff3b30; background: linear-gradient(135deg, #ff3b30, #ff2d55); color: white; border: none; padding: 16px; border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.4); transition: transform 0.1s;">
+            НАЧАТЬ ЗАНОВО
+        </button>
+      </div>
+    </div>
+    <style>
+      @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
+
+    // Звук ошибки (вибрация)
+    if(window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+    }
+
+    document.getElementById('closeBurnedBtn').addEventListener('click', () => {
+        const popup = document.getElementById('burnedPopup');
+        popup.style.opacity = '0';
+        setTimeout(() => popup.remove(), 200);
+        
+        // Перезагружаем страницу, чтобы обновить интерфейс
+        window.location.reload();
     });
 }
 // ==========================================
