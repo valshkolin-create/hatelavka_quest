@@ -58,8 +58,12 @@
             image-rendering: pixelated; /* Иногда помогает для арта, но может дать "зерно" */
         }
         
-        .bg-agent { background-image: url('https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png'); }
-        .bg-street { background-image: url('https://i.postimg.cc/x1sjLfJL/3.png'); }
+        .bg-agent { 
+            background-image: url('/static/background-wooman.png'); 
+        }
+        .bg-street { 
+            background-image: url('/static/background.png'); 
+        }
 
         /* --- SCREENS CONFIG --- */
         .screen {
@@ -752,8 +756,12 @@
 
     // --- ИНИЦИАЛИЗАЦИЯ (С RELOAD) ---
     async function init() {
-        const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
-        const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
+        // 👇 ОБНОВЛЕННЫЕ ПУТИ
+        const imgAgent = new Image(); 
+        imgAgent.src = "/static/background-wooman.png"; // Локальный путь
+        
+        const imgStreet = new Image(); 
+        imgStreet.src = "/static/background.png";       // Локальный путь
         
         try {
             // 1. Грузим предметы
