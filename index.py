@@ -3017,18 +3017,15 @@ async def api_admin_codes_list(
     payload: UserInitRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает список всех кодов для админки"""
-    # 1. Используем правильную функцию валидации
+    """Возвращает список кодов, сортируя по idx"""
     user_info = is_valid_init_data(payload.initData, ALL_VALID_TOKENS)
     
-    # 2. Проверяем, есть ли юзер в списке админов
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         return JSONResponse(status_code=403, content={"detail": "Admin only"})
 
     try:
-        # 3. Делаем запрос через HTTP клиент (как во всем остальном коде)
-        res = await supabase.get("/cs_codes", params={"select": "*", "order": "id.desc"})
-        # .get возвращает Response объект, берем из него .json()
+        # ИСПРАВЛЕНИЕ: Сортируем по 'idx.desc' (так как id нет)
+        res = await supabase.get("/cs_codes", params={"select": "*", "order": "idx.desc"})
         return res.json()
 
     except Exception as e:
