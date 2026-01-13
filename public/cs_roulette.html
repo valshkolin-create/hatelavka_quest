@@ -57,7 +57,7 @@
         }
         .screen.active { opacity: 1; pointer-events: auto; }
 
-        /* --- 1. ВЕРНУЛИ ИДЕАЛЬНУЮ ПОЗИЦИЮ (Центр экрана на мобилках) --- */
+        /* --- ПОЗИЦИОНИРОВАНИЕ --- */
         #screen-input {
             justify-content: flex-end;
             align-items: center;
@@ -68,7 +68,7 @@
         @media (max-width: 768px) {
             #screen-input {
                 justify-content: flex-start !important; 
-                padding-top: 50vh; /* ТА САМАЯ ПОЗИЦИЯ */
+                padding-top: 50vh; 
                 padding-bottom: 0 !important;
             }
         }
@@ -113,7 +113,7 @@
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
         }
 
-        /* --- НОВЫЙ БЛОК БУСТОВ (По ТЗ) --- */
+        /* --- БЛОК БУСТОВ --- */
         .boost-container {
             width: 100%;
             margin-top: 30px;
@@ -134,7 +134,7 @@
         .boost-minimal-wrapper {
             display: flex;
             justify-content: center;
-            gap: 15px; /* Расстояние между иконками */
+            gap: 15px;
         }
         
         .boost-item {
@@ -147,16 +147,14 @@
             position: relative;
         }
         
-        /* Иконки */
         .boost-icon {
             font-size: 26px;
             margin-bottom: 10px;
-            color: rgba(255,255,255,0.3); /* Неактивный цвет */
+            color: rgba(255,255,255,0.3);
             transition: 0.3s;
             filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
         }
 
-        /* Текст названия */
         .boost-label {
             font-size: 9px;
             font-weight: 700;
@@ -167,30 +165,26 @@
             transition: 0.3s;
         }
         
-        /* Проценты */
         .boost-percent {
             font-size: 9px;
             font-weight: 800;
-            color: #444; /* Скрыто/темно пока не активно */
+            color: #444; 
             margin-top: 3px;
             transition: 0.3s;
         }
 
-        /* АКТИВНОЕ СОСТОЯНИЕ (Золотое/Зеленое) */
+        /* АКТИВНОЕ СОСТОЯНИЕ */
         .boost-item.active .boost-icon {
             color: #ffd700;
             filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
             transform: scale(1.1);
         }
-        .boost-item.active .boost-label {
-            color: #fff;
-        }
+        .boost-item.active .boost-label { color: #fff; }
         .boost-item.active .boost-percent {
-            color: #55ff55; /* Ярко-зеленый для процентов */
+            color: #55ff55;
             text-shadow: 0 0 5px rgba(85, 255, 85, 0.3);
         }
 
-        /* Галочка */
         .boost-check-mini {
             position: absolute;
             top: -2px; right: 20px;
@@ -200,7 +194,6 @@
             align-items: center; justify-content: center;
         }
         .boost-item.active .boost-check-mini { display: flex; }
-
 
         /* --- BUTTON STYLES --- */
         .main-btn {
@@ -412,7 +405,7 @@
 
             </div>
         </div>
-        </div>
+    </div>
 
     <div id="entry-modal" class="modal">
         <div class="modal-box">
@@ -688,7 +681,7 @@
             const data = await res.json();
             boostStatus = data;
             
-            // 👇 РАСЧЕТ ПРОЦЕНТОВ 👇
+            // 👇 РАСЧЕТ ПРОЦЕНТОВ (МАТЕМАТИКА) 👇
             if (itemsCache.length > 0 && data.points) {
                 // Ищем любой предмет с бустом > 0, чтобы узнать базовый %
                 const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
@@ -714,14 +707,27 @@
         } catch (e) { console.error("Boost check failed", e); }
     }
 
+    // --- ЛОГИКА КНОПОК БУСТОВ (ИСПРАВЛЕНА) ---
     function updateBoostUI() {
         // Twitch
         const twitchEl = document.getElementById('boost-twitch');
-        if (boostStatus.twitch) { twitchEl.classList.add('active'); twitchEl.onclick = null; }
+        if (boostStatus.twitch) { 
+            twitchEl.classList.add('active'); 
+            twitchEl.onclick = null; // Если выполнено - клик отключаем
+        } else {
+            twitchEl.classList.remove('active');
+            twitchEl.onclick = openTwitch; // Если НЕТ - клик работает
+        }
         
         // Hashtag / Bot
         const hashEl = document.getElementById('boost-hash');
-        if (boostStatus.hashtag) { hashEl.classList.add('active'); hashEl.onclick = null; }
+        if (boostStatus.hashtag) { 
+            hashEl.classList.add('active'); 
+            hashEl.onclick = null; 
+        } else {
+            hashEl.classList.remove('active');
+            hashEl.onclick = checkBoostsServer; // Просто проверяем
+        }
 
         // Telegram
         const tgEl = document.getElementById('boost-tg');
@@ -730,7 +736,7 @@
             tgEl.onclick = () => tg.HapticFeedback.notificationOccurred('success');
         } else {
             tgEl.classList.remove('active');
-            tgEl.onclick = handleTgClick;
+            tgEl.onclick = handleTgClick; // Ссылка на канал
         }
     }
 
@@ -800,7 +806,8 @@
         const val = inputEl.value.trim();
         
         if(inputEl.classList.contains('invalid-code')) {
-             tg.HapticFeedback.notificationOccurred('error'); return;
+             tg.HapticFeedback.notificationOccurred('error'); 
+             return;
         }
 
         if(val.length > 0) {
@@ -830,14 +837,22 @@
         document.getElementById('screen-input').classList.add('active');
     }
 
+    // --- ОТКРЫТИЕ КЕЙСА (С ПРОВЕРКАМИ) ---
     function goToRoulette() {
-        // ПРОВЕРКА ТРЕЙД ССЫЛКИ
+        // 1. ПРОВЕРКА ТРЕЙД ССЫЛКИ (ИСПРАВЛЕНО)
         if (!currentUser || !currentUser.trade_link) {
             document.getElementById('tradelink-modal').classList.add('active');
             tg.HapticFeedback.notificationOccurred('warning');
-            return; 
+            return; // Прерываем функцию, никуда не идем
+        }
+
+        // 2. ПРОВЕРКА КОДА (если вдруг пустой)
+        if (!savedCode) {
+            resetToInput();
+            return;
         }
         
+        // Если все ок - идем на рулетку
         bgLayer.classList.remove('bg-agent');
         bgLayer.classList.add('bg-street');
         document.getElementById('screen-action').classList.remove('active');
@@ -872,6 +887,7 @@
         try {
             const res = await fetch('/api/cs/items');
             itemsCache = await res.json();
+            // Генерация ленты без победителя (заглушка)
             generateStrip(itemsCache, null);
         } catch(e) { console.error(e); }
     }
@@ -882,8 +898,10 @@
         let html = '';
         for (let i = 0; i < cardsCount; i++) {
             let item;
+            // Вставляем победителя ровно на 60-й индекс
             if (i === winnerIndex && winnerItem) item = winnerItem;
             else item = items.length ? items[Math.floor(Math.random() * items.length)] : null;
+            
             if(!item) item = {name: "Загрузка...", image_url: "https://placehold.co/100", rarity: "blue"};
 
             html += `<div class="card ${item.rarity}"><img src="${item.image_url}" alt="skin"><div class="card-name">${item.name}</div></div>`;
@@ -899,8 +917,9 @@
             });
             const data = await res.json();
 
+            // ОБРАБОТКА ОШИБОК С СЕРВЕРА
             if (!res.ok) {
-                // Если ошибка Трейд Ссылки (на всякий случай, если на сервере проверка прошла раньше)
+                // Если ошибка Трейд Ссылки
                 if (data.detail && data.detail.includes("Trade Link")) {
                      document.getElementById('tradelink-modal').classList.add('active');
                      bgLayer.classList.remove('bg-street');
@@ -911,23 +930,27 @@
                 }
                 
                 notify(data.detail || "Ошибка");
-                // Если ошибка кода (он истек, пока мы ходили в профиль) - сбрасываем
+                
+                // Если ошибка кода (истек, неверный) -> Сбрасываем в начало
                 if(data.detail && (data.detail.includes("код") || data.detail.includes("Code"))) {
                     resetToInput();
                 } else {
+                    // Другая ошибка - просто завершаем
                     finishFlow(); 
                 }
                 return;
             }
 
+            // ЕСЛИ ВСЕ ОК
             const winner = data.winner;
-            generateStrip(itemsCache, winner);
+            generateStrip(itemsCache, winner); // Перегенерируем ленту с реальным победителем
 
             setTimeout(() => {
                 const cardCenter = CARD_WIDTH / 2;
                 const screenCenter = window.innerWidth / 2;
+                // Расчет смещения: идем к 60-му элементу
                 const baseOffset = (60 * CARD_WIDTH) + cardCenter - screenCenter; 
-                const randomOffset = Math.floor(Math.random() * 80) - 40; 
+                const randomOffset = Math.floor(Math.random() * 80) - 40; // Немного рандома +/-
                 const finalPosition = baseOffset + randomOffset;
                 
                 TRACK.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.05, 1)'; 
