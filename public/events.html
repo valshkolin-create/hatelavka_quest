@@ -49,12 +49,24 @@
     }
 
     .header-back-button {
-        display: flex; align-items: center; gap: 6px;
-        color: var(--text-secondary); text-decoration: none;
-        font-size: 12px; font-weight: 600; position: relative; z-index: 2;
-        transition: color 0.2s ease;
+        display: flex; 
+        align-items: center; 
+        gap: 6px;
+        background: none; 
+        border: none; 
+        color: #007aff; /* Синий цвет (Action color) как в профиле */
+        font-size: 16px; /* Размер шрифта как в профиле */
+        cursor: pointer; 
+        padding: 5px 0;
+        font-weight: 500; 
+        text-decoration: none;
+        position: relative; 
+        z-index: 2;
+        transition: opacity 0.2s ease;
     }
-    .header-back-button:hover { color: var(--text-primary); }
+    .header-back-button:active { 
+        opacity: 0.7; 
+    }
 
     .page-header {
         position: absolute; left: 0; right: 0; top: 50%;
@@ -584,7 +596,7 @@
   </div>
 
   <div class="new-header-container">
-    <a href="/menu" class="header-back-button">
+    <a href="#" id="header-back-btn" class="header-back-button">
         <i class="fa-solid fa-chevron-left"></i> Назад
     </a>
     <div class="page-header">
@@ -781,6 +793,34 @@
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
+
+  // ==========================================
+    // 🔙 ЛОГИКА КНОПКИ НАЗАД (1в1 ИЗ ПРОФИЛЯ)
+    // ==========================================
+    function goBack() {
+        // Проверяем историю браузера
+        if (window.history.length > 1 && document.referrer) {
+            window.history.back();
+        } else {
+            // Если истории нет, идем принудительно в меню
+            window.location.href = '/menu';
+        }
+    }
+
+    // 1. Настраиваем HTML кнопку
+    const headerBackBtn = document.getElementById('header-back-btn');
+    if (headerBackBtn) {
+        headerBackBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Отменяем переход по ссылке #
+            goBack();
+        });
+    }
+
+    // 2. Настраиваем нативную кнопку Telegram (в шапке самого мессенджера)
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => {
+        goBack();
+    });
 
     // 1. Исправленная функция копирования
     window.copyPromo = function(element) {
