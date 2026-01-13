@@ -650,13 +650,21 @@
     </div>
 </div>
 
-    <div id="add-code-modal" class="modal">
-        <div class="modal-box">
-            <h3>Создать Коды</h3>
-            <div class="admin-input-group"><label>Текст кода (Каждый с новой строки)</label><textarea id="adm-code-val" placeholder="CODE1&#10;CODE2&#10;CODE3"></textarea></div>
-            <div class="admin-input-group"><label>Лимит использований (на каждый код)</label><input id="adm-code-max" type="number" value="1"></div>
-            <button class="modal-btn btn-gold" onclick="apiAddCode()">Создать</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-code-modal')">Назад</button>
+    <div id="codes-list-modal" class="modal">
+        <div class="modal-box" style="max-width: 400px;">
+            <h3>Активные коды</h3>
+            <p style="font-size: 10px; color: #888; margin-bottom: 10px;">
+                Синий = Скопирован (Выдан)<br>
+                Красный = Активирован (Использован)
+            </p>
+            
+            <div id="admin-codes-container" class="admin-list" style="height: 300px;">
+                Загрузка...
+            </div>
+
+            <button class="modal-btn btn-gold" onclick="closeModal('codes-list-modal'); document.getElementById('add-code-modal').classList.add('active');">+ Создать новые</button>
+            
+            <button class="modal-btn btn-grey" onclick="closeModal('codes-list-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
         </div>
     </div>
 
@@ -681,10 +689,11 @@
         <div class="modal-box">
             <h3>Победители</h3>
             <div id="winners-list" class="admin-list">Загрузка...</div>
-            <button class="modal-btn btn-grey" onclick="closeModal('winners-modal')">Закрыть</button>
+            
+            <button class="modal-btn btn-grey" onclick="closeModal('winners-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
         </div>
     </div>
-
+    
     <div id="settings-modal" class="modal">
         <div class="modal-box">
             <h3>Глобальные настройки</h3>
