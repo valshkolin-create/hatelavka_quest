@@ -529,16 +529,57 @@
     </div>
 
     <div id="add-item-modal" class="modal">
-        <div class="modal-box">
-            <h3 id="item-modal-title">Настроить Скин</h3>
-            <div class="admin-input-group"><label>Название скина</label><input id="adm-name" placeholder="Например: AWP | Asiimov"></div>
-            <div class="admin-input-group"><label>Ссылка на картинку (URL)</label><input id="adm-img" placeholder="https://..."></div>
-            <div class="admin-input-group"><label>Редкость (Цвет)</label><select id="adm-rarity"><option value="blue">🔵 Армейское (Blue)</option><option value="purple">🟣 Запрещенное (Purple)</option><option value="pink">🌸 Засекреченное (Pink)</option><option value="red">🔴 Тайное (Red)</option><option value="gold">🟡 Особое (Gold)</option></select></div>
-            <div class="admin-input-group"><label>Качество</label><select id="adm-quality"><option value="FN">Прямо с завода (FN)</option><option value="MW">Немного поношенное (MW)</option><option value="FT">После полевых (FT)</option><option value="WW">Поношенное (WW)</option><option value="BS">Закаленное в боях (BS)</option></select></div>
-            <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
+    <div class="modal-box">
+        <h3 id="item-modal-title">Настроить Скин</h3>
+        
+        <div class="admin-input-group">
+            <label>Название скина</label>
+            <input id="adm-name" placeholder="Например: AWP | Asiimov">
         </div>
+        
+        <div class="admin-input-group">
+            <label>Ссылка на картинку (URL)</label>
+            <input id="adm-img" placeholder="https://...">
+        </div>
+        
+        <div class="admin-input-group">
+            <label>Редкость (Цвет)</label>
+            <select id="adm-rarity">
+                <option value="blue">🔵 Армейское (Blue)</option>
+                <option value="purple">🟣 Запрещенное (Purple)</option>
+                <option value="pink">🌸 Засекреченное (Pink)</option>
+                <option value="red">🔴 Тайное (Red)</option>
+                <option value="gold">🟡 Особое (Gold)</option>
+            </select>
+        </div>
+        
+        <div class="admin-input-group">
+            <label>Качество</label>
+            <select id="adm-quality">
+                <option value="FN">Прямо с завода (FN)</option>
+                <option value="MW">Немного поношенное (MW)</option>
+                <option value="FT">После полевых (FT)</option>
+                <option value="WW">Поношенное (WW)</option>
+                <option value="BS">Закаленное в боях (BS)</option>
+            </select>
+        </div>
+
+        <div class="admin-input-group">
+            <label>Шанс выпадения (%)</label>
+            <input type="number" id="adm-chance" placeholder="0.1" step="0.01">
+        </div>
+
+        <div class="admin-input-group">
+            <label>Буст за условие (xMultiplier)</label>
+            <input type="number" id="adm-boost" placeholder="0.2" step="0.01">
+            <div style="font-size: 10px; color: #888; margin-top: 5px; line-height: 1.2;">
+                Например: 0.5 увеличит шанс на 50% за каждое выполненное условие (Twitch, TG, Фамилия).
+            </div>
+        </div>
+        <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
+        <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
     </div>
+</div>
 
     <div id="add-code-modal" class="modal">
         <div class="modal-box">
@@ -932,17 +973,49 @@
     }
 
     async function apiAddItem() {
-        const payload = {
-            initData, name: document.getElementById('adm-name').value,
-            image_url: document.getElementById('adm-img').value, rarity: document.getElementById('adm-rarity').value, 
-            condition: document.getElementById('adm-quality').value, chance_weight: 10, quantity: 1
-        };
-        if(!payload.name) return notify("Введите название");
-        try {
-            await fetch('/api/admin/cs/item/add', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-            notify("Скин сохранен!"); closeModal('add-item-modal'); await loadItems(); openSkinsManager();
-        } catch(e) { notify("Ошибка сохранения"); }
+    // Считываем значения из новых полей. Если пусто — ставим дефолт (0).
+    const chanceVal = parseFloat(document.getElementById('adm-chance').value) || 0;
+    const boostVal = parseFloat(document.getElementById('adm-boost').value) || 0;
+
+    const payload = {
+        initData, 
+        name: document.getElementById('adm-name').value,
+        image_url: document.getElementById('adm-img').value, 
+        rarity: document.getElementById('adm-rarity').value, 
+        condition: document.getElementById('adm-quality').value, 
+        chance_weight: chanceVal, // Передаем введенный шанс
+        boost_percent: boostVal,  // Передаем введенный буст
+        quantity: 1
+    };
+
+    if(!payload.name) return notify("Введите название");
+    
+    // Проверка, чтобы не отправили пустой шанс (опционально)
+    if(payload.chance_weight <= 0) return notify("Укажите шанс выпадения > 0");
+
+    try {
+        await fetch('/api/admin/cs/item/add', { 
+            method: 'POST', 
+            body: JSON.stringify(payload), 
+            headers: {'Content-Type': 'application/json'} 
+        });
+        
+        notify("Скин сохранен!"); 
+        closeModal('add-item-modal'); 
+        
+        // Очистка полей (опционально, для удобства следующего ввода)
+        document.getElementById('adm-name').value = '';
+        document.getElementById('adm-img').value = '';
+        document.getElementById('adm-chance').value = '';
+        document.getElementById('adm-boost').value = '';
+
+        await loadItems(); 
+        openSkinsManager();
+    } catch(e) { 
+        console.error(e);
+        notify("Ошибка сохранения"); 
     }
+}
 
     async function apiAddCode() {
         const rawText = document.getElementById('adm-code-val').value;
