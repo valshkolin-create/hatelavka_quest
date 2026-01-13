@@ -950,7 +950,14 @@ function copyHashVal() {
     async function loadItems() {
         try {
             const res = await fetch('/api/cs/items');
-            itemsCache = await res.json();
+            const rawItems = await res.json();
+            
+            // --- ФИЛЬТР ДУБЛИКАТОВ ---
+            // Оставляем только уникальные ID. 
+            // Если ID повторяется, берем только первый.
+            itemsCache = [...new Map(rawItems.map(item => [item.id, item])).values()];
+            // -------------------------
+
             generateStrip(itemsCache, null);
         } catch(e) { console.error(e); }
     }
