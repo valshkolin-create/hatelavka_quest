@@ -777,6 +777,7 @@ class CSItemCreateRequest(BaseModel):
     condition: str
     chance_weight: float
     quantity: int
+    boost_percent: float = 0.0 # <--- ДОБАВЛЕНО
 
 class CSCodeCreateRequest(BaseModel):
     initData: str
@@ -2974,9 +2975,10 @@ async def add_cs_item(req: CSItemCreateRequest, supabase: httpx.AsyncClient = De
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
     
+    # Исключаем initData и отправляем всё в базу (включая boost_percent)
     await supabase.post("/cs_items", json=req.dict(exclude={"initData"}))
     return {"message": "Скин добавлен"}
-
+    
 # --- 4. Админка: Создать Код ---
 @app.post("/api/admin/cs/code/add")
 async def add_cs_code(req: CSCodeCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
