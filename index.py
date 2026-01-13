@@ -3016,8 +3016,9 @@ class MarkCopiedRequest(BaseModel):
 async def api_admin_codes_list(payload: UserInitRequest):
     """Возвращает список всех кодов для админки"""
     try:
-        # Проверка админа
-        user = await get_telegram_user(payload.initData)
+        # ИСПРАВЛЕНО: используем get_user и await
+        user = await get_user(payload.initData)
+        
         if not user or not user.get("is_admin"):
             return JSONResponse(status_code=403, content={"detail": "Admin only"})
 
@@ -3029,12 +3030,14 @@ async def api_admin_codes_list(payload: UserInitRequest):
         print(f"Error listing codes: {e}")
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
+# 3. Функция пометки кода как скопированного
 @app.post("/api/admin/cs/code/mark_copied")
 async def api_admin_mark_copied(payload: MarkCopiedRequest):
     """Помечает код как скопированный (синий цвет)"""
     try:
-        # Проверка админа
-        user = await get_telegram_user(payload.initData)
+        # ИСПРАВЛЕНО: используем get_user и await
+        user = await get_user(payload.initData)
+        
         if not user or not user.get("is_admin"):
             return JSONResponse(status_code=403, content={"detail": "Admin only"})
 
@@ -3046,7 +3049,7 @@ async def api_admin_mark_copied(payload: MarkCopiedRequest):
     except Exception as e:
         print(f"Error marking code: {e}")
         return JSONResponse(status_code=500, content={"detail": str(e)})
-
+        
 # -------------------------------------------------------
 
 # --- 3. Админка: Добавить Скин ---
