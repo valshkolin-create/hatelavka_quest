@@ -2998,6 +2998,51 @@ async def spin_cs_roulette(
 
     return {"success": True, "winner": winner_item}
 
+
+# --- ВСТАВИТЬ ПОСЛЕ api_admin_add_code (строка ~517) ---
+
+# Модель для запроса пометки
+class MarkCopiedRequest(BaseModel):
+    initData: str
+    code: str
+
+@app.post("/api/admin/cs/codes/list")
+async def api_admin_codes_list(payload: UserInitRequest):
+    """Возвращает список всех кодов для админки"""
+    try:
+        # Проверка админа
+        user = await get_telegram_user(payload.initData)
+        if not user or not user.get("is_admin"):
+            return JSONResponse(status_code=403, content={"detail": "Admin only"})
+
+        # Запрос к Supabase (сортируем от новых к старым)
+        res = supabase.table("cs_codes").select("*").order("id", desc=True).execute()
+        return res.data
+
+    except Exception as e:
+        print(f"Error listing codes: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/admin/cs/code/mark_copied")
+async def api_admin_mark_copied(payload: MarkCopiedRequest):
+    """Помечает код как скопированный (синий цвет)"""
+    try:
+        # Проверка админа
+        user = await get_telegram_user(payload.initData)
+        if not user or not user.get("is_admin"):
+            return JSONResponse(status_code=403, content={"detail": "Admin only"})
+
+        # Обновляем поле is_copied
+        supabase.table("cs_codes").update({"is_copied": True}).eq("code", payload.code).execute()
+        
+        return {"success": True}
+
+    except Exception as e:
+        print(f"Error marking code: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+# -------------------------------------------------------
+
 # --- 3. Админка: Добавить Скин ---
 @app.post("/api/admin/cs/item/add")
 async def add_cs_item(req: CSItemCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
