@@ -35,6 +35,17 @@
             -webkit-font-smoothing: antialiased;
         }
 
+        /* --- LOADING SCREEN (NEW) --- */
+        #loading-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 20000;
+            display: flex; justify-content: center; align-items: center;
+            color: #ffd700; font-size: 24px; font-weight: 900;
+            text-transform: uppercase; letter-spacing: 2px;
+            transition: opacity 0.5s ease;
+        }
+        #loading-screen.hidden { opacity: 0; pointer-events: none; }
+
         /* --- BACKGROUND MANAGER --- */
         #bg-layer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -365,6 +376,7 @@
 </head>
 <body>
 
+    <div id="loading-screen">LOADING...</div>
     <div id="bg-layer" class="bg-agent"></div>
 
     <div id="screen-input" class="screen active">
@@ -640,25 +652,30 @@
         tg.showPopup({ title: 'Info', message: msg, buttons: [{type: 'ok'}] });
     }
 
-    // --- ИНИЦИАЛИЗАЦИЯ ---
+    // --- ИНИЦИАЛИЗАЦИЯ (С RELOAD) ---
     async function init() {
         const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
         const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
         
-        // 1. Сначала грузим предметы (чтобы знать базу)
-        await loadItems();
-
         try {
+            // 1. Грузим предметы
+            await loadItems();
+
+            // 2. Грузим юзера
             const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
             const me = await meRes.json();
             currentUser = me; 
 
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             
-            // 2. Теперь проверяем бусты и считаем проценты
+            // 3. Грузим бусты
             await checkBoostsServer();
 
-        } catch(e) {}
+        } catch(e) { console.error(e); }
+
+        // 4. СКРЫВАЕМ RELOAD ЭКРАН (ТОЛЬКО КОГДА ВСЕ ЗАГРУЗИЛОСЬ)
+        const loader = document.getElementById('loading-screen');
+        if(loader) loader.classList.add('hidden');
 
         // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
         const draftCode = localStorage.getItem('cs_draft_code');
@@ -1039,6 +1056,7 @@
             document.getElementById('item-modal-title').innerText = "Настроить Скин";
             document.getElementById('adm-name').value = item.name; document.getElementById('adm-img').value = item.image_url;
             document.getElementById('adm-rarity').value = item.rarity; document.getElementById('adm-quality').value = item.condition || 'FN';
+            // Подгружаем старые значения если есть
             document.getElementById('adm-chance').value = item.chance_weight || '';
             document.getElementById('adm-boost').value = item.boost_percent || '';
         } else {
