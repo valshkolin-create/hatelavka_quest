@@ -41,6 +41,33 @@ checkMaintenance();
         console.warn("Telegram WebApp script not loaded or running in browser.");
     }
 
+    function goBack() {
+        // Проверяем историю браузера
+        if (window.history.length > 1 && document.referrer) {
+            window.history.back();
+        } else {
+            // Если истории нет, идем в меню
+            window.location.href = '/menu';
+        }
+    }
+
+    // 1. Настраиваем HTML кнопку
+    const headerBackBtn = document.getElementById('header-back-btn');
+    if (headerBackBtn) {
+        headerBackBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Отменяем переход по ссылке #
+            goBack();
+        });
+    }
+
+    // 2. Настраиваем нативную кнопку Telegram (в шапке)
+    if (tg.BackButton) {
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
+            goBack();
+        });
+    }
+
     // Глобальные переменные
     let countdownIntervals = {};
     let userData = {};
