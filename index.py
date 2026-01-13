@@ -3017,15 +3017,15 @@ async def api_admin_codes_list(
     payload: UserInitRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает список кодов, сортируя по idx"""
+    """Возвращает список кодов без сортировки (так как нет поля ID/Date)"""
     user_info = is_valid_init_data(payload.initData, ALL_VALID_TOKENS)
     
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         return JSONResponse(status_code=403, content={"detail": "Admin only"})
 
     try:
-        # ИСПРАВЛЕНИЕ: Сортируем по 'idx.desc' (так как id нет)
-        res = await supabase.get("/cs_codes", params={"select": "*", "order": "idx.desc"})
+        # Убрали параметр "order", так как в таблице нет колонок для сортировки
+        res = await supabase.get("/cs_codes", params={"select": "*"})
         return res.json()
 
     except Exception as e:
