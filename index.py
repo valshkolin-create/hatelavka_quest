@@ -12425,9 +12425,28 @@ async def claim_daily_task(
             json={"tickets": new_balance}
         )
 
-        # === 7. ОБНОВЛЕНИЕ ПРОГРЕССА И БАРОВ ===
-        # Вычисляем следующий день
-        next_day = progress["current_day"] + 1
+        # === 7. ОБНОВЛЕНИЕ ПРОГРЕССА И БАРОВ (ИСПРАВЛЕНО: СЖИГАНИЕ СЕРИИ) ===
+        
+        # Получаем данные для расчета
+        last_claimed_str = progress.get("last_claimed_at")
+        current_day_val = progress.get("current_day", 0)
+        next_day = 1 # Значение по умолчанию (сброс)
+
+        if last_claimed_str:
+            last_claim_dt = parser.isoparse(last_claimed_str)
+            now_dt = datetime.now(timezone.utc)
+            delta = now_dt - last_claim_dt
+            
+            # Логика: Если прошло >= 2 дней (48 часов), значит день пропущен -> сброс на 1.
+            # Если меньше 2 дней (но больше 20 часов, проверенных выше) -> серия продолжается.
+            if delta.days >= 2:
+                next_day = 1
+            else:
+                next_day = current_day_val + 1
+        else:
+            # Если это первый клейм вообще
+            next_day = 1
+
         is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
         
         update_data = {
