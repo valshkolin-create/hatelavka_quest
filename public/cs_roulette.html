@@ -1059,7 +1059,7 @@ function copyHashVal() {
         TRACK.insertAdjacentHTML('beforeend', html);
     }
 
-    async function startSpinAPI() {
+   async function startSpinAPI() {
         try {
             const res = await fetch('/api/cs/spin', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1068,7 +1068,7 @@ function copyHashVal() {
             const data = await res.json();
 
             if (!res.ok) {
-                // Если ошибка Трейд Ссылки
+                // Обработка ошибок
                 if (data.detail && data.detail.includes("Trade Link")) {
                      document.getElementById('tradelink-modal').classList.add('active');
                      bgLayer.classList.remove('bg-street');
@@ -1079,7 +1079,6 @@ function copyHashVal() {
                 }
                 
                 notify(data.detail || "Ошибка");
-                // Если ошибка кода
                 if(data.detail && (data.detail.includes("код") || data.detail.includes("Code"))) {
                     resetToInput();
                 } else {
@@ -1094,17 +1093,47 @@ function copyHashVal() {
             setTimeout(() => {
                 const cardCenter = CARD_WIDTH / 2;
                 const screenCenter = window.innerWidth / 2;
+                
                 const baseOffset = (60 * CARD_WIDTH) + cardCenter - screenCenter; 
                 const randomOffset = Math.floor(Math.random() * 80) - 40; 
                 const finalPosition = baseOffset + randomOffset;
                 
+                // === 🔊 НОВОЕ: ЗАПУСК ВИБРАЦИИ (ТРЕЩОТКА) ===
+                // Делаем легкий "тик" каждые 150мс
+                let hapticInterval = setInterval(() => {
+                    tg.HapticFeedback.selectionChanged(); 
+                }, 150);
+
+                // === 🌀 ЗАПУСК ВРАЩЕНИЯ ===
                 TRACK.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.05, 1)'; 
                 TRACK.style.transform = `translateX(-${finalPosition}px)`;
                 
-                setTimeout(() => { showWinModal(winner); }, 8500); 
+                // === 🛑 ОСТАНОВКА ЧЕРЕЗ 8 СЕКУНД ===
+                setTimeout(() => {
+                    clearInterval(hapticInterval); // Выключаем "трещотку"
+                    
+                    // Пересчет центра для идеальной доводки
+                    const currentScreenCenter = window.innerWidth / 2;
+                    const perfectPosition = (60 * CARD_WIDTH) + cardCenter - currentScreenCenter;
+
+                    // Плавная доводка до центра
+                    TRACK.style.transition = 'transform 0.4s ease-out';
+                    TRACK.style.transform = `translateX(-${perfectPosition}px)`;
+                    
+                    // 📳 Финальный "Удар" вибрацией при фиксации
+                    tg.HapticFeedback.impactOccurred('medium');
+
+                    // Показываем победу
+                    setTimeout(() => { 
+                        showWinModal(winner); 
+                    }, 500);
+
+                }, 8000); // Время основного вращения
+
             }, 100);
 
         } catch (e) {
+            console.error(e);
             notify("Ошибка сети");
             finishFlow();
         }
