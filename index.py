@@ -2835,29 +2835,31 @@ async def get_cs_boost_status(
     if not user_info: raise HTTPException(401, "Unauthorized")
     user_id = user_info['id']
 
-    # 1. Берем данные юзера
+    # 1. Берем настройки баллов (ДОБАВЛЕНО)
+    try:
+        cfg_res = await supabase.get("/cs_config", params={"id": "eq.1", "select": "*"})
+        cfg_data = cfg_res.json()
+        cfg = cfg_data[0] if cfg_data else {}
+    except: cfg = {}
+
+    # Получаем настройки или дефолт
+    twitch_pts = float(cfg.get('twitch_points', 1.0))
+    tg_pts = float(cfg.get('tg_points', 1.0))
+    name_pts = float(cfg.get('name_points', 1.0))
+
+    # 2. Берем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_login,full_name"})
     user_data = user_res.json()
     if not user_data: return {"twitch": False, "hashtag": False, "tg": False}
     
     current_user = user_data[0]
-
-    # 2. Проверяем Twitch
     has_twitch = bool(current_user.get('twitch_login'))
 
-    # 3. Проверяем Хэштег (Через переменную TG_QUEST_SURNAME)
-    target_surname = os.getenv("TG_QUEST_SURNAME")
-    if not target_surname:
-        target_surname = "@hatelavka_bot" # Fallback если переменная не задана
-        
+    target_surname = os.getenv("TG_QUEST_SURNAME") or "@hatelavka_bot"
     has_hashtag = target_surname in (current_user.get('full_name') or "")
 
-    # 4. Проверяем Telegram (TG_QUEST_CHANNEL_ID)
     has_tg = False
-    target_chat_id = os.getenv("TG_QUEST_CHANNEL_ID")
-    if not target_chat_id:
-        target_chat_id = os.getenv("ALLOWED_CHAT_ID")
-        
+    target_chat_id = os.getenv("TG_QUEST_CHANNEL_ID") or os.getenv("ALLOWED_CHAT_ID")
     if target_chat_id:
         try:
             chat_id_int = int(str(target_chat_id).strip())
@@ -2870,7 +2872,13 @@ async def get_cs_boost_status(
     return {
         "twitch": has_twitch,
         "hashtag": has_hashtag,
-        "tg": has_tg
+        "tg": has_tg,
+        # 👇 ОТПРАВЛЯЕМ КОЭФФИЦИЕНТЫ НА ФРОНТ 👇
+        "points": {
+            "twitch": twitch_pts,
+            "tg": tg_pts,
+            "name": name_pts
+        }
     }
 
 @app.post("/api/cs/spin")
