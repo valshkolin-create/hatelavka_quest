@@ -2910,23 +2910,37 @@ async def spin_cs_roulette(
     items = items_res.json()
     if not items: raise HTTPException(400, "Склад пуст!")
 
-    # --- 🔥 ЛОГИКА ШАНСОВ (ВСЕ ПЕРЕМЕННЫЕ) 🔥 ---
+    # --- 🔥 ЛОГИКА ШАНСОВ (ОБНОВЛЕННАЯ С НАСТРОЙКАМИ) 🔥 ---
     
-    user_activity_score = 0
+    # А. Получаем глобальные настройки баллов
+    # Используем .get, так как у тебя httpx клиент
+    try:
+        cfg_res = await supabase.get("/cs_config", params={"id": "eq.1"})
+        cfg_data = cfg_res.json()
+        cfg = cfg_data[0] if cfg_data else {}
+    except Exception:
+        cfg = {}
+
+    # Устанавливаем дефолтные значения, если конфига нет или полей нет
+    twitch_pts = float(cfg.get('twitch_points', 1.0))
+    tg_pts = float(cfg.get('tg_points', 1.0))
+    name_pts = float(cfg.get('name_points', 1.0))
+
+    user_activity_score = 0.0
     
-    # А. Twitch
+    # Б. Twitch
     if current_user.get('twitch_login'):
-        user_activity_score += 1
+        user_activity_score += twitch_pts
         
-    # Б. Hashtag (TG_QUEST_SURNAME)
+    # В. Hashtag (TG_QUEST_SURNAME)
     target_surname = os.getenv("TG_QUEST_SURNAME")
     if not target_surname:
         target_surname = "@hatelavka_bot"
         
     if target_surname in (current_user.get('full_name') or ""):
-        user_activity_score += 1
+        user_activity_score += name_pts
         
-    # В. Telegram (TG_QUEST_CHANNEL_ID)
+    # Г. Telegram (TG_QUEST_CHANNEL_ID)
     target_chat_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if not target_chat_id:
         target_chat_id = os.getenv("ALLOWED_CHAT_ID")
@@ -2936,11 +2950,11 @@ async def spin_cs_roulette(
             chat_id_int = int(str(target_chat_id).strip())
             chat_member = await bot.get_chat_member(chat_id=chat_id_int, user_id=user_id)
             if chat_member.status in ["member", "administrator", "creator"]:
-                 user_activity_score += 1
+                 user_activity_score += tg_pts
         except Exception as e:
             logging.error(f"Spin TG Check Error: {e}")
 
-    # Применяем буст
+    # Д. Применяем буст (Шанс = База * (1 + БустПредмета * БаллыЮзера))
     weights = []
     for item in items:
         base_weight = item['chance_weight']
