@@ -527,6 +527,28 @@
         </div>
     </div>
 
+    <div id="hashtag-modal" class="modal">
+    <div class="modal-box">
+        <div style="margin-bottom: 15px;">
+            <i class="fa-solid fa-robot" style="font-size: 40px; color: #ffd700;"></i>
+        </div>
+        <h3 style="margin: 0 0 10px 0; color: #fff;">ЗАДАНИЕ</h3>
+        <p style="color: #aaa; font-size: 13px; line-height: 1.5; margin-bottom: 20px;">
+            Добавь этот текст в свою <b>Фамилию</b> (Last Name) в профиле Telegram:
+        </p>
+        
+        <div class="input-inner-wrapper" style="margin-bottom: 20px;">
+            <input type="text" class="pass-input" value="@hatelavka_bot" readonly id="hash-input-val" style="color: #ffd700; border-color: #ffd700;">
+            <div class="paste-btn-inside" onclick="copyHashVal()">
+                <i class="fa-regular fa-copy"></i>
+            </div>
+        </div>
+
+        <button class="modal-btn btn-gold" onclick="checkBoostsServer(); document.getElementById('hashtag-modal').classList.remove('active')">Я ДОБАВИЛ, ПРОВЕРИТЬ</button>
+        <button class="modal-btn btn-grey" onclick="document.getElementById('hashtag-modal').classList.remove('active')">ОТМЕНА</button>
+    </div>
+</div>
+
     <div id="skins-manage-modal" class="modal">
         <div class="modal-box" style="max-width: 320px;">
             <h3 style="margin-bottom: 10px;">Скины в кейсе</h3>
@@ -747,15 +769,31 @@
 
     // 👇 ФУНКЦИЯ ДЛЯ КЛИКА ПО ХЭШТЕГУ (ИСПРАВЛЕНО)
     function handleHashClick() {
-        if (!boostStatus.hashtag) {
-            tg.showPopup({ 
-                title: 'HATElavka BOT', 
-                message: 'Добавь @hatelavka_bot в свой никнейм Telegram (Фамилию), чтобы получить бонус!', 
-                buttons: [{type: 'ok'}] 
-            });
-        }
+    // Если задание НЕ выполнено — открываем окно
+    if (!boostStatus.hashtag) {
+        document.getElementById('hashtag-modal').classList.add('active');
+    } else {
+        // Если выполнено — просто обновляем данные
         checkBoostsServer();
     }
+}
+
+// Функция копирования для этого окна
+function copyHashVal() {
+    const input = document.getElementById('hash-input-val');
+    input.select();
+    input.setSelectionRange(0, 99999); // Для мобильных устройств
+    
+    navigator.clipboard.writeText(input.value).then(() => {
+        notify("Скопировано!");
+        // Визуальный эффект нажатия
+        const icon = document.querySelector('#hashtag-modal .paste-btn-inside i');
+        icon.className = 'fa-solid fa-check';
+        setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 1000);
+    }).catch(err => {
+        notify("Ошибка копирования");
+    });
+}
 
     function openTwitch() { window.location.href = 'profile.html'; }
     function goToProfile() { window.location.href = 'profile.html'; }
