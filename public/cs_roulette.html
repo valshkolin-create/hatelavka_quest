@@ -1272,8 +1272,6 @@ async function loadCodesListAPI() {
     container.innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
 
     try {
-        // Запрашиваем список всех кодов
-        // (Тебе нужно будет создать этот эндпоинт в Python или использовать существующий)
         const res = await fetch('/api/admin/cs/codes/list', {
             method: 'POST', 
             body: JSON.stringify({ initData }), 
@@ -1281,27 +1279,33 @@ async function loadCodesListAPI() {
         });
         const codes = await res.json();
 
-        if (!codes || codes.length === 0) {
+        // 1. ПРОВЕРКА НА ОШИБКУ (Самое важное исправление)
+        if (!Array.isArray(codes)) {
+            console.error("Server error:", codes);
+            const errorMsg = codes.detail || JSON.stringify(codes);
+            container.innerHTML = `<div style="text-align:center; color:red; padding:20px;">Ошибка сервера: ${errorMsg}</div>`;
+            return;
+        }
+
+        // 2. Если массив пустой
+        if (codes.length === 0) {
             container.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Кодов нет</div>';
             return;
         }
 
         let html = '';
         codes.forEach(c => {
-            // ЛОГИКА ЦВЕТОВ
             let statusClass = '';
             let statusText = 'Свободен';
             let icon = '<i class="fa-regular fa-copy"></i>';
 
-            // Если использован (uses >= max_uses или просто uses > 0)
             if (c.uses >= c.max_uses) {
-                statusClass = 'used'; // Красный
+                statusClass = 'used'; 
                 statusText = 'АКТИВИРОВАН';
                 icon = '<i class="fa-solid fa-check"></i>';
             } 
-            // Если помечен как скопированный
             else if (c.is_copied) {
-                statusClass = 'copied'; // Синий
+                statusClass = 'copied'; 
                 statusText = 'ВЫДАН (Copy)';
                 icon = '<i class="fa-solid fa-share"></i>';
             }
@@ -1322,7 +1326,7 @@ async function loadCodesListAPI() {
 
     } catch (e) {
         console.error(e);
-        container.innerHTML = '<div style="text-align:center; color:red;">Ошибка загрузки</div>';
+        container.innerHTML = `<div style="text-align:center; color:red;">Ошибка сети: ${e.message}</div>`;
     }
 }
 
