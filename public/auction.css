@@ -52,7 +52,7 @@ body.browser-view {
     background: none;
     border: none;
     color: #007aff; /* Синий цвет (Action color) */
-    font-size: 16px; /* Размер как в профиле */
+    font-size: 12px; /* Размер как в профиле */
     cursor: pointer;
     padding: 5px 0;
     font-weight: 500;
