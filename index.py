@@ -12425,26 +12425,26 @@ async def claim_daily_task(
             json={"tickets": new_balance}
         )
 
-        # === 7. ОБНОВЛЕНИЕ ПРОГРЕССА И БАРОВ (ИСПРАВЛЕНО: СЖИГАНИЕ СЕРИИ) ===
+        # === 7. ОБНОВЛЕНИЕ ПРОГРЕССА И БАРОВ (С ФЛАГОМ СБРОСА) ===
         
-        # Получаем данные для расчета
         last_claimed_str = progress.get("last_claimed_at")
         current_day_val = progress.get("current_day", 0)
-        next_day = 1 # Значение по умолчанию (сброс)
+        next_day = 1
+        streak_reset = False # <--- Новая переменная
 
         if last_claimed_str:
             last_claim_dt = parser.isoparse(last_claimed_str)
             now_dt = datetime.now(timezone.utc)
             delta = now_dt - last_claim_dt
             
-            # Логика: Если прошло >= 2 дней (48 часов), значит день пропущен -> сброс на 1.
-            # Если меньше 2 дней (но больше 20 часов, проверенных выше) -> серия продолжается.
+            # Если прошло >= 2 дней -> сброс
             if delta.days >= 2:
                 next_day = 1
+                streak_reset = True # <--- Сигнализируем, что серия сгорела
             else:
                 next_day = current_day_val + 1
         else:
-            # Если это первый клейм вообще
+            # Первый раз
             next_day = 1
 
         is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
@@ -12464,11 +12464,11 @@ async def claim_daily_task(
         return JSONResponse({
             "success": True, 
             "reward": reward,
-            # ВОТ ЭТО ОБНОВЛЯЕТ НИЖНИЕ ЧЕРТОЧКИ (ПРОГРЕСС БАР):
             "day": next_day, 
             "total_days": task.get("total_days", 1),
             "is_completed": is_done, 
             "tickets": new_balance, 
+            "streak_reset": streak_reset, # <--- Отправляем на фронт
             "message": f"Задание выполнено! +{reward} билетов"
         })
 
