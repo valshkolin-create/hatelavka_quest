@@ -784,6 +784,13 @@ class CSCodeCreateRequest(BaseModel):
     code: str
     max_uses: int
 
+# --- МОДЕЛЬ ДЛЯ НАСТРОЕК ---
+class CSConfigUpdate(BaseModel):
+    initData: str
+    twitch_points: float
+    tg_points: float
+    name_points: float
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2978,6 +2985,32 @@ async def add_cs_item(req: CSItemCreateRequest, supabase: httpx.AsyncClient = De
     # Исключаем initData и отправляем всё в базу (включая boost_percent)
     await supabase.post("/cs_items", json=req.dict(exclude={"initData"}))
     return {"message": "Скин добавлен"}
+
+# --- 1. ПОЛУЧИТЬ НАСТРОЙКИ (Для админки) ---
+@app.post("/api/admin/cs/config/get")
+async def get_cs_config(req: InitDataRequest, supabase: AsyncClient = Depends(get_supabase_client)):
+    # Проверка админа
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+
+    res = await supabase.table("cs_config").select("*").eq("id", 1).single().execute()
+    return res.data
+
+# --- 2. СОХРАНИТЬ НАСТРОЙКИ ---
+@app.post("/api/admin/cs/config/save")
+async def save_cs_config(req: CSConfigUpdate, supabase: AsyncClient = Depends(get_supabase_client)):
+    # Проверка админа
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+
+    # Обновляем единственную запись с id=1
+    await supabase.table("cs_config").update({
+        "twitch_points": req.twitch_points,
+        "tg_points": req.tg_points,
+        "name_points": req.name_points
+    }).eq("id", 1).execute()
+    
+    return {"message": "Настройки обновлены"}
     
 # --- 4. Админка: Создать Код ---
 @app.post("/api/admin/cs/code/add")
