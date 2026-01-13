@@ -385,33 +385,34 @@
         </div>
 
         <div class="boost-container">
-    <div class="boost-title-main">УВЕЛИЧЬ СЕБЕ ШАНСЫ НА ДРОП</div>
-    
-    <div class="boost-minimal-wrapper">
-        
-        <div id="boost-twitch" class="boost-item" onclick="openTwitch()">
-            <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
-            <div class="boost-icon"><i class="fa-brands fa-twitch"></i></div>
-            <div class="boost-label">Twitch<br>фоллов</div>
-            <div class="boost-percent" id="val-twitch">...</div>
-        </div>
+            <div class="boost-title-main">УВЕЛИЧЬ СЕБЕ ШАНСЫ НА ДРОП</div>
+            
+            <div class="boost-minimal-wrapper">
+                
+                <div id="boost-twitch" class="boost-item" onclick="openTwitch()">
+                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+                    <div class="boost-icon"><i class="fa-brands fa-twitch"></i></div>
+                    <div class="boost-label">Twitch<br>Подписка</div>
+                    <div class="boost-percent" id="val-twitch">...</div>
+                </div>
 
-        <div id="boost-tg" class="boost-item" onclick="handleTgClick()">
-            <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
-            <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
-            <div class="boost-label">TG<br>Канал</div>
-            <div class="boost-percent" id="val-tg">...</div>
-        </div>
+                <div id="boost-tg" class="boost-item" onclick="handleTgClick()">
+                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+                    <div class="boost-icon"><i class="fa-brands fa-telegram"></i></div>
+                    <div class="boost-label">TG<br>Канал</div>
+                    <div class="boost-percent" id="val-tg">...</div>
+                </div>
 
-        <div id="boost-hash" class="boost-item" onclick="checkBoostsServer()">
-            <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
-            <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
-            <div class="boost-label">HATELAVKA<br>BOT</div>
-            <div class="boost-percent" id="val-hash">...</div>
-        </div>
+                <div id="boost-hash" class="boost-item" onclick="checkBoostsServer()">
+                    <div class="boost-check-mini"><i class="fa-solid fa-check"></i></div>
+                    <div class="boost-icon"><i class="fa-solid fa-hashtag"></i></div>
+                    <div class="boost-label">HATELAVKA<br>BOT</div>
+                    <div class="boost-percent" id="val-hash">...</div>
+                </div>
 
-    </div>
-</div>
+            </div>
+        </div>
+        </div>
 
     <div id="entry-modal" class="modal">
         <div class="modal-box">
@@ -515,9 +516,8 @@
                 <button class="modal-btn btn-gold" style="margin:0;" onclick="openSkinsManager()"><i class="fa-solid fa-gift"></i> Управление скинами</button>
                 <button class="modal-btn btn-grey" style="margin:0;" onclick="openSubModal('add-code-modal')"><i class="fa-solid fa-ticket"></i> Код</button>
                 <button class="modal-btn btn-grey" style="margin:0; grid-column: span 2;" onclick="loadWinners()"><i class="fa-solid fa-trophy"></i> История побед</button>
-                
                 <button class="modal-btn btn-gold" style="margin:0; grid-column: span 2; background: #333; color: #fff; border: 1px solid #555;" onclick="openSettingsModal()"><i class="fa-solid fa-sliders"></i> Настройки</button>
-                </div>
+            </div>
         </div>
     </div>
 
@@ -530,57 +530,58 @@
     </div>
 
     <div id="add-item-modal" class="modal">
-    <div class="modal-box">
-        <h3 id="item-modal-title">Настроить Скин</h3>
-        
-        <div class="admin-input-group">
-            <label>Название скина</label>
-            <input id="adm-name" placeholder="Например: AWP | Asiimov">
-        </div>
-        
-        <div class="admin-input-group">
-            <label>Ссылка на картинку (URL)</label>
-            <input id="adm-img" placeholder="https://...">
-        </div>
-        
-        <div class="admin-input-group">
-            <label>Редкость (Цвет)</label>
-            <select id="adm-rarity">
-                <option value="blue">🔵 Армейское (Blue)</option>
-                <option value="purple">🟣 Запрещенное (Purple)</option>
-                <option value="pink">🌸 Засекреченное (Pink)</option>
-                <option value="red">🔴 Тайное (Red)</option>
-                <option value="gold">🟡 Особое (Gold)</option>
-            </select>
-        </div>
-        
-        <div class="admin-input-group">
-            <label>Качество</label>
-            <select id="adm-quality">
-                <option value="FN">Прямо с завода (FN)</option>
-                <option value="MW">Немного поношенное (MW)</option>
-                <option value="FT">После полевых (FT)</option>
-                <option value="WW">Поношенное (WW)</option>
-                <option value="BS">Закаленное в боях (BS)</option>
-            </select>
-        </div>
-
-        <div class="admin-input-group">
-            <label>Шанс выпадения (%)</label>
-            <input type="number" id="adm-chance" placeholder="0.1" step="0.01">
-        </div>
-
-        <div class="admin-input-group">
-            <label>Буст за условие (xMultiplier)</label>
-            <input type="number" id="adm-boost" placeholder="0.2" step="0.01">
-            <div style="font-size: 10px; color: #888; margin-top: 5px; line-height: 1.2;">
-                Например: 0.5 увеличит шанс на 50% за каждое выполненное условие (Twitch, TG, Фамилия).
+        <div class="modal-box">
+            <h3 id="item-modal-title">Настроить Скин</h3>
+            
+            <div class="admin-input-group">
+                <label>Название скина</label>
+                <input id="adm-name" placeholder="Например: AWP | Asiimov">
             </div>
+            
+            <div class="admin-input-group">
+                <label>Ссылка на картинку (URL)</label>
+                <input id="adm-img" placeholder="https://...">
+            </div>
+            
+            <div class="admin-input-group">
+                <label>Редкость (Цвет)</label>
+                <select id="adm-rarity">
+                    <option value="blue">🔵 Армейское (Blue)</option>
+                    <option value="purple">🟣 Запрещенное (Purple)</option>
+                    <option value="pink">🌸 Засекреченное (Pink)</option>
+                    <option value="red">🔴 Тайное (Red)</option>
+                    <option value="gold">🟡 Особое (Gold)</option>
+                </select>
+            </div>
+            
+            <div class="admin-input-group">
+                <label>Качество</label>
+                <select id="adm-quality">
+                    <option value="FN">Прямо с завода (FN)</option>
+                    <option value="MW">Немного поношенное (MW)</option>
+                    <option value="FT">После полевых (FT)</option>
+                    <option value="WW">Поношенное (WW)</option>
+                    <option value="BS">Закаленное в боях (BS)</option>
+                </select>
+            </div>
+
+            <div class="admin-input-group">
+                <label>Шанс выпадения (%)</label>
+                <input type="number" id="adm-chance" placeholder="0.1" step="0.01">
+            </div>
+
+            <div class="admin-input-group">
+                <label>Буст за условие (xMultiplier)</label>
+                <input type="number" id="adm-boost" placeholder="0.2" step="0.01">
+                <div style="font-size: 10px; color: #888; margin-top: 5px; line-height: 1.2;">
+                    Например: 0.5 увеличит шанс на 50% за каждое выполненное условие (Twitch, TG, Фамилия).
+                </div>
+            </div>
+
+            <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
         </div>
-        <button class="modal-btn btn-gold" onclick="apiAddItem()">Сохранить / Добавить</button>
-        <button class="modal-btn btn-grey" onclick="closeModal('add-item-modal'); openSkinsManager();">Назад к списку</button>
     </div>
-</div>
 
     <div id="add-code-modal" class="modal">
         <div class="modal-box">
@@ -627,7 +628,9 @@
             <button class="modal-btn btn-grey" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
         </div>
     </div>
-    <script>
+
+
+<script>
     const tg = window.Telegram.WebApp;
     tg.expand();
     const initData = tg.initData;
@@ -648,65 +651,88 @@
 
     // --- ИНИЦИАЛИЗАЦИЯ ---
     async function init() {
-    const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
-    const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
-    
-    // 👇 1. ВАЖНО: Сначала грузим предметы, чтобы знать базовый % буста
-    await loadItems(); 
-
-    try {
-        const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
-        const me = await meRes.json();
-        currentUser = me; 
-
-        if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
+        const imgAgent = new Image(); imgAgent.src = "https://i.postimg.cc/P5KJKbcQ/kartinka-bez-knopki.png";
+        const imgStreet = new Image(); imgStreet.src = "https://i.postimg.cc/x1sjLfJL/3.png";
         
-        // 👇 2. Теперь, когда предметы есть, грузим настройки и обновляем текст
-        await checkBoostsServer();
+        // 1. Сначала грузим предметы (чтобы знать базу для процентов)
+        await loadItems();
 
-    } catch(e) { console.error(e); }
+        try {
+            const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
+            const me = await meRes.json();
+            currentUser = me; 
 
-    // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
-    const draftCode = localStorage.getItem('cs_draft_code');
-    if (draftCode) {
-        // Если код был сохранен, сразу переходим к этапу открытия
-        savedCode = draftCode;
-        document.getElementById('screen-input').classList.remove('active');
-        document.getElementById('screen-action').classList.add('active');
-    }
-}
-    // --- ЛОГИКА БУСТОВ ---
-    async function checkBoostsServer() {
-    try {
-        const res = await fetch('/api/cs/boost_status', { 
-            method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
-        });
-        const data = await res.json();
-        boostStatus = data;
-        
-        // 👇 НОВАЯ МАТЕМАТИКА: Считаем (БустСкина * ТвойКоэфф)
-        if (itemsCache.length > 0 && data.points) {
-            // Берем любой предмет с бустом, чтобы узнать базовый %
-            const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
+            if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             
-            if (boostItem) {
-                const base = boostItem.boost_percent; // например 0.05
-                
-                // Округляем до целых
-                const tVal = Math.round(base * data.points.twitch * 100);
-                const gVal = Math.round(base * data.points.tg * 100);
-                const nVal = Math.round(base * data.points.name * 100);
-                
-                // Обновляем текст на кнопках
-                document.getElementById('val-twitch').innerText = `+${tVal}%`;
-                document.getElementById('val-tg').innerText = `+${gVal}%`;
-                document.getElementById('val-hash').innerText = `+${nVal}%`;
-            }
-        }
+            // 2. Теперь проверяем бусты и считаем проценты
+            await checkBoostsServer();
 
-        updateBoostUI();
-    } catch (e) { console.error("Boost check failed", e); }
-}
+        } catch(e) {}
+
+        // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
+        const draftCode = localStorage.getItem('cs_draft_code');
+        if (draftCode) {
+            // Если код был сохранен, сразу переходим к этапу открытия
+            savedCode = draftCode;
+            document.getElementById('screen-input').classList.remove('active');
+            document.getElementById('screen-action').classList.add('active');
+        }
+    }
+
+    // --- ЛОГИКА БУСТОВ И ПРОВЕРКИ ---
+    async function checkBoostsServer() {
+        try {
+            const res = await fetch('/api/cs/boost_status', { 
+                method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            boostStatus = data;
+            
+            // 👇 РАСЧЕТ ПРОЦЕНТОВ 👇
+            if (itemsCache.length > 0 && data.points) {
+                // Ищем любой предмет с бустом > 0, чтобы узнать базовый %
+                const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
+                
+                if (boostItem) {
+                    const base = boostItem.boost_percent; // например 0.05
+                    
+                    // Считаем: База * Коэффициент * 100
+                    const tVal = Math.round(base * data.points.twitch * 100);
+                    const gVal = Math.round(base * data.points.tg * 100);
+                    const nVal = Math.round(base * data.points.name * 100);
+                    
+                    // Обновляем текст
+                    document.getElementById('val-twitch').innerText = `+${tVal}%`;
+                    document.getElementById('val-tg').innerText = `+${gVal}%`;
+                    document.getElementById('val-hash').innerText = `+${nVal}%`;
+                }
+            }
+            
+            // Обновляем визуальные галочки (зеленые рамки)
+            updateBoostUI();
+
+        } catch (e) { console.error("Boost check failed", e); }
+    }
+
+    function updateBoostUI() {
+        // Twitch
+        const twitchEl = document.getElementById('boost-twitch');
+        if (boostStatus.twitch) { twitchEl.classList.add('active'); twitchEl.onclick = null; }
+        
+        // Hashtag / Bot
+        const hashEl = document.getElementById('boost-hash');
+        if (boostStatus.hashtag) { hashEl.classList.add('active'); hashEl.onclick = null; }
+
+        // Telegram
+        const tgEl = document.getElementById('boost-tg');
+        if (boostStatus.tg) {
+            tgEl.classList.add('active');
+            tgEl.onclick = () => tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            tgEl.classList.remove('active');
+            tgEl.onclick = handleTgClick;
+        }
+    }
 
     function handleTgClick() {
         tg.openTelegramLink('https://t.me/HATElavka'); 
@@ -843,16 +869,13 @@
 
     // --- LOGIC ---
     async function loadItems() {
-    try {
-        const res = await fetch('/api/cs/items');
-        itemsCache = await res.json();
-        
-        // Мы убрали отсюда установку текста (+15%), 
-        // теперь это делает функция checkBoostsServer() с учетом коэффициентов.
+        try {
+            const res = await fetch('/api/cs/items');
+            itemsCache = await res.json();
+            generateStrip(itemsCache, null);
+        } catch(e) { console.error(e); }
+    }
 
-        generateStrip(itemsCache, null);
-    } catch(e) { console.error(e); }
-}
     function generateStrip(items, winnerItem) {
         TRACK.innerHTML = '';
         const cardsCount = 80; const winnerIndex = 60; 
@@ -991,57 +1014,41 @@
             document.getElementById('item-modal-title').innerText = "Настроить Скин";
             document.getElementById('adm-name').value = item.name; document.getElementById('adm-img').value = item.image_url;
             document.getElementById('adm-rarity').value = item.rarity; document.getElementById('adm-quality').value = item.condition || 'FN';
+            // Подгружаем старые значения если есть
+            document.getElementById('adm-chance').value = item.chance_weight || '';
+            document.getElementById('adm-boost').value = item.boost_percent || '';
         } else {
             document.getElementById('item-modal-title').innerText = "Добавить Новый";
             document.getElementById('adm-name').value = ''; document.getElementById('adm-img').value = '';
             document.getElementById('adm-rarity').value = 'blue'; document.getElementById('adm-quality').value = 'FN';
+            document.getElementById('adm-chance').value = ''; document.getElementById('adm-boost').value = '';
         }
     }
 
     async function apiAddItem() {
-    // Считываем значения из новых полей. Если пусто — ставим дефолт (0).
-    const chanceVal = parseFloat(document.getElementById('adm-chance').value) || 0;
-    const boostVal = parseFloat(document.getElementById('adm-boost').value) || 0;
+        const chanceVal = parseFloat(document.getElementById('adm-chance').value) || 0;
+        const boostVal = parseFloat(document.getElementById('adm-boost').value) || 0;
 
-    const payload = {
-        initData, 
-        name: document.getElementById('adm-name').value,
-        image_url: document.getElementById('adm-img').value, 
-        rarity: document.getElementById('adm-rarity').value, 
-        condition: document.getElementById('adm-quality').value, 
-        chance_weight: chanceVal, // Передаем введенный шанс
-        boost_percent: boostVal,  // Передаем введенный буст
-        quantity: 1
-    };
+        const payload = {
+            initData, 
+            name: document.getElementById('adm-name').value,
+            image_url: document.getElementById('adm-img').value, 
+            rarity: document.getElementById('adm-rarity').value, 
+            condition: document.getElementById('adm-quality').value, 
+            chance_weight: chanceVal, 
+            boost_percent: boostVal,  
+            quantity: 1
+        };
 
-    if(!payload.name) return notify("Введите название");
-    
-    // Проверка, чтобы не отправили пустой шанс (опционально)
-    if(payload.chance_weight <= 0) return notify("Укажите шанс выпадения > 0");
-
-    try {
-        await fetch('/api/admin/cs/item/add', { 
-            method: 'POST', 
-            body: JSON.stringify(payload), 
-            headers: {'Content-Type': 'application/json'} 
-        });
+        if(!payload.name) return notify("Введите название");
         
-        notify("Скин сохранен!"); 
-        closeModal('add-item-modal'); 
-        
-        // Очистка полей (опционально, для удобства следующего ввода)
-        document.getElementById('adm-name').value = '';
-        document.getElementById('adm-img').value = '';
-        document.getElementById('adm-chance').value = '';
-        document.getElementById('adm-boost').value = '';
-
-        await loadItems(); 
-        openSkinsManager();
-    } catch(e) { 
-        console.error(e);
-        notify("Ошибка сохранения"); 
+        try {
+            await fetch('/api/admin/cs/item/add', { 
+                method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} 
+            });
+            notify("Скин сохранен!"); closeModal('add-item-modal'); await loadItems(); openSkinsManager();
+        } catch(e) { notify("Ошибка сохранения"); }
     }
-}
 
     async function apiAddCode() {
         const rawText = document.getElementById('adm-code-val').value;
@@ -1073,7 +1080,7 @@
         } catch(e) { document.getElementById('winners-list').innerHTML = "<div style='padding:20px; color:#red; text-align:center'>Ошибка сети</div>"; }
     }
 
-    // --- 👇 ФУНКЦИИ ДЛЯ НАСТРОЕК 👇 ---
+    // --- ФУНКЦИИ НАСТРОЕК ---
     async function openSettingsModal() {
         openSubModal('settings-modal');
         try {
@@ -1086,10 +1093,7 @@
                 document.getElementById('cfg-tg').value = data.tg_points || 1.0;
                 document.getElementById('cfg-name').value = data.name_points || 1.0;
             }
-        } catch (e) {
-            console.error(e);
-            notify("Ошибка загрузки настроек");
-        }
+        } catch (e) { notify("Ошибка загрузки"); }
     }
 
     async function saveSettings() {
@@ -1106,11 +1110,8 @@
             notify("Настройки сохранены!");
             closeModal('settings-modal');
             document.getElementById('admin-panel').classList.add('active');
-        } catch (e) {
-            notify("Ошибка сохранения");
-        }
+        } catch (e) { notify("Ошибка сохранения"); }
     }
-    // --- 👆 ---------------------- 👆 ---
 
     init();
 </script>
