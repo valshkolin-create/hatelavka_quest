@@ -49,18 +49,31 @@ body.browser-view {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--text-secondary);
+    background: none;
+    border: none;
+    color: #007aff; /* Синий цвет (Action color) */
+    font-size: 16px; /* Размер как в профиле */
+    cursor: pointer;
+    padding: 5px 0;
+    font-weight: 500;
     text-decoration: none;
-    font-size: 12px;
-    font-weight: 600;
-    margin: 5px 0 15px;
-    transition: color 0.2s ease;
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    transition: opacity 0.2s ease;
 }
+
 .header-back-button:hover {
-    color: var(--text-primary);
+    color: #007aff; /* При наведении оставляем синим */
+    opacity: 0.8;
 }
+
+.header-back-button:active {
+    opacity: 0.6;
+}
+
 .header-back-button i {
-    font-size: 10px;
+    font-size: 16px; /* Иконка такого же размера */
 }
 
 .page-header {
