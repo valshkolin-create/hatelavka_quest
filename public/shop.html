@@ -57,17 +57,27 @@
         }
 
         .back-btn {
-            background: none;
-            border: none;
-            color: var(--text-color);
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 500;
-            padding: 5px 0;
-        }
+    background: none;
+    border: none;
+    color: #007aff; /* Синий цвет (Action color) */
+    font-size: 12px; /* Размер 12px, как ты просил */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    padding: 5px 0;
+    text-decoration: none; /* Убираем подчеркивание, т.к. теперь это ссылка */
+}
+
+.back-btn:active {
+    opacity: 0.6;
+}
+
+/* Принудительно ставим размер иконки 12px */
+.back-btn i {
+    font-size: 12px; 
+}
 
         .balance-display {
             background: rgba(255, 204, 0, 0.1);
@@ -1296,9 +1306,9 @@
     </div>
 </div>
     <div class="shop-header">
-        <button class="back-btn" onclick="goBack()">
-            <i class="fa-solid fa-chevron-left"></i> <span id="nav-title">Назад</span>
-        </button>
+    <a href="#" id="header-back-btn" class="back-btn">
+        <i class="fa-solid fa-chevron-left"></i> <span id="nav-title">Назад</span>
+    </a>
         
         <div class="balance-display" onclick="refreshBalance()">
             <span id="user-balance">...</span> 
@@ -2314,13 +2324,31 @@ function preloadP2PState() {
         }
 
         window.goBack = function() {
+            // 1. Приоритет: Если мы внутри папки - выходим из папки
             if (categoryStack.length > 0) {
                 const prevId = categoryStack.pop();
                 loadCategory(prevId);
-            } else {
+            } 
+            // 2. Если папок нет - проверяем историю браузера (как в профиле)
+            else if (window.history.length > 1 && document.referrer) {
+                window.history.back();
+            } 
+            // 3. Если истории нет - идем в меню
+            else {
                 window.location.href = "/menu"; 
             }
         }
+
+        // Обработчик нажатия на HTML кнопку (синюю)
+        document.getElementById('header-back-btn').addEventListener('click', (e) => {
+            e.preventDefault(); // Чтобы не кидало вверх страницы
+            goBack();
+        });
+
+        // Нативная кнопка Telegram тоже вызывает эту функцию
+        Telegram.WebApp.BackButton.onClick(() => {
+            goBack();
+        });
 
         function updateNavState() {
             const titleEl = document.getElementById('nav-title');
