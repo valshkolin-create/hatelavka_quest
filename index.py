@@ -3002,27 +3002,35 @@ async def add_cs_item(req: CSItemCreateRequest, supabase: httpx.AsyncClient = De
 
 # --- 1. ПОЛУЧИТЬ НАСТРОЙКИ (Для админки) ---
 @app.post("/api/admin/cs/config/get")
-async def get_cs_config(req: InitDataRequest, supabase: AsyncClient = Depends(get_supabase_client)):
+async def get_cs_config(req: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # Проверка админа
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
 
-    res = await supabase.table("cs_config").select("*").eq("id", 1).single().execute()
-    return res.data
+    # Используем .get вместо .table
+    res = await supabase.get("/cs_config", params={"id": "eq.1", "select": "*"})
+    data = res.json()
+    
+    # Если базы нет или она пуста, возвращаем дефолт
+    if not data:
+        return {"twitch_points": 1.0, "tg_points": 1.0, "name_points": 1.0}
+        
+    return data[0]
 
 # --- 2. СОХРАНИТЬ НАСТРОЙКИ ---
 @app.post("/api/admin/cs/config/save")
-async def save_cs_config(req: CSConfigUpdate, supabase: AsyncClient = Depends(get_supabase_client)):
+async def save_cs_config(req: CSConfigUpdate, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # Проверка админа
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
 
-    # Обновляем единственную запись с id=1
-    await supabase.table("cs_config").update({
+    # Используем .patch вместо .table().update()
+    # Обновляем запись с id=1
+    await supabase.patch("/cs_config", params={"id": "eq.1"}, json={
         "twitch_points": req.twitch_points,
         "tg_points": req.tg_points,
         "name_points": req.name_points
-    }).eq("id", 1).execute()
+    })
     
     return {"message": "Настройки обновлены"}
     
