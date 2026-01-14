@@ -13084,104 +13084,90 @@ async def mark_token_used(payload: RouletteValidation):
 
 # --- 4. Логика Бота (Обработчик комментариев) ---
 
-@dp.message(F.chat.type == "supergroup", F.message_thread_id)
+# 🔥 ИСПРАВЛЕННЫЙ ОБРАБОТЧИК КОММЕНТАРИЕВ 🔥
+@dp.message(F.chat.type.in_({"supergroup", "group"}))
 async def comment_roulette_handler(message: types.Message):
-    """
-    Слушает комментарии в канале (супергруппе).
-    Считает уникальных пользователей.
-    Выдает приз, если номер совпал.
-    """
-    try:
-        # 1. Сначала загрузим настройки. Если выключено - выходим сразу.
-        settings_res = await supabase.table("comment_roulette_settings").select("*").eq("id", 1).single().execute()
-        if not settings_res.data: return # Настроек нет
-        settings = settings_res.data
+    # 1. Проверяем, что это комментарий к посту (есть thread_id)
+    thread_id = message.message_thread_id
+    if not thread_id:
+        return 
+
+    user_id = message.from_user.id
+    
+    # Используем httpx (асинхронный клиент), чтобы не было ошибки await
+    async with httpx.AsyncClient(base_url=f"{SUPABASE_URL}/rest/v1", headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}) as client:
         
-        if not settings.get("is_active"):
-            return # Система выключена
+        # 2. Берем настройки из ПРАВИЛЬНОЙ таблицы cs_config
+        try:
+            cfg_res = await client.get("/cs_config", params={"select": "*", "id": "eq.1"})
+            cfg_data = cfg_res.json()
+            if not cfg_data: return
+            cfg = cfg_data[0]
+        except Exception as e:
+            logging.error(f"Config Error: {e}")
+            return
 
-        user_id = message.from_user.id
-        post_id = message.message_thread_id # ID поста в канале = ID треда в группе
-        username = message.from_user.username or message.from_user.first_name
-
-        # 2. Атомарно обновляем список уникальных юзеров в SQL
-        # Мы пытаемся добавить ID. Если он там есть - ничего не изменится.
-        # Затем запрашиваем длину массива.
-        
-        # Сначала убедимся, что запись для поста существует
-        await supabase.table("post_comment_stats").upsert(
-            {"post_id": post_id}, on_conflict="post_id"
-        ).execute()
-
-        # Магия SQL через RPC была бы идеальна, но сделаем через Python логику для надежности в Supabase API
-        # 2.1 Получаем текущий список
-        stats_res = await supabase.table("post_comment_stats").select("unique_user_ids").eq("post_id", post_id).single().execute()
-        current_ids = stats_res.data.get("unique_user_ids") or []
-
-        # 2.2 Если юзер уже писал - выходим (не накручиваем счетчик)
-        if user_id in current_ids:
+        # Если система выключена - молчим
+        if not cfg.get('is_active', True):
             return 
 
-        # 2.3 Если юзер новый - добавляем и считаем
-        current_ids.append(user_id)
-        comment_number = len(current_ids) # Вот он, заветный номер!
-        
-        # Сохраняем обновленный список
-        await supabase.table("post_comment_stats").update({"unique_user_ids": current_ids}).eq("post_id", post_id).execute()
+        # 3. Проверяем, писал ли этот юзер уже? (в таблице cs_post_stats)
+        check_res = await client.get("/cs_post_stats", params={"post_id": f"eq.{thread_id}", "user_id": f"eq.{user_id}", "select": "id"})
+        if check_res.json():
+            return # Уже писал, не считаем
 
-        # 3. Проверяем выигрыш
-        winning_positions = settings.get("winning_positions", []) # [10, 25, 50...]
+        # 4. Записываем новичка
+        await client.post("/cs_post_stats", json={"post_id": thread_id, "user_id": user_id})
         
-        if comment_number in winning_positions:
-            # ПОБЕДА!
+        # 5. Считаем, какой он по счету
+        count_res = await client.get(
+            "/cs_post_stats", 
+            params={"post_id": f"eq.{thread_id}", "select": "id", "count": "exact"},
+            headers={"Range": "0-1"}
+        )
+        
+        # Supabase возвращает общее кол-во в заголовке
+        content_range = count_res.headers.get("Content-Range", "")
+        current_number = 0
+        if "/" in content_range:
+            current_number = int(content_range.split("/")[1])
+
+        # 6. Проверяем выигрыш
+        # Берем числа из конфига (например: "10,25,50")
+        winning_str = cfg.get('winning_numbers', '10,25,50,100') 
+        winning_list = [int(x.strip()) for x in str(winning_str).split(',') if x.strip().isdigit()]
+
+        if current_number in winning_list:
+            # 🎉 ПОБЕДА!
+            secret_token = str(uuid.uuid4())
             
-            # Генерируем уникальный токен
-            win_token = str(uuid.uuid4())
-            
-            # Записываем в базу победителей
-            await supabase.table("comment_roulette_winners").insert({
-                "token": win_token,
-                "post_id": post_id,
+            # Сохраняем токен
+            await client.post("/cs_game_tokens", json={
+                "token": secret_token,
                 "user_id": user_id,
-                "username": username,
                 "is_used": False
-            }).execute()
+            })
 
-            # Формируем кнопку
-            # Ссылка ведет на твоего бота (WebApp) с параметром startapp
-            # Пример: https://t.me/HATElavka_bot/cs_roulette?startapp=WIN_token123
-            # Но лучше через startapp параметр, чтобы открылось внутри телеги красиво
+            # Формируем ссылку и сообщение
+            bot_info = await message.bot.get_me()
+            link = f"https://t.me/{bot_info.username}/roulette?startapp={secret_token}"
             
-            # ВАЖНО: Замени 'cs_roulette' на short_name твоего WebApp, который ты создал в BotFather
-            # Если у тебя приложение вызывается просто по кнопке, можно передать параметр в URL
-            webapp_url = f"https://t.me/HATElavka_bot/roulette?startapp={win_token}"
-            
+            msg_text = cfg.get('win_message', 'ТЫ ВЫИГРАЛ!')
+            btn_text = cfg.get('button_text', 'ЗАБРАТЬ ПРИЗ')
+            img_url = cfg.get('image_url', '')
+
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=settings.get("button_text", "🎁"), url=webapp_url)]
+                [InlineKeyboardButton(text=btn_text, url=link)]
             ])
 
-            text = settings.get("message_text", "Ты выиграл!")
-            # Добавляем упоминание для красоты
-            text = f"🎉 <b>{html_decoration.quote(message.from_user.first_name)}</b>, это был {comment_number}-й комментарий!\n\n{text}"
-
-            # Отправляем ответ
-            if settings.get("image_url"):
-                await message.reply_photo(
-                    photo=settings["image_url"],
-                    caption=text,
-                    reply_markup=keyboard,
-                    parse_mode=ParseMode.HTML
-                )
-            else:
-                await message.reply(
-                    text=text,
-                    reply_markup=keyboard,
-                    parse_mode=ParseMode.HTML
-                )
-                
-    except Exception as e:
-        logging.error(f"Error in comment_roulette_handler: {e}")
-
+            try:
+                # Отвечаем на комментарий
+                if img_url:
+                    await message.reply_photo(photo=img_url, caption=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+                else:
+                    await message.reply(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+            except Exception as e:
+                logging.error(f"Send Error: {e}")
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
 
