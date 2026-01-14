@@ -790,12 +790,7 @@ class CSConfigUpdate(BaseModel):
     twitch_points: float
     tg_points: float
     name_points: float
-    is_active: bool = True
-    win_message: Optional[str] = "ТЫ ВЫИГРАЛ!"
-    image_url: Optional[str] = ""
-    button_text: Optional[str] = "ОТКРЫТЬ КЕЙС"
-    limit_winners: int = 0  # <--- ВОТ ЭТО ПОЛЕ ОБЯЗАТЕЛЬНО
-    
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2840,28 +2835,19 @@ async def get_cs_boost_status(
     if not user_info: raise HTTPException(401, "Unauthorized")
     user_id = user_info['id']
 
-    # 1. Получаем настройки
+    # 1. Берем настройки баллов (ДОБАВЛЕНО)
     try:
         cfg_res = await supabase.get("/cs_config", params={"id": "eq.1", "select": "*"})
         cfg_data = cfg_res.json()
         cfg = cfg_data[0] if cfg_data else {}
     except: cfg = {}
 
+    # Получаем настройки или дефолт
     twitch_pts = float(cfg.get('twitch_points', 1.0))
     tg_pts = float(cfg.get('tg_points', 1.0))
     name_pts = float(cfg.get('name_points', 1.0))
-    
-    # Новые поля
-    is_active = cfg.get('is_active', True)
-    button_text = cfg.get('button_text', 'ОТКРЫТЬ КЕЙС')
-    win_message = cfg.get('win_message', 'ТЫ ВЫИГРАЛ!')
-    image_url = cfg.get('image_url', '')
-    
-    # Безопасное получение лимита (защита от None)
-    raw_limit = cfg.get('limit_winners')
-    limit_winners = int(raw_limit) if raw_limit is not None else 0
 
-    # 2. Получаем данные юзера
+    # 2. Берем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_login,full_name"})
     user_data = user_res.json()
     if not user_data: return {"twitch": False, "hashtag": False, "tg": False}
@@ -2887,17 +2873,11 @@ async def get_cs_boost_status(
         "twitch": has_twitch,
         "hashtag": has_hashtag,
         "tg": has_tg,
+        # 👇 ОТПРАВЛЯЕМ КОЭФФИЦИЕНТЫ НА ФРОНТ 👇
         "points": {
             "twitch": twitch_pts,
             "tg": tg_pts,
             "name": name_pts
-        },
-        "config": {
-            "is_active": is_active,
-            "button_text": button_text,
-            "win_message": win_message,
-            "image_url": image_url,
-            "limit_winners": limit_winners # <--- ТЕПЕРЬ ОНО СУЩЕСТВУЕТ
         }
     }
 
@@ -2908,18 +2888,6 @@ async def spin_cs_roulette(
 ):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(401, "Unauthorized")
-    
-    # --- ПРОВЕРКА АКТИВНОСТИ ---
-    try:
-        cfg_res = await supabase.get("/cs_config", params={"id": "eq.1", "select": "is_active"})
-        if cfg_res.json():
-            if not cfg_res.json()[0].get('is_active', True):
-                raise HTTPException(400, "⛔ Система временно отключена админом.")
-    except Exception as e:
-        if isinstance(e, HTTPException): raise e
-        pass
-    # ---------------------------
-
     user_id = user_info['id']
     code = req.code.strip()
 
@@ -3137,25 +3105,17 @@ async def get_cs_config(req: InitDataRequest, supabase: httpx.AsyncClient = Depe
 # --- 2. СОХРАНИТЬ НАСТРОЙКИ ---
 @app.post("/api/admin/cs/config/save")
 async def save_cs_config(req: CSConfigUpdate, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Проверка админа
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
 
-    payload = {
+    # Используем .patch вместо .table().update()
+    # Обновляем запись с id=1
+    await supabase.patch("/cs_config", params={"id": "eq.1"}, json={
         "twitch_points": req.twitch_points,
         "tg_points": req.tg_points,
-        "name_points": req.name_points,
-        "is_active": req.is_active,
-        "win_message": req.win_message,
-        "image_url": req.image_url,
-        "button_text": req.button_text,
-        "limit_winners": req.limit_winners # <--- СОХРАНЯЕМ ЛИМИТ
-    }
-    
-    exists_res = await supabase.get("/cs_config", params={"id": "eq.1"})
-    if exists_res.json():
-        await supabase.patch("/cs_config", params={"id": "eq.1"}, json=payload)
-    else:
-        await supabase.post("/cs_config", json=payload)
+        "name_points": req.name_points
+    })
     
     return {"message": "Настройки обновлены"}
     
@@ -12975,199 +12935,6 @@ async def handle_reaction_update(reaction: MessageReactionUpdated):
     except Exception as e:
         logging.error(f"Reaction handler error: {e}")
 
-# ==========================================
-# 🎲 ЛОГИКА КОММЕНТАРИЕВ-РУЛЕТКИ (CS ROULETTE)
-# ==========================================
-
-# --- 1. Модели данных ---
-class RouletteSettings(BaseModel):
-    is_active: bool
-    winning_positions: List[int]
-    message_text: str
-    image_url: str = ""
-    button_text: str = "🎁 ЗАБРАТЬ ПРИЗ"
-
-class RouletteValidation(BaseModel):
-    initData: str
-    token: str
-
-# --- 2. API для Админки (Настройка рулетки) ---
-
-@app.get("/api/admin/roulette/settings")
-async def get_roulette_settings(request: Request):
-    # Тут можно добавить проверку админа, как в других ручках
-    try:
-        res = await supabase.table("comment_roulette_settings").select("*").eq("id", 1).single().execute()
-        return res.data
-    except Exception as e:
-        logging.error(f"Error getting roulette settings: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-@app.post("/api/admin/roulette/settings")
-async def update_roulette_settings(settings: RouletteSettings, request: Request):
-    try:
-        data = settings.model_dump()
-        # id всегда 1
-        await supabase.table("comment_roulette_settings").upsert({"id": 1, **data}).execute()
-        return {"status": "ok"}
-    except Exception as e:
-        logging.error(f"Error saving roulette settings: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-# --- 3. API для Фронтенда (Проверка ссылки) ---
-
-@app.post("/api/roulette/check_token")
-async def check_roulette_token(payload: RouletteValidation):
-    """
-    Проверяет, что пользователь перешел по СВОЕЙ уникальной ссылке.
-    """
-    try:
-        # 1. Валидируем initData (как у тебя в других местах)
-        user_data = validate_telegram_init_data(payload.initData) 
-        if not user_data:
-            return JSONResponse({"error": "Invalid initData"}, status_code=401)
-        
-        user_id = user_data["id"]
-        token = payload.token
-
-        # 2. Ищем этот токен в базе
-        res = await supabase.table("comment_roulette_winners").select("*").eq("token", token).execute()
-        
-        if not res.data:
-            return JSONResponse({"valid": False, "reason": "not_found", "message": "Ссылка недействительна."})
-        
-        winner_record = res.data[0]
-
-        # 3. Проверка: тот ли это пользователь?
-        if winner_record["user_id"] != user_id:
-            return JSONResponse({
-                "valid": False, 
-                "reason": "wrong_user", 
-                "message": "⛔️ Это чужая ссылка! Вы не можете забрать приз другого человека."
-            })
-
-        # 4. Проверка: использован ли уже код?
-        if winner_record["is_used"]:
-             return JSONResponse({
-                "valid": False, 
-                "reason": "used", 
-                "message": "⚠️ Этот приз уже был получен."
-            })
-
-        # Все ок, отдаем успех
-        return {"valid": True, "message": "Доступ разрешен! Крути рулетку."}
-
-    except Exception as e:
-        logging.error(f"Error checking token: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-
-@app.post("/api/roulette/mark_used")
-async def mark_token_used(payload: RouletteValidation):
-    """
-    Когда юзер крутанул рулетку, помечаем токен как использованный.
-    """
-    try:
-        user_data = validate_telegram_init_data(payload.initData)
-        if not user_data: return JSONResponse({"error": "Auth failed"}, status_code=401)
-
-        # Обновляем статус
-        await supabase.table("comment_roulette_winners")\
-            .update({"is_used": True})\
-            .eq("token", payload.token)\
-            .eq("user_id", user_data["id"])\
-            .execute()
-        
-        return {"status": "ok"}
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-# --- 4. Логика Бота (Обработчик комментариев) ---
-
-# 🔥 ИСПРАВЛЕННЫЙ ОБРАБОТЧИК КОММЕНТАРИЕВ 🔥
-@dp.message(F.chat.type.in_({"supergroup", "group"}))
-async def comment_roulette_handler(message: types.Message):
-    # 1. Проверяем, что это комментарий к посту (есть thread_id)
-    thread_id = message.message_thread_id
-    if not thread_id:
-        return 
-
-    user_id = message.from_user.id
-    
-    # Используем httpx (асинхронный клиент), чтобы не было ошибки await
-    async with httpx.AsyncClient(base_url=f"{SUPABASE_URL}/rest/v1", headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}) as client:
-        
-        # 2. Берем настройки из ПРАВИЛЬНОЙ таблицы cs_config
-        try:
-            cfg_res = await client.get("/cs_config", params={"select": "*", "id": "eq.1"})
-            cfg_data = cfg_res.json()
-            if not cfg_data: return
-            cfg = cfg_data[0]
-        except Exception as e:
-            logging.error(f"Config Error: {e}")
-            return
-
-        # Если система выключена - молчим
-        if not cfg.get('is_active', True):
-            return 
-
-        # 3. Проверяем, писал ли этот юзер уже? (в таблице cs_post_stats)
-        check_res = await client.get("/cs_post_stats", params={"post_id": f"eq.{thread_id}", "user_id": f"eq.{user_id}", "select": "id"})
-        if check_res.json():
-            return # Уже писал, не считаем
-
-        # 4. Записываем новичка
-        await client.post("/cs_post_stats", json={"post_id": thread_id, "user_id": user_id})
-        
-        # 5. Считаем, какой он по счету
-        count_res = await client.get(
-            "/cs_post_stats", 
-            params={"post_id": f"eq.{thread_id}", "select": "id", "count": "exact"},
-            headers={"Range": "0-1"}
-        )
-        
-        # Supabase возвращает общее кол-во в заголовке
-        content_range = count_res.headers.get("Content-Range", "")
-        current_number = 0
-        if "/" in content_range:
-            current_number = int(content_range.split("/")[1])
-
-        # 6. Проверяем выигрыш
-        # Берем числа из конфига (например: "10,25,50")
-        winning_str = cfg.get('winning_numbers', '10,25,50,100') 
-        winning_list = [int(x.strip()) for x in str(winning_str).split(',') if x.strip().isdigit()]
-
-        if current_number in winning_list:
-            # 🎉 ПОБЕДА!
-            secret_token = str(uuid.uuid4())
-            
-            # Сохраняем токен
-            await client.post("/cs_game_tokens", json={
-                "token": secret_token,
-                "user_id": user_id,
-                "is_used": False
-            })
-
-            # Формируем ссылку и сообщение
-            bot_info = await message.bot.get_me()
-            link = f"https://t.me/{bot_info.username}/roulette?startapp={secret_token}"
-            
-            msg_text = cfg.get('win_message', 'ТЫ ВЫИГРАЛ!')
-            btn_text = cfg.get('button_text', 'ЗАБРАТЬ ПРИЗ')
-            img_url = cfg.get('image_url', '')
-
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=btn_text, url=link)]
-            ])
-
-            try:
-                # Отвечаем на комментарий
-                if img_url:
-                    await message.reply_photo(photo=img_url, caption=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-                else:
-                    await message.reply(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-            except Exception as e:
-                logging.error(f"Send Error: {e}")
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
 
