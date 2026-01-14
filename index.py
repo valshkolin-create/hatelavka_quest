@@ -12935,6 +12935,213 @@ async def handle_reaction_update(reaction: MessageReactionUpdated):
     except Exception as e:
         logging.error(f"Reaction handler error: {e}")
 
+# ==========================================
+# 🎲 ЛОГИКА КОММЕНТАРИЕВ-РУЛЕТКИ (CS ROULETTE)
+# ==========================================
+
+# --- 1. Модели данных ---
+class RouletteSettings(BaseModel):
+    is_active: bool
+    winning_positions: List[int]
+    message_text: str
+    image_url: str = ""
+    button_text: str = "🎁 ЗАБРАТЬ ПРИЗ"
+
+class RouletteValidation(BaseModel):
+    initData: str
+    token: str
+
+# --- 2. API для Админки (Настройка рулетки) ---
+
+@app.get("/api/admin/roulette/settings")
+async def get_roulette_settings(request: Request):
+    # Тут можно добавить проверку админа, как в других ручках
+    try:
+        res = await supabase.table("comment_roulette_settings").select("*").eq("id", 1).single().execute()
+        return res.data
+    except Exception as e:
+        logging.error(f"Error getting roulette settings: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/api/admin/roulette/settings")
+async def update_roulette_settings(settings: RouletteSettings, request: Request):
+    try:
+        data = settings.model_dump()
+        # id всегда 1
+        await supabase.table("comment_roulette_settings").upsert({"id": 1, **data}).execute()
+        return {"status": "ok"}
+    except Exception as e:
+        logging.error(f"Error saving roulette settings: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+# --- 3. API для Фронтенда (Проверка ссылки) ---
+
+@app.post("/api/roulette/check_token")
+async def check_roulette_token(payload: RouletteValidation):
+    """
+    Проверяет, что пользователь перешел по СВОЕЙ уникальной ссылке.
+    """
+    try:
+        # 1. Валидируем initData (как у тебя в других местах)
+        user_data = validate_telegram_init_data(payload.initData) 
+        if not user_data:
+            return JSONResponse({"error": "Invalid initData"}, status_code=401)
+        
+        user_id = user_data["id"]
+        token = payload.token
+
+        # 2. Ищем этот токен в базе
+        res = await supabase.table("comment_roulette_winners").select("*").eq("token", token).execute()
+        
+        if not res.data:
+            return JSONResponse({"valid": False, "reason": "not_found", "message": "Ссылка недействительна."})
+        
+        winner_record = res.data[0]
+
+        # 3. Проверка: тот ли это пользователь?
+        if winner_record["user_id"] != user_id:
+            return JSONResponse({
+                "valid": False, 
+                "reason": "wrong_user", 
+                "message": "⛔️ Это чужая ссылка! Вы не можете забрать приз другого человека."
+            })
+
+        # 4. Проверка: использован ли уже код?
+        if winner_record["is_used"]:
+             return JSONResponse({
+                "valid": False, 
+                "reason": "used", 
+                "message": "⚠️ Этот приз уже был получен."
+            })
+
+        # Все ок, отдаем успех
+        return {"valid": True, "message": "Доступ разрешен! Крути рулетку."}
+
+    except Exception as e:
+        logging.error(f"Error checking token: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/roulette/mark_used")
+async def mark_token_used(payload: RouletteValidation):
+    """
+    Когда юзер крутанул рулетку, помечаем токен как использованный.
+    """
+    try:
+        user_data = validate_telegram_init_data(payload.initData)
+        if not user_data: return JSONResponse({"error": "Auth failed"}, status_code=401)
+
+        # Обновляем статус
+        await supabase.table("comment_roulette_winners")\
+            .update({"is_used": True})\
+            .eq("token", payload.token)\
+            .eq("user_id", user_data["id"])\
+            .execute()
+        
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+# --- 4. Логика Бота (Обработчик комментариев) ---
+
+@dp.message(F.chat.type == "supergroup", F.message_thread_id)
+async def comment_roulette_handler(message: types.Message):
+    """
+    Слушает комментарии в канале (супергруппе).
+    Считает уникальных пользователей.
+    Выдает приз, если номер совпал.
+    """
+    try:
+        # 1. Сначала загрузим настройки. Если выключено - выходим сразу.
+        settings_res = await supabase.table("comment_roulette_settings").select("*").eq("id", 1).single().execute()
+        if not settings_res.data: return # Настроек нет
+        settings = settings_res.data
+        
+        if not settings.get("is_active"):
+            return # Система выключена
+
+        user_id = message.from_user.id
+        post_id = message.message_thread_id # ID поста в канале = ID треда в группе
+        username = message.from_user.username or message.from_user.first_name
+
+        # 2. Атомарно обновляем список уникальных юзеров в SQL
+        # Мы пытаемся добавить ID. Если он там есть - ничего не изменится.
+        # Затем запрашиваем длину массива.
+        
+        # Сначала убедимся, что запись для поста существует
+        await supabase.table("post_comment_stats").upsert(
+            {"post_id": post_id}, on_conflict="post_id"
+        ).execute()
+
+        # Магия SQL через RPC была бы идеальна, но сделаем через Python логику для надежности в Supabase API
+        # 2.1 Получаем текущий список
+        stats_res = await supabase.table("post_comment_stats").select("unique_user_ids").eq("post_id", post_id).single().execute()
+        current_ids = stats_res.data.get("unique_user_ids") or []
+
+        # 2.2 Если юзер уже писал - выходим (не накручиваем счетчик)
+        if user_id in current_ids:
+            return 
+
+        # 2.3 Если юзер новый - добавляем и считаем
+        current_ids.append(user_id)
+        comment_number = len(current_ids) # Вот он, заветный номер!
+        
+        # Сохраняем обновленный список
+        await supabase.table("post_comment_stats").update({"unique_user_ids": current_ids}).eq("post_id", post_id).execute()
+
+        # 3. Проверяем выигрыш
+        winning_positions = settings.get("winning_positions", []) # [10, 25, 50...]
+        
+        if comment_number in winning_positions:
+            # ПОБЕДА!
+            
+            # Генерируем уникальный токен
+            win_token = str(uuid.uuid4())
+            
+            # Записываем в базу победителей
+            await supabase.table("comment_roulette_winners").insert({
+                "token": win_token,
+                "post_id": post_id,
+                "user_id": user_id,
+                "username": username,
+                "is_used": False
+            }).execute()
+
+            # Формируем кнопку
+            # Ссылка ведет на твоего бота (WebApp) с параметром startapp
+            # Пример: https://t.me/HATElavka_bot/cs_roulette?startapp=WIN_token123
+            # Но лучше через startapp параметр, чтобы открылось внутри телеги красиво
+            
+            # ВАЖНО: Замени 'cs_roulette' на short_name твоего WebApp, который ты создал в BotFather
+            # Если у тебя приложение вызывается просто по кнопке, можно передать параметр в URL
+            webapp_url = f"https://t.me/HATElavka_bot/roulette?startapp={win_token}"
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=settings.get("button_text", "🎁"), url=webapp_url)]
+            ])
+
+            text = settings.get("message_text", "Ты выиграл!")
+            # Добавляем упоминание для красоты
+            text = f"🎉 <b>{html_decoration.quote(message.from_user.first_name)}</b>, это был {comment_number}-й комментарий!\n\n{text}"
+
+            # Отправляем ответ
+            if settings.get("image_url"):
+                await message.reply_photo(
+                    photo=settings["image_url"],
+                    caption=text,
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.HTML
+                )
+            else:
+                await message.reply(
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.HTML
+                )
+                
+    except Exception as e:
+        logging.error(f"Error in comment_roulette_handler: {e}")
+
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
 
