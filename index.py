@@ -3065,10 +3065,25 @@ async def api_admin_mark_copied(
 async def add_cs_item(req: CSItemCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
-    
-    # Исключаем initData и отправляем всё в базу (включая boost_percent)
-    await supabase.post("/cs_items", json=req.dict(exclude={"initData"}))
-    return {"message": "Скин добавлен"}
+
+    # 1. Проверяем, есть ли уже предмет с таким именем в базе
+    # Используем PostgREST синтаксис: ?name=eq.Значение
+    check_resp = await supabase.get("/cs_items", params={"name": f"eq.{req.name}", "select": "id"})
+    existing_items = check_resp.json()
+
+    # Подготавливаем данные (убираем initData)
+    payload = req.dict(exclude={"initData"})
+
+    if existing_items and len(existing_items) > 0:
+        # === ЕСЛИ НАШЛИ -> ОБНОВЛЯЕМ (PATCH) ===
+        target_id = existing_items[0]['id']
+        # Делаем PATCH запрос с условием id=eq.TARGET_ID
+        await supabase.patch("/cs_items", params={"id": f"eq.{target_id}"}, json=payload)
+        return {"message": f"Скин '{req.name}' обновлен"}
+    else:
+        # === ЕСЛИ НЕ НАШЛИ -> СОЗДАЕМ (POST) ===
+        await supabase.post("/cs_items", json=payload)
+        return {"message": f"Скин '{req.name}' добавлен"}
 
 # --- 1. ПОЛУЧИТЬ НАСТРОЙКИ (Для админки) ---
 @app.post("/api/admin/cs/config/get")
