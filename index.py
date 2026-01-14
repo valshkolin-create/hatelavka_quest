@@ -791,10 +791,10 @@ class CSConfigUpdate(BaseModel):
     tg_points: float
     name_points: float
     is_active: bool = True
-    win_message: Optional[str] = ""
+    win_message: Optional[str] = "ТЫ ВЫИГРАЛ!"
     image_url: Optional[str] = ""
-    button_text: Optional[str] = ""
-    limit_winners: int = 0  # <--- НОВОЕ ПОЛЕ (0 = безлимит)
+    button_text: Optional[str] = "ОТКРЫТЬ КЕЙС"
+    limit_winners: int = 0  # <--- ВОТ ЭТО ПОЛЕ ОБЯЗАТЕЛЬНО
     
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -2856,6 +2856,10 @@ async def get_cs_boost_status(
     button_text = cfg.get('button_text', 'ОТКРЫТЬ КЕЙС')
     win_message = cfg.get('win_message', 'ТЫ ВЫИГРАЛ!')
     image_url = cfg.get('image_url', '')
+    
+    # Безопасное получение лимита (защита от None)
+    raw_limit = cfg.get('limit_winners')
+    limit_winners = int(raw_limit) if raw_limit is not None else 0
 
     # 2. Получаем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_login,full_name"})
@@ -2893,7 +2897,7 @@ async def get_cs_boost_status(
             "button_text": button_text,
             "win_message": win_message,
             "image_url": image_url,
-            "limit_winners": limit_winners # <--- 2. ВСТАВИТЬ ТУТ
+            "limit_winners": limit_winners # <--- ТЕПЕРЬ ОНО СУЩЕСТВУЕТ
         }
     }
 
@@ -3143,8 +3147,8 @@ async def save_cs_config(req: CSConfigUpdate, supabase: httpx.AsyncClient = Depe
         "is_active": req.is_active,
         "win_message": req.win_message,
         "image_url": req.image_url,
-        "limit_winners": req.limit_winners, # <--- ДОБАВИТЬ
-        "button_text": req.button_text
+        "button_text": req.button_text,
+        "limit_winners": req.limit_winners # <--- СОХРАНЯЕМ ЛИМИТ
     }
     
     exists_res = await supabase.get("/cs_config", params={"id": "eq.1"})
