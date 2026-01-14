@@ -798,40 +798,81 @@
 
     // --- ИНИЦИАЛИЗАЦИЯ (С RELOAD) ---
     async function init() {
-        // 👇 ОБНОВЛЕННЫЕ ПУТИ
-        const imgAgent = new Image(); 
-        imgAgent.src = "/static/background-wooman.png"; // Локальный путь
+        const startParam = tg.initDataUnsafe.start_param; // Токен из ссылки
         
+        // Если есть ссылка - сразу показываем шторку проверки
+        if (startParam) {
+            document.getElementById('access-screen').style.display = 'flex';
+        }
+
+        const imgAgent = new Image(); 
+        imgAgent.src = "/static/background-wooman.png"; 
         const imgStreet = new Image(); 
-        imgStreet.src = "/static/background.png";       // Локальный путь
+        imgStreet.src = "/static/background.png";      
         
         try {
             // 1. Грузим предметы
             await loadItems();
 
-            // 2. Грузим юзера
+            // 2. Грузим юзера (Твоя старая проверка админа остается здесь)
             const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
             const me = await meRes.json();
             currentUser = me; 
 
+            // Если админ - показываем кнопку (как у тебя и было)
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             
             // 3. Грузим бусты
             await checkBoostsServer();
 
+            // 4. ЛОГИКА ПРОВЕРКИ ТОКЕНА (НОВОЕ)
+            if (startParam) {
+                // Проверяем токен на сервере
+                const checkRes = await fetch('/api/roulette/check_token', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData, token: startParam })
+                });
+                const checkData = await checkRes.json();
+
+                if (checkData.valid) {
+                    // УСПЕХ!
+                    // Скрываем шторку
+                    document.getElementById('access-screen').style.display = 'none';
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    
+                    // Сохраняем токен как "код" и переходим сразу к кнопке Открыть
+                    savedCode = startParam; 
+                    
+                    // Переключаем экраны
+                    document.getElementById('screen-input').classList.remove('active');
+                    document.getElementById('screen-action').classList.add('active');
+                    
+                    notify(checkData.message || "Билет подтвержден!");
+                } else {
+                    // ОШИБКА (Чужой токен или использован)
+                    document.getElementById('access-loader').style.display = 'none';
+                    document.getElementById('access-error').style.display = 'block';
+                    document.getElementById('access-msg').innerText = checkData.message;
+                    // Шторка остается висеть вечно, блокируя вход
+                    return; 
+                }
+            }
+
         } catch(e) { console.error(e); }
 
-        // 4. СКРЫВАЕМ RELOAD ЭКРАН (ТОЛЬКО КОГДА ВСЕ ЗАГРУЗИЛОСЬ)
+        // 5. Обычная загрузка (если не было токена или ошибка сети)
         const loader = document.getElementById('loading-screen');
         if(loader) loader.classList.add('hidden');
 
-        // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
-        const draftCode = localStorage.getItem('cs_draft_code');
-        if (draftCode) {
-            // Если код был сохранен, сразу переходим к этапу открытия
-            savedCode = draftCode;
-            document.getElementById('screen-input').classList.remove('active');
-            document.getElementById('screen-action').classList.add('active');
+        // Логика восстановления кода (только если мы не пришли по спец. ссылке)
+        if (!startParam) {
+            const draftCode = localStorage.getItem('cs_draft_code');
+            if (draftCode) {
+                savedCode = draftCode;
+                document.getElementById('screen-input').classList.remove('active');
+                document.getElementById('screen-action').classList.add('active');
+            }
         }
     }
 
@@ -1126,7 +1167,19 @@ function copyHashVal() {
     }
 
     async function startSpinAPI() {
+        const startParam = tg.initDataUnsafe.start_param; // Проверяем, есть ли токен ссылки
+
         try {
+            // --- ДОБАВЛЕНО: Если это спец. ссылка, помечаем токен как использованный ---
+            if (startParam) {
+                await fetch('/api/roulette/mark_used', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData, token: startParam })
+                });
+            }
+            // ---------------------------------------------------------------------------
+
             const res = await fetch('/api/cs/spin', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData, code: savedCode })
@@ -1499,5 +1552,18 @@ async function copyAndMarkCode(codeText, btnElement) {
     }
 }
 </script>
+
+    <div id="access-screen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index: 99999; display: none; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; color:#fff;">
+    <div id="access-loader">
+        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 40px; color: gold;"></i>
+        <p style="margin-top:20px;">Проверяем твой билет...</p>
+    </div>
+    <div id="access-error" style="display:none;">
+        <i class="fa-solid fa-hand" style="font-size: 50px; color: #ff4444;"></i>
+        <h2 style="margin:15px 0;">Ошибка доступа</h2>
+        <p id="access-msg" style="color:#ccc; font-size: 14px;">Ссылка недействительна.</p>
+    </div>
+</div>
+    
 </body>
 </html>
