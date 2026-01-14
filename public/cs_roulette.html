@@ -753,53 +753,78 @@
         </div>
     </div>
     
-  <div id="settings-modal" class="modal">
-    <div class="modal-box" style="text-align: left;">
-        <h3 style="margin-top: 0; text-align: center; color: #ffd700;">НАСТРОЙКИ</h3>
+<div id="settings-modal" class="modal">
+    <div class="modal-box" style="max-width: 90%; width: 400px; padding: 0; background: #0f0f0f; border: 1px solid #333; display: flex; flex-direction: column; height: 85vh; max-height: 700px;">
         
-        <div class="admin-input-group">
-            <label>Система включена?</label>
-            <select id="cfg-active" style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 8px;">
-                <option value="true">✅ ВКЛЮЧЕНА</option>
-                <option value="false">❌ ВЫКЛЮЧЕНА</option>
-            </select>
+        <div style="padding: 15px; border-bottom: 1px solid #333; display:flex; justify-content:space-between; align-items:center; background: #1c1c1e;">
+            <h3 style="margin:0; color: #ffd700; font-size: 14px; text-transform: uppercase;">Конструктор Поста</h3>
+            <i class="fa-solid fa-xmark" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');" style="cursor:pointer; color:#888;"></i>
         </div>
 
-        <div class="admin-input-group">
-            <label>Текст кнопки (Главная)</label>
-            <input type="text" id="cfg-btn-text" placeholder="ОТКРЫТЬ КЕЙС">
+        <div style="overflow-y: auto; flex: 1; padding: 15px;">
+            
+            <label style="font-size: 10px; color: #888; text-transform:uppercase; font-weight:700; margin-bottom: 5px; display:block;">Предпросмотр (Как видит юзер):</label>
+            
+            <div class="tg-preview-container" style="background-image: url('https://web.telegram.org/img/bg_0.png'); background-size: cover; padding: 15px; border-radius: 8px; border: 1px solid #333;">
+                <div class="tg-message-bubble" style="background: #182533; color: #fff; padding: 8px 10px; border-radius: 12px 12px 12px 0; font-size: 13px; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.3); position: relative; margin-bottom: 5px;">
+                    <div id="prev-img-wrap" style="display:none; margin-bottom: 5px;">
+                        <img id="prev-img" src="" style="width: 100%; border-radius: 4px; object-fit: cover;">
+                    </div>
+                    
+                    <div id="prev-text" style="white-space: pre-wrap; line-height: 1.4;">Текст сообщения...</div>
+                    
+                    <div style="text-align: right; margin-top: 2px;">
+                        <span style="font-size: 10px; color: rgba(255,255,255,0.5);">12:00 <i class="fa-solid fa-check-double"></i></span>
+                    </div>
+                </div>
+
+                <div id="prev-btn" style="background: rgba(255, 255, 255, 0.1); color: #fff; padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: default; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1); max-width: 80%;">ОТКРЫТЬ КЕЙС</div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+
+            <div class="admin-input-group">
+                <label>Состояние и Лимиты</label>
+                <div style="display: flex; gap: 10px;">
+                    <select id="cfg-active" style="flex:1;">
+                        <option value="true">🟢 ВКЛЮЧЕНО</option>
+                        <option value="false">🔴 ВЫКЛЮЧЕНО</option>
+                    </select>
+                    <input type="number" id="cfg-limit" placeholder="Лимит (0=беск)" style="flex:1;" title="Сколько человек могут выиграть">
+                </div>
+                <div style="font-size: 9px; color: #666; margin-top: 3px;">0 = Бесконечно. Если поставить 10, то 11-й увидит ошибку.</div>
+            </div>
+
+            <div class="admin-input-group">
+                <label>Картинка (URL)</label>
+                <input type="text" id="cfg-img-url" placeholder="https://..." oninput="updatePreview()">
+            </div>
+
+            <div class="admin-input-group">
+                <label>Текст сообщения (HTML поддерживается)</label>
+                <textarea id="cfg-win-msg" rows="3" placeholder="ТЫ ВЫИГРАЛ!" oninput="updatePreview()"></textarea>
+                <div style="font-size: 9px; color: #666; margin-top: 3px;">Можно использовать &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;</div>
+            </div>
+
+            <div class="admin-input-group">
+                <label>Текст на кнопке</label>
+                <input type="text" id="cfg-btn-text" placeholder="ОТКРЫТЬ КЕЙС" oninput="updatePreview()">
+            </div>
+
+            <div class="admin-input-group">
+                <label>Настройки Баллов (Коэффициенты)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+                    <div><span style="font-size:9px; color:#888;">Twitch</span><input type="number" id="cfg-twitch" step="0.1"></div>
+                    <div><span style="font-size:9px; color:#888;">TG</span><input type="number" id="cfg-tg" step="0.1"></div>
+                    <div><span style="font-size:9px; color:#888;">Name</span><input type="number" id="cfg-name" step="0.1"></div>
+                </div>
+            </div>
+
         </div>
 
-        <div class="admin-input-group">
-            <label>Заголовок Победы (в модалке)</label>
-            <input type="text" id="cfg-win-msg" placeholder="ТЫ ВЫИГРАЛ!">
+        <div style="padding: 15px; border-top: 1px solid #333; background: #1c1c1e;">
+            <button class="modal-btn btn-gold" style="margin:0;" onclick="saveSettings()">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
         </div>
-
-        <div class="admin-input-group">
-            <label>Картинка (Фон главной)</label>
-            <input type="text" id="cfg-img-url" placeholder="https://...">
-        </div>
-        
-        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-        <p style="font-size: 11px; color: #aaa; margin-bottom: 15px;">Баллы буста:</p>
-
-        <div class="admin-input-group">
-            <label>Баллы за Twitch Sub</label>
-            <input type="number" id="cfg-twitch" placeholder="1.0" step="0.1">
-        </div>
-        
-        <div class="admin-input-group">
-            <label>Баллы за TG Канал</label>
-            <input type="number" id="cfg-tg" placeholder="1.0" step="0.1">
-        </div>
-
-        <div class="admin-input-group">
-            <label>Баллы за Фамилию / Бота</label>
-            <input type="number" id="cfg-name" placeholder="1.0" step="0.1">
-        </div>
-
-        <button class="modal-btn btn-gold" onclick="saveSettings()">СОХРАНИТЬ</button>
-        <button class="modal-btn btn-grey" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
     </div>
 </div>
     <script>
