@@ -550,6 +550,9 @@
 
     <div id="win-modal" class="modal">
         <div class="modal-box" style="border: 2px solid #ffd700; background: radial-gradient(circle, #222 0%, #000 100%); padding-top: 40px;">
+            
+            <h2 id="win-msg-header" style="color: gold; margin: 0 0 20px 0; text-transform: uppercase; text-shadow: 0 0 10px orange;">ТЫ ВЫИГРАЛ!</h2>
+            
             <img id="win-image" src="" class="win-img">
             <div id="win-name" class="win-name-large">NAME</div>
             <div id="win-details" class="win-details">RARITY • CONDITION</div>
@@ -1473,7 +1476,7 @@ function copyHashVal() {
     }
 
     // --- ФУНКЦИИ НАСТРОЕК ---
-    / --- ФУНКЦИИ НАСТРОЕК (ОБНОВЛЕННЫЕ) ---
+    // --- ФУНКЦИИ НАСТРОЕК (ОБНОВЛЕННЫЕ) ---
     async function openSettingsModal() {
         openSubModal('settings-modal');
         try {
