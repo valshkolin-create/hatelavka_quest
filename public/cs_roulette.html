@@ -256,75 +256,113 @@
 
         /* --- ROULETTE STYLES --- */
         .roulette-container {
+        .roulette-container {
             width: 100%;
             position: relative;
             transform: translateY(20px);
+            perspective: 1000px; /* Для глубины */
         }
 
         .roulette-window {
             width: 100%;
-            height: 160px;
-            background: #0e1621;
-            border-top: 2px solid #333;
-            border-bottom: 2px solid #333;
-            box-shadow: 0 0 50px rgba(0,0,0,0.9);
-            overflow: hidden;
+            height: 180px; /* Чуть выше для премиальности */
+            background: #111;
+            border-top: 1px solid #ffd700;
+            border-bottom: 1px solid #ffd700;
             position: relative;
             display: flex; align-items: center;
+            overflow: hidden;
+            /* Эффект виньетки (затемнение внутри) */
+            box-shadow: inset 0 0 80px rgba(0,0,0,1);
         }
         
+        /* Затемнение по бокам (Fade effect) */
+        .roulette-window::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, #000 0%, transparent 20%, transparent 80%, #000 100%);
+            z-index: 10; pointer-events: none;
+        }
+
         .center-marker {
             position: absolute; left: 50%; top: 0; bottom: 0;
-            width: 4px; background: #ffd700;
+            width: 2px; background: #ffd700;
             z-index: 20; transform: translateX(-50%);
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 4px #fff;
         }
+        
+        /* Треугольник сверху */
         .marker-arrow {
-            position: absolute; top: -1px; left: 50%;
+            position: absolute; top: 0; left: 50%;
             transform: translateX(-50%);
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 12px solid #ffd700;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 15px solid #ffd700;
+            filter: drop-shadow(0 0 10px rgba(255,215,0,0.8));
+            z-index: 21;
+        }
+        
+        /* Треугольник снизу (для симметрии) */
+        .marker-arrow-bottom {
+            position: absolute; bottom: 0; left: 50%;
+            transform: translateX(-50%);
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 15px solid #ffd700;
+            filter: drop-shadow(0 0 10px rgba(255,215,0,0.8));
             z-index: 21;
         }
 
         .track {
             display: flex; height: 100%; align-items: center;
             will-change: transform;
-            padding-left: 50vw;
+            /* Убрали padding-left, будем считать математически */
+            padding-left: 0; 
         }
 
         .card {
-            width: 130px; height: 130px;
-            margin: 0 5px;
-            background-color: #1f2936;
-            border-radius: 12px;
+            width: 140px; /* Фиксированная ширина */
+            height: 140px;
+            margin: 0 4px; /* Отступы по 4px с каждой стороны = 148px полный шаг */
+            background-color: #1a1b20;
+            border-radius: 4px; /* Более строгие углы как в CS2 */
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             position: relative; flex-shrink: 0;
             border-bottom: 3px solid transparent; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            transition: 0.3s;
+        }
+        
+        /* Градиент "редкости" внутри карточки */
+        .card::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.6) 100%);
+            z-index: 1; pointer-events: none;
         }
 
         .card img {
-            width: 90px; height: auto; 
-            max-height: 70px; object-fit: contain;
-            margin-bottom: 10px; z-index: 2;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+            width: 110px; height: auto; 
+            max-height: 80px; object-fit: contain;
+            margin-bottom: 15px; z-index: 2;
+            filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));
+            transition: transform 0.3s;
         }
         
+        .card:hover img { transform: scale(1.05); }
+
         .card-name {
-            font-size: 10px; color: #ccc; text-align: center;
+            font-size: 11px; color: #ccc; text-align: center;
             width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             font-weight: 700; z-index: 2;
+            text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        .card.blue { border-bottom-color: var(--rarity-blue); background: radial-gradient(circle at bottom, rgba(75, 105, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
-        .card.purple { border-bottom-color: var(--rarity-purple); background: radial-gradient(circle at bottom, rgba(136, 71, 255, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
-        .card.pink { border-bottom-color: var(--rarity-pink); background: radial-gradient(circle at bottom, rgba(211, 44, 230, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
-        .card.red { border-bottom-color: var(--rarity-red); background: radial-gradient(circle at bottom, rgba(235, 75, 75, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
-        .card.gold { border-bottom-color: var(--rarity-gold); background: radial-gradient(circle at bottom, rgba(228, 174, 57, 0.25) 0%, rgba(31, 41, 54, 1) 70%); }
+        /* Цвета с более насыщенными подложками */
+        .card.blue { border-bottom-color: var(--rarity-blue); background: radial-gradient(circle at center, rgba(75, 105, 255, 0.15) 0%, #1a1b20 80%); }
+        .card.purple { border-bottom-color: var(--rarity-purple); background: radial-gradient(circle at center, rgba(136, 71, 255, 0.15) 0%, #1a1b20 80%); }
+        .card.pink { border-bottom-color: var(--rarity-pink); background: radial-gradient(circle at center, rgba(211, 44, 230, 0.15) 0%, #1a1b20 80%); }
+        .card.red { border-bottom-color: var(--rarity-red); background: radial-gradient(circle at center, rgba(235, 75, 75, 0.15) 0%, #1a1b20 80%); }
+        .card.gold { border-bottom-color: var(--rarity-gold); background: radial-gradient(circle at center, rgba(228, 174, 57, 0.15) 0%, #1a1b20 80%); }
 
         /* --- MODAL INPUT ERROR --- */
         #code-error {
@@ -495,10 +533,10 @@
             <div class="roulette-window">
                 <div class="marker-arrow"></div>
                 <div class="center-marker"></div>
-                <div class="track" id="track"></div>
+                <div class="marker-arrow-bottom"></div> <div class="track" id="track"></div>
             </div>
             <div style="text-align: center; margin-top: 25px; color: #fff; text-shadow: 0 2px 10px #000;">
-                <h2 style="margin: 0; font-size: 24px; letter-spacing: 2px;">ROLLING...</h2>
+                <h2 style="margin: 0; font-size: 24px; letter-spacing: 2px; color: #ffd700;">ROLLING...</h2>
             </div>
         </div>
     </div>
@@ -1044,22 +1082,43 @@ function copyHashVal() {
         } catch(e) { console.error(e); }
     }
 
+    // --- ПЕРЕМЕННЫЕ ---
+    // Ширина карточки (140) + Margin Left (4) + Margin Right (4) = 148px
+    const CARD_FULL_WIDTH = 148; 
+    const WINNER_INDEX = 60; // Индекс победителя всегда фиксированный
+
     function generateStrip(items, winnerItem) {
         TRACK.innerHTML = '';
-        const cardsCount = 80; const winnerIndex = 60; 
+        TRACK.style.transition = 'none';
+        TRACK.style.transform = 'translateX(0px)';
+
+        const cardsCount = 80; 
         let html = '';
+        
         for (let i = 0; i < cardsCount; i++) {
             let item;
-            if (i === winnerIndex && winnerItem) item = winnerItem;
+            if (i === WINNER_INDEX && winnerItem) item = winnerItem;
             else item = items.length ? items[Math.floor(Math.random() * items.length)] : null;
+            
             if(!item) item = {name: "Загрузка...", image_url: "https://placehold.co/100", rarity: "blue"};
 
-            html += `<div class="card ${item.rarity}"><img src="${item.image_url}" alt="skin"><div class="card-name">${item.name}</div></div>`;
+            html += `
+            <div class="card ${item.rarity}">
+                <img src="${item.image_url}" alt="skin">
+                <div class="card-name">${item.name}</div>
+            </div>`;
         }
-        TRACK.insertAdjacentHTML('beforeend', html);
+        TRACK.innerHTML = html;
+        
+        // --- ВАЖНО: Стартовая позиция ---
+        // Смещаем ленту так, чтобы начало ленты было чуть правее центра экрана,
+        // создавая эффект, что рулетка готова к старту.
+        // Допустим, показываем 2-ю карточку по центру перед стартом.
+        const startOffset = (2 * CARD_FULL_WIDTH) - (window.innerWidth / 2) + (CARD_FULL_WIDTH / 2);
+        TRACK.style.transform = `translateX(-${startOffset}px)`;
     }
 
-   async function startSpinAPI() {
+    async function startSpinAPI() {
         try {
             const res = await fetch('/api/cs/spin', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1068,7 +1127,7 @@ function copyHashVal() {
             const data = await res.json();
 
             if (!res.ok) {
-                // Обработка ошибок
+                // Обработка ошибок (без изменений)
                 if (data.detail && data.detail.includes("Trade Link")) {
                      document.getElementById('tradelink-modal').classList.add('active');
                      bgLayer.classList.remove('bg-street');
@@ -1077,7 +1136,6 @@ function copyHashVal() {
                      document.getElementById('screen-action').classList.add('active');
                      return;
                 }
-                
                 notify(data.detail || "Ошибка");
                 if(data.detail && (data.detail.includes("код") || data.detail.includes("Code"))) {
                     resetToInput();
@@ -1090,45 +1148,56 @@ function copyHashVal() {
             const winner = data.winner;
             generateStrip(itemsCache, winner);
 
+            // Даем браузеру время отрендерить DOM перед запуском анимации
             setTimeout(() => {
-                const cardCenter = CARD_WIDTH / 2;
                 const screenCenter = window.innerWidth / 2;
                 
-                const baseOffset = (60 * CARD_WIDTH) + cardCenter - screenCenter; 
-                const randomOffset = Math.floor(Math.random() * 80) - 40; 
-                const finalPosition = baseOffset + randomOffset;
+                // 1. Ищем ЦЕНТР победной карточки относительно начала ленты
+                // (Индекс * Ширина) + Половина самой карточки
+                const winnerCenterOnTrack = (WINNER_INDEX * CARD_FULL_WIDTH) + (CARD_FULL_WIDTH / 2);
                 
-                // === 🔊 НОВОЕ: ЗАПУСК ВИБРАЦИИ (ТРЕЩОТКА) ===
-                // Делаем легкий "тик" каждые 150мс
+                // 2. Рассчитываем, насколько нужно сдвинуть трек влево,
+                // чтобы этот winnerCenterOnTrack оказался ровно по центру экрана.
+                // Формула: ПозицияНаТреке - ПоловинаЭкрана
+                const exactCenterPosition = winnerCenterOnTrack - screenCenter;
+
+                // 3. Добавляем "Случайность" (Random), чтобы не всегда останавливалось ровно в центре
+                // Сдвиг в пределах ±45px (чтобы не выйти за границы карточки шириной 140px)
+                const randomOffset = (Math.random() * 90) - 45; 
+                
+                const finalSpinPosition = exactCenterPosition + randomOffset;
+
+                // === ЗВУК/ВИБРАЦИЯ ===
                 let hapticInterval = setInterval(() => {
                     tg.HapticFeedback.selectionChanged(); 
                 }, 150);
 
-                // === 🌀 ЗАПУСК ВРАЩЕНИЯ ===
-                TRACK.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.05, 1)'; 
-                TRACK.style.transform = `translateX(-${finalPosition}px)`;
+                // === ЗАПУСК ВРАЩЕНИЯ (Фаза 1: Быстро и долго) ===
+                // Используем cubic-bezier для реалистичного замедления в конце
+                TRACK.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)'; 
+                TRACK.style.transform = `translateX(-${finalSpinPosition}px)`;
                 
-                // === 🛑 ОСТАНОВКА ЧЕРЕЗ 8 СЕКУНД ===
+                // === ДОВОДКА (Фаза 2: Выравнивание по центру) ===
                 setTimeout(() => {
-                    clearInterval(hapticInterval); // Выключаем "трещотку"
+                    clearInterval(hapticInterval); // Выключаем трещотку
                     
-                    // Пересчет центра для идеальной доводки
+                    // Пересчитываем центр (на случай если пользователь повернул телефон)
                     const currentScreenCenter = window.innerWidth / 2;
-                    const perfectPosition = (60 * CARD_WIDTH) + cardCenter - currentScreenCenter;
+                    const perfectPosition = ((WINNER_INDEX * CARD_FULL_WIDTH) + (CARD_FULL_WIDTH / 2)) - currentScreenCenter;
 
-                    // Плавная доводка до центра
-                    TRACK.style.transition = 'transform 0.4s ease-out';
+                    // Меняем анимацию на быструю и эластичную для доводки
+                    TRACK.style.transition = 'transform 0.8s cubic-bezier(0.25, 1, 0.5, 1)';
                     TRACK.style.transform = `translateX(-${perfectPosition}px)`;
                     
-                    // 📳 Финальный "Удар" вибрацией при фиксации
-                    tg.HapticFeedback.impactOccurred('medium');
+                    // Удар вибрацией в момент доводки
+                    tg.HapticFeedback.impactOccurred('heavy');
 
-                    // Показываем победу
+                    // Показываем окно победы после завершения доводки
                     setTimeout(() => { 
                         showWinModal(winner); 
-                    }, 500);
+                    }, 1000);
 
-                }, 8000); // Время основного вращения
+                }, 8000); // Время должно совпадать с duration первой анимации (8s)
 
             }, 100);
 
