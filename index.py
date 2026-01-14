@@ -791,10 +791,11 @@ class CSConfigUpdate(BaseModel):
     tg_points: float
     name_points: float
     is_active: bool = True
-    win_message: Optional[str] = "ТЫ ВЫИГРАЛ!"
+    win_message: Optional[str] = ""
     image_url: Optional[str] = ""
-    button_text: Optional[str] = "ОТКРЫТЬ КЕЙС"
-
+    button_text: Optional[str] = ""
+    limit_winners: int = 0  # <--- НОВОЕ ПОЛЕ (0 = безлимит)
+    
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -2891,7 +2892,8 @@ async def get_cs_boost_status(
             "is_active": is_active,
             "button_text": button_text,
             "win_message": win_message,
-            "image_url": image_url
+            "image_url": image_url,
+            "limit_winners": limit_winners # <--- 2. ВСТАВИТЬ ТУТ
         }
     }
 
@@ -3141,6 +3143,7 @@ async def save_cs_config(req: CSConfigUpdate, supabase: httpx.AsyncClient = Depe
         "is_active": req.is_active,
         "win_message": req.win_message,
         "image_url": req.image_url,
+        "limit_winners": req.limit_winners, # <--- ДОБАВИТЬ
         "button_text": req.button_text
     }
     
