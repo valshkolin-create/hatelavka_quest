@@ -1487,6 +1487,30 @@ function copyHashVal() {
 
     // --- ФУНКЦИИ НАСТРОЕК ---
     // --- ФУНКЦИИ НАСТРОЕК (ОБНОВЛЕННЫЕ) ---
+
+    function updatePreview() {
+        // 1. Обновляем текст
+        const textVal = document.getElementById('cfg-win-msg').value || "ТЫ ВЫИГРАЛ!";
+        // Преобразуем переносы строк в <br>
+        document.getElementById('prev-text').innerHTML = textVal.replace(/\n/g, "<br>");
+
+        // 2. Обновляем картинку
+        const imgVal = document.getElementById('cfg-img-url').value;
+        const imgWrap = document.getElementById('prev-img-wrap');
+        const imgEl = document.getElementById('prev-img');
+        
+        if (imgVal) {
+            imgEl.src = imgVal;
+            imgWrap.style.display = 'block';
+        } else {
+            imgWrap.style.display = 'none';
+        }
+
+        // 3. Обновляем кнопку
+        const btnText = document.getElementById('cfg-btn-text').value || "ОТКРЫТЬ КЕЙС";
+        document.getElementById('prev-btn').innerText = btnText;
+    }
+
     async function openSettingsModal() {
         openSubModal('settings-modal');
         try {
@@ -1495,16 +1519,21 @@ function copyHashVal() {
             });
             const data = await res.json();
             if (data) {
-                // Заполняем баллы
+                // Заполняем поля
                 document.getElementById('cfg-twitch').value = data.twitch_points || 1.0;
                 document.getElementById('cfg-tg').value = data.tg_points || 1.0;
                 document.getElementById('cfg-name').value = data.name_points || 1.0;
                 
-                // Заполняем новые поля
                 document.getElementById('cfg-active').value = (data.is_active !== false) ? "true" : "false";
                 document.getElementById('cfg-btn-text').value = data.button_text || "";
                 document.getElementById('cfg-win-msg').value = data.win_message || "";
                 document.getElementById('cfg-img-url').value = data.image_url || "";
+                
+                // НОВОЕ ПОЛЕ: ЛИМИТ
+                document.getElementById('cfg-limit').value = data.limit_winners || 0;
+
+                // Запускаем превью сразу при открытии
+                updatePreview();
             }
         } catch(e) { console.error(e); notify("Ошибка загрузки настроек"); }
     }
@@ -1515,12 +1544,30 @@ function copyHashVal() {
             twitch_points: parseFloat(document.getElementById('cfg-twitch').value) || 0,
             tg_points: parseFloat(document.getElementById('cfg-tg').value) || 0,
             name_points: parseFloat(document.getElementById('cfg-name').value) || 0,
-            // Новые поля
+            
             is_active: document.getElementById('cfg-active').value === "true",
             button_text: document.getElementById('cfg-btn-text').value,
             win_message: document.getElementById('cfg-win-msg').value,
-            image_url: document.getElementById('cfg-img-url').value
+            image_url: document.getElementById('cfg-img-url').value,
+            
+            // СОХРАНЯЕМ ЛИМИТ
+            limit_winners: parseInt(document.getElementById('cfg-limit').value) || 0
         };
+
+        try {
+            const res = await fetch('/api/admin/cs/config/save', {
+                method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'}
+            });
+            if(res.ok) {
+                notify("Настройки сохранены! ✅");
+                // Обновляем глобальные переменные без перезагрузки, если хотим
+                // Но перезагрузка надежнее
+                setTimeout(()=>location.reload(), 1000); 
+            } else {
+                notify("Ошибка сохранения");
+            }
+        } catch(e) { notify("Ошибка сети"); }
+    }
 
         try {
             const res = await fetch('/api/admin/cs/config/save', {
