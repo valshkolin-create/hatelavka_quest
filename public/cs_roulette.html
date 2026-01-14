@@ -259,26 +259,38 @@
             width: 100%;
             position: relative;
             transform: translateY(20px);
-            perspective: 1000px; /* Для глубины */
+            perspective: 1000px;
         }
 
         .roulette-window {
             width: 100%;
-            height: 180px; /* Чуть выше для премиальности */
-            background: #111;
-            border-top: 1px solid #ffd700;
-            border-bottom: 1px solid #ffd700;
+            height: 180px;
+            
+            /* 1. ПОЛУПРОЗРАЧНЫЙ ФОН (Серый оттенок) */
+            background: rgba(20, 20, 20, 0.3); 
+            
+            /* 2. ЭФФЕКТ РАЗМЫТИЯ ФОНА (Жидкое стекло) */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); /* Для iPhone/Safari */
+            
+            /* Границы делаем чуть мягче */
+            border-top: 1px solid rgba(255, 215, 0, 0.6);
+            border-bottom: 1px solid rgba(255, 215, 0, 0.6);
+            
             position: relative;
             display: flex; align-items: center;
             overflow: hidden;
-            /* Эффект виньетки (затемнение внутри) */
-            box-shadow: inset 0 0 80px rgba(0,0,0,1);
+            
+            /* Легкая тень внутри, чтобы выделить границы */
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
         }
         
-        /* Затемнение по бокам (Fade effect) */
+        /* Боковые затемнения (Граница исчезновения) */
+        /* Делаем градиент от черного к прозрачному, чтобы скрыть появление карточек */
         .roulette-window::before {
             content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(90deg, #000 0%, transparent 20%, transparent 80%, #000 100%);
+            /* Края остаются черными, чтобы не было видно "обрыва" ленты, но середина полностью прозрачная */
+            background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.9) 100%);
             z-index: 10; pointer-events: none;
         }
 
@@ -286,10 +298,10 @@
             position: absolute; left: 50%; top: 0; bottom: 0;
             width: 2px; background: #ffd700;
             z-index: 20; transform: translateX(-50%);
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 4px #fff;
+            /* Добавляем свечение маркеру, чтобы он выделялся на стекле */
+            box-shadow: 0 0 15px #ffd700;
         }
         
-        /* Треугольник сверху */
         .marker-arrow {
             position: absolute; top: 0; left: 50%;
             transform: translateX(-50%);
@@ -300,7 +312,6 @@
             z-index: 21;
         }
         
-        /* Треугольник снизу (для симметрии) */
         .marker-arrow-bottom {
             position: absolute; bottom: 0; left: 50%;
             transform: translateX(-50%);
@@ -314,25 +325,24 @@
         .track {
             display: flex; height: 100%; align-items: center;
             will-change: transform;
-            /* Убрали padding-left, будем считать математически */
             padding-left: 0; 
         }
 
+        /* Карточкам добавляем легкую тень, чтобы они не сливались со стеклом */
         .card {
-            width: 140px; /* Фиксированная ширина */
+            width: 140px;
             height: 140px;
-            margin: 0 4px; /* Отступы по 4px с каждой стороны = 148px полный шаг */
-            background-color: #1a1b20;
-            border-radius: 4px; /* Более строгие углы как в CS2 */
+            margin: 0 4px;
+            background-color: #1a1b20; /* Карточка остается темной для контраста */
+            border-radius: 4px;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             position: relative; flex-shrink: 0;
             border-bottom: 3px solid transparent; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5); /* Тень сильнее */
             transition: 0.3s;
         }
         
-        /* Градиент "редкости" внутри карточки */
         .card::after {
             content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.6) 100%);
@@ -356,13 +366,11 @@
             text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        /* Цвета с более насыщенными подложками */
         .card.blue { border-bottom-color: var(--rarity-blue); background: radial-gradient(circle at center, rgba(75, 105, 255, 0.15) 0%, #1a1b20 80%); }
         .card.purple { border-bottom-color: var(--rarity-purple); background: radial-gradient(circle at center, rgba(136, 71, 255, 0.15) 0%, #1a1b20 80%); }
         .card.pink { border-bottom-color: var(--rarity-pink); background: radial-gradient(circle at center, rgba(211, 44, 230, 0.15) 0%, #1a1b20 80%); }
         .card.red { border-bottom-color: var(--rarity-red); background: radial-gradient(circle at center, rgba(235, 75, 75, 0.15) 0%, #1a1b20 80%); }
         .card.gold { border-bottom-color: var(--rarity-gold); background: radial-gradient(circle at center, rgba(228, 174, 57, 0.15) 0%, #1a1b20 80%); }
-
         /* --- MODAL INPUT ERROR --- */
         #code-error {
             color: #ff5555;
