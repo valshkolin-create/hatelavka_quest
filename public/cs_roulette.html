@@ -550,9 +550,6 @@
 
     <div id="win-modal" class="modal">
         <div class="modal-box" style="border: 2px solid #ffd700; background: radial-gradient(circle, #222 0%, #000 100%); padding-top: 40px;">
-            
-            <h2 id="win-msg-header" style="color: gold; margin: 0 0 20px 0; text-transform: uppercase; text-shadow: 0 0 10px orange;">ТЫ ВЫИГРАЛ!</h2>
-            
             <img id="win-image" src="" class="win-img">
             <div id="win-name" class="win-name-large">NAME</div>
             <div id="win-details" class="win-details">RARITY • CONDITION</div>
@@ -753,88 +750,39 @@
         </div>
     </div>
     
-<div id="settings-modal" class="modal">
-    <div class="modal-box" style="max-width: 90%; width: 400px; padding: 0; background: #0f0f0f; border: 1px solid #333; display: flex; flex-direction: column; height: 85vh; max-height: 700px;">
-        
-        <div style="padding: 15px; border-bottom: 1px solid #333; display:flex; justify-content:space-between; align-items:center; background: #1c1c1e;">
-            <h3 style="margin:0; color: #ffd700; font-size: 14px; text-transform: uppercase;">Конструктор Поста</h3>
-            <i class="fa-solid fa-xmark" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');" style="cursor:pointer; color:#888;"></i>
-        </div>
+    <div id="settings-modal" class="modal">
+        <div class="modal-box">
+            <h3>Глобальные настройки</h3>
+            <p style="font-size: 11px; color: #aaa; margin-bottom: 15px; line-height: 1.4;">
+                Укажите баллы за каждое условие.<br>
+                Формула: 1 + (БустСкина * СуммаБаллов)
+            </p>
 
-        <div style="overflow-y: auto; flex: 1; padding: 15px;">
+            <div class="admin-input-group">
+                <label>Баллы за Twitch Sub</label>
+                <input type="number" id="cfg-twitch" placeholder="1.0" step="0.1">
+            </div>
             
-            <label style="font-size: 10px; color: #888; text-transform:uppercase; font-weight:700; margin-bottom: 5px; display:block;">Предпросмотр (Как видит юзер):</label>
-            
-            <div class="tg-preview-container" style="background-image: url('https://web.telegram.org/img/bg_0.png'); background-size: cover; padding: 15px; border-radius: 8px; border: 1px solid #333;">
-                <div class="tg-message-bubble" style="background: #182533; color: #fff; padding: 8px 10px; border-radius: 12px 12px 12px 0; font-size: 13px; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.3); position: relative; margin-bottom: 5px;">
-                    <div id="prev-img-wrap" style="display:none; margin-bottom: 5px;">
-                        <img id="prev-img" src="" style="width: 100%; border-radius: 4px; object-fit: cover;">
-                    </div>
-                    
-                    <div id="prev-text" style="white-space: pre-wrap; line-height: 1.4;">Текст сообщения...</div>
-                    
-                    <div style="text-align: right; margin-top: 2px;">
-                        <span style="font-size: 10px; color: rgba(255,255,255,0.5);">12:00 <i class="fa-solid fa-check-double"></i></span>
-                    </div>
-                </div>
-
-                <div id="prev-btn" style="background: rgba(255, 255, 255, 0.1); color: #fff; padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: default; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1); max-width: 80%;">ОТКРЫТЬ КЕЙС</div>
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
-
             <div class="admin-input-group">
-                <label>Состояние и Лимиты</label>
-                <div style="display: flex; gap: 10px;">
-                    <select id="cfg-active" style="flex:1;">
-                        <option value="true">🟢 ВКЛЮЧЕНО</option>
-                        <option value="false">🔴 ВЫКЛЮЧЕНО</option>
-                    </select>
-                    <input type="number" id="cfg-limit" placeholder="Лимит (0=беск)" style="flex:1;" title="Сколько человек могут выиграть">
-                </div>
-                <div style="font-size: 9px; color: #666; margin-top: 3px;">0 = Бесконечно. Если поставить 10, то 11-й увидит ошибку.</div>
+                <label>Баллы за TG Канал</label>
+                <input type="number" id="cfg-tg" placeholder="1.0" step="0.1">
             </div>
 
             <div class="admin-input-group">
-                <label>Картинка (URL)</label>
-                <input type="text" id="cfg-img-url" placeholder="https://..." oninput="updatePreview()">
+                <label>Баллы за Фамилию / Бота</label>
+                <input type="number" id="cfg-name" placeholder="1.0" step="0.1">
             </div>
 
-            <div class="admin-input-group">
-                <label>Текст сообщения (HTML поддерживается)</label>
-                <textarea id="cfg-win-msg" rows="3" placeholder="ТЫ ВЫИГРАЛ!" oninput="updatePreview()"></textarea>
-                <div style="font-size: 9px; color: #666; margin-top: 3px;">Можно использовать &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;</div>
-            </div>
-
-            <div class="admin-input-group">
-                <label>Текст на кнопке</label>
-                <input type="text" id="cfg-btn-text" placeholder="ОТКРЫТЬ КЕЙС" oninput="updatePreview()">
-            </div>
-
-            <div class="admin-input-group">
-                <label>Настройки Баллов (Коэффициенты)</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
-                    <div><span style="font-size:9px; color:#888;">Twitch</span><input type="number" id="cfg-twitch" step="0.1"></div>
-                    <div><span style="font-size:9px; color:#888;">TG</span><input type="number" id="cfg-tg" step="0.1"></div>
-                    <div><span style="font-size:9px; color:#888;">Name</span><input type="number" id="cfg-name" step="0.1"></div>
-                </div>
-            </div>
-
-        </div>
-
-        <div style="padding: 15px; border-top: 1px solid #333; background: #1c1c1e;">
-            <button class="modal-btn btn-gold" style="margin:0;" onclick="saveSettings()">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
+            <button class="modal-btn btn-gold" onclick="saveSettings()">Сохранить настройки</button>
+            <button class="modal-btn btn-grey" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
         </div>
     </div>
-</div>
     <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
     const initData = tg.initData;
 
-            
     // --- ПЕРЕМЕННЫЕ ---
-    var startParam = null; // <--- ДОБАВИЛИ ГЛОБАЛЬНУЮ ПЕРЕМЕННУЮ
     let itemsCache = [];
     let savedCode = "";
     let currentUser = null; 
@@ -850,167 +798,74 @@
 
     // --- ИНИЦИАЛИЗАЦИЯ (С RELOAD) ---
     async function init() {
-    startParam = tg.initDataUnsafe.start_param; // Правильно (используем глобальную)
-        
-        // Если есть ссылка - сразу показываем шторку проверки
-        if (startParam) {
-            document.getElementById('access-screen').style.display = 'flex';
-        }
-
+        // 👇 ОБНОВЛЕННЫЕ ПУТИ
         const imgAgent = new Image(); 
-        imgAgent.src = "/static/background-wooman.png"; 
+        imgAgent.src = "/static/background-wooman.png"; // Локальный путь
+        
         const imgStreet = new Image(); 
-        imgStreet.src = "/static/background.png";      
+        imgStreet.src = "/static/background.png";       // Локальный путь
         
         try {
             // 1. Грузим предметы
             await loadItems();
 
-            // 2. Грузим юзера (Твоя старая проверка админа остается здесь)
+            // 2. Грузим юзера
             const meRes = await fetch('/api/v1/user/me', { method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}});
             const me = await meRes.json();
             currentUser = me; 
 
-            // Если админ - показываем кнопку (как у тебя и было)
             if (me.is_admin) document.getElementById('admin-fab').style.display = 'flex';
             
             // 3. Грузим бусты
             await checkBoostsServer();
 
-            // 4. ЛОГИКА ПРОВЕРКИ ТОКЕНА (НОВОЕ)
-            if (startParam) {
-                // Проверяем токен на сервере
-                const checkRes = await fetch('/api/roulette/check_token', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData, token: startParam })
-                });
-                const checkData = await checkRes.json();
-
-                if (checkData.valid) {
-                    // УСПЕХ!
-                    // Скрываем шторку
-                    document.getElementById('access-screen').style.display = 'none';
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    
-                    // Сохраняем токен как "код" и переходим сразу к кнопке Открыть
-                    savedCode = startParam; 
-                    
-                    // Переключаем экраны
-                    document.getElementById('screen-input').classList.remove('active');
-                    document.getElementById('screen-action').classList.add('active');
-                    
-                    notify(checkData.message || "Билет подтвержден!");
-                } else {
-                    // ОШИБКА (Чужой токен или использован)
-                    document.getElementById('access-loader').style.display = 'none';
-                    document.getElementById('access-error').style.display = 'block';
-                    document.getElementById('access-msg').innerText = checkData.message;
-                    // Шторка остается висеть вечно, блокируя вход
-                    return; 
-                }
-            }
-
         } catch(e) { console.error(e); }
 
-        // 5. Обычная загрузка (если не было токена или ошибка сети)
+        // 4. СКРЫВАЕМ RELOAD ЭКРАН (ТОЛЬКО КОГДА ВСЕ ЗАГРУЗИЛОСЬ)
         const loader = document.getElementById('loading-screen');
         if(loader) loader.classList.add('hidden');
 
-        // Логика восстановления кода (только если мы не пришли по спец. ссылке)
-        if (!startParam) {
-            const draftCode = localStorage.getItem('cs_draft_code');
-            if (draftCode) {
-                savedCode = draftCode;
-                document.getElementById('screen-input').classList.remove('active');
-                document.getElementById('screen-action').classList.add('active');
-            }
+        // --- ВОССТАНОВЛЕНИЕ КОДА ПОСЛЕ ПЕРЕЗАГРУЗКИ ---
+        const draftCode = localStorage.getItem('cs_draft_code');
+        if (draftCode) {
+            // Если код был сохранен, сразу переходим к этапу открытия
+            savedCode = draftCode;
+            document.getElementById('screen-input').classList.remove('active');
+            document.getElementById('screen-action').classList.add('active');
         }
     }
 
-    // --- ОТРИСОВКА ГАЛОЧЕК ---
-    function renderBoostChecks(data) {
-        if(!data) return;
-        const set = (id, active) => {
-            const el = document.getElementById(id);
-            if(el) {
-                if(active) el.classList.add('active');
-                else el.classList.remove('active');
-            }
-        };
-        // ID элементов из твоего HTML
-        set('boost-twitch', data.twitch);
-        set('boost-tg', data.tg);
-        set('boost-hash', data.hashtag);
-    }
-
     // --- ЛОГИКА БУСТОВ И ПРОВЕРКИ ---
-   async function checkBoostsServer() {
+    async function checkBoostsServer() {
         try {
             const res = await fetch('/api/cs/boost_status', { 
                 method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
             });
             const data = await res.json();
-            boostStatus = data; // Сохраняем глобально
-
-            // --- ПРИМЕНЕНИЕ КОНФИГА ---
-            if (data.config) {
-                const mainBtn = document.querySelector('.main-btn');
-                if (mainBtn && data.config.button_text) mainBtn.innerText = data.config.button_text;
-                
-                if (data.config.is_active === false) {
-                     if(mainBtn) {
-                         mainBtn.innerText = "⛔ ТЕХ. РАБОТЫ";
-                         mainBtn.onclick = () => notify("Система временно отключена");
-                         mainBtn.style.background = "#555";
-                         mainBtn.style.opacity = "0.7";
-                     }
-                }
-                if (data.config.image_url) {
-                    const bgStyle = document.createElement('style');
-                    bgStyle.innerHTML = `.bg-agent { background-image: url('${data.config.image_url}') !important; }`;
-                    document.head.appendChild(bgStyle);
-                }
-                window.WIN_MESSAGE_TEXT = data.config.win_message || "ТЫ ВЫИГРАЛ!";
-            }
-
-            // 👇 РАСЧЕТ ПРОЦЕНТОВ (МАТЕМАТИКА ВОССТАНОВЛЕНА) 👇
+            boostStatus = data;
+            
+            // 👇 РАСЧЕТ ПРОЦЕНТОВ (МАТЕМАТИКА) 👇
             if (itemsCache.length > 0 && data.points) {
+                // Берем любой предмет с бустом, чтобы узнать базовый %
                 const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
+                
                 if (boostItem) {
-                    const base = boostItem.boost_percent; 
+                    const base = boostItem.boost_percent; // например 0.05
                     
+                    // Считаем: База * Коэффициент * 100
                     const tVal = Math.round(base * data.points.twitch * 100);
                     const gVal = Math.round(base * data.points.tg * 100);
                     const nVal = Math.round(base * data.points.name * 100);
                     
-                    const tEl = document.getElementById('val-twitch');
-                    const gEl = document.getElementById('val-tg');
-                    const nEl = document.getElementById('val-hash');
-
-                    if(tEl) tEl.innerText = `+${tVal}%`;
-                    if(gEl) gEl.innerText = `+${gVal}%`;
-                    if(nEl) nEl.innerText = `+${nVal}%`;
+                    // Обновляем текст на кнопках
+                    document.getElementById('val-twitch').innerText = `+${tVal}%`;
+                    document.getElementById('val-tg').innerText = `+${gVal}%`;
+                    document.getElementById('val-hash').innerText = `+${nVal}%`;
                 }
             }
-            
-            // ✅ ИСПРАВЛЕНО: Вызываем существующую функцию
-            updateBoostUI(); 
 
-        } catch(e) { console.error(e); }
-
-        const loader = document.getElementById('loading-screen');
-        if(loader) loader.classList.add('hidden');
-        
-        // Исправленная проверка startParam
-         if (!startParam) {
-            const draftCode = localStorage.getItem('cs_draft_code');
-            if (draftCode) {
-                savedCode = draftCode;
-                document.getElementById('screen-input').classList.remove('active');
-                document.getElementById('screen-action').classList.add('active');
-            }
-        }
+            updateBoostUI();
+        } catch (e) { console.error("Boost check failed", e); }
     }
 
     function updateBoostUI() {
@@ -1271,19 +1126,7 @@ function copyHashVal() {
     }
 
     async function startSpinAPI() {
-        const startParam = tg.initDataUnsafe.start_param; // Проверяем, есть ли токен ссылки
-
         try {
-            // --- ДОБАВЛЕНО: Если это спец. ссылка, помечаем токен как использованный ---
-            if (startParam) {
-                await fetch('/api/roulette/mark_used', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData, token: startParam })
-                });
-            }
-            // ---------------------------------------------------------------------------
-
             const res = await fetch('/api/cs/spin', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData, code: savedCode })
@@ -1511,31 +1354,6 @@ function copyHashVal() {
     }
 
     // --- ФУНКЦИИ НАСТРОЕК ---
-    // --- ФУНКЦИИ НАСТРОЕК (ОБНОВЛЕННЫЕ) ---
-
-    function updatePreview() {
-        // 1. Обновляем текст
-        const textVal = document.getElementById('cfg-win-msg').value || "ТЫ ВЫИГРАЛ!";
-        // Преобразуем переносы строк в <br>
-        document.getElementById('prev-text').innerHTML = textVal.replace(/\n/g, "<br>");
-
-        // 2. Обновляем картинку
-        const imgVal = document.getElementById('cfg-img-url').value;
-        const imgWrap = document.getElementById('prev-img-wrap');
-        const imgEl = document.getElementById('prev-img');
-        
-        if (imgVal) {
-            imgEl.src = imgVal;
-            imgWrap.style.display = 'block';
-        } else {
-            imgWrap.style.display = 'none';
-        }
-
-        // 3. Обновляем кнопку
-        const btnText = document.getElementById('cfg-btn-text').value || "ОТКРЫТЬ КЕЙС";
-        document.getElementById('prev-btn').innerText = btnText;
-    }
-
     async function openSettingsModal() {
         openSubModal('settings-modal');
         try {
@@ -1544,53 +1362,29 @@ function copyHashVal() {
             });
             const data = await res.json();
             if (data) {
-                // Заполняем поля
                 document.getElementById('cfg-twitch').value = data.twitch_points || 1.0;
                 document.getElementById('cfg-tg').value = data.tg_points || 1.0;
                 document.getElementById('cfg-name').value = data.name_points || 1.0;
-                
-                document.getElementById('cfg-active').value = (data.is_active !== false) ? "true" : "false";
-                document.getElementById('cfg-btn-text').value = data.button_text || "";
-                document.getElementById('cfg-win-msg').value = data.win_message || "";
-                document.getElementById('cfg-img-url').value = data.image_url || "";
-                
-                // НОВОЕ ПОЛЕ: ЛИМИТ
-                document.getElementById('cfg-limit').value = data.limit_winners || 0;
-
-                // Запускаем превью сразу при открытии
-                updatePreview();
             }
-        } catch(e) { console.error(e); notify("Ошибка загрузки настроек"); }
+        } catch (e) { notify("Ошибка загрузки"); }
     }
 
     async function saveSettings() {
-        const payload = {
-            initData: initData,
-            twitch_points: parseFloat(document.getElementById('cfg-twitch').value) || 0,
-            tg_points: parseFloat(document.getElementById('cfg-tg').value) || 0,
-            name_points: parseFloat(document.getElementById('cfg-name').value) || 0,
-            
-            is_active: document.getElementById('cfg-active').value === "true",
-            button_text: document.getElementById('cfg-btn-text').value,
-            win_message: document.getElementById('cfg-win-msg').value,
-            image_url: document.getElementById('cfg-img-url').value,
-            
-            // СОХРАНЯЕМ ЛИМИТ
-            limit_winners: parseInt(document.getElementById('cfg-limit').value) || 0
-        };
+        const twitch = parseFloat(document.getElementById('cfg-twitch').value) || 0;
+        const tg = parseFloat(document.getElementById('cfg-tg').value) || 0;
+        const name = parseFloat(document.getElementById('cfg-name').value) || 0;
 
         try {
-            const res = await fetch('/api/admin/cs/config/save', {
-                method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'}
+            await fetch('/api/admin/cs/config/save', {
+                method: 'POST',
+                body: JSON.stringify({ initData, twitch_points: twitch, tg_points: tg, name_points: name }),
+                headers: { 'Content-Type': 'application/json' }
             });
-            if(res.ok) {
-                notify("Настройки сохранены! ✅");
-                setTimeout(()=>location.reload(), 1000); 
-            } else {
-                notify("Ошибка сохранения");
-            }
-        } catch(e) { notify("Ошибка сети"); }
-    } // <--- ВОТ ЗДЕСЬ ФУНКЦИЯ ЗАКАНЧИВАЕТСЯ. ДАЛЬШЕ НИЧЕГО БЫТЬ НЕ ДОЛЖНО, КРОМЕ init();
+            notify("Настройки сохранены!");
+            closeModal('settings-modal');
+            document.getElementById('admin-panel').classList.add('active');
+        } catch (e) { notify("Ошибка сохранения"); }
+    }
 
     init();
 
@@ -1705,18 +1499,5 @@ async function copyAndMarkCode(codeText, btnElement) {
     }
 }
 </script>
-
-    <div id="access-screen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index: 99999; display: none; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; color:#fff;">
-    <div id="access-loader">
-        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 40px; color: gold;"></i>
-        <p style="margin-top:20px;">Проверяем твой билет...</p>
-    </div>
-    <div id="access-error" style="display:none;">
-        <i class="fa-solid fa-hand" style="font-size: 50px; color: #ff4444;"></i>
-        <h2 style="margin:15px 0;">Ошибка доступа</h2>
-        <p id="access-msg" style="color:#ccc; font-size: 14px;">Ссылка недействительна.</p>
-    </div>
-</div>
-    
 </body>
 </html>
