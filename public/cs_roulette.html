@@ -750,33 +750,55 @@
         </div>
     </div>
     
-    <div id="settings-modal" class="modal">
-        <div class="modal-box">
-            <h3>Глобальные настройки</h3>
-            <p style="font-size: 11px; color: #aaa; margin-bottom: 15px; line-height: 1.4;">
-                Укажите баллы за каждое условие.<br>
-                Формула: 1 + (БустСкина * СуммаБаллов)
-            </p>
-
-            <div class="admin-input-group">
-                <label>Баллы за Twitch Sub</label>
-                <input type="number" id="cfg-twitch" placeholder="1.0" step="0.1">
-            </div>
-            
-            <div class="admin-input-group">
-                <label>Баллы за TG Канал</label>
-                <input type="number" id="cfg-tg" placeholder="1.0" step="0.1">
-            </div>
-
-            <div class="admin-input-group">
-                <label>Баллы за Фамилию / Бота</label>
-                <input type="number" id="cfg-name" placeholder="1.0" step="0.1">
-            </div>
-
-            <button class="modal-btn btn-gold" onclick="saveSettings()">Сохранить настройки</button>
-            <button class="modal-btn btn-grey" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
+  <div id="settings-modal" class="modal">
+    <div class="modal-box" style="text-align: left;">
+        <h3 style="margin-top: 0; text-align: center; color: #ffd700;">НАСТРОЙКИ</h3>
+        
+        <div class="admin-input-group">
+            <label>Система включена?</label>
+            <select id="cfg-active" style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 8px;">
+                <option value="true">✅ ВКЛЮЧЕНА</option>
+                <option value="false">❌ ВЫКЛЮЧЕНА</option>
+            </select>
         </div>
+
+        <div class="admin-input-group">
+            <label>Текст кнопки (Главная)</label>
+            <input type="text" id="cfg-btn-text" placeholder="ОТКРЫТЬ КЕЙС">
+        </div>
+
+        <div class="admin-input-group">
+            <label>Заголовок Победы (в модалке)</label>
+            <input type="text" id="cfg-win-msg" placeholder="ТЫ ВЫИГРАЛ!">
+        </div>
+
+        <div class="admin-input-group">
+            <label>Картинка (Фон главной)</label>
+            <input type="text" id="cfg-img-url" placeholder="https://...">
+        </div>
+        
+        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
+        <p style="font-size: 11px; color: #aaa; margin-bottom: 15px;">Баллы буста:</p>
+
+        <div class="admin-input-group">
+            <label>Баллы за Twitch Sub</label>
+            <input type="number" id="cfg-twitch" placeholder="1.0" step="0.1">
+        </div>
+        
+        <div class="admin-input-group">
+            <label>Баллы за TG Канал</label>
+            <input type="number" id="cfg-tg" placeholder="1.0" step="0.1">
+        </div>
+
+        <div class="admin-input-group">
+            <label>Баллы за Фамилию / Бота</label>
+            <input type="number" id="cfg-name" placeholder="1.0" step="0.1">
+        </div>
+
+        <button class="modal-btn btn-gold" onclick="saveSettings()">СОХРАНИТЬ</button>
+        <button class="modal-btn btn-grey" onclick="closeModal('settings-modal'); document.getElementById('admin-panel').classList.add('active');">Назад</button>
     </div>
+</div>
     <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
@@ -883,30 +905,74 @@
                 method: 'POST', body: JSON.stringify({initData}), headers: {'Content-Type': 'application/json'}
             });
             const data = await res.json();
-            boostStatus = data;
-            
-            // 👇 РАСЧЕТ ПРОЦЕНТОВ (МАТЕМАТИКА) 👇
-            if (itemsCache.length > 0 && data.points) {
-                // Берем любой предмет с бустом, чтобы узнать базовый %
-                const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
+            boostStatus = data; // Сохраняем глобально
+
+            // --- ПРИМЕНЕНИЕ КОНФИГА (НОВОЕ) ---
+            if (data.config) {
+                // 1. Текст кнопки
+                const mainBtn = document.querySelector('.main-btn');
+                if (mainBtn && data.config.button_text) {
+                    mainBtn.innerText = data.config.button_text;
+                }
                 
+                // 2. Активность системы
+                if (data.config.is_active === false) {
+                     if(mainBtn) {
+                         mainBtn.innerText = "⛔ ТЕХ. РАБОТЫ";
+                         mainBtn.onclick = () => notify("Система временно отключена");
+                         mainBtn.style.background = "#555";
+                         mainBtn.style.opacity = "0.7";
+                     }
+                }
+
+                // 3. Картинка (Фон)
+                if (data.config.image_url) {
+                    // Применяем к слою bg-agent (который активен на старте)
+                    const bgStyle = document.createElement('style');
+                    bgStyle.innerHTML = `.bg-agent { background-image: url('${data.config.image_url}') !important; }`;
+                    document.head.appendChild(bgStyle);
+                }
+                
+                // 4. Текст победы (Сохраняем в window, применим при показе окна)
+                window.WIN_MESSAGE_TEXT = data.config.win_message || "ТЫ ВЫИГРАЛ!";
+            }
+            // ------------------------------------
+
+            // 👇 РАСЧЕТ ПРОЦЕНТОВ (МАТЕМАТИКА - СТАРАЯ ЛОГИКА) 👇
+            if (itemsCache.length > 0 && data.points) {
+                // ... (тут оставь старый код математики) ...
+                 const boostItem = itemsCache.find(i => i.boost_percent && i.boost_percent > 0);
                 if (boostItem) {
-                    const base = boostItem.boost_percent; // например 0.05
+                    const base = boostItem.boost_percent; 
+                    let multiplier = 0;
+                    if(data.twitch) multiplier += data.points.twitch;
+                    if(data.hashtag) multiplier += data.points.name;
+                    if(data.tg) multiplier += data.points.tg;
                     
-                    // Считаем: База * Коэффициент * 100
-                    const tVal = Math.round(base * data.points.twitch * 100);
-                    const gVal = Math.round(base * data.points.tg * 100);
-                    const nVal = Math.round(base * data.points.name * 100);
+                    const totalChance = (base * (1 + multiplier)) * 100;
                     
-                    // Обновляем текст на кнопках
-                    document.getElementById('val-twitch').innerText = `+${tVal}%`;
-                    document.getElementById('val-tg').innerText = `+${gVal}%`;
-                    document.getElementById('val-hash').innerText = `+${nVal}%`;
+                    const boostEl = document.getElementById('boost-val');
+                    if(boostEl) boostEl.innerText = totalChance.toFixed(1) + "%";
                 }
             }
+            // Отрисовка галочек
+            renderBoostChecks(data);
 
-            updateBoostUI();
-        } catch (e) { console.error("Boost check failed", e); }
+        } catch(e) { console.error(e); }
+
+        // 5. Обычная загрузка
+        const loader = document.getElementById('loading-screen');
+        if(loader) loader.classList.add('hidden');
+        
+        // ... (остальной старый код checkBoostsServer) ...
+         if (!startParam) {
+            const draftCode = localStorage.getItem('cs_draft_code');
+            if (draftCode) {
+                savedCode = draftCode;
+                document.getElementById('screen-input').classList.remove('active');
+                document.getElementById('screen-action').classList.add('active');
+            }
+        }
     }
 
     function updateBoostUI() {
@@ -1407,6 +1473,7 @@ function copyHashVal() {
     }
 
     // --- ФУНКЦИИ НАСТРОЕК ---
+    / --- ФУНКЦИИ НАСТРОЕК (ОБНОВЛЕННЫЕ) ---
     async function openSettingsModal() {
         openSubModal('settings-modal');
         try {
@@ -1415,28 +1482,44 @@ function copyHashVal() {
             });
             const data = await res.json();
             if (data) {
+                // Заполняем баллы
                 document.getElementById('cfg-twitch').value = data.twitch_points || 1.0;
                 document.getElementById('cfg-tg').value = data.tg_points || 1.0;
                 document.getElementById('cfg-name').value = data.name_points || 1.0;
+                
+                // Заполняем новые поля
+                document.getElementById('cfg-active').value = (data.is_active !== false) ? "true" : "false";
+                document.getElementById('cfg-btn-text').value = data.button_text || "";
+                document.getElementById('cfg-win-msg').value = data.win_message || "";
+                document.getElementById('cfg-img-url').value = data.image_url || "";
             }
-        } catch (e) { notify("Ошибка загрузки"); }
+        } catch(e) { console.error(e); notify("Ошибка загрузки настроек"); }
     }
 
     async function saveSettings() {
-        const twitch = parseFloat(document.getElementById('cfg-twitch').value) || 0;
-        const tg = parseFloat(document.getElementById('cfg-tg').value) || 0;
-        const name = parseFloat(document.getElementById('cfg-name').value) || 0;
+        const payload = {
+            initData: initData,
+            twitch_points: parseFloat(document.getElementById('cfg-twitch').value) || 0,
+            tg_points: parseFloat(document.getElementById('cfg-tg').value) || 0,
+            name_points: parseFloat(document.getElementById('cfg-name').value) || 0,
+            // Новые поля
+            is_active: document.getElementById('cfg-active').value === "true",
+            button_text: document.getElementById('cfg-btn-text').value,
+            win_message: document.getElementById('cfg-win-msg').value,
+            image_url: document.getElementById('cfg-img-url').value
+        };
 
         try {
-            await fetch('/api/admin/cs/config/save', {
-                method: 'POST',
-                body: JSON.stringify({ initData, twitch_points: twitch, tg_points: tg, name_points: name }),
-                headers: { 'Content-Type': 'application/json' }
+            const res = await fetch('/api/admin/cs/config/save', {
+                method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'}
             });
-            notify("Настройки сохранены!");
-            closeModal('settings-modal');
-            document.getElementById('admin-panel').classList.add('active');
-        } catch (e) { notify("Ошибка сохранения"); }
+            if(res.ok) {
+                notify("Настройки сохранены! ✅");
+                setTimeout(()=>location.reload(), 1000); // Перезагрузка для применения
+            } else {
+                notify("Ошибка сохранения");
+            }
+        } catch(e) { notify("Ошибка сети"); }
     }
 
     init();
