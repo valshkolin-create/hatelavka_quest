@@ -1560,27 +1560,12 @@ function copyHashVal() {
             });
             if(res.ok) {
                 notify("Настройки сохранены! ✅");
-                // Обновляем глобальные переменные без перезагрузки, если хотим
-                // Но перезагрузка надежнее
                 setTimeout(()=>location.reload(), 1000); 
             } else {
                 notify("Ошибка сохранения");
             }
         } catch(e) { notify("Ошибка сети"); }
-    }
-
-        try {
-            const res = await fetch('/api/admin/cs/config/save', {
-                method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'}
-            });
-            if(res.ok) {
-                notify("Настройки сохранены! ✅");
-                setTimeout(()=>location.reload(), 1000); // Перезагрузка для применения
-            } else {
-                notify("Ошибка сохранения");
-            }
-        } catch(e) { notify("Ошибка сети"); }
-    }
+    } // <--- ВОТ ЗДЕСЬ ФУНКЦИЯ ЗАКАНЧИВАЕТСЯ. ДАЛЬШЕ НИЧЕГО БЫТЬ НЕ ДОЛЖНО, КРОМЕ init();
 
     init();
 
