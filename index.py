@@ -790,6 +790,10 @@ class CSConfigUpdate(BaseModel):
     twitch_points: float
     tg_points: float
     name_points: float
+    is_active: bool = True
+    win_message: Optional[str] = "ТЫ ВЫИГРАЛ!"
+    image_url: Optional[str] = ""
+    button_text: Optional[str] = "ОТКРЫТЬ КЕЙС"
 
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -2835,19 +2839,24 @@ async def get_cs_boost_status(
     if not user_info: raise HTTPException(401, "Unauthorized")
     user_id = user_info['id']
 
-    # 1. Берем настройки баллов (ДОБАВЛЕНО)
+    # 1. Получаем настройки
     try:
         cfg_res = await supabase.get("/cs_config", params={"id": "eq.1", "select": "*"})
         cfg_data = cfg_res.json()
         cfg = cfg_data[0] if cfg_data else {}
     except: cfg = {}
 
-    # Получаем настройки или дефолт
     twitch_pts = float(cfg.get('twitch_points', 1.0))
     tg_pts = float(cfg.get('tg_points', 1.0))
     name_pts = float(cfg.get('name_points', 1.0))
+    
+    # Новые поля
+    is_active = cfg.get('is_active', True)
+    button_text = cfg.get('button_text', 'ОТКРЫТЬ КЕЙС')
+    win_message = cfg.get('win_message', 'ТЫ ВЫИГРАЛ!')
+    image_url = cfg.get('image_url', '')
 
-    # 2. Берем данные юзера
+    # 2. Получаем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "twitch_login,full_name"})
     user_data = user_res.json()
     if not user_data: return {"twitch": False, "hashtag": False, "tg": False}
@@ -2873,11 +2882,16 @@ async def get_cs_boost_status(
         "twitch": has_twitch,
         "hashtag": has_hashtag,
         "tg": has_tg,
-        # 👇 ОТПРАВЛЯЕМ КОЭФФИЦИЕНТЫ НА ФРОНТ 👇
         "points": {
             "twitch": twitch_pts,
             "tg": tg_pts,
             "name": name_pts
+        },
+        "config": {
+            "is_active": is_active,
+            "button_text": button_text,
+            "win_message": win_message,
+            "image_url": image_url
         }
     }
 
@@ -2888,6 +2902,18 @@ async def spin_cs_roulette(
 ):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(401, "Unauthorized")
+    
+    # --- ПРОВЕРКА АКТИВНОСТИ ---
+    try:
+        cfg_res = await supabase.get("/cs_config", params={"id": "eq.1", "select": "is_active"})
+        if cfg_res.json():
+            if not cfg_res.json()[0].get('is_active', True):
+                raise HTTPException(400, "⛔ Система временно отключена админом.")
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        pass
+    # ---------------------------
+
     user_id = user_info['id']
     code = req.code.strip()
 
@@ -3105,17 +3131,24 @@ async def get_cs_config(req: InitDataRequest, supabase: httpx.AsyncClient = Depe
 # --- 2. СОХРАНИТЬ НАСТРОЙКИ ---
 @app.post("/api/admin/cs/config/save")
 async def save_cs_config(req: CSConfigUpdate, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # Проверка админа
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
 
-    # Используем .patch вместо .table().update()
-    # Обновляем запись с id=1
-    await supabase.patch("/cs_config", params={"id": "eq.1"}, json={
+    payload = {
         "twitch_points": req.twitch_points,
         "tg_points": req.tg_points,
-        "name_points": req.name_points
-    })
+        "name_points": req.name_points,
+        "is_active": req.is_active,
+        "win_message": req.win_message,
+        "image_url": req.image_url,
+        "button_text": req.button_text
+    }
+    
+    exists_res = await supabase.get("/cs_config", params={"id": "eq.1"})
+    if exists_res.json():
+        await supabase.patch("/cs_config", params={"id": "eq.1"}, json=payload)
+    else:
+        await supabase.post("/cs_config", json=payload)
     
     return {"message": "Настройки обновлены"}
     
