@@ -810,7 +810,7 @@
     
 
     // --- ПЕРЕМЕННЫЕ ---
-    let startParam = null; // <--- ДОБАВИЛИ ГЛОБАЛЬНУЮ ПЕРЕМЕННУЮ
+    var startParam = null; // <--- ДОБАВИЛИ ГЛОБАЛЬНУЮ ПЕРЕМЕННУЮ
     let itemsCache = [];
     let savedCode = "";
     let currentUser = null; 
@@ -826,7 +826,7 @@
 
     // --- ИНИЦИАЛИЗАЦИЯ (С RELOAD) ---
     async function init() {
-        startParam = tg.initDataUnsafe.start_param; // Токен из ссылки
+    startParam = tg.initDataUnsafe.start_param; // Правильно (используем глобальную)
         
         // Если есть ссылка - сразу показываем шторку проверки
         if (startParam) {
