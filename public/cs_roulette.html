@@ -1454,29 +1454,40 @@ async function loadCodesListAPI() {
 
 // Копирование и пометка "Синим"
 async function copyAndMarkCode(codeText, btnElement) {
-    // 1. Копируем в буфер
+    // 1. Формируем красивый шаблон
+    // Обратные кавычки ` внутри строки делают текст моноширинным в Telegram
+    const template = `t.me/HATElavka_bot/roulette
+
+\`${codeText}\`
+
+Активируй секретный код в боте!`;
+
+    // 2. Копируем ШАБЛОН в буфер
     try {
-        await navigator.clipboard.writeText(codeText);
-        notify("Код скопирован!");
+        await navigator.clipboard.writeText(template);
+        notify("Шаблон скопирован!");
         
         // Визуально меняем кнопку
         btnElement.innerHTML = '<i class="fa-solid fa-check"></i>';
         
-        // 2. Отправляем на сервер сигнал "Я скопировал"
+        // 3. Отправляем на сервер сигнал "Я скопировал"
+        // Важно: на сервер отправляем чистый codeText, чтобы найти его в базе
         await fetch('/api/admin/cs/code/mark_copied', {
             method: 'POST',
             body: JSON.stringify({ initData, code: codeText }),
             headers: {'Content-Type': 'application/json'}
         });
 
-        // 3. Красим карточку в синий (если она еще не красная)
+        // 4. Красим карточку в синий (если она еще не красная)
         const card = document.getElementById(`code-card-${codeText}`);
-        if (!card.classList.contains('used')) {
+        if (card && !card.classList.contains('used')) {
             card.classList.add('copied');
-            card.querySelector('.code-info').innerText = 'ВЫДАН (Только что)';
+            const info = card.querySelector('.code-info');
+            if(info) info.innerText = 'ВЫДАН (Только что)';
         }
 
     } catch (e) {
+        console.error(e);
         notify("Ошибка копирования");
     }
 }
