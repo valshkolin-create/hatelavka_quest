@@ -1349,6 +1349,28 @@ function renderChallenge(challengeData, isGuest) {
             if (hbData.active_trade_status !== undefined && typeof updateShopTile === 'function') {
                 updateShopTile(hbData.active_trade_status);
             }
+            // Мы берем настройку из глобальной userData (она должна была загрузиться при старте)
+            if (typeof userData !== 'undefined') {
+                 const giftContainerElement = document.getElementById('gift-container');
+                 const giftButtonElement = document.getElementById('daily-gift-btn');
+
+                 if (giftContainerElement || giftButtonElement) {
+                     const val = userData.bonus_gift_enabled; // Берем из глобальной переменной
+                     
+                     // Железная проверка: "false", false, 0, undefined
+                     const isEnabled = String(val) !== 'false' && val !== false && val !== undefined && val !== 0;
+
+                     if (!isEnabled) {
+                         if (giftContainerElement) giftContainerElement.style.display = 'none';
+                         if (giftButtonElement) giftButtonElement.style.display = 'none';
+                     } else {
+                         // Показываем, если не скрыт классом hidden (то есть если еще не собран)
+                         if (giftContainerElement && !giftContainerElement.classList.contains('hidden')) {
+                             giftContainerElement.style.display = ''; 
+                         }
+                     }
+                 }
+            }
         }
     } catch (e) {
         // Ошибку логируем тихо, чтобы не пугать юзера, так как это фоновый процесс
@@ -1790,9 +1812,7 @@ function openWelcomePopup(userData) {
     // --- 1. Логика отрисовки Twitch (если не привязан) ---
     if (!userData.twitch_id) {
         
-        const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`;
-        
-        // Перерисовываем блок, добавляя кнопки И КРУЖОЧЕК СТАТУСА
+        // 1. Отрисовываем HTML
         stepTwitch.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -1816,37 +1836,70 @@ function openWelcomePopup(userData) {
             </div>
         `;
         
-        // Убираем кликабельность самой плашки (чтобы клик шел только по кнопкам)
         stepTwitch.onclick = null; 
         stepTwitch.style.cursor = 'default';
         stepTwitch.style.display = 'block';
         stepTwitch.style.padding = '12px';
 
-        // Вешаем обработчики (делаем это с задержкой 0, чтобы HTML успел обновиться)
+        // 2. Вешаем обработчики с задержкой (чтобы DOM обновился)
         setTimeout(() => {
             const btnConnect = document.getElementById('connect-twitch-btn-popup');
             const btnHelp = document.getElementById('twitch-help-btn-popup');
 
             if (btnConnect) {
-                btnConnect.onclick = (e) => {
+                // !!! НОВАЯ ЛОГИКА АВТОРИЗАЦИИ !!!
+                btnConnect.onclick = async (e) => {
                     e.stopPropagation();
-                    localStorage.setItem('openRefPopupOnLoad', 'true');
-                    Telegram.WebApp.openLink(authUrl, { try_instant_view: false });
+                    btnConnect.style.opacity = '0.7';
+                    btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; // Крутилка загрузки
+
+                    try {
+                        if (!Telegram.WebApp.initData) {
+                            alert("Запустите через Telegram!");
+                            return;
+                        }
+
+                        // A. Запрашиваем ссылку
+                        const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`);
+                        
+                        if (!response.ok) throw new Error("Ошибка сервера");
+
+                        const data = await response.json();
+
+                        if (data.url) {
+                            localStorage.setItem('openRefPopupOnLoad', 'true');
+                            
+                            // B. Открываем ссылку
+                            Telegram.WebApp.openLink(data.url);
+                            
+                            // C. ЗАКРЫВАЕМ ПРИЛОЖЕНИЕ
+                            Telegram.WebApp.close();
+                        } else {
+                            alert("Ошибка: Сервер не вернул ссылку");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert("Ошибка: " + err.message);
+                    } finally {
+                        // Возвращаем кнопку обратно (если вдруг приложение не закрылось)
+                        btnConnect.style.opacity = '1';
+                        btnConnect.innerHTML = '<i class="fa-brands fa-twitch"></i> Привязать';
+                    }
                 };
             }
 
-            // --- ЛОГИКА ОТКРЫТИЯ ОКНА SOS ---
+            // Логика кнопки SOS
             if (btnHelp) {
                 btnHelp.onclick = (e) => {
                     e.stopPropagation();
-                    // Скрываем Приветственный попап (убираем класс visible)
-                    popup.classList.remove('visible');
+                    // Скрываем Приветственный попап
+                    if (typeof popup !== 'undefined' && popup) popup.classList.remove('visible');
                     // Показываем SOS попап
-                    if(sosOverlay) sosOverlay.classList.remove('hidden');
+                    if (typeof sosOverlay !== 'undefined' && sosOverlay) sosOverlay.classList.remove('hidden');
                 };
             }
         }, 0);
-
+    }
     } else {
         // Если УЖЕ привязан — оставляем старое поведение
         stepTwitch.onclick = () => {
