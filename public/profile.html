@@ -1316,68 +1316,7 @@ try {
         listContainer.appendChild(div);
     });
 }
-
-        // --- ОТРИСОВКА СПИСКА ---
-        listContainer.innerHTML = '';
-        if (!rewards || rewards.length === 0) {
-            if(promoBtnInfo) promoBtnInfo.textContent = "0 шт.";
-            if(promoAlertBadge) promoAlertBadge.style.display = 'none';
-            listContainer.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-color-muted);"><i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i><p>История пуста</p></div>`;
-            return;
-        }
-
-        rewards.forEach(r => {
-            const isPromo = r.type === 'promocode' || (r.data && r.data.code) || r.code;
-            const code = r.code || (r.data ? r.data.code : '') || 'No Code';
-            const description = r.description || (r.data ? r.data.description : '') || 'Награда';
-            const amount = r.amount || (r.data ? r.data.amount : '') || 0;
-            const rawDate = r.claimed_at || r.date || new Date();
-            const dateStr = new Date(rawDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-            
-            const card = document.createElement('div'); card.className = 'reward-card';
-
-            if (isPromo && !r.grant_type && (!r.data || r.data.grant_type === undefined)) {
-                // ВАРИАНТ ПРОМОКОД (Стиль Profile 3)
-                card.dataset.type = 'promocode'; card.dataset.code = code;
-                card.innerHTML = `
-                <div class="reward-card-info">
-                    <div class="reward-card-details">
-                        <p class="reward-card-description">${description} ⭐</p>
-                        <div class="reward-card-code-wrapper">
-                            <input type="text" class="reward-card-code-input" value="${code}" readonly>
-                            <button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button>
-                        </div>
-                        <button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif">
-                            <i class="fa-solid fa-circle-question"></i> Где использовать?
-                        </button>
-                        <p class="reward-card-meta">Получено: ${dateStr}</p>
-                    </div>
-                    <button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button>
-                </div>`;
-            } else {
-                // ВАРИАНТ ГРАНТ (Стиль Profile 3)
-                card.dataset.type = 'grant'; card.dataset.id = r.id || (r.data ? r.data.id : 0);
-                const gType = r.grant_type || (r.data ? r.data.grant_type : '');
-                const typeText = gType === 'tickets' ? 'билетов' : 'звёзд';
-                const displayAmount = r.amount || (r.data ? r.data.amount : 0);
-                
-                card.innerHTML = `
-                <div class="reward-card-info">
-                    <div class="reward-card-details">
-                        <p class="reward-card-description" style="font-weight:600;color:#fff;">Начислено: ${displayAmount} ${typeText}</p>
-                        <span style="font-size:12px;color:#aaa;">(Админ)</span>
-                        <p class="reward-card-meta">Дата: ${dateStr}</p>
-                    </div>
-                    <button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button>
-                </div>`;
-            }
-            listContainer.appendChild(card);
-        });
-
-        if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
-        if(promoAlertBadge) promoAlertBadge.style.display = 'none';
-    }
-    
+        
     // Хелпер для копирования
     function copyPromoCode(code, id) {
         navigator.clipboard.writeText(code).then(() => {
