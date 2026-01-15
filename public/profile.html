@@ -1079,21 +1079,35 @@
 
     // --- MAIN FUNCTION ---
     async function main() {
-        if (!tg.initData) {
-           // ... (Логика редиректа для браузера - оставлена как есть)
-           document.body.innerHTML = `<div style="text-align:center; padding:50px; color:#fff;">Ошибка initData. Зайдите через Telegram.</div>`;
-           hideLoader();
-           return;
-        }
+    // 1. Проверка: запущено ли в Telegram
+    if (!tg.initData) {
+        document.body.innerHTML = `<div style="text-align:center; padding:50px; color:#fff;">Ошибка initData. Зайдите через Telegram.</div>`;
+        hideLoader();
+        return;
+    }
 
-        // Настройка кнопки Назад
-        function goBack() {
-            if (window.history.length > 1 && document.referrer) window.history.back();
-            else window.location.href = '/menu';
-        }
-        const headerBackBtn = document.getElementById('header-back-btn');
-        if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
-        if(tg.BackButton) tg.BackButton.onClick(goBack);
+    // 2. Ловим успешную авторизацию через Twitch/Steam
+    const startParam = tg.initDataUnsafe.start_param;
+    if (startParam === 'auth_success') {
+        showNotification('✅ Авторизация успешна!', 'success');
+        // Небольшая задержка, чтобы бэкенд успел обновить данные
+        await new Promise(r => setTimeout(r, 500)); 
+    }
+
+    // 3. Настройка кнопки "Назад"
+    function goBack() {
+        if (window.history.length > 1 && document.referrer) window.history.back();
+        else window.location.href = '/menu';
+    }
+    const headerBackBtn = document.getElementById('header-back-btn');
+    if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
+    if(tg.BackButton) tg.BackButton.onClick(goBack);
+
+    // 4. ГЛАВНОЕ: Загрузка интерфейса и данных (ЭТОГО НЕ ХВАТАЛО)
+    setupTabs();           // Настраиваем переключение вкладок
+    await fetchUserData(); // Загружаем данные профиля (Twitch, баланс и т.д.)
+    renderRewards([]);     // Рисуем список наград (пустой изначально)
+}
 
         // Функция загрузки данных
         async function loadData(isSilent = false) {
