@@ -596,17 +596,16 @@
 /* --- МОДАЛЬНЫЕ ОКНА (КРАСИВЫЕ) --- */
 .custom-modal {
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(12px);
-    z-index: 9999;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 100%;
+    background: #000; /* Полностью черный фон, как просили */
+    z-index: 10000; /* Поверх всего */
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
-    padding: 20px;
+    transition: opacity 0.2s ease;
+    padding: 0; /* Убираем отступы, чтобы было на весь экран */
 }
 
 .custom-modal.visible {
@@ -614,131 +613,78 @@
     pointer-events: auto;
 }
 
+/* Карточка теперь на весь экран */
 .modal-card {
-    background: #1c1c1e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px;
+    background: #000;
     width: 100%;
-    max-width: 380px;
-    max-height: 80vh;
+    height: 100%; /* На всю высоту */
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-    transform: translateY(30px);
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.custom-modal.visible .modal-card {
-    transform: translateY(0);
+    border: none;
+    transform: none; /* Убираем анимацию сдвига, просто фейд */
 }
 
 .modal-header {
-    padding: 18px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.03);
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: #1c1c1e; /* Чуть светлее для шапки */
+    flex-shrink: 0;
 }
 
-.modal-title {
-    font-size: 17px;
-    font-weight: 700;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.modal-close {
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    color: #fff;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-}
-.modal-close:active { background: rgba(255, 255, 255, 0.2); }
+.modal-title { font-size: 16px; }
 
 .modal-body {
     padding: 15px;
-    overflow-y: auto;
+    overflow-y: auto; /* Прокрутка только внутри тела */
     flex-grow: 1;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 80px; /* Отступ под Safe Area */
 }
 
-/* Элемент списка промокодов */
+/* Уменьшенные шрифты для списка */
 .promo-item {
-    background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 14px;
-    padding: 15px;
-    margin-bottom: 12px;
-    position: relative;
-    overflow: hidden;
+    padding: 10px 12px; /* Компактнее */
+    margin-bottom: 8px;
 }
-
-.promo-item::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 4px;
-    background: var(--primary-color);
-}
-
-.promo-item.expiring::before { background: var(--danger-color); }
 
 .promo-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
     font-size: 11px;
-    color: var(--text-color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-bottom: 6px;
 }
 
 .promo-code-box {
-    background: rgba(0, 0, 0, 0.4);
-    padding: 12px;
-    border-radius: 10px;
-    font-family: 'Courier New', monospace;
-    font-size: 16px;
-    color: #fff;
-    font-weight: bold;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    border: 1px dashed rgba(255, 255, 255, 0.15);
-    transition: background 0.2s;
+    padding: 8px 10px;
+    font-size: 14px; /* Чуть меньше шрифт кода */
 }
-.promo-code-box:active { background: rgba(255, 255, 255, 0.1); }
 
 .promo-meta {
-    margin-top: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    margin-top: 8px;
     font-size: 10px;
 }
 
-.timer-text { color: var(--danger-color); font-weight: bold; }
-.copied-badge {
-    background: var(--primary-color);
-    color: #000;
-    padding: 2px 6px;
+/* Кнопка "Как использовать" (возвращена) */
+.how-to-use-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--action-color);
+    padding: 4px 8px;
     border-radius: 4px;
-    font-weight: bold;
-    opacity: 0;
-    transition: opacity 0.2s;
+    font-size: 10px;
+    cursor: pointer;
+    margin-left: auto; /* Прижать вправо */
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
-.promo-item.was-copied .copied-badge { opacity: 1; }
+
+/* Корректировка отступа заголовка "Мои награды" */
+h3#rewards-title {
+    margin-top: 10px !important; /* Принудительно уменьшаем отступ */
+    margin-bottom: 10px !important;
+}
     </style>
 </head>
 <body>
@@ -769,14 +715,15 @@
         <div class="dash-btn" id="btn-open-promocodes">
             <div class="badge-alert" id="promo-alert-badge">Сгорают скоро!</div>
             <i class="fa-solid fa-ticket"></i>
-            <div class="title">ПРОМОКОДЫ</div>
+            <div class="title">PROMOCODE SHOP</div>
+            <div class="info">Промокоды для монеток</div>
             <div class="info" id="promo-btn-info">Загрузка...</div>
         </div>
 
         <div class="dash-btn" id="btn-open-secret">
             <i class="fa-solid fa-user-secret"></i>
-            <div class="title">SECRET MENU</div>
-            <div class="info">Доступ к элитным функциям</div>
+            <div class="title">SECRET PROMOCODE</div>
+            <div class="info">Промокоды для секретного меню</div>
         </div>
     </div>
 
@@ -1326,7 +1273,7 @@ try {
         tg.openTelegramLink(url);
     });
 
-    // --- OTHER LOGIC ---
+    // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
     function renderRewards(rewards) {
         // Элементы UI
         const promoBtnInfo = document.getElementById('promo-btn-info');
@@ -1334,32 +1281,44 @@ try {
         const promoBtn = document.getElementById('btn-open-promocodes');
         const promoListContainer = document.getElementById('promocodes-list-container');
         
-        // Модальные окна (управление)
+        // Модальные окна
         const modalPromos = document.getElementById('modal-promocodes');
         const modalSecret = document.getElementById('modal-secret');
         
-        // Открытие/Закрытие
-        document.getElementById('btn-open-promocodes').onclick = () => modalPromos.classList.add('visible');
-        document.getElementById('close-modal-promocodes').onclick = () => modalPromos.classList.remove('visible');
+        // Обработчики открытия
+        document.getElementById('btn-open-promocodes').onclick = () => {
+            modalPromos.classList.add('visible');
+            tg.BackButton.show(); // Показываем кнопку назад от Telegram
+            tg.BackButton.onClick(() => {
+                modalPromos.classList.remove('visible');
+                tg.BackButton.hide();
+                tg.BackButton.offClick();
+            });
+        };
+
+        document.getElementById('close-modal-promocodes').onclick = () => {
+             modalPromos.classList.remove('visible');
+             tg.BackButton.hide();
+        };
         
         document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
         document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
-        
-        // Удаление всех наград (перепривязка к новой кнопке внутри модалки)
+
+        // Удаление всех наград
         const clearBtn = document.getElementById('btn-clear-all-rewards');
         if(clearBtn) {
             clearBtn.onclick = () => {
                 showCustomConfirmHTML("Удалить ВСЕ награды безвозвратно?", async (c) => {
                      await makeApiRequest('/api/v1/user/promocodes/delete-all');
                      await makeApiRequest('/api/v1/user/grants/delete-all');
-                     renderRewards([]); // Очистить UI
-                     modalPromos.classList.remove('visible'); // Закрыть окно
+                     renderRewards([]); 
+                     modalPromos.classList.remove('visible');
                      c();
                 });
             };
         }
 
-        // --- ЛОГИКА ДАННЫХ ---
+        // --- ГЕНЕРАЦИЯ СПИСКА ---
         if (!rewards || rewards.length === 0) {
             promoBtnInfo.textContent = "Нет активных";
             promoBtn.classList.remove('has-warning');
@@ -1374,11 +1333,10 @@ try {
         let expiringCount = 0;
         let html = '';
         const now = new Date();
-        const warningDays = 3; // Предупреждать за 3 дня
-        const lifeTimeDays = 7; // Срок жизни 7 дней
+        const warningDays = 3; 
+        const lifeTimeDays = 7; 
 
         rewards.forEach(r => {
-            // Рассчет времени
             const claimedDate = new Date(r.claimed_at);
             const expiryDate = new Date(claimedDate.getTime() + (lifeTimeDays * 24 * 60 * 60 * 1000));
             const diffMs = expiryDate - now;
@@ -1397,15 +1355,15 @@ try {
                 }
             }
 
-            // Статус копирования (нужно хранить в localStorage, т.к. базы под это нет пока)
             const isCopied = localStorage.getItem(`copied_promo_${r.code}`) === 'true';
             const copiedClass = isCopied ? 'was-copied' : '';
 
-            // Генерация HTML карточки
+            // Генерируем HTML с кнопкой "Как использовать"
+            // Важно: onclick открывает 'how-to-use-popup', который уже есть у вас в коде
             html += `
             <div class="promo-item ${isExpiring ? 'expiring' : ''} ${copiedClass}" id="promo-card-${r.id}">
                 <div class="promo-header">
-                    <span>${r.description || 'Награда'}</span>
+                    <span style="font-weight:600;">${r.description || 'Награда'}</span>
                     <span>${r.reward_value} ₽</span>
                 </div>
                 
@@ -1416,12 +1374,17 @@ try {
                 
                 <div class="promo-meta">
                     <span class="timer-text">${timeText}</span>
-                    <span class="copied-badge"><i class="fa-solid fa-check"></i> Скопировано</span>
+                    
+                    <button class="how-to-use-btn" onclick="document.getElementById('how-to-use-popup').classList.add('visible')">
+                        <i class="fa-solid fa-circle-question"></i> Как использовать
+                    </button>
+                </div>
+                <div style="font-size: 9px; text-align: right; margin-top: 4px; display: ${isCopied ? 'block' : 'none'}" class="text-muted">
+                    <i class="fa-solid fa-check"></i> Скопировано
                 </div>
             </div>`;
         });
 
-        // Обновление кнопки в профиле
         promoListContainer.innerHTML = html;
         promoBtnInfo.textContent = `${rewards.length} шт. в наличии`;
         
