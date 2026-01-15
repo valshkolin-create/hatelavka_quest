@@ -308,6 +308,7 @@
             transform: translateY(100%); /* Для анимации выезда снизу */
             transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
             padding-top: var(--tg-viewport-stable-height, 0);
+            box-sizing: border-box; /* ВАЖНОЕ ИСПРАВЛЕНИЕ: Чтобы padding не увеличивал высоту */
         }
 
         .custom-modal.visible {
@@ -481,9 +482,9 @@
 
     <main class="main-content">
         <div class="page-header">
-    <a href="#" id="header-back-btn" class="back-button">
-        <i class="fa-solid fa-chevron-left"></i> Назад
-    </a>
+            <a href="#" id="header-back-btn" class="back-button">
+                <i class="fa-solid fa-chevron-left"></i> Назад
+            </a>
             <h1 id="profileName" class="page-header-title">Профиль</h1>
             <div style="width: 50px;"></div> 
         </div>
@@ -491,28 +492,27 @@
         <div id="notification-area"></div>
         <div id="settings-list" class="card-container"></div>
         
-        <div id="settings-list" class="card-container"></div>
-        
         <div class="rewards-header">
-        <h2>Мои награды</h2>
-        <button id="delete-all-rewards-btn">Удалить все</button>
-    </div>
-
-    <div class="rewards-dashboard">
-        <div class="dash-btn" id="btn-open-promocodes">
-            <div class="badge-alert" id="promo-alert-badge">Сгорают скоро!</div>
-            <i class="fa-solid fa-ticket"></i>
-            <div class="title">PROMOCODE SHOP</div>
-            <div class="info">Промокоды для монеток</div>
-            <div class="info" id="promo-btn-info">Загрузка...</div>
+            <h2>Мои награды</h2>
+            <button id="delete-all-rewards-btn">Удалить все</button>
         </div>
 
-        <div class="dash-btn" id="btn-open-secret">
-            <i class="fa-solid fa-user-secret"></i>
-            <div class="title">SECRET PROMOCODE</div>
-            <div class="info">Промокоды для секретного меню</div>
+        <div class="rewards-dashboard">
+            <div class="dash-btn" id="btn-open-promocodes">
+                <div class="badge-alert" id="promo-alert-badge">Сгорают скоро!</div>
+                <i class="fa-solid fa-ticket"></i>
+                <div class="title">PROMOCODE SHOP</div>
+                <div class="info">Промокоды для монеток</div>
+                <div class="info" id="promo-btn-info">Загрузка...</div>
+            </div>
+
+            <div class="dash-btn" id="btn-open-secret">
+                <i class="fa-solid fa-user-secret"></i>
+                <div class="title">SECRET PROMOCODE</div>
+                <div class="info">Промокоды для секретного меню</div>
+            </div>
         </div>
-    </div>
+    </main>
 
     <div class="custom-modal" id="modal-promocodes">
         <div class="modal-card">
@@ -542,7 +542,7 @@
             </div>
             
             <div class="modal-body" id="secret-list-container">
-                <div class="empty-state">
+                <div class="empty-state" style="text-align:center; padding-top: 50px;">
                     <i class="fa-solid fa-mask" style="font-size: 32px; margin-bottom: 15px; opacity: 0.5; color: var(--text-color-muted);"></i>
                     <p style="font-size: 14px; margin-bottom: 5px;">Секретные промокоды отсутствуют</p>
                     <div style="font-size: 11px; color: #555;">Скоро..</div>
@@ -550,7 +550,6 @@
             </div>
         </div>
     </div>
-    </main>
 
     <div id="notify-popup-overlay" class="custom-popup-overlay">
         <div class="custom-popup">
