@@ -7805,17 +7805,24 @@ async def mark_promocode_copied(
     """
     Принимает ID промокода и ставит отметку copied_at в базе
     """
-    # Проверяем юзера
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     user_id = user_info["id"]
 
-    # Обновляем запись в БД
-    await supabase.table("promocodes").update({
-        "copied_at": datetime.now(timezone.utc).isoformat()
-    }).eq("id", request_data.promocode_id).eq("telegram_id", user_id).execute()
+    # ИСПРАВЛЕНИЕ: Используем .patch() вместо .table().update()
+    # PostgREST синтаксис для фильтрации передается в params
+    await supabase.patch(
+        "/promocodes",
+        params={
+            "id": f"eq.{request_data.promocode_id}",
+            "telegram_id": f"eq.{user_id}"
+        },
+        json={
+            "copied_at": datetime.now(timezone.utc).isoformat()
+        }
+    )
 
     return {"status": "ok"}
 
