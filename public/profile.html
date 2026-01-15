@@ -841,6 +841,51 @@
     const showLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden'); };
     const hideLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); };
 
+    function showNotification(message, type = 'info') {
+        const container = document.getElementById('notification-area');
+        if (!container) return;
+
+        const div = document.createElement('div');
+        // Стилизуем уведомление прямо здесь
+        div.style.padding = '12px 15px';
+        div.style.marginBottom = '10px';
+        div.style.borderRadius = '12px';
+        div.style.color = '#fff';
+        div.style.fontSize = '14px';
+        div.style.fontWeight = '500';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.backdropFilter = 'blur(10px)';
+        div.style.webkitBackdropFilter = 'blur(10px)';
+        div.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        div.style.animation = 'fadeIn 0.3s forwards';
+        
+        // Цвета в зависимости от типа
+        if (type === 'success') {
+            div.style.background = 'rgba(52, 199, 89, 0.2)'; // Зеленоватый
+            div.style.border = '1px solid rgba(52, 199, 89, 0.3)';
+            div.innerHTML = `<i class="fa-solid fa-check-circle" style="color: #34c759; margin-right: 10px; font-size: 16px;"></i> ${message}`;
+        } else if (type === 'error') {
+            div.style.background = 'rgba(255, 59, 48, 0.2)'; // Красноватый
+            div.style.border = '1px solid rgba(255, 59, 48, 0.3)';
+            div.innerHTML = `<i class="fa-solid fa-circle-exclamation" style="color: #ff3b30; margin-right: 10px; font-size: 16px;"></i> ${message}`;
+        } else {
+            div.style.background = 'rgba(255, 255, 255, 0.1)';
+            div.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+            div.innerHTML = message;
+        }
+
+        container.appendChild(div);
+
+        // Удаляем через 3 секунды
+        setTimeout(() => {
+            div.style.transition = 'opacity 0.5s, transform 0.5s';
+            div.style.opacity = '0';
+            div.style.transform = 'translateY(-10px)';
+            setTimeout(() => div.remove(), 500);
+        }, 3000);
+    }
+
     function addSafeListener(elementId, eventType, handler) {
         const el = document.getElementById(elementId);
         if (el) el.addEventListener(eventType, handler);
