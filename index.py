@@ -7118,65 +7118,93 @@ async def claim_challenge(
         )
         return {"success": True, "message": "Челлендж выполнен! Награды временно отключены.", "promocode": None}
 
-    # 2. Пробуем забрать награду (Основной путь)
+    # 2. Пробуем забрать награду (Ручной режим с фильтрацией P2P)
     try:
-        rpc_response = await supabase.post(
-            "/rpc/claim_challenge_and_get_reward", 
-            json={"p_user_id": current_user_id, "p_challenge_id": challenge_id}
-        )
-        rpc_response.raise_for_status()
-        promocode_text = rpc_response.text.strip('"')
-        message = "Награда получена!"
-
-    except httpx.HTTPStatusError as e:
-        # --- 🔥 ИСПРАВЛЕНИЕ ЛОГИКИ ОШИБОК 🔥 ---
-        
-        # Получаем текст ошибки от базы
-        error_details = e.response.json().get("message", e.response.text) if e.response.headers.get("content-type") == "application/json" else e.response.text
-        
-        # 3. Если произошла ошибка, ПРОВЕРЯЕМ РЕАЛЬНЫЙ СТАТУС в базе
-        # Это надежнее, чем гадать по тексту ошибки
-        status_check = await supabase.get(
+        # А. Получаем данные челленджа (Сумму награды и текущий статус)
+        chal_resp = await supabase.get(
             "/user_challenges",
             params={
-                "user_id": f"eq.{current_user_id}", 
+                "user_id": f"eq.{current_user_id}",
                 "challenge_id": f"eq.{challenge_id}",
-                "select": "status"
+                "select": "status, challenges(reward_amount)"
             }
         )
-        real_status = None
-        if status_check.json():
-            real_status = status_check.json()[0].get("status")
-
-        # 4. Принимаем решение на основе статуса
-        if real_status == 'expired':
-            # Если истек — честно говорим об этом и НЕ пытаемся выдать награду
-            raise HTTPException(status_code=400, detail="Время выполнения челленджа истекло. Попробуйте взять новый.")
-            
-        elif real_status in ['claimed', 'completed']:
-            # Если выполнен, но код не пришел — пробуем восстановить (Fallback)
-            try:
-                award_resp = await supabase.post(
-                    "/rpc/award_reward_and_get_promocode",
-                    json={"p_user_id": current_user_id, "p_source_type": "challenge", "p_source_id": challenge_id}
-                )
-                award_resp.raise_for_status()
-                
-                try:
-                    award_json = award_resp.json()
-                    promocode_text = award_json.get("code") if isinstance(award_json, dict) else str(award_json).strip('"')
-                except:
-                    promocode_text = award_resp.text.strip('"')
-                    
-                message = "Награда получена (восстановлена)!"
-            except Exception as fallback_error:
-                # Если даже восстановление не сработало (например, кончились промокоды)
-                logging.error(f"Fallback claim failed: {fallback_error}")
-                raise HTTPException(status_code=409, detail="Награда уже получена, либо закончились промокоды. Проверьте ваш профиль или обратитесь к админу.")
+        chal_data = chal_resp.json()
+        if not chal_data:
+            raise HTTPException(status_code=404, detail="Челлендж не найден.")
         
-        else:
-            # Какой-то другой статус (например, pending) или ошибка валидации
-            raise HTTPException(status_code=400, detail=error_details)
+        user_chal = chal_data[0]
+        current_status = user_chal.get("status")
+        # Безопасное получение суммы награды
+        reward_amount = user_chal.get("challenges", {}).get("reward_amount", 0)
+
+        # Проверка статуса (чтобы не выдать дважды)
+        if current_status == 'claimed':
+            raise HTTPException(status_code=400, detail="Награда уже получена.")
+        if current_status == 'expired':
+            raise HTTPException(status_code=400, detail="Время вышло.")
+
+        # Б. Ищем свободный код (ИСКЛЮЧАЯ P2P)
+        # Фильтр: номинал совпадает, не использован, в описании НЕТ "p2p"
+        promo_resp = await supabase.get(
+            "/promocodes",
+            params={
+                "reward_value": f"eq.{reward_amount}",
+                "is_used": "is.false",
+                "telegram_id": "is.null",
+                "description": "not.ilike.*p2p*", # <--- ГЛАВНАЯ ЗАЩИТА ОТ P2P
+                "limit": "5",
+                "order": "id.asc"
+            }
+        )
+        available_codes = promo_resp.json()
+        
+        if not available_codes:
+            # Если "чистых" кодов нет, логируем и кидаем ошибку
+            logging.warning(f"No clean promo codes found for amount {reward_amount} (User {current_user_id})")
+            raise HTTPException(status_code=409, detail="Коды этого номинала закончились. Сообщите администратору.")
+
+        # В. Пытаемся забрать один из найденных кодов (Race condition safe)
+        selected_code = None
+        for code_candidate in available_codes:
+            # Атомарное обновление: забираем, только если он все еще is.false
+            update_resp = await supabase.patch(
+                "/promocodes",
+                params={"id": f"eq.{code_candidate['id']}", "is_used": "is.false"},
+                json={
+                    "is_used": True,
+                    "telegram_id": current_user_id,
+                    "claimed_at": datetime.now(timezone.utc).isoformat(),
+                    "description": "Challenge Reward"
+                },
+                headers={"Prefer": "return=representation"} # Нужно, чтобы убедиться, что обновили
+            )
+            updated_rows = update_resp.json()
+            if updated_rows:
+                selected_code = updated_rows[0]
+                break # Успешно забрали
+        
+        if not selected_code:
+            raise HTTPException(status_code=409, detail="Не удалось забрать код (попробуйте еще раз).")
+
+        promocode_text = selected_code['code']
+        message = "Награда получена!"
+
+        # Г. Обновляем статус челленджа на 'claimed'
+        await supabase.patch(
+            "/user_challenges",
+            params={"user_id": f"eq.{current_user_id}", "challenge_id": f"eq.{challenge_id}"},
+            json={
+                "status": "claimed",
+                "claimed_at": datetime.now(timezone.utc).isoformat()
+            }
+        )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logging.error(f"Error claiming challenge {challenge_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка при выдаче награды.")
 
     # 5. 🔥 БОНУСЫ В ФОНЕ 🔥
     background_tasks.add_task(background_challenge_bonuses, current_user_id)
