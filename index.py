@@ -9,7 +9,7 @@ import random
 from datetime import datetime, timedelta, timezone
 import hmac
 import hashlib
-from urllib.parse import parse_qsl, unquote
+from urllib.parse import parse_qsl, unquote  import urlencode 
 from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
 from supabase import create_client
@@ -30,7 +30,7 @@ from aiogram.enums import ParseMode
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from fastapi import FastAPI, Request, HTTPException, Query, Depends, Body, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse, FileResponse, Response
+from fastapi.responses import JSONResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
@@ -4686,9 +4686,7 @@ async def get_public_quests(request_data: InitDataRequest):
         logging.error(f"Ошибка при получении квестов RPC: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
-# 👇 Убедитесь, что этот импорт есть в начале файла
-# 👇 Убедитесь, что этот импорт есть в самом верху файла index.py
-from urllib.parse import urlencode
+
 
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(
@@ -4770,6 +4768,8 @@ async def twitch_oauth_start(
     )
     
     return response
+
+
     
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
@@ -4796,6 +4796,8 @@ async def twitch_oauth_callback(
         )
         token_data = token_response.json()
         if "access_token" not in token_data:
+            # Логируем ошибку для отладки
+            logging.error(f"Twitch Token Error: {token_data}")
             raise HTTPException(status_code=500, detail="Failed to get access token from Twitch")
             
         access_token = token_data["access_token"]
@@ -4820,8 +4822,8 @@ async def twitch_oauth_callback(
         update_payload = {
             "twitch_id": twitch_id, 
             "twitch_login": twitch_login,
-            "twitch_access_token": access_token,   # 🔥 СОХРАНЯЕМ ВСЕМ (для тихого обновления)
-            "twitch_refresh_token": refresh_token  # 🔥 СОХРАНЯЕМ ВСЕМ (для тихого обновления)
+            "twitch_access_token": access_token,   # Сохраняем токены
+            "twitch_refresh_token": refresh_token  
         }
 
         # --- Проверка подписки при ПЕРВОМ входе ---
@@ -4855,10 +4857,22 @@ async def twitch_oauth_callback(
             json=update_payload
         )
         
-    redirect_url = f"{WEB_APP_URL}/profile"
-    response = Response(status_code=307)
-    response.headers['Location'] = redirect_url
+    # --- ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
+    # Берем переменные из VERCEL:
+    # BOT_USERNAME должен быть "HATElavka_bot"
+    # APP_SHORT_NAME должен быть "profile"
+    bot_username = os.getenv("BOT_USERNAME", "HATElavka_bot") 
+    app_short_name = os.getenv("APP_SHORT_NAME", "profile")
+
+    # Формируем ссылку для возврата в Telegram
+    tg_redirect_url = f"https://t.me/{bot_username}/{app_short_name}?startapp=auth_success"
+    
+    # Делаем редирект
+    response = RedirectResponse(url=tg_redirect_url)
+    
+    # Удаляем куки авторизации
     response.delete_cookie("twitch_oauth_init_data", path="/", samesite="None", secure=True)
+    
     return response
 
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
