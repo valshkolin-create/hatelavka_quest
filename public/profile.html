@@ -569,72 +569,134 @@
         .dash-btn.has-warning .badge-alert { display: block; }
         .dash-btn.has-warning { border-color: rgba(255, 59, 48, 0.4); }
 
-        /* 2. МОДАЛЬНОЕ ОКНО (НА ВЕСЬ ЭКРАН, КАК ПРОСИЛИ) */
+        /* --- ИСПРАВЛЕНИЕ: МОДАЛЬНОЕ ОКНО (1 в 1 как приложение) --- */
         .custom-modal {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%;
-            background: #000000; /* ЧЕРНЫЙ ФОН */
-            z-index: 9999; /* Поверх всего */
+            /* ВАЖНО: Используем переменные фона приложения, чтобы не было черного экрана */
+            background-color: var(--bg-color); 
+            background-image: var(--bg-gradient);
+            z-index: 99999;
             display: flex;
             flex-direction: column;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.2s ease;
-            padding-top: var(--tg-viewport-stable-height, 0); /* Учет безопасной зоны */
+            padding-top: var(--tg-viewport-stable-height, 0);
         }
-        .custom-modal.visible { opacity: 1; pointer-events: auto; }
+
+        .custom-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Убираем лишние фоны у контейнера, чтобы карточки "дышали" */
+        .modal-card {
+            background: transparent; 
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: flex;
+            flex-direction: column;
+        }
 
         .modal-header {
             padding: 15px 20px;
-            background: #1c1c1e;
+            /* Легкий фон для шапки, чтобы отделить её */
+            background: rgba(255, 255, 255, 0.05); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
             flex-shrink: 0;
         }
-        .modal-title { font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
-        .modal-close { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; padding: 5px; }
 
         .modal-body {
-            flex-grow: 1;
-            overflow-y: auto; /* Скролл внутри */
             padding: 15px;
-            padding-bottom: 80px; /* Отступ снизу */
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-bottom: 80px; /* Место для скролла */
         }
 
-        /* 3. КАРТОЧКИ НАГРАД (ВАШ СТАРЫЙ ДИЗАЙН 1-в-1) */
+        /* --- ВАШИ СТАРЫЕ СТИЛИ КАРТОЧЕК (ВОССТАНОВЛЕНЫ) --- */
         .reward-item {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 12px;
-            display: flex; flex-direction: column; gap: 10px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
-        .reward-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #fff; }
-        .reward-value { color: var(--primary-color); }
-        
+
+        .reward-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .reward-value {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
         .reward-code-container {
             background: rgba(0, 0, 0, 0.3);
-            padding: 10px; border-radius: 8px;
-            display: flex; justify-content: space-between; align-items: center;
-            font-family: monospace; font-size: 15px; letter-spacing: 1px;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: monospace;
+            font-size: 16px;
             border: 1px dashed rgba(255, 255, 255, 0.2);
             cursor: pointer;
         }
 
         .reward-actions {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 5px;
         }
+
         .btn-action {
-            border: none; padding: 10px 0; border-radius: 8px;
-            font-size: 11px; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
+            border: none;
+            padding: 10px 0;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: background 0.2s;
         }
-        .btn-copy-action { background: rgba(255, 255, 255, 0.1); color: #fff; }
-        .btn-help-action { background: rgba(52, 199, 89, 0.15); color: var(--primary-color); }
-        
-        .expiry-info { font-size: 10px; color: var(--danger-color); text-align: center; margin-top: 2px; }
+
+        .btn-copy-action {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .btn-help-action {
+            background: rgba(52, 199, 89, 0.15);
+            color: var(--primary-color);
+        }
+
+        .expiry-info {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 2px;
+            color: var(--danger-color);
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -1226,79 +1288,70 @@ try {
 
     // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
     function renderRewards(rewards) {
-        console.log("Rendering rewards:", rewards);
-
-        // 1. Ищем элементы (и проверяем, что они есть, чтобы не было ошибок)
+        console.log("Rendering rewards count:", rewards ? rewards.length : 0);
+        
         const promoBtnInfo = document.getElementById('promo-btn-info');
         const promoAlertBadge = document.getElementById('promo-alert-badge');
         const promoBtn = document.getElementById('btn-open-promocodes');
         const promoListContainer = document.getElementById('promocodes-list-container');
-        
         const modalPromos = document.getElementById('modal-promocodes');
         const modalSecret = document.getElementById('modal-secret');
 
-        // Если HTML не прогрузился или вставлен неверно — выходим, чтобы не сломать остальной JS
-        if (!promoListContainer || !modalPromos) {
-            console.error("CRITICAL: Elements for rewards not found. Check HTML.");
-            return;
-        }
-
-        // 2. Навешиваем обработчики событий (Клики)
-        // Кнопка открытия промокодов
-        document.getElementById('btn-open-promocodes').onclick = function() {
+        // Обработчики открытия/закрытия
+        document.getElementById('btn-open-promocodes').onclick = () => {
             modalPromos.classList.add('visible');
-            tg.BackButton.show(); // Показываем кнопку назад Telegram
-            tg.BackButton.onClick(function() {
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
                 modalPromos.classList.remove('visible');
                 tg.BackButton.hide();
-                tg.BackButton.offClick();
             });
         };
-        // Кнопка закрытия промокодов (Крестик)
-        document.getElementById('close-modal-promocodes').onclick = function() {
-            modalPromos.classList.remove('visible');
-            tg.BackButton.hide();
+        document.getElementById('close-modal-promocodes').onclick = () => {
+             modalPromos.classList.remove('visible');
+             tg.BackButton.hide();
         };
 
-        // Кнопка открытия Secret Menu
+        // Секретное меню
         document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
         document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
+        
+        // Кнопки удаления
+        const handleDelete = () => {
+            showCustomConfirmHTML("Удалить ВСЕ награды безвозвратно?", async (c) => {
+                 await makeApiRequest('/api/v1/user/promocodes/delete-all');
+                 await makeApiRequest('/api/v1/user/grants/delete-all');
+                 renderRewards([]); 
+                 modalPromos.classList.remove('visible');
+                 c();
+            });
+        };
+        const topBtn = document.getElementById('delete-all-rewards-btn');
+        if(topBtn) topBtn.onclick = handleDelete;
+        const innerBtn = document.getElementById('btn-clear-all-rewards');
+        if(innerBtn) innerBtn.onclick = handleDelete;
 
-        // Кнопка удаления всего
-        const clearBtn = document.getElementById('btn-clear-all-rewards');
-        if (clearBtn) {
-            clearBtn.onclick = () => {
-                showCustomConfirmHTML("Удалить ВСЕ награды безвозвратно?", async (c) => {
-                     await makeApiRequest('/api/v1/user/promocodes/delete-all');
-                     await makeApiRequest('/api/v1/user/grants/delete-all');
-                     renderRewards([]); // Очистить интерфейс
-                     modalPromos.classList.remove('visible');
-                     c();
-                });
-            };
-        }
 
-        // 3. Обработка данных (Если пусто)
+        // === ОТРИСОВКА ===
         if (!rewards || rewards.length === 0) {
-            promoBtnInfo.textContent = "Пусто";
-            promoBtn.classList.remove('has-warning');
-            promoListContainer.innerHTML = `
-                <div style="text-align:center; padding: 40px 20px; color: #666;">
-                    <i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 15px;"></i>
-                    <p>История наград пуста</p>
+            if(promoBtnInfo) promoBtnInfo.textContent = "0 шт.";
+            if(promoBtn) promoBtn.classList.remove('has-warning');
+            if(promoListContainer) {
+                promoListContainer.innerHTML = `
+                <div style="text-align: center; padding: 50px 20px; color: var(--text-color-muted);">
+                    <i class="fa-regular fa-folder-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <p>Наград пока нет</p>
                 </div>`;
+            }
             return;
         }
 
-        // 4. Генерация карточек (ВАШ СТАРЫЙ ДИЗАЙН)
         let html = '';
         let expiringCount = 0;
         const now = new Date();
-        const warningDays = 3;
-        const lifeTimeDays = 7;
+        const warningDays = 3; 
+        const lifeTimeDays = 7; 
 
         rewards.forEach(r => {
-            // Считаем время
             const claimedDate = new Date(r.claimed_at);
             const expiryDate = new Date(claimedDate.getTime() + (lifeTimeDays * 24 * 60 * 60 * 1000));
             const diffMs = expiryDate - now;
@@ -1312,7 +1365,7 @@ try {
                 timeText = "ИСТЕК";
             }
 
-            // Вставляем HTML Карточки (Как было у вас раньше)
+            // ВАШ HTML КАРТОЧКИ (1 в 1)
             html += `
             <div class="reward-item">
                 <div class="reward-header">
@@ -1338,15 +1391,16 @@ try {
             </div>`;
         });
 
-        // 5. Обновляем UI
-        promoListContainer.innerHTML = html;
-        promoBtnInfo.textContent = `${rewards.length} шт.`;
+        if(promoListContainer) promoListContainer.innerHTML = html;
+        if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
         
-        if (expiringCount > 0) {
+        if (expiringCount > 0 && promoBtn && promoAlertBadge) {
             promoBtn.classList.add('has-warning');
             promoAlertBadge.textContent = `СГОРАЮТ: ${expiringCount}`;
-        } else {
+            promoAlertBadge.style.display = 'block';
+        } else if (promoBtn && promoAlertBadge) {
             promoBtn.classList.remove('has-warning');
+            promoAlertBadge.style.display = 'none';
         }
     }
 
