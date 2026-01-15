@@ -1847,11 +1847,15 @@ function openWelcomePopup(userData) {
             const btnHelp = document.getElementById('twitch-help-btn-popup');
 
             if (btnConnect) {
-                // !!! НОВАЯ ЛОГИКА АВТОРИЗАЦИИ !!!
+                // --- ПРАВИЛЬНАЯ ЛОГИКА АВТОРИЗАЦИИ ---
                 btnConnect.onclick = async (e) => {
+                    // 1. Останавливаем любые стандартные действия
+                    e.preventDefault(); 
                     e.stopPropagation();
+
+                    // Визуальный эффект загрузки
                     btnConnect.style.opacity = '0.7';
-                    btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; // Крутилка загрузки
+                    btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; 
 
                     try {
                         if (!Telegram.WebApp.initData) {
@@ -1859,20 +1863,24 @@ function openWelcomePopup(userData) {
                             return;
                         }
 
-                        // A. Запрашиваем ссылку
+                        // 2. В ФОНЕ запрашиваем ссылку у вашего сервера
+                        // Пользователь этого НЕ видит, это происходит "под капотом"
                         const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`);
                         
                         if (!response.ok) throw new Error("Ошибка сервера");
 
+                        // 3. Получаем тот самый JSON, который вы видели
                         const data = await response.json();
 
+                        // 4. Если ссылка пришла — ОТКРЫВАЕМ ЕЁ ЧЕРЕЗ ТЕЛЕГРАМ
                         if (data.url) {
+                            // Ставим флажок, чтобы при возвращении открыть профиль или попап
                             localStorage.setItem('openRefPopupOnLoad', 'true');
                             
-                            // B. Открываем ссылку
+                            // 🔥 ГЛАВНОЕ: Команда открыть внешний браузер
                             Telegram.WebApp.openLink(data.url);
                             
-                            // C. ЗАКРЫВАЕМ ПРИЛОЖЕНИЕ
+                            // 🔥 Закрываем текущее окно, чтобы не мешало
                             Telegram.WebApp.close();
                         } else {
                             alert("Ошибка: Сервер не вернул ссылку");
@@ -1881,7 +1889,7 @@ function openWelcomePopup(userData) {
                         console.error(err);
                         alert("Ошибка: " + err.message);
                     } finally {
-                        // Возвращаем кнопку обратно (если вдруг приложение не закрылось)
+                        // Если вдруг не закрылось — возвращаем кнопку
                         btnConnect.style.opacity = '1';
                         btnConnect.innerHTML = '<i class="fa-brands fa-twitch"></i> Привязать';
                     }
