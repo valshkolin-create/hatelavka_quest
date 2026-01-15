@@ -4689,7 +4689,7 @@ async def get_public_quests(request_data: InitDataRequest):
 
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(
-    request: Request, # <--- ВАЖНО: Добавили request для чтения заголовков устройства
+    request: Request, 
     initData: str
 ):
     # 1. Парсим данные пользователя для логов
@@ -4718,7 +4718,15 @@ async def twitch_oauth_start(
         logging.error("❌ Config Error: ClientID or RedirectURI missing")
         raise HTTPException(status_code=500, detail="Server config error")
 
-    state = create_twitch_state(initData)
+    # --- ИЗМЕНЕНИЕ: КОДИРУЕМ initData В STATE ---
+    # Мы не используем куки, так как они теряются. 
+    # Мы "прячем" initData внутрь параметра state в base64.
+    try:
+        state = base64.urlsafe_b64encode(initData.encode()).decode()
+    except Exception as e:
+        logging.error(f"Error encoding state: {e}")
+        raise HTTPException(status_code=500, detail="State encoding error")
+
     scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
     
     # Параметры ссылки
@@ -4727,46 +4735,18 @@ async def twitch_oauth_start(
         "client_id": TWITCH_CLIENT_ID,
         "redirect_uri": TWITCH_REDIRECT_URI,
         "scope": scopes_list,
-        "state": state
+        "state": state 
     }
     
     query_string = urlencode(params)
     twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
     
-    logging.info(f"🔗 [Twitch HTML Redirect] Сгенерирована ссылка: {twitch_auth_url}")
+    logging.info(f"🔗 [Twitch JSON] Ссылка отправлена фронтенду: {twitch_auth_url}")
 
-    # Используем безопасный метод вставки (без f-строк HTML, чтобы не ломать подсветку)
-    html_template = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Redirecting...</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script type="text/javascript">
-            window.location.replace("TARGET_URL");
-        </script>
-    </head>
-    <body>
-        <p style="text-align:center; margin-top:20px;">Переход на Twitch...</p>
-    </body>
-    </html>
-    """
-    
-    html_content = html_template.replace("TARGET_URL", twitch_auth_url)
-    
-    response = Response(content=html_content, media_type="text/html")
-    
-    response.set_cookie(
-        key="twitch_oauth_init_data", 
-        value=initData, 
-        max_age=300, 
-        path="/", 
-        samesite="None", 
-        secure=True
-    )
-    
-    return response
+    # --- ИЗМЕНЕНИЕ: ВОЗВРАЩАЕМ JSON ---
+    # Мы возвращаем JSON, чтобы JS на клиенте мог вызвать Telegram.WebApp.openLink
+    return JSONResponse(content={"url": twitch_auth_url})
+
 
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
@@ -4775,9 +4755,16 @@ async def twitch_oauth_callback(
     state: str = Query(...),
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    init_data = request.cookies.get("twitch_oauth_init_data")
-    if not init_data or not validate_twitch_state(state, init_data):
-        raise HTTPException(status_code=403, detail="Invalid state. CSRF attack?")
+    # --- ИЗМЕНЕНИЕ: ДЕКОДИРУЕМ initData ИЗ STATE ---
+    # Куки больше не нужны. Данные пришли обратно от Twitch в параметре state.
+    try:
+        init_data = base64.urlsafe_b64decode(state).decode()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid state format (Base64 decode failed)")
+
+    # Проверяем валидность initData (защита от подделки)
+    if not init_data or not is_valid_init_data(init_data, ALL_VALID_TOKENS):
+        raise HTTPException(status_code=403, detail="Invalid initData signature. Auth failed.")
         
     async with httpx.AsyncClient() as client:
         # 1. Обмениваем код на токен
@@ -4813,6 +4800,7 @@ async def twitch_oauth_callback(
         
         # 3. Готовим данные
         user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
+        # Повторная проверка не обязательна, но для надежности оставим
         if not user_info: raise HTTPException(status_code=401)
         telegram_id = user_info["id"]
 
@@ -4854,10 +4842,7 @@ async def twitch_oauth_callback(
             json=update_payload
         )
         
-    # --- ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
-    # Берем переменные из VERCEL:
-    # BOT_USERNAME должен быть "HATElavka_bot"
-    # APP_SHORT_NAME должен быть "profile"
+    # Берем переменные из VERCEL
     bot_username = os.getenv("BOT_USERNAME", "HATElavka_bot") 
     app_short_name = os.getenv("APP_SHORT_NAME", "profile")
 
@@ -4865,10 +4850,8 @@ async def twitch_oauth_callback(
     tg_redirect_url = f"https://t.me/{bot_username}/{app_short_name}?startapp=auth_success"
     
     # Делаем редирект
+    # Куки удалять не нужно, так как мы их не ставили
     response = RedirectResponse(url=tg_redirect_url)
-    
-    # Удаляем куки авторизации
-    response.delete_cookie("twitch_oauth_init_data", path="/", samesite="None", secure=True)
     
     return response
 
