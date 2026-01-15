@@ -413,46 +413,67 @@
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* --- ПОПАПЫ "КАК ИСПОЛЬЗОВАТЬ" И ДР. (ВЫШЕ ВСЕГО) --- */
-        .custom-popup-overlay, .popup-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+        .custom-popup-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.7);
-            z-index: 99999 !important; /* САМЫЙ ВЕРХНИЙ СЛОЙ */
+            z-index: 99999;
             display: flex; align-items: center; justify-content: center;
-            padding: 15px; box-sizing: border-box;
+            padding: 15px; box-sizing: border-box; /* Важно для мобилок */
             opacity: 0; visibility: hidden;
             transition: opacity 0.3s ease, visibility 0s 0.3s;
         }
-        .custom-popup-overlay.visible, .popup-overlay.visible {
-            opacity: 1; visibility: visible;
-            transition: opacity 0.3s ease, visibility 0s 0s;
-        }
+        .custom-popup-overlay.visible { opacity: 1; visibility: visible; transition: opacity 0.3s ease, visibility 0s 0s; }
         
-        /* Исправленные стили попапа */
-        #how-to-use-popup, #twitch-help-popup, #twitch-trust-popup, #steam-trust-popup {
-             z-index: 99999 !important;
-        }
-
         .custom-popup {
             background-color: #1c1c1e;
-            border-radius: 14px;
+            border-radius: 14px; 
             padding: 20px;
-            width: 90%; max-width: 380px;
-            max-height: 85vh;
+            width: 100%;           /* Растягиваем */
+            max-width: 320px;      /* Но не шире 320px (стандарт iPhone SE/ПК попапов) */
+            box-sizing: border-box; /* !!! ЭТО ЛЕЧИТ ВЫЛЕЗАНИЕ ЗА ГРАНИЦЫ !!! */
             display: flex; flex-direction: column;
             box-shadow: 0 10px 30px rgba(0,0,0,0.4);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-            overflow: hidden; 
+            text-align: center; 
         }
 
-        .popup-scroll-area {
-            overflow-y: auto; flex-grow: 1; margin-bottom: 15px; padding-right: 5px; text-align: left;
-            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
-        }
-        
-        .custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; flex-shrink: 0; }
+        .custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; }
         .custom-popup p { margin: 0 0 20px 0; font-size: 14px; color: var(--text-color-muted); line-height: 1.4; }
+        
+        /* Поля ввода в попапах */
+        .custom-popup input { 
+            width: 100%; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid #3a3a3c; 
+            background-color: #2c2c2e; 
+            color: white; 
+            font-size: 14px; 
+            box-sizing: border-box; /* Чтобы не вылезало */
+            margin-bottom: 12px; 
+        }
+
+        /* Контейнер кнопок */
+        .popup-actions { 
+            margin-top: 15px; 
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Сами кнопки */
+        .popup-btn { 
+            width: 100%; 
+            border: none; 
+            padding: 12px; 
+            border-radius: 10px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: flex; align-items: center; justify-content: center;
+            box-sizing: border-box; /* Чтобы padding не увеличивал ширину */
+        }
+        .popup-btn.primary { background-color: var(--primary-color); color: white; }
+        .popup-btn.secondary { background-color: #3a3a3c; color: white; }
         
         /* --- Ссылка "Безопасно?" для Twitch --- */
         .twitch-trust-link {
@@ -621,8 +642,9 @@
             <div id="notify-content-area">
                 <div class="spinner" style="margin: 20px auto;"></div>
             </div>
-            <div class="popup-actions" style="margin-top: 20px; display: flex; justify-content: center;">
-                <button id="notify-close-btn" class="popup-btn secondary" style="width: 100%;">Закрыть</button>
+            
+            <div class="popup-actions">
+                <button id="notify-close-btn" class="popup-btn secondary">Закрыть</button>
             </div>
         </div>
     </div>
@@ -637,14 +659,15 @@
                     <i class="fa-solid fa-circle-question"></i> Где найти?
                 </a>
             </div>
-            <div class="popup-actions">
+            
+            <div class="popup-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <button id="popup-cancel-btn" class="popup-btn secondary">Отмена</button>
                 <button id="popup-save-btn" class="popup-btn primary">Сохранить</button>
             </div>
         </div>
     </div>
-
-  <div id="how-to-use-popup" class="custom-popup-overlay">
+    
+ <div id="how-to-use-popup" class="custom-popup-overlay">
         <div class="custom-popup">
             <h3>Как использовать код?</h3>
             <p>Скопируйте код и активируйте его в боте.</p>
@@ -652,13 +675,11 @@
             
             <div class="popup-actions" style="margin-top:15px; display: flex; flex-direction: column; gap: 10px;">
                 
-                <button id="send-promo-cmd" class="popup-btn primary" 
-                   style="width: 100%; box-sizing: border-box; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0;">
-                    <i class="fa-brands fa-telegram"></i> Открыть HATElavka
+                <button id="send-promo-cmd" class="popup-btn primary">
+                    <i class="fa-brands fa-telegram" style="margin-right: 8px;"></i> Открыть HATElavka
                 </button>
                 
-                <button id="how-to-use-close" class="popup-btn secondary" 
-                        style="width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; margin: 0;">
+                <button id="how-to-use-close" class="popup-btn secondary">
                     Закрыть
                 </button>
                 
@@ -1286,10 +1307,20 @@ try {
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
         if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); return; }
         
-        const copyBtn = target.closest('.reward-card-copy-btn');
+       const copyBtn = target.closest('.reward-card-copy-btn');
         if (copyBtn) {
-            navigator.clipboard.writeText(copyBtn.parentElement.querySelector('input').value);
-            tg.HapticFeedback.notificationOccurred('success');
+            const input = copyBtn.parentElement.querySelector('input');
+            navigator.clipboard.writeText(input.value).then(() => {
+                // Визуальный эффект (Telegram вибрация)
+                tg.HapticFeedback.notificationOccurred('success');
+                
+                // ТО САМОЕ УВЕДОМЛЕНИЕ
+                tg.ShowPopup({
+                    title: 'Готово',
+                    message: 'Промокод скопирован в буфер обмена',
+                    buttons: [{type: 'ok'}]
+                });
+            });
             return;
         }
         
