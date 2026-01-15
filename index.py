@@ -7098,6 +7098,13 @@ async def claim_challenge(
     background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    """
+    Эндпоинт для получения награды за челлендж.
+    Исправлена логика: 
+    1. Ручная транзакция вместо RPC.
+    2. Строгий фильтр исключения P2P-кодов (description not ilike *p2p*).
+    3. Защита от Race Condition.
+    """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
@@ -7112,6 +7119,7 @@ async def claim_challenge(
 
     # Если награды выключены админом
     if not admin_settings.challenge_promocodes_enabled:
+        # Просто помечаем как выполненный без выдачи кода
         await supabase.post(
             "/rpc/complete_challenge_and_set_cooldown",
             json={"p_user_id": current_user_id, "p_challenge_id": challenge_id}
@@ -7214,6 +7222,7 @@ async def claim_challenge(
         "message": message,
         "promocode": promocode_text
     }
+
 # --- НОВЫЙ ЭНДПОИНТ: Получение активных сущностей пользователя ---
 @app.get("/api/v1/admin/users/{user_id}/active_entities")
 async def admin_get_user_active_entities(
