@@ -7802,20 +7802,22 @@ async def mark_promocode_copied(
     request_data: PromocodeCopyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Сохраняет время копирования промокода"""
+    """
+    Принимает ID промокода и ставит отметку copied_at в базе
+    """
+    # Проверяем юзера
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Обновляем поле copied_at только если оно еще пустое
-    # (или перезаписываем, если хотите обновлять время при каждом клике - тут ставим if null)
-    now_time = datetime.now(timezone.utc).isoformat()
-    
-    await supabase.table("promocodes").update({
-        "copied_at": now_time
-    }).eq("id", request_data.promocode_id).eq("telegram_id", user_info["id"]).execute()
+    user_id = user_info["id"]
 
-    return {"status": "ok", "copied_at": now_time}
+    # Обновляем запись в БД
+    await supabase.table("promocodes").update({
+        "copied_at": datetime.now(timezone.utc).isoformat()
+    }).eq("id", request_data.promocode_id).eq("telegram_id", user_id).execute()
+
+    return {"status": "ok"}
 
 # --- Эндпоинт 1: Проверка (вызывать при старте приложения) ---
 @app.post("/api/v1/user/referral/sync")
