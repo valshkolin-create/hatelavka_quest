@@ -301,14 +301,17 @@
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%;
-            background: var(--bg-color); /* Фон как у приложения */
+            background: var(--bg-color);
             z-index: 10000;
             display: flex;
             flex-direction: column;
-            transform: translateY(100%); /* Для анимации выезда снизу */
+            transform: translateY(100%);
             transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-            padding-top: var(--tg-viewport-stable-height, 0);
-            box-sizing: border-box; /* ВАЖНОЕ ИСПРАВЛЕНИЕ: Чтобы padding не увеличивал высоту */
+            
+            /* ИСПРАВЛЕНИЕ: Используем безопасную зону (челку) вместо высоты экрана */
+            padding-top: var(--tg-content-safe-area-inset-top, 20px); 
+            
+            box-sizing: border-box;
         }
 
         .custom-modal.visible {
