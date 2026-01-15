@@ -1148,38 +1148,174 @@ try {
         tg.openTelegramLink(url);
     });
 
+    async function copyPromocode(code, id) {
+    try {
+        // 1. Копируем в буфер
+        await navigator.clipboard.writeText(code);
+        
+        // 2. Визуально уведомляем (Toast или alert - как у вас принято)
+        // showToast('Промокод скопирован!'); 
+
+        // 3. Отправляем запрос в базу, что скопировали
+        const initData = Telegram.WebApp.initData;
+        
+        // Обновляем UI мгновенно, не дожидаясь ответа сервера
+        const statusDiv = document.getElementById(`copied-status-${id}`);
+        // Проверяем, чтобы не дублировать надпись, если уже есть
+        if (statusDiv && !statusDiv.innerText.includes('Скопировано')) {
+            const now = new Date().toLocaleString('ru-RU', {
+                day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            statusDiv.innerHTML = `<div style="color: #4ade80; font-size: 11px; margin-top: 2px;">Скопировано: ${now}</div>`;
+        }
+
+        // Шлем запрос на бэкенд
+        await fetch('/api/v1/promocode/mark-copied', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                promocode_id: id,
+                initData: initData 
+            })
+        });
+
+    } catch (err) {
+        console.error('Ошибка копирования:', err);
+    }
+}
+
     // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
   function renderRewards(rewards) {
-        const listContainer = document.getElementById('promocodes-list-container');
-        const promoBtnInfo = document.getElementById('promo-btn-info');
-        const promoAlertBadge = document.getElementById('promo-alert-badge');
-        
-        // --- ЛОГИКА ОТКРЫТИЯ МОДАЛОК ---
-        const modalPromos = document.getElementById('modal-promocodes');
-        const modalSecret = document.getElementById('modal-secret');
+    const listContainer = document.getElementById('promocodes-list-container');
+    const promoBtnInfo = document.getElementById('promo-btn-info');
+    const promoAlertBadge = document.getElementById('promo-alert-badge');
+    
+    // --- 1. ЛОГИКА ОТКРЫТИЯ МОДАЛОК (Ваш код) ---
+    const modalPromos = document.getElementById('modal-promocodes');
+    const modalSecret = document.getElementById('modal-secret');
 
-        document.getElementById('btn-open-promocodes').onclick = () => {
+    const btnOpen = document.getElementById('btn-open-promocodes');
+    if (btnOpen) {
+        btnOpen.onclick = () => {
             modalPromos.classList.add('visible');
-            tg.BackButton.show();
-            tg.BackButton.onClick(() => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); });
-        };
-        document.getElementById('close-modal-promocodes').onclick = () => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); };
-        document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
-        document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
-        
-        // --- ЛОГИКА УДАЛЕНИЯ ---
-        const clearBtn = document.getElementById('btn-clear-all-rewards');
-        if(clearBtn) {
-            clearBtn.onclick = () => {
-                showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
-                     await makeApiRequest('/api/v1/user/promocodes/delete-all');
-                     await makeApiRequest('/api/v1/user/grants/delete-all');
-                     renderRewards([]);
-                     modalPromos.classList.remove('visible');
-                     c();
+            if (window.Telegram?.WebApp?.BackButton) {
+                window.Telegram.WebApp.BackButton.show();
+                window.Telegram.WebApp.BackButton.onClick(() => { 
+                    modalPromos.classList.remove('visible'); 
+                    window.Telegram.WebApp.BackButton.hide(); 
                 });
-            };
+            }
+        };
+    }
+    
+    const closePromos = document.getElementById('close-modal-promocodes');
+    if (closePromos) {
+        closePromos.onclick = () => { 
+            modalPromos.classList.remove('visible'); 
+            if (window.Telegram?.WebApp?.BackButton) window.Telegram.WebApp.BackButton.hide(); 
+        };
+    }
+
+    const btnSecret = document.getElementById('btn-open-secret');
+    if (btnSecret) btnSecret.onclick = () => modalSecret.classList.add('visible');
+    
+    const closeSecret = document.getElementById('close-modal-secret');
+    if (closeSecret) closeSecret.onclick = () => modalSecret.classList.remove('visible');
+    
+    // --- 2. ЛОГИКА УДАЛЕНИЯ (Ваш код) ---
+    const clearBtn = document.getElementById('btn-clear-all-rewards');
+    if(clearBtn) {
+        clearBtn.onclick = () => {
+            showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
+                 await makeApiRequest('/api/v1/user/promocodes/delete-all');
+                 await makeApiRequest('/api/v1/user/grants/delete-all');
+                 renderRewards([]);
+                 modalPromos.classList.remove('visible');
+                 c();
+            });
+        };
+    }
+
+    // --- 3. ПОДГОТОВКА СПИСКА ---
+    listContainer.innerHTML = ''; // Очищаем старое
+
+    if (!rewards || rewards.length === 0) {
+        promoBtnInfo.textContent = 'Награды';
+        if(promoAlertBadge) promoAlertBadge.style.display = 'none';
+        listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных наград</div>';
+        return;
+    }
+
+    // Обновляем бейджик
+    promoBtnInfo.textContent = `Награды (${rewards.length})`;
+    if(promoAlertBadge) promoAlertBadge.style.display = 'block';
+
+    // --- 4. ЦИКЛ ОТРИСОВКИ (Новая логика) ---
+    rewards.forEach(item => {
+        // Учитываем структуру ответа API: { type: 'promocode', data: {...}, date: ... }
+        // Если пришел просто объект (старый формат), используем его как есть
+        const reward = item.data || item; 
+
+        // Берем дату из data.claimed_at или из корня item.date
+        const rawDate = reward.claimed_at || reward.created_at || item.date;
+        const dateClaimed = new Date(rawDate).toLocaleString('ru-RU', {
+            day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        // Формируем дату копирования (только если есть copied_at)
+        let copiedHtml = '';
+        if (reward.copied_at) {
+            const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', {
+                 day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            // Зеленый текст
+            copiedHtml = `<div style="color: #4ade80; font-size: 11px; margin-top: 2px;">Скопировано: ${dateCopied}</div>`;
         }
+
+        // Определяем иконку: квест -> монетки, иначе -> звезда
+        let iconClass = 'fa-star';
+        let iconColor = '#ffd700'; // Золотой
+        
+        const descLower = (reward.description || '').toLowerCase();
+        // Проверяем наличие слова "квест", "quest" или "ручной"
+        if (descLower.includes('квест') || descLower.includes('quest') || descLower.includes('manual')) {
+            iconClass = 'fa-coins'; 
+        }
+
+        // Создаем HTML элемента
+        const div = document.createElement('div');
+        div.className = 'reward-card'; // CSS класс должен быть в стилях
+        
+        // Для подстраховки добавил немного инлайн стилей для верстки
+        div.innerHTML = `
+            <div class="reward-icon">
+                <i class="fa-solid ${iconClass}" style="color: ${iconColor};"></i>
+            </div>
+            <div class="reward-info">
+                <div class="reward-title">${reward.description || 'Награда'}</div>
+                <div class="reward-value" style="color: #ffd700; font-weight: bold;">
+                    +${reward.reward_value || reward.amount || 0} <i class="fa-solid fa-coins" style="font-size: 0.8em;"></i>
+                </div>
+                
+                <div class="reward-date">
+                    <div>Получено: ${dateClaimed}</div>
+                    <div id="copied-status-${reward.id}">${copiedHtml}</div>
+                </div>
+            </div>
+            <div class="reward-action">
+                ${
+                    // Показываем кнопку копирования только если есть код (type == promocode)
+                   (item.type === 'promocode' || reward.code) 
+                    ? `<button class="copy-btn" onclick="copyPromocode('${reward.code}', ${reward.id})">
+                         <i class="fa-regular fa-copy"></i>
+                       </button>`
+                    : '' 
+                }
+            </div>
+        `;
+        listContainer.appendChild(div);
+    });
+}
 
         // --- ОТРИСОВКА СПИСКА ---
         listContainer.innerHTML = '';
