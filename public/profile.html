@@ -876,47 +876,66 @@
 
     // --- ФУНКЦИЯ КОПИРОВАНИЯ (ТЕПЕРЬ ГЛОБАЛЬНАЯ) ---
     async function copyPromocode(code, id) {
+        if (!code) return;
+        
         try {
+            // Пытаемся скопировать через современный API
             await navigator.clipboard.writeText(code);
-            // Обрабатываем успех через общую функцию (чтобы обновить UI и послать запрос)
-            await handleManualCopySuccess(id);
-            // Вибрация
+            // Если успешно - обновляем статус и шлем запрос на сервер
+            handleManualCopySuccess(id);
+            
+            // Вибрация (если доступна)
             if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         } catch (err) {
-            console.error('Ошибка копирования:', err);
+            // Фолбек для старых версий (создаем временное поле)
+            const textArea = document.createElement("textarea");
+            textArea.value = code;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                handleManualCopySuccess(id);
+            } catch (err2) {
+                console.error('Fallback copy failed', err2);
+            }
+            document.body.removeChild(textArea);
         }
     }
 
     // Вспомогательная функция успеха (обновляет UI и шлет запрос)
     async function handleManualCopySuccess(id) {
-        const initData = Telegram.WebApp.initData;
-        const statusDiv = document.getElementById(`copied-status-${id}`);
-        
-        // 1. Визуально обновляем статус (Зеленый текст)
-        if (statusDiv && !statusDiv.innerText.includes('Скопировано')) {
-            const now = new Date().toLocaleString('ru-RU', {
-                day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-            statusDiv.innerHTML = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${now}</div>`;
-        }
-
-        // 2. Шлем запрос на бэкенд (тихо)
-        try {
-            await fetch('/api/v1/promocode/mark-copied', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ promocode_id: id, initData: initData })
-            });
-        } catch (e) { console.error(e); }
+         // 1. Визуально показываем "Скопировано"
+         const statusDiv = document.getElementById(`copied-status-${id}`);
+         if (statusDiv) {
+             const now = new Date().toLocaleString('ru-RU', {
+                 day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+             });
+             statusDiv.innerHTML = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${now}</div>`;
+         }
+         
+         // 2. ОТПРАВЛЯЕМ ЗАПРОС НА БЕКЕНД
+         // Это обновит copied_at в базе данных
+         try {
+             await fetch('/api/v1/promocode/mark-copied', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ 
+                     promocode_id: id, 
+                     initData: Telegram.WebApp.initData 
+                 })
+             });
+         } catch (e) {
+             console.error('Ошибка при обновлении статуса копирования:', e);
+         }
     }
-
+    
     // --- ОТРИСОВКА НАГРАД (ВЕРНУЛИ СТАРЫЙ ДИЗАЙН) ---
     function renderRewards(rewards) {
         const listContainer = document.getElementById('promocodes-list-container');
         const promoBtnInfo = document.getElementById('promo-btn-info');
         const promoAlertBadge = document.getElementById('promo-alert-badge');
         
-        // Логика модалок (перепривязка кнопок)
+        // Логика модалок
         const modalPromos = document.getElementById('modal-promocodes');
         const btnOpen = document.getElementById('btn-open-promocodes');
         if (btnOpen) {
@@ -962,28 +981,22 @@
             let copiedHtml = '';
             if (reward.copied_at) {
                 const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', {
-                     day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                      day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                 });
                 copiedHtml = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${dateCopied}</div>`;
             }
 
-            // Иконка (Монетка или Звезда)
-            const descLower = (reward.description || '').toLowerCase();
-            let iconSymbol = '⭐'; // По умолчанию
-            if (descLower.includes('квест') || descLower.includes('quest') || descLower.includes('manual')) {
-                iconSymbol = '🪙'; // Монетка
-            }
+            // --- ОБНОВЛЕНИЕ: Иконка FontAwesome ---
+            // Можно добавить стиль, например цвет: style="color: #FFD700;" (золотой)
+            let iconSymbol = '<i class="fa-solid fa-coins" style="color: #FFD700; margin-left: 5px;"></i>'; 
 
             // Создаем карточку
             const div = document.createElement('div');
-            div.className = 'reward-card'; // Используем старый класс CSS
+            div.className = 'reward-card';
 
-            // --- ВЕРСТКА: ВОЗВРАЩАЕМ СТАРУЮ СТРУКТУРУ ---
-            // Проверка: Промокод или Грант (админское начисление)
             const isPromo = (item.type === 'promocode' || reward.code);
 
             if (isPromo) {
-                // ДИЗАЙН ПРОМОКОДА
                 div.innerHTML = `
                 <div class="reward-card-info">
                     <div class="reward-card-details">
@@ -1019,14 +1032,16 @@
                     </button>
                 </div>`;
             } else {
-                // ДИЗАЙН ГРАНТА (Начисление валюты без кода)
+                // Грант
                 const gType = reward.grant_type || 'currency';
                 const typeText = gType === 'tickets' ? 'билетов' : 'монет';
+                
+                // Для грантов тоже можно добавить иконку, если нужно
                 div.innerHTML = `
                 <div class="reward-card-info">
                     <div class="reward-card-details">
                         <p class="reward-card-description" style="font-weight:600; color:#fff;">
-                            Начислено: ${reward.amount || 0} ${typeText}
+                            Начислено: ${reward.amount || 0} ${typeText} ${iconSymbol}
                         </p>
                         <span style="font-size:12px; color:#aaa;">(Администратор)</span>
                         <p class="reward-card-meta">Дата: ${dateClaimed}</p>
@@ -1039,7 +1054,7 @@
             listContainer.appendChild(div);
         });
     }
-
+    
     // Функция удаления (тоже глобальная)
     function deleteReward(idOrCode, type, btnElement) {
         showCustomConfirmHTML("Удалить награду?", async (c) => {
