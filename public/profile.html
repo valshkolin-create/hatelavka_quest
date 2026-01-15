@@ -481,84 +481,59 @@
             background-color: var(--surface-color-2);
             border-radius: 12px;
             padding: 12px 15px;
-            margin-bottom: 10px; /* Добавил отступ снизу */
+            margin-bottom: 10px; /* Отступ между карточками */
+            flex-shrink: 0;
         }
         .reward-card-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
+            display: flex; justify-content: space-between; align-items: center; gap: 15px;
         }
-        .reward-card-details { flex-grow: 1; }
+        .reward-card-details { flex-grow: 1; min-width: 0; }
+        
+        /* Описание награды */
         .reward-card-description {
-            font-size: 14px;
-            margin: 0 0 10px 0;
-            color: var(--text-color-muted);
+            font-size: 14px; margin: 0 0 10px 0; color: var(--text-color-muted);
         }
+        
+        /* Поле с кодом и кнопкой копирования (в одну строку) */
         .reward-card-code-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: flex; align-items: center; gap: 10px;
             background-color: rgba(0,0,0,0.4);
-            border-radius: 8px;
-            padding: 5px 5px 5px 12px;
+            border-radius: 8px; padding: 5px 5px 5px 12px;
         }
         .reward-card-code-input {
             flex-grow: 1; background: none; border: none;
-            color: var(--primary-color);
-            font-family: monospace; font-size: 15px; font-weight: 600;
-            outline: none;
-            width: 100%; /* Фикс ширины */
+            color: var(--primary-color); font-family: monospace; 
+            font-size: 15px; font-weight: 600; outline: none; width: 100%;
         }
         .reward-card-copy-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            background-color: var(--action-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; background-color: var(--action-color);
+            color: white; border: none; border-radius: 6px;
+            width: 32px; height: 32px; font-size: 14px;
+            cursor: pointer; transition: background-color 0.2s ease;
         }
+        
+        /* Мета-инфо (дата) */
         .reward-card-meta {
-            font-size: 11px;
-            color: var(--text-color-muted);
-            margin: 8px 0 0 0;
+            font-size: 11px; color: var(--text-color-muted); margin: 8px 0 0 0;
         }
+        
+        /* Кнопка удаления (мусорка справа) */
         .reward-card-delete-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            color: var(--text-color-muted);
-            font-size: 17px;
-            cursor: pointer;
-            transition: color 0.2s ease;
+            position: absolute; top: 10px; right: 10px;
+            background: none; border: none; color: var(--text-color-muted);
+            font-size: 17px; cursor: pointer; transition: color 0.2s ease;
         }
-        .reward-card-delete-btn:hover {
-            color: var(--danger-color);
-        }
+        .reward-card-delete-btn:hover { color: var(--danger-color); }
+        
+        /* Кнопка "Где использовать" (аккуратная снизу) */
         .reward-how-to-use-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+            display: inline-flex; align-items: center; gap: 6px;
             background-color: rgba(255, 255, 255, 0.08);
-            color: var(--action-color);
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 5px 10px;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.15s ease;
-            text-decoration: none;
-            margin-top: 8px; 
+            color: var(--action-color); border: none; border-radius: 6px;
+            font-size: 12px; font-weight: 500; padding: 5px 10px;
+            cursor: pointer; transition: background-color 0.2s ease, transform 0.15s ease;
+            text-decoration: none; margin-top: 8px; 
         }
         .reward-how-to-use-btn:active { transform: scale(0.96); }
     </style>
@@ -589,7 +564,7 @@
         <div class="rewards-dashboard">
             <div class="dash-btn" id="btn-open-promocodes">
                 <div class="badge-alert" id="promo-alert-badge">Сгорают скоро!</div>
-                <i class="fa-solid fa-ticket"></i>
+                <i class="fa-solid fa-coins"></i>
                 <div class="title">Промокоды</div>
                 <div class="info">Промокоды для получения монеток</div>
                 <div class="info" id="promo-btn-info">Загрузка...</div>
@@ -1154,30 +1129,24 @@ try {
 
     // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
   function renderRewards(rewards) {
-        // 1. Находим контейнеры и элементы управления
         const listContainer = document.getElementById('promocodes-list-container');
         const promoBtnInfo = document.getElementById('promo-btn-info');
         const promoAlertBadge = document.getElementById('promo-alert-badge');
+        
+        // --- ЛОГИКА ОТКРЫТИЯ МОДАЛОК ---
         const modalPromos = document.getElementById('modal-promocodes');
         const modalSecret = document.getElementById('modal-secret');
 
-        // 2. Логика открытия модалок
         document.getElementById('btn-open-promocodes').onclick = () => {
             modalPromos.classList.add('visible');
             tg.BackButton.show();
-            tg.BackButton.onClick(() => {
-                modalPromos.classList.remove('visible');
-                tg.BackButton.hide();
-            });
+            tg.BackButton.onClick(() => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); });
         };
-        document.getElementById('close-modal-promocodes').onclick = () => {
-            modalPromos.classList.remove('visible');
-            tg.BackButton.hide();
-        };
+        document.getElementById('close-modal-promocodes').onclick = () => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); };
         document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
         document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
-
-        // Логика удаления всех наград
+        
+        // --- ЛОГИКА УДАЛЕНИЯ ---
         const clearBtn = document.getElementById('btn-clear-all-rewards');
         if(clearBtn) {
             clearBtn.onclick = () => {
@@ -1191,74 +1160,54 @@ try {
             };
         }
 
-        // 3. Очистка и проверка на пустоту
+        // --- ОТРИСОВКА СПИСКА ---
         listContainer.innerHTML = '';
         if (!rewards || rewards.length === 0) {
             if(promoBtnInfo) promoBtnInfo.textContent = "0 шт.";
             if(promoAlertBadge) promoAlertBadge.style.display = 'none';
-            listContainer.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: var(--text-color-muted);">
-                    <i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
-                    <p>История пуста</p>
-                </div>`;
+            listContainer.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-color-muted);"><i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i><p>История пуста</p></div>`;
             return;
         }
 
-        // 4. Генерация карточек (СТИЛЬ PROFILE 3)
         rewards.forEach(r => {
-            // Умная обработка данных (поддержка старой и новой структуры API)
-            // Если данные плоские (r.code), берем их. Если вложенные (r.data.code), берем их.
             const isPromo = r.type === 'promocode' || (r.data && r.data.code) || r.code;
-            
-            // Извлекаем данные безопасным способом
             const code = r.code || (r.data ? r.data.code : '') || 'No Code';
             const description = r.description || (r.data ? r.data.description : '') || 'Награда';
             const amount = r.amount || (r.data ? r.data.amount : '') || 0;
             const rawDate = r.claimed_at || r.date || new Date();
             const dateStr = new Date(rawDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
             
-            const card = document.createElement('div'); 
-            card.className = 'reward-card';
+            const card = document.createElement('div'); card.className = 'reward-card';
 
             if (isPromo && !r.grant_type && (!r.data || r.data.grant_type === undefined)) {
-                // --- ВАРИАНТ ПРОМОКОД ---
-                card.dataset.type = 'promocode'; 
-                card.dataset.code = code;
-                
+                // ВАРИАНТ ПРОМОКОД (Стиль Profile 3)
+                card.dataset.type = 'promocode'; card.dataset.code = code;
                 card.innerHTML = `
                 <div class="reward-card-info">
                     <div class="reward-card-details">
                         <p class="reward-card-description">${description} ⭐</p>
-                        
                         <div class="reward-card-code-wrapper">
                             <input type="text" class="reward-card-code-input" value="${code}" readonly>
                             <button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button>
                         </div>
-                        
                         <button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif">
                             <i class="fa-solid fa-circle-question"></i> Где использовать?
                         </button>
-                        
                         <p class="reward-card-meta">Получено: ${dateStr}</p>
                     </div>
                     <button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button>
                 </div>`;
             } else {
-                // --- ВАРИАНТ ГРАНТ (БИЛЕТЫ/ЗВЕЗДЫ) ---
-                card.dataset.type = 'grant'; 
-                card.dataset.id = r.id || (r.data ? r.data.id : 0);
-                
-                // Определяем тип (билеты или нет)
+                // ВАРИАНТ ГРАНТ (Стиль Profile 3)
+                card.dataset.type = 'grant'; card.dataset.id = r.id || (r.data ? r.data.id : 0);
                 const gType = r.grant_type || (r.data ? r.data.grant_type : '');
                 const typeText = gType === 'tickets' ? 'билетов' : 'звёзд';
                 const displayAmount = r.amount || (r.data ? r.data.amount : 0);
-
+                
                 card.innerHTML = `
                 <div class="reward-card-info">
                     <div class="reward-card-details">
-                        <p class="reward-card-description" style="font-weight:600;color:#fff;">
-                            Начислено: ${displayAmount} ${typeText}
-                        </p>
+                        <p class="reward-card-description" style="font-weight:600;color:#fff;">Начислено: ${displayAmount} ${typeText}</p>
                         <span style="font-size:12px;color:#aaa;">(Админ)</span>
                         <p class="reward-card-meta">Дата: ${dateStr}</p>
                     </div>
@@ -1268,9 +1217,8 @@ try {
             listContainer.appendChild(card);
         });
 
-        // Обновляем счетчик на кнопке в меню
         if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
-        if(promoAlertBadge) promoAlertBadge.style.display = 'none'; // Скрываем "Сгорают", так как механики больше нет
+        if(promoAlertBadge) promoAlertBadge.style.display = 'none';
     }
     
     // Хелпер для копирования
