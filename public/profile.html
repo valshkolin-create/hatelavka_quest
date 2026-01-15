@@ -475,6 +475,92 @@
             display: flex; align-items: center; justify-content: center;
             backdrop-filter: blur(4px); animation: fadeIn 0.2s;
         }
+        /* --- СТИЛИ КАРТОЧЕК ИЗ PROFILE (3) --- */
+        .reward-card {
+            position: relative;
+            background-color: var(--surface-color-2);
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 10px; /* Добавил отступ снизу */
+        }
+        .reward-card-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        .reward-card-details { flex-grow: 1; }
+        .reward-card-description {
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            color: var(--text-color-muted);
+        }
+        .reward-card-code-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 5px 5px 5px 12px;
+        }
+        .reward-card-code-input {
+            flex-grow: 1; background: none; border: none;
+            color: var(--primary-color);
+            font-family: monospace; font-size: 15px; font-weight: 600;
+            outline: none;
+            width: 100%; /* Фикс ширины */
+        }
+        .reward-card-copy-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background-color: var(--action-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .reward-card-meta {
+            font-size: 11px;
+            color: var(--text-color-muted);
+            margin: 8px 0 0 0;
+        }
+        .reward-card-delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--text-color-muted);
+            font-size: 17px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .reward-card-delete-btn:hover {
+            color: var(--danger-color);
+        }
+        .reward-how-to-use-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--action-color);
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.15s ease;
+            text-decoration: none;
+            margin-top: 8px; 
+        }
+        .reward-how-to-use-btn:active { transform: scale(0.96); }
     </style>
 </head>
 <body>
@@ -1067,20 +1153,15 @@ try {
     });
 
     // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
-   function renderRewards(rewards) {
-        console.log("Рендер наград:", rewards);
-        
-        // 1. Элементы управления
+  function renderRewards(rewards) {
+        // 1. Находим контейнеры и элементы управления
+        const listContainer = document.getElementById('promocodes-list-container');
         const promoBtnInfo = document.getElementById('promo-btn-info');
         const promoAlertBadge = document.getElementById('promo-alert-badge');
-        const promoBtn = document.getElementById('btn-open-promocodes');
-        
-        // ВАЖНО: Контейнер внутри модалки
-        const listContainer = document.getElementById('promocodes-list-container');
         const modalPromos = document.getElementById('modal-promocodes');
         const modalSecret = document.getElementById('modal-secret');
 
-        // 2. Биндинг кнопок (открытие/закрытие)
+        // 2. Логика открытия модалок
         document.getElementById('btn-open-promocodes').onclick = () => {
             modalPromos.classList.add('visible');
             tg.BackButton.show();
@@ -1093,12 +1174,10 @@ try {
             modalPromos.classList.remove('visible');
             tg.BackButton.hide();
         };
-
-        // Secret menu (как и было)
         document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
         document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
 
-        // Логика удаления (кнопка внутри модалки)
+        // Логика удаления всех наград
         const clearBtn = document.getElementById('btn-clear-all-rewards');
         if(clearBtn) {
             clearBtn.onclick = () => {
@@ -1112,10 +1191,11 @@ try {
             };
         }
 
-        // 3. ЕСЛИ ПУСТО
+        // 3. Очистка и проверка на пустоту
+        listContainer.innerHTML = '';
         if (!rewards || rewards.length === 0) {
             if(promoBtnInfo) promoBtnInfo.textContent = "0 шт.";
-            if(promoBtn) promoBtn.classList.remove('has-warning');
+            if(promoAlertBadge) promoAlertBadge.style.display = 'none';
             listContainer.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: var(--text-color-muted);">
                     <i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
@@ -1124,69 +1204,73 @@ try {
             return;
         }
 
-        // 4. ГЕНЕРАЦИЯ HTML (ТОЧНО КАК В PROFILE 3)
-        let html = '';
-        let expiringCount = 0;
-        const now = new Date();
-        const warningDays = 3; 
-        const lifeTimeDays = 7; 
-
+        // 4. Генерация карточек (СТИЛЬ PROFILE 3)
         rewards.forEach(r => {
-            const claimedDate = new Date(r.claimed_at);
-            const expiryDate = new Date(claimedDate.getTime() + (lifeTimeDays * 24 * 60 * 60 * 1000));
-            const diffMs = expiryDate - now;
-            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            // Умная обработка данных (поддержка старой и новой структуры API)
+            // Если данные плоские (r.code), берем их. Если вложенные (r.data.code), берем их.
+            const isPromo = r.type === 'promocode' || (r.data && r.data.code) || r.code;
             
-            let timeText = "";
-            if (diffMs > 0) {
-                timeText = `Сгорит через ${diffDays} дн.`;
-                if (diffDays <= warningDays) expiringCount++;
+            // Извлекаем данные безопасным способом
+            const code = r.code || (r.data ? r.data.code : '') || 'No Code';
+            const description = r.description || (r.data ? r.data.description : '') || 'Награда';
+            const amount = r.amount || (r.data ? r.data.amount : '') || 0;
+            const rawDate = r.claimed_at || r.date || new Date();
+            const dateStr = new Date(rawDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            
+            const card = document.createElement('div'); 
+            card.className = 'reward-card';
+
+            if (isPromo && !r.grant_type && (!r.data || r.data.grant_type === undefined)) {
+                // --- ВАРИАНТ ПРОМОКОД ---
+                card.dataset.type = 'promocode'; 
+                card.dataset.code = code;
+                
+                card.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description">${description} ⭐</p>
+                        
+                        <div class="reward-card-code-wrapper">
+                            <input type="text" class="reward-card-code-input" value="${code}" readonly>
+                            <button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                        
+                        <button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif">
+                            <i class="fa-solid fa-circle-question"></i> Где использовать?
+                        </button>
+                        
+                        <p class="reward-card-meta">Получено: ${dateStr}</p>
+                    </div>
+                    <button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
             } else {
-                timeText = "ИСТЕК";
+                // --- ВАРИАНТ ГРАНТ (БИЛЕТЫ/ЗВЕЗДЫ) ---
+                card.dataset.type = 'grant'; 
+                card.dataset.id = r.id || (r.data ? r.data.id : 0);
+                
+                // Определяем тип (билеты или нет)
+                const gType = r.grant_type || (r.data ? r.data.grant_type : '');
+                const typeText = gType === 'tickets' ? 'билетов' : 'звёзд';
+                const displayAmount = r.amount || (r.data ? r.data.amount : 0);
+
+                card.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description" style="font-weight:600;color:#fff;">
+                            Начислено: ${displayAmount} ${typeText}
+                        </p>
+                        <span style="font-size:12px;color:#aaa;">(Админ)</span>
+                        <p class="reward-card-meta">Дата: ${dateStr}</p>
+                    </div>
+                    <button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
             }
-            
-            // Защита от кавычек
-            const safeCode = (r.code || '').replace(/'/g, "\\'");
-
-            // === ВОТ ЭТОТ HTML ВЫ ПРОСИЛИ ВЕРНУТЬ ===
-            html += `
-            <div class="reward-item">
-                <div class="reward-header">
-                    <span>${r.description || 'Награда'}</span>
-                    <span class="reward-value">${r.reward_value} ₽</span>
-                </div>
-                
-                <div class="reward-code-container" onclick="navigator.clipboard.writeText('${safeCode}').then(() => tg.ShowPopup({message:'Скопировано!'}))">
-                    <span>${r.code}</span>
-                    <i class="fa-regular fa-copy"></i>
-                </div>
-                
-                <div class="expiry-info">${timeText}</div>
-
-                <div class="reward-actions">
-                    <button class="btn-action btn-copy-action" onclick="navigator.clipboard.writeText('${safeCode}').then(() => tg.ShowPopup({message:'Скопировано!'}))">
-                        <i class="fa-solid fa-copy"></i> Скопировать
-                    </button>
-                    <button class="btn-action btn-help-action" onclick="document.getElementById('how-to-use-popup').classList.add('visible')">
-                        <i class="fa-solid fa-circle-question"></i> Как использовать
-                    </button>
-                </div>
-            </div>`;
+            listContainer.appendChild(card);
         });
 
-        // Вставляем В НАЧАЛО контейнера
-        listContainer.innerHTML = html;
-        
-        // Обновляем кнопку в профиле
+        // Обновляем счетчик на кнопке в меню
         if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
-        if (expiringCount > 0) {
-            promoBtn.classList.add('has-warning');
-            promoAlertBadge.textContent = `СГОРАЮТ: ${expiringCount}`;
-            promoAlertBadge.style.display = 'block';
-        } else {
-            promoBtn.classList.remove('has-warning');
-            promoAlertBadge.style.display = 'none';
-        }
+        if(promoAlertBadge) promoAlertBadge.style.display = 'none'; // Скрываем "Сгорают", так как механики больше нет
     }
     
     // Хелпер для копирования
