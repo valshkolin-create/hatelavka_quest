@@ -1149,19 +1149,57 @@
         dom.settingsList.appendChild(steamCard);
 
         // Twitch
-        const twitchCard = document.createElement('div'); twitchCard.className = 'settings-card';
+         // 3. Twitch
+       const twitchCard = document.createElement('div'); 
+        twitchCard.className = 'settings-card';
+        
         if (userData.twitch_login) {
-            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
+            // СЦЕНАРИЙ: УЖЕ ПРИВЯЗАН
+            twitchCard.innerHTML = `
+                <div class="settings-card-info">
+                    <p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p>
+                    <span>Привязан как: <b>${userData.twitch_login}</b></span>
+                </div>
+                <button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>
+            `;
         } else {
+            // СЦЕНАРИЙ: НЕ ПРИВЯЗАН
+            
+            // Генерируем ссылку для бэкенда
             const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
-            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;"><button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button><button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button></div>`;
-            setTimeout(() => {
-                const connBtn = twitchCard.querySelector('#connect-twitch-btn'); if(connBtn) connBtn.onclick = () => tg.openLink(authUrl, { try_instant_view: false });
-                const helpBtn = twitchCard.querySelector('#twitch-help-btn'); if(helpBtn) helpBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('twitch-help-popup').classList.add('visible'); };
-            }, 0);
-        }
-        dom.settingsList.appendChild(twitchCard);
+            
+            twitchCard.innerHTML = `
+                <div class="settings-card-info">
+                    <p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p>
+                    <span>Привяжите аккаунт</span>
+                    <span class="twitch-trust-link" id="twitch-trust-btn">
+                        <i class="fa-solid fa-shield-halved"></i> Безопасно ли это?
+                    </span>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                    <button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button>
+                    <button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button>
+                </div>
+            `;
 
+            // Логика кнопки "Привязать"
+            const connectBtn = twitchCard.querySelector('#connect-twitch-btn');
+            if (connectBtn) {
+                connectBtn.onclick = () => {
+                    tg.openLink(authUrl, { try_instant_view: false });
+                };
+            }
+            
+            // Логика кнопки "Помощь"
+            const helpBtn = twitchCard.querySelector('#twitch-help-btn');
+            if (helpBtn) {
+                helpBtn.onclick = (e) => {
+                    e.stopPropagation(); // Чтобы не срабатывал клик по карточке, если он есть
+                    document.getElementById('twitch-help-popup').classList.add('visible');
+                };
+            }
+        }
         // Рефералка
         const refCard = document.createElement('div'); refCard.className = 'settings-card ref-card-gradient';
         const activeRefs = userData.active_referrals_count || 0; 
