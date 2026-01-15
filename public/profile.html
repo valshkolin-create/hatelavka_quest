@@ -1078,6 +1078,7 @@
     }
 
     // --- MAIN FUNCTION ---
+    // --- MAIN FUNCTION ---
     async function main() {
         // 1. Проверка: запущено ли в Telegram
         if (!tg.initData) {
@@ -1086,7 +1087,7 @@
             return;
         }
 
-        // 2. Ловим успешную авторизацию через Twitch/Steam
+        // 2. Ловим успешную авторизацию
         const startParam = tg.initDataUnsafe.start_param;
         if (startParam === 'auth_success') {
             showNotification('✅ Авторизация успешна!', 'success');
@@ -1102,46 +1103,36 @@
         if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
         if(tg.BackButton) tg.BackButton.onClick(goBack);
 
-        // 4. ГЛАВНОЕ: Загрузка данных
-        // setupTabs(); // Если у тебя нет этой функции, закомментируй или удали
-        
-        // !!! ВОТ ТУТ БЫЛА ОШИБКА (fetchUserData -> loadData) !!!
+        // 4. Загрузка данных (ВЫЗЫВАЕМ ОДИН РАЗ ЗДЕСЬ)
         await loadData(); 
     }
 
-        // Функция загрузки данных
-        async function loadData(isSilent = false) {
-            if (!isSilent) showLoader();
-            try {
-                const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
-                const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
+    // Функция загрузки данных
+    async function loadData(isSilent = false) {
+        if (!isSilent) showLoader();
+        try {
+            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
+            const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
 
-                if (!isSilent) {
-                    makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
-                    makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
-                }
-
-                const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
-                const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
-
-                if (dom.profileName) dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
-                
-                // Рендер
-                renderSettingsList(fullUserData); 
-                renderRewards(rewards);
-
-            } catch (e) {
-                console.error(e);
-            } finally {
-                if (!isSilent) hideLoader();
+            if (!isSilent) {
+                makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
+                makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
             }
+
+            const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
+            const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
+
+            if (dom.profileName) dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+            
+            // Рендер
+            renderSettingsList(fullUserData); 
+            renderRewards(rewards);
+
+        } catch (e) {
+            console.error(e);
+        } finally {
+            if (!isSilent) hideLoader();
         }
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') loadData(true);
-        });
-
-        await loadData(false);
     }
 
     // Функция отрисовки настроек (сокращена для краткости, берется из старого кода)
@@ -1336,10 +1327,18 @@
         });
     };
 
-    // --- ПЕРЕХВАТ РУЧНОГО КОПИРОВАНИЯ ---
+// 1. Слушатель: Обновление данных при возврате на вкладку
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            // Проверяем, определена ли функция, чтобы не было ошибок
+            if (typeof loadData === 'function') loadData(true);
+        }
+    });
+
+    // 2. Слушатель: Перехват ручного копирования (Ctrl+C или контекстное меню)
     document.addEventListener('copy', (event) => {
         const target = event.target;
-        // Если копирование произошло в нашем инпуте
+        // Если копирование произошло в нашем поле с кодом
         if (target && target.classList.contains('reward-card-code-input')) {
             const id = target.getAttribute('data-id');
             if (id) {
@@ -1349,10 +1348,21 @@
         }
     });
 
-    // START
+    // 3. ГЛАВНЫЙ ЗАПУСК (START)
     try {
-        document.addEventListener("DOMContentLoaded", () => { tg.ready(); tg.expand(); main(); });
-    } catch(e) { console.error(e); }
+        document.addEventListener("DOMContentLoaded", () => { 
+            // Сообщаем Телеграму, что приложение готово
+            tg.ready(); 
+            // Растягиваем на весь экран
+            tg.expand(); 
+            
+            // Запускаем главную логику
+            // Функция main сама вызовет await loadData()
+            main(); 
+        });
+    } catch(e) { 
+        console.error("Ошибка при запуске:", e); 
+    }
 
 </script>
 </body>
