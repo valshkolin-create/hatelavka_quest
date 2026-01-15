@@ -301,20 +301,17 @@
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); 
-            backdrop-filter: blur(10px);
-            z-index: 10000 !important; /* ВЫШЕ ВСЕГО, КРОМЕ ПОПАПОВ */
+            background: var(--bg-color); /* Фон как у приложения */
+            z-index: 10000;
             display: flex;
             flex-direction: column;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.25s ease;
-            padding-top: var(--tg-viewport-stable-height, 40px);
-            padding-bottom: 0;
+            transform: translateY(100%); /* Для анимации выезда снизу */
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            padding-top: var(--tg-viewport-stable-height, 0);
         }
+
         .custom-modal.visible {
-            opacity: 1;
-            pointer-events: auto;
+            transform: translateY(0); /* Выезжает вверх */
         }
         .modal-card {
             width: 100%; height: 100%;
@@ -325,11 +322,9 @@
         .modal-header {
             flex-shrink: 0;
             padding: 15px 20px;
-            background: #1c1c1e;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             display: flex; justify-content: space-between; align-items: center;
-            z-index: 10002;
-            min-height: 60px;
         }
         .modal-title { 
             font-size: 18px; font-weight: 700; color: #ffffff; 
@@ -344,59 +339,57 @@
         .modal-body {
             flex-grow: 1;
             padding: 15px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            z-index: 10001;
-            display: block !important;
-            padding-bottom: 100px;
+            overflow-y: auto; /* ВКЛЮЧАЕТ СВАЙП/СКРОЛЛ */
+            -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* КОНТЕНТ СТРОГО СВЕРХУ */
+            padding-bottom: 80px;
         }
 
         /* --- КАРТОЧКА НАГРАДЫ ВНУТРИ МОДАЛКИ (ВАШ СТАРЫЙ ДИЗАЙН) --- */
         .reward-item {
-            background: #252525;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 14px;
-            padding: 16px;
-            margin-bottom: 15px;
-            position: relative;
-            z-index: 10003;
-            color: #fff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            display: flex; 
-            flex-direction: column; 
+            background: rgba(255, 255, 255, 0.05); /* Как было у вас */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
+            flex-shrink: 0; /* Чтобы не сжимались */
         }
         .reward-header {
-            display: flex; justify-content: space-between;
-            font-size: 14px; font-weight: 700; color: #fff;
-        }
-        .reward-value { color: #34c759; }
-        
-        .reward-code-container {
-            background: #000;
-            padding: 12px; border-radius: 8px;
             display: flex; justify-content: space-between; align-items: center;
-            font-family: monospace; font-size: 16px; letter-spacing: 1px;
-            border: 1px dashed rgba(255, 255, 255, 0.3);
+            font-size: 14px; font-weight: 600; color: #fff;
+        }
+        .reward-value { color: var(--primary-color); font-weight: bold; }
+
+        .reward-code-container {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: monospace; font-size: 16px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
             cursor: pointer;
-            margin-bottom: 5px;
             color: #fff;
         }
+
         .reward-actions {
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
             margin-top: 5px;
-            position: relative;
-            z-index: 10004;
         }
+
         .btn-action {
             border: none; padding: 10px 0; border-radius: 8px;
             font-size: 12px; font-weight: 600; cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 6px;
-            color: #fff;
+            color: #fff; text-decoration: none;
         }
-        .btn-copy-action { background: rgba(255, 255, 255, 0.15); }
-        .btn-help-action { background: rgba(52, 199, 89, 0.2); color: #34c759; }
-        .expiry-info { font-size: 10px; text-align: center; color: #ff3b30; margin-top: 2px; font-weight: 600;}
+        .btn-copy-action { background: rgba(255, 255, 255, 0.1); }
+        .btn-help-action { background: rgba(52, 199, 89, 0.15); color: var(--primary-color); }
+        
+        .expiry-info { font-size: 10px; text-align: center; color: var(--danger-color); font-weight: bold; }
 
 
         /* --- Загрузчик --- */
@@ -527,12 +520,16 @@
                 <div class="modal-title"><i class="fa-solid fa-gift"></i> PROMOCODE SHOP</div>
                 <button class="modal-close" id="close-modal-promocodes"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="modal-body" id="promocodes-list-container">
+            
+            <div class="modal-body">
+                <div id="promocodes-list-container" style="width: 100%;">
+                    </div>
+
+                <div style="margin-top: 20px; text-align: center; padding-bottom: 20px;">
+                    <button id="btn-clear-all-rewards" style="background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer;">
+                        <i class="fa-solid fa-trash"></i> Удалить историю
+                    </button>
                 </div>
-            <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center;">
-                <button id="btn-clear-all-rewards" style="background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 8px 16px; border-radius: 8px; font-size: 12px;">
-                    <i class="fa-solid fa-trash"></i> Удалить историю
-                </button>
             </div>
         </div>
     </div>
@@ -1069,76 +1066,63 @@ try {
 
     // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
    function renderRewards(rewards) {
-        console.log("🔥 RENDER REWARDS START. Items:", rewards ? rewards.length : 0);
-
-        // Элементы
+        console.log("Рендер наград:", rewards);
+        
+        // 1. Элементы управления
         const promoBtnInfo = document.getElementById('promo-btn-info');
         const promoAlertBadge = document.getElementById('promo-alert-badge');
         const promoBtn = document.getElementById('btn-open-promocodes');
         
-        // ВАЖНО: Получаем контейнер списка. 
-        // Убедитесь, что в HTML есть id="promocodes-list-container" внутри modal-body
-        const promoListContainer = document.getElementById('promocodes-list-container'); 
+        // ВАЖНО: Контейнер внутри модалки
+        const listContainer = document.getElementById('promocodes-list-container');
         const modalPromos = document.getElementById('modal-promocodes');
         const modalSecret = document.getElementById('modal-secret');
 
-        // --- Биндинг кнопок ---
-        if(document.getElementById('btn-open-promocodes')) {
-            document.getElementById('btn-open-promocodes').onclick = () => {
-                modalPromos.classList.add('visible');
-                tg.BackButton.show();
-                tg.BackButton.onClick(() => {
-                    modalPromos.classList.remove('visible');
-                    tg.BackButton.hide();
-                    tg.BackButton.offClick();
+        // 2. Биндинг кнопок (открытие/закрытие)
+        document.getElementById('btn-open-promocodes').onclick = () => {
+            modalPromos.classList.add('visible');
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                modalPromos.classList.remove('visible');
+                tg.BackButton.hide();
+            });
+        };
+        document.getElementById('close-modal-promocodes').onclick = () => {
+            modalPromos.classList.remove('visible');
+            tg.BackButton.hide();
+        };
+
+        // Secret menu (как и было)
+        document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
+        document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
+
+        // Логика удаления (кнопка внутри модалки)
+        const clearBtn = document.getElementById('btn-clear-all-rewards');
+        if(clearBtn) {
+            clearBtn.onclick = () => {
+                showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
+                     await makeApiRequest('/api/v1/user/promocodes/delete-all');
+                     await makeApiRequest('/api/v1/user/grants/delete-all');
+                     renderRewards([]);
+                     modalPromos.classList.remove('visible');
+                     c();
                 });
             };
         }
-        if(document.getElementById('close-modal-promocodes')) {
-            document.getElementById('close-modal-promocodes').onclick = () => {
-                modalPromos.classList.remove('visible');
-                tg.BackButton.hide();
-            };
-        }
-        
-        // Secret Menu
-        if(document.getElementById('btn-open-secret')) {
-             document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
-        }
-        if(document.getElementById('close-modal-secret')) {
-             document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
-        }
 
-        // Удаление
-        const handleDelete = () => {
-            showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
-                 await makeApiRequest('/api/v1/user/promocodes/delete-all');
-                 await makeApiRequest('/api/v1/user/grants/delete-all');
-                 renderRewards([]); 
-                 if(modalPromos) modalPromos.classList.remove('visible');
-                 c();
-            });
-        };
-        const topBtn = document.getElementById('delete-all-rewards-btn');
-        if(topBtn) topBtn.onclick = handleDelete;
-        const innerBtn = document.getElementById('btn-clear-all-rewards');
-        if(innerBtn) innerBtn.onclick = handleDelete;
-
-
-        // --- ОТРИСОВКА ---
+        // 3. ЕСЛИ ПУСТО
         if (!rewards || rewards.length === 0) {
             if(promoBtnInfo) promoBtnInfo.textContent = "0 шт.";
             if(promoBtn) promoBtn.classList.remove('has-warning');
-            if(promoListContainer) {
-                promoListContainer.innerHTML = `
-                <div style="text-align:center; padding:50px 20px; color:#888;">
-                    <i class="fa-regular fa-folder-open" style="font-size:40px; margin-bottom:15px; opacity:0.5;"></i>
-                    <p>Список пуст</p>
+            listContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--text-color-muted);">
+                    <i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
+                    <p>История пуста</p>
                 </div>`;
-            }
             return;
         }
 
+        // 4. ГЕНЕРАЦИЯ HTML (ТОЧНО КАК В PROFILE 3)
         let html = '';
         let expiringCount = 0;
         const now = new Date();
@@ -1146,14 +1130,6 @@ try {
         const lifeTimeDays = 7; 
 
         rewards.forEach(r => {
-            // Данные
-            const rawCode = r.code || 'ERROR';
-            // Экранируем кавычки для JS вызовов
-            const safeCode = rawCode.replace(/'/g, "\\'");
-            const val = r.reward_value || 0;
-            const desc = r.description || 'Награда';
-            
-            // Время
             const claimedDate = new Date(r.claimed_at);
             const expiryDate = new Date(claimedDate.getTime() + (lifeTimeDays * 24 * 60 * 60 * 1000));
             const diffMs = expiryDate - now;
@@ -1166,17 +1142,20 @@ try {
             } else {
                 timeText = "ИСТЕК";
             }
+            
+            // Защита от кавычек
+            const safeCode = (r.code || '').replace(/'/g, "\\'");
 
-            // ГЕНЕРАЦИЯ HTML
+            // === ВОТ ЭТОТ HTML ВЫ ПРОСИЛИ ВЕРНУТЬ ===
             html += `
-            <div class="reward-item" style="display:block !important; visibility:visible !important;">
+            <div class="reward-item">
                 <div class="reward-header">
-                    <span>${desc}</span>
-                    <span class="reward-value">${val} ₽</span>
+                    <span>${r.description || 'Награда'}</span>
+                    <span class="reward-value">${r.reward_value} ₽</span>
                 </div>
                 
                 <div class="reward-code-container" onclick="navigator.clipboard.writeText('${safeCode}').then(() => tg.ShowPopup({message:'Скопировано!'}))">
-                    <span>${rawCode}</span>
+                    <span>${r.code}</span>
                     <i class="fa-regular fa-copy"></i>
                 </div>
                 
@@ -1193,22 +1172,16 @@ try {
             </div>`;
         });
 
-        // Вставка
-        if (promoListContainer) {
-            promoListContainer.innerHTML = html;
-            console.log("✅ HTML Injected successfully");
-        } else {
-            console.error("❌ Container 'promocodes-list-container' not found!");
-        }
-
-        // Обновление дашборда
-        if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
+        // Вставляем В НАЧАЛО контейнера
+        listContainer.innerHTML = html;
         
-        if (expiringCount > 0 && promoBtn && promoAlertBadge) {
+        // Обновляем кнопку в профиле
+        if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
+        if (expiringCount > 0) {
             promoBtn.classList.add('has-warning');
             promoAlertBadge.textContent = `СГОРАЮТ: ${expiringCount}`;
             promoAlertBadge.style.display = 'block';
-        } else if (promoBtn && promoAlertBadge) {
+        } else {
             promoBtn.classList.remove('has-warning');
             promoAlertBadge.style.display = 'none';
         }
