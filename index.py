@@ -9,7 +9,7 @@ import random
 from datetime import datetime, timedelta, timezone
 import hmac
 import hashlib
-from urllib.parse import parse_qsl, unquote  import urlencode 
+from urllib.parse import parse_qsl, unquote, urlencode
 from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
 from supabase import create_client
@@ -4687,7 +4687,6 @@ async def get_public_quests(request_data: InitDataRequest):
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
         
 
-
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(
     request: Request, # <--- ВАЖНО: Добавили request для чтения заголовков устройства
@@ -4769,8 +4768,6 @@ async def twitch_oauth_start(
     
     return response
 
-
-    
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
     request: Request, 
