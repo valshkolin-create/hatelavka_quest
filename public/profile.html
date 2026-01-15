@@ -1167,11 +1167,45 @@
         if (userData.twitch_login) {
             twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
         } else {
-            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
+            } else {
+            // HTML разметка карточки
             twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;"><button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button><button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button></div>`;
+            
             setTimeout(() => {
-                const connBtn = twitchCard.querySelector('#connect-twitch-btn'); if(connBtn) connBtn.onclick = () => tg.openLink(authUrl, { try_instant_view: false });
-                const helpBtn = twitchCard.querySelector('#twitch-help-btn'); if(helpBtn) helpBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('twitch-help-popup').classList.add('visible'); };
+                // 1. Логика кнопки "Привязать"
+                const connBtn = twitchCard.querySelector('#connect-twitch-btn');
+                if (connBtn) {
+                    // ДОБАВИЛИ async, чтобы работал await
+                    connBtn.onclick = async (e) => {
+                        e.stopPropagation(); // Чтобы не кликалась сама карточка
+                        connBtn.style.opacity = '0.5'; // Визуально показываем нажатие
+
+                        try {
+                            // Запрашиваем JSON ссылку у сервера
+                            const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
+                            const data = await response.json();
+
+                            if (data.url) {
+                                // Открываем ссылку во внешнем браузере через Telegram API
+                                tg.openLink(data.url);
+                            } else {
+                                tg.showAlert("Ошибка: Сервер не вернул ссылку");
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            tg.showAlert("Ошибка соединения: " + err.message);
+                        } finally {
+                            connBtn.style.opacity = '1';
+                        }
+                    };
+                }
+
+                // 2. Логика кнопки "Помощь"
+                const helpBtn = twitchCard.querySelector('#twitch-help-btn'); 
+                if(helpBtn) helpBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    document.getElementById('twitch-help-popup').classList.add('visible'); 
+                };
             }, 0);
         }
         dom.settingsList.appendChild(twitchCard);
