@@ -1079,35 +1079,35 @@
 
     // --- MAIN FUNCTION ---
     async function main() {
-    // 1. Проверка: запущено ли в Telegram
-    if (!tg.initData) {
-        document.body.innerHTML = `<div style="text-align:center; padding:50px; color:#fff;">Ошибка initData. Зайдите через Telegram.</div>`;
-        hideLoader();
-        return;
-    }
+        // 1. Проверка: запущено ли в Telegram
+        if (!tg.initData) {
+            document.body.innerHTML = `<div style="text-align:center; padding:50px; color:#fff;">Ошибка initData. Зайдите через Telegram.</div>`;
+            hideLoader();
+            return;
+        }
 
-    // 2. Ловим успешную авторизацию через Twitch/Steam
-    const startParam = tg.initDataUnsafe.start_param;
-    if (startParam === 'auth_success') {
-        showNotification('✅ Авторизация успешна!', 'success');
-        // Небольшая задержка, чтобы бэкенд успел обновить данные
-        await new Promise(r => setTimeout(r, 500)); 
-    }
+        // 2. Ловим успешную авторизацию через Twitch/Steam
+        const startParam = tg.initDataUnsafe.start_param;
+        if (startParam === 'auth_success') {
+            showNotification('✅ Авторизация успешна!', 'success');
+            await new Promise(r => setTimeout(r, 500)); 
+        }
 
-    // 3. Настройка кнопки "Назад"
-    function goBack() {
-        if (window.history.length > 1 && document.referrer) window.history.back();
-        else window.location.href = '/menu';
-    }
-    const headerBackBtn = document.getElementById('header-back-btn');
-    if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
-    if(tg.BackButton) tg.BackButton.onClick(goBack);
+        // 3. Настройка кнопки "Назад"
+        function goBack() {
+            if (window.history.length > 1 && document.referrer) window.history.back();
+            else window.location.href = '/menu';
+        }
+        const headerBackBtn = document.getElementById('header-back-btn');
+        if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
+        if(tg.BackButton) tg.BackButton.onClick(goBack);
 
-    // 4. ГЛАВНОЕ: Загрузка интерфейса и данных (ЭТОГО НЕ ХВАТАЛО)
-    setupTabs();           // Настраиваем переключение вкладок
-    await fetchUserData(); // Загружаем данные профиля (Twitch, баланс и т.д.)
-    renderRewards([]);     // Рисуем список наград (пустой изначально)
-}
+        // 4. ГЛАВНОЕ: Загрузка данных
+        // setupTabs(); // Если у тебя нет этой функции, закомментируй или удали
+        
+        // !!! ВОТ ТУТ БЫЛА ОШИБКА (fetchUserData -> loadData) !!!
+        await loadData(); 
+    }
 
         // Функция загрузки данных
         async function loadData(isSilent = false) {
@@ -1150,67 +1150,80 @@
         const isBotActive = userData.is_bot_active === true;
         const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
 
-        // Уведомления
+        // 1. Уведомления
         const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
         notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
         notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
         dom.settingsList.appendChild(notifyCard);
 
-        // Steam
+        // 2. Steam
         const steamCard = document.createElement('div'); steamCard.className = 'settings-card';
         const hasTradeLink = !!userData.trade_link;
         steamCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-steam" style="color:#66c0f4;"></i> Steam Trade</p><span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span><span class="twitch-trust-link" id="steam-trust-btn" style="margin-top: 4px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><button id="edit-trade-link-btn" class="settings-card-btn">${hasTradeLink ? 'Изменить' : 'Привязать'}</button>`;
         dom.settingsList.appendChild(steamCard);
 
-        // Twitch
+        // 3. Twitch (ИСПРАВЛЕННАЯ ЛОГИКА)
         const twitchCard = document.createElement('div'); twitchCard.className = 'settings-card';
+        
         if (userData.twitch_login) {
+            // Если уже привязан
             twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
         } else {
-            } else {
-            // HTML разметка карточки
+            // Если НЕ привязан
             twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;"><button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button><button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button></div>`;
             
             setTimeout(() => {
-                // 1. Логика кнопки "Привязать"
                 const connBtn = twitchCard.querySelector('#connect-twitch-btn');
+                
                 if (connBtn) {
-                    // ДОБАВИЛИ async, чтобы работал await
+                    // !!! ВАЖНО: async добавлен здесь !!!
                     connBtn.onclick = async (e) => {
-                        e.stopPropagation(); // Чтобы не кликалась сама карточка
-                        connBtn.style.opacity = '0.5'; // Визуально показываем нажатие
+                        e.stopPropagation(); 
+                        connBtn.style.opacity = '0.5';
 
                         try {
-                            // Запрашиваем JSON ссылку у сервера
+                            if (!tg.initData) {
+                                tg.showAlert("Запустите через Telegram!");
+                                return;
+                            }
+
+                            // Запрашиваем ссылку
                             const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
+                            
+                            if (!response.ok) {
+                                throw new Error("Ошибка сервера");
+                            }
+
                             const data = await response.json();
 
+                            // Открываем ссылку
                             if (data.url) {
-                                // Открываем ссылку во внешнем браузере через Telegram API
                                 tg.openLink(data.url);
                             } else {
-                                tg.showAlert("Ошибка: Сервер не вернул ссылку");
+                                tg.showAlert("Сервер не вернул ссылку");
                             }
+
                         } catch (err) {
                             console.error(err);
-                            tg.showAlert("Ошибка соединения: " + err.message);
+                            tg.showAlert("Ошибка: " + err.message);
                         } finally {
                             connBtn.style.opacity = '1';
                         }
                     };
                 }
 
-                // 2. Логика кнопки "Помощь"
-                const helpBtn = twitchCard.querySelector('#twitch-help-btn'); 
-                if(helpBtn) helpBtn.onclick = (e) => { 
-                    e.stopPropagation(); 
-                    document.getElementById('twitch-help-popup').classList.add('visible'); 
-                };
+                const helpBtn = twitchCard.querySelector('#twitch-help-btn');
+                if (helpBtn) {
+                    helpBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        document.getElementById('twitch-help-popup').classList.add('visible');
+                    };
+                }
             }, 0);
         }
         dom.settingsList.appendChild(twitchCard);
 
-        // Рефералка
+        // 4. Рефералка
         const refCard = document.createElement('div'); refCard.className = 'settings-card ref-card-gradient';
         const activeRefs = userData.active_referrals_count || 0; 
         const currentBoost = (activeRefs * 0.1).toFixed(1);
