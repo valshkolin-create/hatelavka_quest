@@ -1234,11 +1234,14 @@
 
                             // Открываем ссылку
                             if (data.url) {
+                                // 1. Открываем ссылку во внешнем браузере
                                 tg.openLink(data.url);
+                                
+                                // 2. ЗАКРЫВАЕМ текущее приложение, чтобы не висело фоном
+                                tg.close(); 
                             } else {
                                 tg.showAlert("Сервер не вернул ссылку");
                             }
-
                         } catch (err) {
                             console.error(err);
                             tg.showAlert("Ошибка: " + err.message);
