@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-<html lang="ru">
 <head>
     <meta charset="UTF-8" />
     <title>Мой профиль</title>
@@ -52,41 +50,32 @@
             flex-grow: 1; 
         }
         .back-button { 
-            /* Новые свойства для выравнивания */
             display: flex;
             align-items: center;
             gap: 6px; 
-
-            /* Остальные стили */
             background: none; 
             border: none; 
             color: var(--action-color); 
             font-size: 12px; 
             cursor: pointer; 
-            padding: 5px 0; /* Убрал отступ слева, чтобы было ровно у края */
+            padding: 5px 0;
             font-weight: 500; 
             text-decoration: none; 
         }
 
-        
-
-        /* 1. ДОБАВЛЯЕМ ЭТОТ КЛАСС (ЕГО НЕ БЫЛО) */
+        /* --- Карточки настроек --- */
         .card-container { 
             display: flex; 
-            flex-direction: column; /* Элементы строго в столбик */
-            gap: 15px;              /* Отступ между карточками */
+            flex-direction: column;
+            gap: 15px;            
             width: 100%; 
             margin-bottom: 20px;
         }
-
-        /* 2. ОБНОВЛЯЕМ ЭТОТ КЛАСС (ДОБАВЛЯЕМ ЗАЩИТУ ОТ СЖАТИЯ) */
         .settings-card {
-            position: relative;     /* Важно для позиционирования */
-            flex-shrink: 0;         /* ❗ ГЛАВНОЕ: Запрещает карточке сжиматься */
-            width: 100%;            /* Растягиваем на всю ширину */
-            box-sizing: border-box; /* Чтобы отступы не ломали ширину */
-            
-            /* Остальные твои стили без изменений: */
+            position: relative;     
+            flex-shrink: 0;         
+            width: 100%;            
+            box-sizing: border-box; 
             background-color: var(--surface-glass-bg);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
@@ -161,21 +150,20 @@
         .notify-item {
             display: flex; 
             justify-content: space-between; 
-            align-items: flex-start; /* Выравнивание по верху */
+            align-items: flex-start;
             padding: 14px 0; 
             border-bottom: 1px solid rgba(255,255,255,0.08);
         }
         .notify-item:last-child { 
             border-bottom: none; 
         }
-        
         .notify-item-left {
             display: flex; 
             flex-direction: column;
             flex-grow: 1; 
             padding-right: 15px;
             justify-content: center;
-            min-height: 31px; /* Высота тумблера */
+            min-height: 31px;
         }
         .notify-label { 
             font-size: 15px; 
@@ -188,15 +176,12 @@
             color: var(--text-color-muted); 
             line-height: 1.3; 
         }
-        
         .notify-item-right {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
             gap: 6px;
         }
-
-        /* Кнопка "Тест" под тумблером */
         .test-text-btn {
             background: none;
             border: none;
@@ -208,9 +193,7 @@
             opacity: 0.9;
             transition: opacity 0.2s;
         }
-        .test-text-btn:active {
-            opacity: 0.5;
-        }
+        .test-text-btn:active { opacity: 0.5; }
 
         /* Toggle Switch (iOS Style) */
         .toggle-switch {
@@ -251,7 +234,7 @@
             transform: translateX(20px);
         }
 
-        /* --- Секция наград --- */
+        /* --- Секция наград (Заголовки и кнопки панели) --- */
         .rewards-header {
             display: flex;
             justify-content: space-between;
@@ -270,277 +253,20 @@
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            display: none;
+            display: none; /* Скрыто по умолчанию, управляется JS */
             padding: 5px;
         }
-        .reward-card {
-            position: relative;
-            background-color: var(--surface-color-2);
-            border-radius: 12px;
-            padding: 12px 15px;
-        }
-        .reward-card-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-        }
-        .reward-card-details { flex-grow: 1; }
-        .reward-card-description {
-            font-size: 14px;
-            margin: 0 0 10px 0;
-            color: var(--text-color-muted);
-        }
-        .reward-card-code-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background-color: rgba(0,0,0,0.4);
-            border-radius: 8px;
-            padding: 5px 5px 5px 12px;
-        }
-        .reward-card-code-input {
-            flex-grow: 1; background: none; border: none;
-            color: var(--primary-color);
-            font-family: monospace; font-size: 15px; font-weight: 600;
-            outline: none;
-        }
-        .reward-card-copy-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            background-color: var(--action-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        .reward-card-copy-btn i {
-            line-height: 1;
-        }
-        .reward-card-meta {
-            font-size: 11px;
-            color: var(--text-color-muted);
-            margin: 8px 0 0 0;
-        }
-        .reward-card-delete-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            color: var(--text-color-muted);
-            font-size: 17px;
-            cursor: pointer;
-            transition: color 0.2s ease;
-        }
-        .reward-card-delete-btn:hover {
-            color: var(--danger-color);
-        }
-        .reward-how-to-use-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background-color: rgba(255, 255, 255, 0.08);
-            color: var(--action-color);
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 5px 10px;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.15s ease;
-            text-decoration: none;
-            margin-top: 8px; 
-        }
-        .reward-how-to-use-btn i {
-            font-size: 13px;
-        }
-        .reward-how-to-use-btn:hover {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-        .reward-how-to-use-btn:active {
-            transform: scale(0.96);
-        }
-        
-        /* --- Загрузчик --- */
-        .loader-overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.6); z-index: 300; 
-            display: flex; align-items: center; justify-content: center; 
-            backdrop-filter: blur(5px); 
-        }
-        .loader-overlay.hidden { display: none; }
-        .spinner { 
-            width: 40px; height: 40px; 
-            border: 4px solid rgba(255, 255, 255, 0.3); 
-            border-top-color: #fff; border-radius: 50%; 
-            animation: spin 1s linear infinite; 
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* --- Попапы (Общие стили) --- */
-        .custom-popup-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 400;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 15px;
-            box-sizing: border-box;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0s 0.3s;
-        }
-        .custom-popup-overlay.visible {
-            opacity: 1;
-            visibility: visible;
-            transition: opacity 0.3s ease, visibility 0s 0s;
-        }
-        /* --- Обновленные стили попапа (Фикс для ПК) --- */
-        .custom-popup {
-            background-color: #1c1c1e;
-            border-radius: 14px;
-            padding: 20px;
-            width: 90%; 
-            max-width: 380px;
-            
-            /* Настройки фиксации высоты и кнопок */
-            max-height: 85vh;       /* Ограничение высоты, чтобы влезало в экран ПК */
-            display: flex;          /* Включаем режим колонок */
-            flex-direction: column; /* Элементы идут сверху вниз */
-            
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transform: scale(0.95);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            text-align: center;
-            overflow: hidden;       /* Скрываем общий скролл контейнера */
-        }
-
-        /* Зона прокрутки текста */
-        .popup-scroll-area {
-            overflow-y: auto;       /* Скроллится только этот блок */
-            flex-grow: 1;           /* Растягивается на свободное место */
-            margin-bottom: 15px;    /* Отступ от текста до кнопок */
-            padding-right: 5px;     /* Отступ для скроллбара */
-            text-align: left;       /* Текст выравниваем по левому краю */
-            
-            /* Тонкий скроллбар */
-            scrollbar-width: thin; 
-            scrollbar-color: rgba(255,255,255,0.2) transparent;
-        }
-        
-        /* Стили скроллбара для Chrome/Safari */
-        .popup-scroll-area::-webkit-scrollbar { width: 4px; }
-        .popup-scroll-area::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 4px; }
-
-        /* Заголовок и кнопки не сжимаются */
-        .custom-popup h3, 
-        .custom-popup .popup-header-icon { flex-shrink: 0; }
-        
-        .custom-popup .popup-actions { 
-            flex-shrink: 0; 
-            margin-top: 0; 
-            display: grid; 
-            grid-template-columns: 1fr; 
-            gap: 10px; 
-        }
-        .reward-how-to-use-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background-color: rgba(255, 255, 255, 0.08);
-            color: var(--action-color);
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 5px 10px;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.15s ease;
-            text-decoration: none;
-            margin-top: 8px;
-            margin-bottom: 4px; /* Чуть отступа снизу */
-        }
-        .reward-how-to-use-btn i {
-            font-size: 13px;
-        }
-        .reward-how-to-use-btn:hover {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-        .reward-how-to-use-btn:active {
-            transform: scale(0.96);
-        }
-
-        /* --- Ссылка "Безопасно?" для Twitch --- */
-        .twitch-trust-link {
-            font-size: 11px;
-            color: var(--text-color-muted);
-            text-decoration: underline;
-            cursor: pointer;
-            opacity: 0.8;
-            margin-top: 4px;
-            display: inline-block;
-        }
-        .twitch-trust-link:hover {
-            color: var(--text-color);
-            opacity: 1;
-        }
-        .custom-popup::-webkit-scrollbar { display: none; }
-        .custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; }
-        .custom-popup p { margin: 0 0 20px 0; font-size: 14px; color: var(--text-color-muted); line-height: 1.4; }
-        .custom-popup input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #3a3a3c; background-color: #2c2c2e; color: white; font-size: 14px; box-sizing: border-box; margin-bottom: 12px; }
-        .custom-popup .popup-help { margin-bottom: 20px; }
-        .custom-popup .popup-help a { color: var(--action-color); text-decoration: none; font-size: 13px; font-weight: 500; }
-        .custom-popup .popup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .custom-popup .popup-btn { width: 100%; border: none; padding: 12px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.15s ease, background-color 0.2s ease; }
-        .custom-popup .popup-btn:active { transform: scale(0.97); }
-        .custom-popup .popup-btn.primary { background-color: var(--primary-color); color: white; }
-        .custom-popup .popup-btn.secondary { background-color: #3a3a3c; color: white; }
-        .popup-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(100%); }
-        .toggle-input:disabled + .slider { opacity: 0.6; cursor: wait; }
-        
-        /* --- Стили для Реферальной системы --- */
-        .ref-card-gradient { background: linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(0,0,0,0)); border: 1px solid rgba(52, 199, 89, 0.3); }
-        .ref-stat-box { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; text-align: center; flex: 1; }
-        .ref-stat-val { font-size: 18px; font-weight: 700; color: #fff; }
-        .ref-stat-lbl { font-size: 10px; color: #aaa; text-transform: uppercase; }
-
-        /* Анимации */
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .custom-confirm-overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 10000;
-            display: flex; align-items: center; justify-content: center;
-            backdrop-filter: blur(4px); animation: fadeIn 0.2s;
-        }
-/* =========================================
-           FIX: СТИЛИ ДЛЯ НОВОГО МЕНЮ И НАГРАД
-           ========================================= */
-        
-        /* 1. ПАНЕЛЬ КНОПОК (В ПРОФИЛЕ) */
+        /* --- НОВОЕ МЕНЮ НАГРАД (КНОПКИ) --- */
         .rewards-dashboard {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* Две кнопки рядом */
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
             margin-top: 10px;
             margin-bottom: 20px;
         }
-
         .dash-btn {
-            background: rgba(255, 255, 255, 0.05); /* Стекло */
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 16px;
             padding: 12px;
@@ -569,90 +295,188 @@
         .dash-btn.has-warning .badge-alert { display: block; }
         .dash-btn.has-warning { border-color: rgba(255, 59, 48, 0.4); }
 
-        /* --- ИСПРАВЛЕНИЕ: МОДАЛЬНОЕ ОКНО (1 в 1 как приложение) --- */
-        /* --- ФИКС МОДАЛЬНОГО ОКНА И ВИДИМОСТИ --- */
-        /* ==============================================
-           FIX: СЛОИ (Z-INDEX) И ВИДИМОСТЬ
-           ============================================== */
-        
-        /* 1. ГЛАВНОЕ ОКНО (Промокоды) */
+
+        /* --- МОДАЛЬНЫЕ ОКНА НА ВЕСЬ ЭКРАН (ФИКС СЛОЕВ) --- */
         .custom-modal {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%;
-            /* Фон чуть прозрачнее, чтобы видеть контекст, но затемненный */
             background: rgba(0, 0, 0, 0.85); 
-            backdrop-filter: blur(8px);
-            z-index: 2000; /* ВЫСОКИЙ, НО НЕ ПРЕДЕЛЬНЫЙ */
+            backdrop-filter: blur(10px);
+            z-index: 10000 !important; /* ВЫШЕ ВСЕГО, КРОМЕ ПОПАПОВ */
             display: flex;
             flex-direction: column;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.2s ease;
-            padding-top: var(--tg-viewport-stable-height, 0);
+            transition: opacity 0.25s ease;
+            padding-top: var(--tg-viewport-stable-height, 40px);
+            padding-bottom: 0;
         }
-
         .custom-modal.visible {
             opacity: 1;
             pointer-events: auto;
         }
-
-        /* 2. КОНТЕНТ ОКНА */
         .modal-card {
             width: 100%; height: 100%;
             display: flex; flex-direction: column;
             background: transparent;
+            overflow: hidden;
         }
-
         .modal-header {
             flex-shrink: 0;
             padding: 15px 20px;
-            background: #1c1c1e; /* Явный темно-серый цвет */
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: #1c1c1e;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
             display: flex; justify-content: space-between; align-items: center;
-            z-index: 2005; /* Поверх тела модалки */
-            position: relative; /* Чтобы z-index работал */
+            z-index: 10002;
+            min-height: 60px;
         }
-
-        .modal-title { font-size: 16px; font-weight: 700; color: #ffffff; }
-        
+        .modal-title { 
+            font-size: 18px; font-weight: 700; color: #ffffff; 
+            display: flex; align-items: center; gap: 10px;
+        }
         .modal-close {
             background: rgba(255, 255, 255, 0.1);
             border: none; color: #ffffff;
             width: 32px; height: 32px; border-radius: 50%;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
-            font-size: 16px;
         }
-        .modal-close:active { background: rgba(255, 255, 255, 0.3); }
-
         .modal-body {
             flex-grow: 1;
             padding: 15px;
             overflow-y: auto;
-            position: relative;
-            z-index: 2002;
+            -webkit-overflow-scrolling: touch;
+            z-index: 10001;
+            display: block !important;
+            padding-bottom: 100px;
         }
 
-        /* 3. КАРТОЧКА НАГРАДЫ */
+        /* --- КАРТОЧКА НАГРАДЫ ВНУТРИ МОДАЛКИ (ВАШ СТАРЫЙ ДИЗАЙН) --- */
         .reward-item {
-            background: rgba(35, 35, 35, 0.9); /* Светлее фона, чтобы видеть */
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 12px;
-            color: #fff;
+            background: #252525;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 15px;
             position: relative;
-            z-index: 2003;
+            z-index: 10003;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px;
+        }
+        .reward-header {
+            display: flex; justify-content: space-between;
+            font-size: 14px; font-weight: 700; color: #fff;
+        }
+        .reward-value { color: #34c759; }
+        
+        .reward-code-container {
+            background: #000;
+            padding: 12px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: monospace; font-size: 16px; letter-spacing: 1px;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+        .reward-actions {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            margin-top: 5px;
+            position: relative;
+            z-index: 10004;
+        }
+        .btn-action {
+            border: none; padding: 10px 0; border-radius: 8px;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            color: #fff;
+        }
+        .btn-copy-action { background: rgba(255, 255, 255, 0.15); }
+        .btn-help-action { background: rgba(52, 199, 89, 0.2); color: #34c759; }
+        .expiry-info { font-size: 10px; text-align: center; color: #ff3b30; margin-top: 2px; font-weight: 600;}
+
+
+        /* --- Загрузчик --- */
+        .loader-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); z-index: 300; 
+            display: flex; align-items: center; justify-content: center; 
+            backdrop-filter: blur(5px); 
+        }
+        .loader-overlay.hidden { display: none; }
+        .spinner { 
+            width: 40px; height: 40px; 
+            border: 4px solid rgba(255, 255, 255, 0.3); 
+            border-top-color: #fff; border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- ПОПАПЫ "КАК ИСПОЛЬЗОВАТЬ" И ДР. (ВЫШЕ ВСЕГО) --- */
+        .custom-popup-overlay, .popup-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 99999 !important; /* САМЫЙ ВЕРХНИЙ СЛОЙ */
+            display: flex; align-items: center; justify-content: center;
+            padding: 15px; box-sizing: border-box;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s 0.3s;
+        }
+        .custom-popup-overlay.visible, .popup-overlay.visible {
+            opacity: 1; visibility: visible;
+            transition: opacity 0.3s ease, visibility 0s 0s;
         }
         
-        /* 4. СУПЕР-ВАЖНО: ПОПАПЫ "КАК ИСПОЛЬЗОВАТЬ" ДОЛЖНЫ БЫТЬ ВЫШЕ ВСЕГО */
-        /* Находим ID вашего старого попапа и поднимаем его */
-        #how-to-use-popup, 
-        #twitch-help-popup,
-        #twitch-trust-popup,
-        #steam-trust-popup,
-        .popup-overlay { /* Если у вас есть общий класс */
-            z-index: 99999 !important; /* ВЫШЕ ЧЕМ 2000 */
+        /* Исправленные стили попапа */
+        #how-to-use-popup, #twitch-help-popup, #twitch-trust-popup, #steam-trust-popup {
+             z-index: 99999 !important;
+        }
+
+        .custom-popup {
+            background-color: #1c1c1e;
+            border-radius: 14px;
+            padding: 20px;
+            width: 90%; max-width: 380px;
+            max-height: 85vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            overflow: hidden; 
+        }
+
+        .popup-scroll-area {
+            overflow-y: auto; flex-grow: 1; margin-bottom: 15px; padding-right: 5px; text-align: left;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        
+        .custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; flex-shrink: 0; }
+        .custom-popup p { margin: 0 0 20px 0; font-size: 14px; color: var(--text-color-muted); line-height: 1.4; }
+        
+        /* --- Ссылка "Безопасно?" для Twitch --- */
+        .twitch-trust-link {
+            font-size: 11px; color: var(--text-color-muted);
+            text-decoration: underline; cursor: pointer; opacity: 0.8;
+            margin-top: 4px; display: inline-block;
+        }
+
+        /* --- Стили для Реферальной системы --- */
+        .ref-card-gradient { background: linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(0,0,0,0)); border: 1px solid rgba(52, 199, 89, 0.3); }
+        .ref-stat-box { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; text-align: center; flex: 1; }
+        .ref-stat-val { font-size: 18px; font-weight: 700; color: #fff; }
+        .ref-stat-lbl { font-size: 10px; color: #aaa; text-transform: uppercase; }
+
+        /* Анимации */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .custom-confirm-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px); animation: fadeIn 0.2s;
         }
     </style>
 </head>
@@ -1244,25 +1068,21 @@ try {
     });
 
     // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
-    function renderRewards(rewards) {
-        // [DEBUG] Проверяем, что пришло
-        console.log("🔥 RENDER REWARDS CALLED. Count:", rewards ? rewards.length : 'NULL');
+   function renderRewards(rewards) {
+        console.log("🔥 RENDER REWARDS START. Items:", rewards ? rewards.length : 0);
 
-        // 1. Ищем элементы
+        // Элементы
         const promoBtnInfo = document.getElementById('promo-btn-info');
         const promoAlertBadge = document.getElementById('promo-alert-badge');
         const promoBtn = document.getElementById('btn-open-promocodes');
-        const promoListContainer = document.getElementById('promocodes-list-container');
+        
+        // ВАЖНО: Получаем контейнер списка. 
+        // Убедитесь, что в HTML есть id="promocodes-list-container" внутри modal-body
+        const promoListContainer = document.getElementById('promocodes-list-container'); 
         const modalPromos = document.getElementById('modal-promocodes');
         const modalSecret = document.getElementById('modal-secret');
 
-        // Проверка критических элементов
-        if (!promoListContainer) {
-            console.error("❌ ERROR: Container 'promocodes-list-container' NOT FOUND!");
-            return;
-        }
-
-        // 2. Биндим кнопки (Открытие/Закрытие)
+        // --- Биндинг кнопок ---
         if(document.getElementById('btn-open-promocodes')) {
             document.getElementById('btn-open-promocodes').onclick = () => {
                 modalPromos.classList.add('visible');
@@ -1280,16 +1100,16 @@ try {
                 tg.BackButton.hide();
             };
         }
-
-        // Секретное меню
+        
+        // Secret Menu
         if(document.getElementById('btn-open-secret')) {
-            document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
+             document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
         }
         if(document.getElementById('close-modal-secret')) {
-            document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
+             document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
         }
 
-        // Логика удаления
+        // Удаление
         const handleDelete = () => {
             showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
                  await makeApiRequest('/api/v1/user/promocodes/delete-all');
@@ -1305,21 +1125,20 @@ try {
         if(innerBtn) innerBtn.onclick = handleDelete;
 
 
-        // 3. ОТРИСОВКА (САМОЕ ГЛАВНОЕ)
+        // --- ОТРИСОВКА ---
         if (!rewards || rewards.length === 0) {
-            console.log("ℹ️ No rewards to show.");
             if(promoBtnInfo) promoBtnInfo.textContent = "0 шт.";
             if(promoBtn) promoBtn.classList.remove('has-warning');
-            
-            promoListContainer.innerHTML = `
-                <div style="text-align: center; padding: 50px 20px; color: #888;">
-                    <i class="fa-regular fa-folder-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.5;"></i>
-                    <p>Наград пока нет</p>
+            if(promoListContainer) {
+                promoListContainer.innerHTML = `
+                <div style="text-align:center; padding:50px 20px; color:#888;">
+                    <i class="fa-regular fa-folder-open" style="font-size:40px; margin-bottom:15px; opacity:0.5;"></i>
+                    <p>Список пуст</p>
                 </div>`;
+            }
             return;
         }
 
-        // Если награды есть - строим HTML
         let html = '';
         let expiringCount = 0;
         const now = new Date();
@@ -1327,11 +1146,14 @@ try {
         const lifeTimeDays = 7; 
 
         rewards.forEach(r => {
-            // Защита от битых данных
-            const code = r.code || 'CODE-ERROR';
+            // Данные
+            const rawCode = r.code || 'ERROR';
+            // Экранируем кавычки для JS вызовов
+            const safeCode = rawCode.replace(/'/g, "\\'");
             const val = r.reward_value || 0;
             const desc = r.description || 'Награда';
             
+            // Время
             const claimedDate = new Date(r.claimed_at);
             const expiryDate = new Date(claimedDate.getTime() + (lifeTimeDays * 24 * 60 * 60 * 1000));
             const diffMs = expiryDate - now;
@@ -1345,23 +1167,23 @@ try {
                 timeText = "ИСТЕК";
             }
 
-            // ВАШ HTML (ТОЧНАЯ КОПИЯ)
+            // ГЕНЕРАЦИЯ HTML
             html += `
-            <div class="reward-item">
+            <div class="reward-item" style="display:block !important; visibility:visible !important;">
                 <div class="reward-header">
                     <span>${desc}</span>
                     <span class="reward-value">${val} ₽</span>
                 </div>
                 
-                <div class="reward-code-container" onclick="navigator.clipboard.writeText('${code}').then(() => tg.ShowPopup({message:'Скопировано!'}))">
-                    <span>${code}</span>
+                <div class="reward-code-container" onclick="navigator.clipboard.writeText('${safeCode}').then(() => tg.ShowPopup({message:'Скопировано!'}))">
+                    <span>${rawCode}</span>
                     <i class="fa-regular fa-copy"></i>
                 </div>
                 
                 <div class="expiry-info">${timeText}</div>
 
                 <div class="reward-actions">
-                    <button class="btn-action btn-copy-action" onclick="navigator.clipboard.writeText('${code}').then(() => tg.ShowPopup({message:'Скопировано!'}))">
+                    <button class="btn-action btn-copy-action" onclick="navigator.clipboard.writeText('${safeCode}').then(() => tg.ShowPopup({message:'Скопировано!'}))">
                         <i class="fa-solid fa-copy"></i> Скопировать
                     </button>
                     <button class="btn-action btn-help-action" onclick="document.getElementById('how-to-use-popup').classList.add('visible')">
@@ -1371,11 +1193,15 @@ try {
             </div>`;
         });
 
-        // ВСТАВЛЯЕМ HTML
-        console.log("✅ Injecting HTML items:", rewards.length);
-        promoListContainer.innerHTML = html;
-        
-        // ОБНОВЛЯЕМ ИНФО НА КНОПКЕ
+        // Вставка
+        if (promoListContainer) {
+            promoListContainer.innerHTML = html;
+            console.log("✅ HTML Injected successfully");
+        } else {
+            console.error("❌ Container 'promocodes-list-container' not found!");
+        }
+
+        // Обновление дашборда
         if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
         
         if (expiringCount > 0 && promoBtn && promoAlertBadge) {
@@ -1387,6 +1213,7 @@ try {
             promoAlertBadge.style.display = 'none';
         }
     }
+    
     // Хелпер для копирования
     function copyPromoCode(code, id) {
         navigator.clipboard.writeText(code).then(() => {
