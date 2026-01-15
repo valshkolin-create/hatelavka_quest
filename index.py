@@ -791,6 +791,10 @@ class CSConfigUpdate(BaseModel):
     tg_points: float
     name_points: float
 
+class PromocodeCopyRequest(BaseModel):
+    promocode_id: int
+    initData: str
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -7614,11 +7618,13 @@ async def get_user_rewards(
 
     try:
         # 1. Получаем промокоды
+        # 1. Получаем промокоды
         promocodes_resp = await supabase.get(
             "/promocodes", 
             params={
                 "telegram_id": f"eq.{user_id}", 
-                "select": "code,description,reward_value,claimed_at"
+                # 👇 ДОБАВЛЯЕМ СЮДА id и copied_at 👇
+                "select": "id,code,description,reward_value,claimed_at,copied_at"
             }
         )
         promocodes = promocodes_resp.json()
@@ -7789,6 +7795,27 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
     except Exception as e:
         logging.error(f"Критическая ошибка при получении награды за квест для user {user_id}, quest {quest_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить награду.")
+
+# - Добавить этот блок
+@app.post("/api/v1/promocode/mark-copied")
+async def mark_promocode_copied(
+    request_data: PromocodeCopyRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Сохраняет время копирования промокода"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Обновляем поле copied_at только если оно еще пустое
+    # (или перезаписываем, если хотите обновлять время при каждом клике - тут ставим if null)
+    now_time = datetime.now(timezone.utc).isoformat()
+    
+    await supabase.table("promocodes").update({
+        "copied_at": now_time
+    }).eq("id", request_data.promocode_id).eq("telegram_id", user_info["id"]).execute()
+
+    return {"status": "ok", "copied_at": now_time}
 
 # --- Эндпоинт 1: Проверка (вызывать при старте приложения) ---
 @app.post("/api/v1/user/referral/sync")
