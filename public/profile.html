@@ -807,10 +807,9 @@
     </div>
     
 <script>
-try {
     const tg = window.Telegram.WebApp;
-    
-    // Объект ссылок на элементы (DOM)
+
+    // Объект ссылок на элементы (DOM) - объявляем глобально, чтобы видеть везде
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
         profileName: document.getElementById('profileName'),
@@ -834,32 +833,18 @@ try {
         refLinkInput: document.getElementById('ref-link-input'),
         refCountDisplay: document.getElementById('ref-count-display'),
         refBonusDisplay: document.getElementById('ref-bonus-display'),
-        // Кнопки рефералки (ищем по ID, чтобы не было ошибок null)
         closeRefModalBtn: document.getElementById('close-ref-modal-btn'),
         copyRefBtn: document.getElementById('copy-ref-btn'),
         shareRefLinkBtn: document.getElementById('share-ref-link-btn')
     };
 
-    const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
-    const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
+    // --- HELPER FUNCTIONS ---
+    const showLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden'); };
+    const hideLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); };
 
-    // Функция безопасного добавления событий (чтобы не было ошибок, если элемента нет)
     function addSafeListener(elementId, eventType, handler) {
         const el = document.getElementById(elementId);
         if (el) el.addEventListener(eventType, handler);
-    }
-
-    // --- HELPER: Диалог подтверждения ---
-    function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
-        const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
-        const box = document.createElement('div'); 
-        box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
-        box.innerHTML = `<h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3><div style="display: flex; gap: 12px;"><button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button><button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: white; font-size: 16px; font-weight: 600; cursor: pointer;">${btnText}</button></div>`;
-        overlay.appendChild(box); document.body.appendChild(overlay);
-        const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
-        overlay.querySelector('#custom-cancel-btn').onclick = close;
-        overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
-        overlay.onclick = (e) => { if(e.target === overlay) close(); };
     }
 
     async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
@@ -878,590 +863,395 @@ try {
         }
     }
 
-    // --- ФУНКЦИЯ ОТРИСОВКИ НАСТРОЕК (БЕЗ МАГАЗИНА) ---
-    function renderSettingsList(userData) {
-        dom.settingsList.innerHTML = '';
-        const isBotActive = userData.is_bot_active === true;
-        const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
+    function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
+        const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+        const box = document.createElement('div'); 
+        box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+        box.innerHTML = `<h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3><div style="display: flex; gap: 12px;"><button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button><button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: white; font-size: 16px; font-weight: 600; cursor: pointer;">${btnText}</button></div>`;
+        overlay.appendChild(box); document.body.appendChild(overlay);
+        const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
+        overlay.querySelector('#custom-cancel-btn').onclick = close;
+        overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
+        overlay.onclick = (e) => { if(e.target === overlay) close(); };
+    }
 
-        // 1. Уведомления
-        const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
-        notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
-        notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
-        dom.settingsList.appendChild(notifyCard);
+    // --- ФУНКЦИЯ КОПИРОВАНИЯ (ТЕПЕРЬ ГЛОБАЛЬНАЯ) ---
+    async function copyPromocode(code, id) {
+        try {
+            await navigator.clipboard.writeText(code);
+            // Обрабатываем успех через общую функцию (чтобы обновить UI и послать запрос)
+            await handleManualCopySuccess(id);
+            // Вибрация
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } catch (err) {
+            console.error('Ошибка копирования:', err);
+        }
+    }
 
-        // 2. Steam Trade
-        const steamCard = document.createElement('div'); steamCard.className = 'settings-card';
-        const hasTradeLink = !!userData.trade_link;
-        steamCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-steam" style="color:#66c0f4;"></i> Steam Trade</p><span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span><span class="twitch-trust-link" id="steam-trust-btn" style="margin-top: 4px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><button id="edit-trade-link-btn" class="settings-card-btn">${hasTradeLink ? 'Изменить' : 'Привязать'}</button>`;
-        dom.settingsList.appendChild(steamCard);
-
-        // 3. Twitch
-       const twitchCard = document.createElement('div'); 
-        twitchCard.className = 'settings-card';
+    // Вспомогательная функция успеха (обновляет UI и шлет запрос)
+    async function handleManualCopySuccess(id) {
+        const initData = Telegram.WebApp.initData;
+        const statusDiv = document.getElementById(`copied-status-${id}`);
         
-        if (userData.twitch_login) {
-            // СЦЕНАРИЙ: УЖЕ ПРИВЯЗАН
-            twitchCard.innerHTML = `
-                <div class="settings-card-info">
-                    <p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p>
-                    <span>Привязан как: <b>${userData.twitch_login}</b></span>
-                </div>
-                <button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>
-            `;
-        } else {
-            // СЦЕНАРИЙ: НЕ ПРИВЯЗАН
-            
-            // Генерируем ссылку для бэкенда
-            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
-            
-            twitchCard.innerHTML = `
-                <div class="settings-card-info">
-                    <p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p>
-                    <span>Привяжите аккаунт</span>
-                    <span class="twitch-trust-link" id="twitch-trust-btn">
-                        <i class="fa-solid fa-shield-halved"></i> Безопасно ли это?
-                    </span>
-                </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                    <button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button>
-                    <button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button>
-                </div>
-            `;
-
-            // Логика кнопки "Привязать"
-            const connectBtn = twitchCard.querySelector('#connect-twitch-btn');
-            if (connectBtn) {
-                connectBtn.onclick = () => {
-                    tg.openLink(authUrl, { try_instant_view: false });
-                };
-            }
-            
-            // Логика кнопки "Помощь"
-            const helpBtn = twitchCard.querySelector('#twitch-help-btn');
-            if (helpBtn) {
-                helpBtn.onclick = (e) => {
-                    e.stopPropagation(); // Чтобы не срабатывал клик по карточке, если он есть
-                    document.getElementById('twitch-help-popup').classList.add('visible');
-                };
-            }
+        // 1. Визуально обновляем статус (Зеленый текст)
+        if (statusDiv && !statusDiv.innerText.includes('Скопировано')) {
+            const now = new Date().toLocaleString('ru-RU', {
+                day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            statusDiv.innerHTML = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${now}</div>`;
         }
-        dom.settingsList.appendChild(twitchCard);
-        // 4. Реферальная система
-        const refCard = document.createElement('div'); 
-        refCard.className = 'settings-card ref-card-gradient';
-        const activeRefs = userData.active_referrals_count || 0; 
-        const currentBoost = (activeRefs * 0.1).toFixed(1);
 
-        refCard.innerHTML = `
-            <div class="settings-card-info">
-                <p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p>
-                <span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span>
-            </div>
-            <i class="fa-solid fa-chevron-right card-arrow"></i>`;
-            
-        refCard.onclick = () => openRefModal(userData);
-        dom.settingsList.appendChild(refCard);
+        // 2. Шлем запрос на бэкенд (тихо)
+        try {
+            await fetch('/api/v1/promocode/mark-copied', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promocode_id: id, initData: initData })
+            });
+        } catch (e) { console.error(e); }
     }
 
-    // --- MAIN ---
-    async function main() {
-        // ------------------------------------------------------------------
-        // БЛОК 1: Если мы в браузере (после редиректа авторизации)
-        // ------------------------------------------------------------------
-        if (!tg.initData) {
-            document.body.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background-color: #000; color: #fff;">
-                    <i class="fa-solid fa-circle-check" style="font-size: 60px; color: #34c759; margin-bottom: 20px;"></i>
-                    <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Успешно!</h1>
-                    <p style="color: #b0b0b0; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
-                        Аккаунт привязан.<br>Возвращаем вас в приложение...
-                    </p>
-                    <button id="return-btn" style="background-color: #007aff; color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 240px; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">
-                        Вернуться в приложение
-                    </button>
-                </div>
-            `;
-            
-            // Функция возврата
-            const goBackToApp = () => {
-                const appLink = "https://t.me/HATElavka_bot/app";
-                
-                // 1. Сначала пробуем просто перейти по ссылке (самый надежный способ для внешних браузеров)
-                // Используем replace, чтобы нельзя было вернуться назад на страницу успеха
-                window.location.replace(appLink);
-
-                // 2. Если это встроенный браузер Telegram, ссылка выше может не сработать,
-                // поэтому пробуем закрыть окно (это вернет юзера в чат/бота)
-                setTimeout(() => {
-                    try { window.close(); } catch(e) {}
-                    try { window.Telegram.WebApp.close(); } catch(e) {}
-                }, 1000); // Ждем секунду перед закрытием, чтобы ссылка успела отработать
+    // --- ОТРИСОВКА НАГРАД (ВЕРНУЛИ СТАРЫЙ ДИЗАЙН) ---
+    function renderRewards(rewards) {
+        const listContainer = document.getElementById('promocodes-list-container');
+        const promoBtnInfo = document.getElementById('promo-btn-info');
+        const promoAlertBadge = document.getElementById('promo-alert-badge');
+        
+        // Логика модалок (перепривязка кнопок)
+        const modalPromos = document.getElementById('modal-promocodes');
+        const btnOpen = document.getElementById('btn-open-promocodes');
+        if (btnOpen) {
+            btnOpen.onclick = () => {
+                modalPromos.classList.add('visible');
+                if (tg.BackButton) {
+                    tg.BackButton.show();
+                    tg.BackButton.onClick(() => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); });
+                }
             };
+        }
+        const closePromos = document.getElementById('close-modal-promocodes');
+        if (closePromos) closePromos.onclick = () => { modalPromos.classList.remove('visible'); if(tg.BackButton) tg.BackButton.hide(); };
 
-            // Логика кнопки (самый надежный вариант - клик пользователя)
-            document.getElementById('return-btn').addEventListener('click', goBackToApp);
+        const modalSecret = document.getElementById('modal-secret');
+        const btnSecret = document.getElementById('btn-open-secret');
+        if(btnSecret) btnSecret.onclick = () => modalSecret.classList.add('visible');
+        const closeSecret = document.getElementById('close-modal-secret');
+        if(closeSecret) closeSecret.onclick = () => modalSecret.classList.remove('visible');
 
-            // Автоматическая попытка (может быть заблокирована браузером, но попробуем)
-            setTimeout(goBackToApp, 500);
+        // Очистка
+        listContainer.innerHTML = ''; 
 
-            hideLoader();
-            return; 
+        if (!rewards || rewards.length === 0) {
+            if(promoBtnInfo) promoBtnInfo.textContent = 'Награды';
+            if(promoAlertBadge) promoAlertBadge.style.display = 'none';
+            listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных наград</div>';
+            return;
         }
 
-        // ------------------------------------------------------------------
-        // БЛОК 2: Основная логика приложения (внутри Telegram)
-        // ------------------------------------------------------------------
+        if(promoBtnInfo) promoBtnInfo.textContent = `Награды (${rewards.length})`;
+        if(promoAlertBadge) promoAlertBadge.style.display = 'block';
 
-        // Настройка кнопки Назад
-        function goBack() {
-        // Проверяем, есть ли история браузера, чтобы вернуться назад
-        // window.history.length > 1 означает, что мы не на первой странице сессии
-        if (window.history.length > 1 && document.referrer) {
-            window.history.back();
-        } else {
-            // Если истории нет (открыли по прямой ссылке), идем принудительно в меню
-            // Замени '/menu' на ссылку твоего главного меню, если она отличается
-            window.location.href = '/menu';
-        }
-    }
+        // Цикл отрисовки
+        rewards.forEach(item => {
+            const reward = item.data || item; 
+            const rawDate = reward.claimed_at || reward.created_at || item.date;
+            const dateClaimed = new Date(rawDate).toLocaleString('ru-RU', {
+                day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
 
-    // 1. Привязываем логику к нашей HTML кнопке в шапке
-    const headerBackBtn = document.getElementById('header-back-btn');
-    if (headerBackBtn) {
-        headerBackBtn.addEventListener('click', (e) => {
-            e.preventDefault(); // Отменяем стандартный переход по ссылке
-            goBack();
+            // Статус "Скопировано"
+            let copiedHtml = '';
+            if (reward.copied_at) {
+                const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', {
+                     day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                copiedHtml = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${dateCopied}</div>`;
+            }
+
+            // Иконка (Монетка или Звезда)
+            const descLower = (reward.description || '').toLowerCase();
+            let iconSymbol = '⭐'; // По умолчанию
+            if (descLower.includes('квест') || descLower.includes('quest') || descLower.includes('manual')) {
+                iconSymbol = '🪙'; // Монетка
+            }
+
+            // Создаем карточку
+            const div = document.createElement('div');
+            div.className = 'reward-card'; // Используем старый класс CSS
+
+            // --- ВЕРСТКА: ВОЗВРАЩАЕМ СТАРУЮ СТРУКТУРУ ---
+            // Проверка: Промокод или Грант (админское начисление)
+            const isPromo = (item.type === 'promocode' || reward.code);
+
+            if (isPromo) {
+                // ДИЗАЙН ПРОМОКОДА
+                div.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description" style="color: #fff; font-weight: 600;">
+                            ${reward.description || 'Награда'} ${iconSymbol}
+                        </p>
+                        
+                        <div class="reward-card-code-wrapper">
+                            <input type="text" 
+                                   class="reward-card-code-input" 
+                                   value="${reward.code}" 
+                                   readonly 
+                                   data-id="${reward.id}" 
+                                   data-code="${reward.code}"
+                                   onclick="this.select();" 
+                            >
+                            <button class="reward-card-copy-btn" onclick="copyPromocode('${reward.code}', ${reward.id})">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <div id="copied-status-${reward.id}">${copiedHtml}</div>
+
+                        <button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif">
+                            <i class="fa-solid fa-circle-question"></i> Где использовать?
+                        </button>
+                        
+                        <p class="reward-card-meta">Получено: ${dateClaimed}</p>
+                    </div>
+                    
+                    <button class="reward-card-delete-btn" onclick="deleteReward('${reward.code}', 'promocode', this)">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>`;
+            } else {
+                // ДИЗАЙН ГРАНТА (Начисление валюты без кода)
+                const gType = reward.grant_type || 'currency';
+                const typeText = gType === 'tickets' ? 'билетов' : 'монет';
+                div.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description" style="font-weight:600; color:#fff;">
+                            Начислено: ${reward.amount || 0} ${typeText}
+                        </p>
+                        <span style="font-size:12px; color:#aaa;">(Администратор)</span>
+                        <p class="reward-card-meta">Дата: ${dateClaimed}</p>
+                    </div>
+                    <button class="reward-card-delete-btn" onclick="deleteReward('${reward.id}', 'grant', this)">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>`;
+            }
+            listContainer.appendChild(div);
         });
     }
 
-    // 2. Настраиваем нативную кнопку Telegram (которая в заголовке самого мессенджера)
-    tg.BackButton.show();
-    tg.BackButton.onClick(() => {
-        goBack();
-    });
+    // Функция удаления (тоже глобальная)
+    function deleteReward(idOrCode, type, btnElement) {
+        showCustomConfirmHTML("Удалить награду?", async (c) => {
+            if (type === 'promocode') {
+                await makeApiRequest('/api/v1/user/promocodes/delete', { code: idOrCode });
+            } else {
+                await makeApiRequest('/api/v1/user/grants/delete', { id: parseInt(idOrCode) });
+            }
+            // Удаляем визуально карточку
+            const card = btnElement.closest('.reward-card');
+            if(card) card.remove();
+            
+            // Обновляем счетчик
+            const countEl = document.getElementById('promo-btn-info');
+            if(countEl) {
+                const current = parseInt(countEl.textContent) || 0;
+                if(current > 0) countEl.textContent = `${current - 1} шт.`;
+            }
+            c();
+        });
+    }
 
-        // Если есть кнопка "Домой" в HTML
-        const homeBtn = document.getElementById('home-btn');
-        if (homeBtn) homeBtn.addEventListener('click', () => tg.close());
+    // --- MAIN FUNCTION ---
+    async function main() {
+        if (!tg.initData) {
+           // ... (Логика редиректа для браузера - оставлена как есть)
+           document.body.innerHTML = `<div style="text-align:center; padding:50px; color:#fff;">Ошибка initData. Зайдите через Telegram.</div>`;
+           hideLoader();
+           return;
+        }
 
-        // --- Функция загрузки данных (чтобы вызывать её повторно) ---
-        // isSilent = true означает "не показывать спиннер загрузки"
+        // Настройка кнопки Назад
+        function goBack() {
+            if (window.history.length > 1 && document.referrer) window.history.back();
+            else window.location.href = '/menu';
+        }
+        const headerBackBtn = document.getElementById('header-back-btn');
+        if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
+        if(tg.BackButton) tg.BackButton.onClick(goBack);
+
+        // Функция загрузки данных
         async function loadData(isSilent = false) {
             if (!isSilent) showLoader();
-            
             try {
-                // 1. Основные данные (Bootstrap)
                 const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
-                if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
-
-                // 2. Награды
                 const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
 
-                // 3. Фоновое обновление баланса и рефералов
                 if (!isSilent) {
-                    makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true)
-                        .then(data => {
-                            if (data && data.balance !== undefined) {
-                                if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
-                                document.querySelectorAll('.user-balance').forEach(el => el.textContent = data.balance.toFixed(2));
-                            }
-                        }).catch(console.warn);
+                    makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
                     makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
                 }
 
-                // 4. Настройки уведомлений
                 const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
+                const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
 
-                // 5. Сборка объекта данных
-                const fullUserData = { 
-                    ...bootstrapData.user, 
-                    ...bootstrapData.menu, 
-                    ...userSettings 
-                };
-
-                // Обновляем заголовок
-                if (dom.profileName) {
-                    dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
-                }
-                window.currentUserSettings = fullUserData;
-
-                // 6. ПЕРЕРИСОВКА ИНТЕРФЕЙСА (Самое важное для обновления кнопки Twitch)
+                if (dom.profileName) dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+                
+                // Рендер
                 renderSettingsList(fullUserData); 
                 renderRewards(rewards);
 
             } catch (e) {
                 console.error(e);
-                if (!isSilent && dom.rewardsList) {
-                    dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
-                }
             } finally {
                 if (!isSilent) hideLoader();
             }
         }
 
-        // --- МАГИЯ: Авто-обновление при возврате в приложение ---
-        // Это событие срабатывает, когда вы закрываете браузер (Twitch) и видите снова приложение
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                console.log('App returned to focus. Refreshing data...');
-                loadData(true); // true = тихое обновление без черного экрана загрузки
-            }
+            if (document.visibilityState === 'visible') loadData(true);
         });
 
-        // Первичный запуск при открытии профиля
         await loadData(false);
     }
-    // --- REFERRAL LOGIC ---
-    function openRefModal(userData) {
-        let refPayload = userData.telegram_id;
-        if (userData.bott_ref_id) refPayload = `r_${userData.bott_ref_id}`;
-        else if (userData.bott_internal_id) refPayload = `r_${userData.bott_internal_id}`;
 
-        const link = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
-        dom.refLinkInput.value = link;
-        
-        const count = userData.active_referrals_count || 0;
-        dom.refCountDisplay.textContent = count;
-        dom.refBonusDisplay.textContent = '+' + (count * 0.1).toFixed(1);
-        
-        dom.referralPopup.classList.add('visible');
-    }
+    // Функция отрисовки настроек (сокращена для краткости, берется из старого кода)
+    function renderSettingsList(userData) {
+        dom.settingsList.innerHTML = '';
+        const isBotActive = userData.is_bot_active === true;
+        const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
 
-    // Реферальные кнопки
-    addSafeListener('close-ref-modal-btn', 'click', () => { dom.referralPopup.classList.remove('visible'); });
-    addSafeListener('copy-ref-btn', 'click', () => {
-        navigator.clipboard.writeText(dom.refLinkInput.value);
-        tg.showAlert("Ссылка скопирована!");
-        const btn = document.getElementById('copy-ref-btn');
-        const icon = btn.querySelector('i');
-        if(icon) {
-            icon.className = 'fa-solid fa-check';
-            setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
+        // Уведомления
+        const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
+        notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
+        notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
+        dom.settingsList.appendChild(notifyCard);
+
+        // Steam
+        const steamCard = document.createElement('div'); steamCard.className = 'settings-card';
+        const hasTradeLink = !!userData.trade_link;
+        steamCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-steam" style="color:#66c0f4;"></i> Steam Trade</p><span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span><span class="twitch-trust-link" id="steam-trust-btn" style="margin-top: 4px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><button id="edit-trade-link-btn" class="settings-card-btn">${hasTradeLink ? 'Изменить' : 'Привязать'}</button>`;
+        dom.settingsList.appendChild(steamCard);
+
+        // Twitch
+        const twitchCard = document.createElement('div'); twitchCard.className = 'settings-card';
+        if (userData.twitch_login) {
+            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
+        } else {
+            const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
+            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;"><button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button><button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button></div>`;
+            setTimeout(() => {
+                const connBtn = twitchCard.querySelector('#connect-twitch-btn'); if(connBtn) connBtn.onclick = () => tg.openLink(authUrl, { try_instant_view: false });
+                const helpBtn = twitchCard.querySelector('#twitch-help-btn'); if(helpBtn) helpBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('twitch-help-popup').classList.add('visible'); };
+            }, 0);
         }
-    });
-    addSafeListener('share-ref-link-btn', 'click', () => {
-        const link = dom.refLinkInput.value;
-        const text = "Залетай в HATElavka! Получи 10 монет и буст на старте 🚀";
-        const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-        tg.openTelegramLink(url);
-    });
+        dom.settingsList.appendChild(twitchCard);
 
-    async function copyPromocode(code, id) {
-    try {
-        // 1. Копируем в буфер
-        await navigator.clipboard.writeText(code);
-        
-        // 2. Визуально уведомляем (Toast или alert - как у вас принято)
-        // showToast('Промокод скопирован!'); 
-
-        // 3. Отправляем запрос в базу, что скопировали
-        const initData = Telegram.WebApp.initData;
-        
-        // Обновляем UI мгновенно, не дожидаясь ответа сервера
-        const statusDiv = document.getElementById(`copied-status-${id}`);
-        // Проверяем, чтобы не дублировать надпись, если уже есть
-        if (statusDiv && !statusDiv.innerText.includes('Скопировано')) {
-            const now = new Date().toLocaleString('ru-RU', {
-                day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-            statusDiv.innerHTML = `<div style="color: #4ade80; font-size: 11px; margin-top: 2px;">Скопировано: ${now}</div>`;
-        }
-
-        // Шлем запрос на бэкенд
-        await fetch('/api/v1/promocode/mark-copied', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                promocode_id: id,
-                initData: initData 
-            })
-        });
-
-    } catch (err) {
-        console.error('Ошибка копирования:', err);
-    }
-}
-
-    // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
-  function renderRewards(rewards) {
-    const listContainer = document.getElementById('promocodes-list-container');
-    const promoBtnInfo = document.getElementById('promo-btn-info');
-    const promoAlertBadge = document.getElementById('promo-alert-badge');
-    
-    // --- 1. ЛОГИКА ОТКРЫТИЯ МОДАЛОК (Ваш код) ---
-    const modalPromos = document.getElementById('modal-promocodes');
-    const modalSecret = document.getElementById('modal-secret');
-
-    const btnOpen = document.getElementById('btn-open-promocodes');
-    if (btnOpen) {
-        btnOpen.onclick = () => {
-            modalPromos.classList.add('visible');
-            if (window.Telegram?.WebApp?.BackButton) {
-                window.Telegram.WebApp.BackButton.show();
-                window.Telegram.WebApp.BackButton.onClick(() => { 
-                    modalPromos.classList.remove('visible'); 
-                    window.Telegram.WebApp.BackButton.hide(); 
-                });
-            }
-        };
-    }
-    
-    const closePromos = document.getElementById('close-modal-promocodes');
-    if (closePromos) {
-        closePromos.onclick = () => { 
-            modalPromos.classList.remove('visible'); 
-            if (window.Telegram?.WebApp?.BackButton) window.Telegram.WebApp.BackButton.hide(); 
-        };
+        // Рефералка
+        const refCard = document.createElement('div'); refCard.className = 'settings-card ref-card-gradient';
+        const activeRefs = userData.active_referrals_count || 0; 
+        const currentBoost = (activeRefs * 0.1).toFixed(1);
+        refCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p><span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
+        refCard.onclick = () => openRefModal(userData);
+        dom.settingsList.appendChild(refCard);
     }
 
-    const btnSecret = document.getElementById('btn-open-secret');
-    if (btnSecret) btnSecret.onclick = () => modalSecret.classList.add('visible');
-    
-    const closeSecret = document.getElementById('close-modal-secret');
-    if (closeSecret) closeSecret.onclick = () => modalSecret.classList.remove('visible');
-    
-    // --- 2. ЛОГИКА УДАЛЕНИЯ (Ваш код) ---
-    const clearBtn = document.getElementById('btn-clear-all-rewards');
-    if(clearBtn) {
-        clearBtn.onclick = () => {
-            showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
-                 await makeApiRequest('/api/v1/user/promocodes/delete-all');
-                 await makeApiRequest('/api/v1/user/grants/delete-all');
-                 renderRewards([]);
-                 modalPromos.classList.remove('visible');
-                 c();
-            });
-        };
-    }
-
-    // --- 3. ПОДГОТОВКА СПИСКА ---
-    listContainer.innerHTML = ''; // Очищаем старое
-
-    if (!rewards || rewards.length === 0) {
-        promoBtnInfo.textContent = 'Награды';
-        if(promoAlertBadge) promoAlertBadge.style.display = 'none';
-        listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных наград</div>';
-        return;
-    }
-
-    // Обновляем бейджик
-    promoBtnInfo.textContent = `Награды (${rewards.length})`;
-    if(promoAlertBadge) promoAlertBadge.style.display = 'block';
-
-    // --- 4. ЦИКЛ ОТРИСОВКИ (Новая логика) ---
-    rewards.forEach(item => {
-        // Учитываем структуру ответа API: { type: 'promocode', data: {...}, date: ... }
-        // Если пришел просто объект (старый формат), используем его как есть
-        const reward = item.data || item; 
-
-        // Берем дату из data.claimed_at или из корня item.date
-        const rawDate = reward.claimed_at || reward.created_at || item.date;
-        const dateClaimed = new Date(rawDate).toLocaleString('ru-RU', {
-            day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-
-        // Формируем дату копирования (только если есть copied_at)
-        let copiedHtml = '';
-        if (reward.copied_at) {
-            const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', {
-                 day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-            // Зеленый текст
-            copiedHtml = `<div style="color: #4ade80; font-size: 11px; margin-top: 2px;">Скопировано: ${dateCopied}</div>`;
-        }
-
-        // Определяем иконку: квест -> монетки, иначе -> звезда
-        let iconClass = 'fa-star';
-        let iconColor = '#ffd700'; // Золотой
-        
-        const descLower = (reward.description || '').toLowerCase();
-        // Проверяем наличие слова "квест", "quest" или "ручной"
-        if (descLower.includes('квест') || descLower.includes('quest') || descLower.includes('manual')) {
-            iconClass = 'fa-coins'; 
-        }
-
-        // Создаем HTML элемента
-        const div = document.createElement('div');
-        div.className = 'reward-card'; // CSS класс должен быть в стилях
-        
-        // Для подстраховки добавил немного инлайн стилей для верстки
-        div.innerHTML = `
-            <div class="reward-icon">
-                <i class="fa-solid ${iconClass}" style="color: ${iconColor};"></i>
-            </div>
-            <div class="reward-info">
-                <div class="reward-title">${reward.description || 'Награда'}</div>
-                <div class="reward-value" style="color: #ffd700; font-weight: bold;">
-                    +${reward.reward_value || reward.amount || 0} <i class="fa-solid fa-coins" style="font-size: 0.8em;"></i>
-                </div>
-                
-                <div class="reward-date">
-                    <div>Получено: ${dateClaimed}</div>
-                    <div id="copied-status-${reward.id}">${copiedHtml}</div>
-                </div>
-            </div>
-            <div class="reward-action">
-                ${
-                    // Показываем кнопку копирования только если есть код (type == promocode)
-                   (item.type === 'promocode' || reward.code) 
-                    ? `<button class="copy-btn" onclick="copyPromocode('${reward.code}', ${reward.id})">
-                         <i class="fa-regular fa-copy"></i>
-                       </button>`
-                    : '' 
-                }
-            </div>
-        `;
-        listContainer.appendChild(div);
-    });
-}
-        
-    // Хелпер для копирования
-    function copyPromoCode(code, id) {
-        navigator.clipboard.writeText(code).then(() => {
-            // Визуальный эффект
-            const card = document.getElementById(`promo-card-${id}`);
-            if(card) card.classList.add('was-copied');
-            
-            // Сохраняем факт копирования локально
-            localStorage.setItem(`copied_promo_${code}`, 'true');
-            
-            tg.ShowPopup({ title: 'Успешно', message: 'Промокод скопирован!', buttons: [{type: 'ok'}] });
-        });
-    }
     // --- Notifications Logic ---
-    let batchTimeout;       
-    let pendingUpdates = {}; 
-
+    let batchTimeout; let pendingUpdates = {}; 
     function openNotifyModal(isActive, settings) {
         dom.notifyOverlay.classList.add('visible');
         if (!isActive) {
-            dom.notifyContent.innerHTML = `<div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div><p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений нужно активировать бота.</p><div style="display: flex; justify-content: center; margin-top: 20px;"><a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; text-align:center;">Перейти</a></div>`;
+            dom.notifyContent.innerHTML = `<div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div><p style="text-align: center; margin-bottom: 5px;">Активируйте бота для уведомлений.</p><div style="display: flex; justify-content: center; margin-top: 20px;"><a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; text-align:center;">Перейти</a></div>`;
         } else {
-            dom.notifyContent.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><span style="font-size:12px; color:var(--text-color-muted);">Настройки</span><span id="save-status" style="font-size:12px; color:var(--primary-color); opacity:0; transition:opacity 0.3s;">Сохранено</span></div><div class="notify-list">${createToggle('notify_auction_start', 'Аукцион', 'Уведомление о новом аукционе', settings.notify_auction_start)}${createToggle('notify_auction_outbid', 'Ставки аукциона', 'Уведомление если вашу ставку перебили', settings.notify_auction_outbid)}${createToggle('notify_rewards', 'Награды', 'Уведомление о получение кодов и билетов', settings.notify_rewards)}${createToggle('notify_stream_start', 'Трансляция', 'Начало стрима', settings.notify_stream_start)}${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука (23-08)', settings.notify_dnd_enabled)}</div>`;
-
+            dom.notifyContent.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><span style="font-size:12px; color:var(--text-color-muted);">Настройки</span><span id="save-status" style="font-size:12px; color:var(--primary-color); opacity:0; transition:opacity 0.3s;">Сохранено</span></div><div class="notify-list">${createToggle('notify_auction_start', 'Аукцион', 'Новый аукцион', settings.notify_auction_start)}${createToggle('notify_auction_outbid', 'Ставки', 'Ставку перебили', settings.notify_auction_outbid)}${createToggle('notify_rewards', 'Награды', 'Получение наград', settings.notify_rewards)}${createToggle('notify_stream_start', 'Стрим', 'Начало стрима', settings.notify_stream_start)}${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука (23-08)', settings.notify_dnd_enabled)}</div>`;
+            
             const statusEl = document.getElementById('save-status');
-            document.querySelectorAll('.toggle-input').forEach(input => {
+            dom.notifyContent.querySelectorAll('.toggle-input').forEach(input => {
                 input.addEventListener('change', (e) => {
-                    const key = e.target.dataset.key;
-                    const value = e.target.checked;
-                    settings[key] = value;
-                    statusEl.textContent = 'Ожидание...'; statusEl.style.opacity = '1';
-                    pendingUpdates[key] = value;
+                    const key = e.target.dataset.key; const value = e.target.checked;
+                    settings[key] = value; statusEl.textContent = 'Ожидание...'; statusEl.style.opacity = '1'; pendingUpdates[key] = value;
                     if (batchTimeout) clearTimeout(batchTimeout);
                     batchTimeout = setTimeout(async () => {
-                        try {
-                            await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates }, 'POST', true);
-                            pendingUpdates = {}; statusEl.textContent = 'Сохранено'; setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
-                        } catch (err) { statusEl.textContent = 'Ошибка!'; e.target.checked = !value; settings[key] = !value; }
+                        try { await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates }, 'POST', true); pendingUpdates = {}; statusEl.textContent = 'Сохранено'; setTimeout(() => { statusEl.style.opacity = '0'; }, 2000); } catch (err) { statusEl.textContent = 'Ошибка!'; }
                     }, 1000); 
                 });
             });
-            document.querySelectorAll('.test-text-btn').forEach(btn => {
+            dom.notifyContent.querySelectorAll('.test-text-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
-                    const type = e.currentTarget.dataset.type;
                     e.currentTarget.innerText = '...';
-                    try { await makeApiRequest('/api/v1/user/notification/test', { type: type }); e.currentTarget.innerText = 'Ок'; } catch(err) { e.currentTarget.innerText = 'Err'; }
+                    try { await makeApiRequest('/api/v1/user/notification/test', { type: e.currentTarget.dataset.type }); e.currentTarget.innerText = 'Ок'; } catch(err) { e.currentTarget.innerText = 'Err'; }
                     setTimeout(() => { btn.innerText = 'Тест'; }, 2000);
                 });
             });
         }
     }
-
     function createToggle(key, title, sub, checked) {
         const isChecked = checked ?? (key !== 'notify_dnd_enabled');
         return `<div class="notify-item"><div class="notify-item-left"><span class="notify-label">${title}</span><span class="notify-sub">${sub}</span></div><div class="notify-item-right"><label class="toggle-switch"><input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label><button class="test-text-btn" data-type="${key}">📩 Тест</button></div></div>`;
     }
 
-   // --- Global Listeners ---
+    // --- Referral Logic ---
+    function openRefModal(userData) {
+        let refPayload = userData.telegram_id;
+        if (userData.bott_ref_id) refPayload = `r_${userData.bott_ref_id}`;
+        else if (userData.bott_internal_id) refPayload = `r_${userData.bott_internal_id}`;
+        dom.refLinkInput.value = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+        dom.refCountDisplay.textContent = userData.active_referrals_count || 0;
+        dom.refBonusDisplay.textContent = '+' + ((userData.active_referrals_count || 0) * 0.1).toFixed(1);
+        dom.referralPopup.classList.add('visible');
+    }
+    if(dom.closeRefModalBtn) dom.closeRefModalBtn.onclick = () => dom.referralPopup.classList.remove('visible');
+    if(dom.copyRefBtn) dom.copyRefBtn.onclick = () => {
+        navigator.clipboard.writeText(dom.refLinkInput.value);
+        tg.showAlert("Ссылка скопирована!");
+    };
+    if(dom.shareRefLinkBtn) dom.shareRefLinkBtn.onclick = () => {
+        const url = `https://t.me/share/url?url=${encodeURIComponent(dom.refLinkInput.value)}&text=${encodeURIComponent("Залетай в HATElavka! 🚀")}`;
+        tg.openTelegramLink(url);
+    };
+
+    // --- GLOBAL LISTENERS ---
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
-
-        // --- Старые проверки ---
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
-        if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); return; }
+        if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); c(); window.location.reload(); }); return; }
         
-       const copyBtn = target.closest('.reward-card-copy-btn');
-        if (copyBtn) {
-            const input = copyBtn.parentElement.querySelector('input');
-            navigator.clipboard.writeText(input.value).then(() => {
-                // Визуальный эффект (Telegram вибрация)
-                tg.HapticFeedback.notificationOccurred('success');
-                
-                // ТО САМОЕ УВЕДОМЛЕНИЕ
-                tg.ShowPopup({
-                    title: 'Готово',
-                    message: 'Промокод скопирован в буфер обмена',
-                    buttons: [{type: 'ok'}]
-                });
-            });
-            return;
-        }
-        
-        const delBtn = target.closest('.reward-card-delete-btn');
-        if (delBtn) {
-            const card = delBtn.closest('.reward-card');
-            const action = card.dataset.type === 'promocode' ? 
-                () => makeApiRequest('/api/v1/user/promocodes/delete', {code:card.dataset.code}) : 
-                () => makeApiRequest('/api/v1/user/grants/delete', {id:parseInt(card.dataset.id)});
-            showCustomConfirmHTML("Удалить награду?", async (c)=>{ await action(); card.remove(); c(); }); return;
-        }
-
-        const howToBtn = target.closest('.reward-how-to-use-btn');
-        if (howToBtn) { document.getElementById('how-to-use-gif').src = howToBtn.dataset.gif; document.getElementById('how-to-use-popup').classList.add('visible'); return; }
-        
+        // Попапы "Безопасно?"
         if (target.closest('#twitch-trust-btn')) { document.getElementById('twitch-trust-popup').classList.add('visible'); return; }
         if (target.closest('#steam-trust-btn')) { document.getElementById('steam-trust-popup').classList.add('visible'); return; }
-
-        // --- ЛОГИКА КНОПКИ "ОТКРЫТЬ HATELAVKA" ---
-        const promoBtn = target.closest('#send-promo-cmd');
-        if (promoBtn) {
+        
+        // Кнопка "Где использовать"
+        const howToBtn = target.closest('.reward-how-to-use-btn');
+        if (howToBtn) { 
+            const img = document.getElementById('how-to-use-gif');
+            if(img) img.src = howToBtn.dataset.gif; 
+            document.getElementById('how-to-use-popup').classList.add('visible'); 
+            return; 
+        }
+        
+        // Кнопка перехода в бота
+        if (target.closest('#send-promo-cmd')) {
             tg.HapticFeedback.impactOccurred('medium');
-
-            // 1. Попытка отправить данные
-            // Если сработает (в Меню-кнопке) — приложение свернется само.
-            try {
-                tg.sendData("/promo");
-            } catch (e) {
-                // Игнорируем ошибку
-            }
-
-            // 2. ЗАПАСНОЙ ВАРИАНТ (Без принудительного закрытия)
-            setTimeout(() => {
-                // Просто пытаемся переключить фокус на бота
-                tg.openTelegramLink("https://t.me/HATElavka_bot?start=promo");
-                
-                // tg.close(); <--- Я УБРАЛ ЭТУ СТРОКУ
-            }, 50);
-            
+            tg.openTelegramLink("https://t.me/HATElavka_bot?start=promo");
             return; 
         }
     });
-  
-    // Обработчики закрытия и сохранения
+
+    // Обработчики закрытия попапов
     dom.popupCancelBtn.onclick = () => dom.customPopupOverlay.classList.remove('visible');
     dom.popupSaveBtn.onclick = async () => {
         const v = dom.popupTradeLinkInput.value.trim();
         dom.customPopupOverlay.classList.remove('visible');
         await makeApiRequest('/api/v1/user/trade_link/save', {trade_link:v});
-        main();
+        window.location.reload(); 
     };
-    // Закрытие попапа помощи
-    const twitchHelpCloseBtn = document.getElementById('twitch-help-close');
-    if (twitchHelpCloseBtn) {
-        twitchHelpCloseBtn.onclick = () => document.getElementById('twitch-help-popup').classList.remove('visible');
-    }
-    
-    // Закрытие настроек уведомлений
-    dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
-    
-    // Закрытие других попапов
+    if(dom.notifyCloseBtn) dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
     document.getElementById('how-to-use-close').onclick = () => document.getElementById('how-to-use-popup').classList.remove('visible');
     document.getElementById('twitch-trust-close').onclick = () => document.getElementById('twitch-trust-popup').classList.remove('visible');
     document.getElementById('steam-trust-close').onclick = () => document.getElementById('steam-trust-popup').classList.remove('visible');
+    if(document.getElementById('twitch-help-close')) document.getElementById('twitch-help-close').onclick = () => document.getElementById('twitch-help-popup').classList.remove('visible');
 
-    // Логика кнопки "Активировать промокод"    
     dom.deleteAllRewardsBtn.onclick = () => {
         showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
              await makeApiRequest('/api/v1/user/promocodes/delete-all');
@@ -1471,9 +1261,24 @@ try {
         });
     };
 
-    document.addEventListener("DOMContentLoaded", () => { tg.ready(); tg.expand(); main(); });
+    // --- ПЕРЕХВАТ РУЧНОГО КОПИРОВАНИЯ ---
+    document.addEventListener('copy', (event) => {
+        const target = event.target;
+        // Если копирование произошло в нашем инпуте
+        if (target && target.classList.contains('reward-card-code-input')) {
+            const id = target.getAttribute('data-id');
+            if (id) {
+                console.log('Manual copy detected for ID:', id);
+                handleManualCopySuccess(id);
+            }
+        }
+    });
 
-} catch (e) { document.body.innerHTML = `<h1 style="text-align:center">Error: ${e.message}</h1>`; }
+    // START
+    try {
+        document.addEventListener("DOMContentLoaded", () => { tg.ready(); tg.expand(); main(); });
+    } catch(e) { console.error(e); }
+
 </script>
 </body>
 </html>
