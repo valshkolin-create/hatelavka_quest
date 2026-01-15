@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-<html lang="ru">
 <head>
     <meta charset="UTF-8" />
     <title>Мой профиль</title>
@@ -7,7 +5,6 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
-        /* --- 1. БАЗОВЫЕ СТИЛИ ИЗ PROFILE (3) --- */
         :root {
             --bg-gradient: radial-gradient(ellipse at 50% 100%, #041a07, #000000);
             --bg-color: #000000;
@@ -22,6 +19,7 @@
             --notification-icon-color: #00c0e3;
         }
         
+        /* --- Общие стили --- */
         body { 
             margin: 0; 
             min-height: 100vh; 
@@ -65,7 +63,7 @@
             text-decoration: none; 
         }
 
-        /* --- КАРТОЧКИ НАСТРОЕК (PROFILE 3) --- */
+        /* --- Карточки настроек --- */
         .card-container { 
             display: flex; 
             flex-direction: column;
@@ -141,7 +139,7 @@
             font-size: 14px;
         }
 
-        /* --- УВЕДОМЛЕНИЯ (Popups) --- */
+        /* --- Стили списка уведомлений (Popup) --- */
         .notify-list { 
             display: flex; 
             flex-direction: column; 
@@ -197,28 +195,46 @@
         }
         .test-text-btn:active { opacity: 0.5; }
 
+        /* Toggle Switch (iOS Style) */
         .toggle-switch {
             position: relative;
             width: 51px;
             height: 31px;
             flex-shrink: 0;
         }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-switch input { 
+            opacity: 0; 
+            width: 0; 
+            height: 0; 
+        }
         .slider {
-            position: absolute; cursor: pointer;
+            position: absolute;
+            cursor: pointer;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #39393d; transition: .4s; border-radius: 34px;
+            background-color: #39393d;
+            transition: .4s;
+            border-radius: 34px;
         }
         .slider:before {
-            position: absolute; content: "";
-            height: 27px; width: 27px; left: 2px; bottom: 2px;
-            background-color: white; transition: .4s; border-radius: 50%;
+            position: absolute;
+            content: "";
+            height: 27px;
+            width: 27px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        input:checked + .slider { background-color: var(--primary-color); }
-        input:checked + .slider:before { transform: translateX(20px); }
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
 
-        /* --- КАРТОЧКИ НАГРАД (СТИЛЬ PROFILE 3 - ВОЗВРАЩЕНО) --- */
+        /* --- Секция наград (Заголовки и кнопки панели) --- */
         .rewards-header {
             display: flex;
             justify-content: space-between;
@@ -237,83 +253,11 @@
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            display: none;
+            display: none; /* Скрыто по умолчанию, управляется JS */
             padding: 5px;
         }
-        
-        /* ВАЖНО: Стили темной карточки из Profile 3 */
-        .reward-card {
-            position: relative;
-            background-color: var(--surface-color-2);
-            border-radius: 12px;
-            padding: 12px 15px;
-            margin-bottom: 10px; /* Добавил отступ между карточками */
-            flex-shrink: 0;
-        }
-        .reward-card-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-        }
-        .reward-card-details { flex-grow: 1; min-width: 0; }
-        .reward-card-description {
-            font-size: 14px;
-            margin: 0 0 10px 0;
-            color: var(--text-color-muted);
-        }
-        .reward-card-code-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background-color: rgba(0,0,0,0.4);
-            border-radius: 8px;
-            padding: 5px 5px 5px 12px;
-        }
-        .reward-card-code-input {
-            flex-grow: 1; background: none; border: none;
-            color: var(--primary-color);
-            font-family: monospace; font-size: 15px; font-weight: 600;
-            outline: none;
-            width: 100%;
-        }
-        .reward-card-copy-btn {
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0; background-color: var(--action-color);
-            color: white; border: none; border-radius: 6px;
-            width: 32px; height: 32px; font-size: 14px;
-            cursor: pointer; transition: background-color 0.2s ease;
-        }
-        .reward-card-meta {
-            font-size: 11px;
-            color: var(--text-color-muted);
-            margin: 8px 0 0 0;
-        }
-        .reward-card-delete-btn {
-            position: absolute; top: 10px; right: 10px;
-            background: none; border: none;
-            color: var(--text-color-muted);
-            font-size: 17px; cursor: pointer;
-            transition: color 0.2s ease;
-        }
-        .reward-card-delete-btn:hover { color: var(--danger-color); }
-        .reward-how-to-use-btn {
-            display: inline-flex; align-items: center; gap: 6px;
-            background-color: rgba(255, 255, 255, 0.08);
-            color: var(--action-color);
-            border: none; border-radius: 6px;
-            font-size: 12px; font-weight: 500;
-            padding: 5px 10px;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.15s ease;
-            text-decoration: none;
-            margin-top: 8px; 
-        }
-        .reward-how-to-use-btn:active { transform: scale(0.96); }
 
-        /* --- 2. НОВЫЕ СТИЛИ ДЛЯ МЕНЮ И МОДАЛОК (ИЗ PROFILE 8, ЧТОБЫ РАБОТАЛО) --- */
-        
-        /* Кнопки меню (большие) */
+        /* --- НОВОЕ МЕНЮ НАГРАД (КНОПКИ) --- */
         .rewards-dashboard {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -340,14 +284,19 @@
         .dash-btn i { font-size: 24px; margin-bottom: 8px; color: var(--primary-color); }
         .dash-btn .title { font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 4px; }
         .dash-btn .info { font-size: 10px; color: var(--text-color-muted); }
+        
+        /* Бейдж "Сгорают" */
         .dash-btn .badge-alert {
             position: absolute; top: 0; left: 0; width: 100%;
             background: rgba(255, 59, 48, 0.2); color: #ff3b30;
             font-size: 9px; padding: 2px 0; font-weight: 800;
             display: none;
         }
+        .dash-btn.has-warning .badge-alert { display: block; }
+        .dash-btn.has-warning { border-color: rgba(255, 59, 48, 0.4); }
 
-        /* МОДАЛЬНЫЕ ОКНА (С ФИКСОМ) */
+
+        /* --- МОДАЛЬНЫЕ ОКНА НА ВЕСЬ ЭКРАН (ФИКС СЛОЕВ) --- */
         .custom-modal {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -358,11 +307,16 @@
             flex-direction: column;
             transform: translateY(100%);
             transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-            /* ФИКС: Используем безопасную зону вместо высоты экрана */
+            
+            /* ИСПРАВЛЕНИЕ: Используем безопасную зону (челку) вместо высоты экрана */
             padding-top: var(--tg-content-safe-area-inset-top, 20px); 
+            
             box-sizing: border-box;
         }
-        .custom-modal.visible { transform: translateY(0); }
+
+        .custom-modal.visible {
+            transform: translateY(0); /* Выезжает вверх */
+        }
         .modal-card {
             width: 100%; height: 100%;
             display: flex; flex-direction: column;
@@ -389,50 +343,60 @@
         .modal-body {
             flex-grow: 1;
             padding: 15px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            overflow-y: auto; /* ВКЛЮЧАЕТ СВАЙП/СКРОЛЛ */
+            -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: flex-start; /* КОНТЕНТ СТРОГО СВЕРХУ */
             padding-bottom: 80px;
         }
 
-        /* --- ОБЩИЕ ПОПАПЫ (Profile 3) --- */
-        .custom-popup-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); z-index: 99999;
-            display: flex; align-items: center; justify-content: center;
-            padding: 15px; box-sizing: border-box;
-            opacity: 0; visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0s 0.3s;
-        }
-        .custom-popup-overlay.visible { opacity: 1; visibility: visible; transition: opacity 0.3s ease, visibility 0s 0s; }
-        
-        .custom-popup {
-            background-color: #1c1c1e;
-            border-radius: 14px; padding: 20px;
-            width: 90%; max-width: 380px; max-height: 85vh;
-            display: flex; flex-direction: column;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        /* --- КАРТОЧКА НАГРАДЫ ВНУТРИ МОДАЛКИ (ВАШ СТАРЫЙ ДИЗАЙН) --- */
+        .reward-item {
+            background: rgba(255, 255, 255, 0.05); /* Как было у вас */
             border: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center; overflow: hidden;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-shrink: 0; /* Чтобы не сжимались */
         }
-        .popup-scroll-area {
-            overflow-y: auto; flex-grow: 1; margin-bottom: 15px; padding-right: 5px; text-align: left;
-            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+        .reward-header {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 14px; font-weight: 600; color: #fff;
         }
-        .custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; flex-shrink: 0; }
-        .custom-popup p { margin: 0 0 20px 0; font-size: 14px; color: var(--text-color-muted); line-height: 1.4; }
-        .custom-popup .popup-actions { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .popup-btn { 
-            width: 100%; border: none; padding: 12px; border-radius: 10px; 
-            font-size: 16px; font-weight: 600; cursor: pointer; 
-            display: flex; align-items: center; justify-content: center;
-        }
-        .popup-btn.primary { background-color: var(--primary-color); color: white; }
-        .popup-btn.secondary { background-color: #3a3a3c; color: white; }
+        .reward-value { color: var(--primary-color); font-weight: bold; }
 
-        /* Лоадер */
+        .reward-code-container {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: monospace; font-size: 16px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            color: #fff;
+        }
+
+        .reward-actions {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            margin-top: 5px;
+        }
+
+        .btn-action {
+            border: none; padding: 10px 0; border-radius: 8px;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            color: #fff; text-decoration: none;
+        }
+        .btn-copy-action { background: rgba(255, 255, 255, 0.1); }
+        .btn-help-action { background: rgba(52, 199, 89, 0.15); color: var(--primary-color); }
+        
+        .expiry-info { font-size: 10px; text-align: center; color: var(--danger-color); font-weight: bold; }
+
+
+        /* --- Загрузчик --- */
         .loader-overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.6); z-index: 300; 
@@ -447,13 +411,63 @@
             animation: spin 1s linear infinite; 
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- ПОПАПЫ "КАК ИСПОЛЬЗОВАТЬ" И ДР. (ВЫШЕ ВСЕГО) --- */
+        .custom-popup-overlay, .popup-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 99999 !important; /* САМЫЙ ВЕРХНИЙ СЛОЙ */
+            display: flex; align-items: center; justify-content: center;
+            padding: 15px; box-sizing: border-box;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s 0.3s;
+        }
+        .custom-popup-overlay.visible, .popup-overlay.visible {
+            opacity: 1; visibility: visible;
+            transition: opacity 0.3s ease, visibility 0s 0s;
+        }
         
-        .twitch-trust-link { font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; opacity: 0.8; margin-top: 4px; display: inline-block; }
+        /* Исправленные стили попапа */
+        #how-to-use-popup, #twitch-help-popup, #twitch-trust-popup, #steam-trust-popup {
+             z-index: 99999 !important;
+        }
+
+        .custom-popup {
+            background-color: #1c1c1e;
+            border-radius: 14px;
+            padding: 20px;
+            width: 90%; max-width: 380px;
+            max-height: 85vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            overflow: hidden; 
+        }
+
+        .popup-scroll-area {
+            overflow-y: auto; flex-grow: 1; margin-bottom: 15px; padding-right: 5px; text-align: left;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        
+        .custom-popup h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; flex-shrink: 0; }
+        .custom-popup p { margin: 0 0 20px 0; font-size: 14px; color: var(--text-color-muted); line-height: 1.4; }
+        
+        /* --- Ссылка "Безопасно?" для Twitch --- */
+        .twitch-trust-link {
+            font-size: 11px; color: var(--text-color-muted);
+            text-decoration: underline; cursor: pointer; opacity: 0.8;
+            margin-top: 4px; display: inline-block;
+        }
+
+        /* --- Стили для Реферальной системы --- */
         .ref-card-gradient { background: linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(0,0,0,0)); border: 1px solid rgba(52, 199, 89, 0.3); }
         .ref-stat-box { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; text-align: center; flex: 1; }
         .ref-stat-val { font-size: 18px; font-weight: 700; color: #fff; }
         .ref-stat-lbl { font-size: 10px; color: #aaa; text-transform: uppercase; }
-        
+
+        /* Анимации */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .custom-confirm-overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -461,6 +475,92 @@
             display: flex; align-items: center; justify-content: center;
             backdrop-filter: blur(4px); animation: fadeIn 0.2s;
         }
+        /* --- СТИЛИ КАРТОЧЕК ИЗ PROFILE (3) --- */
+        .reward-card {
+            position: relative;
+            background-color: var(--surface-color-2);
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 10px; /* Добавил отступ снизу */
+        }
+        .reward-card-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        .reward-card-details { flex-grow: 1; }
+        .reward-card-description {
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            color: var(--text-color-muted);
+        }
+        .reward-card-code-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 5px 5px 5px 12px;
+        }
+        .reward-card-code-input {
+            flex-grow: 1; background: none; border: none;
+            color: var(--primary-color);
+            font-family: monospace; font-size: 15px; font-weight: 600;
+            outline: none;
+            width: 100%; /* Фикс ширины */
+        }
+        .reward-card-copy-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background-color: var(--action-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .reward-card-meta {
+            font-size: 11px;
+            color: var(--text-color-muted);
+            margin: 8px 0 0 0;
+        }
+        .reward-card-delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--text-color-muted);
+            font-size: 17px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .reward-card-delete-btn:hover {
+            color: var(--danger-color);
+        }
+        .reward-how-to-use-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--action-color);
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.15s ease;
+            text-decoration: none;
+            margin-top: 8px; 
+        }
+        .reward-how-to-use-btn:active { transform: scale(0.96); }
     </style>
 </head>
 <body>
@@ -490,8 +590,8 @@
             <div class="dash-btn" id="btn-open-promocodes">
                 <div class="badge-alert" id="promo-alert-badge">Сгорают скоро!</div>
                 <i class="fa-solid fa-ticket"></i>
-                <div class="title">PROMOCODE SHOP</div>
-                <div class="info">Промокоды для монеток</div>
+                <div class="title">Промокоды</div>
+                <div class="info">Промокоды для получения монеток</div>
                 <div class="info" id="promo-btn-info">Загрузка...</div>
             </div>
 
@@ -506,12 +606,13 @@
     <div class="custom-modal" id="modal-promocodes">
         <div class="modal-card">
             <div class="modal-header">
-                <div class="modal-title"><i class="fa-solid fa-gift"></i> PROMOCODE SHOP</div>
+                <div class="modal-title"><i class="fa-solid fa-gift"></i> Твои промокоды</div>
                 <button class="modal-close" id="close-modal-promocodes"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="modal-body">
-                <div id="promocodes-list-container" style="width: 100%;"></div>
+                <div id="promocodes-list-container" style="width: 100%;">
+                    </div>
 
                 <div style="margin-top: 20px; text-align: center; padding-bottom: 20px;">
                     <button id="btn-clear-all-rewards" style="background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer;">
@@ -545,8 +646,8 @@
             <div id="notify-content-area">
                 <div class="spinner" style="margin: 20px auto;"></div>
             </div>
-            <div class="popup-actions" style="margin-top: 20px;">
-                <button id="notify-close-btn" class="popup-btn secondary">Закрыть</button>
+            <div class="popup-actions" style="margin-top: 20px; display: flex; justify-content: center;">
+                <button id="notify-close-btn" class="popup-btn secondary" style="width: 100%;">Закрыть</button>
             </div>
         </div>
     </div>
@@ -561,7 +662,7 @@
                     <i class="fa-solid fa-circle-question"></i> Где найти?
                 </a>
             </div>
-            <div class="popup-actions" style="flex-direction: row; gap: 10px;">
+            <div class="popup-actions">
                 <button id="popup-cancel-btn" class="popup-btn secondary">Отмена</button>
                 <button id="popup-save-btn" class="popup-btn primary">Сохранить</button>
             </div>
@@ -574,70 +675,109 @@
             <p>Скопируйте код и активируйте его в боте.</p>
             <img id="how-to-use-gif" src="" alt="Инструкция" style="width:100%; border-radius:10px;">
             
-            <div class="popup-actions">
-                <button id="send-promo-cmd" class="popup-btn primary">
-                    <i class="fa-brands fa-telegram" style="margin-right:8px"></i> Открыть HATElavka
+            <div class="popup-actions" style="margin-top:15px; display: flex; flex-direction: column; gap: 10px;">
+                
+                <button id="send-promo-cmd" class="popup-btn primary" 
+                   style="width: 100%; box-sizing: border-box; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0;">
+                    <i class="fa-brands fa-telegram"></i> Открыть HATElavka
                 </button>
-                <button id="how-to-use-close" class="popup-btn secondary">
+                
+                <button id="how-to-use-close" class="popup-btn secondary" 
+                        style="width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; margin: 0;">
                     Закрыть
                 </button>
+                
             </div>
         </div>
     </div>
-    
     <div id="twitch-trust-popup" class="custom-popup-overlay">
         <div class="custom-popup">
             <div class="popup-header-icon" style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
             <h3>Безопасно ли это?</h3>
+            
             <div class="popup-scroll-area">
                 <div style="font-size: 13px; color: #ccc; line-height: 1.5;">
                     <p style="margin-bottom: 10px;">
-                        Мы используем <b>официальную авторизацию Twitch (OAuth)</b>.
+                        Мы используем <b>официальную авторизацию Twitch (OAuth)</b>. Это тот же метод, который используют крупные сайты (Streamlabs, Twitch Drops).
                     </p>
                     <ul style="padding-left: 20px; margin: 0;">
-                        <li>🔒 <b>Приложение НЕ видит ваш пароль</b></li>
+                        <li>🔒 <b>Приложение НЕ видит ваш пароль, нам не нужен ваш твич</b></li>
                         <li>✅ Приложение получает только ваш <b>Никнейм</b> и <b>ID</b>.</li>
+                        <li>📺 Это нужно для автоматического начисления наград.</li>
                     </ul>
+                    
                     <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;">
-                        <p style="margin: 0;">💡 Сначала авторизуйтесь на twitch.tv в этом браузере.</p>
+                        <p style="margin: 0;">
+                            💡 <b>Совет:</b> Не хотите вводить пароль здесь?
+                            <br><br>
+                            Сначала откройте сайт <b>twitch.tv</b> и авторизуйтесь <u>во встроенном браузере Telegram</u> (не выходя из приложения, <b>это обязательно!</b>).
+                            <br><br>
+                            После этого нажмите нашу кнопку - вход произойдет <b>автоматически и мгновенно</b>, так как Telegram уже будет знать вашу сессию.
+                        </p>
                     </div>
                 </div>
             </div>
+
             <div class="popup-actions">
                 <button id="twitch-trust-close" class="popup-btn primary">Всё понятно</button>
             </div>
         </div>
     </div>
-
     <div id="steam-trust-popup" class="custom-popup-overlay">
-        <div class="custom-popup">
-            <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
-            <h3>Безопасно ли это?</h3>
-            <div style="text-align: left; font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 20px;">
-                <p>Ввод <b>Trade Link</b> безопасен. Мы можем только отправлять вам предметы.</p>
-            </div>
-            <div class="popup-actions">
-                <button id="steam-trust-close" class="popup-btn primary">Всё понятно</button>
-            </div>
+    <div class="custom-popup">
+        <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
+        <h3>Безопасно ли это?</h3>
+        
+        <div style="text-align: left; font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 20px;">
+            <p style="margin-bottom: 10px;">
+                Ввод <b>Trade Link</b> (ссылки на обмен) абсолютно безопасен.
+            </p>
+            <ul style="padding-left: 20px; margin: 0;">
+                <li>✅ По этой ссылке мы можем <b>только отправить</b> вам предметы.</li>
+                <li>⛔ Мы <b>НЕ можем</b> забрать ваши вещи.</li>
+                <li>🔒 Мы <b>НЕ получаем</b> доступ к вашему аккаунту, паролю или почте.</li>
+            </ul>
+        </div>
+
+        <div class="popup-actions">
+            <button id="steam-trust-close" class="popup-btn primary">Всё понятно</button>
         </div>
     </div>
+</div>
     
     <div id="twitch-help-popup" class="custom-popup-overlay">
-        <div class="custom-popup">
-            <div style="font-size: 40px; margin-bottom: 10px;">🆘</div>
-            <h3>Нужна помощь?</h3>
+    <div class="custom-popup">
+        <div style="font-size: 40px; margin-bottom: 10px;">🆘</div>
+        <h3>Нужна помощь?</h3>
+        
+        <div style="text-align: left; font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 20px;">
+            <p style="margin-bottom: 8px;">Не удается привязать аккаунт автоматически?</p>
             <p>Напишите администратору, он добавит ваш Twitch вручную.</p>
-            <div class="popup-actions">
-                <a href="https://t.me/hatelove_twitch" target="_blank" class="popup-btn primary" style="text-decoration:none;">Написать админу</a>
-                <button id="twitch-help-close" class="popup-btn secondary">Закрыть</button>
-            </div>
+        </div>
+
+        <div class="popup-actions">
+            <a href="https://t.me/hatelove_twitch?text=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82!%20%D0%9D%D0%B5%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B0%D0%B5%D1%82%D1%81%D1%8F%20%D0%B0%D0%B2%D1%82%D0%BE%D0%BC%D0%B0%D1%82%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8%20%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D1%8C%D1%81%D1%8F,%20%D0%BF%D0%BE%D0%BC%D0%BE%D0%B3%D0%B8%20%D0%BF%D0%BE%D0%B6%D0%B0%D0%BB%D1%83%D0%B9%D1%81%D1%82%D0%B0" 
+               target="_blank" 
+               class="popup-btn primary" 
+               style="text-decoration: none; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
+               Написать админу
+            </a>
+            
+            <button id="twitch-help-close" class="popup-btn secondary">
+                Закрыть
+            </button>
         </div>
     </div>
+</div>
+    
 
     <div id="referral-popup" class="custom-popup-overlay">
         <div class="custom-popup" style="text-align: left;">
             <h3 style="text-align: center; margin-bottom: 5px;">Реферальная система</h3>
-            <p style="text-align: center; font-size: 12px; margin-bottom: 20px; color:#aaa;">Зови друзей и получай бонусы!</p>
+            <p style="text-align: center; font-size: 12px; margin-bottom: 20px; color:#aaa;">
+                Зови друзей и получай бонусы!<br>
+                <span style="font-size:10px; color:#777;">(Учитываются только забравшие бонус)</span>
+            </p>
             
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <div class="ref-stat-box">
@@ -650,15 +790,23 @@
                 </div>
             </div>
 
+            <div style="text-align: left; font-size: 13px; color: #ccc; margin-bottom: 20px; line-height: 1.5;">
+                <div style="margin-bottom: 8px;"><b>Твои бонусы (за каждого):</b></div>
+                ✅ <b>+0.1</b> гринд-монет (к ежедневной награде)<br>
+                ✅ <b>+1 Билет</b> ежедневно (на 30 дней)<br>
+                <br>
+                <div style="margin-bottom: 8px;"><b>Бонусы друга:</b></div>
+                🎁 <b>10 гринд-монет</b> на старт<br>
+                🚀 <b>VIP статус</b> на 7 дней (+0.2 монет + 2 билета)<br>
+            </div>
+
             <div class="reward-card-code-wrapper" style="margin-bottom: 15px;">
                 <input type="text" id="ref-link-input" class="reward-card-code-input" readonly>
                 <button class="reward-card-copy-btn" id="copy-ref-btn"><i class="fa-regular fa-copy"></i></button>
             </div>
             
-            <div class="popup-actions">
-                <button class="popup-btn primary" id="share-ref-link-btn">Пригласить друга</button>
-                <button class="popup-btn secondary" id="close-ref-modal-btn">Закрыть</button>
-            </div>
+            <button class="popup-btn primary" id="share-ref-link-btn" style="margin-top: 10px;">Пригласить друга</button>
+            <button class="popup-btn secondary" id="close-ref-modal-btn" style="margin-top: 10px;">Закрыть</button>
         </div>
     </div>
     
@@ -666,23 +814,31 @@
 try {
     const tg = window.Telegram.WebApp;
     
+    // Объект ссылок на элементы (DOM)
     const dom = {
         loaderOverlay: document.getElementById('loader-overlay'),
         profileName: document.getElementById('profileName'),
         rewardsList: document.getElementById('rewards-list'),
         settingsList: document.getElementById('settings-list'),
         deleteAllRewardsBtn: document.getElementById('delete-all-rewards-btn'),
+        
+        // Попапы настроек
         notifyOverlay: document.getElementById('notify-popup-overlay'),
         notifyContent: document.getElementById('notify-content-area'),
         notifyCloseBtn: document.getElementById('notify-close-btn'),
+        
+        // Попап Trade Link
         customPopupOverlay: document.getElementById('custom-popup-overlay'),
         popupTradeLinkInput: document.getElementById('popup-trade-link-input'),
         popupSaveBtn: document.getElementById('popup-save-btn'),
         popupCancelBtn: document.getElementById('popup-cancel-btn'),
+        
+        // Попап Рефералки
         referralPopup: document.getElementById('referral-popup'),
         refLinkInput: document.getElementById('ref-link-input'),
         refCountDisplay: document.getElementById('ref-count-display'),
         refBonusDisplay: document.getElementById('ref-bonus-display'),
+        // Кнопки рефералки (ищем по ID, чтобы не было ошибок null)
         closeRefModalBtn: document.getElementById('close-ref-modal-btn'),
         copyRefBtn: document.getElementById('copy-ref-btn'),
         shareRefLinkBtn: document.getElementById('share-ref-link-btn')
@@ -691,11 +847,13 @@ try {
     const showLoader = () => dom.loaderOverlay.classList.remove('hidden');
     const hideLoader = () => dom.loaderOverlay.classList.add('hidden');
 
+    // Функция безопасного добавления событий (чтобы не было ошибок, если элемента нет)
     function addSafeListener(elementId, eventType, handler) {
         const el = document.getElementById(elementId);
         if (el) el.addEventListener(eventType, handler);
     }
 
+    // --- HELPER: Диалог подтверждения ---
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
         const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
         const box = document.createElement('div'); 
@@ -724,128 +882,302 @@ try {
         }
     }
 
+    // --- ФУНКЦИЯ ОТРИСОВКИ НАСТРОЕК (БЕЗ МАГАЗИНА) ---
     function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
         const isBotActive = userData.is_bot_active === true;
         const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
 
-        // Уведомления
+        // 1. Уведомления
         const notifyCard = document.createElement('div'); notifyCard.className = 'settings-card';
         notifyCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-bell" style="color:#ff9f0a;"></i> Уведомления ${badgeHTML}</p><span>Настроить оповещения</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
         notifyCard.onclick = () => openNotifyModal(isBotActive, userData);
         dom.settingsList.appendChild(notifyCard);
 
-        // Steam Trade
+        // 2. Steam Trade
         const steamCard = document.createElement('div'); steamCard.className = 'settings-card';
         const hasTradeLink = !!userData.trade_link;
         steamCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-steam" style="color:#66c0f4;"></i> Steam Trade</p><span id="trade-link-display">${hasTradeLink ? userData.trade_link : 'Ссылка не привязана'}</span><span class="twitch-trust-link" id="steam-trust-btn" style="margin-top: 4px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><button id="edit-trade-link-btn" class="settings-card-btn">${hasTradeLink ? 'Изменить' : 'Привязать'}</button>`;
         dom.settingsList.appendChild(steamCard);
 
-        // Twitch
+        // 3. Twitch
        const twitchCard = document.createElement('div'); 
         twitchCard.className = 'settings-card';
+        
         if (userData.twitch_login) {
-            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привязан как: <b>${userData.twitch_login}</b></span></div><button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>`;
+            // СЦЕНАРИЙ: УЖЕ ПРИВЯЗАН
+            twitchCard.innerHTML = `
+                <div class="settings-card-info">
+                    <p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p>
+                    <span>Привязан как: <b>${userData.twitch_login}</b></span>
+                </div>
+                <button id="unlink-twitch-btn" class="settings-card-btn unlink">Отвязать</button>
+            `;
         } else {
+            // СЦЕНАРИЙ: НЕ ПРИВЯЗАН
+            
+            // Генерируем ссылку для бэкенда
             const authUrl = `https://hatelavka-quest-nine.vercel.app/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`;
-            twitchCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p><span>Привяжите аккаунт</span><span class="twitch-trust-link" id="twitch-trust-btn"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span></div><div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;"><button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button><button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button></div>`;
+            
+            twitchCard.innerHTML = `
+                <div class="settings-card-info">
+                    <p><i class="fa-brands fa-twitch" style="color:#9146ff;"></i> Twitch</p>
+                    <span>Привяжите аккаунт</span>
+                    <span class="twitch-trust-link" id="twitch-trust-btn">
+                        <i class="fa-solid fa-shield-halved"></i> Безопасно ли это?
+                    </span>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                    <button id="connect-twitch-btn" class="settings-card-btn twitch" style="width: 100px;">Привязать</button>
+                    <button id="twitch-help-btn" class="settings-card-btn" style="background-color: rgba(255,255,255,0.1); width: 100px; font-size: 13px;">Помощь</button>
+                </div>
+            `;
+
+            // Логика кнопки "Привязать"
             const connectBtn = twitchCard.querySelector('#connect-twitch-btn');
-            if (connectBtn) connectBtn.onclick = () => tg.openLink(authUrl, { try_instant_view: false });
+            if (connectBtn) {
+                connectBtn.onclick = () => {
+                    tg.openLink(authUrl, { try_instant_view: false });
+                };
+            }
+            
+            // Логика кнопки "Помощь"
             const helpBtn = twitchCard.querySelector('#twitch-help-btn');
-            if (helpBtn) helpBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('twitch-help-popup').classList.add('visible'); };
+            if (helpBtn) {
+                helpBtn.onclick = (e) => {
+                    e.stopPropagation(); // Чтобы не срабатывал клик по карточке, если он есть
+                    document.getElementById('twitch-help-popup').classList.add('visible');
+                };
+            }
         }
         dom.settingsList.appendChild(twitchCard);
-        
-        // Рефералка
-        const refCard = document.createElement('div'); refCard.className = 'settings-card ref-card-gradient';
+        // 4. Реферальная система
+        const refCard = document.createElement('div'); 
+        refCard.className = 'settings-card ref-card-gradient';
         const activeRefs = userData.active_referrals_count || 0; 
         const currentBoost = (activeRefs * 0.1).toFixed(1);
-        refCard.innerHTML = `<div class="settings-card-info"><p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p><span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span></div><i class="fa-solid fa-chevron-right card-arrow"></i>`;
+
+        refCard.innerHTML = `
+            <div class="settings-card-info">
+                <p><i class="fa-solid fa-user-group" style="color:#34c759;"></i> Реферальная система</p>
+                <span>Активных: <b>${activeRefs}</b> (Бонус: +${currentBoost})</span>
+            </div>
+            <i class="fa-solid fa-chevron-right card-arrow"></i>`;
+            
         refCard.onclick = () => openRefModal(userData);
         dom.settingsList.appendChild(refCard);
     }
 
+    // --- MAIN ---
     async function main() {
+        // ------------------------------------------------------------------
+        // БЛОК 1: Если мы в браузере (после редиректа авторизации)
+        // ------------------------------------------------------------------
         if (!tg.initData) {
-            document.body.innerHTML = `<div style="text-align:center;padding:50px;color:white;"><h1>Успешно!</h1><p>Аккаунт привязан.</p><button onclick="window.Telegram.WebApp.close()" style="padding:10px 20px;">Вернуться</button></div>`;
+            document.body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; font-family: sans-serif; background-color: #000; color: #fff;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 60px; color: #34c759; margin-bottom: 20px;"></i>
+                    <h1 style="font-size: 22px; margin: 0 0 10px; font-weight: 700;">Успешно!</h1>
+                    <p style="color: #b0b0b0; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">
+                        Аккаунт привязан.<br>Возвращаем вас в приложение...
+                    </p>
+                    <button id="return-btn" style="background-color: #007aff; color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; max-width: 240px; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">
+                        Вернуться в приложение
+                    </button>
+                </div>
+            `;
+            
+            // Функция возврата
+            const goBackToApp = () => {
+                const appLink = "https://t.me/HATElavka_bot/app";
+                
+                // 1. Сначала пробуем просто перейти по ссылке (самый надежный способ для внешних браузеров)
+                // Используем replace, чтобы нельзя было вернуться назад на страницу успеха
+                window.location.replace(appLink);
+
+                // 2. Если это встроенный браузер Telegram, ссылка выше может не сработать,
+                // поэтому пробуем закрыть окно (это вернет юзера в чат/бота)
+                setTimeout(() => {
+                    try { window.close(); } catch(e) {}
+                    try { window.Telegram.WebApp.close(); } catch(e) {}
+                }, 1000); // Ждем секунду перед закрытием, чтобы ссылка успела отработать
+            };
+
+            // Логика кнопки (самый надежный вариант - клик пользователя)
+            document.getElementById('return-btn').addEventListener('click', goBackToApp);
+
+            // Автоматическая попытка (может быть заблокирована браузером, но попробуем)
+            setTimeout(goBackToApp, 500);
+
+            hideLoader();
             return; 
         }
 
-        function goBack() {
-            if (window.history.length > 1 && document.referrer) window.history.back();
-            else window.location.href = '/menu';
-        }
-        const headerBackBtn = document.getElementById('header-back-btn');
-        if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
-        tg.BackButton.show();
-        tg.BackButton.onClick(goBack);
+        // ------------------------------------------------------------------
+        // БЛОК 2: Основная логика приложения (внутри Telegram)
+        // ------------------------------------------------------------------
 
+        // Настройка кнопки Назад
+        function goBack() {
+        // Проверяем, есть ли история браузера, чтобы вернуться назад
+        // window.history.length > 1 означает, что мы не на первой странице сессии
+        if (window.history.length > 1 && document.referrer) {
+            window.history.back();
+        } else {
+            // Если истории нет (открыли по прямой ссылке), идем принудительно в меню
+            // Замени '/menu' на ссылку твоего главного меню, если она отличается
+            window.location.href = '/menu';
+        }
+    }
+
+    // 1. Привязываем логику к нашей HTML кнопке в шапке
+    const headerBackBtn = document.getElementById('header-back-btn');
+    if (headerBackBtn) {
+        headerBackBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Отменяем стандартный переход по ссылке
+            goBack();
+        });
+    }
+
+    // 2. Настраиваем нативную кнопку Telegram (которая в заголовке самого мессенджера)
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => {
+        goBack();
+    });
+
+        // Если есть кнопка "Домой" в HTML
+        const homeBtn = document.getElementById('home-btn');
+        if (homeBtn) homeBtn.addEventListener('click', () => tg.close());
+
+        // --- Функция загрузки данных (чтобы вызывать её повторно) ---
+        // isSilent = true означает "не показывать спиннер загрузки"
         async function loadData(isSilent = false) {
             if (!isSilent) showLoader();
+            
             try {
+                // 1. Основные данные (Bootstrap)
                 const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
                 if (!bootstrapData) throw new Error("Ошибка загрузки профиля");
+
+                // 2. Награды
                 const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
+
+                // 3. Фоновое обновление баланса и рефералов
                 if (!isSilent) {
-                    makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
+                    makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true)
+                        .then(data => {
+                            if (data && data.balance !== undefined) {
+                                if (window.currentUserSettings) window.currentUserSettings.balance = data.balance;
+                                document.querySelectorAll('.user-balance').forEach(el => el.textContent = data.balance.toFixed(2));
+                            }
+                        }).catch(console.warn);
                     makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
                 }
-                const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
-                const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
 
-                if (dom.profileName) dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+                // 4. Настройки уведомлений
+                const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
+
+                // 5. Сборка объекта данных
+                const fullUserData = { 
+                    ...bootstrapData.user, 
+                    ...bootstrapData.menu, 
+                    ...userSettings 
+                };
+
+                // Обновляем заголовок
+                if (dom.profileName) {
+                    dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+                }
                 window.currentUserSettings = fullUserData;
+
+                // 6. ПЕРЕРИСОВКА ИНТЕРФЕЙСА (Самое важное для обновления кнопки Twitch)
                 renderSettingsList(fullUserData); 
                 renderRewards(rewards);
+
             } catch (e) {
                 console.error(e);
+                if (!isSilent && dom.rewardsList) {
+                    dom.rewardsList.innerHTML = `<p style="text-align: center; color: var(--text-color-muted);">Не удалось загрузить данные.</p>`;
+                }
             } finally {
                 if (!isSilent) hideLoader();
             }
         }
-        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadData(true); });
+
+        // --- МАГИЯ: Авто-обновление при возврате в приложение ---
+        // Это событие срабатывает, когда вы закрываете браузер (Twitch) и видите снова приложение
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('App returned to focus. Refreshing data...');
+                loadData(true); // true = тихое обновление без черного экрана загрузки
+            }
+        });
+
+        // Первичный запуск при открытии профиля
         await loadData(false);
     }
-
+    // --- REFERRAL LOGIC ---
     function openRefModal(userData) {
         let refPayload = userData.telegram_id;
         if (userData.bott_ref_id) refPayload = `r_${userData.bott_ref_id}`;
         else if (userData.bott_internal_id) refPayload = `r_${userData.bott_internal_id}`;
-        dom.refLinkInput.value = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+
+        const link = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+        dom.refLinkInput.value = link;
+        
         const count = userData.active_referrals_count || 0;
         dom.refCountDisplay.textContent = count;
         dom.refBonusDisplay.textContent = '+' + (count * 0.1).toFixed(1);
+        
         dom.referralPopup.classList.add('visible');
     }
 
+    // Реферальные кнопки
     addSafeListener('close-ref-modal-btn', 'click', () => { dom.referralPopup.classList.remove('visible'); });
     addSafeListener('copy-ref-btn', 'click', () => {
         navigator.clipboard.writeText(dom.refLinkInput.value);
         tg.showAlert("Ссылка скопирована!");
+        const btn = document.getElementById('copy-ref-btn');
+        const icon = btn.querySelector('i');
+        if(icon) {
+            icon.className = 'fa-solid fa-check';
+            setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
+        }
     });
     addSafeListener('share-ref-link-btn', 'click', () => {
         const link = dom.refLinkInput.value;
         const text = "Залетай в HATElavka! Получи 10 монет и буст на старте 🚀";
-        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+        const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+        tg.openTelegramLink(url);
     });
 
-    // --- ЛОГИКА ОТРИСОВКИ НАГРАД (КАК В PROFILE 3) ---
-    function renderRewards(rewards) {
+    // --- ОБНОВЛЕННАЯ ЛОГИКА ОТРИСОВКИ (С Кнопкой "Как использовать") ---
+  function renderRewards(rewards) {
+        // 1. Находим контейнеры и элементы управления
         const listContainer = document.getElementById('promocodes-list-container');
         const promoBtnInfo = document.getElementById('promo-btn-info');
         const promoAlertBadge = document.getElementById('promo-alert-badge');
         const modalPromos = document.getElementById('modal-promocodes');
         const modalSecret = document.getElementById('modal-secret');
 
+        // 2. Логика открытия модалок
         document.getElementById('btn-open-promocodes').onclick = () => {
             modalPromos.classList.add('visible');
             tg.BackButton.show();
-            tg.BackButton.onClick(() => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); });
+            tg.BackButton.onClick(() => {
+                modalPromos.classList.remove('visible');
+                tg.BackButton.hide();
+            });
         };
-        document.getElementById('close-modal-promocodes').onclick = () => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); };
+        document.getElementById('close-modal-promocodes').onclick = () => {
+            modalPromos.classList.remove('visible');
+            tg.BackButton.hide();
+        };
         document.getElementById('btn-open-secret').onclick = () => modalSecret.classList.add('visible');
         document.getElementById('close-modal-secret').onclick = () => modalSecret.classList.remove('visible');
 
+        // Логика удаления всех наград
         const clearBtn = document.getElementById('btn-clear-all-rewards');
         if(clearBtn) {
             clearBtn.onclick = () => {
@@ -859,77 +1191,150 @@ try {
             };
         }
 
+        // 3. Очистка и проверка на пустоту
         listContainer.innerHTML = '';
         if (!rewards || rewards.length === 0) {
             if(promoBtnInfo) promoBtnInfo.textContent = "0 шт.";
             if(promoAlertBadge) promoAlertBadge.style.display = 'none';
-            listContainer.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-color-muted);"><i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i><p>История пуста</p></div>`;
+            listContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--text-color-muted);">
+                    <i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
+                    <p>История пуста</p>
+                </div>`;
             return;
         }
 
+        // 4. Генерация карточек (СТИЛЬ PROFILE 3)
         rewards.forEach(r => {
+            // Умная обработка данных (поддержка старой и новой структуры API)
+            // Если данные плоские (r.code), берем их. Если вложенные (r.data.code), берем их.
             const isPromo = r.type === 'promocode' || (r.data && r.data.code) || r.code;
+            
+            // Извлекаем данные безопасным способом
             const code = r.code || (r.data ? r.data.code : '') || 'No Code';
             const description = r.description || (r.data ? r.data.description : '') || 'Награда';
             const amount = r.amount || (r.data ? r.data.amount : '') || 0;
             const rawDate = r.claimed_at || r.date || new Date();
             const dateStr = new Date(rawDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
             
-            const card = document.createElement('div'); card.className = 'reward-card';
+            const card = document.createElement('div'); 
+            card.className = 'reward-card';
 
             if (isPromo && !r.grant_type && (!r.data || r.data.grant_type === undefined)) {
-                card.dataset.type = 'promocode'; card.dataset.code = code;
-                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description">${description} ⭐</p><div class="reward-card-code-wrapper"><input type="text" class="reward-card-code-input" value="${code}" readonly><button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button></div><button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif"><i class="fa-solid fa-circle-question"></i> Где использовать?</button><p class="reward-card-meta">Получено: ${dateStr}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                // --- ВАРИАНТ ПРОМОКОД ---
+                card.dataset.type = 'promocode'; 
+                card.dataset.code = code;
+                
+                card.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description">${description} ⭐</p>
+                        
+                        <div class="reward-card-code-wrapper">
+                            <input type="text" class="reward-card-code-input" value="${code}" readonly>
+                            <button class="reward-card-copy-btn"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                        
+                        <button class="reward-how-to-use-btn" data-gif="https://i.postimg.cc/k4WyP04y/IMG-9212.gif">
+                            <i class="fa-solid fa-circle-question"></i> Где использовать?
+                        </button>
+                        
+                        <p class="reward-card-meta">Получено: ${dateStr}</p>
+                    </div>
+                    <button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
             } else {
-                card.dataset.type = 'grant'; card.dataset.id = r.id || (r.data ? r.data.id : 0);
+                // --- ВАРИАНТ ГРАНТ (БИЛЕТЫ/ЗВЕЗДЫ) ---
+                card.dataset.type = 'grant'; 
+                card.dataset.id = r.id || (r.data ? r.data.id : 0);
+                
+                // Определяем тип (билеты или нет)
                 const gType = r.grant_type || (r.data ? r.data.grant_type : '');
                 const typeText = gType === 'tickets' ? 'билетов' : 'звёзд';
                 const displayAmount = r.amount || (r.data ? r.data.amount : 0);
-                card.innerHTML = `<div class="reward-card-info"><div class="reward-card-details"><p class="reward-card-description" style="font-weight:600;color:#fff;">Начислено: ${displayAmount} ${typeText}</p><span style="font-size:12px;color:#aaa;">(Админ)</span><p class="reward-card-meta">Дата: ${dateStr}</p></div><button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button></div>`;
+
+                card.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description" style="font-weight:600;color:#fff;">
+                            Начислено: ${displayAmount} ${typeText}
+                        </p>
+                        <span style="font-size:12px;color:#aaa;">(Админ)</span>
+                        <p class="reward-card-meta">Дата: ${dateStr}</p>
+                    </div>
+                    <button class="reward-card-delete-btn"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
             }
             listContainer.appendChild(card);
         });
 
+        // Обновляем счетчик на кнопке в меню
         if(promoBtnInfo) promoBtnInfo.textContent = `${rewards.length} шт.`;
-        if(promoAlertBadge) promoAlertBadge.style.display = 'none';
+        if(promoAlertBadge) promoAlertBadge.style.display = 'none'; // Скрываем "Сгорают", так как механики больше нет
     }
+    
+    // Хелпер для копирования
+    function copyPromoCode(code, id) {
+        navigator.clipboard.writeText(code).then(() => {
+            // Визуальный эффект
+            const card = document.getElementById(`promo-card-${id}`);
+            if(card) card.classList.add('was-copied');
+            
+            // Сохраняем факт копирования локально
+            localStorage.setItem(`copied_promo_${code}`, 'true');
+            
+            tg.ShowPopup({ title: 'Успешно', message: 'Промокод скопирован!', buttons: [{type: 'ok'}] });
+        });
+    }
+    // --- Notifications Logic ---
+    let batchTimeout;       
+    let pendingUpdates = {}; 
 
-    let batchTimeout; let pendingUpdates = {}; 
     function openNotifyModal(isActive, settings) {
         dom.notifyOverlay.classList.add('visible');
         if (!isActive) {
             dom.notifyContent.innerHTML = `<div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div><p style="text-align: center; margin-bottom: 5px;">Для получения уведомлений нужно активировать бота.</p><div style="display: flex; justify-content: center; margin-top: 20px;"><a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" class="popup-btn primary" style="text-decoration: none; text-align:center;">Перейти</a></div>`;
         } else {
             dom.notifyContent.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><span style="font-size:12px; color:var(--text-color-muted);">Настройки</span><span id="save-status" style="font-size:12px; color:var(--primary-color); opacity:0; transition:opacity 0.3s;">Сохранено</span></div><div class="notify-list">${createToggle('notify_auction_start', 'Аукцион', 'Уведомление о новом аукционе', settings.notify_auction_start)}${createToggle('notify_auction_outbid', 'Ставки аукциона', 'Уведомление если вашу ставку перебили', settings.notify_auction_outbid)}${createToggle('notify_rewards', 'Награды', 'Уведомление о получение кодов и билетов', settings.notify_rewards)}${createToggle('notify_stream_start', 'Трансляция', 'Начало стрима', settings.notify_stream_start)}${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука (23-08)', settings.notify_dnd_enabled)}</div>`;
+
             const statusEl = document.getElementById('save-status');
             document.querySelectorAll('.toggle-input').forEach(input => {
                 input.addEventListener('change', (e) => {
-                    const key = e.target.dataset.key; const value = e.target.checked;
-                    settings[key] = value; statusEl.textContent = 'Ожидание...'; statusEl.style.opacity = '1';
+                    const key = e.target.dataset.key;
+                    const value = e.target.checked;
+                    settings[key] = value;
+                    statusEl.textContent = 'Ожидание...'; statusEl.style.opacity = '1';
                     pendingUpdates[key] = value;
                     if (batchTimeout) clearTimeout(batchTimeout);
                     batchTimeout = setTimeout(async () => {
-                        try { await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates }, 'POST', true); pendingUpdates = {}; statusEl.textContent = 'Сохранено'; setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
+                        try {
+                            await makeApiRequest('/api/v1/user/settings/update_batch', { updates: pendingUpdates }, 'POST', true);
+                            pendingUpdates = {}; statusEl.textContent = 'Сохранено'; setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
                         } catch (err) { statusEl.textContent = 'Ошибка!'; e.target.checked = !value; settings[key] = !value; }
                     }, 1000); 
                 });
             });
             document.querySelectorAll('.test-text-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
-                    const type = e.currentTarget.dataset.type; e.currentTarget.innerText = '...';
+                    const type = e.currentTarget.dataset.type;
+                    e.currentTarget.innerText = '...';
                     try { await makeApiRequest('/api/v1/user/notification/test', { type: type }); e.currentTarget.innerText = 'Ок'; } catch(err) { e.currentTarget.innerText = 'Err'; }
                     setTimeout(() => { btn.innerText = 'Тест'; }, 2000);
                 });
             });
         }
     }
+
     function createToggle(key, title, sub, checked) {
         const isChecked = checked ?? (key !== 'notify_dnd_enabled');
         return `<div class="notify-item"><div class="notify-item-left"><span class="notify-label">${title}</span><span class="notify-sub">${sub}</span></div><div class="notify-item-right"><label class="toggle-switch"><input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''}><span class="slider"></span></label><button class="test-text-btn" data-type="${key}">📩 Тест</button></div></div>`;
     }
 
+   // --- Global Listeners ---
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
+
+        // --- Старые проверки ---
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
         if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); main(); c(); }, 'Отвязать'); return; }
         
@@ -939,6 +1344,7 @@ try {
             tg.HapticFeedback.notificationOccurred('success');
             return;
         }
+        
         const delBtn = target.closest('.reward-card-delete-btn');
         if (delBtn) {
             const card = delBtn.closest('.reward-card');
@@ -947,24 +1353,69 @@ try {
                 () => makeApiRequest('/api/v1/user/grants/delete', {id:parseInt(card.dataset.id)});
             showCustomConfirmHTML("Удалить награду?", async (c)=>{ await action(); card.remove(); c(); }); return;
         }
+
         const howToBtn = target.closest('.reward-how-to-use-btn');
         if (howToBtn) { document.getElementById('how-to-use-gif').src = howToBtn.dataset.gif; document.getElementById('how-to-use-popup').classList.add('visible'); return; }
+        
         if (target.closest('#twitch-trust-btn')) { document.getElementById('twitch-trust-popup').classList.add('visible'); return; }
         if (target.closest('#steam-trust-btn')) { document.getElementById('steam-trust-popup').classList.add('visible'); return; }
+
+        // --- ЛОГИКА КНОПКИ "ОТКРЫТЬ HATELAVKA" ---
         const promoBtn = target.closest('#send-promo-cmd');
-        if (promoBtn) { tg.HapticFeedback.impactOccurred('medium'); try { tg.sendData("/promo"); } catch (e) {} setTimeout(() => { tg.openTelegramLink("https://t.me/HATElavka_bot?start=promo"); }, 50); return; }
+        if (promoBtn) {
+            tg.HapticFeedback.impactOccurred('medium');
+
+            // 1. Попытка отправить данные
+            // Если сработает (в Меню-кнопке) — приложение свернется само.
+            try {
+                tg.sendData("/promo");
+            } catch (e) {
+                // Игнорируем ошибку
+            }
+
+            // 2. ЗАПАСНОЙ ВАРИАНТ (Без принудительного закрытия)
+            setTimeout(() => {
+                // Просто пытаемся переключить фокус на бота
+                tg.openTelegramLink("https://t.me/HATElavka_bot?start=promo");
+                
+                // tg.close(); <--- Я УБРАЛ ЭТУ СТРОКУ
+            }, 50);
+            
+            return; 
+        }
     });
   
+    // Обработчики закрытия и сохранения
     dom.popupCancelBtn.onclick = () => dom.customPopupOverlay.classList.remove('visible');
     dom.popupSaveBtn.onclick = async () => {
-        const v = dom.popupTradeLinkInput.value.trim(); dom.customPopupOverlay.classList.remove('visible');
-        await makeApiRequest('/api/v1/user/trade_link/save', {trade_link:v}); main();
+        const v = dom.popupTradeLinkInput.value.trim();
+        dom.customPopupOverlay.classList.remove('visible');
+        await makeApiRequest('/api/v1/user/trade_link/save', {trade_link:v});
+        main();
     };
-    document.getElementById('twitch-help-close').onclick = () => document.getElementById('twitch-help-popup').classList.remove('visible');
+    // Закрытие попапа помощи
+    const twitchHelpCloseBtn = document.getElementById('twitch-help-close');
+    if (twitchHelpCloseBtn) {
+        twitchHelpCloseBtn.onclick = () => document.getElementById('twitch-help-popup').classList.remove('visible');
+    }
+    
+    // Закрытие настроек уведомлений
     dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
+    
+    // Закрытие других попапов
     document.getElementById('how-to-use-close').onclick = () => document.getElementById('how-to-use-popup').classList.remove('visible');
     document.getElementById('twitch-trust-close').onclick = () => document.getElementById('twitch-trust-popup').classList.remove('visible');
     document.getElementById('steam-trust-close').onclick = () => document.getElementById('steam-trust-popup').classList.remove('visible');
+
+    // Логика кнопки "Активировать промокод"    
+    dom.deleteAllRewardsBtn.onclick = () => {
+        showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
+             await makeApiRequest('/api/v1/user/promocodes/delete-all');
+             await makeApiRequest('/api/v1/user/grants/delete-all');
+             renderRewards([]);
+             c();
+        });
+    };
 
     document.addEventListener("DOMContentLoaded", () => { tg.ready(); tg.expand(); main(); });
 
