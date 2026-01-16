@@ -1384,14 +1384,16 @@
     document.getElementById('steam-trust-close').onclick = () => document.getElementById('steam-trust-popup').classList.remove('visible');
     if(document.getElementById('twitch-help-close')) document.getElementById('twitch-help-close').onclick = () => document.getElementById('twitch-help-popup').classList.remove('visible');
 
-    dom.deleteAllRewardsBtn.onclick = () => {
-        showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
-             await makeApiRequest('/api/v1/user/promocodes/delete-all');
-             await makeApiRequest('/api/v1/user/grants/delete-all');
-             renderRewards([]);
-             c();
-        });
-    };
+    if (dom.deleteAllRewardsBtn) {
+        dom.deleteAllRewardsBtn.onclick = () => {
+            showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
+                 await makeApiRequest('/api/v1/user/promocodes/delete-all');
+                 await makeApiRequest('/api/v1/user/grants/delete-all');
+                 renderRewards([]);
+                 c();
+            });
+        };
+    }
     // Логика кнопки "Удалить историю" (ВНУТРИ МОДАЛКИ ПРОМОКОДОВ)
     const clearAllBtn = document.getElementById('btn-clear-all-rewards');
     if (clearAllBtn) {
