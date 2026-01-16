@@ -1821,9 +1821,8 @@ function openWelcomePopup(userData) {
     actionBtn.style.fontWeight = "";
     actionBtn.onclick = runCheck; // Изначально клик запускает ПРОВЕРКУ
 
-    // --- 0. ОБРАБОТЧИК КНОПКИ "ПОЗЖЕ" (ИСПРАВЛЕНО) ---
+    // --- 0. ОБРАБОТЧИК КНОПКИ "ПОЗЖЕ" ---
     if (laterBtn) {
-        // Удаляем старые слушатели через клонирование
         const newLaterBtn = laterBtn.cloneNode(true);
         laterBtn.parentNode.replaceChild(newLaterBtn, laterBtn);
         
@@ -1831,13 +1830,11 @@ function openWelcomePopup(userData) {
             // 1. Скрываем попап
             popup.classList.remove('visible');
             
-            // 2. Ставим метку "Отложено" (чтобы не открывалось само при перезагрузке)
+            // 2. Ставим метку "Отложено"
             localStorage.setItem('bonusPopupDeferred', 'true');
             localStorage.removeItem('openRefPopupOnLoad');
             
-            // 3. 🔥 ВАЖНО: Скрываем кнопку вызова на главном экране
-            // Это предотвращает повторное открытие окна в этой сессии, 
-            // пока пользователь не перезайдет в приложение.
+            // 3. Скрываем кнопку вызова на главном экране
             const mainTriggerBtn = document.getElementById('open-bonus-btn');
             if (mainTriggerBtn) {
                 mainTriggerBtn.classList.add('hidden');
@@ -1977,7 +1974,7 @@ function openWelcomePopup(userData) {
                 Telegram.WebApp.showAlert(res.detail || "Ошибка при получении");
                 actionBtn.disabled = false;
                 actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
-                actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁"; // Восстанавливаем текст
+                actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁";
             }
         } catch(e) {
             console.error(e);
@@ -1987,9 +1984,9 @@ function openWelcomePopup(userData) {
         }
     }
 
-    // --- 4. ФУНКЦИЯ: ПРОВЕРКА (Исправленная) ---
+    // --- 4. ФУНКЦИЯ: ПРОВЕРКА (ИСПРАВЛЕН URL) ---
     async function runCheck() {
-        // Если уже забрали или кнопка "Забрать", проверку не запускаем заново
+        // Если кнопка уже "Забрать", не проверяем снова
         if (actionBtn.textContent.includes("ЗАБРАТЬ")) return;
 
         actionBtn.disabled = true;
@@ -2003,10 +2000,13 @@ function openWelcomePopup(userData) {
             let tgOk = false;
             let checkFailed = false; 
 
-            // 1. Проверка Telegram (Безопасная)
+            // 1. Проверка Telegram (ИСПРАВЛЕН URL: добавлено /user/)
             try {
-                const tgRes = await makeApiRequest('/api/v1/check_subscription', { initData: Telegram.WebApp.initData }, 'POST', true);
-                if (tgRes && tgRes.subscribed) {
+                // 👇 ЗДЕСЬ БЫЛА ОШИБКА, ТЕПЕРЬ /user/check_subscription
+                const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: Telegram.WebApp.initData }, 'POST', true);
+                
+                // 👇 ИСПРАВЛЕНО: Бэк возвращает is_subscribed, а не subscribed
+                if (tgRes && tgRes.is_subscribed) {
                     tgOk = true;
                 } else {
                     tgOk = false;
@@ -2018,14 +2018,12 @@ function openWelcomePopup(userData) {
 
             const twitchOk = !!userData.twitch_id;
 
-            // 2. Обновление иконок (БЕЗ ЛОЖНЫХ КРАСНЫХ КРЕСТОВ)
+            // 2. Обновление иконок
             if (!checkFailed) {
-                // Если сеть работает:
                 if (tgOk) markStepDone(stepTg, iconTg);
-                else markStepError(stepTg, iconTg); // Только тут ставим крестик
+                else markStepError(stepTg, iconTg); 
             } else {
-                // Если сеть глючит:
-                // Возвращаем "вопрос" или "серый круг", но НЕ КРАСНЫЙ КРЕСТ
+                // Если ошибка сети - просто возвращаем ожидание
                 markStepPending(stepTg, iconTg);
             }
 
@@ -2035,7 +2033,6 @@ function openWelcomePopup(userData) {
 
             // 3. Итог
             if (tgOk && twitchOk) {
-                // УСЛОВИЯ ВЫПОЛНЕНЫ
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 actionBtn.disabled = false;
                 actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁";
@@ -2044,20 +2041,15 @@ function openWelcomePopup(userData) {
                 actionBtn.style.fontWeight = "800";
                 actionBtn.onclick = claimReward; 
             } else {
-                // ЧТО-ТО НЕ ТАК
                 actionBtn.disabled = false;
                 actionBtn.textContent = "Проверить снова";
                 
-                // Показываем ошибки (но аккуратно)
                 if (checkFailed) {
-                    // Не ругаем пользователя, если виноват сервер
-                    // Просто молча даем возможность нажать "Проверить" снова
-                } else if (!tgOk) {
+                    // Молчаливая ошибка
+                } else {
                     Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                    Telegram.WebApp.showAlert("Вы не подписались на Telegram канал!");
-                } else if (!twitchOk) {
-                    Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                    Telegram.WebApp.showAlert("Вы не привязали Twitch!");
+                    if (!tgOk) Telegram.WebApp.showAlert("Вы не подписались на Telegram канал!");
+                    else if (!twitchOk) Telegram.WebApp.showAlert("Вы не привязали Twitch!");
                 }
             }
 
