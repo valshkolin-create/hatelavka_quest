@@ -1847,13 +1847,14 @@ function openWelcomePopup(userData) {
             const btnHelp = document.getElementById('twitch-help-btn-popup');
 
             if (btnConnect) {
-                // --- ПРАВИЛЬНАЯ ЛОГИКА АВТОРИЗАЦИИ ---
+                // --- ЛОГИКА АВТОРИЗАЦИИ ИЗ ПРОФИЛЯ ---
                 btnConnect.onclick = async (e) => {
                     // 1. Останавливаем любые стандартные действия
                     e.preventDefault(); 
                     e.stopPropagation();
 
                     // Визуальный эффект загрузки
+                    const originalText = btnConnect.innerHTML;
                     btnConnect.style.opacity = '0.7';
                     btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; 
 
@@ -1864,12 +1865,12 @@ function openWelcomePopup(userData) {
                         }
 
                         // 2. В ФОНЕ запрашиваем ссылку у вашего сервера
-                        // Пользователь этого НЕ видит, это происходит "под капотом"
+                        // Используем fetch напрямую
                         const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`);
                         
                         if (!response.ok) throw new Error("Ошибка сервера");
 
-                        // 3. Получаем тот самый JSON, который вы видели
+                        // 3. Получаем JSON
                         const data = await response.json();
 
                         // 4. Если ссылка пришла — ОТКРЫВАЕМ ЕЁ ЧЕРЕЗ ТЕЛЕГРАМ
@@ -1880,8 +1881,8 @@ function openWelcomePopup(userData) {
                             // 🔥 ГЛАВНОЕ: Команда открыть внешний браузер
                             Telegram.WebApp.openLink(data.url);
                             
-                            // 🔥 Закрываем текущее окно, чтобы не мешало
-                            Telegram.WebApp.close();
+                            // 🔥 Закрываем текущее окно, чтобы не мешало (как в профиле)
+                            // Telegram.WebApp.close(); // Можно раскомментировать, если нужно закрывать бота
                         } else {
                             alert("Ошибка: Сервер не вернул ссылку");
                         }
@@ -1891,7 +1892,7 @@ function openWelcomePopup(userData) {
                     } finally {
                         // Если вдруг не закрылось — возвращаем кнопку
                         btnConnect.style.opacity = '1';
-                        btnConnect.innerHTML = '<i class="fa-brands fa-twitch"></i> Привязать';
+                        btnConnect.innerHTML = originalText;
                     }
                 };
             }
@@ -1907,7 +1908,6 @@ function openWelcomePopup(userData) {
                 };
             }
         }, 0);
-    }
     } else {
         // Если УЖЕ привязан — оставляем старое поведение
         stepTwitch.onclick = () => {
@@ -1948,8 +1948,7 @@ function openWelcomePopup(userData) {
         markStepPending(stepTwitch, iconTwitch);
     }
     
-    // Проверка статуса подписки Telegram (предполагаем поле is_telegram_subscribed)
-    // Если такого поля нет, можно использовать логику, что если юзер открыл попап, он еще не проверен полностью
+    // Проверка статуса подписки Telegram
     markStepPending(stepTg, iconTg);
 
 
@@ -2019,7 +2018,7 @@ function openWelcomePopup(userData) {
 
     actionBtn.onclick = attemptActivation;
 }
-    
+        
 function setupEventListeners() {
     // --- 👇 ИСПРАВЛЕННЫЙ БЛОК: ВИБРАЦИЯ (Делегирование) 👇 ---
     // Ищем футер напрямую в момент запуска функции (так надежнее, чем dom.footerItems)
