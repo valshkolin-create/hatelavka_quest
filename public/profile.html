@@ -577,11 +577,6 @@
         <div id="notification-area"></div>
         <div id="settings-list" class="card-container"></div>
         
-        <div class="rewards-header">
-            <h2>Мои награды</h2>
-            <button id="delete-all-rewards-btn">Удалить все</button>
-        </div>
-
         <div class="rewards-dashboard">
             <div class="dash-btn" id="btn-open-promocodes">
                 <i class="fa-solid fa-coins"></i>
@@ -1397,6 +1392,32 @@
              c();
         });
     };
+    // Логика кнопки "Удалить историю" (ВНУТРИ МОДАЛКИ ПРОМОКОДОВ)
+    const clearAllBtn = document.getElementById('btn-clear-all-rewards');
+    if (clearAllBtn) {
+        clearAllBtn.onclick = () => {
+            showCustomConfirmHTML("Удалить ВСЮ историю?", async (c) => {
+                try {
+                    // Удаляем и промокоды, и гранты
+                    await makeApiRequest('/api/v1/user/promocodes/delete-all');
+                    await makeApiRequest('/api/v1/user/grants/delete-all');
+                    
+                    // Очищаем список визуально
+                    renderRewards([]); 
+                    
+                    // Обновляем счетчик на кнопке в меню
+                    const countEl = document.getElementById('promo-btn-info');
+                    if(countEl) countEl.textContent = 'Награды (0)';
+                    
+                    c(); // Закрываем окно подтверждения
+                } catch (e) {
+                    console.error(e);
+                    tg.showAlert("Ошибка удаления");
+                    c();
+                }
+            });
+        };
+    }
 
 // 1. Слушатель: Обновление данных при возврате на вкладку
     document.addEventListener('visibilitychange', () => {
