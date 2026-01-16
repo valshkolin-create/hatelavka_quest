@@ -1895,14 +1895,18 @@ async function openWelcomePopup(currentUserData) {
 
                     try {
                         if (!Telegram.WebApp.initData) return;
-                        const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}`);
+                        
+                        // 👇 ИЗМЕНЕНИЕ ЗДЕСЬ: Добавляем &redirect=/ в конец строки
+                        // Это подскажет серверу (если он это поддерживает), что нужно вернуть юзера в меню
+                        const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}&redirect=/`);
+                        
                         if (!response.ok) throw new Error("Ошибка сервера");
                         const data = await response.json();
 
                         if (data.url) {
                             localStorage.setItem('openRefPopupOnLoad', 'true');
                             Telegram.WebApp.openLink(data.url);
-                            Telegram.WebApp.close(); // Закрываем, чтобы обновилось при входе
+                            Telegram.WebApp.close(); 
                         }
                     } catch (err) {
                         console.error(err);
