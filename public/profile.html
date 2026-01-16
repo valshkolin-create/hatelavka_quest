@@ -1132,11 +1132,31 @@
             return;
         }
 
-        // 2. Ловим успешную авторизацию
+        // 2. Ловим успешную авторизацию + ЛОГИКА ВОЗВРАТА + АНТИ-СПАМ
         const startParam = tg.initDataUnsafe.start_param;
-        if (startParam === 'auth_success') {
+        
+        // Проверяем, показывали ли мы уже уведомление в этой сессии
+        const isAuthHandled = sessionStorage.getItem('auth_handled_session');
+
+        if (startParam === 'auth_success' && !isAuthHandled) {
+            // Ставим метку: "Уведомление показано, больше не показывать пока не закроет апп"
+            sessionStorage.setItem('auth_handled_session', 'true');
+            
             showNotification('✅ Авторизация успешна!', 'success');
-            await new Promise(r => setTimeout(r, 500)); 
+            
+            // --- ПРОВЕРКА: ОТКУДА ПРИШЕЛ ЮЗЕР ---
+            const source = localStorage.getItem('auth_source');
+            
+            // Если в памяти НЕТ 'profile', значит он пришел из МЕНЮ -> Кидаем обратно в Меню
+            if (source !== 'profile') {
+                setTimeout(() => {
+                    // Возврат на главную
+                    window.location.href = '/'; 
+                }, 1000);
+            }
+            
+            // Чистим мусор в памяти
+            localStorage.removeItem('auth_source');
         }
 
         // 3. Настройка кнопки "Назад"
@@ -1212,44 +1232,47 @@
                 const connBtn = twitchCard.querySelector('#connect-twitch-btn');
                 
                 if (connBtn) {
-                    // !!! ВАЖНО: async добавлен здесь !!!
-                    connBtn.onclick = async (e) => {
-                        e.stopPropagation(); 
-                        connBtn.style.opacity = '0.5';
+                            // !!! ВАЖНО: async добавлен здесь !!!
+                            connBtn.onclick = async (e) => {
+                                e.stopPropagation();
+                                connBtn.style.opacity = '0.5';
 
-                        try {
-                            if (!tg.initData) {
-                                tg.showAlert("Запустите через Telegram!");
-                                return;
-                            }
+                                try {
+                                    if (!tg.initData) {
+                                        tg.showAlert("Запустите через Telegram!");
+                                        return;
+                                    }
 
-                            // Запрашиваем ссылку
-                            const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
-                            
-                            if (!response.ok) {
-                                throw new Error("Ошибка сервера");
-                            }
+                                    // 👇 ВАЖНО: Запоминаем, что мы в ПРОФИЛЕ
+                                    localStorage.setItem('auth_source', 'profile');
 
-                            const data = await response.json();
+                                    // Запрашиваем ссылку
+                                    const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
 
-                            // Открываем ссылку
-                            if (data.url) {
-                                // 1. Открываем ссылку во внешнем браузере
-                                tg.openLink(data.url);
-                                
-                                // 2. ЗАКРЫВАЕМ текущее приложение, чтобы не висело фоном
-                                tg.close(); 
-                            } else {
-                                tg.showAlert("Сервер не вернул ссылку");
-                            }
-                        } catch (err) {
-                            console.error(err);
-                            tg.showAlert("Ошибка: " + err.message);
-                        } finally {
-                            connBtn.style.opacity = '1';
+                                    if (!response.ok) {
+                                        throw new Error("Ошибка сервера");
+                                    }
+
+                                    const data = await response.json();
+
+                                    // Открываем ссылку
+                                    if (data.url) {
+                                        // 1. Открываем ссылку во внешнем браузере
+                                        tg.openLink(data.url);
+
+                                        // 2. ЗАКРЫВАЕМ текущее приложение, чтобы не висело фоном
+                                        tg.close();
+                                    } else {
+                                        tg.showAlert("Сервер не вернул ссылку");
+                                    }
+                                } catch (err) {
+                                    console.error(err);
+                                    tg.showAlert("Ошибка: " + err.message);
+                                } finally {
+                                    connBtn.style.opacity = '1';
+                                }
+                            };
                         }
-                    };
-                }
 
                 const helpBtn = twitchCard.querySelector('#twitch-help-btn');
                 if (helpBtn) {
